@@ -52,7 +52,7 @@
       <option value="checklistTab">8. ✅ Listing-Checkliste</option>
       <option value="trackingTab">9. 📈 Verkaufs-Tracking</option>
       <option value="financeTab">10. 🧾 Mini-Buchhaltung</option>
-      <option value="salesTab">11. 💰 Verkaufslog</option>
+      <option value="salesTab">11. 💰 Verkaufs-Assistent</option>
     </select>
     <select id="shopifyMenu" class="menu-select" aria-label="Shopify Bereich auswählen">
       <option value="shopifyTab">🟢 Shopify Lab</option>
@@ -82,7 +82,7 @@
         <button class="secondary launcher-btn" id="launcherNewProduct"><strong>📦 Neues Produkt prüfen</strong><small>Zum Produktformular springen</small></button>
         <button class="secondary launcher-btn" id="launcherBoard"><strong>🧭 Produkt-Board öffnen</strong><small>Produkte, Filter & Kanban</small></button>
         <button class="secondary launcher-btn" id="launcherGenerator"><strong>✍️ Listing erstellen</strong><small>Titel, SEO & Beschreibung</small></button>
-        <button class="secondary launcher-btn" id="launcherSales"><strong>💰 Verkauf eintragen</strong><small>Bestellung & Gewinn speichern</small></button>
+        <button class="secondary launcher-btn" id="launcherSales"><strong>💰 Verkaufs-Assistent</strong><small>eBay-Bestellung sauber übernehmen</small></button>
         <button class="secondary launcher-btn" id="launcherReturns"><strong>↩️ Retoure bearbeiten</strong><small>eBay / Shopify Rückgaben</small></button>
         <button class="secondary launcher-btn" id="launcherBackup"><strong>💾 Backup exportieren</strong><small>Komplette Daten sichern</small></button>
       </div>
@@ -281,19 +281,20 @@
   <section id="salesTab" class="tab">
     <div class="grid-2">
       <div class="card">
-        <h2>Verkaufslog</h2>
-        <p class="hint">Hier speicherst du echte Verkäufe und verknüpfst sie mit deinen Produkten. So erkennst du echte Gewinner.</p>
+        <h2>Verkaufs-Assistent</h2>
+        <p class="hint">Geführter Assistent: eBay-Bestellung übernehmen, Gewinn prüfen und dann sauber speichern.</p>
         <label>Produkt aus Liste verknüpfen</label>
         <select id="saleProductId"><option value="">Kein Produkt ausgewählt</option></select>
         <div class="row"><div><label>Verkaufspreis €</label><input id="salePrice" type="number" step="0.01"></div><div><label>EK + Versand €</label><input id="saleCost" type="number" step="0.01"></div></div>
         <div class="row"><div><label>Gebühren €</label><input id="saleFees" type="number" step="0.01" value="0"></div><div><label>Stückzahl</label><input id="saleQty" type="number" value="1"></div></div>
         <label>Bestellnummer / Order-ID</label><input id="saleOrderNo" placeholder="z. B. eBay #12-34567-89012">
-        <label>Notiz</label><textarea id="saleNote" placeholder="z. B. eBay Bestellung, besonderer Kunde, Preis-Test..."></textarea>
+        <label>Notiz</label><textarea id="saleNote" placeholder="z. B. besonderer Kunde, Preis-Test, Hinweis zur Bestellung..."></textarea>
+        <div id="salePreview" class="output-box"><h3>Gewinn-Vorschau</h3><p>Fülle Verkaufspreis, Kosten, Gebühren und Stückzahl aus.</p></div>
         <button class="full" id="addSaleBtn">Verkauf speichern</button>
       </div>
       <div class="card">
         <h2>Verkaufs-Auswertung</h2>
-        <p class="hint">Zeigt Umsatz, echten Gewinn und welche Produkte wirklich verkaufen.</p>
+        <p class="hint">Zeigt gespeicherte Verkäufe, Order-ID, Umsatz und echten Gewinn.</p>
         <div id="salesSummary" class="empty">Noch kein Verkauf erfasst.</div>
         <div id="salesList" class="products" style="margin-top:14px"></div>
       </div>
@@ -743,7 +744,7 @@ function showDashboard(){
   showTab('homeTab');
   resetMenusToLabNames();
 }
-function openSalesLog(){
+function openSalesAssistant(){
   showTab('salesTab');
   safe('mainMenu', menu => { menu.value = 'salesTab'; });
 }
@@ -1604,6 +1605,26 @@ function importFullBackup(e){
   };
   reader.readAsText(file,'UTF-8');
 }
+function updateSalePreview(){
+  const price = n('salePrice');
+  const cost = n('saleCost');
+  const fees = n('saleFees');
+  const qty = n('saleQty') || 1;
+  const revenue = price * qty;
+  const totalCost = (cost + fees) * qty;
+  const profit = revenue - totalCost;
+  const cls = profit > 10 ? 'good' : profit > 0 ? 'warn' : 'bad';
+  let text = 'Fülle Verkaufspreis, Kosten, Gebühren und Stückzahl aus.';
+  if(price > 0){
+    text = profit > 10 ? 'Starker Verkauf. Sauber dokumentieren und Produkt weiter beobachten.' : profit > 0 ? 'Gewinn vorhanden, aber Kosten/Gebühren weiter im Blick behalten.' : 'Achtung: Dieser Verkauf wäre negativ oder bei 0 €. Prüfe Kosten, Gebühren und Preis.';
+  }
+  let html = '';
+  html += '<h3>Gewinn-Vorschau</h3>';
+  html += '<p><span class="status '+cls+'">Erwarteter Gewinn: '+euro(profit)+'</span></p>';
+  html += '<div class="pill-row"><span class="pill">Umsatz: '+euro(revenue)+'</span><span class="pill">Kosten gesamt: '+euro(totalCost)+'</span><span class="pill">Stück: '+qty+'</span></div>';
+  html += '<p>'+text+'</p>';
+  setHTML('salePreview',html);
+}
 function addSale(){
   const productId = $('saleProductId')?.value || '';
   const linkedProduct = products.find(p => String(p.id) === String(productId));
@@ -1629,6 +1650,7 @@ function addSale(){
   saveSales();
   ['salePrice','saleCost','saleFees','saleOrderNo','saleNote'].forEach(id=>safe(id,el=>el.value=''));
   safe('saleQty',el=>el.value=1);
+  updateSalePreview();
 }
 function removeSale(id){ sales = sales.filter(s=>s.id!==id); saveSales(); }
 function handleSalesClick(event){
@@ -2015,7 +2037,7 @@ function bindEvents(){
   bind('launcherNewProduct','click',scrollToProductForm);
   bind('launcherBoard','click',openProductBoard);
   bind('launcherGenerator','click',openGenerator);
-  bind('launcherSales','click',openSalesLog);
+  bind('launcherSales','click',openSalesAssistant);
   bind('launcherReturns','click',openReturnsCenter);
   bind('launcherBackup','click',exportFullBackup);
   bind('returnsBtn','click',()=>showTab('returnsTab'));
@@ -2071,6 +2093,7 @@ function bindEvents(){
   bind('setCjConnectPlanBtn','click',prepareCjIntegration);
   bind('resetIntegrationSettingsBtn','click',resetIntegrationSettings);
   bind('addSaleBtn','click',addSale);
+  ['salePrice','saleCost','saleFees','saleQty'].forEach(id=>safe(id,el=>el.addEventListener('input',updateSalePreview)));
   safe('salesList', el => el.addEventListener('click', handleSalesClick));
 }
 function runSelfTests(){
@@ -2126,7 +2149,8 @@ function runSelfTests(){
   console.assert(typeof makeSettingsDropdowns === 'function', 'Settings Dropdown Funktion sollte existieren');
   console.assert(typeof renderIntegrationStatus === 'function', 'Integrationen Status Funktion sollte existieren');
   console.assert(typeof resetIntegrationSettings === 'function', 'Integrationen Reset Funktion sollte existieren');
-  console.assert(typeof handleSalesClick === 'function', 'Verkaufslog Klickhandler sollte existieren');
+  console.assert(typeof handleSalesClick === 'function', 'Verkaufs-Assistent Klickhandler sollte existieren');
+  console.assert(typeof updateSalePreview === 'function', 'Gewinn-Vorschau im Verkaufs-Assistenten sollte existieren');
 }
 document.addEventListener('DOMContentLoaded',()=>{
   initListing();
@@ -2141,6 +2165,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   renderReturnsOverview();
   renderSales();
   renderSaleProductOptions();
+  updateSalePreview();
   renderIntegrationStatus();
   runSelfTests();
 });
