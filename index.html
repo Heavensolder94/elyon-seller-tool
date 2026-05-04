@@ -651,6 +651,7 @@
             <button id="setEbayConnectPlanBtn" class="secondary full">eBay vorbereiten</button>
             <button id="setCjConnectPlanBtn" class="secondary full">CJ vorbereiten</button>
           </div>
+          <button id="resetIntegrationSettingsBtn" class="danger full" style="margin-top:10px">Integrationen zurücksetzen</button>
           <div id="settingsIntegrationResult" class="output-box"><p>Integrationen sind vorbereitet, aber noch nicht aktiv verbunden.</p></div>
         </div>
       </details>
@@ -816,6 +817,16 @@ function prepareCjIntegration(){
   const line = String.fromCharCode(10);
   setHTML('cjIntegrationResult','<p>CJ-Verbindung vorbereitet. Nächster echter Schritt: CJ API-Key im Backend speichern und Produktdaten nur lesend abrufen.'+line+line+'Startfunktion: Preis, Bestand, Lieferzeit und CJ Produkt-ID ins Produkt übernehmen.</p>');
   setHTML('settingsIntegrationResult','<p>CJ-Verbindung vorbereitet.'+line+line+'Startfunktion später: Preis, Bestand, Lieferzeit und CJ Produkt-ID ins Produkt übernehmen.</p>');
+}
+function resetIntegrationSettings(){
+  if(!confirm('Integrationen wirklich zurücksetzen? Produktdaten, Verkäufe und Retouren bleiben erhalten.')) return;
+  integrationSettings = {};
+  localStorage.removeItem('elyonIntegrations');
+  renderIntegrationStatus();
+  setHTML('settingsIntegrationResult','<p>Integrationen wurden zurückgesetzt. Backend, eBay und CJ sind wieder nicht verbunden/vorbereitet.</p>');
+  setHTML('backendTestResult','<p>Noch kein Backend-Test.</p>');
+  setHTML('ebayIntegrationResult','<p>eBay ist noch nicht verbunden.</p>');
+  setHTML('cjIntegrationResult','<p>CJ ist noch nicht verbunden.</p>');
 }
 function calcProduct(p){
   const buy=+p.buy||0, ship=+p.ship||0, sell=+p.sell||0;
@@ -2058,6 +2069,7 @@ function bindEvents(){
   bind('setTestBackendBtn','click',testBackendConnection);
   bind('setEbayConnectPlanBtn','click',prepareEbayIntegration);
   bind('setCjConnectPlanBtn','click',prepareCjIntegration);
+  bind('resetIntegrationSettingsBtn','click',resetIntegrationSettings);
   bind('addSaleBtn','click',addSale);
   safe('salesList', el => el.addEventListener('click', handleSalesClick));
 }
@@ -2113,6 +2125,7 @@ function runSelfTests(){
   console.assert(!!$('setIntBackendUrl'), 'Integrationen sollten in Einstellungen existieren');
   console.assert(typeof makeSettingsDropdowns === 'function', 'Settings Dropdown Funktion sollte existieren');
   console.assert(typeof renderIntegrationStatus === 'function', 'Integrationen Status Funktion sollte existieren');
+  console.assert(typeof resetIntegrationSettings === 'function', 'Integrationen Reset Funktion sollte existieren');
   console.assert(typeof handleSalesClick === 'function', 'Verkaufslog Klickhandler sollte existieren');
 }
 document.addEventListener('DOMContentLoaded',()=>{
