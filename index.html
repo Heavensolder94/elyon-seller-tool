@@ -4027,6 +4027,103 @@ document.addEventListener('DOMContentLoaded',()=>{
   if(localStorage.getItem('elyonShowStartLauncher') !== 'no') openStartLauncher();
   runSelfTests();
 });
+  async function searchEbayCompetition(){
+  const input = document.getElementById('ebayCompetitionKeyword');
+  const keyword = input && input.value.trim() ? input.value.trim() : '';
+
+  if(!keyword){
+    alert('Bitte eBay Suchbegriff eingeben.');
+    return;
+  }
+
+  const box = document.getElementById('ebayCompetitionResult');
+  if(!box){
+    alert('Ergebnisbox für eBay Konkurrenz nicht gefunden.');
+    return;
+  }
+
+  box.innerHTML = '<p>eBay Marktdaten werden geladen...</p>';
+
+  try{
+    const backendUrl = getBackendUrl();
+    const res = await fetch(
+      backendUrl + '/api/ebay/search?q=' + encodeURIComponent(keyword) + '&limit=20'
+    );
+
+    const data = await res.json();
+
+    if(!res.ok){
+      throw new Error(data.error || data.message || 'Backend-Fehler');
+    }
+
+    const items = data.items || data.itemSummaries || data.results || [];
+
+    if(!items.length){
+      box.innerHTML = '<p>Keine eBay Daten gefunden.</p>';
+      return;
+    }
+
+    const prices = items
+      .map(function(item){
+        if(item.price && item.price.value) return Number(item.price.value);
+        if(item.price) return Number(item.price);
+        if(item.currentPrice) return Number(item.currentPrice);
+        return 0;
+      })
+      .filter(function(price){
+        return price > 0;
+      });
+
+    const low = prices.length ? Math.min.apply(null, prices) : 0;
+    const high = prices.length ? Math.max.apply(null, prices) : 0;
+    const avg = prices.length
+      ? prices.reduce(function(sum, price){ return sum + price; }, 0) / prices.length
+      : 0;
+
+    let html = '';
+    html += '<h3>eBay Konkurrenz / Marktdaten</h3>';
+    html += '<p class="hint">Datenquelle: /api/ebay/search. Die Konkurrenzwerte werden im Tool berechnet.</p>';
+
+    html += '<div class="dashboard">';
+    html += '<div class="metric"><small>Treffer</small><strong>' + items.length + '</strong></div>';
+    html += '<div class="metric"><small>Niedrig</small><strong>' + low.toFixed(2) + ' €</strong></div>';
+    html += '<div class="metric"><small>Ø Preis</small><strong>' + avg.toFixed(2) + ' €</strong></div>';
+    html += '<div class="metric"><small>Hoch</small><strong>' + high.toFixed(2) + ' €</strong></div>';
+    html += '</div>';
+
+    html += '<div class="products">';
+
+    items.slice(0,8).forEach(function(item){
+      const title = item.title || item.name || 'eBay Treffer';
+      const price = item.price && item.price.value ? item.price.value : (item.price || item.currentPrice || '-');
+      const currency = item.price && item.price.currency ? item.price.currency : '';
+      const condition = item.condition || '-';
+      const url = item.itemWebUrl || item.itemAffiliateWebUrl || item.url || '';
+
+      html += '<article class="product-card small-card">';
+      html += '<div>';
+      html += '<div class="product-title">' + title + '</div>';
+      html += '<div class="muted">Preis: ' + price + ' ' + currency + ' · Zustand: ' + condition + '</div>';
+
+      if(url){
+        html += '<div class="output-box"><p><a href="' + url + '" target="_blank" rel="noopener">Auf eBay ansehen</a></p></div>';
+      }
+
+      html += '</div>';
+      html += '<div class="score-wrap"><span class="status warn">Konkurrenz</span></div>';
+      html += '</article>';
+    });
+
+    html += '</div>';
+
+    box.innerHTML = html;
+
+  }catch(err){
+    box.innerHTML =
+      '<p>⚠️ eBay Konkurrenz Fehler: ' + err.message + '</p>' +
+      '<p class="hint">Diese Funktion nutzt /api/ebay/search?q=...&limit=20</p>';
+  }
+}
 </script>
 </body>
 </html>
