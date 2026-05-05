@@ -215,6 +215,11 @@
           <button id="monthlyReportExportBtn" class="secondary full">Monatsbericht CSV exportieren</button>
           <button id="monthlyReportCopyBtn" class="secondary full">Monatsbericht Text kopieren</button>
         </div>
+        <div class="row" style="margin-bottom:12px">
+          <button id="eksDraftBtn" class="secondary full">EKS-Entwurf generieren</button>
+          <button id="eksDraftDownloadBtn" class="secondary full">EKS-Entwurf herunterladen</button>
+        </div>
+        <div id="eksDraftPreview" class="output-box"><h3>EKS-Entwurf</h3><p>Noch kein EKS-Entwurf generiert.</p></div>
         <div id="monthlyReport" class="empty">Noch kein Monatsbericht verfügbar.</div>
       </div>
     </details>
@@ -1737,19 +1742,121 @@ function exportMonthlyReportCSV(){
   });
   downloadCSV(rows,'elyon-monatsbericht-jobcenter-finanzamt.csv');
 }
-function copyMonthlyReportText(){
-  const text = monthlyReportPlainText();
-  if(navigator.clipboard){
-    navigator.clipboard.writeText(text).then(function(){ alert('Monatsbericht kopiert.'); });
-    return;
-  }
-  const area=document.createElement('textarea');
-  area.value=text;
+function copyToClipboardSafe(text, successMessage){
+  const area = document.createElement('textarea');
+  area.value = text;
+  area.setAttribute('readonly','readonly');
+  area.style.position = 'fixed';
+  area.style.left = '-9999px';
+  area.style.top = '0';
+  area.style.opacity = '0';
   document.body.appendChild(area);
+  area.focus();
   area.select();
-  document.execCommand('copy');
+  area.setSelectionRange(0, area.value.length);
+
+  let ok = false;
+  try{
+    ok = document.execCommand('copy');
+  }catch(err){
+    ok = false;
+  }
+
   document.body.removeChild(area);
-  alert('Monatsbericht kopiert.');
+
+  if(ok){
+    alert(successMessage || 'Kopiert.');
+  }else{
+    alert('Kopieren wurde vom Browser blockiert. Nutze bitte stattdessen den Download-Button.');
+  }
+}
+function copyMonthlyReportText(){
+  copyToClipboardSafe(monthlyReportPlainText(),'Monatsbericht kopiert.');
+}
+function buildEKSDraftText(){
+  const d = buildMonthlyReportData();
+  const line = String.fromCharCode(10);
+  const lines = [];
+  lines.push('EKS-Entwurf / Monatszusammenfassung fuer das Jobcenter');
+  lines.push('Monat: ' + currentMonthLabel());
+  lines.push('');
+  lines.push('Wichtiger Hinweis:');
+  lines.push('Dies ist kein offizielles Jobcenter-Formular und ersetzt nicht die Anlage EKS. Die Angaben muessen anhand von Belegen, Kontoauszuegen und der offiziellen Anlage EKS geprueft und uebertragen werden.');
+  lines.push('');
+  lines.push('1. Art der Erklaerung');
+  lines.push('[ ] vorlaeufige EKS');
+  lines.push('[ ] abschliessende EKS');
+  lines.push('Bewilligungszeitraum: bitte aus dem Jobcenter-Bescheid uebernehmen.');
+  lines.push('');
+  lines.push('2. Taetigkeit / Betrieb');
+  lines.push('Taetigkeit: Online-Handel / eBay / Dropshipping-Vorbereitung');
+  lines.push('Plattformen laut Tool: eBay / Shopify / Manuell je nach Bestellung');
+  lines.push('');
+  lines.push('3. Betriebseinnahmen im Monat');
+  lines.push('Anzahl Bestellungen: ' + d.monthSales.length);
+  lines.push('Betriebseinnahmen / Umsatz brutto laut Tool: ' + euro(d.revenue));
+  lines.push('Hinweis: Zahlungseingaenge mit Kontoauszug / Plattformabrechnung abgleichen.');
+  lines.push('');
+  lines.push('4. Betriebsausgaben im Monat');
+  lines.push('Wareneinsatz / Einkauf inkl. Versand laut Tool: ' + euro(d.goodsCost));
+  lines.push('Plattform- und Zahlungsgebuehren laut Tool: ' + euro(d.platformFees));
+  lines.push('Dokumentierte Betriebsausgaben gesamt laut Tool: ' + euro(d.documentedExpenses));
+  lines.push('Hinweis: Nur tatsaechlich betriebliche und belegbare Ausgaben uebernehmen.');
+  lines.push('');
+  lines.push('5. Retouren / Erstattungen / Minderungen');
+  lines.push('Retourenverlust / Erstattungen / Kulanz laut Tool: ' + euro(d.returnLoss));
+  lines.push('Offene Retouren: ' + d.openReturns);
+  lines.push('');
+  lines.push('6. Vorlaeufiges internes Ergebnis');
+  lines.push('Internes Monatsergebnis laut Tool: ' + euro(d.internalResult));
+  lines.push('Rechenweg: Umsatz minus dokumentierte Kosten/Gebuehren minus Retourenverlust.');
+  lines.push('');
+  lines.push('7. Beleg-Check');
+  lines.push('Fehlende Rechnungen im Tool: ' + d.missingInvoices);
+  lines.push('Fehlende Order-ID im Tool: ' + d.missingOrderNo);
+  lines.push('Fehlendes Tracking im Tool: ' + d.missingTracking);
+  lines.push('');
+  lines.push('8. Anlagen / Nachweise, die du beilegen oder bereithalten solltest');
+  lines.push('[ ] Kontoauszuege Geschaeftskonto / Zahlungseingaenge');
+  lines.push('[ ] eBay-Abrechnungen / Zahlungsberichte');
+  lines.push('[ ] Einkaufsbelege / Lieferantenrechnungen');
+  lines.push('[ ] Gebuehrennachweise');
+  lines.push('[ ] Rechnungen aus deinem Tool');
+  lines.push('[ ] Retouren- und Erstattungsnachweise');
+  lines.push('[ ] Versand-/Trackingnachweise, falls relevant');
+  lines.push('');
+  lines.push('9. Bestelluebersicht aus dem Tool');
+  if(d.monthSales.length){
+    d.monthSales.forEach(function(s){
+      const inv = findInvoiceBySaleId(s.id);
+      lines.push('- ' + (s.created||'') + ' | ' + (s.platform||'eBay') + ' | Order: ' + (s.orderNo||'fehlt') + ' | ' + (s.product||'') + ' | Umsatz: ' + euro((+s.price||0)*(+s.qty||1)) + ' | Kosten+Gebuehren: ' + euro(((+s.cost||0)+(+s.fees||0))*(+s.qty||1)) + ' | Gewinn: ' + euro(+s.profit||0) + ' | Rechnung: ' + (inv?inv.number:'fehlt'));
+    });
+  }else{
+    lines.push('Keine Bestellungen im aktuellen Monat erfasst.');
+  }
+  lines.push('');
+  lines.push('10. Offene Punkte vor Abgabe');
+  if(d.missingInvoices>0) lines.push('- Rechnungen im Tool pruefen/erstellen.');
+  if(d.missingOrderNo>0) lines.push('- Fehlende Order-IDs nachtragen.');
+  if(d.openReturns>0) lines.push('- Offene Retouren klaeren.');
+  if(!d.missingInvoices && !d.missingOrderNo && !d.openReturns) lines.push('- Keine akuten Luecken erkannt. Trotzdem Belege pruefen.');
+  return lines.join(line);
+}
+function renderEKSDraft(){
+  const text = buildEKSDraftText();
+  const safeText = text.replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
+  setHTML('eksDraftPreview','<h3>EKS-Entwurf</h3><p>'+safeText+'</p>');
+}
+function downloadEKSDraft(){
+  const text = buildEKSDraftText();
+  const blob = new Blob([text],{type:'text/plain;charset=utf-8'});
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = 'eks-entwurf-' + new Date().toISOString().slice(0,10) + '.txt';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(link.href);
 }
 function renderDashboardDetails(){
   const totalRevenue = sales.reduce((sum,s)=>sum+(+s.price||0)*(+s.qty||1),0);
@@ -1968,17 +2075,7 @@ function copyTextById(id){
   const el = $(id);
   const text = el ? el.textContent : '';
   if(!text){ alert('Noch kein Text zum Kopieren.'); return; }
-  if(navigator.clipboard){
-    navigator.clipboard.writeText(text).then(function(){ alert('Kopiert'); });
-    return;
-  }
-  const area=document.createElement('textarea');
-  area.value=text;
-  document.body.appendChild(area);
-  area.select();
-  document.execCommand('copy');
-  document.body.removeChild(area);
-  alert('Kopiert');
+  copyToClipboardSafe(text,'Kopiert.');
 }
 function showGenPanel(panelId, button){
   document.querySelectorAll('.gen-panel').forEach(function(p){ p.classList.remove('active'); });
@@ -2885,6 +2982,8 @@ function bindEvents(){
   bind('warningBtn','click',warningCalc);
   bind('monthlyReportExportBtn','click',exportMonthlyReportCSV);
   bind('monthlyReportCopyBtn','click',copyMonthlyReportText);
+  bind('eksDraftBtn','click',renderEKSDraft);
+  bind('eksDraftDownloadBtn','click',downloadEKSDraft);
   bind('genBtn','click',genCalc);
   bind('shortenTitleBtn','click',shortenGeneratedTitle);
   safe('genResult', el => el.addEventListener('click', handleGeneratorClick));
@@ -2982,6 +3081,9 @@ function runSelfTests(){
   console.assert(typeof renderMonthlyReport === 'function', 'Monatsbericht Funktion sollte existieren');
   console.assert(typeof exportMonthlyReportCSV === 'function', 'Monatsbericht CSV Export sollte existieren');
   console.assert(typeof buildMonthlyReportData === 'function', 'Monatsbericht Datenfunktion sollte existieren');
+  console.assert(typeof renderEKSDraft === 'function', 'EKS-Entwurf Generator sollte existieren');
+  console.assert(typeof downloadEKSDraft === 'function', 'EKS-Entwurf Download sollte existieren');
+  console.assert(typeof copyToClipboardSafe === 'function', 'Sichere Kopierfunktion sollte existieren');
   console.assert(!!$('weeklyReport'), 'Wochenbericht Bereich sollte existieren');
   console.assert(typeof productDataIssues === 'function', 'Daten-Qualitätscheck sollte existieren');
   console.assert(typeof duplicateSkuList === 'function', 'SKU-Duplikat-Warnung sollte existieren');
