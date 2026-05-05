@@ -1,8 +1,6 @@
-module.exports = function handler(req, res) {
-  return res.status(200).json({
+export default function handler(req, res) {
+  res.status(200).json({
     ok: true,
-    service: "Elyon Backend",
-    message: "Backend laeuft",
-    time: new Date().toISOString()
+    message: "Backend health OK"
   });
-};
+}
