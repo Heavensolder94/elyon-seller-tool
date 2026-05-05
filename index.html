@@ -1776,7 +1776,24 @@ function closeInvoiceModal(){
 }
 function getCurrentInvoiceHTMLDocument(){
   const content = $('invoicePreview') ? $('invoicePreview').innerHTML : '';
-  return '<!doctype html><html lang="de"><head><meta charset="UTF-8"><title>Rechnung</title><style>@page{size:A4 portrait;margin:14mm}html,body{margin:0;padding:0;background:#fff;color:#111827;font-family:Arial,sans-serif;font-size:11pt;line-height:1.45}.page{width:100%;box-sizing:border-box;background:#fff;color:#111827}.invoice-head{display:grid;grid-template-columns:1fr 1fr;gap:18mm;border-bottom:2px solid #e5e7eb;padding-bottom:8mm;margin-bottom:8mm}.invoice-head>div:last-child{text-align:right}h1{font-size:26pt;line-height:1.1;margin:0 0 4mm;color:#111827}h2,h3{color:#111827;margin:0 0 3mm}p{margin:0 0 3mm;color:#111827}.invoice-box{border:1px solid #e5e7eb;border-radius:4mm;padding:5mm;margin-top:5mm;background:#fff}.invoice-table{width:100%;border-collapse:collapse;margin-top:7mm}.invoice-table th,.invoice-table td{border-bottom:1px solid #e5e7eb;padding:4mm 3mm;text-align:left;vertical-align:top;color:#111827}.invoice-table th{background:#f8fafc;font-weight:700}.invoice-table th:last-child,.invoice-table td:last-child{text-align:right}.invoice-total{text-align:right;font-size:16pt;font-weight:900;margin-top:8mm;color:#111827}.muted{color:#64748b!important;font-size:9pt}@media screen{body{padding:18px;background:#e5e7eb}.page{width:210mm;min-height:297mm;margin:0 auto;padding:18mm;box-shadow:0 12px 35px rgba(0,0,0,.25)}}@media print{body{background:#fff}.page{width:auto;min-height:auto;margin:0;padding:0;box-shadow:none}}</style></head><body><div class="page">'+content+'</div></body></html>';
+  const parts = [];
+  parts.push('<!doctype html><html lang="de"><head><meta charset="UTF-8"><title>Rechnung</title>');
+  parts.push('<style>');
+  parts.push('body{font-family:Arial,sans-serif;color:#111827;background:#fff;padding:24px;line-height:1.45}');
+  parts.push('.page{max-width:794px;margin:0 auto;background:#fff;color:#111827}');
+  parts.push('.invoice-head{display:flex;justify-content:space-between;gap:24px;border-bottom:2px solid #e5e7eb;padding-bottom:18px;margin-bottom:18px}');
+  parts.push('.invoice-head div:last-child{text-align:right}');
+  parts.push('h1{font-size:34px;margin:0 0 8px;color:#111827}h2,h3,p{color:#111827}');
+  parts.push('.invoice-box{border:1px solid #e5e7eb;border-radius:10px;padding:14px;margin-top:16px;background:#fff}');
+  parts.push('.invoice-table{width:100%;border-collapse:collapse;margin-top:18px}');
+  parts.push('.invoice-table th,.invoice-table td{border-bottom:1px solid #e5e7eb;padding:11px 9px;text-align:left;color:#111827}');
+  parts.push('.invoice-table th{background:#f8fafc}.invoice-table th:last-child,.invoice-table td:last-child{text-align:right}');
+  parts.push('.invoice-total{text-align:right;font-size:22px;font-weight:900;margin-top:20px;color:#111827}.muted{color:#64748b!important;font-size:12px}');
+  parts.push('@media print{@page{size:A4;margin:12mm}body{padding:0}.page{max-width:none;width:100%}}');
+  parts.push('</style></head><body><div class="page">');
+  parts.push(content);
+  parts.push('</div></body></html>');
+  return parts.join('');
 }
 function printInvoice(){
   const preview = $('invoicePreview');
@@ -1784,38 +1801,7 @@ function printInvoice(){
     alert('Keine Rechnung ausgewählt.');
     return;
   }
-  const oldFrame = document.getElementById('invoicePrintFrame');
-  if(oldFrame) oldFrame.remove();
-  const frame = document.createElement('iframe');
-  frame.id = 'invoicePrintFrame';
-  frame.style.position = 'fixed';
-  frame.style.right = '0';
-  frame.style.bottom = '0';
-  frame.style.width = '0';
-  frame.style.height = '0';
-  frame.style.border = '0';
-  frame.style.visibility = 'hidden';
-  document.body.appendChild(frame);
-  const doc = frame.contentWindow.document;
-  doc.open();
-  doc.write(getCurrentInvoiceHTMLDocument());
-  doc.close();
-  frame.onload = function(){
-    try{
-      frame.contentWindow.focus();
-      frame.contentWindow.print();
-    }catch(err){
-      alert('Druckdialog konnte nicht geöffnet werden. Nutze bitte den HTML-Download und drucke die Datei als PDF.');
-      console.error(err);
-    }
-    setTimeout(function(){ if(frame && frame.parentNode) frame.remove(); }, 3000);
-  };
-  setTimeout(function(){
-    try{
-      frame.contentWindow.focus();
-      frame.contentWindow.print();
-    }catch(err){}
-  }, 500);
+  alert('Nutze bitte vorerst den Button "Rechnung als HTML herunterladen". Öffne danach die Datei und drücke Strg+P → Als PDF speichern. Der Direktdruck wurde deaktiviert, damit die App-Buttons stabil bleiben.');
 }
 function downloadInvoiceHTML(){
   const preview = $('invoicePreview');
