@@ -1200,7 +1200,7 @@ function saveIntegrationSettings(){
 }
 function renderIntegrationStatus(){
   const backendUrl = integrationSettings.backendUrl || '';
-  const backendStatus = backendUrl ? 'Vorbereitet' : 'Nicht eingerichtet';
+  const backendStatus = backendUrl ? 'Vorbereitet' : 'Aktuelle App-URL';
   const ebayStatus = integrationSettings.ebayPlanned ? 'Vorbereitet' : 'Nicht verbunden';
   const cjStatus = integrationSettings.cjPlanned ? 'Vorbereitet' : 'Nicht verbunden';
   safe('intBackendUrl', el => el.value = backendUrl);
@@ -1223,7 +1223,9 @@ function normalizeBackendUrl(url){
 function getBackendUrl(){
   const modalInput = $('setIntBackendUrl');
   const tabInput = $('intBackendUrl');
-  return normalizeBackendUrl((modalInput && modalInput.value.trim()) || (tabInput && tabInput.value.trim()) || integrationSettings.backendUrl || '');
+  const manualUrl = (modalInput && modalInput.value.trim()) || (tabInput && tabInput.value.trim()) || integrationSettings.backendUrl || '';
+  const currentOrigin = window.location && window.location.origin ? window.location.origin : '';
+  return normalizeBackendUrl(manualUrl || currentOrigin || '');
 }
 async function fetchBackendJSON(path,options){
   const backendUrl = getBackendUrl();
@@ -1323,8 +1325,49 @@ function backendOrderItems(data){
   if(data.data && Array.isArray(data.data.list)) return data.data.list;
   return [];
 }
+function cleanCjDisplayText(value){
+  if(value === null || value === undefined) return '';
+  let text = String(value).trim();
+
+  if(text.startsWith('[') && text.endsWith(']')){
+    try{
+      const parsed = JSON.parse(text);
+      if(Array.isArray(parsed)) text = parsed.join(' ');
+    }catch(err){
+      text = text.split('[').join(' ').split(']').join(' ').split('"').join(' ').split(',').join(' ');
+    }
+  }
+
+  const cutMarkers = [
+    'productSku','productImage','productWeight','productType','productUnit','categoryName','listingCount','sellPrice','remark','addMarkStatus','isFreeShipping','createTime','supplierName','supplierId',
+    'Produkt-SKU','Produktbild','Produktgewicht','Produkttyp','Produkteinheit','Kategoriename','Anzahl Angebote','Verkaufspreis','Bemerkung','Lieferantenname'
+  ];
+  cutMarkers.forEach(function(marker){
+    const pos = text.indexOf(marker);
+    if(pos > 12) text = text.slice(0,pos);
+  });
+
+  text = text.split('[').join(' ')
+    .split(']').join(' ')
+    .split('"').join(' ')
+    .split('_').join(' ')
+    .split(',').join(' ')
+    .trim();
+
+  while(text.includes('  ')) text = text.split('  ').join(' ');
+  if(text.length > 130) text = text.slice(0,127).trim() + '...';
+  return text;
+}
+function getCleanCjProductName(item){
+  const candidates = [item.title, item.productNameEn, item.productName, item.name];
+  for(let i=0;i<candidates.length;i++){
+    const clean = cleanCjDisplayText(candidates[i]);
+    if(clean && clean.length > 2) return clean;
+  }
+  return 'CJ Produkt';
+}
 function cjProductCardHTML(item,index){
-  const name = item.name || item.productName || item.productNameEn || item.title || 'CJ Produkt';
+  const name = getCleanCjProductName(item);
   const pid = item.pid || item.productId || item.id || '';
   const price = item.sellPrice || item.price || item.nowPrice || item.productPrice || '';
   const delivery = item.deliveryTime || item.shippingTime || '';
@@ -1355,7 +1398,7 @@ async function searchCjProducts(){
 function copyCjProductToForm(index){
   const item = lastCjSearchItems[Number(index)];
   if(!item){ alert('CJ Produkt nicht gefunden.'); return; }
-  const name = item.name || item.productName || item.productNameEn || item.title || '';
+  const name = getCleanCjProductName(item);
   const pid = item.pid || item.productId || item.id || '';
   const price = item.sellPrice || item.price || item.nowPrice || item.productPrice || '';
   const link = item.productLink || item.url || item.productUrl || '';
@@ -1370,29 +1413,52 @@ function copyCjProductToForm(index){
 async function searchEbayCompetition(){
   const keyword = $('ebayCompetitionKeyword') ? $('ebayCompetitionKeyword').value.trim() : '';
   if(!keyword){ alert('Bitte eBay Suchbegriff eingeben.'); return; }
-  setHTML('ebayCompetitionResult','<p>eBay Konkurrenzdaten werden geladen...</p>');
+  setHTML('ebayCompetitionResult','<p>eBay Marktdaten werden geladen...</p>');
   try{
-    const data = await fetchBackendJSON('/api/ebay/competition?keyword=' + encodeURIComponent(keyword));
+    const data = await fetchBackendJSON('/api/ebay/search?q=' + encodeURIComponent(keyword) + '&limit=20');
     const items = data.items || data.itemSummaries || data.results || [];
     if(!items.length){ setHTML('ebayCompetitionResult','<p>Keine eBay Daten gefunden oder Backend liefert keine Trefferliste.</p>'); return; }
-    const prices = items.map(function(x){ return parseFloat((x.price && x.price.value) || x.price || x.currentPrice || 0); }).filter(function(v){ return v>0; });
-    const avg = prices.length ? prices.reduce(function(a,b){ return a+b; },0)/prices.length : 0;
+
+    const prices = items.map(function(item){
+      return Number((item.price && item.price.value) || item.price || item.currentPrice || 0);
+    }).filter(function(price){ return price > 0; });
+
     const low = prices.length ? Math.min.apply(null,prices) : 0;
     const high = prices.length ? Math.max.apply(null,prices) : 0;
-    let html='<h3>eBay Konkurrenz</h3><div class="dashboard"><div class="metric"><small>Treffer</small><strong>'+items.length+'</strong></div><div class="metric"><small>Niedrig</small><strong>'+euro(low)+'</strong></div><div class="metric"><small>Ø Preis</small><strong>'+euro(avg)+'</strong></div><div class="metric"><small>Hoch</small><strong>'+euro(high)+'</strong></div></div>';
+    const avg = prices.length ? prices.reduce(function(sum,price){ return sum + price; },0) / prices.length : 0;
+
+    let html='';
+    html+='<h3>eBay Konkurrenz / Marktdaten</h3>';
+    html+='<p class="hint">Datenquelle: funktionierende Backend-Route <strong>/api/ebay/search</strong>. Die Konkurrenzwerte werden im Tool berechnet.</p>';
+    html+='<div class="dashboard">';
+    html+='<div class="metric"><small>Treffer</small><strong>'+items.length+'</strong></div>';
+    html+='<div class="metric"><small>Niedrig</small><strong>'+euro(low)+'</strong></div>';
+    html+='<div class="metric"><small>Ø Preis</small><strong>'+euro(avg)+'</strong></div>';
+    html+='<div class="metric"><small>Hoch</small><strong>'+euro(high)+'</strong></div>';
+    html+='</div>';
     html+='<div class="products">'+items.slice(0,8).map(function(item){
       const title=item.title||item.name||'eBay Treffer';
       const price=(item.price && item.price.value)||item.price||item.currentPrice||'';
-      return '<article class="product-card small-card"><div><div class="product-title">'+title+'</div><div class="muted">Preis: '+(price||'n/a')+'</div></div><div class="score-wrap"><span class="status warn">Konkurrenz</span></div></article>';
+      const currency=(item.price && item.price.currency)||'';
+      const condition=item.condition||'-';
+      const url=item.itemWebUrl||item.itemAffiliateWebUrl||item.url||'';
+      let card='';
+      card+='<article class="product-card small-card">';
+      card+='<div><div class="product-title">'+title+'</div>';
+      card+='<div class="muted">Preis: '+(price||'n/a')+' '+currency+' · Zustand: '+condition+'</div>';
+      if(url) card+='<div class="output-box"><p><a href="'+url+'" target="_blank" rel="noopener">Auf eBay ansehen</a></p></div>';
+      card+='</div><div class="score-wrap"><span class="status warn">Konkurrenz</span></div>';
+      card+='</article>';
+      return card;
     }).join('')+'</div>';
     setHTML('ebayCompetitionResult',html);
   }catch(err){
-    setHTML('ebayCompetitionResult','<p>⚠️ '+err.message+'</p><p class="hint">Erwartete Backend-Route: /api/ebay/competition?keyword=...</p>');
+    setHTML('ebayCompetitionResult','<p>⚠️ '+err.message+'</p><p class="hint">Diese Funktion nutzt jetzt die Route: /api/ebay/search?q=...&limit=20</p>');
   }
 }
 async function ebaySuche(){
   const storedBackend = localStorage.getItem('backendUrl') || '';
-  const backendUrl = getBackendUrl() || normalizeBackendUrl(storedBackend) || 'https://elyonsellertool.vercel.app';
+  const backendUrl = getBackendUrl() || normalizeBackendUrl(storedBackend) || normalizeBackendUrl(window.location.origin || '');
   const input = $('ebaySearchInput');
   const suchwort = input && input.value.trim() ? input.value.trim() : 'iphone';
   const box = $('ebaySearchResults');
@@ -3983,6 +4049,7 @@ function runSelfTests(){
   console.assert(typeof openApiImport === 'function', 'Datenimport & API öffnen Funktion sollte existieren');
   console.assert(typeof fetchBackendJSON === 'function', 'Backend Fetch Funktion sollte existieren');
   console.assert(typeof searchCjProducts === 'function', 'CJ Produktsuche sollte existieren');
+  console.assert(typeof cleanCjDisplayText === 'function', 'CJ Namensbereinigung sollte existieren');
   console.assert(typeof searchEbayCompetition === 'function', 'eBay Konkurrenzsuche sollte existieren');
   console.assert(typeof ebaySuche === 'function', 'eBay Search Funktion sollte existieren');
   console.assert(!!$('ebaySearchBtn'), 'eBay Search Button sollte existieren');
@@ -4027,200 +4094,6 @@ document.addEventListener('DOMContentLoaded',()=>{
   if(localStorage.getItem('elyonShowStartLauncher') !== 'no') openStartLauncher();
   runSelfTests();
 });
-  async function searchEbayCompetition(){
-  const input = document.getElementById('ebayCompetitionKeyword');
-  const keyword = input && input.value.trim() ? input.value.trim() : '';
-
-  if(!keyword){
-    alert('Bitte eBay Suchbegriff eingeben.');
-    return;
-  }
-
-  const box = document.getElementById('ebayCompetitionResult');
-  if(!box){
-    alert('Ergebnisbox für eBay Konkurrenz nicht gefunden.');
-    return;
-  }
-
-  box.innerHTML = '<p>eBay Marktdaten werden geladen...</p>';
-
-  try{
-    const backendUrl = getBackendUrl();
-    const res = await fetch(
-      backendUrl + '/api/ebay/search?q=' + encodeURIComponent(keyword) + '&limit=20'
-    );
-
-    const data = await res.json();
-
-    if(!res.ok){
-      throw new Error(data.error || data.message || 'Backend-Fehler');
-    }
-
-    const items = data.items || data.itemSummaries || data.results || [];
-
-    if(!items.length){
-      box.innerHTML = '<p>Keine eBay Daten gefunden.</p>';
-      return;
-    }
-
-    const prices = items
-      .map(function(item){
-        if(item.price && item.price.value) return Number(item.price.value);
-        if(item.price) return Number(item.price);
-        if(item.currentPrice) return Number(item.currentPrice);
-        return 0;
-      })
-      .filter(function(price){
-        return price > 0;
-      });
-
-    const low = prices.length ? Math.min.apply(null, prices) : 0;
-    const high = prices.length ? Math.max.apply(null, prices) : 0;
-    const avg = prices.length
-      ? prices.reduce(function(sum, price){ return sum + price; }, 0) / prices.length
-      : 0;
-
-    let html = '';
-    html += '<h3>eBay Konkurrenz / Marktdaten</h3>';
-    html += '<p class="hint">Datenquelle: /api/ebay/search. Die Konkurrenzwerte werden im Tool berechnet.</p>';
-
-    html += '<div class="dashboard">';
-    html += '<div class="metric"><small>Treffer</small><strong>' + items.length + '</strong></div>';
-    html += '<div class="metric"><small>Niedrig</small><strong>' + low.toFixed(2) + ' €</strong></div>';
-    html += '<div class="metric"><small>Ø Preis</small><strong>' + avg.toFixed(2) + ' €</strong></div>';
-    html += '<div class="metric"><small>Hoch</small><strong>' + high.toFixed(2) + ' €</strong></div>';
-    html += '</div>';
-
-    html += '<div class="products">';
-
-    items.slice(0,8).forEach(function(item){
-      const title = item.title || item.name || 'eBay Treffer';
-      const price = item.price && item.price.value ? item.price.value : (item.price || item.currentPrice || '-');
-      const currency = item.price && item.price.currency ? item.price.currency : '';
-      const condition = item.condition || '-';
-      const url = item.itemWebUrl || item.itemAffiliateWebUrl || item.url || '';
-
-      html += '<article class="product-card small-card">';
-      html += '<div>';
-      html += '<div class="product-title">' + title + '</div>';
-      html += '<div class="muted">Preis: ' + price + ' ' + currency + ' · Zustand: ' + condition + '</div>';
-
-      if(url){
-        html += '<div class="output-box"><p><a href="' + url + '" target="_blank" rel="noopener">Auf eBay ansehen</a></p></div>';
-      }
-
-      html += '</div>';
-      html += '<div class="score-wrap"><span class="status warn">Konkurrenz</span></div>';
-      html += '</article>';
-    });
-
-    html += '</div>';
-
-    box.innerHTML = html;
-
-  }catch(err){
-    box.innerHTML =
-      '<p>⚠️ eBay Konkurrenz Fehler: ' + err.message + '</p>' +
-      '<p class="hint">Diese Funktion nutzt /api/ebay/search?q=...&limit=20</p>';
-  }
-}
-  async function searchEbayCompetition(){
-  const input = document.getElementById('ebayCompetitionKeyword');
-  const keyword = input && input.value.trim() ? input.value.trim() : '';
-
-  if(!keyword){
-    alert('Bitte eBay Suchbegriff eingeben.');
-    return;
-  }
-
-  const box = document.getElementById('ebayCompetitionResult');
-  if(!box){
-    alert('Ergebnisbox für eBay Marktdaten nicht gefunden.');
-    return;
-  }
-
-  box.innerHTML = '<p>eBay Marktdaten werden geladen...</p>';
-
-  try{
-    const backendUrl = getBackendUrl();
-    const res = await fetch(
-      backendUrl + '/api/ebay/search?q=' + encodeURIComponent(keyword) + '&limit=20'
-    );
-
-    const data = await res.json();
-
-    if(!res.ok){
-      throw new Error(data.error || data.message || 'Backend-Fehler');
-    }
-
-    const items = data.items || data.itemSummaries || data.results || [];
-
-    if(!items.length){
-      box.innerHTML = '<p>Keine eBay Daten gefunden.</p>';
-      return;
-    }
-
-    const prices = items
-      .map(function(item){
-        if(item.price && item.price.value) return Number(item.price.value);
-        if(item.price) return Number(item.price);
-        if(item.currentPrice) return Number(item.currentPrice);
-        return 0;
-      })
-      .filter(function(price){
-        return price > 0;
-      });
-
-    const low = prices.length ? Math.min.apply(null, prices) : 0;
-    const high = prices.length ? Math.max.apply(null, prices) : 0;
-    const avg = prices.length
-      ? prices.reduce(function(sum, price){ return sum + price; }, 0) / prices.length
-      : 0;
-
-    let html = '';
-    html += '<h3>eBay Marktdaten / Konkurrenz</h3>';
-    html += '<p class="hint">Datenquelle: /api/ebay/search. Die Konkurrenzwerte werden im Tool berechnet.</p>';
-
-    html += '<div class="dashboard">';
-    html += '<div class="metric"><small>Treffer</small><strong>' + items.length + '</strong></div>';
-    html += '<div class="metric"><small>Niedrig</small><strong>' + low.toFixed(2) + ' €</strong></div>';
-    html += '<div class="metric"><small>Ø Preis</small><strong>' + avg.toFixed(2) + ' €</strong></div>';
-    html += '<div class="metric"><small>Hoch</small><strong>' + high.toFixed(2) + ' €</strong></div>';
-    html += '</div>';
-
-    html += '<div class="products">';
-
-    items.slice(0,8).forEach(function(item){
-      const title = item.title || item.name || 'eBay Treffer';
-      const price = item.price && item.price.value ? item.price.value : (item.price || item.currentPrice || '-');
-      const currency = item.price && item.price.currency ? item.price.currency : '';
-      const condition = item.condition || '-';
-      const url = item.itemWebUrl || item.itemAffiliateWebUrl || item.url || '';
-
-      html += '<article class="product-card small-card">';
-      html += '<div>';
-      html += '<div class="product-title">' + title + '</div>';
-      html += '<div class="muted">Preis: ' + price + ' ' + currency + ' · Zustand: ' + condition + '</div>';
-
-      if(url){
-        html += '<div class="output-box"><p><a href="' + url + '" target="_blank" rel="noopener">Auf eBay ansehen</a></p></div>';
-      }
-
-      html += '</div>';
-      html += '<div class="score-wrap"><span class="status warn">Konkurrenz</span></div>';
-      html += '</article>';
-    });
-
-    html += '</div>';
-
-    box.innerHTML = html;
-
-  }catch(err){
-    box.innerHTML =
-      '<p>⚠️ eBay Marktdaten Fehler: ' + err.message + '</p>' +
-      '<p class="hint">Diese Funktion nutzt /api/ebay/search?q=...&limit=20</p>';
-  }
-}
 </script>
 </body>
 </html>
