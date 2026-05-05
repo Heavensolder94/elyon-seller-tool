@@ -1359,17 +1359,58 @@ function cleanCjDisplayText(value){
   return text;
 }
 function getCleanCjProductName(item){
-  const candidates = [item.title, item.productNameEn, item.productName, item.name];
-  for(let i=0;i<candidates.length;i++){
-    const clean = cleanCjDisplayText(candidates[i]);
-    if(clean && clean.length > 2) return clean;
+  if(!item) return 'CJ Produkt';
+
+  const directCandidates = [
+    item.title,
+    item.productNameEn,
+    item.productName,
+    item.name,
+    item.productTitle,
+    item.enName,
+    item.productNameEnglish
+  ];
+
+  for(let i=0;i<directCandidates.length;i++){
+    const clean = cleanCjDisplayText(directCandidates[i]);
+    if(clean && clean.length > 2 && clean.toLowerCase() !== 'cj produkt') return clean;
   }
+
+  if(typeof item === 'object'){
+    const keys = Object.keys(item);
+
+    for(let k=0;k<keys.length;k++){
+      const key = keys[k];
+      const lowerKey = key.toLowerCase();
+      if(lowerKey.includes('productname') || lowerKey.includes('title') || lowerKey.includes('nameen')){
+        const cleanFromValue = cleanCjDisplayText(item[key]);
+        if(cleanFromValue && cleanFromValue.length > 2) return cleanFromValue;
+
+        const cleanFromKey = cleanCjDisplayText(key)
+          .replace('productNameEn','')
+          .replace('productName','')
+          .replace('ProductNameEn','')
+          .replace('ProductName','')
+          .trim();
+        if(cleanFromKey && cleanFromKey.length > 2) return cleanFromKey;
+      }
+    }
+
+    for(let k=0;k<keys.length;k++){
+      const value = item[keys[k]];
+      if(typeof value === 'string' && value.length > 5){
+        const clean = cleanCjDisplayText(value);
+        if(clean && clean.length > 4 && !clean.toLowerCase().includes('cjdropshipping')) return clean;
+      }
+    }
+  }
+
   return 'CJ Produkt';
 }
 function cjProductCardHTML(item,index){
   const name = getCleanCjProductName(item);
-  const pid = item.pid || item.productId || item.id || '';
-  const price = item.sellPrice || item.price || item.nowPrice || item.productPrice || '';
+  const pid = item.pid || item.productId || item.id || item.cjId || item.productSku || item.sku || '';
+  const price = item.sellPrice || item.price || item.nowPrice || item.productPrice || item.salePrice || '';
   const delivery = item.deliveryTime || item.shippingTime || '';
   let html='';
   html += '<article class="product-card small-card">';
