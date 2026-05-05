@@ -206,6 +206,18 @@
         <div id="weeklyReport" class="empty">Noch kein Wochenbericht verfügbar.</div>
       </div>
     </details>
+
+    <details class="dashboard-more">
+      <summary>🗓️ Monatsbericht Jobcenter / Finanzamt anzeigen</summary>
+      <div class="dashboard-more-content">
+        <p class="hint">Monatsübersicht als Arbeitsnachweis: Betriebseinnahmen, dokumentierte Betriebsausgaben, Retouren/Erstattungen, Ergebnis, Rechnungen und Beleg-Check. Ersetzt keine Steuerberatung und keine offizielle EKS.</p>
+        <div class="row" style="margin-bottom:12px">
+          <button id="monthlyReportExportBtn" class="secondary full">Monatsbericht CSV exportieren</button>
+          <button id="monthlyReportCopyBtn" class="secondary full">Monatsbericht Text kopieren</button>
+        </div>
+        <div id="monthlyReport" class="empty">Noch kein Monatsbericht verfügbar.</div>
+      </div>
+    </details>
   </section>
 
   <section id="productsTab" class="tab">
@@ -1550,21 +1562,194 @@ function duplicateSkuList(){
   return Object.entries(map).filter(([,names])=>names.length>1).map(([sku,names])=>({sku,names}));
 }
 function getSmartDailyFocus(){
-  const openReturnCount = returns.filter(r=>!isReturnClosed(r.status)).length + shopifyReturns.filter(r=>!isReturnClosed(r.status)).length;
+  const openReturnCount = returns.filter(function(r){ return !isReturnClosed(r.status); }).length + shopifyReturns.filter(function(r){ return !isReturnClosed(r.status); }).length;
   const duplicates = duplicateSkuList();
-  const missingSku = products.filter(p=>!String(p.sku||'').trim()).length;
-  const incomplete = products.filter(p=>productDataIssues(p).length>0).length;
-  const goProducts = products.filter(p=>calcProduct(p).score>=65);
-  const goWithoutSales = goProducts.filter(p=>getSalesStatsForProduct(p.id).count===0).length;
+  const missingSku = products.filter(function(p){ return !String(p.sku || '').trim(); }).length;
+  const incomplete = products.filter(function(p){ return productDataIssues(p).length > 0; }).length;
+  const goProducts = products.filter(function(p){ return calcProduct(p).score >= 65; });
+  const goWithoutSales = goProducts.filter(function(p){ return getSalesStatsForProduct(p.id).count === 0; }).length;
 
-  if(products.length===0) return 'Heute: 1 neues Produkt vollständig prüfen und sauber kalkulieren.';
-  if(openReturnCount>0) return 'Heute zuerst: '+openReturnCount+' offene Retoure(n) klären, bevor du weiter testest.';
-  if(duplicates.length>0) return 'Heute: doppelte SKU prüfen: '+duplicates[0].sku+'.';
-  if(missingSku>0) return 'Heute: SKU bei '+missingSku+' Produkt(en) ergänzen.';
-  if(incomplete>0) return 'Heute: Stammdaten bei '+incomplete+' Produkt(en) vervollständigen.';
-  if(goWithoutSales>0) return 'Heute: 1 Listing-Kandidat sauber fürs eBay-Listing vorbereiten.';
-  if(goProducts.length===0) return 'Heute: 1 neues Produkt suchen, bis ein klarer Listing-Kandidat entsteht.';
-  return 'Heute: ruhig weiterarbeiten – 1 Produkt prüfen, 1 Listing verbessern, Backup exportieren.';
+  if(products.length === 0) return 'Heute: 1 neues Produkt vollständig prüfen und sauber kalkulieren.';
+  if(openReturnCount > 0) return 'Heute zuerst: ' + openReturnCount + ' offene Retoure(n) klären, bevor du weiter testest.';
+  if(duplicates.length > 0) return 'Heute: doppelte SKU prüfen: ' + duplicates[0].sku + '.';
+  if(missingSku > 0) return 'Heute: SKU bei ' + missingSku + ' Produkt(en) ergänzen.';
+  if(incomplete > 0) return 'Heute: Stammdaten bei ' + incomplete + ' Produkt(en) vervollständigen.';
+  if(goWithoutSales > 0) return 'Heute: 1 Listing-Kandidat sauber fürs eBay-Listing vorbereiten.';
+  if(goProducts.length === 0) return 'Heute: 1 neues Produkt suchen, bis ein klarer Listing-Kandidat entsteht.';
+  return 'Heute: ruhig weiterarbeiten - 1 Produkt prüfen, 1 Listing verbessern, Backup exportieren.';
+}
+
+function parseAnyDate(value){
+  if(!value) return null;
+  if(value instanceof Date && !isNaN(value.getTime())) return value;
+  const text = String(value).trim();
+  const dotParts = text.split('.');
+  if(dotParts.length === 3){
+    const day = Number(dotParts[0]);
+    const month = Number(dotParts[1]) - 1;
+    const year = Number(dotParts[2]);
+    const d = new Date(year, month, day);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  const isoParts = text.slice(0,10).split('-');
+  if(isoParts.length === 3){
+    const year = Number(isoParts[0]);
+    const month = Number(isoParts[1]) - 1;
+    const day = Number(isoParts[2]);
+    const d = new Date(year, month, day);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  const fallback = new Date(text);
+  return isNaN(fallback.getTime()) ? null : fallback;
+}
+
+function isWithinCurrentMonth(value){
+  const date = parseAnyDate(value);
+  if(!date) return false;
+  const now = new Date();
+  return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
+}
+
+function currentMonthLabel(){
+  return new Date().toLocaleDateString('de-DE', {month:'long', year:'numeric'});
+}
+function buildMonthlyReportData(){
+  const monthSales = sales.filter(function(s){ return isWithinCurrentMonth(s.created); });
+  const monthReturns = returns.filter(function(r){ return isWithinCurrentMonth(r.created); });
+  const monthShopifyReturns = shopifyReturns.filter(function(r){ return isWithinCurrentMonth(r.created); });
+  const allReturns = monthReturns.concat(monthShopifyReturns);
+  const monthInvoices = invoices.filter(function(inv){ return isWithinCurrentMonth(inv.date); });
+  const revenue = monthSales.reduce(function(sum,s){ return sum + ((+s.price||0) * (+s.qty||1)); },0);
+  const goodsCost = monthSales.reduce(function(sum,s){ return sum + ((+s.cost||0) * (+s.qty||1)); },0);
+  const platformFees = monthSales.reduce(function(sum,s){ return sum + ((+s.fees||0) * (+s.qty||1)); },0);
+  const documentedExpenses = goodsCost + platformFees;
+  const salesProfit = monthSales.reduce(function(sum,s){ return sum + (+s.profit||0); },0);
+  const returnLoss = allReturns.reduce(function(sum,r){ return sum + (+r.loss||0); },0);
+  const internalResult = salesProfit - returnLoss;
+  const openOrders = monthSales.filter(function(s){ return !['Abgeschlossen','Storniert'].includes(s.status||'Bezahlt'); }).length;
+  const missingInvoices = monthSales.filter(function(s){ return !findInvoiceBySaleId(s.id); }).length;
+  const missingOrderNo = monthSales.filter(function(s){ return !String(s.orderNo||'').trim(); }).length;
+  const missingTracking = monthSales.filter(function(s){ return !String(s.trackingNo||'').trim() && !['Storniert','Abgeschlossen'].includes(s.status||''); }).length;
+  const openReturns = allReturns.filter(function(r){ return !isReturnClosed(r.status); }).length;
+  return {monthSales,monthReturns,monthShopifyReturns,allReturns,monthInvoices,revenue,goodsCost,platformFees,documentedExpenses,salesProfit,returnLoss,internalResult,openOrders,missingInvoices,missingOrderNo,missingTracking,openReturns};
+}
+function monthlyReportPlainText(){
+  const d = buildMonthlyReportData();
+  const lines = [];
+  lines.push('Monatsbericht Jobcenter / Finanzamt - ' + currentMonthLabel());
+  lines.push('');
+  lines.push('Hinweis: Arbeitsübersicht aus dem Elyon Seller Tool. Ersetzt keine offizielle EKS, keine EÜR und keine Steuerberatung. Belege/Rechnungen/Kontoauszüge separat aufbewahren.');
+  lines.push('');
+  lines.push('Zusammenfassung');
+  lines.push('Bestellungen: ' + d.monthSales.length);
+  lines.push('Betriebseinnahmen / Umsatz: ' + euro(d.revenue));
+  lines.push('Wareneinsatz / EK inkl. Versand: ' + euro(d.goodsCost));
+  lines.push('Plattform- und Zahlungsgebühren: ' + euro(d.platformFees));
+  lines.push('Dokumentierte Betriebsausgaben: ' + euro(d.documentedExpenses));
+  lines.push('Retouren/Erstattungen/Kulanz laut Tool: ' + euro(d.returnLoss));
+  lines.push('Internes Monatsergebnis: ' + euro(d.internalResult));
+  lines.push('Rechnungen: ' + d.monthInvoices.length);
+  lines.push('Offene Bestellungen: ' + d.openOrders);
+  lines.push('Offene Retouren: ' + d.openReturns);
+  lines.push('');
+  lines.push('Beleg-Check');
+  lines.push('Fehlende Rechnungen: ' + d.missingInvoices);
+  lines.push('Fehlende Order-ID: ' + d.missingOrderNo);
+  lines.push('Tracking fehlt: ' + d.missingTracking);
+  lines.push('');
+  lines.push('Bestellliste');
+  d.monthSales.forEach(function(s){
+    const inv = findInvoiceBySaleId(s.id);
+    lines.push((s.created||'') + ' | ' + (s.platform||'eBay') + ' | ' + (s.orderNo||'ohne Order-ID') + ' | ' + (s.product||'') + ' | Umsatz ' + euro((+s.price||0)*(+s.qty||1)) + ' | Kosten ' + euro(((+s.cost||0)+(+s.fees||0))*(+s.qty||1)) + ' | Gewinn ' + euro(+s.profit||0) + ' | Rechnung ' + (inv?inv.number:'fehlt'));
+  });
+  if(!d.monthSales.length) lines.push('Keine Bestellungen im aktuellen Monat erfasst.');
+  return lines.join(String.fromCharCode(10));
+}
+function renderMonthlyReport(){
+  const d = buildMonthlyReportData();
+  const cls = d.internalResult > 0 ? 'good' : d.internalResult < 0 ? 'bad' : 'warn';
+  const issues = [];
+  if(d.missingInvoices>0) issues.push(d.missingInvoices+' Bestellung(en) ohne Rechnung im Tool.');
+  if(d.missingOrderNo>0) issues.push(d.missingOrderNo+' Bestellung(en) ohne Order-ID.');
+  if(d.missingTracking>0) issues.push(d.missingTracking+' Bestellung(en) ohne Trackingnummer.');
+  if(d.openReturns>0) issues.push(d.openReturns+' offene Retoure(n).');
+  if(!issues.length) issues.push('Keine akuten Lücken im Tool erkannt. Belege trotzdem separat prüfen.');
+  let html='';
+  html += '<div class="output-box"><h3>Monat: '+currentMonthLabel()+'</h3><p>Arbeitsübersicht für Jobcenter/Finanzamt. Belege, Kontoauszüge und offizielle Formulare separat aufbewahren/ausfüllen.</p></div>';
+  html += '<div class="dashboard">';
+  html += '<div class="metric"><small>Bestellungen</small><strong>'+d.monthSales.length+'</strong></div>';
+  html += '<div class="metric"><small>Betriebseinnahmen</small><strong>'+euro(d.revenue)+'</strong></div>';
+  html += '<div class="metric"><small>Ausgaben dokumentiert</small><strong>'+euro(d.documentedExpenses)+'</strong></div>';
+  html += '<div class="metric"><small>Internes Ergebnis</small><strong>'+euro(d.internalResult)+'</strong></div>';
+  html += '</div>';
+  html += '<div class="dashboard">';
+  html += '<div class="metric"><small>Wareneinsatz/EK</small><strong>'+euro(d.goodsCost)+'</strong></div>';
+  html += '<div class="metric"><small>Gebühren</small><strong>'+euro(d.platformFees)+'</strong></div>';
+  html += '<div class="metric"><small>Retouren/Erstattungen</small><strong>'+euro(d.returnLoss)+'</strong></div>';
+  html += '<div class="metric"><small>Rechnungen</small><strong>'+d.monthInvoices.length+'</strong></div>';
+  html += '</div>';
+  html += '<div class="dashboard">';
+  html += '<div class="metric"><small>Offene Bestellungen</small><strong>'+d.openOrders+'</strong></div>';
+  html += '<div class="metric"><small>Offene Retouren</small><strong>'+d.openReturns+'</strong></div>';
+  html += '<div class="metric"><small>Rechnung fehlt</small><strong>'+d.missingInvoices+'</strong></div>';
+  html += '<div class="metric"><small>Order-ID fehlt</small><strong>'+d.missingOrderNo+'</strong></div>';
+  html += '</div>';
+  html += '<div class="output-box"><h3>Monatsfazit</h3><p><span class="status '+cls+'">Internes Ergebnis: '+euro(d.internalResult)+'</span></p><p>'+issues.join(String.fromCharCode(10))+'</p></div>';
+  html += '<div class="output-box"><h3>Beleg- und Konformitäts-Hinweis</h3><ul><li>Für das Jobcenter zählt der Nachweis der tatsächlichen Einnahmen und Ausgaben im relevanten Zeitraum. Dieser Bericht ist eine Arbeitsübersicht, nicht die offizielle EKS.</li><li>Für das Finanzamt dient der Bericht als Vorübersicht für Einnahmen/Ausgaben. Maßgeblich bleiben deine Belege, Rechnungen, Kontoauszüge und die offizielle EÜR/Steuererklärung.</li><li>Als Kleinunternehmer keine Umsatzsteuer ausweisen; Beträge im Tool werden als Bruttowerte geführt.</li></ul></div>';
+  html += '<div class="output-box"><h3>Bestellliste im Monat</h3>';
+  if(d.monthSales.length){
+    html += '<ul>'+d.monthSales.map(function(s){
+      const inv=findInvoiceBySaleId(s.id);
+      return '<li>'+s.created+' · '+(s.platform||'eBay')+' · '+(s.orderNo||'ohne Order-ID')+' · '+s.product+' · Umsatz '+euro((+s.price||0)*(+s.qty||1))+' · Gewinn '+euro(+s.profit||0)+' · Rechnung: '+(inv?inv.number:'fehlt')+'</li>';
+    }).join('')+'</ul>';
+  }else{
+    html += '<p>Keine Bestellungen im aktuellen Monat erfasst.</p>';
+  }
+  html += '</div>';
+  setHTML('monthlyReport',html);
+}
+function exportMonthlyReportCSV(){
+  const d = buildMonthlyReportData();
+  const rows = [
+    ['Monatsbericht Jobcenter/Finanzamt', currentMonthLabel()],
+    ['Hinweis','Arbeitsuebersicht aus dem Elyon Seller Tool; ersetzt keine offizielle EKS/EUER/Steuerberatung.'],
+    [],
+    ['Kennzahl','Wert'],
+    ['Bestellungen', d.monthSales.length],
+    ['Betriebseinnahmen/Umsatz', d.revenue.toFixed(2)],
+    ['Wareneinsatz/EK inkl. Versand', d.goodsCost.toFixed(2)],
+    ['Plattform-/Zahlungsgebuehren', d.platformFees.toFixed(2)],
+    ['Dokumentierte Betriebsausgaben', d.documentedExpenses.toFixed(2)],
+    ['Retouren/Erstattungen/Kulanz laut Tool', d.returnLoss.toFixed(2)],
+    ['Internes Monatsergebnis', d.internalResult.toFixed(2)],
+    ['Rechnungen', d.monthInvoices.length],
+    ['Offene Bestellungen', d.openOrders],
+    ['Offene Retouren', d.openReturns],
+    ['Rechnung fehlt', d.missingInvoices],
+    ['Order-ID fehlt', d.missingOrderNo],
+    ['Tracking fehlt', d.missingTracking],
+    [],
+    ['Datum','Plattform','Order-ID','Produkt','Umsatz','EK+Versand','Gebuehren','Gewinn','Rechnung','Status','Versandstatus']
+  ];
+  d.monthSales.forEach(function(s){
+    const inv = findInvoiceBySaleId(s.id);
+    rows.push([s.created||'',s.platform||'eBay',s.orderNo||'',s.product||'',((+s.price||0)*(+s.qty||1)).toFixed(2),((+s.cost||0)*(+s.qty||1)).toFixed(2),((+s.fees||0)*(+s.qty||1)).toFixed(2),(+s.profit||0).toFixed(2),inv?inv.number:'',s.status||'',s.shippingStatus||'']);
+  });
+  downloadCSV(rows,'elyon-monatsbericht-jobcenter-finanzamt.csv');
+}
+function copyMonthlyReportText(){
+  const text = monthlyReportPlainText();
+  if(navigator.clipboard){
+    navigator.clipboard.writeText(text).then(function(){ alert('Monatsbericht kopiert.'); });
+    return;
+  }
+  const area=document.createElement('textarea');
+  area.value=text;
+  document.body.appendChild(area);
+  area.select();
+  document.execCommand('copy');
+  document.body.removeChild(area);
+  alert('Monatsbericht kopiert.');
 }
 function renderDashboardDetails(){
   const totalRevenue = sales.reduce((sum,s)=>sum+(+s.price||0)*(+s.qty||1),0);
@@ -1613,6 +1798,7 @@ function renderDashboardDetails(){
     setHTML('dShopifyList','<div class="empty">Noch keine Shopify-Kandidaten markiert.</div>');
   }
   renderWeeklyReport();
+  renderMonthlyReport();
 }
 function render(){
   const stats = products.map(calcProduct);
@@ -2697,6 +2883,8 @@ function bindEvents(){
   bind('trackingBtn','click',trackingCalc);
   bind('financeBtn','click',financeCalc);
   bind('warningBtn','click',warningCalc);
+  bind('monthlyReportExportBtn','click',exportMonthlyReportCSV);
+  bind('monthlyReportCopyBtn','click',copyMonthlyReportText);
   bind('genBtn','click',genCalc);
   bind('shortenTitleBtn','click',shortenGeneratedTitle);
   safe('genResult', el => el.addEventListener('click', handleGeneratorClick));
@@ -2791,6 +2979,9 @@ function runSelfTests(){
   console.assert(typeof productCardHTML === 'function', 'Produktkarten Funktion sollte existieren');
   console.assert(typeof toggleProductView === 'function', 'Produktansicht Toggle sollte existieren');
   console.assert(typeof renderWeeklyReport === 'function', 'Wochenbericht Funktion sollte existieren');
+  console.assert(typeof renderMonthlyReport === 'function', 'Monatsbericht Funktion sollte existieren');
+  console.assert(typeof exportMonthlyReportCSV === 'function', 'Monatsbericht CSV Export sollte existieren');
+  console.assert(typeof buildMonthlyReportData === 'function', 'Monatsbericht Datenfunktion sollte existieren');
   console.assert(!!$('weeklyReport'), 'Wochenbericht Bereich sollte existieren');
   console.assert(typeof productDataIssues === 'function', 'Daten-Qualitätscheck sollte existieren');
   console.assert(typeof duplicateSkuList === 'function', 'SKU-Duplikat-Warnung sollte existieren');
