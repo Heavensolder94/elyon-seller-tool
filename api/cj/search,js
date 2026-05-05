@@ -1,23 +1,14 @@
 export default function handler(req, res) {
-  const keyword = req.query.keyword || req.query.q || "Test";
-
   res.status(200).json({
     ok: true,
-    version: "CJ-SEARCH-TEST",
-    keyword,
+    version: "CJ-ROUTE-TEST-100",
+    keyword: req.query.keyword || req.query.q || "",
     products: [
       {
-        productName: `${keyword} Testprodukt 1`,
+        productName: "CJ TESTPRODUKT AUS API/cj/search.js",
         pid: "CJ-TEST-001",
         sellPrice: "4.99",
         deliveryTime: "7-12 Tage",
-        productLink: "https://cjdropshipping.com"
-      },
-      {
-        productName: `${keyword} Testprodukt 2`,
-        pid: "CJ-TEST-002",
-        sellPrice: "8.49",
-        deliveryTime: "10-15 Tage",
         productLink: "https://cjdropshipping.com"
       }
     ]
