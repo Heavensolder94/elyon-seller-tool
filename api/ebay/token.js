@@ -3,6 +3,13 @@ export default async function handler(req, res) {
     const clientId = process.env.EBAY_CLIENT_ID;
     const clientSecret = process.env.EBAY_CLIENT_SECRET;
 
+    if (!clientId || !clientSecret) {
+      return res.status(500).json({
+        ok: false,
+        error: "EBAY_CLIENT_ID oder EBAY_CLIENT_SECRET fehlt"
+      });
+    }
+
     const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
 
     const body = new URLSearchParams({
@@ -21,12 +28,27 @@ export default async function handler(req, res) {
 
     const data = await ebayRes.json();
 
+    if (!ebayRes.ok) {
+      return res.status(ebayRes.status).json({
+        ok: false,
+        status: ebayRes.status,
+        error: data
+      });
+    }
+
     res.status(200).json({
       ok: true,
-      token_preview: data.access_token?.slice(0, 10)
+      token_type: data.token_type,
+      expires_in: data.expires_in,
+      access_token_preview: data.access_token
+        ? data.access_token.slice(0, 12) + "..."
+        : null
     });
 
   } catch (err) {
-    res.status(500).json({ ok: false, error: err.message });
+    res.status(500).json({
+      ok: false,
+      error: err.message
+    });
   }
 }
