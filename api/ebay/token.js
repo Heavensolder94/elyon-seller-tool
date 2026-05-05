@@ -17,7 +17,7 @@ export default async function handler(req, res) {
       scope: "https://api.ebay.com/oauth/api_scope"
     });
 
-    const ebayRes = await fetch("https://api.ebay.com/identity/v1/oauth2/token", {
+    const ebayRes = await fetch("https://api.sandbox.ebay.com/identity/v1/oauth2/token", {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
