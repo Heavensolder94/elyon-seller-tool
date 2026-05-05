@@ -1,11 +1,3 @@
-export default function handler(req, res) {
-  res.status(200).json({
-    ok: true,
-    version: "MEINE-RICHTIGE-SEARCH-DATEI",
-    query: req.query.q || "",
-    items: []
-  });
-}
 
 async function getEbayAppToken() {
   const clientId = process.env.EBAY_CLIENT_ID;
