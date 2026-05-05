@@ -1776,7 +1776,9 @@ function closeInvoiceModal(){
 }
 function getCurrentInvoiceHTMLDocument(){
   const content = $('invoicePreview') ? $('invoicePreview').innerHTML : '';
-  return '<!doctype html><html lang="de"><head><meta charset="UTF-8"><title>Rechnung</title><style>@page{size:A4 portrait;margin:14mm}html,body{margin:0;padding:0;background:#fff;color:#111827;font-family:Arial,sans-serif;font-size:11pt;line-height:1.45}.page{width:100%;box-sizing:border-box;background:#fff;color:#111827}.invoice-head{display:grid;grid-template-columns:1fr 1fr;gap:18mm;border-bottom:2px solid #e5e7eb;padding-bottom:8mm;margin-bottom:8mm}.invoice-head>div:last-child{text-align:right}h1{font-size:26pt;line-height:1.1;margin:0 0 4mm;color:#111827}h2,h3{color:#111827;margin:0 0 3mm}p{margin:0 0 3mm;color:#111827}.invoice-box{border:1px solid #e5e7eb;border-radius:4mm;padding:5mm;margin-top:5mm;background:#fff}.invoice-table{width:100%;border-collapse:collapse;margin-top:7mm}.invoice-function printInvoice(){
+  return '<!doctype html><html lang="de"><head><meta charset="UTF-8"><title>Rechnung</title><style>@page{size:A4 portrait;margin:14mm}html,body{margin:0;padding:0;background:#fff;color:#111827;font-family:Arial,sans-serif;font-size:11pt;line-height:1.45}.page{width:100%;box-sizing:border-box;background:#fff;color:#111827}.invoice-head{display:grid;grid-template-columns:1fr 1fr;gap:18mm;border-bottom:2px solid #e5e7eb;padding-bottom:8mm;margin-bottom:8mm}.invoice-head>div:last-child{text-align:right}h1{font-size:26pt;line-height:1.1;margin:0 0 4mm;color:#111827}h2,h3{color:#111827;margin:0 0 3mm}p{margin:0 0 3mm;color:#111827}.invoice-box{border:1px solid #e5e7eb;border-radius:4mm;padding:5mm;margin-top:5mm;background:#fff}.invoice-table{width:100%;border-collapse:collapse;margin-top:7mm}.invoice-table th,.invoice-table td{border-bottom:1px solid #e5e7eb;padding:4mm 3mm;text-align:left;vertical-align:top;color:#111827}.invoice-table th{background:#f8fafc;font-weight:700}.invoice-table th:last-child,.invoice-table td:last-child{text-align:right}.invoice-total{text-align:right;font-size:16pt;font-weight:900;margin-top:8mm;color:#111827}.muted{color:#64748b!important;font-size:9pt}@media screen{body{padding:18px;background:#e5e7eb}.page{width:210mm;min-height:297mm;margin:0 auto;padding:18mm;box-shadow:0 12px 35px rgba(0,0,0,.25)}}@media print{body{background:#fff}.page{width:auto;min-height:auto;margin:0;padding:0;box-shadow:none}}</style></head><body><div class="page">'+content+'</div></body></html>';
+}
+function printInvoice(){
   const preview = $('invoicePreview');
   if(!preview || !preview.innerHTML.trim() || preview.textContent.includes('Noch keine Rechnung')){
     alert('Keine Rechnung ausgewählt.');
@@ -1814,28 +1816,6 @@ function getCurrentInvoiceHTMLDocument(){
       frame.contentWindow.print();
     }catch(err){}
   }, 500);
-}
-function dowew.textContent.includes('Noch keine Rechnung')){
-    alert('Keine Rechnung ausgewählt.');
-    return;
-  }
-  function cleanupPrintMode(){
-    document.body.classList.remove('print-invoice');
-    window.onafterprint = null;
-    window.removeEventListener('focus', cleanupPrintMode);
-  }
-  document.body.classList.add('print-invoice');
-  window.onafterprint = cleanupPrintMode;
-  window.addEventListener('focus', cleanupPrintMode);
-  try{
-    window.print();
-  }catch(err){
-    cleanupPrintMode();
-    alert('Druckdialog konnte nicht geöffnet werden. Nutze bitte den HTML-Download und drucke die Datei als PDF.');
-    console.error(err);
-    return;
-  }
-  setTimeout(cleanupPrintMode, 1500);
 }
 function downloadInvoiceHTML(){
   const preview = $('invoicePreview');
