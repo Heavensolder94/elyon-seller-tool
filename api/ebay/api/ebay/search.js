@@ -1,14 +1,15 @@
 export default async function handler(req, res) {
   try {
-    const q = req.query.q || "iphone";
-    const limit = req.query.limit || "5";
+    const query = req.query.q || "iphone";
+    const limit = req.query.limit || 5;
 
     const clientId = process.env.EBAY_CLIENT_ID;
     const clientSecret = process.env.EBAY_CLIENT_SECRET;
 
     const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
 
-    const tokenRes = await fetch("https://api.ebay.com/identity/v1/oauth2/token", {
+    // Token holen
+    const tokenRes = await fetch("https://api.sandbox.ebay.com/identity/v1/oauth2/token", {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
@@ -21,48 +22,26 @@ export default async function handler(req, res) {
     });
 
     const tokenData = await tokenRes.json();
+    const accessToken = tokenData.access_token;
 
-    if (!tokenRes.ok) {
-      return res.status(tokenRes.status).json({
-        ok: false,
-        step: "token",
-        error: tokenData
-      });
-    }
-
-    const searchUrl =
-      `https://api.ebay.com/buy/browse/v1/item_summary/search?q=${encodeURIComponent(q)}&limit=${limit}`;
-
-    const ebayRes = await fetch(searchUrl, {
-      headers: {
-        Authorization: `Bearer ${tokenData.access_token}`,
-        "X-EBAY-C-MARKETPLACE-ID": "EBAY_DE",
-        Accept: "application/json"
+    // Produktsuche
+    const searchRes = await fetch(
+      `https://api.sandbox.ebay.com/buy/browse/v1/item_summary/search?q=${encodeURIComponent(query)}&limit=${limit}`,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`
+        }
       }
-    });
+    );
 
-    const data = await ebayRes.json();
-
-    if (!ebayRes.ok) {
-      return res.status(ebayRes.status).json({
-        ok: false,
-        step: "search",
-        error: data
-      });
-    }
+    const data = await searchRes.json();
 
     res.status(200).json({
       ok: true,
-      query: q,
-      count: data.total,
-      items: (data.itemSummaries || []).map(item => ({
-        title: item.title,
-        price: item.price,
-        itemWebUrl: item.itemWebUrl,
-        condition: item.condition,
-        seller: item.seller?.username
-      }))
+      query,
+      items: data.itemSummaries || []
     });
+
   } catch (err) {
     res.status(500).json({
       ok: false,
