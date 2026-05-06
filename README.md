@@ -13,6 +13,16 @@ What the app does:
 
 - stores CJ tokens in `data/cj_tokens.json`
 - refreshes access tokens automatically
-- fetches CJ categories and a small sample product list
+- fetches CJ categories
+- searches products by keyword or SKU
+- reads product details and stock by variant
+- prepares CJ order creation via the V2 shopping endpoint
+
+Useful environment variables:
+
+- `CJ_API_KEY` for login
+- `CJ_SAMPLE_QUERY` for a quick product search when starting `src/main.py`
+- `CJ_SAMPLE_VARIANT` for a stock lookup demo
+- `CJ_SAMPLE_ORDER` for a JSON order payload demo
 
 Do not commit `data/cj_tokens.json` to GitHub.
