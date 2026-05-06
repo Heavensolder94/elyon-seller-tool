@@ -87,21 +87,15 @@
     <button id="ordersBtn" class="secondary">📦 Bestellungen</button>
     <button id="returnsBtn" class="secondary">↩️ Retouren</button>
     <select id="mainMenu" class="menu-select" aria-label="eBay Lab auswählen">
-      <option value="" disabled selected>🟦 eBay Lab</option>
-      <option value="productsTab">1. 📦 Produkte & Ideen</option>
-      <option value="generatorTab">2. ✍️ Titel & SEO Generator</option>
-      <option value="researchTab">3. 🔎 Konkurrenz prüfen</option>
-      <option value="legalTab">4. ⚖️ Recht & Risiko</option>
-      <option value="warningTab">5. 🛡️ Auto-Warnungen</option>
-      <option value="priceTab">6. 💰 Zielpreis berechnen</option>
-      <option value="budgetTab">7. 🧪 Testbudget planen</option>
-      <option value="checklistTab">8. ✅ Listing-Checkliste</option>
-      <option value="trackingTab">9. 📈 Verkaufs-Tracking</option>
-      <option value="financeTab">10. 🧾 Mini-Buchhaltung</option>
-      <option value="salesTab">11. 💰 Verkaufsassistent.</option>
-      <option value="shippingTab">12. 🚚 Versand & Tracking</option>
-      <option value="invoiceTab">13. 🧾 Rechnungsübersicht</option>
-      <option value="apiImportTab">14. 🔄 Datenimport & API</option>
+      <option value="" disabled selected>🟦 Produkt-Pipeline</option>
+      <option value="dashboardTab">1. 🏠 Dashboard</option>
+      <option value="productSearchTab">2. 🔎 Produktsuche</option>
+      <option value="productAnalysisTab">3. 🧠 Produktanalyse</option>
+      <option value="productListTab">4. 📋 Meine Produktliste</option>
+      <option value="ebayListingTab">5. ✍️ eBay Listing vorbereiten</option>
+      <option value="ordersTab">6. 📦 Bestellungen</option>
+      <option value="automationTab">7. ⚙️ Automatisierung</option>
+      <option value="settingsTab">8. ⚙️ Einstellungen / API Status</option>
     </select>
     <select id="shopifyMenu" class="menu-select" aria-label="Shopify Bereich auswählen">
       <option value="shopifyTab">🟢 Shopify Lab</option>
@@ -157,7 +151,7 @@
     </div>
   </div>
 
-  <section id="homeTab" class="tab active">
+  <section id="dashboardTab" class="tab active">
     <div class="card">
       <h2>Dashboard</h2>
       <p class="hint">Deine Startseite: Überblick, echte Business-Zahlen, Warnungen und nächster Fokus.</p>
@@ -260,7 +254,7 @@
     </details>
   </section>
 
-  <section id="productsTab" class="tab">
+  <section id="productSearchTab" class="tab">
     <section class="grid">
       <aside class="card" id="productFormCard">
         <h2>Produkt prüfen</h2>
@@ -310,16 +304,62 @@
         <button class="full" id="addProductBtn" style="margin-top:14px">Produkt speichern & bewerten</button>
         <button class="secondary full hidden" id="cancelEditProductBtn" style="margin-top:10px">Bearbeitung abbrechen</button>
       </aside>
-      <section>
-        <div class="dashboard"><div class="metric"><small>Produkte</small><strong id="totalProducts">0</strong></div><div class="metric"><small>🟢 Listing-Kandidaten</small><strong id="goCount">0</strong></div><div class="metric"><small>🟡 Beobachten</small><strong id="testCount">0</strong></div><div class="metric"><small>🔴 Nicht geeignet</small><strong id="noCount">0</strong></div></div>
-        <div class="card"><h2>Produkt-Board</h2><p class="hint">Suchen, filtern, Gewinner erkennen und zwischen Liste/Kanban wechseln.</p><div class="quick-actions"><button class="secondary" id="newProductBtn">+ Neues Produkt</button><button class="secondary" id="winnerFilterBtn">🔥 Nur starke Kandidaten</button><button class="secondary" id="shopifyFilterBtn">🟢 Shopify-Kandidaten</button><button class="secondary" id="killFilterBtn">🗑️ Rauswerfen</button><button class="secondary" id="toggleViewBtn">Kanban-Ansicht</button></div><div class="toolbar"><input id="search" placeholder="Produkt suchen..."><select id="filter"><option value="all">Alle anzeigen</option><option value="go">Nur 🟢 Listing-Kandidaten</option><option value="test">Nur 🟡 Beobachten</option><option value="no">Nur 🔴 Nicht geeignet</option><option value="shopify">Nur Shopify-Kandidaten</option><option value="winner">Nur Gewinner</option><option value="kill">Nur Rauswerfen</option></select><select id="sort"><option value="score">Nach Score</option><option value="profit">Nach Gewinn</option><option value="name">Nach Name</option></select></div><div id="list" class="products"></div></div>
+      <section class="card">
+        <h2>Produktsuche & Quellen</h2>
+        <p class="hint">Hier erfasst du neue Produktideen. Die bestehende CJ-Suche, eBay-Suche, CSV-/Google-Sheets-Import und API-Checks bleiben im Bereich Einstellungen / API Status erhalten.</p>
+        <div class="quick-actions">
+          <button class="secondary" type="button" onclick="showTab('productListTab')">Zur Produktliste</button>
+          <button class="secondary" type="button" onclick="showTab('productAnalysisTab')">Zur Produktanalyse</button>
+          <button class="secondary" type="button" onclick="showTab('settingsTab')">Zu CJ / Import / API</button>
+        </div>
+        <div class="output-box">
+          <p>Produktideen werden wie bisher lokal im Browser gespeichert. Du kannst hier neue Kandidaten prüfen und danach direkt in die Liste wechseln.</p>
+        </div>
       </section>
     </section>
   </section>
 
-  <section id="researchTab" class="tab"><div class="grid-2"><div class="card"><h2>Manueller Konkurrenz-Check</h2><p class="hint">Hier trägst du manuell eBay-Marktdaten ein: Preise, Anbieter, Verkäufe und Lieferzeit. Das Tool bewertet, ob ein Produkt gegen die Konkurrenz bestehen kann.</p><label>Produktname</label><input id="rName"><div class="row"><div><label>Dein EK + Versand €</label><input id="rCost" type="number" step="0.01"></div><div><label>Dein geplanter VK €</label><input id="rMyPrice" type="number" step="0.01"></div></div><div class="row"><div><label>eBay/Gebühren %</label><input id="rFee" type="number" step="0.1" value="15"></div><div><label>Risiko-Puffer %</label><input id="rBuffer" type="number" step="0.1" value="5"></div></div><div class="row"><div><label>Niedrigster Konkurrenzpreis €</label><input id="rLow" type="number" step="0.01"></div><div><label>Durchschnittspreis €</label><input id="rAvg" type="number" step="0.01"></div></div><div class="row"><div><label>Höchster sinnvoller Preis €</label><input id="rHigh" type="number" step="0.01"></div><div><label>Anzahl Anbieter</label><input id="rSellers" type="number"></div></div><div class="row"><div><label>Verkäufe geschätzt</label><input id="rSold" type="number"></div><div><label>Lieferzeit Tage</label><input id="rDelivery" type="number"></div></div><label>Risiko</label><select id="rRisk"><option value="low">Niedrig</option><option value="medium">Mittel</option><option value="high">Hoch / Elektronik / Batterie</option></select><button class="full" id="researchBtn">Konkurrenz bewerten</button></div><div class="card"><h2>Analyse-Ergebnis</h2><p class="hint">Hier siehst du Break-even, Gewinn, Marktposition, Score und eine kurze Begründung für GO, TEST oder NO.</p><div id="researchResult" class="empty">Noch keine Analyse.</div></div></div></section>
+  <section id="productListTab" class="tab">
+    <div class="dashboard">
+      <div class="metric"><small>Produkte</small><strong id="totalProducts">0</strong></div>
+      <div class="metric"><small>🟢 Listing-Kandidaten</small><strong id="goCount">0</strong></div>
+      <div class="metric"><small>🟡 Beobachten</small><strong id="testCount">0</strong></div>
+      <div class="metric"><small>🔴 Nicht geeignet</small><strong id="noCount">0</strong></div>
+    </div>
+    <div class="card">
+      <h2>Produkt-Board</h2>
+      <p class="hint">Suchen, filtern, Gewinner erkennen und zwischen Liste/Kanban wechseln.</p>
+      <div class="quick-actions">
+        <button class="secondary" id="newProductBtn">+ Neues Produkt</button>
+        <button class="secondary" id="winnerFilterBtn">🔥 Nur starke Kandidaten</button>
+        <button class="secondary" id="shopifyFilterBtn">🟢 Shopify-Kandidaten</button>
+        <button class="secondary" id="killFilterBtn">🗑️ Rauswerfen</button>
+        <button class="secondary" id="toggleViewBtn">Kanban-Ansicht</button>
+      </div>
+      <div class="toolbar">
+        <input id="search" placeholder="Produkt suchen...">
+        <select id="filter">
+          <option value="all">Alle anzeigen</option>
+          <option value="go">Nur 🟢 Listing-Kandidaten</option>
+          <option value="test">Nur 🟡 Beobachten</option>
+          <option value="no">Nur 🔴 Nicht geeignet</option>
+          <option value="shopify">Nur Shopify-Kandidaten</option>
+          <option value="winner">Nur Gewinner</option>
+          <option value="kill">Nur Rauswerfen</option>
+        </select>
+        <select id="sort">
+          <option value="score">Nach Score</option>
+          <option value="profit">Nach Gewinn</option>
+          <option value="name">Nach Name</option>
+        </select>
+      </div>
+      <div id="list" class="products"></div>
+    </div>
+  </section>
 
-  <section id="generatorTab" class="tab">
+  <section id="productAnalysisTab" class="tab"><div class="grid-2"><div class="card"><h2>Manueller Konkurrenz-Check</h2><p class="hint">Hier trägst du manuell eBay-Marktdaten ein: Preise, Anbieter, Verkäufe und Lieferzeit. Das Tool bewertet, ob ein Produkt gegen die Konkurrenz bestehen kann.</p><label>Produktname</label><input id="rName"><div class="row"><div><label>Dein EK + Versand €</label><input id="rCost" type="number" step="0.01"></div><div><label>Dein geplanter VK €</label><input id="rMyPrice" type="number" step="0.01"></div></div><div class="row"><div><label>eBay/Gebühren %</label><input id="rFee" type="number" step="0.1" value="15"></div><div><label>Risiko-Puffer %</label><input id="rBuffer" type="number" step="0.1" value="5"></div></div><div class="row"><div><label>Niedrigster Konkurrenzpreis €</label><input id="rLow" type="number" step="0.01"></div><div><label>Durchschnittspreis €</label><input id="rAvg" type="number" step="0.01"></div></div><div class="row"><div><label>Höchster sinnvoller Preis €</label><input id="rHigh" type="number" step="0.01"></div><div><label>Anzahl Anbieter</label><input id="rSellers" type="number"></div></div><div class="row"><div><label>Verkäufe geschätzt</label><input id="rSold" type="number"></div><div><label>Lieferzeit Tage</label><input id="rDelivery" type="number"></div></div><label>Risiko</label><select id="rRisk"><option value="low">Niedrig</option><option value="medium">Mittel</option><option value="high">Hoch / Elektronik / Batterie</option></select><button class="full" id="researchBtn">Konkurrenz bewerten</button></div><div class="card"><h2>Analyse-Ergebnis</h2><p class="hint">Hier siehst du Break-even, Gewinn, Marktposition, Score und eine kurze Begründung für GO, TEST oder NO.</p><div id="researchResult" class="empty">Noch keine Analyse.</div></div></div></section>
+
+  <section id="ebayListingTab" class="tab">
     <div class="generator-shell">
       <div class="card">
         <h2>Listing-Briefing</h2>
@@ -425,7 +465,7 @@
 
   <section id="checklistTab" class="tab"><div class="grid-2"><div class="card"><h2>eBay Listing-Checkliste</h2><p class="hint">Eine kurze Qualitätskontrolle vor dem Veröffentlichen: Titel, Bilder, Beschreibung, Versand, Rechtliches und Gewinn.</p><div id="listingChecks"></div><button class="full" id="listingBtn">Listing prüfen</button><button class="secondary full" id="resetListingBtn" style="margin-top:10px">Checkliste zurücksetzen</button></div><div class="card"><h2>Listing-Ergebnis</h2><p class="hint">Zeigt dir, ob dein Listing bereit ist oder ob du vor dem Veröffentlichen noch Punkte offen hast.</p><div id="listingResult" class="empty">Noch nicht geprüft.</div></div></div></section>
 
-  <section id="salesTab" class="tab">
+  <section id="ordersTab" class="tab">
     <div class="grid-2">
       <div class="card">
         <h2>Verkaufsassistent</h2>
@@ -476,7 +516,7 @@
     </div>
   </section>
 
-  <section id="shippingTab" class="tab">
+  <section id="automationTab" class="tab">
     <div class="grid-2">
       <div class="card">
         <h2>Versand & Tracking</h2>
@@ -551,9 +591,9 @@
     </div>
   </section>
 
-  <section id="apiImportTab" class="tab">
+  <section id="settingsTab" class="tab">
     <div class="card">
-      <h2>🔄 Datenimport & API</h2>
+      <h2>⚙️ Einstellungen / API Status</h2>
       <p class="hint">Arbeitsbereich für externe Daten: CJ Produktdaten, eBay Konkurrenzdaten, eBay Search und eBay Bestellimport. Einstellungen und Backend-Setup bleiben unter ⚙️ Einstellungen → 🔌 Integrationen.</p>
       <div class="dashboard">
         <div class="metric"><small>Backend</small><strong id="intBackendStatus">Nicht eingerichtet</strong></div>
@@ -855,7 +895,7 @@
         <div class="settings-grid">
           <div><label>Theme</label><select id="setTheme"><option value="dark">Dark Mode</option><option value="light">Light Mode</option></select></div>
           <div><label>Design-Variante</label><select id="setDesignPreset"><option value="classic">Elyon Classic Dark</option><option value="midnight">Midnight Blue</option><option value="aurora">Aurora Neon</option><option value="emerald">Emerald Business</option><option value="slate">Slate Professional</option></select></div>
-          <div><label>Startseite</label><select id="setStart"><option value="homeTab">Dashboard</option><option value="productsTab">Produkte</option><option value="generatorTab">Generator</option></select></div>
+          <div><label>Startseite</label><select id="setStart"><option value="dashboardTab">Dashboard</option><option value="productSearchTab">Produktsuche</option><option value="productListTab">Meine Produktliste</option><option value="productAnalysisTab">Produktanalyse</option><option value="ebayListingTab">eBay Listing vorbereiten</option><option value="ordersTab">Bestellungen</option><option value="automationTab">Automatisierung</option><option value="settingsTab">Einstellungen / API Status</option></select></div>
         </div>
       </div>
 
@@ -1034,22 +1074,36 @@ const defaultSettings = {
   market: 'DE',
   theme: 'dark',
   designPreset: 'classic',
-  start: 'homeTab'
+  start: 'dashboardTab'
 };
 let appSettings = { ...defaultSettings, ...JSON.parse(localStorage.getItem('elyonSettings') || '{}') };
 const listingItems = ['Titel enthält Hauptkeyword','Produktbilder vorhanden','Beschreibung verständlich','Preis geprüft','Versandzeit realistisch','Rücknahmebedingungen klar','LUCID/Verpackung bedacht','WEEE/Batt geprüft, falls relevant','Markenrechte geprüft','Gewinn nach Gebühren positiv'];
-const $ = id => document.getElementById(id);
+const $ = id => document.getElementById(resolveTabId(id)) || document.getElementById(id);
 const safe = (id, fn) => { const el = $(id); if (el) fn(el); };
 const n = id => { const el = $(id); return el ? (parseFloat(String(el.value || '0').replace(',', '.')) || 0) : 0; };
 function euro(v){ return (Number(v)||0).toLocaleString('de-DE',{style:'currency',currency:'EUR'}); }
 function setHTML(id, html){ safe(id, el => { el.innerHTML = html; }); }
+const TAB_ALIASES = {
+  homeTab: 'dashboardTab',
+  productsTab: 'productSearchTab',
+  researchTab: 'productAnalysisTab',
+  generatorTab: 'ebayListingTab',
+  salesTab: 'ordersTab',
+  shippingTab: 'automationTab',
+  apiImportTab: 'settingsTab'
+};
+function resolveTabId(tabId){
+  return TAB_ALIASES[tabId] || tabId;
+}
 function showTab(tabId){
-  const target = $(tabId);
+  const resolvedId = resolveTabId(tabId);
+  const target = $(resolvedId);
   if(!target){ console.warn('Tab nicht gefunden:', tabId); return; }
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   target.classList.add('active');
-  safe('mainMenu', menu => { if([...menu.options].some(o => o.value === tabId && !o.disabled)) menu.value = tabId; });
+  safe('mainMenu', menu => { if([...menu.options].some(o => o.value === resolvedId && !o.disabled)) menu.value = resolvedId; });
 }
+window.showTab = showTab;
 function showShopifyTool(sectionId){
   showTab('shopifyTab');
   safe('mainMenu', menu => { menu.value = ''; });
@@ -1066,28 +1120,28 @@ function resetMenusToLabNames(){
   safe('shopifyMenu', menu => { menu.value = 'shopifyTab'; });
 }
 function showDashboard(){
-  showTab('homeTab');
+  showTab('dashboardTab');
   resetMenusToLabNames();
 }
 function openOrders(){
-  showTab('salesTab');
-  safe('mainMenu', menu => { menu.value = 'salesTab'; });
+  showTab('ordersTab');
+  safe('mainMenu', menu => { menu.value = 'ordersTab'; });
 }
 function openSalesAssistant(){
-  showTab('salesTab');
-  safe('mainMenu', menu => { menu.value = 'salesTab'; });
+  showTab('ordersTab');
+  safe('mainMenu', menu => { menu.value = 'ordersTab'; });
 }
 function openReturnsCenter(){
   showTab('returnsTab');
   resetMenusToLabNames();
 }
 function openGenerator(){
-  showTab('generatorTab');
-  safe('mainMenu', menu => { menu.value = 'generatorTab'; });
+  showTab('ebayListingTab');
+  safe('mainMenu', menu => { menu.value = 'ebayListingTab'; });
 }
 function openProductBoard(){
-  showTab('productsTab');
-  safe('mainMenu', menu => { menu.value = 'productsTab'; });
+  showTab('productListTab');
+  safe('mainMenu', menu => { menu.value = 'productListTab'; });
 }
 function openIntegrations(){
   safe('settingsModal', el => el.classList.remove('hidden'));
@@ -1101,8 +1155,8 @@ function openIntegrations(){
   },50);
 }
 function openApiImport(){
-  showTab('apiImportTab');
-  safe('mainMenu', menu => { menu.value = 'apiImportTab'; });
+  showTab('settingsTab');
+  safe('mainMenu', menu => { menu.value = 'settingsTab'; });
   window.scrollTo({top:0, behavior:'smooth'});
 }
 function openStartLauncher(){
@@ -1151,7 +1205,7 @@ function startQuickAction(action){
   closeStartLauncher();
   if(action === 'product') scrollToProductForm();
   if(action === 'sale') openSalesAssistant();
-  if(action === 'shipping') showTab('shippingTab');
+  if(action === 'shipping') showTab('automationTab');
   if(action === 'invoice') openSalesAssistant();
   if(action === 'return') openReturnsCenter();
 }
@@ -2629,7 +2683,7 @@ function render(){
 }
 function setProductFilter(value){ safe('filter',el=>{el.value=value;}); render(); }
 function toggleProductView(){ productViewMode=productViewMode==='list'?'kanban':'list'; localStorage.setItem('elyonProductViewMode',productViewMode); safe('toggleViewBtn',el=>el.textContent=productViewMode==='list'?'Kanban-Ansicht':'Listen-Ansicht'); render(); }
-function scrollToProductForm(){ showTab('productsTab'); setTimeout(()=>{ const el=$('productFormCard'); if(el) el.scrollIntoView({behavior:'smooth',block:'start'}); },60); }
+function scrollToProductForm(){ showTab('productSearchTab'); setTimeout(()=>{ const el=$('productFormCard'); if(el) el.scrollIntoView({behavior:'smooth',block:'start'}); },60); }
 function runResearchCheck(){ const cost=n('rCost'),my=n('rMyPrice'),feePct=n('rFee'),bufPct=n('rBuffer'),low=n('rLow'),avg=n('rAvg'),sellers=n('rSellers'),sold=n('rSold'),delivery=n('rDelivery'),risk=$('rRisk')?.value||'low'; const profit=my-cost-my*(feePct/100)-my*(bufPct/100),breakEven=cost/(1-((feePct+bufPct)/100)); let score=0,reasons=[]; if(profit>=10){score+=28;reasons.push('starker Gewinn nach Gebühren');}else if(profit>=5){score+=18;reasons.push('brauchbarer Gewinn');}else if(profit>0){score+=7;reasons.push('Gewinn knapp');}else reasons.push('Verlust oder fast kein Gewinn'); if(avg&&my<=avg){score+=18;reasons.push('Preis am/unter Durchschnitt');}else if(avg){score+=6;reasons.push('Preis über Durchschnitt');} if(low&&my<=low*1.1){score+=8;reasons.push('nah am günstigsten Anbieter');}else if(low)reasons.push('deutlich teurer als günstigster Anbieter'); if(sold>=50){score+=20;reasons.push('Nachfrage stark');}else if(sold>=15){score+=12;reasons.push('Nachfrage vorhanden');}else reasons.push('Nachfrage schwach/unklar'); if(sellers>0&&sellers<=15){score+=14;reasons.push('Konkurrenz überschaubar');}else if(sellers<=40){score+=8;reasons.push('Konkurrenz mittel');}else reasons.push('viel Konkurrenz'); if(delivery>0&&delivery<=7){score+=8;reasons.push('Lieferzeit stark');}else if(delivery<=14){score+=4;reasons.push('Lieferzeit okay');}else reasons.push('Lieferzeit riskant'); if(risk==='low'){score+=8;reasons.push('Risiko niedrig');}else if(risk==='medium'){score+=3;reasons.push('Risiko mittel');}else{score-=12;reasons.push('hohes Risiko: WEEE/Batt prüfen');} score=Math.max(0,Math.min(100,Math.round(score))); const s=statusFromScore(score); setHTML('researchResult',`<div class="score-top"><span class="status ${s.cls}">${s.label}</span><span class="score-number">${score}/100</span></div><div class="progress"><div class="bar" style="width:${score}%"></div></div><div class="big-result">${euro(profit)}</div><div class="muted">Gewinn nach Gebühren & Puffer</div><div class="dashboard" style="margin-top:16px"><div class="metric"><small>Break-even</small><strong>${euro(breakEven)}</strong></div><div class="metric"><small>Dein Preis</small><strong>${euro(my)}</strong></div><div class="metric"><small>Ø Markt</small><strong>${euro(avg)}</strong></div><div class="metric"><small>Anbieter</small><strong>${sellers}</strong></div></div><div class="output-box"><h3>Warum?</h3><ul>${reasons.map(r=>`<li>${r}</li>`).join('')}</ul></div>`); }
 function legalCheck(){ let points=0,w=[]; if($('lBattery')?.checked){points+=25;w.push('Batterie/Akku: BattG/EPR prüfen.');} if($('lElectric')?.checked){points+=30;w.push('Elektrogerät: WEEE/EAR-Pflicht möglich.');} if($('lBrand')?.checked){points+=25;w.push('Marke/Logo: Markenrecht/Designrecht prüfen.');} if($('lCosmetic')?.checked){points+=25;w.push('Kosmetik/Lebensmittel/Medizin/Körperkontakt: hohe Anforderungen.');} if($('lFragile')?.checked){points+=10;w.push('Zerbrechlich/Retouren: mehr Puffer einplanen.');} if($('lPackaging')?.checked){w.push('Verpackung: LUCID/Duales System beachten.');} let cls=points>=50?'bad':points>=20?'warn':'good',label=points>=50?'🔴 Hochriskant':points>=20?'🟡 Prüfen':'🟢 Niedriges Risiko'; setHTML('legalResult',`<span class="status ${cls}">${label}</span><div class="output-box"><h3>Hinweise</h3><ul>${w.map(x=>`<li>${x}</li>`).join('')||'<li>Keine besonderen Warnungen.</li>'}</ul></div>`); }
 function roundPrice(v,type){ if(type==='x99') return Math.floor(v)+0.99; if(type==='x49') return Math.floor(v)+0.49; return v; }
@@ -2955,7 +3009,7 @@ function applySettings(){
   safe('setMarket',el=>el.value=appSettings.market);
   safe('setTheme',el=>el.value=appSettings.theme);
   safe('setDesignPreset',el=>el.value=appSettings.designPreset || 'classic');
-  safe('setStart',el=>el.value=appSettings.start);
+  safe('setStart',el=>el.value=resolveTabId(appSettings.start || 'dashboardTab'));
 }
 function readSettingsFromForm(){
   return {
@@ -2973,7 +3027,7 @@ function readSettingsFromForm(){
     market:$('setMarket')?.value||'DE',
     theme:$('setTheme')?.value||'dark',
     designPreset:$('setDesignPreset')?.value||'classic',
-    start:$('setStart')?.value||'homeTab'
+    start:resolveTabId($('setStart')?.value||'dashboardTab')
   };
 }
 function saveSettings(){
@@ -3898,7 +3952,7 @@ function bindEvents(){
   bind('saleShippingStatus','change',renderShippingPreview);
   bind('saleTrackingNo','input',renderShippingPreview);
   bind('saleShipDate','change',renderShippingPreview);
-  safe('shippingTab', el => el.addEventListener('click', handleShippingClick));
+  safe('automationTab', el => el.addEventListener('click', handleShippingClick));
   ['salePrice','saleCost','saleFees','saleQty'].forEach(id=>safe(id,el=>el.addEventListener('input',updateSalePreview)));
   bind('orderSearch','input',renderSales);
   bind('orderStatusFilter','change',renderSales);
@@ -3906,9 +3960,14 @@ function bindEvents(){
   safe('salesList', el => el.addEventListener('click', handleSalesClick));
 }
 function runSelfTests(){
-  console.assert(!!$('homeTab'), 'homeTab muss existieren');
-  console.assert(!!$('productsTab'), 'productsTab muss existieren');
-  console.assert(!!$('generatorTab'), 'generatorTab muss existieren');
+  console.assert(!!$('dashboardTab'), 'dashboardTab muss existieren');
+  console.assert(!!$('productSearchTab'), 'productSearchTab muss existieren');
+  console.assert(!!$('productListTab'), 'productListTab muss existieren');
+  console.assert(!!$('productAnalysisTab'), 'productAnalysisTab muss existieren');
+  console.assert(!!$('ebayListingTab'), 'ebayListingTab muss existieren');
+  console.assert(!!$('ordersTab'), 'ordersTab muss existieren');
+  console.assert(!!$('automationTab'), 'automationTab muss existieren');
+  console.assert(!!$('settingsTab'), 'settingsTab muss existieren');
   console.assert(!!$('shopifyTab'), 'shopifyTab muss existieren');
   console.assert(!!$('shippingTab'), 'shippingTab muss existieren');
   console.assert(!!$('invoiceTab'), 'invoiceTab muss existieren');
@@ -4013,8 +4072,8 @@ document.addEventListener('DOMContentLoaded',()=>{
   bindEvents();
   applySettings();
   applyInvoiceSettings();
-  showTab(appSettings.start || 'homeTab');
-  if((appSettings.start || 'homeTab') === 'homeTab') resetMenusToLabNames();
+  showTab('dashboardTab');
+  resetMenusToLabNames();
   safe('toggleViewBtn',el=>el.textContent=productViewMode==='list'?'Kanban-Ansicht':'Listen-Ansicht');
   render();
   renderReturns();
