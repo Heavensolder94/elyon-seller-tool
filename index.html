@@ -1223,7 +1223,7 @@ function normalizeBackendUrl(url){
 function getBackendUrl(){
   const modalInput = $('setIntBackendUrl');
   const tabInput = $('intBackendUrl');
-  return normalizeBackendUrl((modalInput && modalInput.value.trim()) || (tabInput && tabInput.value.trim()) || integrationSettings.backendUrl || window.location.origin || 'https://elyon-seller-tool.vercel.app');
+  return normalizeBackendUrl((modalInput && modalInput.value.trim()) || (tabInput && tabInput.value.trim()) || integrationSettings.backendUrl || '');
 }
 async function fetchBackendJSON(path,options){
   const backendUrl = getBackendUrl();
@@ -1323,116 +1323,16 @@ function backendOrderItems(data){
   if(data.data && Array.isArray(data.data.list)) return data.data.list;
   return [];
 }
-function escapeHTML(value){
-  return String(value ?? '')
-    .replaceAll('&','&amp;')
-    .replaceAll('<','&lt;')
-    .replaceAll('>','&gt;')
-    .replaceAll('"','&quot;');
-}
-function cleanCjDisplayText(value){
-  if(value === null || value === undefined) return '';
-  let text = String(value).trim();
-
-  if(text.startsWith('[') && text.endsWith(']')){
-    try{
-      const arr = JSON.parse(text);
-      if(Array.isArray(arr)) text = arr.join(' ');
-    }catch(err){
-      text = text.replaceAll('[',' ').replaceAll(']',' ').replaceAll('"',' ').replaceAll(',',' ');
-    }
-  }
-
-  const cutMarkers = [
-    'productSku','productImage','productWeight','productType','productUnit','categoryName','listingCount',
-    'sellPrice','remark','addMarkStatus','isFreeShipping','createTime','supplierName','supplierId','categoryId',
-    'Produkt-SKU','Produktbild','Produktgewicht','Produkttyp','Produkteinheit','Kategoriename',
-    'Anzahl Angebote','Verkaufspreis','Bemerkung','Lieferantenname'
-  ];
-
-  cutMarkers.forEach(function(marker){
-    const pos = text.indexOf(marker);
-    if(pos > 8) text = text.slice(0,pos);
-  });
-
-  text = text
-    .replaceAll('[',' ')
-    .replaceAll(']',' ')
-    .replaceAll('"',' ')
-    .replaceAll('_',' ')
-    .replaceAll(',',' ')
-    .trim();
-
-  while(text.includes('  ')) text = text.replaceAll('  ',' ');
-  if(text.length > 140) text = text.slice(0,137).trim() + '...';
-  return text;
-}
-function getCleanCjProductName(item){
-  if(!item) return 'CJ Produkt';
-
-  const candidates = [
-    item.title,
-    item.productNameEn,
-    item.productName,
-    item.name,
-    item.productTitle,
-    item.enName,
-    item.productNameEnglish
-  ];
-
-  for(const value of candidates){
-    const clean = cleanCjDisplayText(value);
-    if(clean && clean.length > 2 && clean.toLowerCase() !== 'cj produkt') return clean;
-  }
-
-  if(typeof item === 'object'){
-    const keys = Object.keys(item);
-
-    for(const key of keys){
-      const lower = key.toLowerCase();
-      if(lower.includes('productname') || lower.includes('title') || lower.includes('nameen')){
-        const cleanValue = cleanCjDisplayText(item[key]);
-        if(cleanValue && cleanValue.length > 2) return cleanValue;
-
-        const cleanKey = cleanCjDisplayText(key)
-          .replace('productNameEn','')
-          .replace('productName','')
-          .replace('ProductNameEn','')
-          .replace('ProductName','')
-          .trim();
-
-        if(cleanKey && cleanKey.length > 2) return cleanKey;
-      }
-    }
-
-    for(const key of keys){
-      const value = item[key];
-      if(typeof value === 'string' && value.length > 4){
-        const clean = cleanCjDisplayText(value);
-        if(clean && clean.length > 4 && !clean.toLowerCase().includes('cjdropshipping')) return clean;
-      }
-    }
-  }
-
-  const fallback = item.productSku || item.sku || item.pid || item.productId || item.id || '';
-  return fallback ? ('CJ Produkt ' + String(fallback).slice(0,30)) : 'CJ Produkt';
-}
 function cjProductCardHTML(item,index){
-  const name = getCleanCjProductName(item);
-  const pid = item.pid || item.productId || item.id || item.productSku || item.sku || '';
+  const name = item.name || item.productName || item.productNameEn || item.title || 'CJ Produkt';
+  const pid = item.pid || item.productId || item.id || '';
   const price = item.sellPrice || item.price || item.nowPrice || item.productPrice || '';
   const delivery = item.deliveryTime || item.shippingTime || '';
-  const image = item.productImage || item.image || item.imageUrl || '';
-
   let html='';
   html += '<article class="product-card small-card">';
-  html += '<div>';
-  if(image){
-    html += '<img src="'+escapeHTML(image)+'" alt="" style="width:72px;height:72px;object-fit:cover;border-radius:14px;float:left;margin-right:12px">';
-  }
-  html += '<div class="product-title">'+escapeHTML(name)+'</div>';
-  html += '<div class="muted">CJ-ID: '+escapeHTML(pid || 'unbekannt')+'</div>';
-  html += '<div class="pill-row"><span class="pill">Preis: '+escapeHTML(price || 'n/a')+'</span><span class="pill">Lieferzeit: '+escapeHTML(delivery || 'n/a')+'</span></div>';
+  html += '<div><div class="product-title">'+name+'</div>';
+  html += '<div class="muted">CJ-ID: '+(pid||'unbekannt')+'</div>';
+  html += '<div class="pill-row"><span class="pill">Preis: '+(price||'n/a')+'</span><span class="pill">Lieferzeit: '+(delivery||'n/a')+'</span></div>';
   html += '</div><div class="score-wrap"><span class="status good">CJ Daten</span></div>';
   html += '<div class="actions"><button class="secondary" data-cj-copy="'+index+'">In Produktformular übernehmen</button></div>';
   html += '</article>';
@@ -1449,14 +1349,14 @@ async function searchCjProducts(){
     if(!items.length){ setHTML('cjSearchResult','<p>Keine CJ Produkte gefunden oder Backend liefert keine Produktliste.</p>'); return; }
     setHTML('cjSearchResult','<h3>CJ Treffer</h3><div class="products">'+items.slice(0,10).map(cjProductCardHTML).join('')+'</div>');
   }catch(err){
-    setHTML('cjSearchResult','<p>⚠️ '+escapeHTML(err.message)+'</p><p class="hint">Erwartete Backend-Route: /api/cj/search?keyword=...</p>');
+    setHTML('cjSearchResult','<p>⚠️ '+err.message+'</p><p class="hint">Erwartete Backend-Route: /api/cj/search?keyword=...</p>');
   }
 }
 function copyCjProductToForm(index){
   const item = lastCjSearchItems[Number(index)];
   if(!item){ alert('CJ Produkt nicht gefunden.'); return; }
-  const name = getCleanCjProductName(item);
-  const pid = item.pid || item.productId || item.id || item.productSku || item.sku || '';
+  const name = item.name || item.productName || item.productNameEn || item.title || '';
+  const pid = item.pid || item.productId || item.id || '';
   const price = item.sellPrice || item.price || item.nowPrice || item.productPrice || '';
   const link = item.productLink || item.url || item.productUrl || '';
   safe('name',el=>el.value=name || el.value);
@@ -1467,7 +1367,6 @@ function copyCjProductToForm(index){
   openProductBoard();
   scrollToProductForm();
 }
-
 async function searchEbayCompetition(){
   const keyword = $('ebayCompetitionKeyword') ? $('ebayCompetitionKeyword').value.trim() : '';
   if(!keyword){ alert('Bitte eBay Suchbegriff eingeben.'); return; }
@@ -1493,7 +1392,7 @@ async function searchEbayCompetition(){
 }
 async function ebaySuche(){
   const storedBackend = localStorage.getItem('backendUrl') || '';
-  const backendUrl = getBackendUrl() || normalizeBackendUrl(storedBackend) || 'https://elyon-seller-tool.vercel.app';
+  const backendUrl = getBackendUrl() || normalizeBackendUrl(storedBackend) || 'https://elyonsellertool.vercel.app';
   const input = $('ebaySearchInput');
   const suchwort = input && input.value.trim() ? input.value.trim() : 'iphone';
   const box = $('ebaySearchResults');
@@ -4109,17 +4008,7 @@ function runSelfTests(){
   console.assert(typeof closeInvoiceModal === 'function', 'Rechnungsmodal schließen sollte existieren');
   console.assert(typeof handleInvoiceModalClick === 'function', 'Rechnungsmodal Klickhandler sollte existieren');
 }
-function exposeElyonDebugFunctions(){
-  window.showTab = showTab;
-  window.render = render;
-  window.searchCjProducts = searchCjProducts;
-  window.searchEbayCompetition = searchEbayCompetition;
-  window.ebaySuche = ebaySuche;
-  window.fetchBackendJSON = fetchBackendJSON;
-  window.testBackendConnection = testBackendConnection;
-}
 document.addEventListener('DOMContentLoaded',()=>{
-  exposeElyonDebugFunctions();
   initListing();
   bindEvents();
   applySettings();
@@ -4138,7 +4027,200 @@ document.addEventListener('DOMContentLoaded',()=>{
   if(localStorage.getItem('elyonShowStartLauncher') !== 'no') openStartLauncher();
   runSelfTests();
 });
+  async function searchEbayCompetition(){
+  const input = document.getElementById('ebayCompetitionKeyword');
+  const keyword = input && input.value.trim() ? input.value.trim() : '';
 
+  if(!keyword){
+    alert('Bitte eBay Suchbegriff eingeben.');
+    return;
+  }
+
+  const box = document.getElementById('ebayCompetitionResult');
+  if(!box){
+    alert('Ergebnisbox für eBay Konkurrenz nicht gefunden.');
+    return;
+  }
+
+  box.innerHTML = '<p>eBay Marktdaten werden geladen...</p>';
+
+  try{
+    const backendUrl = getBackendUrl();
+    const res = await fetch(
+      backendUrl + '/api/ebay/search?q=' + encodeURIComponent(keyword) + '&limit=20'
+    );
+
+    const data = await res.json();
+
+    if(!res.ok){
+      throw new Error(data.error || data.message || 'Backend-Fehler');
+    }
+
+    const items = data.items || data.itemSummaries || data.results || [];
+
+    if(!items.length){
+      box.innerHTML = '<p>Keine eBay Daten gefunden.</p>';
+      return;
+    }
+
+    const prices = items
+      .map(function(item){
+        if(item.price && item.price.value) return Number(item.price.value);
+        if(item.price) return Number(item.price);
+        if(item.currentPrice) return Number(item.currentPrice);
+        return 0;
+      })
+      .filter(function(price){
+        return price > 0;
+      });
+
+    const low = prices.length ? Math.min.apply(null, prices) : 0;
+    const high = prices.length ? Math.max.apply(null, prices) : 0;
+    const avg = prices.length
+      ? prices.reduce(function(sum, price){ return sum + price; }, 0) / prices.length
+      : 0;
+
+    let html = '';
+    html += '<h3>eBay Konkurrenz / Marktdaten</h3>';
+    html += '<p class="hint">Datenquelle: /api/ebay/search. Die Konkurrenzwerte werden im Tool berechnet.</p>';
+
+    html += '<div class="dashboard">';
+    html += '<div class="metric"><small>Treffer</small><strong>' + items.length + '</strong></div>';
+    html += '<div class="metric"><small>Niedrig</small><strong>' + low.toFixed(2) + ' €</strong></div>';
+    html += '<div class="metric"><small>Ø Preis</small><strong>' + avg.toFixed(2) + ' €</strong></div>';
+    html += '<div class="metric"><small>Hoch</small><strong>' + high.toFixed(2) + ' €</strong></div>';
+    html += '</div>';
+
+    html += '<div class="products">';
+
+    items.slice(0,8).forEach(function(item){
+      const title = item.title || item.name || 'eBay Treffer';
+      const price = item.price && item.price.value ? item.price.value : (item.price || item.currentPrice || '-');
+      const currency = item.price && item.price.currency ? item.price.currency : '';
+      const condition = item.condition || '-';
+      const url = item.itemWebUrl || item.itemAffiliateWebUrl || item.url || '';
+
+      html += '<article class="product-card small-card">';
+      html += '<div>';
+      html += '<div class="product-title">' + title + '</div>';
+      html += '<div class="muted">Preis: ' + price + ' ' + currency + ' · Zustand: ' + condition + '</div>';
+
+      if(url){
+        html += '<div class="output-box"><p><a href="' + url + '" target="_blank" rel="noopener">Auf eBay ansehen</a></p></div>';
+      }
+
+      html += '</div>';
+      html += '<div class="score-wrap"><span class="status warn">Konkurrenz</span></div>';
+      html += '</article>';
+    });
+
+    html += '</div>';
+
+    box.innerHTML = html;
+
+  }catch(err){
+    box.innerHTML =
+      '<p>⚠️ eBay Konkurrenz Fehler: ' + err.message + '</p>' +
+      '<p class="hint">Diese Funktion nutzt /api/ebay/search?q=...&limit=20</p>';
+  }
+}
+  async function searchEbayCompetition(){
+  const input = document.getElementById('ebayCompetitionKeyword');
+  const keyword = input && input.value.trim() ? input.value.trim() : '';
+
+  if(!keyword){
+    alert('Bitte eBay Suchbegriff eingeben.');
+    return;
+  }
+
+  const box = document.getElementById('ebayCompetitionResult');
+  if(!box){
+    alert('Ergebnisbox für eBay Marktdaten nicht gefunden.');
+    return;
+  }
+
+  box.innerHTML = '<p>eBay Marktdaten werden geladen...</p>';
+
+  try{
+    const backendUrl = getBackendUrl();
+    const res = await fetch(
+      backendUrl + '/api/ebay/search?q=' + encodeURIComponent(keyword) + '&limit=20'
+    );
+
+    const data = await res.json();
+
+    if(!res.ok){
+      throw new Error(data.error || data.message || 'Backend-Fehler');
+    }
+
+    const items = data.items || data.itemSummaries || data.results || [];
+
+    if(!items.length){
+      box.innerHTML = '<p>Keine eBay Daten gefunden.</p>';
+      return;
+    }
+
+    const prices = items
+      .map(function(item){
+        if(item.price && item.price.value) return Number(item.price.value);
+        if(item.price) return Number(item.price);
+        if(item.currentPrice) return Number(item.currentPrice);
+        return 0;
+      })
+      .filter(function(price){
+        return price > 0;
+      });
+
+    const low = prices.length ? Math.min.apply(null, prices) : 0;
+    const high = prices.length ? Math.max.apply(null, prices) : 0;
+    const avg = prices.length
+      ? prices.reduce(function(sum, price){ return sum + price; }, 0) / prices.length
+      : 0;
+
+    let html = '';
+    html += '<h3>eBay Marktdaten / Konkurrenz</h3>';
+    html += '<p class="hint">Datenquelle: /api/ebay/search. Die Konkurrenzwerte werden im Tool berechnet.</p>';
+
+    html += '<div class="dashboard">';
+    html += '<div class="metric"><small>Treffer</small><strong>' + items.length + '</strong></div>';
+    html += '<div class="metric"><small>Niedrig</small><strong>' + low.toFixed(2) + ' €</strong></div>';
+    html += '<div class="metric"><small>Ø Preis</small><strong>' + avg.toFixed(2) + ' €</strong></div>';
+    html += '<div class="metric"><small>Hoch</small><strong>' + high.toFixed(2) + ' €</strong></div>';
+    html += '</div>';
+
+    html += '<div class="products">';
+
+    items.slice(0,8).forEach(function(item){
+      const title = item.title || item.name || 'eBay Treffer';
+      const price = item.price && item.price.value ? item.price.value : (item.price || item.currentPrice || '-');
+      const currency = item.price && item.price.currency ? item.price.currency : '';
+      const condition = item.condition || '-';
+      const url = item.itemWebUrl || item.itemAffiliateWebUrl || item.url || '';
+
+      html += '<article class="product-card small-card">';
+      html += '<div>';
+      html += '<div class="product-title">' + title + '</div>';
+      html += '<div class="muted">Preis: ' + price + ' ' + currency + ' · Zustand: ' + condition + '</div>';
+
+      if(url){
+        html += '<div class="output-box"><p><a href="' + url + '" target="_blank" rel="noopener">Auf eBay ansehen</a></p></div>';
+      }
+
+      html += '</div>';
+      html += '<div class="score-wrap"><span class="status warn">Konkurrenz</span></div>';
+      html += '</article>';
+    });
+
+    html += '</div>';
+
+    box.innerHTML = html;
+
+  }catch(err){
+    box.innerHTML =
+      '<p>⚠️ eBay Marktdaten Fehler: ' + err.message + '</p>' +
+      '<p class="hint">Diese Funktion nutzt /api/ebay/search?q=...&limit=20</p>';
+  }
+}
 </script>
 </body>
 </html>
