@@ -1,5 +1,11 @@
 import { readToken, getTokenStoreDescription } from "./token-store.js";
 
+function getEbayTokenEndpoint(environment) {
+  return environment === "sandbox"
+    ? "https://api.sandbox.ebay.com/identity/v1/oauth2/token"
+    : "https://api.ebay.com/identity/v1/oauth2/token";
+}
+
 export default async function handler(req, res) {
   try {
     const environment = String(req.query.environment || req.query.env || "production").toLowerCase() === "sandbox"
@@ -25,7 +31,7 @@ export default async function handler(req, res) {
       scope: "https://api.ebay.com/oauth/api_scope"
     });
 
-    const ebayRes = await fetch("https://api.sandbox.ebay.com/identity/v1/oauth2/token", {
+    const ebayRes = await fetch(getEbayTokenEndpoint(environment), {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
