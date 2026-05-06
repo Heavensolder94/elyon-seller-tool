@@ -1,10 +1,20 @@
+import { readToken } from "./token-store.js";
+
+function getEbayFulfillmentEndpoint(environment) {
+  return environment === "sandbox"
+    ? "https://api.sandbox.ebay.com/sell/fulfillment/v1/order"
+    : "https://api.ebay.com/sell/fulfillment/v1/order";
+}
+
 async function getEbayUserAccessToken() {
   const clientId = process.env.EBAY_CLIENT_ID;
   const clientSecret = process.env.EBAY_CLIENT_SECRET;
-  const refreshToken = process.env.EBAY_REFRESH_TOKEN;
+  const environment = String(process.env.EBAY_ENV || "production").toLowerCase() === "sandbox" ? "sandbox" : "production";
+  const stored = await readToken(environment);
+  const refreshToken = stored?.refresh_token || process.env.EBAY_REFRESH_TOKEN;
 
   if (!clientId || !clientSecret || !refreshToken) {
-    throw new Error("EBAY_CLIENT_ID, EBAY_CLIENT_SECRET oder EBAY_REFRESH_TOKEN fehlt in Vercel.");
+    throw new Error("EBAY_CLIENT_ID, EBAY_CLIENT_SECRET oder gespeicherter EBAY refresh_token fehlt.");
   }
 
   const credentials = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
@@ -41,6 +51,9 @@ export default async function handler(req, res) {
   try {
     const days = Number(req.query.days || 7);
     const status = req.query.status || "all";
+    const environment = String(req.query.environment || req.query.env || process.env.EBAY_ENV || "production").toLowerCase() === "sandbox"
+      ? "sandbox"
+      : "production";
 
     const token = await getEbayUserAccessToken();
 
@@ -52,7 +65,7 @@ export default async function handler(req, res) {
     }
 
     const url =
-      "https://api.ebay.com/sell/fulfillment/v1/order" +
+      getEbayFulfillmentEndpoint(environment) +
       `?limit=50&filter=${encodeURIComponent(filters.join(","))}`;
 
     const response = await fetch(url, {
@@ -75,6 +88,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       ok: true,
+      environment,
       days,
       status,
       count: data.orders?.length || 0,
