@@ -159,7 +159,7 @@
 <body>
   <main class="box">
     <h1>eBay Authorization</h1>
-    <p class="hint">Diese Seite liest den eBay-Code aus der Callback-URL, tauscht ihn auf dem Server gegen Tokens und macht den Result-Satz kopierbar. Wenn du ohne `code` hier landest, kannst du den Login direkt neu starten.</p>
+    <p class="hint">Diese Seite liest den eBay-Code aus der Callback-URL, tauscht ihn auf dem Server gegen Tokens und macht den Result-Satz kopierbar. Wenn du ohne <code>code</code> hier landest, kannst du den Login direkt neu starten.</p>
 
     <div class="row">
       <div class="field">
@@ -189,8 +189,8 @@
       <a class="btn ghost" href="/">Back to tool</a>
     </div>
 
-    <p class="footer tight">Required env vars: `EBAY_CLIENT_ID`, `EBAY_CLIENT_SECRET`, `EBAY_REDIRECT_URI` or `EBAY_RUNAME`. Optional: `EBAY_SCOPES`, `EBAY_ENV`.</p>
-    <p class="footer">Tip: if the URL came back without a `code`, start the consent flow again and make sure the redirect URI points to this page.</p>
+    <p class="footer tight">Required env vars: <code>EBAY_CLIENT_ID</code>, <code>EBAY_CLIENT_SECRET</code>, <code>EBAY_REDIRECT_URI</code> or <code>EBAY_RUNAME</code>. Optional: <code>EBAY_SCOPES</code>, <code>EBAY_ENV</code>.</p>
+    <p class="footer">Tip: if the URL came back without a <code>code</code>, start the consent flow again and make sure the redirect URI points to this page.</p>
   </main>
 
   <script>
@@ -204,6 +204,7 @@
     const codeSourceEl = document.getElementById('codeSource');
 
     let latestResultText = '{}';
+    const cachePrefix = 'ebay-token-exchange:';
 
     function normalizeEnvironment(value) {
       return String(value || '').toLowerCase() === 'sandbox' ? 'sandbox' : 'production';
@@ -249,6 +250,40 @@
       outputEl.textContent = latestResultText;
     }
 
+    function getCacheKey(environment, code) {
+      return `${cachePrefix}${environment}:${code}`;
+    }
+
+    function loadCachedResult(environment, code) {
+      try {
+        const raw = window.sessionStorage.getItem(getCacheKey(environment, code));
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        return parsed && typeof parsed === 'object' ? parsed : null;
+      } catch {
+        return null;
+      }
+    }
+
+    function saveCachedResult(environment, code, data) {
+      try {
+        window.sessionStorage.setItem(
+          getCacheKey(environment, code),
+          JSON.stringify({
+            savedAt: Date.now(),
+            data,
+          })
+        );
+      } catch {
+        // Session storage is a convenience only. Ignore failures.
+      }
+    }
+
+    function stripCallbackParams() {
+      const cleanUrl = `${window.location.pathname}${window.location.hash || ''}`;
+      window.history.replaceState({}, document.title, cleanUrl);
+    }
+
     async function openLogin() {
       const environment = normalizeEnvironment(environmentSelect.value);
       window.localStorage.setItem('ebayEnvironment', environment);
@@ -272,6 +307,16 @@
     async function exchangeCode(code) {
       const environment = normalizeEnvironment(environmentSelect.value);
       window.localStorage.setItem('ebayEnvironment', environment);
+
+      const cached = loadCachedResult(environment, code);
+      if (cached && cached.data) {
+        setResult(cached.data);
+        environmentLabelEl.textContent = cached.data.environment || environment;
+        setStatus('Dieser Code wurde in dieser Sitzung bereits verarbeitet. Das gespeicherte Ergebnis wird angezeigt.', 'good');
+        stripCallbackParams();
+        return cached.data;
+      }
+
       setStatus('Authorization code detected. Exchanging it for tokens...', '');
 
       const response = await fetch('/api/ebay/exchange-token', {
@@ -287,6 +332,8 @@
         throw new Error(data.error || 'Token exchange failed.');
       }
 
+      saveCachedResult(environment, code, data);
+      stripCallbackParams();
       environmentLabelEl.textContent = data.environment || environment;
       setStatus(data.refresh_token ? 'Refresh token received successfully.' : 'Exchange finished, but no refresh token was returned.', data.refresh_token ? 'good' : 'warn');
       return data;
@@ -324,6 +371,16 @@
           error: 'No code found in the URL.',
           hint: 'Open the eBay consent flow again and ensure the redirect URI points here.'
         });
+        return;
+      }
+
+      const cached = loadCachedResult(environment, info.code);
+      if (cached && cached.data) {
+        codeSourceEl.textContent = `${info.source} (cached)`;
+        setResult(cached.data);
+        environmentLabelEl.textContent = cached.data.environment || environment;
+        setStatus('Dieser Code wurde schon einmal eingelöst. Das Zwischenergebnis wird angezeigt, ohne den Code erneut zu verbrauchen.', 'good');
+        stripCallbackParams();
         return;
       }
 
