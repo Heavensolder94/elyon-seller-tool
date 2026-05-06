@@ -32,5 +32,6 @@ Useful environment variables:
 - `EBAY_TOKEN_STORE_URL` and `EBAY_TOKEN_STORE_TOKEN` for Upstash Redis storage
 - `EBAY_TOKEN_STORE_KEY` if you want to override the default Redis key
 - `EBAY_TOKEN_STORE_PATH` for local file fallback during local development
+- `api/ebay/orders.js` automatically reads the stored refresh token from the shared token store
 
 Do not commit `data/cj_tokens.json` to GitHub.
