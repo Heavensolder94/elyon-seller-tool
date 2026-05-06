@@ -1,25 +1,25 @@
-function getEbayEndpoint(environment) {
+function getEbayTokenEndpoint(environment) {
   return environment === "sandbox"
     ? "https://api.sandbox.ebay.com/identity/v1/oauth2/token"
     : "https://api.ebay.com/identity/v1/oauth2/token";
 }
 
-function getRequestCode(req) {
+function getCode(req) {
   if (req.method === "POST") {
-    return (
+    return String(
       req.body?.code ||
       req.body?.authorization_code ||
       req.body?.authCode ||
       ""
-    );
+    ).trim();
   }
 
-  return (
+  return String(
     req.query.code ||
     req.query.authorization_code ||
     req.query.authCode ||
     ""
-  );
+  ).trim();
 }
 
 function getEnvironment(req) {
@@ -40,7 +40,7 @@ export default async function handler(req, res) {
       });
     }
 
-    const code = String(getRequestCode(req)).trim();
+    const code = getCode(req);
     if (!code) {
       return res.status(400).json({
         ok: false,
@@ -55,18 +55,17 @@ export default async function handler(req, res) {
     if (!clientId || !clientSecret || !redirectUri) {
       return res.status(500).json({
         ok: false,
-        error:
-          "EBAY_CLIENT_ID, EBAY_CLIENT_SECRET oder EBAY_REDIRECT_URI / EBAY_RUNAME fehlt."
+        error: "EBAY_CLIENT_ID, EBAY_CLIENT_SECRET oder EBAY_REDIRECT_URI / EBAY_RUNAME fehlt."
       });
     }
 
     const environment = getEnvironment(req);
-    const endpoint = getEbayEndpoint(environment);
+    const endpoint = getEbayTokenEndpoint(environment);
     const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
 
     const body = new URLSearchParams({
       grant_type: "authorization_code",
-      code: code,
+      code,
       redirect_uri: redirectUri
     });
 
@@ -84,11 +83,7 @@ export default async function handler(req, res) {
     if (!response.ok) {
       return res.status(response.status || 500).json({
         ok: false,
-        error:
-          data.error_description ||
-          data.error ||
-          data.message ||
-          "eBay Token Exchange fehlgeschlagen.",
+        error: data.error_description || data.error || data.message || "eBay Token Exchange fehlgeschlagen.",
         details: data
       });
     }
