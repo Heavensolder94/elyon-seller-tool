@@ -1,5 +1,21 @@
+import { readFile } from "node:fs/promises";
+import process from "node:process";
+
+async function readStoredToken() {
+  const filePath = process.env.EBAY_TOKEN_STORE_PATH || "./data/ebay-refresh-token.json";
+  try {
+    const raw = await readFile(filePath, "utf8");
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
 export default async function handler(req, res) {
   try {
+    const stored = await readStoredToken();
+
     const clientId = process.env.EBAY_CLIENT_ID;
     const clientSecret = process.env.EBAY_CLIENT_SECRET;
 
@@ -42,6 +58,9 @@ export default async function handler(req, res) {
       expires_in: data.expires_in,
       access_token_preview: data.access_token
         ? data.access_token.slice(0, 12) + "..."
+        : null,
+      stored_refresh_token_preview: stored?.refresh_token
+        ? `${String(stored.refresh_token).slice(0, 12)}...`
         : null
     });
 
