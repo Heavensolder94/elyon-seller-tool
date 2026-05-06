@@ -17,6 +17,7 @@ What the app does:
 - searches products by keyword or SKU
 - reads product details and stock by variant
 - prepares CJ order creation via the V2 shopping endpoint
+- keeps the legacy `src/calculator.py` import path working as a shim
 
 Useful environment variables:
 
