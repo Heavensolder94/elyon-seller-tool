@@ -1,7 +1,41 @@
+import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { dirname } from "node:path";
+import process from "node:process";
+
 function getEbayTokenEndpoint(environment) {
   return environment === "sandbox"
     ? "https://api.sandbox.ebay.com/identity/v1/oauth2/token"
     : "https://api.ebay.com/identity/v1/oauth2/token";
+}
+
+function getTokenStorePath() {
+  return process.env.EBAY_TOKEN_STORE_PATH || "./data/ebay-refresh-token.json";
+}
+
+async function ensureDirectoryFor(filePath) {
+  await mkdir(dirname(filePath), { recursive: true });
+}
+
+async function readStoredToken() {
+  const filePath = getTokenStorePath();
+  try {
+    const raw = await readFile(filePath, "utf8");
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+async function storeToken(payload) {
+  const filePath = getTokenStorePath();
+  try {
+    await ensureDirectoryFor(filePath);
+    await writeFile(filePath, JSON.stringify(payload, null, 2), "utf8");
+    return { ok: true, path: filePath };
+  } catch (error) {
+    return { ok: false, error: error.message, path: filePath };
+  }
 }
 
 function getCode(req) {
@@ -88,6 +122,20 @@ export default async function handler(req, res) {
       });
     }
 
+    const tokenRecord = {
+      environment,
+      refresh_token: data.refresh_token || null,
+      access_token: data.access_token || null,
+      token_type: data.token_type || null,
+      expires_in: data.expires_in || null,
+      scope: data.scope || null,
+      saved_at: new Date().toISOString(),
+      source: "oauth-code-grant"
+    };
+
+    const storeResult = await storeToken(tokenRecord);
+    const storedToken = await readStoredToken();
+
     return res.status(200).json({
       ok: true,
       environment,
@@ -95,7 +143,11 @@ export default async function handler(req, res) {
       expires_in: data.expires_in,
       access_token: data.access_token,
       refresh_token: data.refresh_token,
-      scope: data.scope
+      scope: data.scope,
+      stored: storeResult.ok,
+      storage_path: storeResult.ok ? storeResult.path : null,
+      storage_error: storeResult.ok ? null : storeResult.error,
+      stored_token_preview: storedToken?.refresh_token ? `${String(storedToken.refresh_token).slice(0, 12)}...` : null
     });
   } catch (error) {
     return res.status(500).json({
