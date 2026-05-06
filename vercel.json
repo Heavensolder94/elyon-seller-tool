@@ -1,3 +1,19 @@
 {
-  "version": 2
+  "redirects": [
+    {
+      "source": "/ebay-callback",
+      "destination": "/ebay-accepted.html",
+      "permanent": false
+    },
+    {
+      "source": "/ebay-login",
+      "destination": "/api/ebay/login-url",
+      "permanent": false
+    },
+    {
+      "source": "/ebay-token-exchange",
+      "destination": "/ebay-token-exchange/index.html",
+      "permanent": false
+    }
+  ]
 }
