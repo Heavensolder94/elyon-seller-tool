@@ -3,50 +3,73 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>eBay Authorization Accepted</title>
+  <title>eBay Accepted Debug</title>
   <style>
-    body {
+    body{
       font-family: Arial, sans-serif;
       padding: 24px;
-      background: #f8fafc;
-      color: #111827;
+      background:#f8fafc;
+      color:#111827;
     }
-    pre {
-      background: #e2e8f0;
-      padding: 16px;
-      border-radius: 12px;
-      white-space: pre-wrap;
-      word-break: break-word;
-    }
-    .box {
-      max-width: 900px;
+    .box{
+      max-width: 1000px;
       margin: 0 auto;
-      background: white;
+      background:#fff;
       padding: 24px;
       border-radius: 16px;
       box-shadow: 0 10px 30px rgba(0,0,0,.08);
+    }
+    pre{
+      background:#e2e8f0;
+      padding:16px;
+      border-radius:12px;
+      white-space:pre-wrap;
+      word-break:break-word;
+      overflow:auto;
+    }
+    button{
+      padding:10px 14px;
+      border:0;
+      border-radius:10px;
+      background:#2563eb;
+      color:#fff;
+      font-weight:700;
+      cursor:pointer;
+      margin-top:12px;
     }
   </style>
 </head>
 <body>
   <div class="box">
-    <h1>eBay Authorization erfolgreich</h1>
-    <p>Wenn eBay einen Code zurückgegeben hat, siehst du ihn hier:</p>
-    <pre id="output">Warte auf Redirect-Daten...</pre>
+    <h1>eBay Authorization Debug</h1>
+    <p>Hier siehst du die komplette URL und alle Parameter, die eBay zurückgibt.</p>
+
+    <h3>Full URL</h3>
+    <pre id="href"></pre>
+
+    <h3>Query String</h3>
+    <pre id="search"></pre>
+
+    <h3>Hash</h3>
+    <pre id="hash"></pre>
+
+    <h3>Params</h3>
+    <pre id="params"></pre>
+
+    <button onclick="navigator.clipboard.writeText(window.location.href)">URL kopieren</button>
   </div>
 
   <script>
     const params = new URLSearchParams(window.location.search);
-    const code = params.get('code');
-    const error = params.get('error');
-    const state = params.get('state');
+    const lines = [];
+    for (const [k, v] of params.entries()) {
+      lines.push(k + ': ' + v);
+    }
 
-    let text = '';
-    if (code) text += 'code: ' + code + '\\n';
-    if (state) text += 'state: ' + state + '\\n';
-    if (error) text += 'error: ' + error + '\\n';
-
-    document.getElementById('output').textContent = text || 'Kein code in der URL gefunden.';
+    document.getElementById('href').textContent = window.location.href;
+    document.getElementById('search').textContent = window.location.search || '(leer)';
+    document.getElementById('hash').textContent = window.location.hash || '(leer)';
+    document.getElementById('params').textContent = lines.length ? lines.join('\n') : '(keine Parameter)';
   </script>
 </body>
 </html>
