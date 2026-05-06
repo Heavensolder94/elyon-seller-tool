@@ -1,5 +1,10 @@
-from cj import authenticate, ensure_token, CJError
+from pathlib import Path
 import os
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from cj import authenticate, ensure_token, CJError
 
 
 def main() -> None:
