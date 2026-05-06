@@ -266,5 +266,314 @@ function init(){ integrations.backendUrl=integrations.backendUrl||window.locatio
 document.addEventListener('DOMContentLoaded',init);
 })();
 </script>
+  <script>
+(function emergencyBoot(){
+  console.log("Elyon Emergency Boot aktiv");
+
+  window.showTab = function(tabId){
+    document.querySelectorAll(".tab").forEach(function(tab){
+      tab.classList.remove("active");
+    });
+
+    var target = document.getElementById(tabId);
+    if(target){
+      target.classList.add("active");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } else {
+      console.warn("Tab nicht gefunden:", tabId);
+    }
+  };
+
+  window.openSettingsEmergency = function(){
+    var modal = document.getElementById("settingsModal");
+    if(modal){
+      modal.classList.remove("hidden");
+    }
+  };
+
+  window.closeSettingsEmergency = function(){
+    var modal = document.getElementById("settingsModal");
+    if(modal){
+      modal.classList.add("hidden");
+    }
+  };
+
+  window.getBackendUrlEmergency = function(){
+    var input =
+      document.getElementById("setIntBackendUrl") ||
+      document.getElementById("intBackendUrl");
+
+    var saved = localStorage.getItem("elyonBackendUrl") || "";
+    var url = input && input.value ? input.value.trim() : saved;
+
+    if(!url){
+      url = window.location.origin;
+    }
+
+    if(url && !url.startsWith("http://") && !url.startsWith("https://")){
+      url = "https://" + url;
+    }
+
+    while(url.endsWith("/")){
+      url = url.slice(0, -1);
+    }
+
+    return url;
+  };
+
+  window.ebaySuche = async function(){
+    var input = document.getElementById("ebaySearchInput");
+    var box = document.getElementById("ebaySearchResults");
+    var q = input && input.value.trim() ? input.value.trim() : "iphone";
+
+    if(!box){
+      alert("eBay Ergebnisbox nicht gefunden.");
+      return;
+    }
+
+    box.innerHTML = "<p>eBay Search läuft...</p>";
+
+    try{
+      var res = await fetch(
+        getBackendUrlEmergency() + "/api/ebay/search?q=" + encodeURIComponent(q) + "&limit=5"
+      );
+      var data = await res.json();
+
+      if(!res.ok || data.ok === false){
+        throw new Error(data.error || data.message || "eBay Search Fehler");
+      }
+
+      var items = data.items || [];
+      if(!items.length){
+        box.innerHTML = "<p>Keine eBay Treffer gefunden.</p>";
+        return;
+      }
+
+      box.innerHTML = "<div class='products'>" + items.map(function(item){
+        var title = item.title || "eBay Artikel";
+        var price = item.price && item.price.value ? item.price.value : "-";
+        var currency = item.price && item.price.currency ? item.price.currency : "";
+        var condition = item.condition || "-";
+        var url = item.itemWebUrl || "#";
+
+        return `
+          <article class="product-card small-card">
+            <div>
+              <div class="product-title">${title}</div>
+              <div class="muted">Preis: ${price} ${currency} · Zustand: ${condition}</div>
+              <div class="output-box">
+                <p><a href="${url}" target="_blank" rel="noopener">Auf eBay ansehen</a></p>
+              </div>
+            </div>
+            <span class="status good">eBay</span>
+          </article>
+        `;
+      }).join("") + "</div>";
+
+    }catch(err){
+      box.innerHTML = "<p>⚠️ " + err.message + "</p>";
+    }
+  };
+
+  window.searchEbayCompetition = async function(){
+    var input = document.getElementById("ebayCompetitionKeyword");
+    var box = document.getElementById("ebayCompetitionResult");
+    var q = input && input.value.trim() ? input.value.trim() : "";
+
+    if(!q){
+      alert("Bitte eBay Suchbegriff eingeben.");
+      return;
+    }
+
+    if(!box){
+      alert("eBay Marktdaten Ergebnisbox nicht gefunden.");
+      return;
+    }
+
+    box.innerHTML = "<p>eBay Marktdaten werden geladen...</p>";
+
+    try{
+      var res = await fetch(
+        getBackendUrlEmergency() + "/api/ebay/competition?keyword=" + encodeURIComponent(q)
+      );
+      var data = await res.json();
+
+      if(!res.ok || data.ok === false){
+        throw new Error(data.error || data.message || "eBay Marktdaten Fehler");
+      }
+
+      var items = data.items || [];
+
+      box.innerHTML = `
+        <div class="dashboard">
+          <div class="metric"><small>Treffer</small><strong>${data.count || items.length}</strong></div>
+          <div class="metric"><small>Niedrig</small><strong>${Number(data.low || 0).toFixed(2)} €</strong></div>
+          <div class="metric"><small>Ø Preis</small><strong>${Number(data.avg || 0).toFixed(2)} €</strong></div>
+          <div class="metric"><small>Hoch</small><strong>${Number(data.high || 0).toFixed(2)} €</strong></div>
+        </div>
+        <div class="products">
+          ${items.slice(0,8).map(function(item){
+            var title = item.title || "eBay Artikel";
+            var price = item.price && item.price.value ? item.price.value : "-";
+            var currency = item.price && item.price.currency ? item.price.currency : "";
+            var condition = item.condition || "-";
+            var url = item.itemWebUrl || "#";
+
+            return `
+              <article class="product-card small-card">
+                <div>
+                  <div class="product-title">${title}</div>
+                  <div class="muted">Preis: ${price} ${currency} · Zustand: ${condition}</div>
+                  <div class="output-box">
+                    <p><a href="${url}" target="_blank" rel="noopener">Auf eBay ansehen</a></p>
+                  </div>
+                </div>
+                <span class="status warn">Marktdaten</span>
+              </article>
+            `;
+          }).join("")}
+        </div>
+      `;
+
+    }catch(err){
+      box.innerHTML = "<p>⚠️ " + err.message + "</p>";
+    }
+  };
+
+  window.searchCjProducts = async function(){
+    var input = document.getElementById("cjSearchKeyword");
+    var box = document.getElementById("cjSearchResult");
+    var q = input && input.value.trim() ? input.value.trim() : "";
+
+    if(!q){
+      alert("Bitte CJ Suchbegriff eingeben.");
+      return;
+    }
+
+    if(!box){
+      alert("CJ Ergebnisbox nicht gefunden.");
+      return;
+    }
+
+    box.innerHTML = "<p>CJ Produktdaten werden geladen...</p>";
+
+    try{
+      var res = await fetch(
+        getBackendUrlEmergency() + "/api/cj/search?keyword=" + encodeURIComponent(q)
+      );
+      var data = await res.json();
+
+      if(!res.ok || data.ok === false){
+        throw new Error(data.error || data.message || "CJ Suche Fehler");
+      }
+
+      var products = data.products || [];
+      if(!products.length){
+        box.innerHTML = "<p>Keine CJ Produkte gefunden.</p>";
+        return;
+      }
+
+      box.innerHTML = "<div class='products'>" + products.slice(0,10).map(function(item){
+        var title =
+          item.title ||
+          item.productNameEn ||
+          item.productName ||
+          item.name ||
+          item.sku ||
+          item.productSku ||
+          "CJ Produkt";
+
+        title = String(title)
+          .replaceAll("[", "")
+          .replaceAll("]", "")
+          .replaceAll('"', "")
+          .replaceAll(",", " ")
+          .trim();
+
+        var pid = item.pid || item.productId || item.productSku || "-";
+        var price = item.sellPrice || item.price || item.nowPrice || "-";
+        var image = item.productImage || item.image || "";
+
+        return `
+          <article class="product-card small-card">
+            <div>
+              ${image ? `<img src="${image}" style="width:70px;height:70px;object-fit:cover;border-radius:14px;float:left;margin-right:12px;">` : ""}
+              <div class="product-title">${title}</div>
+              <div class="muted">CJ-ID: ${pid}</div>
+              <div class="pill-row"><span class="pill">Preis: ${price}</span></div>
+            </div>
+            <span class="status good">CJ</span>
+          </article>
+        `;
+      }).join("") + "</div>";
+
+    }catch(err){
+      box.innerHTML = "<p>⚠️ " + err.message + "</p>";
+    }
+  };
+
+  window.rebindElyonButtons = function(){
+    var mainMenu = document.getElementById("mainMenu");
+    if(mainMenu){
+      mainMenu.onchange = function(){
+        if(this.value){
+          showTab(this.value);
+        }
+      };
+    }
+
+    var dashboardBtn = document.getElementById("dashboardBtn");
+    if(dashboardBtn){
+      dashboardBtn.onclick = function(){
+        showTab("homeTab");
+      };
+    }
+
+    var settingsBtn = document.getElementById("settingsBtn");
+    if(settingsBtn){
+      settingsBtn.onclick = openSettingsEmergency;
+    }
+
+    var closeSettingsBtn = document.getElementById("closeSettingsBtn");
+    if(closeSettingsBtn){
+      closeSettingsBtn.onclick = closeSettingsEmergency;
+    }
+
+    var ebaySearchBtn = document.getElementById("ebaySearchBtn");
+    if(ebaySearchBtn){
+      ebaySearchBtn.onclick = ebaySuche;
+    }
+
+    var ebayCompetitionBtn = document.getElementById("ebayCompetitionBtn");
+    if(ebayCompetitionBtn){
+      ebayCompetitionBtn.onclick = searchEbayCompetition;
+    }
+
+    var cjSearchBtn = document.getElementById("cjSearchBtn");
+    if(cjSearchBtn){
+      cjSearchBtn.onclick = searchCjProducts;
+    }
+
+    var saveIntegrationSettingsBtn = document.getElementById("saveIntegrationSettingsBtn");
+    if(saveIntegrationSettingsBtn){
+      saveIntegrationSettingsBtn.onclick = function(){
+        var input =
+          document.getElementById("setIntBackendUrl") ||
+          document.getElementById("intBackendUrl");
+
+        if(input && input.value){
+          localStorage.setItem("elyonBackendUrl", input.value.trim());
+          alert("Backend URL gespeichert.");
+        }
+      };
+    }
+
+    console.log("Elyon Buttons neu verbunden");
+  };
+
+  document.addEventListener("DOMContentLoaded", rebindElyonButtons);
+  rebindElyonButtons();
+})();
+</script>
 </body>
 </html>
