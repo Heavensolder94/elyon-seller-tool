@@ -320,7 +320,13 @@ window.searchCjProducts = searchCj;
 window.searchEbayCompetition = ebayCompetition;
 window.ebaySuche = ebaySearch;
 window.fetchBackendJSON = fetchBackendJSON;
-document.addEventListener('DOMContentLoaded',init);
+window.rebindElyonButtons = bind;
+
+if(document.readyState === 'loading'){
+  document.addEventListener('DOMContentLoaded', init);
+}else{
+  init();
+}
 })();
 </script>
 </body>
