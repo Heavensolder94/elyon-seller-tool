@@ -5,109 +5,332 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>eBay Authorization</title>
   <style>
-    body{
-      font-family:Arial,sans-serif;
-      margin:0;
-      padding:24px;
-      background:#f8fafc;
-      color:#111827;
+    :root {
+      --bg1: #f6f8fc;
+      --bg2: #e9eef8;
+      --card: rgba(255, 255, 255, 0.94);
+      --text: #0f172a;
+      --muted: #64748b;
+      --border: rgba(15, 23, 42, 0.12);
+      --shadow: 0 24px 80px rgba(15, 23, 42, 0.12);
+      --accent: #2563eb;
+      --good: #166534;
+      --warn: #92400e;
     }
-    .box{
-      max-width:900px;
-      margin:0 auto;
-      background:#fff;
-      padding:24px;
-      border-radius:16px;
-      box-shadow:0 10px 30px rgba(0,0,0,.08);
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Arial, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(37, 99, 235, 0.14), transparent 28%),
+        radial-gradient(circle at top right, rgba(15, 118, 110, 0.12), transparent 24%),
+        linear-gradient(180deg, var(--bg1), var(--bg2));
+      padding: 24px;
     }
-    .hint{color:#64748b;font-size:13px;line-height:1.5}
-    .ok{color:#166534;font-weight:700}
-    .warn{color:#92400e;font-weight:700}
-    pre{
-      background:#e2e8f0;
-      padding:16px;
-      border-radius:12px;
-      white-space:pre-wrap;
-      word-break:break-word;
-      overflow:auto;
+    .box {
+      max-width: 920px;
+      margin: 0 auto;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 28px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(14px);
     }
-    button{
-      margin-top:12px;
-      padding:10px 14px;
-      border:0;
-      border-radius:10px;
-      background:#2563eb;
-      color:#fff;
-      font-weight:700;
-      cursor:pointer;
+    h1 {
+      margin: 0 0 12px;
+      font-size: clamp(32px, 4.8vw, 54px);
+      letter-spacing: -0.05em;
+      line-height: 1.02;
+    }
+    .hint {
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.6;
+      max-width: 760px;
+      margin: 0;
+    }
+    .row {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin: 20px 0 14px;
+    }
+    .field {
+      background: rgba(255, 255, 255, 0.7);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 14px 16px;
+    }
+    .field small {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 6px;
+    }
+    .field strong {
+      display: block;
+      word-break: break-word;
+      font-size: 15px;
+    }
+    .status {
+      margin: 16px 0;
+      padding: 14px 16px;
+      border-radius: 16px;
+      background: #eef2ff;
+      border: 1px solid rgba(37, 99, 235, 0.18);
+      color: #1e293b;
+      white-space: pre-wrap;
+      line-height: 1.55;
+    }
+    .status.warn {
+      background: #fff7ed;
+      border-color: rgba(180, 83, 9, 0.2);
+      color: #7c2d12;
+    }
+    .status.good {
+      background: #ecfdf5;
+      border-color: rgba(22, 101, 52, 0.2);
+      color: #14532d;
+    }
+    pre {
+      margin: 0;
+      min-height: 220px;
+      padding: 16px;
+      border-radius: 18px;
+      background: #0f172a;
+      color: #e2e8f0;
+      overflow: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 16px;
+    }
+    button, a.btn, select {
+      appearance: none;
+      border: 0;
+      border-radius: 14px;
+      padding: 12px 16px;
+      font-weight: 700;
+      font-size: 14px;
+    }
+    button, a.btn {
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    button.primary, a.primary { background: linear-gradient(135deg, var(--accent), #7c3aed); color: #fff; }
+    button.secondary { background: rgba(15, 23, 42, 0.08); color: var(--text); }
+    a.ghost { background: rgba(255, 255, 255, 0.7); color: var(--text); border: 1px solid var(--border); }
+    select {
+      background: rgba(255, 255, 255, 0.82);
+      color: var(--text);
+      border: 1px solid var(--border);
+      min-width: 180px;
+    }
+    .footer {
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .tight { margin-top: 10px; }
+    @media (max-width: 760px) {
+      body { padding: 16px; }
+      .box { padding: 20px; border-radius: 20px; }
+      .row { grid-template-columns: 1fr; }
+      .actions { flex-direction: column; }
+      button, a.btn, select { width: 100%; }
     }
   </style>
 </head>
 <body>
-  <div class="box">
+  <main class="box">
     <h1>eBay Authorization</h1>
-    <p class="hint">Die Seite liest den eBay-Code aus der URL und tauscht ihn automatisch gegen den Refresh Token.</p>
+    <p class="hint">Diese Seite liest den eBay-Code aus der Callback-URL, tauscht ihn auf dem Server gegen Tokens und macht den Result-Satz kopierbar. Wenn du ohne `code` hier landest, kannst du den Login direkt neu starten.</p>
 
-    <div id="status" class="warn">Warte auf code in der URL ...</div>
-    <pre id="output">Noch keine Daten.</pre>
-    <button id="copyBtn" type="button">Ergebnis kopieren</button>
-  </div>
+    <div class="row">
+      <div class="field">
+        <small>Code source</small>
+        <strong id="codeSource">Not detected</strong>
+      </div>
+      <div class="field">
+        <small>Environment</small>
+        <strong id="environmentLabel">production</strong>
+      </div>
+      <div class="field">
+        <small>State</small>
+        <strong id="stateLabel">Not set</strong>
+      </div>
+    </div>
+
+    <div class="status" id="status">Waiting for the callback URL.</div>
+    <pre id="output">{}</pre>
+
+    <div class="actions">
+      <select id="environmentSelect" aria-label="eBay environment">
+        <option value="production">Production</option>
+        <option value="sandbox">Sandbox</option>
+      </select>
+      <button id="copyBtn" type="button" class="primary">Ergebnis kopieren</button>
+      <button id="loginBtn" type="button" class="secondary">eBay login starten</button>
+      <a class="btn ghost" href="/">Back to tool</a>
+    </div>
+
+    <p class="footer tight">Required env vars: `EBAY_CLIENT_ID`, `EBAY_CLIENT_SECRET`, `EBAY_REDIRECT_URI` or `EBAY_RUNAME`. Optional: `EBAY_SCOPES`, `EBAY_ENV`.</p>
+    <p class="footer">Tip: if the URL came back without a `code`, start the consent flow again and make sure the redirect URI points to this page.</p>
+  </main>
 
   <script>
     const statusEl = document.getElementById('status');
     const outputEl = document.getElementById('output');
     const copyBtn = document.getElementById('copyBtn');
+    const loginBtn = document.getElementById('loginBtn');
+    const environmentSelect = document.getElementById('environmentSelect');
+    const environmentLabelEl = document.getElementById('environmentLabel');
+    const stateLabelEl = document.getElementById('stateLabel');
+    const codeSourceEl = document.getElementById('codeSource');
 
-    async function exchangeCode() {
+    let latestResultText = '{}';
+
+    function normalizeEnvironment(value) {
+      return String(value || '').toLowerCase() === 'sandbox' ? 'sandbox' : 'production';
+    }
+
+    function detectEnvironment() {
       const params = new URLSearchParams(window.location.search);
-      const code = params.get('code');
+      const fromQuery = params.get('environment') || params.get('env');
+      const fromStorage = window.localStorage.getItem('ebayEnvironment');
+      if (fromQuery) return normalizeEnvironment(fromQuery);
+      if (fromStorage) return normalizeEnvironment(fromStorage);
+      return /localhost|127\.0\.0\.1/.test(window.location.hostname) ? 'sandbox' : 'production';
+    }
 
-      if (!code) {
-        statusEl.textContent = 'Kein code in der URL gefunden.';
-        outputEl.textContent = 'Bitte den eBay-Login nochmal ausführen.';
-        return;
+    function getCodeInfo() {
+      const params = new URLSearchParams(window.location.search);
+      const queryCode = params.get('code') || params.get('auth_code') || params.get('authorization_code');
+      const queryState = params.get('state') || '';
+      if (queryCode) {
+        return { code: queryCode, source: 'query', state: queryState };
       }
 
-      statusEl.textContent = 'Code gefunden. Tausche ihn jetzt gegen Token ...';
-      outputEl.textContent = 'Bitte warten ...';
+      const hash = window.location.hash ? window.location.hash.replace(/^#/, '') : '';
+      if (hash) {
+        const hashParams = new URLSearchParams(hash);
+        const hashCode = hashParams.get('code') || hashParams.get('auth_code') || hashParams.get('authorization_code');
+        const hashState = hashParams.get('state') || '';
+        if (hashCode) {
+          return { code: hashCode, source: 'fragment', state: hashState };
+        }
+      }
+
+      return { code: '', source: 'none', state: queryState };
+    }
+
+    function setStatus(message, kind) {
+      statusEl.textContent = message;
+      statusEl.className = 'status' + (kind ? ' ' + kind : '');
+    }
+
+    function setResult(data) {
+      latestResultText = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+      outputEl.textContent = latestResultText;
+    }
+
+    async function openLogin() {
+      const environment = normalizeEnvironment(environmentSelect.value);
+      window.localStorage.setItem('ebayEnvironment', environment);
+      setStatus('Opening the eBay consent flow...', '');
 
       try {
-        const res = await fetch('/api/ebay/exchange-token', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            code,
-            environment: 'production'
-          })
-        });
+        const response = await fetch('/api/ebay/login-url?environment=' + encodeURIComponent(environment));
+        const data = await response.json();
 
-        const data = await res.json();
-        outputEl.textContent = JSON.stringify(data, null, 2);
-
-        if (data.ok && data.refresh_token) {
-          statusEl.innerHTML = '<span class="ok">Refresh Token erfolgreich erhalten.</span>';
-        } else {
-          statusEl.innerHTML = '<span class="warn">Token-Exchange hat geantwortet, aber ohne refresh_token.</span>';
+        if (!response.ok || !data.ok) {
+          throw new Error(data.error || 'Unable to build the login URL.');
         }
-      } catch (err) {
-        statusEl.innerHTML = '<span class="warn">Fehler beim Token-Exchange.</span>';
-        outputEl.textContent = String(err.message || err);
+
+        window.location.href = data.authUrl;
+      } catch (error) {
+        setStatus(error.message || 'Unable to open the eBay login page.', 'warn');
+        setResult({ ok: false, error: error.message || 'Unable to open login page.' });
       }
+    }
+
+    async function exchangeCode(code) {
+      const environment = normalizeEnvironment(environmentSelect.value);
+      window.localStorage.setItem('ebayEnvironment', environment);
+      setStatus('Authorization code detected. Exchanging it for tokens...', '');
+
+      const response = await fetch('/api/ebay/exchange-token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, environment })
+      });
+
+      const data = await response.json();
+      setResult(data);
+
+      if (!response.ok || !data.ok) {
+        throw new Error(data.error || 'Token exchange failed.');
+      }
+
+      environmentLabelEl.textContent = data.environment || environment;
+      setStatus(data.refresh_token ? 'Refresh token received successfully.' : 'Exchange finished, but no refresh token was returned.', data.refresh_token ? 'good' : 'warn');
+      return data;
     }
 
     copyBtn.addEventListener('click', async () => {
       try {
-        await navigator.clipboard.writeText(outputEl.textContent || '');
+        await navigator.clipboard.writeText(latestResultText);
         copyBtn.textContent = 'Kopiert';
-        setTimeout(() => copyBtn.textContent = 'Ergebnis kopieren', 1200);
+        setTimeout(() => { copyBtn.textContent = 'Ergebnis kopieren'; }, 1200);
       } catch {
-        alert('Kopieren nicht möglich.');
+        setStatus('Clipboard access was blocked by the browser.', 'warn');
       }
     });
 
-    exchangeCode();
+    loginBtn.addEventListener('click', openLogin);
+    environmentSelect.addEventListener('change', () => {
+      const environment = normalizeEnvironment(environmentSelect.value);
+      window.localStorage.setItem('ebayEnvironment', environment);
+      environmentLabelEl.textContent = environment;
+    });
+
+    (function init() {
+      const environment = detectEnvironment();
+      const info = getCodeInfo();
+      environmentSelect.value = environment;
+      environmentLabelEl.textContent = environment;
+      codeSourceEl.textContent = info.source;
+      stateLabelEl.textContent = info.state || 'Not set';
+
+      if (!info.code) {
+        setStatus('No code found in the URL. Please run the eBay login again so the callback can receive a fresh authorization code.', 'warn');
+        setResult({
+          ok: false,
+          error: 'No code found in the URL.',
+          hint: 'Open the eBay consent flow again and ensure the redirect URI points here.'
+        });
+        return;
+      }
+
+      exchangeCode(info.code).catch((error) => {
+        setStatus(error.message || 'Token exchange failed.', 'warn');
+      });
+    })();
   </script>
 </body>
 </html>
