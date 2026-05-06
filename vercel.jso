@@ -1,0 +1,12 @@
+{
+  "rewrites": [
+    {
+      "source": "/ebay-token-exchange",
+      "destination": "/ebay-token-exchange/index.html"
+    },
+    {
+      "source": "/ebay-token-exchange/",
+      "destination": "/ebay-token-exchange/index.html"
+    }
+  ]
+}
