@@ -1,20 +1,12 @@
-import { readFile } from "node:fs/promises";
-import process from "node:process";
-
-async function readStoredToken() {
-  const filePath = process.env.EBAY_TOKEN_STORE_PATH || "./data/ebay-refresh-token.json";
-  try {
-    const raw = await readFile(filePath, "utf8");
-    const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === "object" ? parsed : null;
-  } catch {
-    return null;
-  }
-}
+import { readToken, getTokenStoreDescription } from "./token-store.js";
 
 export default async function handler(req, res) {
   try {
-    const stored = await readStoredToken();
+    const environment = String(req.query.environment || req.query.env || "production").toLowerCase() === "sandbox"
+      ? "sandbox"
+      : "production";
+    const stored = await readToken(environment);
+    const storeDescription = getTokenStoreDescription(environment);
 
     const clientId = process.env.EBAY_CLIENT_ID;
     const clientSecret = process.env.EBAY_CLIENT_SECRET;
@@ -61,7 +53,10 @@ export default async function handler(req, res) {
         : null,
       stored_refresh_token_preview: stored?.refresh_token
         ? `${String(stored.refresh_token).slice(0, 12)}...`
-        : null
+        : null,
+      store_mode: storeDescription.mode,
+      store_target: storeDescription.key || storeDescription.path || null,
+      environment
     });
 
   } catch (err) {
