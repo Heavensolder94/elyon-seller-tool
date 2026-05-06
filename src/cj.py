@@ -91,3 +91,19 @@ def ensure_token(api_key: str | None = None) -> str:
 def cj_request(path: str, payload: dict[str, Any] | None = None, api_key: str | None = None) -> dict[str, Any]:
     token = ensure_token(api_key)
     return _request(path, payload=payload, token=token)
+
+
+def get_categories(api_key: str | None = None) -> dict[str, Any]:
+    return cj_request("/product/getCategory", api_key=api_key)
+
+
+def list_products(
+    page_num: int = 1,
+    page_size: int = 20,
+    category_id: str | None = None,
+    api_key: str | None = None,
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {"pageNum": page_num, "pageSize": page_size}
+    if category_id:
+        payload["categoryId"] = category_id
+    return cj_request("/product/list", payload=payload, api_key=api_key)
