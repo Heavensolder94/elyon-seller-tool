@@ -107,3 +107,72 @@ def list_products(
     if category_id:
         payload["categoryId"] = category_id
     return cj_request("/product/list", payload=payload, api_key=api_key)
+
+
+def search_products(
+    keyword: str,
+    page: int = 1,
+    size: int = 20,
+    category_id: str | None = None,
+    country_code: str | None = None,
+    min_inventory: int | None = None,
+    max_inventory: int | None = None,
+    api_key: str | None = None,
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {"keyWord": keyword, "page": page, "size": size}
+    if category_id:
+        payload["categoryId"] = category_id
+    if country_code:
+        payload["countryCode"] = country_code
+    if min_inventory is not None:
+        payload["startWarehouseInventory"] = min_inventory
+    if max_inventory is not None:
+        payload["endWarehouseInventory"] = max_inventory
+    return cj_request("/product/listV2", payload=payload, api_key=api_key)
+
+
+def get_product_details(
+    pid: str | None = None,
+    product_sku: str | None = None,
+    variant_sku: str | None = None,
+    api_key: str | None = None,
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {}
+    if pid:
+        payload["pid"] = pid
+    if product_sku:
+        payload["productSku"] = product_sku
+    if variant_sku:
+        payload["variantSku"] = variant_sku
+    if not payload:
+        raise CJError("Provide pid, product_sku, or variant_sku.")
+    return cj_request("/product/query", payload=payload, api_key=api_key)
+
+
+def get_stock_by_variant(variant_sku: str, api_key: str | None = None) -> dict[str, Any]:
+    return cj_request("/product/stock/queryByVid", payload={"variantSku": variant_sku}, api_key=api_key)
+
+
+def create_order_v2(
+    order_data: dict[str, Any],
+    platform_token: str | None = None,
+    api_key: str | None = None,
+) -> dict[str, Any]:
+    headers = {"Content-Type": "application/json", "CJ-Access-Token": ensure_token(api_key)}
+    if platform_token:
+        headers["platformToken"] = platform_token
+
+    body = json.dumps(order_data).encode("utf-8")
+    req = request.Request(BASE_URL + "/shopping/order/createOrderV2", data=body, headers=headers, method="POST")
+    try:
+        with request.urlopen(req, timeout=30) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+    except error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")
+        raise CJError(f"CJ HTTP error {exc.code}: {detail}") from exc
+    except error.URLError as exc:
+        raise CJError(f"CJ request failed: {exc.reason}") from exc
+
+    if data.get("code") not in (200, "200") or data.get("success") is False or data.get("result") is False:
+        raise CJError(data.get("message") or "CJ order creation failed")
+    return data
