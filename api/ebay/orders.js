@@ -6,10 +6,9 @@ function getEbayFulfillmentEndpoint(environment) {
     : "https://api.ebay.com/sell/fulfillment/v1/order";
 }
 
-async function getEbayUserAccessToken() {
+async function getEbayUserAccessToken(environment) {
   const clientId = process.env.EBAY_CLIENT_ID;
   const clientSecret = process.env.EBAY_CLIENT_SECRET;
-  const environment = String(process.env.EBAY_ENV || "production").toLowerCase() === "sandbox" ? "sandbox" : "production";
   const stored = await readToken(environment);
   const refreshToken = stored?.refresh_token || process.env.EBAY_REFRESH_TOKEN;
 
@@ -19,18 +18,23 @@ async function getEbayUserAccessToken() {
 
   const credentials = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
 
-  const response = await fetch("https://api.ebay.com/identity/v1/oauth2/token", {
-    method: "POST",
-    headers: {
-      "Authorization": `Basic ${credentials}`,
-      "Content-Type": "application/x-www-form-urlencoded"
-    },
-    body: new URLSearchParams({
-      grant_type: "refresh_token",
-      refresh_token: refreshToken,
-      scope: "https://api.ebay.com/oauth/api_scope/sell.fulfillment.readonly"
-    })
-  });
+  const response = await fetch(
+    environment === "sandbox"
+      ? "https://api.sandbox.ebay.com/identity/v1/oauth2/token"
+      : "https://api.ebay.com/identity/v1/oauth2/token",
+    {
+      method: "POST",
+      headers: {
+        "Authorization": `Basic ${credentials}`,
+        "Content-Type": "application/x-www-form-urlencoded"
+      },
+      body: new URLSearchParams({
+        grant_type: "refresh_token",
+        refresh_token: refreshToken,
+        scope: "https://api.ebay.com/oauth/api_scope/sell.fulfillment.readonly"
+      })
+    }
+  );
 
   const data = await response.json();
 
@@ -55,7 +59,7 @@ export default async function handler(req, res) {
       ? "sandbox"
       : "production";
 
-    const token = await getEbayUserAccessToken();
+    const token = await getEbayUserAccessToken(environment);
 
     const filters = [];
     filters.push(`creationdate:[${daysAgoIso(days)}..${new Date().toISOString()}]`);
