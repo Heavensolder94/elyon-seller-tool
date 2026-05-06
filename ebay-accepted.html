@@ -4,9 +4,49 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>eBay Authorization Accepted</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 24px;
+      background: #f8fafc;
+      color: #111827;
+    }
+    pre {
+      background: #e2e8f0;
+      padding: 16px;
+      border-radius: 12px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .box {
+      max-width: 900px;
+      margin: 0 auto;
+      background: white;
+      padding: 24px;
+      border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.08);
+    }
+  </style>
 </head>
 <body>
-  <h1>eBay Authorization erfolgreich</h1>
-  <p>Du kannst dieses Fenster jetzt schließen.</p>
+  <div class="box">
+    <h1>eBay Authorization erfolgreich</h1>
+    <p>Wenn eBay einen Code zurückgegeben hat, siehst du ihn hier:</p>
+    <pre id="output">Warte auf Redirect-Daten...</pre>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');
+    const error = params.get('error');
+    const state = params.get('state');
+
+    let text = '';
+    if (code) text += 'code: ' + code + '\\n';
+    if (state) text += 'state: ' + state + '\\n';
+    if (error) text += 'error: ' + error + '\\n';
+
+    document.getElementById('output').textContent = text || 'Kein code in der URL gefunden.';
+  </script>
 </body>
 </html>
