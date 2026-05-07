@@ -15,6 +15,10 @@
       "destination": "/api/ebay/login-url"
     },
     {
+      "source": "/api/ping",
+      "destination": "/api/health"
+    },
+    {
       "source": "/ebay-token-exchange",
       "destination": "/ebay-token-exchange/index.html"
     },
