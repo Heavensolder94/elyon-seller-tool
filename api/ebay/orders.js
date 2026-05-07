@@ -1,4 +1,4 @@
-import { readToken } from "./token-store.js";
+import { readToken } from "../../lib/ebay-token-store.js";
 
 function getEbayFulfillmentEndpoint(environment) {
   return environment === "sandbox"
