@@ -6,6 +6,41 @@ function getEbayTokenEndpoint(environment) {
     : "https://api.ebay.com/identity/v1/oauth2/token";
 }
 
+async function getAccessTokenFromRefreshToken(environment, refreshToken) {
+  const clientId = process.env.EBAY_CLIENT_ID;
+  const clientSecret = process.env.EBAY_CLIENT_SECRET;
+
+  if (!clientId || !clientSecret) {
+    throw new Error("EBAY_CLIENT_ID oder EBAY_CLIENT_SECRET fehlt");
+  }
+
+  if (!refreshToken) {
+    throw new Error("Kein gespeicherter EBAY refresh_token vorhanden");
+  }
+
+  const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
+  const response = await fetch(getEbayTokenEndpoint(environment), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      Authorization: `Basic ${basicAuth}`
+    },
+    body: new URLSearchParams({
+      grant_type: "refresh_token",
+      refresh_token: refreshToken,
+      scope: "https://api.ebay.com/oauth/api_scope"
+    })
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error_description || data.error || "eBay Token konnte nicht erneuert werden.");
+  }
+
+  return data;
+}
+
 export default async function handler(req, res) {
   try {
     const environment = String(req.query.environment || req.query.env || "production").toLowerCase() === "sandbox"
@@ -14,59 +49,31 @@ export default async function handler(req, res) {
     const stored = await readToken(environment);
     const storeDescription = getTokenStoreDescription(environment);
 
-    const clientId = process.env.EBAY_CLIENT_ID;
-    const clientSecret = process.env.EBAY_CLIENT_SECRET;
-
-    if (!clientId || !clientSecret) {
-      return res.status(500).json({
+    const refreshToken = stored?.refresh_token || process.env.EBAY_REFRESH_TOKEN;
+    if (!refreshToken) {
+      return res.status(404).json({
         ok: false,
-        error: "EBAY_CLIENT_ID oder EBAY_CLIENT_SECRET fehlt"
+        error: "Kein gespeicherter refresh_token gefunden.",
+        store_mode: storeDescription.mode,
+        store_target: storeDescription.key || storeDescription.path || null,
+        environment
       });
     }
 
-    const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
+    const data = await getAccessTokenFromRefreshToken(environment, refreshToken);
 
-    const body = new URLSearchParams({
-      grant_type: "client_credentials",
-      scope: "https://api.ebay.com/oauth/api_scope"
-    });
-
-    const ebayRes = await fetch(getEbayTokenEndpoint(environment), {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        Authorization: `Basic ${basicAuth}`
-      },
-      body
-    });
-
-    const data = await ebayRes.json();
-
-    if (!ebayRes.ok) {
-      return res.status(ebayRes.status).json({
-        ok: false,
-        status: ebayRes.status,
-        error: data
-      });
-    }
-
-    res.status(200).json({
+    return res.status(200).json({
       ok: true,
-      token_type: data.token_type,
-      expires_in: data.expires_in,
-      access_token_preview: data.access_token
-        ? data.access_token.slice(0, 12) + "..."
-        : null,
-      stored_refresh_token_preview: stored?.refresh_token
-        ? `${String(stored.refresh_token).slice(0, 12)}...`
-        : null,
+      environment,
+      token_type: data.token_type || null,
+      expires_in: data.expires_in || null,
+      access_token_preview: data.access_token ? `${String(data.access_token).slice(0, 12)}...` : null,
+      stored_refresh_token_preview: String(refreshToken).slice(0, 12) + "...",
       store_mode: storeDescription.mode,
-      store_target: storeDescription.key || storeDescription.path || null,
-      environment
+      store_target: storeDescription.key || storeDescription.path || null
     });
-
   } catch (err) {
-    res.status(500).json({
+    return res.status(500).json({
       ok: false,
       error: err.message
     });
