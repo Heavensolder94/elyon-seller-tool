@@ -6,6 +6,11 @@
       "permanent": false
     },
     {
+      "source": "/ebay-callback/",
+      "destination": "/ebay-callback",
+      "permanent": false
+    },
+    {
       "source": "/ebay-login",
       "destination": "/api/ebay/login-url",
       "permanent": false
@@ -13,6 +18,11 @@
     {
       "source": "/ebay-token-exchange",
       "destination": "/ebay-token-exchange/index.html",
+      "permanent": false
+    },
+    {
+      "source": "/ebay-token-exchange/",
+      "destination": "/ebay-token-exchange",
       "permanent": false
     }
   ]
