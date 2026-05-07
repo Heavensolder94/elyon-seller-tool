@@ -1,29 +1,24 @@
 {
-  "redirects": [
+  "rewrites": [
     {
       "source": "/ebay-callback",
-      "destination": "/ebay-accepted.html",
-      "permanent": false
+      "destination": "/ebay-accepted.html"
     },
     {
       "source": "/ebay-callback/",
-      "destination": "/ebay-callback",
-      "permanent": false
+      "destination": "/ebay-accepted.html"
     },
     {
       "source": "/ebay-login",
-      "destination": "/api/ebay/login-url",
-      "permanent": false
+      "destination": "/api/ebay/login-url"
     },
     {
       "source": "/ebay-token-exchange",
-      "destination": "/ebay-token-exchange/index.html",
-      "permanent": false
+      "destination": "/public/ebay-token-exchange/index.html"
     },
     {
       "source": "/ebay-token-exchange/",
-      "destination": "/ebay-token-exchange",
-      "permanent": false
+      "destination": "/public/ebay-token-exchange/index.html"
     }
   ]
 }
