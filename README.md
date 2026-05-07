@@ -35,3 +35,36 @@ Useful environment variables:
 - `api/ebay/orders.js` automatically reads the stored refresh token from the shared token store
 
 Do not commit `data/cj_tokens.json` to GitHub.
+
+## Deploy auf Vercel
+
+Diese App ist fuer Vercel vorbereitet:
+
+- `index.html` ist das Frontend
+- `api/*.js` sind Serverless Functions
+- `vercel.json` routet die eBay-Callback- und Token-Seiten sauber auf die richtigen Ziele
+
+Empfohlene Vercel-Umgebungsvariablen:
+
+- `CJ_API_KEY`
+- `EBAY_CLIENT_ID`
+- `EBAY_CLIENT_SECRET`
+- `EBAY_REDIRECT_URI` oder `EBAY_RUNAME`
+- optional:
+  - `EBAY_TOKEN_STORE_MODE=upstash`
+  - `EBAY_TOKEN_STORE_URL`
+  - `EBAY_TOKEN_STORE_TOKEN`
+  - `EBAY_TOKEN_STORE_KEY`
+
+Empfohlene Deploy-Schritte:
+
+1. Repo auf GitHub pushen.
+2. In Vercel `New Project` -> GitHub Repo importieren.
+3. Die Variablen oben in `Project Settings` -> `Environment Variables` setzen.
+4. Deploy starten.
+5. Die eBay Redirect-URI im eBay Developer Portal auf die Vercel-URL setzen, z. B. `https://dein-projekt.vercel.app/ebay-callback`.
+
+Wichtig:
+
+- GitHub Pages reicht fuer das Frontend, aber nicht fuer die `api/`-Routen.
+- Fuer vollstaendige Funktionalitaet brauchst du Vercel oder einen anderen Node/Serverless-Host.
