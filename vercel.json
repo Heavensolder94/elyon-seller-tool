@@ -14,11 +14,11 @@
     },
     {
       "source": "/ebay-token-exchange",
-      "destination": "/public/ebay-token-exchange/index.html"
+      "destination": "/ebay-token-exchange/index.html"
     },
     {
       "source": "/ebay-token-exchange/",
-      "destination": "/public/ebay-token-exchange/index.html"
+      "destination": "/ebay-token-exchange/index.html"
     }
   ]
 }
