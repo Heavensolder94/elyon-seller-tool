@@ -163,7 +163,7 @@
 <body>
   <main class="box">
     <h1>eBay Authorization</h1>
-    <p class="hint">Dark SaaS style token exchange page for the eBay callback flow. The existing IDs, buttons and event listeners remain untouched.</p>
+    <p class="hint">Dunkle SaaS-Seite für den eBay-Callback und den Token-Austausch. IDs, Buttons und Event-Listener bleiben erhalten, damit der Flow sauber weiterläuft.</p>
 
     <div class="row">
       <div class="field">
@@ -190,11 +190,11 @@
       </select>
       <button id="copyBtn" type="button" class="primary">Ergebnis kopieren</button>
       <button id="loginBtn" type="button" class="secondary">eBay login starten</button>
-      <a class="btn ghost" href="/">Back to tool</a>
+      <a class="btn ghost" href="./index.html">Zurück zum Tool</a>
     </div>
 
-    <p class="footer tight">Required env vars: `EBAY_CLIENT_ID`, `EBAY_CLIENT_SECRET`, `EBAY_REDIRECT_URI` or `EBAY_RUNAME`. Optional: `EBAY_SCOPES`, `EBAY_ENV`.</p>
-    <p class="footer">Tip: if the URL came back without a `code`, start the consent flow again and make sure the redirect URI points to this page.</p>
+    <p class="footer tight">Benötigte Umgebungsvariablen: `EBAY_CLIENT_ID`, `EBAY_CLIENT_SECRET`, `EBAY_REDIRECT_URI` oder `EBAY_RUNAME`. Optional: `EBAY_SCOPES`, `EBAY_ENV`.</p>
+    <p class="footer">Tipp: Wenn die URL ohne `code` zurückkommt, starte den Consent-Flow erneut und prüfe, ob die Redirect-URI auf diese Seite zeigt.</p>
   </main>
 
   <script>
@@ -291,20 +291,31 @@
     async function openLogin() {
       const environment = normalizeEnvironment(environmentSelect.value);
       window.localStorage.setItem('ebayEnvironment', environment);
-      setStatus('Opening the eBay consent flow...', '');
+
+      if (window.location.protocol === 'file:') {
+        setStatus('Der Login-Flow braucht eine gehostete URL oder einen lokalen HTTP-Server. Bitte die App nicht per file:// öffnen.', 'warn');
+        setResult({
+          ok: false,
+          error: 'eBay-Login im file://-Modus nicht verfügbar.',
+          hint: 'Starte die Seite über Vercel, localhost oder deine Deployment-URL.'
+        });
+        return;
+      }
+
+      setStatus('Der eBay-Consent-Flow wird geöffnet...', '');
 
       try {
         const response = await fetch('/api/ebay/login-url?environment=' + encodeURIComponent(environment));
         const data = await response.json();
 
         if (!response.ok || !data.ok) {
-          throw new Error(data.error || 'Unable to build the login URL.');
+          throw new Error(data.error || 'Die Login-URL konnte nicht erstellt werden.');
         }
 
         window.location.href = data.authUrl;
       } catch (error) {
-        setStatus(error.message || 'Unable to open the eBay login page.', 'warn');
-        setResult({ ok: false, error: error.message || 'Unable to open login page.' });
+        setStatus(error.message || 'Die eBay-Login-Seite konnte nicht geöffnet werden.', 'warn');
+        setResult({ ok: false, error: error.message || 'Login-Seite konnte nicht geöffnet werden.' });
       }
     }
 
@@ -321,7 +332,17 @@
         return cached.data;
       }
 
-      setStatus('Authorization code detected. Exchanging it for tokens...', '');
+      if (window.location.protocol === 'file:') {
+        setStatus('Der Token-Austausch braucht einen Server. Öffne diese Seite über Vercel oder localhost.', 'warn');
+        setResult({
+          ok: false,
+          error: 'Token-Austausch im file://-Modus nicht verfügbar.',
+          hint: 'Die Callback-Route muss über HTTP(S) erreichbar sein.'
+        });
+        return null;
+      }
+
+      setStatus('Autorisierungscode erkannt. Der Token-Austausch läuft jetzt.', '');
 
       const response = await fetch('/api/ebay/exchange-token', {
         method: 'POST',
@@ -333,13 +354,13 @@
       setResult(data);
 
       if (!response.ok || !data.ok) {
-        throw new Error(data.error || 'Token exchange failed.');
+        throw new Error(data.error || 'Der Token-Austausch ist fehlgeschlagen.');
       }
 
       saveCachedResult(environment, code, data);
       stripCallbackParams();
       environmentLabelEl.textContent = data.environment || environment;
-      setStatus(data.refresh_token ? 'Refresh token received successfully.' : 'Exchange finished, but no refresh token was returned.', data.refresh_token ? 'good' : 'warn');
+      setStatus(data.refresh_token ? 'Refresh-Token erfolgreich erhalten.' : 'Der Austausch ist fertig, aber es wurde kein Refresh-Token zurückgegeben.', data.refresh_token ? 'good' : 'warn');
       return data;
     }
 
@@ -349,7 +370,7 @@
         copyBtn.textContent = 'Kopiert';
         setTimeout(() => { copyBtn.textContent = 'Ergebnis kopieren'; }, 1200);
       } catch {
-        setStatus('Clipboard access was blocked by the browser.', 'warn');
+        setStatus('Der Zugriff auf die Zwischenablage wurde vom Browser blockiert.', 'warn');
       }
     });
 
@@ -366,14 +387,14 @@
       environmentSelect.value = environment;
       environmentLabelEl.textContent = environment;
       codeSourceEl.textContent = info.source;
-      stateLabelEl.textContent = info.state || 'Not set';
+      stateLabelEl.textContent = info.state || 'Nicht gesetzt';
 
       if (!info.code) {
-        setStatus('No code found in the URL. Please run the eBay login again so the callback can receive a fresh authorization code.', 'warn');
+        setStatus('Kein Code in der URL gefunden. Starte den eBay-Login erneut, damit der Callback einen frischen Autorisierungscode erhält.', 'warn');
         setResult({
           ok: false,
-          error: 'No code found in the URL.',
-          hint: 'Open the eBay consent flow again and ensure the redirect URI points here.'
+          error: 'Kein Code in der URL gefunden.',
+          hint: 'Öffne den eBay-Consent-Flow erneut und prüfe die Redirect-URI.'
         });
         return;
       }
@@ -383,13 +404,13 @@
         codeSourceEl.textContent = `${info.source} (cached)`;
         setResult(cached.data);
         environmentLabelEl.textContent = cached.data.environment || environment;
-        setStatus('Dieser Code wurde schon einmal eingelÃ¶st. Das Zwischenergebnis wird angezeigt, ohne den Code erneut zu verbrauchen.', 'good');
+        setStatus('Dieser Code wurde schon einmal eingelöst. Das Zwischenergebnis wird angezeigt, ohne den Code erneut zu verbrauchen.', 'good');
         stripCallbackParams();
         return;
       }
 
       exchangeCode(info.code).catch((error) => {
-        setStatus(error.message || 'Token exchange failed.', 'warn');
+        setStatus(error.message || 'Der Token-Austausch ist fehlgeschlagen.', 'warn');
       });
     })();
   </script>
