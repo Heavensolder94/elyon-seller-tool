@@ -15,6 +15,30 @@
       "destination": "/api/ebay/login-url"
     },
     {
+      "source": "/api/ebay/login-url",
+      "destination": "/api/ebay?action=login-url"
+    },
+    {
+      "source": "/api/ebay/status",
+      "destination": "/api/ebay?action=status"
+    },
+    {
+      "source": "/api/ebay/search",
+      "destination": "/api/ebay?action=search"
+    },
+    {
+      "source": "/api/ebay/competition",
+      "destination": "/api/ebay?action=competition"
+    },
+    {
+      "source": "/api/ebay/exchange-token",
+      "destination": "/api/ebay?action=exchange-token"
+    },
+    {
+      "source": "/api/ebay/token",
+      "destination": "/api/ebay?action=token"
+    },
+    {
       "source": "/api/ping",
       "destination": "/api/health"
     },
