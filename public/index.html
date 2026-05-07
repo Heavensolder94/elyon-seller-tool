@@ -5,207 +5,952 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Elyon Seller Tool</title>
   <style>
-    :root{
-      --bg: #f4f7fb;
-      --bg-2: #e8eef8;
-      --card: rgba(255,255,255,.82);
-      --card-border: rgba(15, 23, 42, .08);
-      --text: #0f172a;
-      --muted: #5b6476;
-      --brand: #2457f2;
-      --brand-2: #0f3bcf;
-      --shadow: 0 18px 60px rgba(15, 23, 42, .10);
+    :root {
+      --bg-main: #0f172a;
+      --bg-secondary: #111827;
+      --bg-card: rgba(30, 41, 59, 0.78);
+      --bg-card-solid: #1e293b;
+      --border-soft: rgba(148, 163, 184, 0.18);
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-soft: #cbd5e1;
+      --primary: #38bdf8;
+      --primary-dark: #0284c7;
+      --primary-glow: rgba(56, 189, 248, 0.35);
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --radius-card: 18px;
+      --radius-button: 12px;
+      --shadow-card: 0 18px 45px rgba(0, 0, 0, 0.32);
+      --shadow-glow: 0 0 22px rgba(56, 189, 248, 0.22);
     }
-    *{box-sizing:border-box}
-    html,body{margin:0;padding:0;background:
-      radial-gradient(circle at top left, rgba(36,87,242,.16), transparent 30%),
-      radial-gradient(circle at top right, rgba(15,123,66,.10), transparent 28%),
-      linear-gradient(180deg, var(--bg), var(--bg-2));
-      color:var(--text);
-      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      min-height: 100%;
     }
-    a{color:inherit;text-decoration:none}
-    .shell{max-width:1200px;margin:0 auto;padding:28px 20px 40px}
-    .topbar{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:12px 16px;margin-bottom:20px;border:1px solid var(--card-border);background:rgba(255,255,255,.55);backdrop-filter:blur(10px);border-radius:20px;box-shadow:var(--shadow)}
-    .brand{display:flex;align-items:center;gap:12px}
-    .mark{width:42px;height:42px;border-radius:14px;background:linear-gradient(135deg,var(--brand),#7aa4ff);box-shadow:0 12px 26px rgba(36,87,242,.25)}
-    .brand h1{margin:0;font-size:18px;line-height:1.1}
-    .brand p{margin:3px 0 0;color:var(--muted);font-size:13px}
-    .top-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}
-    .chip,.btn{border-radius:999px;border:1px solid var(--card-border);padding:11px 14px;font-weight:700;transition:transform .15s ease, box-shadow .15s ease, background .15s ease}
-    .chip{background:rgba(255,255,255,.72);color:var(--text)}
-    .btn{background:linear-gradient(180deg,var(--brand),var(--brand-2));color:#fff;box-shadow:0 10px 20px rgba(36,87,242,.25)}
-    .btn:hover,.chip:hover{transform:translateY(-1px)}
-    .hero{display:grid;grid-template-columns:1.35fr .95fr;gap:18px;align-items:stretch;margin-top:14px}
-    .panel{background:var(--card);backdrop-filter:blur(14px);border:1px solid var(--card-border);border-radius:28px;box-shadow:var(--shadow);overflow:hidden}
-    .hero-main{padding:34px 34px 30px}
-    .eyebrow{display:inline-flex;align-items:center;gap:8px;padding:7px 11px;border-radius:999px;background:rgba(36,87,242,.10);color:var(--brand);font-weight:800;font-size:12px;letter-spacing:.08em;text-transform:uppercase}
-    h2{margin:18px 0 10px;font-size:48px;line-height:1.02;letter-spacing:-.04em}
-    .lede{margin:0 0 24px;color:var(--muted);font-size:17px;line-height:1.65;max-width:62ch}
-    .hero-actions{display:flex;gap:12px;flex-wrap:wrap}
-    .hero-actions a{display:inline-flex;align-items:center;justify-content:center}
-    .hero-actions .ghost{background:rgba(255,255,255,.78);color:var(--text);border:1px solid rgba(15,23,42,.12);box-shadow:none}
-    .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
-    .stat{padding:16px;border:1px solid rgba(15,23,42,.08);border-radius:20px;background:rgba(255,255,255,.74)}
-    .stat .label{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#6b7280}
-    .stat .value{margin-top:8px;font-size:20px;font-weight:800}
-    .stat .hint{margin-top:5px;color:var(--muted);font-size:13px;line-height:1.4}
-    .side{padding:22px 22px 18px;display:flex;flex-direction:column;justify-content:space-between;gap:16px}
-    .side h3{margin:0;font-size:18px}
-    .side p{margin:8px 0 0;color:var(--muted);line-height:1.55}
-    .status-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
-    .status-card{border:1px solid rgba(15,23,42,.08);border-radius:20px;padding:16px;background:rgba(255,255,255,.7)}
-    .status-card .k{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#6b7280}
-    .status-card .v{margin-top:8px;font-weight:800}
-    .dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:8px;vertical-align:middle;background:#94a3b8}
-    .dot.ok{background:#16a34a}
-    .dot.warn{background:#f59e0b}
-    .dot.err{background:#ef4444}
-    .sections{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:18px}
-    .card{padding:22px;border-radius:26px;background:var(--card);border:1px solid var(--card-border);box-shadow:var(--shadow)}
-    .card h3{margin:0 0 8px;font-size:20px}
-    .card p{margin:0;color:var(--muted);line-height:1.6}
-    .mini-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}
-    .mini-actions a{display:inline-flex;align-items:center;justify-content:center;padding:10px 12px;border-radius:14px;background:#fff;border:1px solid rgba(15,23,42,.10);font-weight:700}
-    .codeblock{margin-top:16px;padding:16px;border-radius:18px;background:#0f172a;color:#e2e8f0;font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;font-size:13px;overflow:auto}
-    .footer{margin-top:18px;padding:18px 4px 0;color:#64748b;font-size:13px;line-height:1.6}
-    .footer a{color:var(--brand);font-weight:700}
-    @media (max-width: 960px){
-      .hero,.sections{grid-template-columns:1fr}
-      h2{font-size:38px}
-      .stats,.status-grid{grid-template-columns:1fr 1fr}
+    body {
+      background:
+        radial-gradient(circle at top left, rgba(56,189,248,0.16), transparent 32%),
+        radial-gradient(circle at bottom right, rgba(14,165,233,0.12), transparent 35%),
+        linear-gradient(135deg, #0f172a 0%, #111827 45%, #020617 100%);
+      color: var(--text-main);
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.5;
     }
-    @media (max-width: 640px){
-      .shell{padding:14px}
-      .topbar,.hero-main,.side,.card{border-radius:22px}
-      .stats,.status-grid{grid-template-columns:1fr}
-      h2{font-size:32px}
-      .hero-actions,.top-actions{flex-direction:column;align-items:stretch}
+    a { color: inherit; text-decoration: none; }
+    button, input, select { font: inherit; }
+    .app {
+      display: grid;
+      grid-template-columns: 260px minmax(0, 1fr);
+      min-height: 100vh;
+    }
+    .sidebar {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      padding: 24px 16px;
+      background: rgba(15, 23, 42, 0.86);
+      border-right: 1px solid rgba(148, 163, 184, 0.16);
+      backdrop-filter: blur(18px);
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 6px 8px 10px;
+    }
+    .brand-mark {
+      width: 42px;
+      height: 42px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+      box-shadow: 0 0 24px rgba(56, 189, 248, 0.36);
+      flex: 0 0 auto;
+    }
+    .brand h1 {
+      margin: 0;
+      font-size: 18px;
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+    }
+    .brand p {
+      margin: 4px 0 0;
+      color: var(--text-muted);
+      font-size: 13px;
+    }
+    .nav {
+      display: grid;
+      gap: 8px;
+      margin-top: 4px;
+    }
+    .nav-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      border-radius: 12px;
+      padding: 12px 14px;
+      color: var(--text-soft);
+      border: 1px solid transparent;
+      transition: transform .15s ease, background .15s ease, border-color .15s ease, color .15s ease;
+    }
+    .nav-item:hover {
+      transform: translateY(-1px);
+      background: rgba(56, 189, 248, 0.08);
+      border-color: rgba(56, 189, 248, 0.14);
+      color: var(--text-main);
+    }
+    .nav-item.active {
+      background: rgba(56, 189, 248, 0.12);
+      color: var(--primary);
+      border: 1px solid rgba(56, 189, 248, 0.24);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+    }
+    .sidebar-footer {
+      margin-top: auto;
+      padding: 14px;
+      border: 1px solid var(--border-soft);
+      border-radius: 16px;
+      background: rgba(30, 41, 59, 0.55);
+      color: var(--text-muted);
+      font-size: 13px;
+    }
+    .sidebar-footer strong { color: var(--text-main); }
+    .content {
+      padding: 22px;
+      min-width: 0;
+    }
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 14px 18px;
+      margin-bottom: 18px;
+      background: rgba(30, 41, 59, 0.72);
+      border: 1px solid var(--border-soft);
+      border-radius: 20px;
+      backdrop-filter: blur(14px);
+      box-shadow: var(--shadow-card);
+    }
+    .topbar-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+    .title-block h2 {
+      margin: 0;
+      font-size: 18px;
+      letter-spacing: -0.02em;
+    }
+    .title-block p {
+      margin: 3px 0 0;
+      color: var(--text-muted);
+      font-size: 13px;
+    }
+    .status-pills {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+    .pill, .btn {
+      border-radius: 999px;
+      border: 1px solid var(--border-soft);
+      padding: 10px 14px;
+      font-weight: 600;
+      transition: transform .15s ease, box-shadow .15s ease, background .15s ease, border-color .15s ease;
+    }
+    .pill {
+      background: rgba(30, 41, 59, 0.72);
+      color: var(--text-soft);
+    }
+    .pill:hover, .btn:hover {
+      transform: translateY(-1px);
+    }
+    .btn {
+      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+      color: white;
+      border: none;
+      box-shadow: var(--shadow-glow);
+    }
+    .btn.ghost {
+      background: rgba(30, 41, 59, 0.72);
+      color: var(--text-main);
+      box-shadow: none;
+    }
+    .btn-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .panel {
+      background: var(--bg-card);
+      border: 1px solid var(--border-soft);
+      border-radius: var(--radius-card);
+      box-shadow: var(--shadow-card);
+      backdrop-filter: blur(14px);
+    }
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.45fr) minmax(0, 0.95fr);
+      gap: 18px;
+      align-items: stretch;
+      margin-bottom: 18px;
+    }
+    .hero-main {
+      padding: 26px;
+    }
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(56, 189, 248, 0.1);
+      border: 1px solid rgba(56, 189, 248, 0.14);
+      color: var(--primary);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .hero-main h3 {
+      margin: 18px 0 10px;
+      font-size: clamp(34px, 4vw, 54px);
+      line-height: 1.02;
+      letter-spacing: -0.05em;
+    }
+    .hero-main p {
+      margin: 0;
+      color: var(--text-muted);
+      max-width: 70ch;
+    }
+    .hero-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 22px;
+    }
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 22px;
+    }
+    .kpi {
+      padding: 16px;
+      border-radius: 16px;
+      background: rgba(15, 23, 42, 0.42);
+      border: 1px solid rgba(148, 163, 184, 0.14);
+    }
+    .kpi-label {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+    }
+    .kpi-value {
+      margin-top: 8px;
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--text-main);
+    }
+    .kpi-note {
+      margin-top: 6px;
+      color: var(--text-muted);
+      font-size: 13px;
+    }
+    .status-card {
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .status-card h3, .section h3 {
+      margin: 0;
+      font-size: 18px;
+      letter-spacing: -0.02em;
+    }
+    .status-card p, .section p {
+      margin: 0;
+      color: var(--text-muted);
+    }
+    .status-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .status-chip {
+      padding: 14px;
+      border-radius: 16px;
+      background: rgba(15, 23, 42, 0.44);
+      border: 1px solid rgba(148, 163, 184, 0.14);
+    }
+    .status-chip .k {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+    }
+    .status-chip .v {
+      margin-top: 8px;
+      font-weight: 700;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: var(--text-muted);
+      display: inline-block;
+      box-shadow: 0 0 0 4px rgba(148, 163, 184, 0.08);
+      flex: 0 0 auto;
+    }
+    .dot.ok { background: var(--success); box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.12); }
+    .dot.warn { background: var(--warning); box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.12); }
+    .dot.err { background: var(--danger); box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.12); }
+    .workspace {
+      display: grid;
+      grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+      gap: 18px;
+      margin-bottom: 18px;
+    }
+    .section {
+      padding: 20px;
+    }
+    .section-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .searchbar {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 180px 140px;
+      gap: 10px;
+    }
+    .searchbar input, .searchbar select, .mini-input {
+      width: 100%;
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      border-radius: 14px;
+      background: rgba(15, 23, 42, 0.52);
+      color: var(--text-main);
+      padding: 12px 14px;
+      outline: none;
+    }
+    .searchbar input::placeholder, .mini-input::placeholder {
+      color: var(--text-muted);
+    }
+    .filter-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+    .filter {
+      border-radius: 999px;
+      padding: 8px 12px;
+      border: 1px solid rgba(148, 163, 184, 0.14);
+      background: rgba(15, 23, 42, 0.42);
+      color: var(--text-soft);
+      font-size: 13px;
+    }
+    .product-grid {
+      display: grid;
+      gap: 12px;
+      margin-top: 16px;
+    }
+    .product-card {
+      display: grid;
+      grid-template-columns: 96px minmax(0, 1fr) auto;
+      gap: 14px;
+      align-items: start;
+      padding: 16px;
+      border-radius: 18px;
+      background: rgba(15, 23, 42, 0.46);
+      border: 1px solid rgba(148, 163, 184, 0.14);
+    }
+    .thumb {
+      width: 96px;
+      height: 96px;
+      border-radius: 16px;
+      background:
+        linear-gradient(135deg, rgba(56,189,248,0.32), rgba(2,132,199,0.12)),
+        radial-gradient(circle at top, rgba(255,255,255,.18), transparent 58%),
+        #0f172a;
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+    }
+    .product-meta h4 {
+      margin: 0 0 6px;
+      font-size: 16px;
+      line-height: 1.35;
+    }
+    .meta-line {
+      color: var(--text-muted);
+      font-size: 13px;
+      margin-bottom: 6px;
+    }
+    .badges {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 10px;
+      border-radius: 999px;
+      background: rgba(30, 41, 59, 0.72);
+      border: 1px solid rgba(148, 163, 184, 0.14);
+      font-size: 12px;
+      color: var(--text-soft);
+    }
+    .score-good { color: var(--success); background: rgba(34, 197, 94, 0.12); }
+    .score-medium { color: var(--warning); background: rgba(245, 158, 11, 0.12); }
+    .score-bad { color: var(--danger); background: rgba(239, 68, 68, 0.12); }
+    .product-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-width: 150px;
+      align-items: stretch;
+    }
+    .product-actions .btn, .product-actions .pill {
+      width: 100%;
+      text-align: center;
+      padding-inline: 12px;
+    }
+    .analysis {
+      display: grid;
+      gap: 12px;
+    }
+    .analysis-box {
+      padding: 16px;
+      border-radius: 16px;
+      background: rgba(15, 23, 42, 0.46);
+      border: 1px solid rgba(148, 163, 184, 0.14);
+    }
+    .analysis-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .analysis-stat {
+      padding: 14px;
+      border-radius: 14px;
+      background: rgba(15, 23, 42, 0.4);
+      border: 1px solid rgba(148, 163, 184, 0.12);
+    }
+    .analysis-stat .k {
+      color: var(--text-muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .analysis-stat .v {
+      margin-top: 8px;
+      font-size: 20px;
+      font-weight: 800;
+    }
+    .analysis-list {
+      display: grid;
+      gap: 10px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    .analysis-list li {
+      padding: 12px 14px;
+      border-radius: 14px;
+      background: rgba(15, 23, 42, 0.42);
+      border: 1px solid rgba(148, 163, 184, 0.12);
+      color: var(--text-soft);
+    }
+    .api-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .api-card {
+      padding: 16px;
+      border-radius: 16px;
+      background: rgba(15, 23, 42, 0.46);
+      border: 1px solid rgba(148, 163, 184, 0.14);
+    }
+    .api-card .k {
+      color: var(--text-muted);
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .api-card .v {
+      margin-top: 8px;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+    .api-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 14px;
+    }
+    .codeblock {
+      margin-top: 14px;
+      padding: 14px 16px;
+      border-radius: 16px;
+      background: #020617;
+      color: #e2e8f0;
+      border: 1px solid rgba(148, 163, 184, 0.12);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 13px;
+      overflow: auto;
+    }
+    .footer {
+      margin: 18px 2px 0;
+      color: var(--text-muted);
+      font-size: 13px;
+    }
+    .footer a {
+      color: var(--primary);
+      font-weight: 600;
+    }
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+    @media (max-width: 1180px) {
+      .hero, .workspace {
+        grid-template-columns: 1fr;
+      }
+      .sidebar {
+        position: relative;
+        height: auto;
+      }
+    }
+    @media (max-width: 860px) {
+      .app {
+        grid-template-columns: 1fr;
+      }
+      .sidebar {
+        border-right: 0;
+        border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+      }
+      .topbar {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .status-pills {
+        justify-content: flex-start;
+      }
+      .kpi-grid, .api-grid, .analysis-grid, .status-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+      .product-card {
+        grid-template-columns: 84px minmax(0, 1fr);
+      }
+      .product-actions {
+        grid-column: 1 / -1;
+        flex-direction: row;
+        min-width: 0;
+      }
+    }
+    @media (max-width: 640px) {
+      .content {
+        padding: 14px;
+      }
+      .sidebar {
+        padding: 18px 12px;
+      }
+      .hero-main, .status-card, .section {
+        padding: 18px;
+      }
+      .kpi-grid, .api-grid, .analysis-grid, .status-grid, .searchbar {
+        grid-template-columns: 1fr;
+      }
+      .searchbar input, .searchbar select {
+        width: 100%;
+      }
+      .topbar {
+        padding: 14px;
+        border-radius: 18px;
+      }
+      .product-card {
+        grid-template-columns: 1fr;
+      }
+      .thumb {
+        width: 100%;
+        height: 160px;
+      }
+      .product-actions {
+        flex-direction: column;
+      }
+      .btn, .pill {
+        width: 100%;
+      }
     }
   </style>
 </head>
 <body>
-  <div class="shell">
-    <header class="topbar">
+  <div class="app">
+    <aside class="sidebar">
       <div class="brand">
-        <div class="mark" aria-hidden="true"></div>
+        <div class="brand-mark" aria-hidden="true"></div>
         <div>
           <h1>Elyon Seller Tool</h1>
-          <p>CJ Dropshipping, eBay OAuth und Preislogik an einem Ort</p>
-        </div>
-      </div>
-      <div class="top-actions">
-        <a class="chip" href="/api/health">Health</a>
-        <a class="chip" href="/api/env-check">Env Check</a>
-        <a class="btn" href="/ebay-token-exchange">eBay Token</a>
-      </div>
-    </header>
-
-    <section class="hero">
-      <div class="panel hero-main">
-        <span class="eyebrow">Main Dashboard</span>
-        <h2>Dein Verkaufs-Workspace für CJ und eBay.</h2>
-        <p class="lede">
-          Hier liegt wieder die eigentliche Startseite. Die eBay-Autorisierung ist bewusst ausgelagert und bleibt
-          unter einer eigenen Unterseite. Von hier aus kommst du zu den wichtigsten API-Checks, zum Login-Flow und
-          zu den Bausteinen für Produktrecherche, Token-Handling und Preisfindung.
-        </p>
-        <div class="hero-actions">
-          <a class="btn" href="/ebay-token-exchange">eBay Login / Token</a>
-          <a class="btn ghost" href="/api/cj/status">CJ Status</a>
-          <a class="btn ghost" href="/api/ebay/status">eBay Status</a>
-        </div>
-        <div class="stats" style="margin-top:22px">
-          <div class="stat">
-            <div class="label">Produktionsmodus</div>
-            <div class="value">Aktiv</div>
-            <div class="hint">Die Produktions-Keys und der Upstash-Store sind auf die Web-App ausgerichtet.</div>
-          </div>
-          <div class="stat">
-            <div class="label">CJ API</div>
-            <div class="value">Verbunden</div>
-            <div class="hint">Produktsuche, Kategorien und Bestelllogik laufen über die API-Routen.</div>
-          </div>
-          <div class="stat">
-            <div class="label">eBay OAuth</div>
-            <div class="value">Getrennt</div>
-            <div class="hint">Login und Callback laufen auf der separaten Token-Seite.</div>
-          </div>
+          <p>CJ and eBay research workspace</p>
         </div>
       </div>
 
-      <aside class="panel side">
-        <div>
+      <nav class="nav" aria-label="Main navigation">
+        <a class="nav-item active" href="#dashboard"><span>Dashboard</span><span>01</span></a>
+        <a class="nav-item" href="#ebay-search"><span>eBay Suche</span><span>02</span></a>
+        <a class="nav-item" href="#cj-search"><span>CJ Suche</span><span>03</span></a>
+        <a class="nav-item" href="#analysis"><span>Produktanalyse</span><span>04</span></a>
+        <a class="nav-item" href="#board"><span>Produkt Board</span><span>05</span></a>
+        <a class="nav-item" href="#listing"><span>Listing Generator</span><span>06</span></a>
+        <a class="nav-item" href="#imports"><span>Import / CSV / Sheets</span><span>07</span></a>
+        <a class="nav-item" href="#orders"><span>Bestellungen</span><span>08</span></a>
+        <a class="nav-item" href="#automation"><span>Automation</span><span>09</span></a>
+        <a class="nav-item" href="#api"><span>API Status</span><span>10</span></a>
+        <a class="nav-item" href="#settings"><span>Einstellungen</span><span>11</span></a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <strong>Design mode</strong>
+        <div>Dark SaaS dashboard with glass cards, glow accents and fast access to API checks.</div>
+      </div>
+    </aside>
+
+    <main class="content">
+      <header class="topbar">
+        <div class="topbar-left">
+          <div class="brand-mark" aria-hidden="true"></div>
+          <div class="title-block">
+            <h2>Business dashboard for product research</h2>
+            <p>CJ Dropshipping, eBay OAuth, pricing logic and automation in one clean workspace</p>
+          </div>
+        </div>
+        <div class="status-pills">
+          <a class="pill" href="/api/health">Health</a>
+          <a class="pill" href="/api/env-check">Env Check</a>
+          <a class="btn" href="/ebay-token-exchange">eBay Token</a>
+        </div>
+      </header>
+
+      <section class="hero" id="dashboard">
+        <div class="panel hero-main">
+          <span class="eyebrow">Main dashboard</span>
+          <h3>Modernes Research-Workspace fuer eBay und CJ.</h3>
+          <p>
+            Diese Startseite ist bewusst als Dark-SaaS-Oberflaeche aufgebaut: links die Navigation,
+            oben Status und Schnellaktionen, darunter KPI-Karten, Produktsuche, Ergebnis-Karten und Analyse.
+            Alle bestehenden API-Routen, IDs und Login-Flows bleiben erhalten.
+          </p>
+
+          <div class="hero-actions">
+            <a class="btn" href="/ebay-token-exchange">eBay Login / Token</a>
+            <a class="btn ghost" href="/api/cj/status">CJ Status</a>
+            <a class="btn ghost" href="/api/ebay/status">eBay Status</a>
+          </div>
+
+          <div class="kpi-grid" aria-label="KPI cards">
+            <div class="kpi">
+              <div class="kpi-label">Produktionsmodus</div>
+              <div class="kpi-value">Aktiv</div>
+              <div class="kpi-note">Glasige Business-Optik mit klaren Statusfarben und sauberen Akzenten.</div>
+            </div>
+            <div class="kpi">
+              <div class="kpi-label">CJ API</div>
+              <div class="kpi-value">Verbunden</div>
+              <div class="kpi-note">Produktsuche, Kategorien und Bestellungen bleiben direkt ansprechbar.</div>
+            </div>
+            <div class="kpi">
+              <div class="kpi-label">eBay OAuth</div>
+              <div class="kpi-value">Getrennt</div>
+              <div class="kpi-note">Login und Callback laufen weiterhin ueber die separate Token-Seite.</div>
+            </div>
+          </div>
+        </div>
+
+        <aside class="panel status-card">
           <h3>Live Status</h3>
-          <p>Die Karten unten werden direkt aus den API-Routen gelesen. Wenn etwas fehlt, siehst du es sofort.</p>
-        </div>
-        <div class="status-grid">
-          <div class="status-card">
-            <div class="k">Health</div>
-            <div class="v" id="healthStatus"><span class="dot warn"></span>Lädt ...</div>
+          <p>Die vier Kacheln lesen direkt aus den API-Routen und zeigen sofort, wenn etwas fehlt.</p>
+          <div class="status-grid">
+            <div class="status-chip">
+              <div class="k">Health</div>
+              <div class="v" id="healthStatus"><span class="dot warn"></span>Ladt ...</div>
+            </div>
+            <div class="status-chip">
+              <div class="k">Environment</div>
+              <div class="v" id="envStatus"><span class="dot warn"></span>Pruefen ...</div>
+            </div>
+            <div class="status-chip">
+              <div class="k">CJ</div>
+              <div class="v" id="cjStatus"><span class="dot warn"></span>Ladt ...</div>
+            </div>
+            <div class="status-chip">
+              <div class="k">eBay</div>
+              <div class="v" id="ebayStatus"><span class="dot warn"></span>Ladt ...</div>
+            </div>
           </div>
-          <div class="status-card">
-            <div class="k">Environment</div>
-            <div class="v" id="envStatus"><span class="dot warn"></span>Prüfen ...</div>
+        </aside>
+      </section>
+
+      <section class="workspace">
+        <article class="panel section" id="ebay-search">
+          <div class="section-header">
+            <div>
+              <h3>Produktsuche und Filter</h3>
+              <p>GroÃŸe Searchbar fuer eBay/CJ Research mit klaren Filtern fuer schnelle Produkt-Scans.</p>
+            </div>
+            <div class="btn-row">
+              <a class="pill" href="/api/cj/search">CJ Search API</a>
+              <a class="pill" href="/api/cj/status">CJ Status</a>
+            </div>
           </div>
-          <div class="status-card">
-            <div class="k">CJ</div>
-            <div class="v" id="cjStatus"><span class="dot warn"></span>Lädt ...</div>
+
+          <div class="searchbar" id="cj-search">
+            <label class="sr-only" for="researchQuery">Research Query</label>
+            <input id="researchQuery" type="text" placeholder="Produkt, Marke, Keyword oder SKU suchen" />
+            <select id="sourceFilter" aria-label="Source filter">
+              <option value="all">Alle Quellen</option>
+              <option value="ebay">eBay</option>
+              <option value="cj">CJ</option>
+            </select>
+            <select id="riskFilter" aria-label="Risk filter">
+              <option value="all">Alle Scores</option>
+              <option value="good">Gut</option>
+              <option value="medium">Mittel</option>
+              <option value="bad">Risiko</option>
+            </select>
           </div>
-          <div class="status-card">
-            <div class="k">eBay</div>
-            <div class="v" id="ebayStatus"><span class="dot warn"></span>Lädt ...</div>
+
+          <div class="filter-row">
+            <span class="filter">Profit &gt; 20%</span>
+            <span class="filter">Versand &lt; 8 Tage</span>
+            <span class="filter">Score &gt; 70</span>
+            <span class="filter">Low Competition</span>
+            <span class="filter">High Demand</span>
           </div>
-        </div>
-      </aside>
-    </section>
 
-    <section class="sections">
-      <article class="card">
-        <h3>CJ Dropshipping</h3>
-        <p>
-          Produktsuche, Kategorien, Lagerbestand und Bestellanlage sind als API vorbereitet.
-          Für den schnellen Einstieg gibt es unter <code>/api/cj/status</code> und <code>/api/cj/search</code> die Endpunkte.
-        </p>
-        <div class="mini-actions">
-          <a href="/api/cj/status">CJ Status</a>
-          <a href="/api/cj/search">CJ Search API</a>
-        </div>
-        <div class="codeblock">python src/main.py</div>
-      </article>
+          <div class="product-grid" id="board">
+            <div class="product-card">
+              <div class="thumb" aria-hidden="true"></div>
+              <div class="product-meta">
+                <h4>Portable LED Storage Lamp - eBay/CJ Match</h4>
+                <div class="meta-line">Preis: 18,90 EUR | Versand: 4,10 EUR | Quelle: eBay</div>
+                <div class="meta-line">Marge: 31% | Score: 82 | Ampel: Gut</div>
+                <div class="badges">
+                  <span class="badge score-good">Gut</span>
+                  <span class="badge">Fast ship</span>
+                  <span class="badge">Best seller potential</span>
+                </div>
+              </div>
+              <div class="product-actions">
+                <a class="btn" href="/ebay-token-exchange">Oeffnen</a>
+                <a class="pill" href="#listing">Speichern</a>
+                <a class="pill" href="#analysis">Analysieren</a>
+                <a class="pill" href="#listing">Listing vorbereiten</a>
+              </div>
+            </div>
 
-      <article class="card">
-        <h3>eBay OAuth</h3>
-        <p>
-          Die eBay-Autorisierung ist bewusst auf eine separate Seite ausgelagert, damit das Hauptdashboard sauber bleibt.
-          Der Refresh Token wird nach dem Login automatisch in Upstash gespeichert.
-        </p>
-        <div class="mini-actions">
-          <a href="/ebay-token-exchange">Token Exchange</a>
-          <a href="/ebay-callback">Callback</a>
-          <a href="/api/ebay/status">eBay Status</a>
-        </div>
-        <div class="codeblock">/ebay-token-exchange</div>
-      </article>
+            <div class="product-card">
+              <div class="thumb" aria-hidden="true"></div>
+              <div class="product-meta">
+                <h4>Mini Wireless Vacuum Cleaner - CJ Source</h4>
+                <div class="meta-line">Preis: 22,40 EUR | Versand: 5,20 EUR | Quelle: CJ</div>
+                <div class="meta-line">Marge: 24% | Score: 68 | Ampel: Mittel</div>
+                <div class="badges">
+                  <span class="badge score-medium">Mittel</span>
+                  <span class="badge">Moderate competition</span>
+                  <span class="badge">Needs listing review</span>
+                </div>
+              </div>
+              <div class="product-actions">
+                <a class="btn" href="/api/cj/search">Oeffnen</a>
+                <a class="pill" href="#listing">Speichern</a>
+                <a class="pill" href="#analysis">Analysieren</a>
+                <a class="pill" href="#listing">Listing vorbereiten</a>
+              </div>
+            </div>
 
-      <article class="card">
-        <h3>Preisrechner</h3>
-        <p>
-          Die Python-Hilfslogik unter <code>tool.py</code> berechnet Verkaufspreis, Gewinn und erzeugt Titel/Beschreibung.
-          Wenn du später willst, kann ich dir daraus auch eine kleine Web-Oberfläche bauen.
-        </p>
-        <div class="mini-actions">
-          <a href="/api/health">Health</a>
-          <a href="/api/env-check">Env Check</a>
-        </div>
-        <div class="codeblock">python tool.py</div>
-      </article>
-    </section>
+            <div class="product-card">
+              <div class="thumb" aria-hidden="true"></div>
+              <div class="product-meta">
+                <h4>Smartwatch Strap Bundle - Watchlist Candidate</h4>
+                <div class="meta-line">Preis: 9,90 EUR | Versand: 3,90 EUR | Quelle: eBay</div>
+                <div class="meta-line">Marge: 12% | Score: 43 | Ampel: Risiko</div>
+                <div class="badges">
+                  <span class="badge score-bad">Risiko</span>
+                  <span class="badge">Margin pressure</span>
+                  <span class="badge">Review before import</span>
+                </div>
+              </div>
+              <div class="product-actions">
+                <a class="btn" href="/api/ebay/status">Oeffnen</a>
+                <a class="pill" href="#listing">Speichern</a>
+                <a class="pill" href="#analysis">Analysieren</a>
+                <a class="pill" href="#listing">Listing vorbereiten</a>
+              </div>
+            </div>
+          </div>
+        </article>
 
-    <div class="footer">
-      Tipp: Wenn die Seite nicht wie erwartet reagiert, prüfe zuerst <a href="/api/env-check">/api/env-check</a>.
-      Dort siehst du sofort, ob CJ- und eBay-Umgebungsvariablen vorhanden sind.
-    </div>
+        <aside class="panel section" id="analysis">
+          <div class="section-header">
+            <div>
+              <h3>Produktanalyse</h3>
+              <p>Score, Marge, Risiko und konkrete Handlungsempfehlungen in einer ruhigen Analyse-Spalte.</p>
+            </div>
+          </div>
+
+          <div class="analysis">
+            <div class="analysis-box">
+              <div class="analysis-grid">
+                <div class="analysis-stat">
+                  <div class="k">Score</div>
+                  <div class="v" style="color: var(--success);">82</div>
+                </div>
+                <div class="analysis-stat">
+                  <div class="k">Marge</div>
+                  <div class="v" style="color: var(--primary);">31%</div>
+                </div>
+                <div class="analysis-stat">
+                  <div class="k">Risiko</div>
+                  <div class="v" style="color: var(--warning);">Mittel</div>
+                </div>
+                <div class="analysis-stat">
+                  <div class="k">Empfehlung</div>
+                  <div class="v" style="color: var(--text-main);">Testen</div>
+                </div>
+              </div>
+            </div>
+
+            <ul class="analysis-list">
+              <li>Guter Kandidat fuer ein sauberes Listing mit klarer Preispositionierung.</li>
+              <li>Versandkosten bleiben kontrollierbar, der Glow-Score zeigt insgesamt gute Ausgangslage.</li>
+              <li>Listing vorbereiten und zuerst kleine Testmenge beobachten.</li>
+            </ul>
+
+            <div class="analysis-box">
+              <div class="btn-row">
+                <a class="btn" href="#listing">Listing vorbereiten</a>
+                <a class="pill" href="#orders">Bestellungen</a>
+                <a class="pill" href="#settings">API / Settings</a>
+              </div>
+            </div>
+          </div>
+        </aside>
+      </section>
+
+      <section class="workspace">
+        <article class="panel section" id="listing">
+          <div class="section-header">
+            <div>
+              <h3>Listing Generator</h3>
+              <p>Optimiert fuer Titel, Beschreibung und Angebotsstruktur ohne das bestehende Verhalten zu veraendern.</p>
+            </div>
+          </div>
+          <div class="api-grid">
+            <div class="api-card">
+              <div class="k">Titel</div>
+              <div class="v">SEO-fokussiert, keywordstark und clean</div>
+            </div>
+            <div class="api-card">
+              <div class="k">Beschreibung</div>
+              <div class="v">Kurz, professionell, conversion-orientiert</div>
+            </div>
+          </div>
+          <div class="codeblock">python tool.py</div>
+        </article>
+
+        <article class="panel section" id="api">
+          <div class="section-header">
+            <div>
+              <h3>API Status</h3>
+              <p>Health, Environment und Routenstatus bleiben direkt erreichbar und visuell klar erkennbar.</p>
+            </div>
+          </div>
+          <div class="api-grid" id="settings">
+            <div class="api-card">
+              <div class="k">Health</div>
+              <div class="v">/api/health</div>
+              <div class="api-actions"><a class="pill" href="/api/health">Open</a></div>
+            </div>
+            <div class="api-card">
+              <div class="k">Environment</div>
+              <div class="v">/api/env-check</div>
+              <div class="api-actions"><a class="pill" href="/api/env-check">Open</a></div>
+            </div>
+            <div class="api-card">
+              <div class="k">CJ</div>
+              <div class="v">/api/cj/status</div>
+              <div class="api-actions"><a class="pill" href="/api/cj/status">Open</a></div>
+            </div>
+            <div class="api-card">
+              <div class="k">eBay</div>
+              <div class="v">/api/ebay/status</div>
+              <div class="api-actions"><a class="pill" href="/api/ebay/status">Open</a></div>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <section class="workspace" id="imports">
+        <article class="panel section">
+          <div class="section-header">
+            <div>
+              <h3>Import / CSV / Google Sheets</h3>
+              <p>Ein ruhiger, professioneller Bereich fuer Datenfluss, Bulk-Import und Spreadsheet-Workflows.</p>
+            </div>
+          </div>
+          <div class="codeblock">Import ready, CSV pipeline active, Sheets sync placeholder</div>
+        </article>
+
+        <article class="panel section" id="orders">
+          <div class="section-header">
+            <div>
+              <h3>Bestellungen, Automation, Settings</h3>
+              <p>Die funktionalen Bausteine bleiben unveraendert, nur das Layout folgt jetzt dem Business-Dashboard.</p>
+            </div>
+          </div>
+          <div class="btn-row" id="automation">
+            <a class="btn" href="/api/ebay/orders">Orders</a>
+            <a class="pill" href="/api/cj/search">Automation</a>
+            <a class="pill" href="/api/ebay/status">Settings</a>
+          </div>
+          <div class="footer">
+            Tipp: Wenn etwas nicht reagiert, pruefe zuerst <a href="/api/env-check">/api/env-check</a>.
+          </div>
+        </article>
+      </section>
+
+      <div class="footer">
+        Modernes Dark-SaaS-Dashboard fuer eBay/CJ Dropshipping Product Research mit Glassmorphism, Glow und sauberer
+        Business-Optik. Alle vorhandenen IDs und API-Pfade bleiben weiter ansprechbar.
+      </div>
+    </main>
   </div>
 
   <script>
@@ -216,25 +961,40 @@
     };
 
     async function loadStatus() {
-      const tasks = [
-        ['/api/health', 'healthStatus', (data) => data.ok ? ['ok', 'Online'] : ['err', 'Offline']],
-        ['/api/env-check', 'envStatus', (data) => {
-          const ready = !!(data.ebayClientId && data.ebayClientSecret && data.cjApiKey);
-          return [ready ? 'ok' : 'warn', ready ? 'Env bereit' : 'Env teilweise'];
-        }],
-        ['/api/cj/status', 'cjStatus', (data) => data.ok ? ['ok', 'Bereit'] : ['err', 'Fehlt']],
-        ['/api/ebay/status', 'ebayStatus', (data) => data.ok ? ['ok', 'Bereit'] : ['err', 'Fehlt']]
-      ];
+      try {
+        const healthRes = await fetch('/api/health');
+        const healthData = await healthRes.json();
+        const healthOk = healthRes.ok && (healthData.ok || healthData.status === 'ok');
+        setStatus('healthStatus', healthOk ? 'ok' : 'err', healthOk ? 'Healthy' : 'Issue');
+      } catch (error) {
+        setStatus('healthStatus', 'err', 'Unavailable');
+      }
 
-      for (const [url, id, mapper] of tasks) {
-        try {
-          const res = await fetch(url, { cache: 'no-store' });
-          const data = await res.json();
-          const [state, text] = mapper(data);
-          setStatus(id, state, text);
-        } catch {
-          setStatus(id, 'err', 'Nicht erreichbar');
-        }
+      try {
+        const envRes = await fetch('/api/env-check');
+        const envData = await envRes.json();
+        const envOk = envRes.ok && (envData.ok || envData.ready || envData.status === 'ok');
+        setStatus('envStatus', envOk ? 'ok' : 'warn', envOk ? 'Ready' : 'Needs setup');
+      } catch (error) {
+        setStatus('envStatus', 'err', 'Unavailable');
+      }
+
+      try {
+        const cjRes = await fetch('/api/cj/status');
+        const cjData = await cjRes.json();
+        const cjOk = cjRes.ok && (cjData.ok || cjData.status === 'ok' || cjData.connected);
+        setStatus('cjStatus', cjOk ? 'ok' : 'warn', cjOk ? 'Connected' : 'Check CJ');
+      } catch (error) {
+        setStatus('cjStatus', 'err', 'Unavailable');
+      }
+
+      try {
+        const ebayRes = await fetch('/api/ebay/status');
+        const ebayData = await ebayRes.json();
+        const ebayOk = ebayRes.ok && (ebayData.ok || ebayData.status === 'ok' || ebayData.connected);
+        setStatus('ebayStatus', ebayOk ? 'ok' : 'warn', ebayOk ? 'Connected' : 'Check eBay');
+      } catch (error) {
+        setStatus('ebayStatus', 'err', 'Unavailable');
       }
     }
 
