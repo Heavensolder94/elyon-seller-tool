@@ -16,7 +16,7 @@ export default async function handler(req, res) {
     if (!response.ok || data.ok === false) {
       return res.status(response.status || 500).json({
         ok: false,
-        error: data.error || "eBay Search konnte für Competition nicht geladen werden.",
+        error: data.error || "eBay Search konnte für den Wettbewerb nicht geladen werden.",
         details: data
       });
     }
