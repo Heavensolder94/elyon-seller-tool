@@ -68,8 +68,8 @@
   position: fixed;
   right: 20px;
   bottom: 84px;
-  width: min(760px, calc(100vw - 24px));
-  height: min(82vh, 820px);
+  width: min(820px, calc(100vw - 24px));
+  height: min(84vh, 860px);
   display: flex;
   flex-direction: column;
   gap: 18px;
@@ -192,11 +192,12 @@
   overflow-x: hidden;
   padding-right: 4px;
   display: grid;
-  grid-template-columns: minmax(280px, 0.85fr) minmax(0, 1.15fr);
+  grid-template-columns: 1fr;
   grid-template-areas:
-    "metrics chat"
-    "hints chat";
-  gap: 16px 18px;
+    "metrics"
+    "hints"
+    "chat";
+  gap: 18px;
   align-content: start;
   overscroll-behavior: contain;
   touch-action: pan-y;
@@ -251,7 +252,7 @@
 
 .elyon-soul-chat {
   grid-area: chat;
-  min-height: 100%;
+  min-height: 0;
 }
 
 .elyon-soul-section-title {
