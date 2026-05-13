@@ -331,6 +331,18 @@
         <div class="output-box">
           <p>Produktideen werden wie bisher lokal im Browser gespeichert. Du kannst hier neue Kandidaten prüfen und danach direkt in die Liste wechseln.</p>
         </div>
+        <div class="briefing-section" style="margin-top:14px">
+          <h3>KI-Produktsuche optional</h3>
+          <label>Suchbegriff / Idee</label>
+          <input id="aiSearchQuery" placeholder="z. B. LED Streifen, Küchenhelfer, Organizer">
+          <div class="row">
+            <button class="secondary full" id="aiSearchImproveBtn" type="button">Suche mit KI verbessern</button>
+            <button class="secondary full" id="aiSearchAnalyzeBtn" type="button">Produktidee prüfen</button>
+          </div>
+          <button class="secondary full" id="aiSearchBillingBtn" type="button" style="margin-top:10px">KI-Kostenwarnung</button>
+          <p class="hint" style="margin-top:8px;margin-bottom:0">Die KI kann Suchbegriffe, Synonyme, Chancen und Risiken ergänzen, bevor du ein Produkt speicherst.</p>
+        </div>
+        <div id="aiSearchResult" class="empty" style="margin-top:12px">Noch keine KI-Produktsuche.</div>
       </section>
     </section>
   </section>
@@ -1027,7 +1039,7 @@ PLZ Ort"></textarea>
   <div id="aiBillingModal" class="hidden modal-backdrop">
     <div class="card modal-panel">
       <h2>⚠️ KI-Credits kosten Geld</h2>
-      <p class="hint">Wenn du den KI Listing Optimizer startest, kann das OpenAI-Credits verbrauchen und damit echte Kosten verursachen.</p>
+      <p class="hint">Wenn du eine KI-Funktion startest, kann das OpenAI-Credits verbrauchen und damit echte Kosten verursachen.</p>
       <div class="output-box">
         <h3>Billing & Aufladen</h3>
         <p>Dein Guthaben und die Abrechnung findest du hier:</p>
@@ -3310,6 +3322,9 @@ function setAiButtonsLoading(isLoading, activeId){
     { id: 'aiImproveBtn', label: 'Mit KI verbessern' },
     { id: 'aiRegenerateBtn', label: 'KI neu generieren' },
     { id: 'aiCheckBtn', label: 'Listing prüfen' },
+    { id: 'aiSearchImproveBtn', label: 'Suche mit KI verbessern' },
+    { id: 'aiSearchAnalyzeBtn', label: 'Produktidee prüfen' },
+    { id: 'aiSearchBillingBtn', label: 'KI-Kostenwarnung' },
   ];
   buttons.forEach(function(button){
     const el = $(button.id);
@@ -3323,19 +3338,113 @@ function setAiButtonsLoading(isLoading, activeId){
     }
   });
 }
-let pendingAiListingMode = null;
-function openAiBillingWarning(mode){
-  pendingAiListingMode = mode || 'regenerate';
+let pendingAiAction = null;
+function openAiBillingWarning(action, mode){
+  pendingAiAction = {
+    action: action || 'listing',
+    mode: mode || 'regenerate',
+  };
   safe('aiBillingModal', function(el){ el.classList.remove('hidden'); });
 }
 function closeAiBillingWarning(){
-  pendingAiListingMode = null;
+  pendingAiAction = null;
   safe('aiBillingModal', function(el){ el.classList.add('hidden'); });
 }
-function proceedAiListingOptimizer(){
-  const mode = pendingAiListingMode || 'regenerate';
+function proceedAiBillingAction(){
+  const action = pendingAiAction && pendingAiAction.action ? pendingAiAction.action : 'listing';
+  const mode = pendingAiAction && pendingAiAction.mode ? pendingAiAction.mode : 'regenerate';
   closeAiBillingWarning();
+  if(action === 'product-search'){
+    executeAiProductSearch(mode);
+    return;
+  }
   runAiListingOptimizer(mode);
+}
+function readAiProductSearchInput(){
+  const query = $('aiSearchQuery') && $('aiSearchQuery').value.trim() ? $('aiSearchQuery').value.trim() : '';
+  return {
+    query: query || (($('name') && $('name').value.trim()) ? $('name').value.trim() : ''),
+    product: {
+      name: $('name') && $('name').value.trim() ? $('name').value.trim() : '',
+      sku: $('sku') && $('sku').value.trim() ? $('sku').value.trim() : '',
+      supplierId: $('supplierId') && $('supplierId').value.trim() ? $('supplierId').value.trim() : '',
+      notes: $('notes') && $('notes').value.trim() ? $('notes').value.trim() : '',
+      buy: n('buy') || 0,
+      ship: n('ship') || 0,
+      sell: n('sell') || 0,
+      competition: n('competition') || 0,
+      delivery: n('delivery') || 0,
+      risk: $('risk') ? $('risk').value : 'low',
+    }
+  };
+}
+function renderAiProductSearchResult(data, mode){
+  const payload = data && data.result ? data.result : data;
+  const query = String(payload && payload.query ? payload.query : '').trim();
+  const recommendedQuery = String(payload && payload.recommendedQuery ? payload.recommendedQuery : '').trim();
+  const queryExpansion = uniqueCleanList(payload && payload.queryExpansion ? payload.queryExpansion : []);
+  const searchAngles = uniqueCleanList(payload && payload.searchAngles ? payload.searchAngles : []);
+  const titleIdeas = uniqueCleanList(payload && payload.titleIdeas ? payload.titleIdeas : []);
+  const riskWarnings = uniqueCleanList(payload && payload.riskWarnings ? payload.riskWarnings : []);
+  const score = payload && payload.score ? payload.score : {};
+  const searchScore = clampScore(score.searchPotential);
+  const competitionScore = clampScore(score.competition);
+  const riskScore = clampScore(score.risk);
+  const totalScore = clampScore(score.total !== undefined && score.total !== null ? score.total : Math.round((searchScore + competitionScore + riskScore) / 3));
+  const scoreClass = totalScore >= 75 ? 'good' : totalScore >= 50 ? 'warn' : 'bad';
+  const modeLabel = mode === 'analyze' ? 'Produktidee prüfen' : 'Suche mit KI verbessern';
+  const expansionList = queryExpansion.length ? queryExpansion.map(function(item){ return '<li>' + escapeHtml(item) + '</li>'; }).join('') : '<li>Keine Keyword-Varianten erzeugt.</li>';
+  const angleList = searchAngles.length ? searchAngles.map(function(item){ return '<li>' + escapeHtml(item) + '</li>'; }).join('') : '<li>Keine Suchwinkel erzeugt.</li>';
+  const titleList = titleIdeas.length ? titleIdeas.map(function(item){ return '<li>' + escapeHtml(item) + '</li>'; }).join('') : '<li>Keine Titelideen erzeugt.</li>';
+  const warningList = riskWarnings.length ? riskWarnings.map(function(item){ return '<li>' + escapeHtml(item) + '</li>'; }).join('') : '<li>Keine Risiko-Hinweise gemeldet.</li>';
+  let html = '';
+  html += '<div class="score-top"><span class="status ' + scoreClass + '">KI Such-Score: ' + totalScore + '/100</span><span class="score-number">' + totalScore + '</span></div>';
+  html += '<div class="dashboard" style="margin-top:16px">';
+  html += '<div class="metric"><small>Suchpotenzial</small><strong>' + searchScore + '</strong></div>';
+  html += '<div class="metric"><small>Konkurrenz</small><strong>' + competitionScore + '</strong></div>';
+  html += '<div class="metric"><small>Risiko</small><strong>' + riskScore + '</strong></div>';
+  html += '<div class="metric"><small>Modus</small><strong>' + escapeHtml(modeLabel) + '</strong></div>';
+  html += '</div>';
+  html += '<div class="output-box"><h3>Ausgangsbegriff</h3><p id="aiSearchQueryValue">' + escapeHtml(query || 'Kein Suchbegriff') + '</p><div class="copy-row"><button class="secondary copy-btn" data-copy="aiSearchQueryValue">Suchbegriff kopieren</button></div></div>';
+  html += '<div class="output-box"><h3>Empfohlene Suchbegriffe</h3><ul id="aiSearchKeywordsValue">' + expansionList + '</ul><div class="copy-row"><button class="secondary copy-btn" data-copy="aiSearchKeywordsValue">Keywords kopieren</button></div></div>';
+  html += '<div class="output-box"><h3>Suchwinkel / Nischen</h3><ul>' + angleList + '</ul></div>';
+  html += '<div class="output-box"><h3>Titelideen für die Suche</h3><ul id="aiSearchTitlesValue">' + titleList + '</ul><div class="copy-row"><button class="secondary copy-btn" data-copy="aiSearchTitlesValue">Titelideen kopieren</button></div></div>';
+  html += '<div class="output-box"><h3>Risiko- und Markt-Hinweise</h3><ul>' + warningList + '</ul></div>';
+  if(recommendedQuery){
+    html += '<div class="output-box"><h3>Empfohlene Kernsuche</h3><p id="aiSearchRecommendedValue">' + escapeHtml(recommendedQuery) + '</p><div class="copy-row"><button class="secondary copy-btn" data-copy="aiSearchRecommendedValue">Empfehlung kopieren</button></div></div>';
+  }
+  setHTML('aiSearchResult', html);
+}
+function startAiProductSearch(mode){
+  openAiBillingWarning('product-search', mode);
+}
+async function executeAiProductSearch(mode){
+  const payload = readAiProductSearchInput();
+  payload.mode = mode;
+  payload.requestedMode = mode;
+  setAiButtonsLoading(true, mode === 'analyze' ? 'aiSearchAnalyzeBtn' : 'aiSearchImproveBtn');
+  setHTML('aiSearchResult', '<div class="empty">KI-Produktsuche läuft...</div>');
+  try{
+    const response = await fetch('/api/ai/product-search', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+    let data = null;
+    try{ data = await response.json(); }catch(parseError){ data = {}; }
+    if(!response.ok || !data || data.ok === false){
+      throw new Error((data && (data.error || data.message)) ? (data.error || data.message) : ('KI-Request fehlgeschlagen: HTTP ' + response.status));
+    }
+    renderAiProductSearchResult(data, mode);
+  }catch(err){
+    const message = err && err.message ? err.message : 'Unbekannter KI-Fehler';
+    setHTML('aiSearchResult', '<div class="empty">⚠️ ' + escapeHtml(message) + '</div>');
+  }finally{
+    setAiButtonsLoading(false);
+  }
 }
 function renderAiListingResult(data, mode){
   const payload = data && data.result ? data.result : data;
@@ -4471,15 +4580,19 @@ function bindEvents(){
   bind('genBtn','click',genCalc);
   bind('shortenTitleBtn','click',shortenGeneratedTitle);
   bind('descGenBtn','click',descriptionGeneratorCalc);
-  bind('aiImproveBtn','click',()=>openAiBillingWarning('improve'));
-  bind('aiRegenerateBtn','click',()=>openAiBillingWarning('regenerate'));
-  bind('aiCheckBtn','click',()=>openAiBillingWarning('check'));
-  bind('aiBillingInfoBtn','click',()=>openAiBillingWarning('regenerate'));
-  bind('aiBillingProceedBtn','click',proceedAiListingOptimizer);
+  bind('aiImproveBtn','click',()=>openAiBillingWarning('listing','improve'));
+  bind('aiRegenerateBtn','click',()=>openAiBillingWarning('listing','regenerate'));
+  bind('aiCheckBtn','click',()=>openAiBillingWarning('listing','check'));
+  bind('aiBillingInfoBtn','click',()=>openAiBillingWarning('listing','regenerate'));
+  bind('aiSearchImproveBtn','click',()=>startAiProductSearch('improve'));
+  bind('aiSearchAnalyzeBtn','click',()=>startAiProductSearch('analyze'));
+  bind('aiSearchBillingBtn','click',()=>openAiBillingWarning('product-search','improve'));
+  bind('aiBillingProceedBtn','click',proceedAiBillingAction);
   bind('aiBillingCloseBtn','click',closeAiBillingWarning);
   safe('genResult', el => el.addEventListener('click', handleGeneratorClick));
   safe('descGenResult', el => el.addEventListener('click', handleGeneratorClick));
   safe('aiResult', el => el.addEventListener('click', handleGeneratorClick));
+  safe('aiSearchResult', el => el.addEventListener('click', handleGeneratorClick));
   safe('aiBillingModal', el => el.addEventListener('click', function(event){
     if(event.target === el) closeAiBillingWarning();
   }));
@@ -4595,6 +4708,11 @@ function runSelfTests(){
   console.assert(!!$('aiBillingInfoBtn'), 'KI-Kostenwarnung Button sollte existieren');
   console.assert(!!$('aiBillingModal'), 'KI-Kostenwarnungs-Modal sollte existieren');
   console.assert(!!$('aiResult'), 'KI Ergebnisbereich sollte existieren');
+  console.assert(!!$('aiSearchQuery'), 'KI Produktsuche Eingabe sollte existieren');
+  console.assert(!!$('aiSearchImproveBtn'), 'KI Produktsuche verbessern Button sollte existieren');
+  console.assert(!!$('aiSearchAnalyzeBtn'), 'KI Produktsuche prüfen Button sollte existieren');
+  console.assert(!!$('aiSearchBillingBtn'), 'KI Produktsuche Kostenwarnung Button sollte existieren');
+  console.assert(!!$('aiSearchResult'), 'KI Produktsuche Ergebnisbereich sollte existieren');
   console.assert(!!$('sku'), 'SKU Feld sollte existieren');
   console.assert(!!$('supplierId'), 'Lieferanten-ID Feld sollte existieren');
   console.assert(!!$('ebayItemId'), 'eBay Artikelnummer Feld sollte existieren');
