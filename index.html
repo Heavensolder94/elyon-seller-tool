@@ -108,11 +108,10 @@
       <option value="ordersTab">6. 📦 Bestellungen</option>
       <option value="automationTab">7. 🚚 Versandzentrale</option>
       <option value="settingsTab">8. ⚙️ Einstellungen / API Status</option>
-      <option value="importTab">9. Import / Prüfen</option>
-      <option value="marketCheckTab">10. Konkurrenz / Marktcheck</option>
-      <option value="financeTab">11. Kalkulation</option>
-      <option value="listingCheckTab">12. Listing-Check</option>
-      <option value="productStatusTab">13. Produkt-Status</option>
+      <option value="marketCheckTab">9. Konkurrenz / Marktcheck</option>
+      <option value="financeTab">10. Kalkulation</option>
+      <option value="listingCheckTab">11. Listing-Check</option>
+      <option value="productStatusTab">12. Produkt-Status</option>
     </select>
     <select id="shopifyMenu" class="menu-select" aria-label="Shopify Bereich auswählen">
       <option value="shopifyTab">🟢 Shopify Lab</option>
@@ -424,6 +423,7 @@
           <button class="secondary" id="aiImproveBtn" type="button">Mit KI verbessern</button>
           <button class="secondary" id="aiRegenerateBtn" type="button">KI neu generieren</button>
           <button class="secondary" id="aiCheckBtn" type="button">Listing prüfen</button>
+          <button class="secondary" id="aiBillingInfoBtn" type="button">KI-Kostenwarnung</button>
         </div>
 
         <button class="full" id="genBtn">Listing generieren</button>
@@ -1021,6 +1021,26 @@ PLZ Ort"></textarea>
 
       <button id="saveSettings" class="full">Einstellungen speichern</button>
       <button id="closeSettings" class="secondary full" style="margin-top:10px">Schließen</button>
+    </div>
+  </div>
+
+  <div id="aiBillingModal" class="hidden modal-backdrop">
+    <div class="card modal-panel">
+      <h2>⚠️ KI-Credits kosten Geld</h2>
+      <p class="hint">Wenn du den KI Listing Optimizer startest, kann das OpenAI-Credits verbrauchen und damit echte Kosten verursachen.</p>
+      <div class="output-box">
+        <h3>Billing & Aufladen</h3>
+        <p>Dein Guthaben und die Abrechnung findest du hier:</p>
+        <p><a href="https://platform.openai.com/settings/organization/billing/overview" target="_blank" rel="noopener">OpenAI Billing Overview öffnen</a></p>
+      </div>
+      <div class="output-box">
+        <h3>Wichtig</h3>
+        <p>Die normale eBay-Generatorfunktion bleibt lokal kostenlos. Nur die KI-Funktionen senden Anfragen an OpenAI.</p>
+      </div>
+      <div class="row">
+        <button type="button" id="aiBillingProceedBtn" class="full">Verstanden, KI starten</button>
+        <button type="button" id="aiBillingCloseBtn" class="secondary full">Abbrechen</button>
+      </div>
     </div>
   </div>
 
@@ -3303,6 +3323,20 @@ function setAiButtonsLoading(isLoading, activeId){
     }
   });
 }
+let pendingAiListingMode = null;
+function openAiBillingWarning(mode){
+  pendingAiListingMode = mode || 'regenerate';
+  safe('aiBillingModal', function(el){ el.classList.remove('hidden'); });
+}
+function closeAiBillingWarning(){
+  pendingAiListingMode = null;
+  safe('aiBillingModal', function(el){ el.classList.add('hidden'); });
+}
+function proceedAiListingOptimizer(){
+  const mode = pendingAiListingMode || 'regenerate';
+  closeAiBillingWarning();
+  runAiListingOptimizer(mode);
+}
 function renderAiListingResult(data, mode){
   const payload = data && data.result ? data.result : data;
   const title = String(payload && payload.title ? payload.title : '').trim().slice(0, 80);
@@ -4437,12 +4471,18 @@ function bindEvents(){
   bind('genBtn','click',genCalc);
   bind('shortenTitleBtn','click',shortenGeneratedTitle);
   bind('descGenBtn','click',descriptionGeneratorCalc);
-  bind('aiImproveBtn','click',()=>runAiListingOptimizer('improve'));
-  bind('aiRegenerateBtn','click',()=>runAiListingOptimizer('regenerate'));
-  bind('aiCheckBtn','click',()=>runAiListingOptimizer('check'));
+  bind('aiImproveBtn','click',()=>openAiBillingWarning('improve'));
+  bind('aiRegenerateBtn','click',()=>openAiBillingWarning('regenerate'));
+  bind('aiCheckBtn','click',()=>openAiBillingWarning('check'));
+  bind('aiBillingInfoBtn','click',()=>openAiBillingWarning('regenerate'));
+  bind('aiBillingProceedBtn','click',proceedAiListingOptimizer);
+  bind('aiBillingCloseBtn','click',closeAiBillingWarning);
   safe('genResult', el => el.addEventListener('click', handleGeneratorClick));
   safe('descGenResult', el => el.addEventListener('click', handleGeneratorClick));
   safe('aiResult', el => el.addEventListener('click', handleGeneratorClick));
+  safe('aiBillingModal', el => el.addEventListener('click', function(event){
+    if(event.target === el) closeAiBillingWarning();
+  }));
   document.querySelectorAll('.returns-tab-btn').forEach(btn=>{
     btn.addEventListener('click',()=>showReturnsPanel(btn.dataset.returnsPanel,btn));
   });
@@ -4552,6 +4592,8 @@ function runSelfTests(){
   console.assert(!!$('aiImproveBtn'), 'KI-Verbessern Button sollte existieren');
   console.assert(!!$('aiRegenerateBtn'), 'KI-Neugenerieren Button sollte existieren');
   console.assert(!!$('aiCheckBtn'), 'Listing-pruefen Button sollte existieren');
+  console.assert(!!$('aiBillingInfoBtn'), 'KI-Kostenwarnung Button sollte existieren');
+  console.assert(!!$('aiBillingModal'), 'KI-Kostenwarnungs-Modal sollte existieren');
   console.assert(!!$('aiResult'), 'KI Ergebnisbereich sollte existieren');
   console.assert(!!$('sku'), 'SKU Feld sollte existieren');
   console.assert(!!$('supplierId'), 'Lieferanten-ID Feld sollte existieren');
