@@ -514,12 +514,14 @@
     aiButton.disabled = true;
     aiButton.classList.add("is-disabled");
     aiButton.textContent = "KI-Modus nicht aktiviert";
+  }
 
   function handleRuleAction(label) {
     const response = RULE_RESPONSES[label] || "Regelbasiert bleibt die Soul ruhig, klar und fokussiert.";
     addMessage("user", label, label);
     addMessage("assistant", "Elyon Soul", response);
     setFeedback(label, response);
+  }
 
   async function handleComposerSubmit(event) {
     event.preventDefault();
@@ -560,6 +562,7 @@
       state.loading = false;
       updateAiButton();
     }
+  }
 
   async function probeCapabilities() {
     try {
@@ -588,8 +591,8 @@
       updateAiButton();
       updateHint(state.summary || summarizeProducts(parseProducts()));
     }
-
   }
+
   async function runAiAnalysis() {
     if (state.loading || !state.aiEnabled) return;
 
@@ -663,3 +666,4 @@
     init();
   }
 })();
+

@@ -1,4 +1,4 @@
-function json(res, status, body) {
+﻿function json(res, status, body) {
   return res.status(status).json(body);
 }
 
@@ -156,33 +156,28 @@ function stripProductList(summary) {
 
 function buildChatMessages(summary, products, prompt) {
   const safePrompt = sanitizePrompt(prompt);
+  const productContext = summary.total > 0 ? JSON.stringify({ summary, products }, null, 2) : "";
   return [
     {
       role: "system",
       content: [
         "Du bist Elyon Soul, ein ruhiger, präziser Business-Coach für einen eBay-Seller.",
-        "Du siehst nur anonymisierte Produktdaten.",
+        "Du antwortest direkt auf die Nutzerfrage und wiederholst sie nicht wortwörtlich.",
+        "Du beginnst nicht mit Meta-Hinweisen wie fehlende Produktdaten.",
         "Erwähne niemals Namen, Adressen, Telefonnummern, E-Mails oder Bestellnummern.",
-        "Wenn noch keine Produktdaten vorhanden sind, antworte trotzdem kurz, hilfreich und direkt zur Nutzerfrage.",
         "Gib genau eine kurze, klare Business-Empfehlung auf Deutsch.",
         "Maximal zwei Sätze, direkt umsetzbar, ohne Aufzählung.",
       ].join(" "),
     },
     {
       role: "user",
-      content:
-        [
-          safePrompt
-            ? `Nutzeranfrage: ${safePrompt}`
-            : "Nutzeranfrage: Gib eine kurze, direkte Business-Empfehlung.",
-          "",
-          "Analysiere diese anonymisierten Produktdaten und nenne die beste nächste geschäftliche Handlung.",
-          JSON.stringify({ summary, products }, null, 2),
-        ].join("\n"),
+      content: [
+        `Nutzerfrage: ${safePrompt || "Bitte gib eine kurze, direkte Business-Empfehlung."}`,
+        productContext ? `Anonymisierte Produktdaten:\n${productContext}` : "",
+      ].filter(Boolean).join("\n\n"),
     },
   ];
 }
-
 async function callDeepSeek(summary, products, prompt) {
   const apiKey = process.env.DEEPSEEK_API_KEY;
   if (!apiKey) {
@@ -301,3 +296,4 @@ export default async function handler(req, res) {
     });
   }
 }
+
