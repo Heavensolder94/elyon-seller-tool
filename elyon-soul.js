@@ -283,11 +283,11 @@
           </div>
         </div>
         <div class="elyon-soul-footer">
+          <div id="elyonSoulFeedback" class="elyon-soul-feedback" aria-live="polite"></div>
           <form id="elyonSoulComposer" class="elyon-soul-composer">
             <input id="elyonSoulInput" type="text" placeholder="Frag die Soul nach Fokus, Risiko oder dem nächsten Schritt..." autocomplete="off" />
             <button type="submit">Senden</button>
           </form>
-          <div id="elyonSoulFeedback" class="elyon-soul-feedback" aria-live="polite"></div>
           <div class="elyon-soul-quick" id="elyonSoulQuick"></div>
           <button id="elyonSoulAiButton" class="elyon-soul-ai" type="button">KI-Analyse starten</button>
           <p class="elyon-soul-footnote">Vor dem KI-Modus werden nur anonymisierte Produktdaten gesendet. Keine Namen, Adressen, Telefonnummern, E-Mails oder Bestellnummern.</p>
@@ -609,3 +609,4 @@
     init();
   }
 })();
+
