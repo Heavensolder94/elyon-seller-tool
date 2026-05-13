@@ -312,11 +312,15 @@
           ? "Die Antworten laufen ueber DeepSeek V4 Flash."
           : /Analyse laeuft/i.test(textValue)
             ? "Anfrage wird gerade verarbeitet."
+            : /Production-Key fehlt/i.test(textValue)
+              ? "In Vercel fehlt `DEEPSEEK_API_KEY` in Production."
+              : /API nicht erreichbar/i.test(textValue)
+                ? "Die Route `/api/elyon-soul` hat gerade nicht geantwortet."
             : /Warte auf Produktdaten/i.test(textValue)
               ? "Lokaler Coach aktiv. Lege zuerst Produkte an."
-              : /Regelmodus aktiv/i.test(textValue)
-                ? "DeepSeek ist nicht aktiv. Pruefe den Production-Key in Vercel."
-                : /KI-Modus nicht aktiv/i.test(textValue)
+            : /Regelmodus aktiv/i.test(textValue)
+              ? "DeepSeek ist nicht aktiv. Pruefe den Production-Key in Vercel."
+            : /KI-Modus nicht aktiv/i.test(textValue)
                   ? "DeepSeek ist nicht aktiv. Pruefe den Production-Key in Vercel."
                   : "Status wird geprueft.";
       ui.statusMeta.textContent = detailValue || fallback;
@@ -637,18 +641,26 @@
       state.aiChecked = true;
       state.aiEnabled = Boolean(data && data.aiEnabled && data.mode === "deepseek");
       updateAiButton();
+      const responseMessage = String(data?.message || data?.error || "").trim();
+      const responseDetail = String(data?.details || "").trim();
       const status = state.aiEnabled
         ? { label: "DeepSeek aktiv", tone: "good", detail: "Die Antworten laufen ueber DeepSeek V4 Flash." }
-        : String(data?.message || "").toLowerCase().includes("nicht aktiviert")
-          ? { label: "Production-Key fehlt", tone: "warn", detail: "Setze DEEPSEEK_API_KEY in Vercel, dann kann die KI antworten." }
-          : { label: summary.total > 0 ? "Regelmodus aktiv" : "Warte auf Produktdaten", tone: "warn", detail: "DeepSeek ist nicht aktiv oder gerade nicht erreichbar." };
+        : responseMessage.toLowerCase().includes("nicht aktiviert")
+          ? { label: "Production-Key fehlt", tone: "warn", detail: "In Vercel fehlt `DEEPSEEK_API_KEY` in Production." }
+          : responseMessage
+            ? {
+                label: summary.total > 0 ? "Regelmodus aktiv" : "Warte auf Produktdaten",
+                tone: "warn",
+                detail: `${responseMessage}${responseDetail ? ` | ${responseDetail}` : ""}`.slice(0, 220),
+              }
+            : { label: summary.total > 0 ? "Regelmodus aktiv" : "Warte auf Produktdaten", tone: "warn", detail: "DeepSeek ist nicht aktiv oder gerade nicht erreichbar." };
       setStatus(status.label, status.tone, status.detail);
     } catch (error) {
       state.aiChecked = true;
       state.aiEnabled = false;
       updateAiButton();
       const status = summary.total > 0
-        ? { label: "API nicht erreichbar", tone: "bad", detail: "Die Backend-Route antwortet gerade nicht." }
+        ? { label: "API nicht erreichbar", tone: "bad", detail: String(error?.message || "Die Backend-Route antwortet gerade nicht.").slice(0, 220) }
         : { label: "Warte auf Produktdaten", tone: "warn", detail: "Lokaler Coach aktiv. Lege zuerst Produkte an." };
       setStatus(status.label, status.tone, status.detail);
     }
