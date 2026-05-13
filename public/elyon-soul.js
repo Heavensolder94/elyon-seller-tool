@@ -28,6 +28,7 @@
   let root;
   let panel;
   let feed;
+  let scrollArea;
   let hintBox;
   let metricsBox;
   let statusPill;
@@ -214,13 +215,15 @@
         <div class="elyon-soul-body">
           <div class="elyon-soul-status" id="elyonSoulStatus">Regelbasiert aktiv</div>
           <div class="elyon-soul-metrics" id="elyonSoulMetrics"></div>
-          <div class="elyon-soul-hints">
-            <div class="elyon-soul-section-title">Coach-Hinweise</div>
-            <div id="elyonSoulHint" class="elyon-soul-hint-box"></div>
-          </div>
-          <div class="elyon-soul-chat">
-            <div class="elyon-soul-section-title">Antworten</div>
-            <div id="elyonSoulFeed" class="elyon-soul-feed" aria-live="polite"></div>
+          <div class="elyon-soul-scroll">
+            <div class="elyon-soul-hints">
+              <div class="elyon-soul-section-title">Coach-Hinweise</div>
+              <div id="elyonSoulHint" class="elyon-soul-hint-box"></div>
+            </div>
+            <div class="elyon-soul-chat">
+              <div class="elyon-soul-section-title">Antworten</div>
+              <div id="elyonSoulFeed" class="elyon-soul-feed" aria-live="polite"></div>
+            </div>
           </div>
         </div>
         <div class="elyon-soul-footer">
@@ -236,6 +239,7 @@
     fab = root.querySelector("#elyonSoulFab");
     panel = root.querySelector("#elyonSoulPanel");
     feed = root.querySelector("#elyonSoulFeed");
+    scrollArea = root.querySelector(".elyon-soul-scroll");
     hintBox = root.querySelector("#elyonSoulHint");
     metricsBox = root.querySelector("#elyonSoulMetrics");
     statusPill = root.querySelector("#elyonSoulStatus");
@@ -270,6 +274,9 @@
       refreshSummary();
       renderMessages();
       requestAnimationFrame(() => {
+        if (scrollArea) {
+          scrollArea.scrollTop = scrollArea.scrollHeight;
+        }
         if (feed) {
           feed.scrollTop = feed.scrollHeight;
         }
@@ -348,6 +355,9 @@
       .join("");
 
     feed.scrollTop = feed.scrollHeight;
+    if (scrollArea) {
+      scrollArea.scrollTop = scrollArea.scrollHeight;
+    }
   }
 
   function refreshSummary() {
