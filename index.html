@@ -366,10 +366,40 @@
         <div class="quick-actions">
           <button class="secondary" type="button" onclick="showTab('productListTab')">Zur Produktliste</button>
           <button class="secondary" type="button" onclick="showTab('productAnalysisTab')">Zur Produktanalyse</button>
-          <button class="secondary" type="button" onclick="showTab('settingsTab')">Zu CJ / Import / API</button>
+          <button class="secondary" type="button" onclick="showTab('settingsTab')">Zu Import / API</button>
         </div>
         <div class="output-box">
           <p>Produktideen werden wie bisher lokal im Browser gespeichert. Du kannst hier neue Kandidaten prüfen und danach direkt in die Liste wechseln.</p>
+        </div>
+        <div class="grid-2" style="margin-top:14px">
+          <div class="card">
+            <h2>1. 📦 CJ Produktdaten suchen</h2>
+            <p class="hint">Nutze CJ als Datenquelle für Produktname, CJ-ID, Preis und Lieferanteninfos. Übernommen wird erst, wenn du bewusst klickst.</p>
+            <label>CJ Suchbegriff</label>
+            <input id="cjSearchKeyword" placeholder="z. B. LED Streifen RGB">
+            <button id="cjSearchBtn" class="secondary full" type="button">CJ Produktdaten suchen</button>
+            <div id="cjSearchResult" class="output-box"><p>Noch keine CJ Suche.</p></div>
+          </div>
+
+          <div class="card">
+            <h2>2. 🔎 eBay Marktdaten prüfen</h2>
+            <p class="hint">Vergleiche Preise und Listings über dein Backend. Das hilft später bei Titel, Preis und Produktentscheidung.</p>
+            <label>eBay Suchbegriff</label>
+            <input id="ebayCompetitionKeyword" placeholder="z. B. LED Streifen RGB 5m">
+            <button id="ebayCompetitionBtn" class="secondary full" type="button">eBay Konkurrenz prüfen</button>
+            <div id="ebayCompetitionResult" class="output-box"><p>Noch keine eBay Konkurrenzprüfung.</p></div>
+
+            <details class="form-accordion" style="margin-top:14px">
+              <summary>🔎 eBay Search direkt</summary>
+              <div class="accordion-body">
+                <p class="hint">Direkte eBay-Suche über dein Backend. Erwartete Route: <strong>/api/ebay/search?q=...&limit=5</strong></p>
+                <label>eBay Search Suchwort</label>
+                <input id="ebaySearchInput" placeholder="z. B. iPhone, LED Streifen, Küchenhelfer">
+                <button id="ebaySearchBtn" class="secondary full" type="button">eBay Search</button>
+                <div id="ebaySearchResults" class="output-box"><p>Noch keine eBay Search ausgeführt.</p></div>
+              </div>
+            </details>
+          </div>
         </div>
         <div class="briefing-section" style="margin-top:14px">
           <h3>KI-Produktsuche optional</h3>
@@ -688,7 +718,7 @@ Land"></textarea>
   <section id="settingsTab" class="tab">
     <div class="card">
       <h2>⚙️ Einstellungen / API Status</h2>
-      <p class="hint">Arbeitsbereich für externe Daten: CJ Produktdaten, eBay Konkurrenzdaten, eBay Search und eBay Bestellimport. Einstellungen und Backend-Setup bleiben unter ⚙️ Einstellungen → 🔌 Integrationen.</p>
+      <p class="hint">Arbeitsbereich für Backend-Setup, Google Sheets Sync und API-Status. CJ- und eBay-Recherche-Werkzeuge findest du in der Produktsuche.</p>
       <div class="dashboard">
         <div class="metric"><small>Backend</small><strong id="intBackendStatus">Nicht geprüft</strong></div>
         <div class="metric"><small>CJ</small><strong id="intCjStatus">Nicht geprüft</strong></div>
@@ -723,37 +753,6 @@ Land"></textarea>
       </div>
       <div id="googleSheetsSyncStatus" class="output-box" style="margin-top:14px"><p>Nicht verbunden</p></div>
       <div id="googleSheetsSyncResult" class="output-box" style="margin-top:14px"><p>Noch keine Synchronisierung ausgeführt.</p></div>
-    </div>
-
-    <div class="grid-2" style="margin-top:20px">
-      <div class="card">
-        <h2>1. 📦 CJ Produktdaten suchen</h2>
-        <p class="hint">Nutze CJ als Datenquelle für Produktname, CJ-ID, Preis und Lieferanteninfos. Übernommen wird erst, wenn du bewusst klickst.</p>
-        <label>CJ Suchbegriff</label>
-        <input id="cjSearchKeyword" placeholder="z. B. LED Streifen RGB">
-        <button id="cjSearchBtn" class="secondary full" type="button">CJ Produktdaten suchen</button>
-        <div id="cjSearchResult" class="output-box"><p>Noch keine CJ Suche.</p></div>
-      </div>
-
-      <div class="card">
-        <h2>2. 🔎 eBay Marktdaten prüfen</h2>
-        <p class="hint">Vergleiche Preise und Listings über dein Backend. Das hilft später bei Titel, Preis und Produktentscheidung.</p>
-        <label>eBay Suchbegriff</label>
-        <input id="ebayCompetitionKeyword" placeholder="z. B. LED Streifen RGB 5m">
-        <button id="ebayCompetitionBtn" class="secondary full" type="button">eBay Konkurrenz prüfen</button>
-        <div id="ebayCompetitionResult" class="output-box"><p>Noch keine eBay Konkurrenzprüfung.</p></div>
-
-        <details class="form-accordion" style="margin-top:14px">
-          <summary>🔎 eBay Search direkt</summary>
-          <div class="accordion-body">
-            <p class="hint">Direkte eBay-Suche über dein Backend. Erwartete Route: <strong>/api/ebay/search?q=...&limit=5</strong></p>
-            <label>eBay Search Suchwort</label>
-            <input id="ebaySearchInput" placeholder="z. B. iPhone, LED Streifen, Küchenhelfer">
-            <button id="ebaySearchBtn" class="secondary full" type="button">eBay Search</button>
-            <div id="ebaySearchResults" class="output-box"><p>Noch keine eBay Search ausgeführt.</p></div>
-          </div>
-        </details>
-      </div>
     </div>
 
     <div class="card" style="margin-top:20px">
