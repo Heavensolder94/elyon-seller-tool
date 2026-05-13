@@ -36,6 +36,7 @@
   let statusPill;
   let fab;
   let composerInput;
+  let feedbackBox;
   let aiButton;
 
   function num(value) {
@@ -66,6 +67,17 @@
     if (feed) {
       feed.scrollTop = feed.scrollHeight;
     }
+  }
+
+  function setFeedback(title, body) {
+    if (!feedbackBox) return;
+
+    feedbackBox.innerHTML = `
+      <div class="elyon-soul-feedback-card">
+        <small>${escapeHtml(title)}</small>
+        <p>${escapeHtml(body).replaceAll("\n", "<br>")}</p>
+      </div>
+    `;
   }
 
   function getRuleBasedReply(input) {
@@ -275,6 +287,7 @@
             <input id="elyonSoulInput" type="text" placeholder="Frag die Soul nach Fokus, Risiko oder dem nächsten Schritt..." autocomplete="off" />
             <button type="submit">Senden</button>
           </form>
+          <div id="elyonSoulFeedback" class="elyon-soul-feedback" aria-live="polite"></div>
           <div class="elyon-soul-quick" id="elyonSoulQuick"></div>
           <button id="elyonSoulAiButton" class="elyon-soul-ai" type="button">KI-Analyse starten</button>
           <p class="elyon-soul-footnote">Vor dem KI-Modus werden nur anonymisierte Produktdaten gesendet. Keine Namen, Adressen, Telefonnummern, E-Mails oder Bestellnummern.</p>
@@ -292,6 +305,7 @@
     metricsBox = root.querySelector("#elyonSoulMetrics");
     statusPill = root.querySelector("#elyonSoulStatus");
     composerInput = root.querySelector("#elyonSoulInput");
+    feedbackBox = root.querySelector("#elyonSoulFeedback");
     aiButton = root.querySelector("#elyonSoulAiButton");
 
     const closeButton = root.querySelector(".elyon-soul-close");
@@ -450,6 +464,7 @@
     const response = RULE_RESPONSES[label] || "Regelbasiert bleibt die Soul ruhig, klar und fokussiert.";
     addMessage("user", label, label);
     addMessage("assistant", "Elyon Soul", response);
+    setFeedback(label, response);
   }
 
   function handleComposerSubmit(event) {
@@ -460,7 +475,9 @@
     if (!message) return;
 
     addMessage("user", "Du", message);
-    addMessage("assistant", "Elyon Soul", getRuleBasedReply(message));
+    const reply = getRuleBasedReply(message);
+    addMessage("assistant", "Elyon Soul", reply);
+    setFeedback("Elyon Soul", reply);
     composerInput.value = "";
     composerInput.focus();
   }
