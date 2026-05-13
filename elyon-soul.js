@@ -25,6 +25,8 @@
     messages: [],
   };
 
+  const MAX_VISIBLE_MESSAGES = 3;
+
   let root;
   let panel;
   let feed;
@@ -362,14 +364,25 @@
       return;
     }
 
-    feed.innerHTML = state.messages
-      .map((message) => `
+    const visibleMessages = state.messages.slice(-MAX_VISIBLE_MESSAGES);
+    const hiddenCount = Math.max(0, state.messages.length - visibleMessages.length);
+
+    feed.innerHTML = [
+      hiddenCount
+        ? `
+          <div class="elyon-soul-compact-note">
+            Verlauf komprimiert: ${hiddenCount} ältere Antwort${hiddenCount === 1 ? "" : "en"} ausgeblendet.
+          </div>
+        `
+        : "",
+      ...visibleMessages
+        .map((message) => `
         <div class="elyon-soul-message ${message.role === "user" ? "is-user" : "is-assistant"}">
           <small>${message.title}</small>
           <p>${String(message.body).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll("\n", "<br>")}</p>
         </div>
       `)
-      .join("");
+    ].join("");
 
     scrollToLatest();
   }
