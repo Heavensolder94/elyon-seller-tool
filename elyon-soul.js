@@ -35,6 +35,7 @@
   let metricsBox;
   let statusPill;
   let fab;
+  let composerInput;
   let aiButton;
 
   function num(value) {
@@ -44,6 +45,13 @@
 
   function text(value) {
     return value === null || value === undefined ? "" : String(value).trim();
+  }
+
+  function escapeHtml(value) {
+    return String(value)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;");
   }
 
   function unique(values) {
@@ -58,6 +66,19 @@
     if (feed) {
       feed.scrollTop = feed.scrollHeight;
     }
+  }
+
+  function getRuleBasedReply(input) {
+    const query = text(input).toLowerCase();
+
+    if (!query) return "Beschreibe kurz dein Ziel, zum Beispiel Fokus, Risiko, Marge, Backup oder den nächsten Schritt.";
+    if (/(tagesfokus|fokus|heute|prior)/.test(query)) return RULE_RESPONSES["Tagesfokus"];
+    if (/(risiko|risk|gefähr|gefahr|compliance)/.test(query)) return RULE_RESPONSES["Risiken prüfen"];
+    if (/(marge|profit|gewinn|cashflow)/.test(query)) return RULE_RESPONSES["Schwache Margen"];
+    if (/(nächster schritt|nächste schritte|next step|weiter|soll ich|was jetzt)/.test(query)) return RULE_RESPONSES["Nächster Schritt"];
+    if (/(backup|sicherung|export|speichern)/.test(query)) return RULE_RESPONSES["Backup-Hinweis"];
+
+    return "Ich halte es bewusst einfach: Nutze Fokus, Risiken, Margen, Backup oder den nächsten Schritt als schnelle Steuerung.";
   }
 
   function handlePanelWheel(event) {
@@ -250,6 +271,10 @@
           </div>
         </div>
         <div class="elyon-soul-footer">
+          <form id="elyonSoulComposer" class="elyon-soul-composer">
+            <input id="elyonSoulInput" type="text" placeholder="Frag die Soul nach Fokus, Risiko oder dem nächsten Schritt..." autocomplete="off" />
+            <button type="submit">Senden</button>
+          </form>
           <div class="elyon-soul-quick" id="elyonSoulQuick"></div>
           <button id="elyonSoulAiButton" class="elyon-soul-ai" type="button">KI-Analyse starten</button>
           <p class="elyon-soul-footnote">Vor dem KI-Modus werden nur anonymisierte Produktdaten gesendet. Keine Namen, Adressen, Telefonnummern, E-Mails oder Bestellnummern.</p>
@@ -266,6 +291,7 @@
     hintBox = root.querySelector("#elyonSoulHint");
     metricsBox = root.querySelector("#elyonSoulMetrics");
     statusPill = root.querySelector("#elyonSoulStatus");
+    composerInput = root.querySelector("#elyonSoulInput");
     aiButton = root.querySelector("#elyonSoulAiButton");
 
     const closeButton = root.querySelector(".elyon-soul-close");
@@ -273,6 +299,9 @@
     closeButton.addEventListener("click", closePanel);
     aiButton.addEventListener("click", runAiAnalysis);
     panel.addEventListener("wheel", handlePanelWheel, { passive: false });
+
+    const composer = root.querySelector("#elyonSoulComposer");
+    composer.addEventListener("submit", handleComposerSubmit);
 
     const quickHost = root.querySelector("#elyonSoulQuick");
     Object.keys(RULE_RESPONSES).forEach((label) => {
@@ -378,8 +407,8 @@
       ...visibleMessages
         .map((message) => `
         <div class="elyon-soul-message ${message.role === "user" ? "is-user" : "is-assistant"}">
-          <small>${message.title}</small>
-          <p>${String(message.body).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll("\n", "<br>")}</p>
+          <small>${escapeHtml(message.title)}</small>
+          <p>${escapeHtml(message.body).replaceAll("\n", "<br>")}</p>
         </div>
       `)
     ].join("");
@@ -421,6 +450,19 @@
     const response = RULE_RESPONSES[label] || "Regelbasiert bleibt die Soul ruhig, klar und fokussiert.";
     addMessage("user", label, label);
     addMessage("assistant", "Elyon Soul", response);
+  }
+
+  function handleComposerSubmit(event) {
+    event.preventDefault();
+    if (!composerInput) return;
+
+    const message = text(composerInput.value);
+    if (!message) return;
+
+    addMessage("user", "Du", message);
+    addMessage("assistant", "Elyon Soul", getRuleBasedReply(message));
+    composerInput.value = "";
+    composerInput.focus();
   }
 
   async function probeCapabilities() {
@@ -494,10 +536,10 @@
       }
 
       const recommendation = text(data.recommendation || data.message || "Die KI hat keine klare Empfehlung geliefert.");
-      addMessage("assistant", "DeepSeek", recommendation);
-    } catch (error) {
-      addMessage("assistant", "Elyon Soul", "KI-Analyse ist gerade nicht verfügbar. Die regelbasierte Soul bleibt aktiv.");
-    } finally {
+    addMessage("assistant", "DeepSeek", recommendation);
+  } catch (error) {
+    addMessage("assistant", "Elyon Soul", "KI-Analyse ist gerade nicht verfügbar. Die regelbasierte Soul bleibt aktiv.");
+  } finally {
       state.loading = false;
       aiButton.innerHTML = "KI-Analyse starten";
       updateAiButton();

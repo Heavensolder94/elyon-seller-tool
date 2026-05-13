@@ -372,6 +372,49 @@
   border-top: 1px solid rgba(148, 163, 184, 0.12);
 }
 
+.elyon-soul-composer {
+  display: flex;
+  gap: 8px;
+}
+
+.elyon-soul-composer input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 42px;
+  padding: 0 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  background: rgba(15, 23, 42, 0.72);
+  color: #f8fafc;
+  font-size: 13px;
+  outline: none;
+}
+
+.elyon-soul-composer input::placeholder {
+  color: #64748b;
+}
+
+.elyon-soul-composer input:focus {
+  border-color: rgba(96, 165, 250, 0.36);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.14);
+}
+
+.elyon-soul-composer button {
+  flex: 0 0 auto;
+  height: 42px;
+  padding: 0 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(96, 165, 250, 0.22);
+  background: rgba(59, 130, 246, 0.16);
+  color: #dbeafe;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.elyon-soul-composer button:hover {
+  background: rgba(59, 130, 246, 0.24);
+}
+
 .elyon-soul-footnote {
   margin: 0;
   color: #94a3b8;
@@ -405,6 +448,14 @@
 
   .elyon-soul-quick {
     grid-template-columns: 1fr;
+  }
+
+  .elyon-soul-composer {
+    flex-direction: column;
+  }
+
+  .elyon-soul-composer button {
+    width: 100%;
   }
 }
 
