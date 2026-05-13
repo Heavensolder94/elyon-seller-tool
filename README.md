@@ -1,46 +1,78 @@
 # Elyon Seller Tool
 
-Dark SaaS dashboard for eBay and CJ Dropshipping product research, with Vercel serverless API routes for status checks, eBay OAuth/token handling, eBay search, CJ search, and orders.
+## CJdropshipping connection
 
-## Vercel Deployment
+Set your CJ API key once:
 
-This repository is prepared for Vercel Hobby by keeping the number of serverless functions low.
+```powershell
+$env:CJ_API_KEY="your-api-key"
+python src\main.py
+```
 
-Important files:
+What the app does:
 
-- `index.html` is the dashboard source.
-- `public/` is the static output directory used by Vercel.
-- `scripts/prepare-vercel.mjs` mirrors `index.html` into `public/index.html` during the build.
-- `api/ebay.js` consolidates the eBay API routes into one serverless function.
-- `lib/ebay-token-store.js` stores and reads the eBay refresh token without counting as a serverless function.
+- stores CJ tokens in `data/cj_tokens.json`
+- refreshes access tokens automatically
+- fetches CJ categories
+- searches products by keyword or SKU
+- reads product details and stock by variant
+- prepares CJ order creation via the V2 shopping endpoint
+- keeps the legacy `src/calculator.py` import path working as a shim
 
-Recommended Vercel settings:
+Useful environment variables:
 
-- Framework Preset: `Other`
-- Production Branch: `main`
-- Build Command: `node scripts/prepare-vercel.mjs`
-- Output Directory: `public`
+- `CJ_API_KEY` for login
+- `CJ_SAMPLE_QUERY` for a quick product search when starting `src/main.py`
+- `CJ_SAMPLE_VARIANT` for a stock lookup demo
+- `CJ_SAMPLE_ORDER` for a JSON order payload demo
+- `EBAY_CLIENT_ID` for the eBay OAuth client ID
+- `EBAY_CLIENT_SECRET` for the eBay OAuth client secret
+- `EBAY_RUNAME` or `EBAY_REDIRECT_URI` for the eBay redirect value
+- `DEEPSEEK_API_KEY` for the optional Elyon Soul KI-Analyse
+- `EBAY_TOKEN_STORE_MODE=upstash` to persist the eBay refresh token across deploys
+- `EBAY_TOKEN_STORE_URL` and `EBAY_TOKEN_STORE_TOKEN` for Upstash Redis storage
+- `EBAY_TOKEN_STORE_KEY` if you want to override the default Redis key
+- `EBAY_TOKEN_STORE_PATH` for local file fallback during local development
+- `api/ebay/orders.js` automatically reads the stored refresh token from the shared token store
 
-Required environment variables:
+Do not commit `data/cj_tokens.json` to GitHub.
+
+## Workflow-Doku
+
+Der typische Arbeitsablauf der App ist hier beschrieben:
+
+- [workflow.md](docs/workflow.md)
+
+## Deploy auf Vercel
+
+Diese App ist für Vercel vorbereitet:
+
+- `index.html` ist das Frontend
+- `api/*.js` sind Serverless Functions
+- `vercel.json` routet die eBay-Callback- und Token-Seiten sauber auf die richtigen Ziele
+
+Empfohlene Vercel-Umgebungsvariablen:
 
 - `CJ_API_KEY`
 - `EBAY_CLIENT_ID`
 - `EBAY_CLIENT_SECRET`
-- `EBAY_REDIRECT_URI`
+- `EBAY_REDIRECT_URI` oder `EBAY_RUNAME`
+- `DEEPSEEK_API_KEY`
+- optional:
+  - `EBAY_TOKEN_STORE_MODE=upstash`
+  - `EBAY_TOKEN_STORE_URL`
+  - `EBAY_TOKEN_STORE_TOKEN`
+  - `EBAY_TOKEN_STORE_KEY`
 
-Optional Upstash token storage variables:
+Empfohlene Deploy-Schritte:
 
-- `EBAY_TOKEN_STORE_MODE=upstash`
-- `EBAY_TOKEN_STORE_URL`
-- `EBAY_TOKEN_STORE_TOKEN`
-- `EBAY_TOKEN_STORE_KEY=elyon-seller-tool:ebay-refresh-token:production`
+1. Repo auf GitHub pushen.
+2. In Vercel `New Project` -> GitHub Repo importieren.
+3. Die Variablen oben in `Project Settings` -> `Environment Variables` setzen.
+4. Deploy starten.
+5. Die eBay Redirect-URI im eBay Developer Portal auf die Vercel-URL setzen, z. B. `https://dein-projekt.vercel.app/ebay-callback`.
 
-Useful test URLs after deployment:
+Wichtig:
 
-- `/`
-- `/api/health`
-- `/api/env-check`
-- `/api/ebay/status`
-- `/ebay-token-exchange`
-
-Do not commit local token files from `data/`.
+- GitHub Pages reicht für das Frontend, aber nicht für die `api/`-Routen.
+- Für vollständige Funktionalität brauchst du Vercel oder einen anderen Node/Serverless-Host.
