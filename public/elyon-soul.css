@@ -86,7 +86,11 @@
   opacity: 0;
   visibility: hidden;
   transition: opacity 180ms ease, transform 180ms ease, visibility 180ms ease;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-gutter: stable;
 }
 
 .elyon-soul-panel.is-open {
