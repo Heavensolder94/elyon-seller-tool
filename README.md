@@ -28,6 +28,7 @@ Useful environment variables:
 - `EBAY_CLIENT_ID` for the eBay OAuth client ID
 - `EBAY_CLIENT_SECRET` for the eBay OAuth client secret
 - `EBAY_RUNAME` or `EBAY_REDIRECT_URI` for the eBay redirect value
+- `DEEPSEEK_API_KEY` for the optional Elyon Soul KI-Analyse
 - `EBAY_TOKEN_STORE_MODE=upstash` to persist the eBay refresh token across deploys
 - `EBAY_TOKEN_STORE_URL` and `EBAY_TOKEN_STORE_TOKEN` for Upstash Redis storage
 - `EBAY_TOKEN_STORE_KEY` if you want to override the default Redis key
@@ -56,6 +57,7 @@ Empfohlene Vercel-Umgebungsvariablen:
 - `EBAY_CLIENT_ID`
 - `EBAY_CLIENT_SECRET`
 - `EBAY_REDIRECT_URI` oder `EBAY_RUNAME`
+- `DEEPSEEK_API_KEY`
 - optional:
   - `EBAY_TOKEN_STORE_MODE=upstash`
   - `EBAY_TOKEN_STORE_URL`
