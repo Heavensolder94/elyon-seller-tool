@@ -420,6 +420,12 @@
           </select>
         </div>
 
+        <div class="quick-actions">
+          <button class="secondary" id="aiImproveBtn" type="button">Mit KI verbessern</button>
+          <button class="secondary" id="aiRegenerateBtn" type="button">KI neu generieren</button>
+          <button class="secondary" id="aiCheckBtn" type="button">Listing prüfen</button>
+        </div>
+
         <button class="full" id="genBtn">Listing generieren</button>
         <button class="secondary full" id="shortenTitleBtn" style="margin-top:10px">Titel auf 80 Zeichen kürzen</button>
       </div>
@@ -428,6 +434,7 @@
         <h2>Listing-Ergebnis</h2>
         <p class="hint">Dashboard mit Score, Copy-Buttons, Titelvarianten, Keywords, Beschreibung und Warnungen.</p>
         <div id="genResult" class="empty">Noch nichts generiert.</div>
+        <div id="aiResult" class="empty" style="margin-top:16px">Noch keine KI-Analyse.</div>
       </div>
     </div>
 
@@ -3230,6 +3237,155 @@ function getGeneratedTitle(){
   const el = $('generatedTitleValue');
   return el ? el.textContent : '';
 }
+function getGeneratedDescription(){
+  const el = $('generatedDescriptionValue');
+  return el ? el.textContent : '';
+}
+function escapeHtml(value){
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+function clampScore(value){
+  const number = Number(value);
+  if(!Number.isFinite(number)) return 0;
+  return Math.max(0, Math.min(100, Math.round(number)));
+}
+function uniqueCleanList(items){
+  return Array.from(new Set((Array.isArray(items) ? items : []).map(function(item){
+    return String(item || '').trim();
+  }).filter(Boolean)));
+}
+function readListingOptimizerInput(){
+  const currentTitle = getGeneratedTitle();
+  const currentDescription = getGeneratedDescription();
+  const input = {
+    mainKeyword: $('gMainKeyword') && $('gMainKeyword').value.trim() ? $('gMainKeyword').value.trim() : '',
+    productName: $('gName') && $('gName').value.trim() ? $('gName').value.trim() : '',
+    features: $('gFeature') && $('gFeature').value.trim() ? $('gFeature').value.trim() : '',
+    targetUse: $('gUse') && $('gUse').value.trim() ? $('gUse').value.trim() : '',
+    painPoint: $('gPain') && $('gPain').value.trim() ? $('gPain').value.trim() : '',
+    tone: $('gTone') ? $('gTone').value : 'neutral',
+    titleMode: $('gMode') ? $('gMode').value : 'hybrid',
+    seoKeywords: $('gKeywords') && $('gKeywords').value.trim() ? $('gKeywords').value.trim() : '',
+    descriptionLength: $('descLength') ? $('descLength').value : 'normal',
+    descriptionType: $('descType') ? $('descType').value : 'ebay',
+    packageScope: $('descScope') && $('descScope').value.trim() ? $('descScope').value.trim() : '',
+    importantNotice: $('descNotice') && $('descNotice').value.trim() ? $('descNotice').value.trim() : '',
+    currentTitle: currentTitle,
+    currentDescription: currentDescription,
+  };
+
+  return {
+    mode: 'regenerate',
+    product: input,
+    requestedMode: 'regenerate',
+  };
+}
+function setAiButtonsLoading(isLoading, activeId){
+  const buttons = [
+    { id: 'aiImproveBtn', label: 'Mit KI verbessern' },
+    { id: 'aiRegenerateBtn', label: 'KI neu generieren' },
+    { id: 'aiCheckBtn', label: 'Listing prüfen' },
+  ];
+  buttons.forEach(function(button){
+    const el = $(button.id);
+    if(!el) return;
+    if(!el.dataset.originalLabel) el.dataset.originalLabel = button.label;
+    el.disabled = !!isLoading;
+    if(isLoading){
+      el.textContent = button.id === activeId ? 'KI arbeitet...' : el.dataset.originalLabel;
+    }else{
+      el.textContent = el.dataset.originalLabel || button.label;
+    }
+  });
+}
+function renderAiListingResult(data, mode){
+  const payload = data && data.result ? data.result : data;
+  const title = String(payload && payload.title ? payload.title : '').trim().slice(0, 80);
+  const subtitle = String(payload && payload.subtitle ? payload.subtitle : '').trim();
+  const bulletPoints = uniqueCleanList(payload && payload.bulletPoints ? payload.bulletPoints : []);
+  const description = String(payload && payload.description ? payload.description : '').trim();
+  const seoKeywords = uniqueCleanList(payload && payload.seoKeywords ? payload.seoKeywords : []);
+  const riskWarnings = uniqueCleanList(payload && payload.riskWarnings ? payload.riskWarnings : []);
+  const score = payload && payload.score ? payload.score : {};
+  const titleScoreValue = clampScore(score.title);
+  const seoScoreValue = clampScore(score.seo);
+  const descriptionScoreValue = clampScore(score.description);
+  const riskScoreValue = clampScore(score.risk);
+  const totalScoreValue = clampScore(score.total !== undefined && score.total !== null ? score.total : Math.round((titleScoreValue + seoScoreValue + descriptionScoreValue + riskScoreValue) / 4));
+  const scoreClass = totalScoreValue >= 75 ? 'good' : totalScoreValue >= 50 ? 'warn' : 'bad';
+  const bulletList = bulletPoints.length ? bulletPoints.map(function(point){
+    return '<li>' + escapeHtml(point) + '</li>';
+  }).join('') : '<li>Noch keine Bulletpoints erzeugt.</li>';
+  const warningList = riskWarnings.length ? riskWarnings.map(function(point){
+    return '<li>' + escapeHtml(point) + '</li>';
+  }).join('') : '<li>Keine Risikohinweise gemeldet.</li>';
+  const keywordsText = seoKeywords.join(', ');
+  const modeLabel = mode === 'check' ? 'Listing-Prüfung' : mode === 'improve' ? 'KI-Optimierung auf Basis deines Entwurfs' : 'KI-Neugenerierung';
+  let html = '';
+  html += '<div class="score-top"><span class="status ' + scoreClass + '">KI Score: ' + totalScoreValue + '/100</span><span class="score-number">' + totalScoreValue + '</span></div>';
+  html += '<div class="dashboard" style="margin-top:16px">';
+  html += '<div class="metric"><small>Titel</small><strong>' + titleScoreValue + '</strong></div>';
+  html += '<div class="metric"><small>SEO</small><strong>' + seoScoreValue + '</strong></div>';
+  html += '<div class="metric"><small>Beschreibung</small><strong>' + descriptionScoreValue + '</strong></div>';
+  html += '<div class="metric"><small>Risiko</small><strong>' + riskScoreValue + '</strong></div>';
+  html += '</div>';
+  html += '<div class="output-box"><h3>KI-Modus</h3><p>' + escapeHtml(modeLabel) + '</p></div>';
+  html += '<div class="output-box"><h3>Optimierter Titel</h3><p class="title-hero" id="aiListingTitleValue">' + escapeHtml(title || 'Kein Titel erzeugt') + '</p><div class="copy-row"><button class="secondary copy-btn" data-copy="aiListingTitleValue">Titel kopieren</button></div></div>';
+  html += '<div class="output-box"><h3>Untertitel</h3><p>' + escapeHtml(subtitle || 'Kein Untertitel vorgeschlagen.') + '</p></div>';
+  html += '<div class="output-box"><h3>Bulletpoints</h3><ul id="aiListingBulletsValue">' + bulletList + '</ul><div class="copy-row"><button class="secondary copy-btn" data-copy="aiListingBulletsValue">Bulletpoints kopieren</button></div></div>';
+  html += '<div class="output-box"><h3>Ausführliche Beschreibung</h3><p id="aiListingDescriptionValue">' + escapeHtml(description || 'Keine Beschreibung erzeugt.') + '</p><div class="copy-row"><button class="secondary copy-btn" data-copy="aiListingDescriptionValue">Beschreibung kopieren</button></div></div>';
+  html += '<div class="output-box"><h3>SEO-Keywords</h3><p id="aiListingSeoValue">' + escapeHtml(keywordsText || 'Keine Keywords erzeugt.') + '</p><div class="copy-row"><button class="secondary copy-btn" data-copy="aiListingSeoValue">Keywords kopieren</button></div></div>';
+  html += '<div class="output-box"><h3>Risiko-Hinweise</h3><ul id="aiListingRiskValue">' + warningList + '</ul></div>';
+  setHTML('aiResult', html);
+}
+async function runAiListingOptimizer(mode){
+  const buttons = {
+    improve: 'aiImproveBtn',
+    regenerate: 'aiRegenerateBtn',
+    check: 'aiCheckBtn',
+  };
+  const payload = readListingOptimizerInput();
+  payload.mode = mode;
+  payload.requestedMode = mode;
+  payload.product.currentTitle = getGeneratedTitle();
+  payload.product.currentDescription = getGeneratedDescription();
+  setAiButtonsLoading(true, buttons[mode] || buttons.regenerate);
+  setHTML('aiResult', '<div class="empty">KI-Analyse läuft...</div>');
+
+  try{
+    const response = await fetch('/api/ai/listing-optimizer', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    let data = null;
+    try{
+      data = await response.json();
+    }catch(parseError){
+      data = {};
+    }
+
+    if(!response.ok || !data || data.ok === false){
+      throw new Error((data && (data.error || data.message)) ? (data.error || data.message) : ('KI-Request fehlgeschlagen: HTTP ' + response.status));
+    }
+
+    renderAiListingResult(data, mode);
+  }catch(err){
+    const message = err && err.message ? err.message : 'Unbekannter KI-Fehler';
+    setHTML('aiResult', '<div class="empty">⚠️ ' + escapeHtml(message) + '</div>');
+  }finally{
+    setAiButtonsLoading(false);
+  }
+}
 function copyTextById(id){
   const el = $(id);
   const text = el ? el.textContent : '';
@@ -4281,8 +4437,12 @@ function bindEvents(){
   bind('genBtn','click',genCalc);
   bind('shortenTitleBtn','click',shortenGeneratedTitle);
   bind('descGenBtn','click',descriptionGeneratorCalc);
+  bind('aiImproveBtn','click',()=>runAiListingOptimizer('improve'));
+  bind('aiRegenerateBtn','click',()=>runAiListingOptimizer('regenerate'));
+  bind('aiCheckBtn','click',()=>runAiListingOptimizer('check'));
   safe('genResult', el => el.addEventListener('click', handleGeneratorClick));
   safe('descGenResult', el => el.addEventListener('click', handleGeneratorClick));
+  safe('aiResult', el => el.addEventListener('click', handleGeneratorClick));
   document.querySelectorAll('.returns-tab-btn').forEach(btn=>{
     btn.addEventListener('click',()=>showReturnsPanel(btn.dataset.returnsPanel,btn));
   });
@@ -4389,6 +4549,10 @@ function runSelfTests(){
   console.assert(typeof handleGeneratorClick === 'function', 'Generator Click Handler sollte existieren');
   console.assert(typeof descriptionGeneratorCalc === 'function', 'Beschreibungsgenerator sollte existieren');
   console.assert(!!$('descGenBtn'), 'Beschreibungsgenerator Button sollte existieren');
+  console.assert(!!$('aiImproveBtn'), 'KI-Verbessern Button sollte existieren');
+  console.assert(!!$('aiRegenerateBtn'), 'KI-Neugenerieren Button sollte existieren');
+  console.assert(!!$('aiCheckBtn'), 'Listing-pruefen Button sollte existieren');
+  console.assert(!!$('aiResult'), 'KI Ergebnisbereich sollte existieren');
   console.assert(!!$('sku'), 'SKU Feld sollte existieren');
   console.assert(!!$('supplierId'), 'Lieferanten-ID Feld sollte existieren');
   console.assert(!!$('ebayItemId'), 'eBay Artikelnummer Feld sollte existieren');
