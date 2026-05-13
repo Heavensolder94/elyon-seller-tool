@@ -268,17 +268,49 @@
       .slice(0, 240);
   }
 
-  function getRuleBasedReply(input) {
+  function getRuleBasedReply(input, summary) {
     const query = text(input).toLowerCase();
+    const totals = summary || createEmptySummary();
+    const totalText = `${totals.total} Produkte`;
+    const marginText = totals.averageMargin ? `${totals.averageMargin.toFixed(1)}% durchschnittliche Marge` : "noch keine berechenbare Marge";
+    const profitText = totals.averageProfit ? `${totals.averageProfit.toFixed(2)} EUR durchschnittlicher Gewinn` : "noch kein berechenbarer Gewinn";
+
     if (!query) {
-      return "Beschreibe kurz dein Ziel, zum Beispiel Fokus, Risiko, Marge, Backup oder den naechsten Schritt.";
+      return `Sag mir kurz, worauf ich schauen soll. Ich sehe ${totalText} und ${marginText}.`;
     }
-    if (/(tagesfokus|fokus|heute|prior)/.test(query)) return QUICK_ACTIONS[0].reply;
-    if (/(risiko|risk|gefaehr|gefahr|compliance)/.test(query)) return QUICK_ACTIONS[1].reply;
-    if (/(marge|profit|gewinn|cashflow)/.test(query)) return QUICK_ACTIONS[2].reply;
-    if (/(naechster schritt|naechste schritte|next step|weiter|soll ich|was jetzt)/.test(query)) return QUICK_ACTIONS[3].reply;
+    if (/(tagesfokus|fokus|heute|prior)/.test(query)) {
+      if (totals.total > 0) {
+        return totals.missingMarginCount > 0
+          ? `Heute zuerst ${totals.missingMarginCount} Produkte ohne saubere Marge klaeren, danach ${totals.missingDeliveryCount > 0 ? "Lieferzeiten" : "die besten Margen"} pruefen.`
+          : `Heute wuerde ich auf die staerksten Produkte gehen: ${totals.total} Produkte im Blick, mit Fokus auf Marge und Lieferzeit.`;
+      }
+      return "Heute wuerde ich erst 1-2 saubere Produktdaten anlegen, damit du eine klare Grundlage fuer die Steuerung hast.";
+    }
+    if (/(risiko|risk|gefaehr|gefahr|compliance)/.test(query)) {
+      if (totals.total > 0) {
+        return totals.complianceRiskCount > 0
+          ? `Ich sehe ${totals.complianceRiskCount} Risiko-Hinweise. Pruefe zuerst Compliance, Batterie, Elektronik und Markenbezug, dann die Lieferzeiten.`
+          : "Aktuell wirken die Produkte unauffaellig. Behalte trotzdem Compliance, Markenbezug und Lieferzeiten im Blick.";
+      }
+      return "Ohne Produktdaten wuerde ich zuerst die Risikofelder vorbereiten: Compliance, Lieferzeit, Marke und Elektronik.";
+    }
+    if (/(marge|profit|gewinn|cashflow)/.test(query)) {
+      if (totals.total > 0) {
+        return totals.weakMarginCount > 0
+          ? `Bei ${totals.weakMarginCount} schwachen Margen wuerde ich Einkauf, Versand und Gebuehren sofort nachziehen. ${profitText} helfen dir als Taktgeber.`
+          : `Die Marge wirkt aktuell stabil: ${marginText}, ${profitText}. Jetzt die besten Produkte priorisieren.`;
+      }
+      return "Fuer die Margen-Steuerung brauche ich zuerst ein paar Produktdaten mit Einkauf, Verkauf, Versand und Gebuehren.";
+    }
+    if (/(naechster schritt|naechste schritte|next step|weiter|soll ich|was jetzt)/.test(query)) {
+      return totals.total > 0
+        ? `Naechster Schritt: ${totals.recommendation}`
+        : "Naechster Schritt: erst ein Produkt anlegen, dann kannst du Marge, Risiko und Lieferzeit sauber entscheiden.";
+    }
     if (/(backup|sicherung|export|speichern)/.test(query)) return QUICK_ACTIONS[4].reply;
-    return "Ich halte es bewusst einfach: Nutze Fokus, Risiken, Margen, Backup oder den naechsten Schritt als schnelle Steuerung.";
+    return totals.total > 0
+      ? `Ich wuerde jetzt auf ${totals.recommendation.toLowerCase()}`
+      : "Ich halte es bewusst einfach: Lege zuerst Produktdaten an, dann koennen wir Fokus, Risiken und Marge sinnvoll steuern.";
   }
 
   function getStatusTone(summary) {
