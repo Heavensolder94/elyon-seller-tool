@@ -385,7 +385,7 @@
     </div>
   </section>
 
-  <section id="productAnalysisTab" class="tab"><div class="grid-2"><div class="card"><h2>Manueller Konkurrenz-Check</h2><p class="hint">Hier trägst du manuell eBay-Marktdaten ein: Preise, Anbieter, Verkäufe und Lieferzeit. Das Tool bewertet, ob ein Produkt gegen die Konkurrenz bestehen kann.</p><label>Produktname</label><input id="rName"><div class="row"><div><label>Dein EK + Versand €</label><input id="rCost" type="number" step="0.01"></div><div><label>Dein geplanter VK €</label><input id="rMyPrice" type="number" step="0.01"></div></div><div class="row"><div><label>eBay/Gebühren %</label><input id="rFee" type="number" step="0.1" value="15"></div><div><label>Risiko-Puffer %</label><input id="rBuffer" type="number" step="0.1" value="5"></div></div><div class="row"><div><label>Niedrigster Konkurrenzpreis €</label><input id="rLow" type="number" step="0.01"></div><div><label>Durchschnittspreis €</label><input id="rAvg" type="number" step="0.01"></div></div><div class="row"><div><label>Höchster sinnvoller Preis €</label><input id="rHigh" type="number" step="0.01"></div><div><label>Anzahl Anbieter</label><input id="rSellers" type="number"></div></div><div class="row"><div><label>Verkäufe geschätzt</label><input id="rSold" type="number"></div><div><label>Lieferzeit Tage</label><input id="rDelivery" type="number"></div></div><label>Risiko</label><select id="rRisk"><option value="low">Niedrig</option><option value="medium">Mittel</option><option value="high">Hoch / Elektronik / Batterie</option></select><button class="full" id="researchBtn">Konkurrenz bewerten</button></div><div class="card"><h2>Analyse-Ergebnis</h2><p class="hint">Hier siehst du Break-even, Gewinn, Marktposition, Score und eine kurze Begründung für GO, TEST oder NO.</p><div id="researchResult" class="empty">Noch keine Analyse.</div></div></div></section>
+  <section id="productAnalysisTab" class="tab"><div class="grid-2"><div class="card"><h2>Manueller Konkurrenz-Check</h2><p class="hint">Hier trägst du manuell eBay-Marktdaten ein: Preise, Anbieter, Verkäufe und Lieferzeit. Das Tool bewertet, ob ein Produkt gegen die Konkurrenz bestehen kann.</p><label>Produktname</label><input id="rName"><div class="row"><div><label>Dein EK + Versand €</label><input id="rCost" type="number" step="0.01"></div><div><label>Dein geplanter VK €</label><input id="rMyPrice" type="number" step="0.01"></div></div><div class="row"><div><label>eBay/Gebühren %</label><input id="rFee" type="number" step="0.1" value="15"></div><div><label>Risiko-Puffer %</label><input id="rBuffer" type="number" step="0.1" value="5"></div></div><div class="row"><div><label>Niedrigster Konkurrenzpreis €</label><input id="rLow" type="number" step="0.01"></div><div><label>Durchschnittspreis €</label><input id="rAvg" type="number" step="0.01"></div></div><div class="row"><div><label>Höchster sinnvoller Preis €</label><input id="rHigh" type="number" step="0.01"></div><div><label>Anzahl Anbieter</label><input id="rSellers" type="number"></div></div><div class="row"><div><label>Verkäufe geschätzt</label><input id="rSold" type="number"></div><div><label>Lieferzeit Tage</label><input id="rDelivery" type="number"></div></div><label>Risiko</label><select id="rRisk"><option value="low">Niedrig</option><option value="medium">Mittel</option><option value="high">Hoch / Elektronik / Batterie</option></select><button class="full" id="researchBtn">Konkurrenz bewerten</button><button class="secondary full" id="aiScoreBtn" style="margin-top:10px">Produktanalyse mit KI</button></div><div class="card"><h2>Analyse-Ergebnis</h2><p class="hint">Hier siehst du Break-even, Gewinn, Marktposition, Score und eine kurze Begründung für GO, TEST oder NO.</p><div id="researchResult" class="empty">Noch keine Analyse.</div></div></div></section>
 
   <section id="ebayListingTab" class="tab">
     <div class="generator-shell">
@@ -440,6 +440,10 @@
 
         <button class="full" id="genBtn">Listing generieren</button>
         <button class="secondary full" id="shortenTitleBtn" style="margin-top:10px">Titel auf 80 Zeichen kürzen</button>
+        <div class="quick-actions" style="margin-top:10px">
+          <button class="secondary" id="aiTitleBtn" type="button">Titel mit KI</button>
+          <button class="secondary" id="aiTagsBtn" type="button">SEO / Tags mit KI</button>
+        </div>
       </div>
 
       <div class="card">
@@ -478,6 +482,7 @@
         <label>Wichtiger Hinweis optional</label>
         <input id="descNotice" placeholder="z. B. Maße vor Kauf prüfen, Farbe kann leicht abweichen">
         <button class="full" id="descGenBtn">Beschreibung generieren</button>
+        <button class="secondary full" id="aiDescBtn" style="margin-top:10px">Beschreibung mit KI</button>
       </div>
       <div class="card">
         <h2>Beschreibung-Ergebnis</h2>
@@ -3325,6 +3330,10 @@ function setAiButtonsLoading(isLoading, activeId){
     { id: 'aiSearchImproveBtn', label: 'Suche mit KI verbessern' },
     { id: 'aiSearchAnalyzeBtn', label: 'Produktidee prüfen' },
     { id: 'aiSearchBillingBtn', label: 'KI-Kostenwarnung' },
+    { id: 'aiTitleBtn', label: 'Titel mit KI' },
+    { id: 'aiTagsBtn', label: 'SEO / Tags mit KI' },
+    { id: 'aiDescBtn', label: 'Beschreibung mit KI' },
+    { id: 'aiScoreBtn', label: 'Produktanalyse mit KI' },
   ];
   buttons.forEach(function(button){
     const el = $(button.id);
@@ -3340,10 +3349,14 @@ function setAiButtonsLoading(isLoading, activeId){
 }
 let pendingAiAction = null;
 function openAiBillingWarning(action, mode){
-  pendingAiAction = {
-    action: action || 'listing',
-    mode: mode || 'regenerate',
-  };
+  if(action && typeof action === 'object'){
+    pendingAiAction = action;
+  }else{
+    pendingAiAction = {
+      action: action || 'listing',
+      mode: mode || 'regenerate',
+    };
+  }
   safe('aiBillingModal', function(el){ el.classList.remove('hidden'); });
 }
 function closeAiBillingWarning(){
@@ -3352,13 +3365,38 @@ function closeAiBillingWarning(){
 }
 function proceedAiBillingAction(){
   const action = pendingAiAction && pendingAiAction.action ? pendingAiAction.action : 'listing';
+  const task = pendingAiAction && pendingAiAction.task ? pendingAiAction.task : null;
   const mode = pendingAiAction && pendingAiAction.mode ? pendingAiAction.mode : 'regenerate';
+  const payload = pendingAiAction || {};
   closeAiBillingWarning();
+  if(task){
+    executeCentralAiTask(payload);
+    return;
+  }
   if(action === 'product-search'){
     executeAiProductSearch(mode);
     return;
   }
   runAiListingOptimizer(mode);
+}
+async function requestCentralAi(task, prompt, extra){
+  const response = await fetch('/api/ai', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    },
+    body: JSON.stringify({
+      ...(extra || {}),
+      task: task,
+      prompt: prompt,
+    }),
+  });
+  const data = await response.json();
+  if(!response.ok || !data || data.ok === false){
+    throw new Error((data && (data.error || data.message)) ? (data.error || data.message) : ('KI-Request fehlgeschlagen: HTTP ' + response.status));
+  }
+  return data;
 }
 function readAiProductSearchInput(){
   const query = $('aiSearchQuery') && $('aiSearchQuery').value.trim() ? $('aiSearchQuery').value.trim() : '';
@@ -3377,6 +3415,193 @@ function readAiProductSearchInput(){
       risk: $('risk') ? $('risk').value : 'low',
     }
   };
+}
+function buildAiTitlePrompt(){
+  const main = $('gMainKeyword') && $('gMainKeyword').value.trim() ? $('gMainKeyword').value.trim() : '';
+  const name = $('gName') && $('gName').value.trim() ? $('gName').value.trim() : '';
+  const feat = $('gFeature') && $('gFeature').value.trim() ? $('gFeature').value.trim() : '';
+  const use = $('gUse') && $('gUse').value.trim() ? $('gUse').value.trim() : '';
+  const pain = $('gPain') && $('gPain').value.trim() ? $('gPain').value.trim() : '';
+  const tone = $('gTone') ? $('gTone').value : 'neutral';
+  const kw = $('gKeywords') && $('gKeywords').value.trim() ? $('gKeywords').value.trim() : '';
+  return [
+    'Erstelle einen optimierten eBay-Titel fuer einen deutschen Shop.',
+    'Maximal 80 Zeichen.',
+    'Keine falschen Markenversprechen, keine unsicheren Zertifizierungen.',
+    'Optional auch Untertitel, SEO-Keywords und Risikohinweise.',
+    '',
+    'Produktdaten:',
+    JSON.stringify({ main, name, feat, use, pain, tone, kw }, null, 2)
+  ].join('\n');
+}
+function buildAiDescriptionPrompt(){
+  const product = $('gName') && $('gName').value.trim() ? $('gName').value.trim() : 'Produkt';
+  const feature = $('gFeature') && $('gFeature').value.trim() ? $('gFeature').value.trim() : '';
+  const use = $('gUse') && $('gUse').value.trim() ? $('gUse').value.trim() : '';
+  const pain = $('gPain') && $('gPain').value.trim() ? $('gPain').value.trim() : '';
+  const tone = $('gTone') ? $('gTone').value : 'neutral';
+  const type = $('descType') ? $('descType').value : 'ebay';
+  const length = $('descLength') ? $('descLength').value : 'normal';
+  const scope = $('descScope') && $('descScope').value.trim() ? $('descScope').value.trim() : '';
+  const notice = $('descNotice') && $('descNotice').value.trim() ? $('descNotice').value.trim() : '';
+  return [
+    'Erstelle eine ausfuehrliche, seriöse eBay-Beschreibung.',
+    'Nutze Bulletpoints, klare Vorteile und sichere Formulierungen.',
+    '',
+    'Produktdaten:',
+    JSON.stringify({ product, feature, use, pain, tone, type, length, scope, notice }, null, 2)
+  ].join('\n');
+}
+function buildAiTagsPrompt(){
+  const main = $('gMainKeyword') && $('gMainKeyword').value.trim() ? $('gMainKeyword').value.trim() : '';
+  const name = $('gName') && $('gName').value.trim() ? $('gName').value.trim() : '';
+  const feat = $('gFeature') && $('gFeature').value.trim() ? $('gFeature').value.trim() : '';
+  const use = $('gUse') && $('gUse').value.trim() ? $('gUse').value.trim() : '';
+  const kw = $('gKeywords') && $('gKeywords').value.trim() ? $('gKeywords').value.trim() : '';
+  return [
+    'Erstelle SEO-Keywords, Synonyme und Titelideen fuer eBay.',
+    'Keine Marken erfinden, keine unsicheren Versprechen.',
+    '',
+    'Produktdaten:',
+    JSON.stringify({ main, name, feat, use, kw }, null, 2)
+  ].join('\n');
+}
+function buildAiProductScorePrompt(){
+  const product = $('rName') && $('rName').value.trim() ? $('rName').value.trim() : '';
+  const cost = n('rCost') || 0;
+  const price = n('rMyPrice') || 0;
+  const fee = n('rFee') || 15;
+  const buffer = n('rBuffer') || 5;
+  const low = n('rLow') || 0;
+  const avg = n('rAvg') || 0;
+  const high = n('rHigh') || 0;
+  const sellers = n('rSellers') || 0;
+  const sold = n('rSold') || 0;
+  const delivery = n('rDelivery') || 0;
+  const risk = $('rRisk') ? $('rRisk').value : 'low';
+  return [
+    'Bewerte die Produktidee mit Score, Risiken und einer kurzen Empfehlung.',
+    'Achte auf Konkurrenz, Marge, Lieferzeit und moegliche Risiken wie Batterie/WEEE/LUCID/EPR.',
+    '',
+    'Produktdaten:',
+    JSON.stringify({ product, cost, price, fee, buffer, low, avg, high, sellers, sold, delivery, risk }, null, 2)
+  ].join('\n');
+}
+function renderAiTitleTaskResult(data){
+  const payload = data && data.result ? data.result : data;
+  const title = String(payload && payload.title ? payload.title : '').trim();
+  const subtitle = String(payload && payload.subtitle ? payload.subtitle : '').trim();
+  const keywords = uniqueCleanList(payload && payload.seoKeywords ? payload.seoKeywords : []);
+  const warnings = uniqueCleanList(payload && payload.riskWarnings ? payload.riskWarnings : []);
+  const score = payload && payload.score ? payload.score : {};
+  const titleScore = clampScore(score.title);
+  const seoScore = clampScore(score.seo);
+  const riskScore = clampScore(score.risk);
+  const totalScore = clampScore(score.total !== undefined && score.total !== null ? score.total : Math.round((titleScore + seoScore + riskScore) / 3));
+  safe('generatedTitleValue', function(el){ el.textContent = title || el.textContent; });
+  let html = '';
+  html += '<div class="score-top"><span class="status good">Titel KI · ' + totalScore + '/100</span><span class="score-number">' + totalScore + '</span></div>';
+  html += '<div class="dashboard" style="margin-top:16px"><div class="metric"><small>Titel</small><strong>' + titleScore + '</strong></div><div class="metric"><small>SEO</small><strong>' + seoScore + '</strong></div><div class="metric"><small>Risiko</small><strong>' + riskScore + '</strong></div><div class="metric"><small>Modus</small><strong>Titel</strong></div></div>';
+  html += '<div class="output-box"><h3>Optimierter Titel</h3><p>' + escapeHtml(title || 'Kein Titel erzeugt') + '</p></div>';
+  html += '<div class="output-box"><h3>Untertitel</h3><p>' + escapeHtml(subtitle || 'Kein Untertitel vorgeschlagen.') + '</p></div>';
+  html += '<div class="output-box"><h3>SEO-Keywords</h3><p>' + escapeHtml(keywords.join(', ') || 'Keine Keywords erzeugt.') + '</p></div>';
+  html += '<div class="output-box"><h3>Risiko-Hinweise</h3><ul>' + (warnings.length ? warnings.map(function(item){ return '<li>' + escapeHtml(item) + '</li>'; }).join('') : '<li>Keine Risiko-Hinweise gemeldet.</li>') + '</ul></div>';
+  setHTML('aiResult', html);
+}
+function renderAiDescriptionTaskResult(data){
+  const payload = data && data.result ? data.result : data;
+  const description = String(payload && payload.description ? payload.description : '').trim();
+  const bulletPoints = uniqueCleanList(payload && payload.bulletPoints ? payload.bulletPoints : []);
+  const keywords = uniqueCleanList(payload && payload.seoKeywords ? payload.seoKeywords : []);
+  const warnings = uniqueCleanList(payload && payload.riskWarnings ? payload.riskWarnings : []);
+  const score = payload && payload.score ? payload.score : {};
+  const titleScore = clampScore(score.title);
+  const seoScore = clampScore(score.seo);
+  const descScore = clampScore(score.description);
+  const riskScore = clampScore(score.risk);
+  const totalScore = clampScore(score.total !== undefined && score.total !== null ? score.total : Math.round((titleScore + seoScore + descScore + riskScore) / 4));
+  safe('separateDescriptionValue', function(el){ el.textContent = description || el.textContent; });
+  let html = '';
+  html += '<div class="score-top"><span class="status good">Beschreibung KI · ' + totalScore + '/100</span><span class="score-number">' + totalScore + '</span></div>';
+  html += '<div class="dashboard" style="margin-top:16px"><div class="metric"><small>Titel</small><strong>' + titleScore + '</strong></div><div class="metric"><small>SEO</small><strong>' + seoScore + '</strong></div><div class="metric"><small>Text</small><strong>' + descScore + '</strong></div><div class="metric"><small>Risiko</small><strong>' + riskScore + '</strong></div></div>';
+  html += '<div class="output-box"><h3>Beschreibung</h3><p>' + escapeHtml(description || 'Keine Beschreibung erzeugt.') + '</p></div>';
+  html += '<div class="output-box"><h3>Bulletpoints</h3><ul>' + (bulletPoints.length ? bulletPoints.map(function(item){ return '<li>' + escapeHtml(item) + '</li>'; }).join('') : '<li>Keine Bulletpoints erzeugt.</li>') + '</ul></div>';
+  html += '<div class="output-box"><h3>SEO-Keywords</h3><p>' + escapeHtml(keywords.join(', ') || 'Keine Keywords erzeugt.') + '</p></div>';
+  html += '<div class="output-box"><h3>Risiko-Hinweise</h3><ul>' + (warnings.length ? warnings.map(function(item){ return '<li>' + escapeHtml(item) + '</li>'; }).join('') : '<li>Keine Risiko-Hinweise gemeldet.</li>') + '</ul></div>';
+  setHTML('descGenResult', html);
+}
+function renderAiTagsTaskResult(data){
+  const payload = data && data.result ? data.result : data;
+  const keywords = uniqueCleanList(payload && payload.seoKeywords ? payload.seoKeywords : []);
+  const titleIdeas = uniqueCleanList(payload && payload.titleIdeas ? payload.titleIdeas : []);
+  const warnings = uniqueCleanList(payload && payload.riskWarnings ? payload.riskWarnings : []);
+  const score = payload && payload.score ? payload.score : {};
+  const titleScore = clampScore(score.title);
+  const seoScore = clampScore(score.seo);
+  const riskScore = clampScore(score.risk);
+  const totalScore = clampScore(score.total !== undefined && score.total !== null ? score.total : Math.round((titleScore + seoScore + riskScore) / 3));
+  safe('generatedKeywordsValue', function(el){ el.textContent = keywords.join(', ') || el.textContent; });
+  let html = '';
+  html += '<div class="score-top"><span class="status good">SEO / Tags KI · ' + totalScore + '/100</span><span class="score-number">' + totalScore + '</span></div>';
+  html += '<div class="dashboard" style="margin-top:16px"><div class="metric"><small>Titel</small><strong>' + titleScore + '</strong></div><div class="metric"><small>SEO</small><strong>' + seoScore + '</strong></div><div class="metric"><small>Risiko</small><strong>' + riskScore + '</strong></div><div class="metric"><small>Modus</small><strong>Tags</strong></div></div>';
+  html += '<div class="output-box"><h3>SEO-Keywords</h3><p>' + escapeHtml(keywords.join(', ') || 'Keine Keywords erzeugt.') + '</p></div>';
+  html += '<div class="output-box"><h3>Titelideen</h3><ul>' + (titleIdeas.length ? titleIdeas.map(function(item){ return '<li>' + escapeHtml(item) + '</li>'; }).join('') : '<li>Keine Titelideen erzeugt.</li>') + '</ul></div>';
+  html += '<div class="output-box"><h3>Risiko-Hinweise</h3><ul>' + (warnings.length ? warnings.map(function(item){ return '<li>' + escapeHtml(item) + '</li>'; }).join('') : '<li>Keine Risiko-Hinweise gemeldet.</li>') + '</ul></div>';
+  setHTML('aiResult', html);
+}
+function renderAiProductScoreTaskResult(data){
+  const payload = data && data.result ? data.result : data;
+  const summary = String(payload && payload.summary ? payload.summary : '').trim();
+  const recommendation = String(payload && payload.recommendation ? payload.recommendation : '').trim();
+  const warnings = uniqueCleanList(payload && payload.riskWarnings ? payload.riskWarnings : []);
+  const score = payload && payload.score ? payload.score : {};
+  const titleScore = clampScore(score.title);
+  const seoScore = clampScore(score.seo);
+  const descScore = clampScore(score.description);
+  const riskScore = clampScore(score.risk);
+  const totalScore = clampScore(score.total !== undefined && score.total !== null ? score.total : Math.round((titleScore + seoScore + descScore + riskScore) / 4));
+  const cls = totalScore >= 75 ? 'good' : totalScore >= 50 ? 'warn' : 'bad';
+  let html = '';
+  html += '<div class="score-top"><span class="status ' + cls + '">Produktanalyse KI · ' + totalScore + '/100</span><span class="score-number">' + totalScore + '</span></div>';
+  html += '<div class="dashboard" style="margin-top:16px"><div class="metric"><small>Titel</small><strong>' + titleScore + '</strong></div><div class="metric"><small>SEO</small><strong>' + seoScore + '</strong></div><div class="metric"><small>Beschreibung</small><strong>' + descScore + '</strong></div><div class="metric"><small>Risiko</small><strong>' + riskScore + '</strong></div></div>';
+  html += '<div class="output-box"><h3>Zusammenfassung</h3><p>' + escapeHtml(summary || 'Keine Zusammenfassung erzeugt.') + '</p></div>';
+  html += '<div class="output-box"><h3>Empfehlung</h3><p>' + escapeHtml(recommendation || 'Keine Empfehlung erzeugt.') + '</p></div>';
+  html += '<div class="output-box"><h3>Risiko-Hinweise</h3><ul>' + (warnings.length ? warnings.map(function(item){ return '<li>' + escapeHtml(item) + '</li>'; }).join('') : '<li>Keine Risiko-Hinweise gemeldet.</li>') + '</ul></div>';
+  setHTML('researchResult', html);
+}
+async function executeCentralAiTask(config){
+  const task = config && config.task ? config.task : '';
+  const prompt = config && config.prompt ? config.prompt : '';
+  const buttonId = config && config.buttonId ? config.buttonId : '';
+  const resultId = config && config.resultId ? config.resultId : '';
+  if(!task || !prompt) return;
+  if(buttonId){
+    setAiButtonsLoading(true, buttonId);
+  }
+  if(resultId){
+    setHTML(resultId, '<div class="empty">KI läuft...</div>');
+  }
+  try{
+    const data = await requestCentralAi(task, prompt, config && config.extra ? config.extra : {});
+    if(task === 'title'){
+      renderAiTitleTaskResult(data);
+    }else if(task === 'description'){
+      renderAiDescriptionTaskResult(data);
+    }else if(task === 'tags'){
+      renderAiTagsTaskResult(data);
+    }else if(task === 'product_score'){
+      renderAiProductScoreTaskResult(data);
+    }
+  }catch(err){
+    const message = err && err.message ? err.message : 'Unbekannter KI-Fehler';
+    if(resultId){
+      setHTML(resultId, '<div class="empty">⚠️ ' + escapeHtml(message) + '</div>');
+    }else{
+      alert(message);
+    }
+  }finally{
+    setAiButtonsLoading(false);
+  }
 }
 function renderAiProductSearchResult(data, mode){
   const payload = data && data.result ? data.result : data;
@@ -4587,6 +4812,30 @@ function bindEvents(){
   bind('aiSearchImproveBtn','click',()=>startAiProductSearch('improve'));
   bind('aiSearchAnalyzeBtn','click',()=>startAiProductSearch('analyze'));
   bind('aiSearchBillingBtn','click',()=>openAiBillingWarning('product-search','improve'));
+  bind('aiTitleBtn','click',()=>openAiBillingWarning({
+    task:'title',
+    prompt: buildAiTitlePrompt(),
+    buttonId:'aiTitleBtn',
+    resultId:'aiResult'
+  }));
+  bind('aiTagsBtn','click',()=>openAiBillingWarning({
+    task:'tags',
+    prompt: buildAiTagsPrompt(),
+    buttonId:'aiTagsBtn',
+    resultId:'aiResult'
+  }));
+  bind('aiDescBtn','click',()=>openAiBillingWarning({
+    task:'description',
+    prompt: buildAiDescriptionPrompt(),
+    buttonId:'aiDescBtn',
+    resultId:'descGenResult'
+  }));
+  bind('aiScoreBtn','click',()=>openAiBillingWarning({
+    task:'product_score',
+    prompt: buildAiProductScorePrompt(),
+    buttonId:'aiScoreBtn',
+    resultId:'researchResult'
+  }));
   bind('aiBillingProceedBtn','click',proceedAiBillingAction);
   bind('aiBillingCloseBtn','click',closeAiBillingWarning);
   safe('genResult', el => el.addEventListener('click', handleGeneratorClick));
@@ -4708,6 +4957,10 @@ function runSelfTests(){
   console.assert(!!$('aiBillingInfoBtn'), 'KI-Kostenwarnung Button sollte existieren');
   console.assert(!!$('aiBillingModal'), 'KI-Kostenwarnungs-Modal sollte existieren');
   console.assert(!!$('aiResult'), 'KI Ergebnisbereich sollte existieren');
+  console.assert(!!$('aiTitleBtn'), 'KI Titel Button sollte existieren');
+  console.assert(!!$('aiTagsBtn'), 'KI SEO/Tags Button sollte existieren');
+  console.assert(!!$('aiDescBtn'), 'KI Beschreibung Button sollte existieren');
+  console.assert(!!$('aiScoreBtn'), 'KI Produktanalyse Button sollte existieren');
   console.assert(!!$('aiSearchQuery'), 'KI Produktsuche Eingabe sollte existieren');
   console.assert(!!$('aiSearchImproveBtn'), 'KI Produktsuche verbessern Button sollte existieren');
   console.assert(!!$('aiSearchAnalyzeBtn'), 'KI Produktsuche prüfen Button sollte existieren');
