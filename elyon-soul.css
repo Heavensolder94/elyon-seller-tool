@@ -68,12 +68,12 @@
   position: fixed;
   right: 20px;
   bottom: 84px;
-  width: min(400px, calc(100vw - 24px));
-  height: min(72vh, 700px);
+  width: min(440px, calc(100vw - 24px));
+  height: min(78vh, 760px);
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 18px;
+  gap: 16px;
+  padding: 22px;
   border-radius: 26px;
   border: 1px solid rgba(148, 163, 184, 0.16);
   background:
@@ -116,7 +116,7 @@
 
 .elyon-soul-header h2 {
   margin: 0;
-  font-size: 22px;
+  font-size: 24px;
   line-height: 1.1;
   letter-spacing: -0.04em;
 }
@@ -124,8 +124,8 @@
 .elyon-soul-header p {
   margin: 6px 0 0;
   color: #cbd5e1;
-  line-height: 1.45;
-  font-size: 13px;
+  line-height: 1.5;
+  font-size: 13.5px;
 }
 
 .elyon-soul-status {
@@ -155,13 +155,13 @@
 .elyon-soul-metrics {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  gap: 10px;
 }
 
 .elyon-soul-body {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 16px;
   min-height: 0;
   flex: 1 1 auto;
   overflow: hidden;
@@ -175,7 +175,7 @@
   padding-right: 4px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
   overscroll-behavior: contain;
   touch-action: pan-y;
 }
@@ -194,8 +194,8 @@
 }
 
 .elyon-soul-metric {
-  padding: 10px 11px;
-  border-radius: 18px;
+  padding: 12px 13px;
+  border-radius: 20px;
   border: 1px solid rgba(148, 163, 184, 0.12);
   background: rgba(2, 6, 23, 0.45);
 }
@@ -203,16 +203,16 @@
 .elyon-soul-metric span {
   display: block;
   color: #94a3b8;
-  font-size: 11px;
+  font-size: 11.5px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
 }
 
 .elyon-soul-metric strong {
   display: block;
-  font-size: 15px;
+  font-size: 16px;
   letter-spacing: -0.03em;
 }
 
@@ -225,27 +225,27 @@
 
 .elyon-soul-section-title {
   color: #dbeafe;
-  font-size: 13px;
+  font-size: 13.5px;
   font-weight: 800;
   letter-spacing: 0.02em;
 }
 
 .elyon-soul-hint-box {
-  padding: 12px;
-  border-radius: 18px;
+  padding: 14px;
+  border-radius: 20px;
   background: linear-gradient(180deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.86));
   border: 1px solid rgba(96, 165, 250, 0.18);
   color: #e2e8f0;
-  line-height: 1.55;
-  font-size: 12.5px;
-  min-height: 72px;
+  line-height: 1.6;
+  font-size: 13px;
+  min-height: 88px;
   white-space: pre-wrap;
 }
 
 .elyon-soul-feed {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   min-height: 0;
   overflow: visible;
   padding-right: 0;
@@ -253,8 +253,8 @@
 
 .elyon-soul-message {
   max-width: 100%;
-  padding: 10px 11px;
-  border-radius: 16px;
+  padding: 12px 13px;
+  border-radius: 18px;
   border: 1px solid rgba(148, 163, 184, 0.12);
   background: rgba(2, 6, 23, 0.5);
   color: #e5e7eb;
@@ -272,18 +272,18 @@
 .elyon-soul-message small {
   display: block;
   color: #93c5fd;
-  font-size: 11px;
+  font-size: 11.5px;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
 }
 
 .elyon-soul-message p {
   margin: 0;
   color: #e5e7eb;
-  line-height: 1.45;
-  font-size: 12.5px;
+  line-height: 1.56;
+  font-size: 13px;
 }
 
 .elyon-soul-compact-note {
@@ -320,7 +320,7 @@
 .elyon-soul-quick {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  gap: 10px;
 }
 
 .elyon-soul-quick button,
@@ -329,9 +329,9 @@
   border: 1px solid rgba(148, 163, 184, 0.14);
   background: rgba(255, 255, 255, 0.05);
   color: #f8fafc;
-  padding: 11px 12px;
+  padding: 12px 13px;
   font-weight: 700;
-  font-size: 13px;
+  font-size: 13.5px;
   cursor: pointer;
   transition: transform 140ms ease, background 140ms ease, border-color 140ms ease;
 }
@@ -348,7 +348,7 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  min-height: 46px;
+  min-height: 48px;
   background: linear-gradient(135deg, rgba(37, 99, 235, 0.95), rgba(14, 165, 233, 0.84));
   border-color: rgba(96, 165, 250, 0.32);
   box-shadow: 0 16px 32px rgba(37, 99, 235, 0.2);
@@ -365,8 +365,8 @@
 .elyon-soul-footer {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding-top: 8px;
+  gap: 10px;
+  padding-top: 12px;
   border-top: 1px solid rgba(148, 163, 184, 0.12);
   flex: 0 0 auto;
 }
@@ -376,17 +376,17 @@
 }
 
 .elyon-soul-feedback-card {
-  padding: 10px 11px;
-  border-radius: 16px;
+  padding: 12px 13px;
+  border-radius: 18px;
   border: 1px solid rgba(148, 163, 184, 0.14);
   background: rgba(15, 23, 42, 0.72);
 }
 
 .elyon-soul-feedback-card small {
   display: block;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
   color: #93c5fd;
-  font-size: 11px;
+  font-size: 11.5px;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -395,8 +395,8 @@
 .elyon-soul-feedback-card p {
   margin: 0;
   color: #e5e7eb;
-  font-size: 12.5px;
-  line-height: 1.45;
+  font-size: 13px;
+  line-height: 1.55;
 }
 
 .elyon-soul-composer {
@@ -407,13 +407,13 @@
 .elyon-soul-composer input {
   flex: 1 1 auto;
   min-width: 0;
-  height: 42px;
-  padding: 0 12px;
-  border-radius: 14px;
+  height: 46px;
+  padding: 0 14px;
+  border-radius: 15px;
   border: 1px solid rgba(148, 163, 184, 0.16);
   background: rgba(15, 23, 42, 0.72);
   color: #f8fafc;
-  font-size: 13px;
+  font-size: 13.5px;
   outline: none;
 }
 
@@ -428,9 +428,9 @@
 
 .elyon-soul-composer button {
   flex: 0 0 auto;
-  height: 42px;
-  padding: 0 14px;
-  border-radius: 14px;
+  height: 46px;
+  padding: 0 16px;
+  border-radius: 15px;
   border: 1px solid rgba(96, 165, 250, 0.22);
   background: rgba(59, 130, 246, 0.16);
   color: #dbeafe;
