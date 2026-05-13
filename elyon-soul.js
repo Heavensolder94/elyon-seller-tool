@@ -562,30 +562,11 @@
     setFeedback("ELYON SOUL", "Antworte...");
     setLoading(true);
 
-    const tryAi = state.aiEnabled || !state.aiChecked;
-
     try {
-      if (tryAi) {
-        const result = await requestDeepSeek(prompt, "chat");
-        state.aiChecked = true;
-        state.aiEnabled = result.aiEnabled !== false && result.mode === "deepseek";
-        const answer = text(result.recommendation) || getRuleBasedReply(prompt, summary);
-        pushMessage("assistant", result.mode === "deepseek" ? "DEEPSEEK" : "ELYON SOUL", answer);
-        renderFeedback(result.mode === "deepseek" ? "DEEPSEEK" : "ELYON SOUL", answer);
-        setStatus(result.mode === "deepseek" ? "DeepSeek aktiv" : "Regelmodus aktiv", result.mode === "deepseek" ? "good" : "warn");
-      } else {
-        const answer = getRuleBasedReply(prompt, summary);
-        pushMessage("assistant", "ELYON SOUL", answer);
-        renderFeedback("ELYON SOUL", answer);
-        setStatus(summary.total > 0 ? "Regelmodus aktiv" : "Warte auf Produktdaten", "warn");
-      }
-    } catch (error) {
-      state.aiChecked = true;
-      state.aiEnabled = false;
-      const answer = formatDeepSeekError(error);
+      const answer = getRuleBasedReply(prompt, summary);
       pushMessage("assistant", "ELYON SOUL", answer);
       renderFeedback("ELYON SOUL", answer);
-      setStatus(summary.total > 0 ? "Regelmodus aktiv" : "Warte auf Produktdaten", "warn");
+      setStatus(summary.total > 0 ? "Regelmodus aktiv" : "Warte auf Produktdaten", "warn", "Texteingaben laufen bewusst nur im regelbasierten Modus. DeepSeek startest du nur ueber den Button.");
     } finally {
       setLoading(false);
       scrollToLatest();
@@ -610,14 +591,14 @@
       const answer = text(result.recommendation) || summary.recommendation;
       pushMessage("assistant", result.mode === "deepseek" ? "DEEPSEEK" : "ELYON SOUL", answer);
       renderFeedback("KI-Analyse", answer);
-      setStatus(result.mode === "deepseek" ? "DeepSeek aktiv" : "Regelmodus aktiv", result.mode === "deepseek" ? "good" : "warn");
+      setStatus(result.mode === "deepseek" ? "DeepSeek aktiv" : "Regelmodus aktiv", result.mode === "deepseek" ? "good" : "warn", result.mode === "deepseek" ? "Die KI-Antwort kommt jetzt von DeepSeek V4 Flash." : "DeepSeek hat regelbasiert geantwortet.");
     } catch (error) {
       state.aiChecked = true;
       state.aiEnabled = false;
       const answer = formatDeepSeekError(error);
       pushMessage("assistant", "ELYON SOUL", answer);
       renderFeedback("KI-Analyse", answer);
-      setStatus(summary.total > 0 ? "Regelmodus aktiv" : "Warte auf Produktdaten", "warn");
+      setStatus(summary.total > 0 ? "Regelmodus aktiv" : "Warte auf Produktdaten", "warn", formatDeepSeekError(error));
     } finally {
       setLoading(false);
       scrollToLatest();

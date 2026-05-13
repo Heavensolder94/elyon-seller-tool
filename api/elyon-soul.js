@@ -201,7 +201,7 @@ async function callDeepSeek(summary, products, prompt) {
     body: JSON.stringify({
       model: "deepseek-v4-flash",
       temperature: 0.2,
-      max_tokens: 160,
+      max_tokens: 300,
       messages: buildChatMessages(summary, products, prompt),
     }),
   });
