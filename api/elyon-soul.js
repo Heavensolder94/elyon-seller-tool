@@ -138,13 +138,24 @@ function cleanRecommendation(text) {
     .slice(0, 320);
 }
 
+function sanitizePrompt(prompt) {
+  return String(prompt || "")
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[redacted]")
+    .replace(/\+?\d[\d\s()./-]{7,}\d/g, "[redacted]")
+    .replace(/\b(?:[A-Z]{2,}-?\d{4,}|[0-9]{6,})\b/g, "[redacted]")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 240);
+}
+
 function stripProductList(summary) {
   const copy = { ...summary };
   delete copy.products;
   return copy;
 }
 
-function buildChatMessages(summary, products) {
+function buildChatMessages(summary, products, prompt) {
+  const safePrompt = sanitizePrompt(prompt);
   return [
     {
       role: "system",
@@ -159,13 +170,19 @@ function buildChatMessages(summary, products) {
     {
       role: "user",
       content:
-        "Analysiere diese anonymisierten Produktdaten und nenne die beste nächste geschäftliche Handlung.\n\n" +
-        `${JSON.stringify({ summary, products }, null, 2)}`,
+        [
+          safePrompt
+            ? `Nutzeranfrage: ${safePrompt}`
+            : "Nutzeranfrage: Gib eine kurze, direkte Business-Empfehlung.",
+          "",
+          "Analysiere diese anonymisierten Produktdaten und nenne die beste nächste geschäftliche Handlung.",
+          JSON.stringify({ summary, products }, null, 2),
+        ].join("\n"),
     },
   ];
 }
 
-async function callDeepSeek(summary, products) {
+async function callDeepSeek(summary, products, prompt) {
   const apiKey = process.env.DEEPSEEK_API_KEY;
   if (!apiKey) {
     return {
@@ -185,7 +202,17 @@ async function callDeepSeek(summary, products) {
       aiEnabled: true,
       mode: "deepseek",
       message: "Noch keine anonymisierten Produktdaten erhalten.",
-      recommendation: "Noch keine anonymisierten Produktdaten erhalten. Lege erst Produkte an, dann analysiere ich sie.",
+      recommendation: cleanRecommendation(
+        extractAssistantText({
+          choices: [
+            {
+              message: {
+                content: `Ich habe noch keine Produktdaten, aber deine Anfrage ist klar. ${sanitizePrompt(prompt) || "Bleibe fokussiert, arbeite den nächsten sauberen Schritt ab und prüfe danach die Marge."}`,
+              },
+            },
+          ],
+        }) || "Noch keine anonymisierten Produktdaten erhalten. Lege erst Produkte an, dann analysiere ich sie.",
+      ),
       summary: stripProductList(summary),
       model: "deepseek-v4-flash",
     };
@@ -201,7 +228,7 @@ async function callDeepSeek(summary, products) {
       model: "deepseek-v4-flash",
       temperature: 0.2,
       max_tokens: 160,
-      messages: buildChatMessages(summary, products),
+      messages: buildChatMessages(summary, products, prompt),
     }),
   });
 
@@ -247,6 +274,7 @@ export default async function handler(req, res) {
   const body = normalizeBody(req.body);
   const productsInput = Array.isArray(body.products) ? body.products : [];
   const summaryInput = body.summary && typeof body.summary === "object" ? body.summary : {};
+  const prompt = toText(body.prompt || body.message || body.query);
 
   const products = productsInput.map((item, index) => summarizeProduct(item, index));
   const summary = summarizeProducts(products);
@@ -275,10 +303,13 @@ export default async function handler(req, res) {
   }
 
   try {
-    const result = await callDeepSeek(mergedSummary, products);
+    const result = await callDeepSeek(mergedSummary, products, prompt);
     return json(res, 200, {
       ...result,
-      message: result.mode === "deepseek" ? "DeepSeek-Analyse abgeschlossen." : "KI-Modus ist noch nicht aktiviert. Regelbasierte Soul ist aktiv.",
+      message:
+        result.mode === "deepseek"
+          ? "DeepSeek-Analyse abgeschlossen."
+          : "KI-Modus ist noch nicht aktiviert. Regelbasierte Soul ist aktiv.",
     });
   } catch (error) {
     return json(res, error.status || 500, {

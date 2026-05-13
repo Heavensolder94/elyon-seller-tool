@@ -93,6 +93,52 @@
     return "Ich halte es bewusst einfach: Nutze Fokus, Risiken, Margen, Backup oder den nächsten Schritt als schnelle Steuerung.";
   }
 
+  function sanitizePrompt(input) {
+    return text(input)
+      .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[redacted]")
+      .replace(/\+?\d[\d\s()./-]{7,}\d/g, "[redacted]")
+      .replace(/\b(?:[A-Z]{2,}-?\d{4,}|[0-9]{6,})\b/g, "[redacted]")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 240);
+  }
+
+  function buildAiPayload(prompt, action) {
+    const products = parseProducts();
+    const summary = summarizeProducts(products);
+    return {
+      action,
+      prompt: sanitizePrompt(prompt),
+      summary: {
+        total: summary.total,
+        missingMarginCount: summary.missingMarginCount,
+        missingDeliveryCount: summary.missingDeliveryCount,
+        complianceRiskCount: summary.complianceRiskCount,
+        weakMarginCount: summary.weakMarginCount,
+        averageProfit: summary.averageProfit,
+        averageMargin: summary.averageMargin,
+      },
+      products: anonymizeProducts(summary.products),
+    };
+  }
+
+  async function requestDeepSeek(prompt, action) {
+    const response = await fetch(CONFIG.endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(buildAiPayload(prompt, action)),
+    });
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data.ok === false) {
+      throw new Error(data.message || data.error || "Die KI-Analyse konnte nicht abgeschlossen werden.");
+    }
+
+    return data;
+  }
+
   function handlePanelWheel(event) {
     if (!state.open || !scrollArea) return;
     if (event.ctrlKey) return;
@@ -467,7 +513,7 @@
     setFeedback(label, response);
   }
 
-  function handleComposerSubmit(event) {
+  async function handleComposerSubmit(event) {
     event.preventDefault();
     if (!composerInput) return;
 
@@ -475,11 +521,37 @@
     if (!message) return;
 
     addMessage("user", "Du", message);
-    const reply = getRuleBasedReply(message);
-    addMessage("assistant", "Elyon Soul", reply);
-    setFeedback("Elyon Soul", reply);
     composerInput.value = "";
     composerInput.focus();
+
+    if (!state.aiChecked) {
+      await probeCapabilities();
+    }
+
+    if (!state.aiEnabled) {
+      const reply = getRuleBasedReply(message);
+      addMessage("assistant", "Elyon Soul", reply);
+      setFeedback("Elyon Soul", reply);
+      return;
+    }
+
+    state.loading = true;
+    updateAiButton();
+    setFeedback("Elyon Soul", "DeepSeek analysiert deine Eingabe...");
+
+    try {
+      const data = await requestDeepSeek(message, "chat");
+      const reply = text(data.recommendation || data.message || "Die KI hat keine klare Empfehlung geliefert.");
+      addMessage("assistant", "DeepSeek", reply);
+      setFeedback("DeepSeek", reply);
+    } catch (error) {
+      const fallback = getRuleBasedReply(message);
+      addMessage("assistant", "Elyon Soul", fallback);
+      setFeedback("Elyon Soul", "DeepSeek ist gerade nicht verfügbar. Regelbasierte Soul ist aktiv.");
+    } finally {
+      state.loading = false;
+      updateAiButton();
+    }
   }
 
   async function probeCapabilities() {
@@ -514,10 +586,6 @@
   async function runAiAnalysis() {
     if (state.loading || !state.aiEnabled) return;
 
-    const products = parseProducts();
-    const summary = summarizeProducts(products);
-    const anonymizedProducts = anonymizeProducts(summary.products);
-
     state.loading = true;
     aiButton.disabled = true;
     aiButton.classList.add("is-disabled");
@@ -525,37 +593,16 @@
 
     addMessage("user", "KI-Analyse", "Bitte analysiere die anonymisierten Produktdaten.");
     addMessage("assistant", "Elyon Soul", "DeepSeek analysiert jetzt nur Produktzahlen, Margen, Lieferzeiten und Risiko-Tags.");
+    setFeedback("Elyon Soul", "DeepSeek analysiert deine Produktdaten...");
 
     try {
-      const response = await fetch(CONFIG.endpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          action: "analyze",
-          summary: {
-            total: summary.total,
-            missingMarginCount: summary.missingMarginCount,
-            missingDeliveryCount: summary.missingDeliveryCount,
-            complianceRiskCount: summary.complianceRiskCount,
-            weakMarginCount: summary.weakMarginCount,
-            averageProfit: summary.averageProfit,
-            averageMargin: summary.averageMargin,
-          },
-          products: anonymizedProducts,
-        }),
-      });
-
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok || data.ok === false) {
-        throw new Error(data.message || data.error || "Die KI-Analyse konnte nicht abgeschlossen werden.");
-      }
-
+      const data = await requestDeepSeek("Bitte analysiere die anonymisierten Produktdaten.", "analyze");
       const recommendation = text(data.recommendation || data.message || "Die KI hat keine klare Empfehlung geliefert.");
-    addMessage("assistant", "DeepSeek", recommendation);
+      addMessage("assistant", "DeepSeek", recommendation);
+      setFeedback("DeepSeek", recommendation);
   } catch (error) {
     addMessage("assistant", "Elyon Soul", "KI-Analyse ist gerade nicht verfügbar. Die regelbasierte Soul bleibt aktiv.");
+    setFeedback("Elyon Soul", "KI-Analyse ist gerade nicht verfügbar. Die regelbasierte Soul bleibt aktiv.");
   } finally {
       state.loading = false;
       aiButton.innerHTML = "KI-Analyse starten";
