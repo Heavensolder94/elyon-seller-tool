@@ -163,6 +163,7 @@ function buildChatMessages(summary, products, prompt) {
         "Du bist Elyon Soul, ein ruhiger, präziser Business-Coach für einen eBay-Seller.",
         "Du siehst nur anonymisierte Produktdaten.",
         "Erwähne niemals Namen, Adressen, Telefonnummern, E-Mails oder Bestellnummern.",
+        "Wenn noch keine Produktdaten vorhanden sind, antworte trotzdem kurz, hilfreich und direkt zur Nutzerfrage.",
         "Gib genau eine kurze, klare Business-Empfehlung auf Deutsch.",
         "Maximal zwei Sätze, direkt umsetzbar, ohne Aufzählung.",
       ].join(" "),
@@ -193,28 +194,6 @@ async function callDeepSeek(summary, products, prompt) {
       recommendation: summary.total > 0 ? summary.recommendation : "KI-Modus ist noch nicht aktiviert. Regelbasierte Soul ist aktiv.",
       summary: stripProductList(summary),
       model: null,
-    };
-  }
-
-  if (summary.total === 0) {
-    return {
-      ok: true,
-      aiEnabled: true,
-      mode: "deepseek",
-      message: "Noch keine anonymisierten Produktdaten erhalten.",
-      recommendation: cleanRecommendation(
-        extractAssistantText({
-          choices: [
-            {
-              message: {
-                content: `Ich habe noch keine Produktdaten, aber deine Anfrage ist klar. ${sanitizePrompt(prompt) || "Bleibe fokussiert, arbeite den nächsten sauberen Schritt ab und prüfe danach die Marge."}`,
-              },
-            },
-          ],
-        }) || "Noch keine anonymisierten Produktdaten erhalten. Lege erst Produkte an, dann analysiere ich sie.",
-      ),
-      summary: stripProductList(summary),
-      model: "deepseek-v4-flash",
     };
   }
 
