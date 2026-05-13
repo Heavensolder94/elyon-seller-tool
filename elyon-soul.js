@@ -1,4 +1,4 @@
-﻿(function () {
+(function () {
   "use strict";
 
   const CONFIG = {
@@ -282,15 +282,45 @@
   }
 
   function getStatusTone(summary) {
-    if (state.loading) return { label: "Analyse laeuft...", tone: "info" };
-    if (!state.aiChecked) return { label: summary.total > 0 ? "Pruefe KI..." : "Warte auf Produktdaten", tone: "info" };
-    if (state.aiEnabled) return { label: "DeepSeek aktiv", tone: "good" };
-    return { label: summary.total > 0 ? "Regelmodus aktiv" : "Warte auf Produktdaten", tone: "warn" };
+    if (state.loading) {
+      return { label: "Analyse laeuft...", tone: "info", detail: "Anfrage wird gerade verarbeitet." };
+    }
+
+    if (!state.aiChecked) {
+      return summary.total > 0
+        ? { label: "KI wird geprueft...", tone: "info", detail: "DeepSeek-Status wird noch abgefragt." }
+        : { label: "Warte auf Produktdaten", tone: "info", detail: "Lokaler Coach aktiv. Lege zuerst Produkte an." };
+    }
+
+    if (state.aiEnabled) {
+      return { label: "DeepSeek aktiv", tone: "good", detail: "Die Antworten laufen ueber DeepSeek V4 Flash." };
+    }
+
+    return {
+      label: summary.total > 0 ? "Regelmodus aktiv" : "Warte auf Produktdaten",
+      tone: "warn",
+      detail: "DeepSeek ist nicht aktiv. Pruefe den Production-Key in Vercel.",
+    };
   }
 
-  function setStatus(textValue, tone) {
+  function setStatus(textValue, tone, detailValue) {
     if (!ui.status) return;
     ui.status.textContent = textValue;
+    if (ui.statusMeta) {
+      const fallback =
+        /DeepSeek aktiv/i.test(textValue)
+          ? "Die Antworten laufen ueber DeepSeek V4 Flash."
+          : /Analyse laeuft/i.test(textValue)
+            ? "Anfrage wird gerade verarbeitet."
+            : /Warte auf Produktdaten/i.test(textValue)
+              ? "Lokaler Coach aktiv. Lege zuerst Produkte an."
+              : /Regelmodus aktiv/i.test(textValue)
+                ? "DeepSeek ist nicht aktiv. Pruefe den Production-Key in Vercel."
+                : /KI-Modus nicht aktiv/i.test(textValue)
+                  ? "DeepSeek ist nicht aktiv. Pruefe den Production-Key in Vercel."
+                  : "Status wird geprueft.";
+      ui.statusMeta.textContent = detailValue || fallback;
+    }
     const colors = {
       good: ["#86efac", "rgba(34, 197, 94, 0.16)", "rgba(34, 197, 94, 0.24)"],
       warn: ["#fde68a", "rgba(250, 204, 21, 0.14)", "rgba(250, 204, 21, 0.22)"],
@@ -608,17 +638,19 @@
       state.aiEnabled = Boolean(data && data.aiEnabled && data.mode === "deepseek");
       updateAiButton();
       const status = state.aiEnabled
-        ? { label: "DeepSeek aktiv", tone: "good" }
-        : { label: summary.total > 0 ? "Regelmodus aktiv" : "Warte auf Produktdaten", tone: "warn" };
-      setStatus(status.label, status.tone);
+        ? { label: "DeepSeek aktiv", tone: "good", detail: "Die Antworten laufen ueber DeepSeek V4 Flash." }
+        : String(data?.message || "").toLowerCase().includes("nicht aktiviert")
+          ? { label: "Production-Key fehlt", tone: "warn", detail: "Setze DEEPSEEK_API_KEY in Vercel, dann kann die KI antworten." }
+          : { label: summary.total > 0 ? "Regelmodus aktiv" : "Warte auf Produktdaten", tone: "warn", detail: "DeepSeek ist nicht aktiv oder gerade nicht erreichbar." };
+      setStatus(status.label, status.tone, status.detail);
     } catch (error) {
       state.aiChecked = true;
       state.aiEnabled = false;
       updateAiButton();
       const status = summary.total > 0
-        ? { label: "Regelmodus aktiv", tone: "warn" }
-        : { label: "Warte auf Produktdaten", tone: "warn" };
-      setStatus(status.label, status.tone);
+        ? { label: "API nicht erreichbar", tone: "bad", detail: "Die Backend-Route antwortet gerade nicht." }
+        : { label: "Warte auf Produktdaten", tone: "warn", detail: "Lokaler Coach aktiv. Lege zuerst Produkte an." };
+      setStatus(status.label, status.tone, status.detail);
     }
   }
 
@@ -641,8 +673,9 @@
             <h2>Business Coach</h2>
             <p>Willkommen zurueck, Raoul. Heute zaehlt Klarheit vor Masse.</p>
           </div>
-          <div style="display:flex;gap:10px;align-items:flex-start;flex:0 0 auto;">
+          <div class="elyon-soul-status-wrap">
             <div class="elyon-soul-status">Warte auf Produktdaten</div>
+            <div class="elyon-soul-status-meta">Lokaler Coach aktiv. Lege zuerst Produkte an.</div>
             <button class="elyon-soul-close" type="button" aria-label="Schliessen">×</button>
           </div>
         </div>
