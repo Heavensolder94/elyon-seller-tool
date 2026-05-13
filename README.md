@@ -36,6 +36,12 @@ Useful environment variables:
 
 Do not commit `data/cj_tokens.json` to GitHub.
 
+## Workflow-Doku
+
+Der typische Arbeitsablauf der App ist hier beschrieben:
+
+- [workflow.md](docs/workflow.md)
+
 ## Deploy auf Vercel
 
 Diese App ist für Vercel vorbereitet:
