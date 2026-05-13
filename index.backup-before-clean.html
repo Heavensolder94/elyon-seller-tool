@@ -1,0 +1,4830 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Elyon Seller Tool</title>
+  <style>
+    :root {
+      --bg-main: #0b1020;
+      --bg-panel: rgba(13, 18, 33, 0.86);
+      --bg-card: rgba(18, 24, 44, 0.86);
+      --bg-card-soft: rgba(24, 32, 55, 0.9);
+      --border-soft: rgba(148, 163, 184, 0.14);
+      --border-strong: rgba(56, 189, 248, 0.18);
+      --text-main: #f8fafc;
+      --text-muted: #93a4bd;
+      --text-soft: #c9d5e7;
+      --primary: #4c8dff;
+      --primary-2: #1d68ff;
+      --primary-glow: rgba(76, 141, 255, 0.3);
+      --success: #27d39a;
+      --warning: #f2b84b;
+      --danger: #ff6b6b;
+      --radius-xl: 22px;
+      --radius-lg: 18px;
+      --radius-md: 14px;
+      --shadow-panel: 0 18px 48px rgba(0, 0, 0, 0.36);
+      --shadow-soft: 0 8px 28px rgba(0, 0, 0, 0.24);
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; }
+    html { scroll-behavior: smooth; }
+    body {
+      color: var(--text-main);
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(76,141,255,.16), transparent 28%),
+        radial-gradient(circle at 85% 20%, rgba(39,211,154,.08), transparent 24%),
+        linear-gradient(180deg, #0b1020 0%, #0f172a 40%, #070b14 100%);
+      overflow-x: hidden;
+    }
+
+    a { color: inherit; text-decoration: none; }
+    button, input, select { font: inherit; }
+
+    .app {
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr);
+      min-height: 100vh;
+    }
+
+    .sidebar {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      padding: 18px 16px;
+      background: rgba(6, 10, 20, 0.92);
+      border-right: 1px solid rgba(148, 163, 184, 0.12);
+      backdrop-filter: blur(18px);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 8px 8px;
+    }
+
+    .brand-mark {
+      width: 42px;
+      height: 42px;
+      border-radius: 14px;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(135deg, rgba(76,141,255,0.95), rgba(29,104,255,0.78));
+      box-shadow: 0 0 24px rgba(76, 141, 255, 0.32);
+      flex: 0 0 auto;
+    }
+
+    .brand-mark::before {
+      content: "";
+      width: 18px;
+      height: 18px;
+      border-radius: 7px;
+      border: 2px solid rgba(255, 255, 255, 0.9);
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 18px;
+      line-height: 1.05;
+      letter-spacing: -0.03em;
+    }
+
+    .brand p {
+      margin: 4px 0 0;
+      font-size: 12px;
+      color: var(--text-muted);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .searchbox {
+      position: relative;
+      padding: 0 8px;
+    }
+
+    .searchbox input {
+      width: 100%;
+      border: 1px solid rgba(148, 163, 184, 0.12);
+      border-radius: 14px;
+      background: rgba(17, 24, 39, 0.92);
+      color: var(--text-main);
+      padding: 12px 14px 12px 38px;
+      outline: none;
+    }
+
+    .searchbox::before {
+      content: "⌕";
+      position: absolute;
+      left: 22px;
+      top: 50%;
+      transform: translateY(-52%);
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    .nav {
+      display: grid;
+      gap: 6px;
+      padding: 0 8px;
+      overflow: auto;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 12px 13px;
+      border-radius: 14px;
+      color: var(--text-soft);
+      border: 1px solid transparent;
+      transition: background .15s ease, border-color .15s ease, transform .15s ease, color .15s ease;
+    }
+
+    .nav-item:hover {
+      transform: translateY(-1px);
+      background: rgba(76, 141, 255, 0.08);
+      border-color: rgba(76, 141, 255, 0.14);
+      color: var(--text-main);
+    }
+
+    .nav-item.active {
+      background: linear-gradient(135deg, rgba(76,141,255,.18), rgba(29,104,255,.12));
+      border-color: rgba(76, 141, 255, 0.22);
+      color: #d8e6ff;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+    }
+
+    .nav-item .icon {
+      width: 28px;
+      height: 28px;
+      display: inline-grid;
+      place-items: center;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.03);
+      color: var(--primary);
+      flex: 0 0 auto;
+    }
+
+    .sidebar-footer {
+      margin-top: auto;
+      padding: 14px;
+      border-radius: 16px;
+      background: rgba(18, 24, 44, 0.9);
+      border: 1px solid var(--border-soft);
+      box-shadow: var(--shadow-soft);
+      color: var(--text-muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .sidebar-footer strong { color: var(--text-main); }
+
+    .content {
+      padding: 26px;
+      max-width: 1720px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      padding: 18px 20px;
+      background: rgba(18, 24, 44, 0.82);
+      border: 1px solid var(--border-soft);
+      border-radius: 22px;
+      box-shadow: var(--shadow-panel);
+      backdrop-filter: blur(16px);
+    }
+
+    .topbar h2 {
+      margin: 0;
+      font-size: 28px;
+      line-height: 1.08;
+      letter-spacing: -0.04em;
+    }
+
+    .topbar p {
+      margin: 6px 0 0;
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    .topbar-left {
+      min-width: 0;
+    }
+
+    .top-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .pill, .btn {
+      border-radius: 999px;
+      padding: 11px 15px;
+      font-weight: 600;
+      border: 1px solid var(--border-soft);
+      transition: transform .15s ease, background .15s ease, box-shadow .15s ease, border-color .15s ease;
+    }
+
+    .pill {
+      background: rgba(255,255,255,0.03);
+      color: var(--text-soft);
+    }
+
+    .btn {
+      background: linear-gradient(135deg, var(--primary), var(--primary-2));
+      color: white;
+      border: none;
+      box-shadow: 0 0 18px rgba(76, 141, 255, 0.25);
+    }
+
+    .btn:hover, .pill:hover { transform: translateY(-1px); }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      margin: 18px 0;
+    }
+
+    .metric {
+      padding: 18px;
+      border-radius: 18px;
+      background: rgba(18, 24, 44, 0.82);
+      border: 1px solid var(--border-soft);
+      box-shadow: var(--shadow-soft);
+    }
+
+    .metric .label {
+      color: var(--text-muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .metric .value {
+      margin-top: 10px;
+      font-size: 32px;
+      font-weight: 800;
+      letter-spacing: -0.04em;
+    }
+
+    .metric .sub {
+      margin-top: 8px;
+      color: var(--text-muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .kpi-positive { color: var(--success); }
+    .kpi-muted { color: var(--text-main); }
+    .kpi-warning { color: var(--warning); }
+
+    .main-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.7fr) minmax(320px, 0.9fr);
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .panel {
+      background: var(--bg-card);
+      border: 1px solid var(--border-soft);
+      border-radius: 20px;
+      box-shadow: var(--shadow-panel);
+      backdrop-filter: blur(16px);
+    }
+
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 18px 18px 0;
+    }
+
+    .panel-header h3 {
+      margin: 0;
+      font-size: 18px;
+      letter-spacing: -0.03em;
+    }
+
+    .panel-header p {
+      margin: 5px 0 0;
+      color: var(--text-muted);
+      font-size: 13px;
+    }
+
+    .panel-body {
+      padding: 16px 18px 18px;
+    }
+
+    .chart-wrap {
+      margin-top: 8px;
+      padding: 16px;
+      border-radius: 18px;
+      background: linear-gradient(180deg, rgba(10, 14, 27, 0.86), rgba(12, 18, 33, 0.94));
+      border: 1px solid rgba(148, 163, 184, 0.12);
+    }
+
+    .chart-legend {
+      display: flex;
+      gap: 14px;
+      align-items: center;
+      justify-content: flex-end;
+      color: var(--text-muted);
+      font-size: 13px;
+      margin-bottom: 10px;
+    }
+
+    .legend-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      display: inline-block;
+      margin-right: 6px;
+    }
+
+    .legend-dot.blue { background: #4c8dff; }
+    .legend-dot.green { background: #27d39a; }
+
+    .top-products {
+      display: grid;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .product-item {
+      display: grid;
+      grid-template-columns: 26px minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: center;
+      padding: 12px;
+      border-radius: 16px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(148, 163, 184, 0.1);
+    }
+
+    .product-index {
+      color: var(--text-muted);
+      font-weight: 700;
+      text-align: center;
+    }
+
+    .product-title {
+      font-weight: 700;
+      color: var(--text-main);
+      line-height: 1.25;
+      margin-bottom: 5px;
+    }
+
+    .product-meta {
+      color: var(--text-muted);
+      font-size: 13px;
+    }
+
+    .product-profit {
+      text-align: right;
+      color: var(--success);
+      font-weight: 700;
+    }
+
+    .workspace-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+
+    .workspace-card {
+      padding: 16px;
+      border-radius: 18px;
+      background: rgba(18, 24, 44, 0.82);
+      border: 1px solid rgba(148, 163, 184, 0.12);
+      box-shadow: var(--shadow-soft);
+      min-height: 132px;
+    }
+
+    .workspace-card .label {
+      color: var(--text-muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .workspace-card h4 {
+      margin: 10px 0 6px;
+      font-size: 16px;
+    }
+
+    .workspace-card p {
+      margin: 0;
+      color: var(--text-muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .workspace-card .row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+
+    .status-strip {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .status-chip {
+      padding: 14px;
+      border-radius: 16px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(148, 163, 184, 0.1);
+    }
+
+    .status-chip .k {
+      color: var(--text-muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .status-chip .v {
+      margin-top: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: var(--text-muted);
+      display: inline-block;
+      box-shadow: 0 0 0 4px rgba(148, 163, 184, 0.08);
+      flex: 0 0 auto;
+    }
+
+    .dot.ok { background: var(--success); box-shadow: 0 0 0 4px rgba(39, 211, 154, 0.12); }
+    .dot.warn { background: var(--warning); box-shadow: 0 0 0 4px rgba(242, 184, 75, 0.12); }
+    .dot.err { background: var(--danger); box-shadow: 0 0 0 4px rgba(255, 107, 107, 0.12); }
+
+    .bottom-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.2fr) minmax(300px, 0.8fr);
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .mini-list {
+      display: grid;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .mini-row {
+      display: grid;
+      grid-template-columns: 26px minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: center;
+      padding: 12px;
+      border-radius: 16px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(148, 163, 184, 0.1);
+    }
+
+    .mini-row .i {
+      color: var(--primary);
+      text-align: center;
+      font-weight: 700;
+    }
+
+    .mini-row .t {
+      font-weight: 700;
+    }
+
+    .mini-row .s {
+      color: var(--text-muted);
+      font-size: 13px;
+      margin-top: 4px;
+    }
+
+    .mini-row .a {
+      color: var(--success);
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .section-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+
+    .workflow-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.35fr) minmax(360px, 0.85fr);
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .panel-note {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(76, 141, 255, 0.1);
+      color: #d8e6ff;
+      border: 1px solid rgba(76, 141, 255, 0.2);
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .research-toolbar {
+      display: grid;
+      grid-template-columns: minmax(0, 1.3fr) repeat(2, minmax(160px, 0.62fr)) auto;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .inline-input,
+    .inline-select {
+      width: 100%;
+      min-height: 44px;
+      padding: 11px 14px;
+      border-radius: 14px;
+      border: 1px solid rgba(148, 163, 184, 0.14);
+      background: rgba(9, 14, 27, 0.92);
+      color: var(--text-main);
+      outline: none;
+    }
+
+    .inline-input::placeholder { color: var(--text-muted); }
+
+    .research-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .mini-pill {
+      border: 1px solid rgba(148, 163, 184, 0.14);
+      background: rgba(255,255,255,0.03);
+      color: var(--text-soft);
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .mini-pill.active {
+      background: rgba(76, 141, 255, 0.14);
+      color: #d8e6ff;
+      border-color: rgba(76, 141, 255, 0.22);
+    }
+
+    .research-results {
+      display: grid;
+      gap: 10px;
+      max-height: 530px;
+      overflow: auto;
+      padding-right: 4px;
+    }
+
+    .result-card {
+      display: grid;
+      grid-template-columns: 90px minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: center;
+      padding: 12px;
+      border-radius: 16px;
+      border: 1px solid rgba(148, 163, 184, 0.1);
+      background: rgba(255,255,255,0.03);
+      cursor: pointer;
+      transition: transform .15s ease, border-color .15s ease, background .15s ease;
+    }
+
+    .result-card:hover,
+    .result-card.active {
+      transform: translateY(-1px);
+      border-color: rgba(76, 141, 255, 0.24);
+      background: rgba(76, 141, 255, 0.08);
+    }
+
+    .result-thumb {
+      height: 76px;
+      border-radius: 14px;
+      background:
+        radial-gradient(circle at 30% 20%, rgba(255,255,255,0.2), transparent 26%),
+        linear-gradient(135deg, rgba(76, 141, 255, 0.8), rgba(17, 24, 39, 0.88));
+      display: flex;
+      align-items: flex-end;
+      justify-content: flex-start;
+      padding: 10px;
+      color: white;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .result-main h5 {
+      margin: 0 0 6px;
+      font-size: 15px;
+      line-height: 1.2;
+    }
+
+    .result-main p {
+      margin: 0;
+      color: var(--text-muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .result-stats {
+      display: grid;
+      justify-items: end;
+      gap: 6px;
+      white-space: nowrap;
+    }
+
+    .result-stats strong {
+      font-size: 18px;
+      letter-spacing: -0.03em;
+    }
+
+    .result-stats span {
+      color: var(--text-muted);
+      font-size: 12px;
+    }
+
+    .detail-summary {
+      display: grid;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .detail-hero {
+      padding: 16px;
+      border-radius: 18px;
+      border: 1px solid rgba(148, 163, 184, 0.12);
+      background: linear-gradient(180deg, rgba(76,141,255,0.11), rgba(255,255,255,0.02));
+    }
+
+    .detail-title {
+      margin: 0 0 6px;
+      font-size: 20px;
+      letter-spacing: -0.03em;
+    }
+
+    .detail-subtitle {
+      color: var(--text-muted);
+      margin: 0;
+      line-height: 1.5;
+      font-size: 13px;
+    }
+
+    .detail-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .detail-box {
+      padding: 12px 14px;
+      border-radius: 16px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(148, 163, 184, 0.1);
+    }
+
+    .detail-box .k {
+      color: var(--text-muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .detail-box .v {
+      margin-top: 8px;
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+    }
+
+    .action-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .listing-preview {
+      display: grid;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .preview-line {
+      padding: 12px 13px;
+      border-radius: 14px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(148, 163, 184, 0.1);
+      color: var(--text-soft);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .queue-list {
+      display: grid;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .queue-item {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(148, 163, 184, 0.1);
+      color: var(--text-soft);
+      font-size: 13px;
+    }
+
+    .queue-item strong { color: var(--text-main); }
+
+    .small-panel {
+      padding: 16px;
+      border-radius: 18px;
+      background: rgba(18, 24, 44, 0.82);
+      border: 1px solid rgba(148, 163, 184, 0.12);
+      box-shadow: var(--shadow-soft);
+    }
+
+    .small-panel h4 {
+      margin: 0 0 8px;
+      font-size: 15px;
+    }
+
+    .small-panel p {
+      margin: 0;
+      color: var(--text-muted);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .footer {
+      margin: 18px 4px 0;
+      color: var(--text-muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .footer a { color: var(--primary); font-weight: 600; }
+
+    .toast {
+      position: fixed;
+      right: 18px;
+      bottom: 18px;
+      z-index: 50;
+      min-width: 260px;
+      max-width: min(420px, calc(100vw - 36px));
+      padding: 12px 14px;
+      border-radius: 16px;
+      background: rgba(10, 14, 27, 0.96);
+      border: 1px solid rgba(76, 141, 255, 0.22);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.38);
+      color: var(--text-main);
+      opacity: 0;
+      transform: translateY(12px);
+      pointer-events: none;
+      transition: opacity .18s ease, transform .18s ease;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .toast .k {
+      color: var(--text-muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 6px;
+    }
+
+    .toast .v {
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    @media (max-width: 1220px) {
+      .app { grid-template-columns: 1fr; }
+      .sidebar {
+        position: relative;
+        height: auto;
+      }
+      .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .main-grid, .bottom-grid, .workspace-grid, .section-grid, .workflow-grid { grid-template-columns: 1fr; }
+      .status-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .research-toolbar { grid-template-columns: 1fr 1fr; }
+    }
+
+    @media (max-width: 720px) {
+      .content { padding: 14px; }
+      .sidebar { padding: 14px 12px; }
+      .topbar {
+        padding: 16px;
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .top-actions { justify-content: flex-start; }
+      .metrics, .status-strip { grid-template-columns: 1fr; }
+      .research-toolbar, .detail-grid {
+        grid-template-columns: 1fr;
+      }
+      .panel-header {
+        flex-direction: column;
+      }
+      .product-item, .mini-row, .result-card {
+        grid-template-columns: 22px minmax(0, 1fr);
+      }
+      .product-profit {
+        grid-column: 2 / -1;
+        text-align: left;
+      }
+      .result-stats {
+        grid-column: 2 / -1;
+        justify-items: start;
+      }
+      .btn, .pill { width: 100%; }
+      .top-actions { width: 100%; }
+      .toast {
+        right: 12px;
+        left: 12px;
+        max-width: none;
+        min-width: 0;
+      }
+    }
+
+    /* Clean operator UI override: keeps all IDs and JavaScript hooks intact. */
+    :root {
+      --bg-main: #080d18;
+      --bg-panel: #0c1322;
+      --bg-card: #111a2c;
+      --bg-card-soft: #141f33;
+      --border-soft: rgba(132, 152, 178, 0.18);
+      --border-strong: rgba(56, 189, 248, 0.26);
+      --text-main: #f8fafc;
+      --text-muted: #8ea0b8;
+      --text-soft: #c7d2e2;
+      --primary: #38bdf8;
+      --primary-2: #0ea5e9;
+      --primary-glow: rgba(56, 189, 248, 0.2);
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --radius-xl: 12px;
+      --radius-lg: 10px;
+      --radius-md: 8px;
+      --shadow-panel: 0 14px 34px rgba(0, 0, 0, 0.28);
+      --shadow-soft: 0 8px 20px rgba(0, 0, 0, 0.2);
+    }
+
+    body {
+      background:
+        linear-gradient(90deg, rgba(56, 189, 248, 0.06) 1px, transparent 1px),
+        linear-gradient(0deg, rgba(56, 189, 248, 0.04) 1px, transparent 1px),
+        radial-gradient(circle at 18% 0%, rgba(56, 189, 248, 0.12), transparent 28%),
+        linear-gradient(135deg, #080d18 0%, #0c1322 45%, #050914 100%);
+      background-size: 44px 44px, 44px 44px, auto, auto;
+    }
+
+    .app {
+      grid-template-columns: 244px minmax(0, 1fr);
+    }
+
+    .sidebar {
+      padding: 14px 12px;
+      gap: 12px;
+      background: rgba(5, 9, 18, 0.94);
+      border-right-color: rgba(132, 152, 178, 0.16);
+      box-shadow: 8px 0 30px rgba(0, 0, 0, 0.18);
+    }
+
+    .brand {
+      padding: 8px 6px 10px;
+    }
+
+    .brand-mark {
+      width: 34px;
+      height: 34px;
+      border-radius: 9px;
+      box-shadow: none;
+      background: linear-gradient(135deg, #38bdf8, #0f62fe);
+    }
+
+    .brand-mark::before {
+      width: 13px;
+      height: 13px;
+      border-radius: 5px;
+      border-width: 1.5px;
+    }
+
+    .brand h1 {
+      font-size: 15px;
+      letter-spacing: 0;
+    }
+
+    .brand p {
+      font-size: 10px;
+      color: #b9c7d8;
+    }
+
+    .searchbox {
+      padding: 0 4px;
+    }
+
+    .searchbox::before {
+      content: "";
+    }
+
+    .searchbox input {
+      min-height: 38px;
+      padding: 9px 12px;
+      border-radius: 8px;
+      background: #0b1220;
+      border-color: rgba(132, 152, 178, 0.2);
+    }
+
+    .nav {
+      gap: 2px;
+      padding: 0 4px 4px;
+    }
+
+    .nav-item {
+      padding: 10px 10px;
+      border-radius: 8px;
+      color: #b7c6da;
+      font-size: 14px;
+      transform: none;
+    }
+
+    .nav-item:hover {
+      transform: none;
+      background: rgba(56, 189, 248, 0.08);
+      border-color: rgba(56, 189, 248, 0.14);
+    }
+
+    .nav-item.active {
+      background: rgba(56, 189, 248, 0.12);
+      color: #e6f7ff;
+      border-color: rgba(56, 189, 248, 0.26);
+      box-shadow: inset 3px 0 0 #38bdf8;
+    }
+
+    .nav-item .icon {
+      width: 24px;
+      height: 24px;
+      border-radius: 7px;
+      background: transparent;
+      color: #8fdcff;
+    }
+
+    .sidebar-footer {
+      padding: 12px;
+      border-radius: 10px;
+      background: #0b1220;
+      box-shadow: none;
+      font-size: 12px;
+    }
+
+    .content {
+      max-width: 1480px;
+      padding: 24px 28px;
+    }
+
+    .topbar {
+      padding: 18px 0 20px;
+      background: transparent;
+      border: 0;
+      border-radius: 0;
+      box-shadow: none;
+      backdrop-filter: none;
+      border-bottom: 1px solid rgba(132, 152, 178, 0.14);
+    }
+
+    .topbar h2 {
+      font-size: 26px;
+      letter-spacing: -0.03em;
+    }
+
+    .topbar p {
+      margin-top: 7px;
+      color: #a7b5c9;
+    }
+
+    .pill,
+    .btn,
+    .mini-pill {
+      border-radius: 8px;
+      box-shadow: none;
+    }
+
+    .pill {
+      background: #0f1728;
+      border-color: rgba(132, 152, 178, 0.22);
+      color: #cbd8ea;
+    }
+
+    .btn {
+      background: linear-gradient(135deg, #38bdf8, #0284c7);
+      box-shadow: 0 8px 18px rgba(2, 132, 199, 0.18);
+    }
+
+    .btn:hover,
+    .pill:hover {
+      transform: none;
+      border-color: rgba(56, 189, 248, 0.3);
+      box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.08);
+    }
+
+    .metrics {
+      gap: 12px;
+      margin: 20px 0 14px;
+    }
+
+    .metric,
+    .panel,
+    .workspace-card,
+    .small-panel {
+      background: linear-gradient(180deg, rgba(17, 26, 44, 0.96), rgba(13, 20, 34, 0.96));
+      border: 1px solid rgba(132, 152, 178, 0.18);
+      border-radius: 10px;
+      box-shadow: var(--shadow-soft);
+      backdrop-filter: none;
+    }
+
+    .metric {
+      padding: 15px 16px;
+      min-height: 116px;
+    }
+
+    .metric .label,
+    .workspace-card .label,
+    .status-chip .k,
+    .detail-box .k,
+    .toast .k {
+      letter-spacing: 0.06em;
+      color: #9badc4;
+    }
+
+    .metric .value {
+      font-size: 28px;
+    }
+
+    .metric .sub {
+      font-size: 12px;
+    }
+
+    .main-grid,
+    .workflow-grid,
+    .bottom-grid,
+    .section-grid,
+    .workspace-grid {
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .main-grid {
+      grid-template-columns: minmax(0, 1.55fr) minmax(300px, 0.85fr);
+    }
+
+    .workflow-grid {
+      grid-template-columns: minmax(0, 1.28fr) minmax(340px, 0.82fr);
+    }
+
+    .panel-header {
+      padding: 16px 16px 0;
+      align-items: center;
+    }
+
+    .panel-header h3 {
+      font-size: 16px;
+      letter-spacing: -0.02em;
+    }
+
+    .panel-header p,
+    .workspace-card p,
+    .small-panel p,
+    .result-main p {
+      color: #9badc4;
+    }
+
+    .panel-body {
+      padding: 14px 16px 16px;
+    }
+
+    .chart-wrap,
+    .detail-hero,
+    .detail-box,
+    .preview-line,
+    .queue-item,
+    .product-item,
+    .mini-row,
+    .result-card,
+    .status-chip {
+      background: rgba(8, 13, 24, 0.58);
+      border: 1px solid rgba(132, 152, 178, 0.16);
+      border-radius: 8px;
+      box-shadow: none;
+    }
+
+    .chart-wrap {
+      padding: 10px;
+    }
+
+    .chart-wrap svg {
+      height: 300px;
+      display: block;
+    }
+
+    .product-item,
+    .result-card {
+      padding: 10px;
+    }
+
+    .result-card {
+      grid-template-columns: 70px minmax(0, 1fr) auto;
+    }
+
+    .result-card:hover,
+    .result-card.active {
+      transform: none;
+      border-color: rgba(56, 189, 248, 0.34);
+      background: rgba(56, 189, 248, 0.08);
+    }
+
+    .result-thumb {
+      height: 62px;
+      border-radius: 7px;
+      background:
+        linear-gradient(135deg, rgba(56, 189, 248, 0.72), rgba(15, 23, 42, 0.92));
+    }
+
+    .research-toolbar {
+      grid-template-columns: minmax(0, 1.25fr) minmax(140px, 0.5fr) minmax(140px, 0.5fr) auto;
+      gap: 8px;
+    }
+
+    .inline-input,
+    .inline-select {
+      min-height: 40px;
+      border-radius: 8px;
+      background: #08111f;
+      border-color: rgba(132, 152, 178, 0.22);
+    }
+
+    .panel-note,
+    .mini-pill.active {
+      background: rgba(56, 189, 248, 0.11);
+      border-color: rgba(56, 189, 248, 0.28);
+      color: #dff7ff;
+    }
+
+    .workspace-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .workspace-card {
+      min-height: 0;
+      padding: 15px;
+    }
+
+    .workspace-card h4,
+    .small-panel h4 {
+      font-size: 15px;
+      margin-top: 8px;
+    }
+
+    .status-strip {
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .toast {
+      border-radius: 10px;
+      background: #08111f;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.36);
+    }
+
+    @media (max-width: 1220px) {
+      .app { grid-template-columns: 1fr; }
+      .sidebar {
+        position: relative;
+        height: auto;
+      }
+      .nav {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .workspace-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    @media (max-width: 720px) {
+      .content { padding: 16px; }
+      .sidebar { padding: 12px; }
+      .nav,
+      .workspace-grid {
+        grid-template-columns: 1fr;
+      }
+      .result-card {
+        grid-template-columns: 56px minmax(0, 1fr);
+      }
+      .result-thumb {
+        height: 54px;
+      }
+    }
+
+    /* Elyon Command Center v2 - design-only layer, no JavaScript or IDs changed. */
+    :root {
+      --page: #070b14;
+      --sidebar: #050914;
+      --surface: #0d1524;
+      --surface-2: #101a2c;
+      --surface-3: #142037;
+      --line: rgba(132, 152, 178, 0.18);
+      --line-hot: rgba(56, 189, 248, 0.32);
+      --cyan: #38bdf8;
+      --cyan-deep: #0284c7;
+      --green: #22c55e;
+      --amber: #f59e0b;
+      --red: #ef4444;
+      --white: #f8fafc;
+      --muted: #8ea2bb;
+      --soft: #c8d5e6;
+      --radius-xl: 14px;
+      --radius-lg: 12px;
+      --radius-md: 9px;
+      --shadow-panel: 0 18px 45px rgba(0, 0, 0, 0.3);
+      --shadow-soft: 0 10px 26px rgba(0, 0, 0, 0.22);
+    }
+
+    body {
+      color: var(--white);
+      background:
+        radial-gradient(circle at 12% 0%, rgba(56, 189, 248, 0.14), transparent 24%),
+        radial-gradient(circle at 88% 6%, rgba(14, 165, 233, 0.1), transparent 26%),
+        linear-gradient(180deg, #070b14 0%, #0a1020 48%, #060a12 100%);
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      pointer-events: none;
+      opacity: 0.48;
+      background-image:
+        linear-gradient(rgba(148, 163, 184, 0.055) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(148, 163, 184, 0.045) 1px, transparent 1px);
+      background-size: 56px 56px;
+      mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.92), transparent 78%);
+    }
+
+    .app {
+      grid-template-columns: 252px minmax(0, 1fr);
+    }
+
+    .sidebar {
+      background:
+        linear-gradient(180deg, rgba(5, 9, 20, 0.98), rgba(6, 10, 20, 0.94)),
+        var(--sidebar);
+      border-right: 1px solid rgba(148, 163, 184, 0.16);
+      padding: 16px 12px;
+    }
+
+    .brand {
+      min-height: 52px;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+      margin-bottom: 2px;
+    }
+
+    .brand-mark {
+      border-radius: 11px;
+      background: linear-gradient(135deg, #2563eb 0%, #38bdf8 100%);
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.12), 0 12px 24px rgba(56, 189, 248, 0.2);
+    }
+
+    .brand h1 {
+      font-size: 16px;
+      font-weight: 850;
+    }
+
+    .brand p {
+      color: #aebed2;
+      letter-spacing: 0.12em;
+    }
+
+    .searchbox input {
+      background: #07101f;
+      border-color: rgba(148, 163, 184, 0.18);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+    }
+
+    .nav-item {
+      min-height: 42px;
+      color: #bbcae0;
+      border-left: 2px solid transparent;
+    }
+
+    .nav-item:hover,
+    .nav-item.active {
+      background: rgba(56, 189, 248, 0.09);
+      border-color: rgba(56, 189, 248, 0.18);
+      border-left-color: var(--cyan);
+      color: #eef9ff;
+    }
+
+    .nav-item .icon {
+      color: #7dd3fc;
+      opacity: 0.95;
+    }
+
+    .content {
+      max-width: 1520px;
+      padding: 26px 30px 34px;
+    }
+
+    .topbar {
+      position: relative;
+      padding: 6px 0 22px;
+      margin-bottom: 2px;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+    }
+
+    .topbar::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      bottom: -1px;
+      width: 180px;
+      height: 1px;
+      background: linear-gradient(90deg, var(--cyan), transparent);
+    }
+
+    .topbar h2 {
+      font-size: 30px;
+      font-weight: 850;
+      letter-spacing: -0.045em;
+    }
+
+    .topbar p {
+      color: #a6b5ca;
+      font-size: 14px;
+    }
+
+    .top-actions {
+      align-items: center;
+    }
+
+    .pill,
+    .btn,
+    .mini-pill {
+      min-height: 38px;
+      padding: 9px 13px;
+      border-radius: 9px;
+      font-size: 13px;
+      font-weight: 750;
+    }
+
+    .pill {
+      background: rgba(15, 23, 42, 0.88);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      color: #d2deee;
+    }
+
+    .btn {
+      border: 1px solid rgba(125, 211, 252, 0.3);
+      background: linear-gradient(135deg, #38bdf8, #0369a1);
+      color: #ffffff;
+      box-shadow: 0 10px 24px rgba(3, 105, 161, 0.24);
+    }
+
+    .metrics {
+      grid-template-columns: repeat(4, minmax(170px, 1fr));
+      gap: 12px;
+      margin: 18px 0 12px;
+    }
+
+    .metric {
+      position: relative;
+      overflow: hidden;
+      min-height: 124px;
+      padding: 17px 18px;
+    }
+
+    .metric::after {
+      content: "";
+      position: absolute;
+      right: -26px;
+      top: -28px;
+      width: 96px;
+      height: 96px;
+      border-radius: 999px;
+      background: rgba(56, 189, 248, 0.08);
+      border: 1px solid rgba(56, 189, 248, 0.1);
+    }
+
+    .metric .value {
+      position: relative;
+      z-index: 1;
+      margin-top: 12px;
+      font-size: 30px;
+      font-weight: 900;
+    }
+
+    .metric .sub {
+      position: relative;
+      z-index: 1;
+    }
+
+    .panel,
+    .metric,
+    .workspace-card,
+    .small-panel {
+      background:
+        linear-gradient(180deg, rgba(17, 26, 44, 0.96), rgba(11, 18, 31, 0.96));
+      border: 1px solid rgba(148, 163, 184, 0.17);
+      border-radius: 12px;
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.24);
+    }
+
+    .main-grid {
+      grid-template-columns: minmax(0, 1.6fr) minmax(310px, 0.82fr);
+      gap: 14px;
+    }
+
+    .workflow-grid {
+      grid-template-columns: minmax(0, 1.36fr) minmax(360px, 0.84fr);
+      align-items: start;
+      gap: 14px;
+    }
+
+    #analysisPanel {
+      position: sticky;
+      top: 18px;
+    }
+
+    .workspace-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .workspace-card {
+      display: flex;
+      flex-direction: column;
+      min-height: 176px;
+    }
+
+    .workspace-card .row {
+      margin-top: auto;
+      padding-top: 14px;
+    }
+
+    .panel-header {
+      padding: 17px 18px 0;
+    }
+
+    .panel-header h3 {
+      font-size: 17px;
+      font-weight: 850;
+    }
+
+    .panel-body {
+      padding: 15px 18px 18px;
+    }
+
+    .chart-wrap {
+      background: #09111f;
+      border-color: rgba(148, 163, 184, 0.14);
+    }
+
+    .top-products {
+      gap: 8px;
+    }
+
+    .product-item,
+    .result-card,
+    .queue-item,
+    .detail-box,
+    .detail-hero,
+    .preview-line,
+    .status-chip,
+    .mini-row {
+      background: rgba(5, 10, 20, 0.52);
+      border-color: rgba(148, 163, 184, 0.14);
+      border-radius: 10px;
+    }
+
+    .result-card {
+      grid-template-columns: 74px minmax(0, 1fr) minmax(92px, auto);
+      min-height: 88px;
+    }
+
+    .result-card:hover,
+    .result-card.active {
+      outline: 1px solid rgba(56, 189, 248, 0.28);
+      border-color: rgba(56, 189, 248, 0.34);
+      background: rgba(56, 189, 248, 0.075);
+    }
+
+    .result-thumb {
+      height: 64px;
+      border-radius: 8px;
+      background:
+        radial-gradient(circle at 28% 22%, rgba(255, 255, 255, 0.22), transparent 24%),
+        linear-gradient(145deg, #0284c7, #0f172a 74%);
+    }
+
+    .result-main h5,
+    .product-title {
+      font-weight: 850;
+    }
+
+    .result-stats strong {
+      color: #eef7ff;
+    }
+
+    .research-toolbar {
+      padding: 10px;
+      border: 1px solid rgba(148, 163, 184, 0.12);
+      border-radius: 12px;
+      background: rgba(5, 10, 20, 0.42);
+    }
+
+    .inline-input,
+    .inline-select {
+      background: #07111f;
+      border-radius: 9px;
+      border-color: rgba(148, 163, 184, 0.2);
+    }
+
+    .inline-input:focus,
+    .inline-select:focus,
+    .searchbox input:focus {
+      border-color: rgba(56, 189, 248, 0.55);
+      box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.1);
+    }
+
+    .research-pills {
+      gap: 7px;
+    }
+
+    .mini-pill {
+      background: rgba(15, 23, 42, 0.76);
+      color: #b9c8dc;
+    }
+
+    .panel-note {
+      border-radius: 8px;
+      background: rgba(56, 189, 248, 0.1);
+    }
+
+    .detail-hero {
+      background:
+        linear-gradient(135deg, rgba(56, 189, 248, 0.1), rgba(5, 10, 20, 0.4));
+    }
+
+    .detail-title {
+      font-size: 19px;
+      font-weight: 900;
+    }
+
+    .detail-grid {
+      gap: 8px;
+    }
+
+    .detail-box .v {
+      font-size: 17px;
+    }
+
+    .status-strip {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .footer {
+      color: #8191a8;
+    }
+
+    @media (max-width: 1280px) {
+      .metrics,
+      .workspace-grid,
+      .status-strip {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .main-grid,
+      .workflow-grid,
+      .bottom-grid,
+      .section-grid {
+        grid-template-columns: 1fr;
+      }
+
+      #analysisPanel {
+        position: static;
+      }
+    }
+
+    @media (max-width: 760px) {
+      .content {
+        padding: 16px;
+      }
+
+      .topbar {
+        gap: 14px;
+      }
+
+      .metrics,
+      .workspace-grid,
+      .status-strip,
+      .research-toolbar {
+        grid-template-columns: 1fr;
+      }
+
+      .result-card {
+        grid-template-columns: 62px minmax(0, 1fr);
+      }
+
+      .result-stats {
+        grid-column: 2 / -1;
+      }
+    }
+
+    /* Elyon Seller OS original backup theme - local design restore only. */
+    :root {
+      --bg-main: #0f172a;
+      --bg-secondary: #111827;
+      --bg-card: rgba(30, 41, 59, 0.78);
+      --bg-card-solid: #1e293b;
+      --border-soft: rgba(148, 163, 184, 0.18);
+      --border-strong: rgba(56, 189, 248, 0.24);
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-soft: #cbd5e1;
+      --primary: #38bdf8;
+      --primary-2: #0284c7;
+      --primary-dark: #0284c7;
+      --primary-glow: rgba(56, 189, 248, 0.35);
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --radius-xl: 18px;
+      --radius-lg: 18px;
+      --radius-md: 12px;
+      --shadow-panel: 0 18px 45px rgba(0, 0, 0, 0.32);
+      --shadow-soft: 0 14px 32px rgba(0, 0, 0, 0.24);
+    }
+
+    body {
+      color: var(--text-main);
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(56,189,248,0.16), transparent 32%),
+        radial-gradient(circle at bottom right, rgba(14,165,233,0.12), transparent 35%),
+        linear-gradient(135deg, #0f172a 0%, #111827 45%, #020617 100%);
+    }
+
+    body::before {
+      opacity: 0;
+    }
+
+    .app {
+      grid-template-columns: 260px minmax(0, 1fr);
+    }
+
+    .sidebar {
+      width: 260px;
+      padding: 18px 16px;
+      background: rgba(15, 23, 42, 0.86);
+      border-right: 1px solid rgba(148, 163, 184, 0.16);
+      backdrop-filter: blur(18px);
+      box-shadow: none;
+    }
+
+    .brand {
+      min-height: auto;
+      margin-bottom: 0;
+      padding: 10px 8px 8px;
+      border-bottom: 0;
+    }
+
+    .brand-mark {
+      width: 42px;
+      height: 42px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+      box-shadow: 0 0 24px var(--primary-glow);
+    }
+
+    .brand h1 {
+      font-size: 18px;
+      line-height: 1.05;
+      letter-spacing: -0.03em;
+      font-weight: 800;
+    }
+
+    .brand p {
+      font-size: 12px;
+      color: var(--text-muted);
+      letter-spacing: 0.08em;
+    }
+
+    .searchbox input {
+      min-height: 44px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      background: rgba(17, 24, 39, 0.9);
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      color: var(--text-main);
+    }
+
+    .searchbox::before {
+      content: "";
+    }
+
+    .nav {
+      gap: 6px;
+      padding: 0 8px;
+    }
+
+    .nav-item {
+      min-height: 46px;
+      border-radius: 12px;
+      padding: 12px 14px;
+      color: var(--text-soft);
+      border: 1px solid transparent;
+      border-left: 1px solid transparent;
+      font-size: 14px;
+    }
+
+    .nav-item:hover {
+      background: rgba(56, 189, 248, 0.08);
+      color: var(--text-main);
+      border-color: rgba(56, 189, 248, 0.18);
+      transform: translateY(-1px);
+    }
+
+    .nav-item.active {
+      background: rgba(56, 189, 248, 0.12);
+      color: var(--primary);
+      border: 1px solid rgba(56, 189, 248, 0.24);
+      box-shadow: 0 0 20px rgba(56, 189, 248, 0.08);
+    }
+
+    .nav-item .icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 10px;
+      background: rgba(56, 189, 248, 0.08);
+      color: var(--primary);
+    }
+
+    .sidebar-footer {
+      border-radius: 18px;
+      background: rgba(30, 41, 59, 0.68);
+      border: 1px solid var(--border-soft);
+      box-shadow: var(--shadow-soft);
+    }
+
+    .content {
+      max-width: 1580px;
+      padding: 26px;
+    }
+
+    .topbar {
+      padding: 18px 20px;
+      margin-bottom: 0;
+      background: rgba(30, 41, 59, 0.58);
+      border: 1px solid var(--border-soft);
+      border-radius: var(--radius-xl);
+      box-shadow: var(--shadow-panel);
+      backdrop-filter: blur(14px);
+    }
+
+    .topbar::after {
+      display: none;
+    }
+
+    .topbar h2 {
+      font-size: 28px;
+      letter-spacing: -0.04em;
+    }
+
+    .topbar p {
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    .pill,
+    .btn,
+    .mini-pill {
+      border-radius: 12px;
+      font-weight: 700;
+      transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease, background .15s ease;
+    }
+
+    .pill {
+      background: rgba(15, 23, 42, 0.68);
+      border: 1px solid var(--border-soft);
+      color: var(--text-soft);
+    }
+
+    .btn {
+      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+      color: white;
+      border: none;
+      box-shadow: 0 0 22px var(--primary-glow);
+    }
+
+    .btn:hover,
+    .pill:hover {
+      transform: translateY(-1px);
+      border-color: rgba(56, 189, 248, 0.32);
+      box-shadow: 0 0 30px rgba(56, 189, 248, 0.18);
+    }
+
+    .metrics {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 16px;
+      margin: 18px 0;
+    }
+
+    .metric,
+    .panel,
+    .workspace-card,
+    .small-panel {
+      background: var(--bg-card);
+      border: 1px solid var(--border-soft);
+      border-radius: var(--radius-xl);
+      box-shadow: var(--shadow-panel);
+      backdrop-filter: blur(14px);
+    }
+
+    .metric {
+      min-height: 132px;
+      padding: 20px;
+    }
+
+    .metric::after {
+      background: rgba(56, 189, 248, 0.09);
+      border-color: rgba(56, 189, 248, 0.13);
+    }
+
+    .metric .label,
+    .workspace-card .label,
+    .status-chip .k,
+    .detail-box .k,
+    .toast .k {
+      color: var(--text-muted);
+      letter-spacing: 0.08em;
+    }
+
+    .metric .value {
+      font-size: 32px;
+      color: var(--text-main);
+    }
+
+    .main-grid {
+      grid-template-columns: minmax(0, 1.7fr) minmax(320px, 0.9fr);
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .workflow-grid {
+      grid-template-columns: minmax(0, 1.35fr) minmax(360px, 0.85fr);
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    #analysisPanel {
+      position: sticky;
+      top: 20px;
+    }
+
+    .bottom-grid,
+    .section-grid,
+    .workspace-grid {
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .workspace-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .workspace-card {
+      min-height: 160px;
+      padding: 18px;
+    }
+
+    .panel-header {
+      padding: 18px 18px 0;
+    }
+
+    .panel-header h3 {
+      font-size: 18px;
+    }
+
+    .panel-header p,
+    .workspace-card p,
+    .small-panel p,
+    .result-main p {
+      color: var(--text-muted);
+    }
+
+    .panel-body {
+      padding: 16px 18px 18px;
+    }
+
+    .chart-wrap,
+    .product-item,
+    .result-card,
+    .queue-item,
+    .detail-box,
+    .detail-hero,
+    .preview-line,
+    .status-chip,
+    .mini-row {
+      background: rgba(15, 23, 42, 0.44);
+      border: 1px solid rgba(148, 163, 184, 0.13);
+      border-radius: 14px;
+      box-shadow: none;
+    }
+
+    .chart-wrap {
+      background: linear-gradient(180deg, rgba(15, 23, 42, 0.72), rgba(2, 6, 23, 0.52));
+      padding: 16px;
+    }
+
+    .result-card {
+      grid-template-columns: 90px minmax(0, 1fr) auto;
+      min-height: 100px;
+      padding: 12px;
+    }
+
+    .result-card:hover,
+    .result-card.active {
+      transform: translateY(-1px);
+      outline: 0;
+      border-color: rgba(56, 189, 248, 0.28);
+      background: rgba(56, 189, 248, 0.08);
+    }
+
+    .result-thumb {
+      height: 76px;
+      border-radius: 14px;
+      background:
+        radial-gradient(circle at 30% 20%, rgba(255,255,255,0.2), transparent 26%),
+        linear-gradient(135deg, rgba(56, 189, 248, 0.82), rgba(15, 23, 42, 0.88));
+    }
+
+    .research-toolbar {
+      padding: 0;
+      border: 0;
+      background: transparent;
+      grid-template-columns: minmax(0, 1.3fr) repeat(2, minmax(160px, 0.62fr)) auto;
+    }
+
+    .inline-input,
+    .inline-select {
+      min-height: 44px;
+      border-radius: 12px;
+      background: rgba(15, 23, 42, 0.72);
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      color: var(--text-main);
+    }
+
+    .inline-input:focus,
+    .inline-select:focus,
+    .searchbox input:focus {
+      border-color: rgba(56, 189, 248, 0.46);
+      box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.1);
+    }
+
+    .panel-note,
+    .mini-pill.active {
+      background: rgba(56, 189, 248, 0.12);
+      color: var(--primary);
+      border: 1px solid rgba(56, 189, 248, 0.24);
+    }
+
+    .score-good,
+    .signal-good {
+      color: var(--success);
+      background: rgba(34, 197, 94, 0.12);
+    }
+
+    .score-medium,
+    .signal-medium {
+      color: var(--warning);
+      background: rgba(245, 158, 11, 0.12);
+    }
+
+    .score-bad,
+    .signal-bad {
+      color: var(--danger);
+      background: rgba(239, 68, 68, 0.12);
+    }
+
+    .dot.ok {
+      background: var(--success);
+      box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.12);
+    }
+
+    .dot.warn {
+      background: var(--warning);
+      box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.12);
+    }
+
+    .dot.err {
+      background: var(--danger);
+      box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.12);
+    }
+
+    .toast {
+      background: rgba(15, 23, 42, 0.96);
+      border: 1px solid rgba(56, 189, 248, 0.24);
+      border-radius: 16px;
+      box-shadow: var(--shadow-panel);
+    }
+
+    @media (max-width: 1220px) {
+      .app { grid-template-columns: 1fr; }
+      .sidebar {
+        width: auto;
+        position: relative;
+        height: auto;
+      }
+      .nav {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .metrics,
+      .workspace-grid,
+      .status-strip {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .main-grid,
+      .workflow-grid,
+      .bottom-grid,
+      .section-grid {
+        grid-template-columns: 1fr;
+      }
+      #analysisPanel {
+        position: static;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .content { padding: 14px; }
+      .sidebar { padding: 14px 12px; }
+      .nav,
+      .metrics,
+      .workspace-grid,
+      .status-strip,
+      .research-toolbar,
+      .detail-grid {
+        grid-template-columns: 1fr;
+      }
+      .topbar {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .result-card {
+        grid-template-columns: 64px minmax(0, 1fr);
+      }
+      .result-thumb {
+        height: 58px;
+      }
+      .result-stats {
+        grid-column: 2 / -1;
+        justify-items: start;
+      }
+      .btn,
+      .pill {
+        width: 100%;
+      }
+    }
+
+    /* Elyon Atlas v3 - complete local redesign, functions and IDs untouched. */
+    :root {
+      --ink: #eef6ff;
+      --ink-soft: #bed0e7;
+      --ink-muted: #7f94b0;
+      --canvas: #060913;
+      --canvas-2: #0a1020;
+      --rail: rgba(6, 10, 20, 0.94);
+      --panel: rgba(12, 19, 34, 0.92);
+      --panel-2: rgba(16, 26, 44, 0.88);
+      --panel-3: rgba(22, 34, 55, 0.82);
+      --stroke: rgba(130, 154, 186, 0.2);
+      --stroke-hot: rgba(48, 213, 255, 0.36);
+      --cyan: #30d5ff;
+      --blue: #2f6df6;
+      --green: #2ce59b;
+      --amber: #ffb84d;
+      --red: #ff5d6c;
+      --radius-xl: 16px;
+      --radius-lg: 14px;
+      --radius-md: 10px;
+      --shadow-panel: 0 22px 55px rgba(0, 0, 0, 0.32);
+      --shadow-soft: 0 14px 34px rgba(0, 0, 0, 0.24);
+      --bg-main: var(--canvas);
+      --bg-secondary: var(--canvas-2);
+      --bg-card: var(--panel);
+      --bg-card-solid: #101a2c;
+      --border-soft: var(--stroke);
+      --border-strong: var(--stroke-hot);
+      --text-main: var(--ink);
+      --text-muted: var(--ink-muted);
+      --text-soft: var(--ink-soft);
+      --primary: var(--cyan);
+      --primary-2: var(--blue);
+      --primary-dark: #0a7fb8;
+      --primary-glow: rgba(48, 213, 255, 0.28);
+      --success: var(--green);
+      --warning: var(--amber);
+      --danger: var(--red);
+    }
+
+    html {
+      scroll-padding-top: 22px;
+    }
+
+    body {
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 18% 8%, rgba(48, 213, 255, 0.16), transparent 27%),
+        radial-gradient(circle at 80% 10%, rgba(47, 109, 246, 0.12), transparent 25%),
+        linear-gradient(135deg, #050814 0%, #09111f 44%, #060913 100%);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      opacity: 1;
+      pointer-events: none;
+      background:
+        linear-gradient(90deg, rgba(130,154,186,0.045) 1px, transparent 1px),
+        linear-gradient(rgba(130,154,186,0.04) 1px, transparent 1px);
+      background-size: 72px 72px;
+      mask-image: radial-gradient(circle at top, #000 0%, transparent 70%);
+    }
+
+    .app {
+      grid-template-columns: 248px minmax(0, 1fr);
+      min-height: 100vh;
+    }
+
+    .sidebar {
+      width: 248px;
+      padding: 16px 12px;
+      background: linear-gradient(180deg, rgba(6, 10, 20, 0.96), rgba(4, 7, 15, 0.94));
+      border-right: 1px solid rgba(130, 154, 186, 0.16);
+      backdrop-filter: blur(20px);
+      box-shadow: 14px 0 45px rgba(0, 0, 0, 0.22);
+      gap: 14px;
+    }
+
+    .brand {
+      padding: 8px 8px 14px;
+      border-bottom: 1px solid rgba(130, 154, 186, 0.13);
+    }
+
+    .brand-mark {
+      width: 38px;
+      height: 38px;
+      border-radius: 12px;
+      background:
+        linear-gradient(145deg, rgba(48,213,255,1), rgba(47,109,246,1));
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.28),
+        0 12px 30px rgba(48, 213, 255, 0.22);
+    }
+
+    .brand h1 {
+      font-size: 17px;
+      font-weight: 900;
+      letter-spacing: -0.02em;
+    }
+
+    .brand p {
+      color: #95a8c0;
+      font-size: 10px;
+      letter-spacing: 0.16em;
+    }
+
+    .searchbox {
+      padding: 0 6px;
+    }
+
+    .searchbox::before {
+      content: "";
+    }
+
+    .searchbox input {
+      min-height: 40px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: rgba(10, 17, 31, 0.9);
+      color: var(--ink);
+      border: 1px solid rgba(130, 154, 186, 0.18);
+    }
+
+    .nav {
+      gap: 4px;
+      padding: 0 6px 6px;
+    }
+
+    .nav-item {
+      position: relative;
+      min-height: 42px;
+      padding: 10px 10px;
+      border-radius: 10px;
+      color: #b8c9df;
+      border: 1px solid transparent;
+      font-size: 14px;
+      transition: background .14s ease, border-color .14s ease, color .14s ease;
+    }
+
+    .nav-item:hover,
+    .nav-item.active {
+      transform: none;
+      background: rgba(48, 213, 255, 0.08);
+      border-color: rgba(48, 213, 255, 0.2);
+      color: #f2fbff;
+    }
+
+    .nav-item.active::before {
+      content: "";
+      position: absolute;
+      left: -7px;
+      top: 10px;
+      bottom: 10px;
+      width: 3px;
+      border-radius: 99px;
+      background: var(--cyan);
+      box-shadow: 0 0 16px rgba(48, 213, 255, 0.7);
+    }
+
+    .nav-item .icon {
+      width: 26px;
+      height: 26px;
+      border-radius: 9px;
+      background: rgba(48, 213, 255, 0.08);
+      color: var(--cyan);
+    }
+
+    .sidebar-footer {
+      padding: 13px;
+      border-radius: 14px;
+      background:
+        linear-gradient(145deg, rgba(48, 213, 255, 0.08), rgba(12, 19, 34, 0.9));
+      border: 1px solid rgba(48, 213, 255, 0.14);
+      box-shadow: none;
+      color: var(--ink-muted);
+    }
+
+    .content {
+      max-width: 1500px;
+      padding: 24px 28px 34px;
+    }
+
+    .topbar {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      padding: 4px 0 20px;
+      margin-bottom: 0;
+      background: transparent;
+      border: 0;
+      border-radius: 0;
+      box-shadow: none;
+      backdrop-filter: none;
+      border-bottom: 1px solid rgba(130,154,186,0.14);
+    }
+
+    .topbar::after {
+      content: "";
+      display: block;
+      position: absolute;
+      left: 0;
+      bottom: -1px;
+      width: 220px;
+      height: 1px;
+      background: linear-gradient(90deg, var(--cyan), transparent);
+    }
+
+    .topbar h2 {
+      font-size: 31px;
+      line-height: 1;
+      font-weight: 900;
+      letter-spacing: -0.055em;
+    }
+
+    .topbar p {
+      color: #9db0c8;
+      margin-top: 8px;
+    }
+
+    .top-actions {
+      align-items: center;
+      gap: 9px;
+    }
+
+    .pill,
+    .btn,
+    .mini-pill {
+      min-height: 38px;
+      padding: 9px 13px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 750;
+      cursor: pointer;
+    }
+
+    .pill {
+      background: rgba(10, 17, 31, 0.78);
+      border: 1px solid rgba(130,154,186,0.2);
+      color: var(--ink-soft);
+    }
+
+    .btn {
+      background: linear-gradient(135deg, var(--cyan), var(--blue));
+      color: #ffffff;
+      border: 0;
+      box-shadow: 0 12px 28px rgba(48, 213, 255, 0.18);
+    }
+
+    .btn:hover,
+    .pill:hover {
+      transform: translateY(-1px);
+      border-color: rgba(48, 213, 255, 0.35);
+      box-shadow: 0 0 0 4px rgba(48, 213, 255, 0.08);
+    }
+
+    .metrics {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 13px;
+      margin: 18px 0 13px;
+    }
+
+    .metric,
+    .panel,
+    .workspace-card,
+    .small-panel {
+      background:
+        linear-gradient(180deg, rgba(16, 26, 44, 0.88), rgba(9, 16, 29, 0.9));
+      border: 1px solid rgba(130,154,186,0.18);
+      border-radius: 16px;
+      box-shadow: var(--shadow-soft);
+      backdrop-filter: blur(18px);
+    }
+
+    .metric {
+      position: relative;
+      overflow: hidden;
+      min-height: 126px;
+      padding: 18px;
+    }
+
+    .metric::after {
+      content: "";
+      position: absolute;
+      right: -30px;
+      top: -34px;
+      width: 112px;
+      height: 112px;
+      border-radius: 999px;
+      background: radial-gradient(circle, rgba(48, 213, 255, 0.16), transparent 68%);
+      border: 0;
+    }
+
+    .metric .label,
+    .workspace-card .label,
+    .status-chip .k,
+    .detail-box .k,
+    .toast .k {
+      color: #8fa4bf;
+      letter-spacing: 0.09em;
+    }
+
+    .metric .value {
+      margin-top: 11px;
+      font-size: 31px;
+      font-weight: 900;
+      color: var(--ink);
+    }
+
+    .metric .sub {
+      color: #8fa4bf;
+    }
+
+    .kpi-positive,
+    .product-profit {
+      color: var(--green);
+    }
+
+    .kpi-warning {
+      color: var(--amber);
+    }
+
+    .main-grid {
+      grid-template-columns: minmax(0, 1.62fr) minmax(310px, 0.88fr);
+      gap: 14px;
+      margin-bottom: 14px;
+    }
+
+    .workflow-grid {
+      grid-template-columns: minmax(0, 1.35fr) minmax(360px, 0.85fr);
+      gap: 14px;
+      margin-bottom: 14px;
+      align-items: start;
+    }
+
+    #analysisPanel {
+      position: sticky;
+      top: 18px;
+    }
+
+    .bottom-grid,
+    .section-grid,
+    .workspace-grid {
+      gap: 14px;
+      margin-bottom: 14px;
+    }
+
+    .workspace-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .workspace-card {
+      display: flex;
+      flex-direction: column;
+      min-height: 166px;
+      padding: 17px;
+    }
+
+    .workspace-card .row {
+      margin-top: auto;
+      padding-top: 14px;
+    }
+
+    .panel-header {
+      padding: 17px 18px 0;
+      align-items: center;
+    }
+
+    .panel-header h3 {
+      color: var(--ink);
+      font-size: 17px;
+      font-weight: 900;
+    }
+
+    .panel-header p,
+    .workspace-card p,
+    .small-panel p,
+    .result-main p,
+    .product-meta {
+      color: var(--ink-muted);
+    }
+
+    .panel-body {
+      padding: 15px 18px 18px;
+    }
+
+    .chart-wrap {
+      padding: 12px;
+      border-radius: 14px;
+      background:
+        linear-gradient(180deg, rgba(6, 11, 21, 0.82), rgba(8, 14, 26, 0.62));
+      border: 1px solid rgba(130,154,186,0.14);
+    }
+
+    .chart-wrap svg {
+      height: 310px;
+      display: block;
+    }
+
+    .product-item,
+    .result-card,
+    .queue-item,
+    .detail-box,
+    .detail-hero,
+    .preview-line,
+    .status-chip,
+    .mini-row {
+      background: rgba(6, 11, 21, 0.46);
+      border: 1px solid rgba(130,154,186,0.15);
+      border-radius: 12px;
+      box-shadow: none;
+    }
+
+    .product-item {
+      padding: 11px;
+    }
+
+    .result-card {
+      grid-template-columns: 82px minmax(0, 1fr) minmax(98px, auto);
+      min-height: 96px;
+      padding: 11px;
+    }
+
+    .result-card:hover,
+    .result-card.active {
+      transform: translateY(-1px);
+      background: rgba(48, 213, 255, 0.075);
+      border-color: rgba(48, 213, 255, 0.34);
+      outline: 1px solid rgba(48, 213, 255, 0.18);
+    }
+
+    .result-thumb {
+      height: 72px;
+      border-radius: 11px;
+      background:
+        radial-gradient(circle at 26% 18%, rgba(255,255,255,0.22), transparent 23%),
+        linear-gradient(145deg, rgba(48, 213, 255, 0.88), rgba(47, 109, 246, 0.7) 42%, rgba(6, 11, 21, 0.9));
+    }
+
+    .result-main h5,
+    .product-title {
+      font-weight: 900;
+      color: var(--ink);
+    }
+
+    .result-stats strong {
+      color: var(--ink);
+      font-size: 18px;
+    }
+
+    .research-toolbar {
+      display: grid;
+      grid-template-columns: minmax(0, 1.35fr) repeat(2, minmax(150px, 0.55fr)) auto;
+      gap: 9px;
+      padding: 10px;
+      margin-bottom: 12px;
+      background: rgba(6, 11, 21, 0.34);
+      border: 1px solid rgba(130,154,186,0.13);
+      border-radius: 14px;
+    }
+
+    .inline-input,
+    .inline-select {
+      min-height: 42px;
+      border-radius: 10px;
+      background: rgba(8, 15, 28, 0.9);
+      border: 1px solid rgba(130,154,186,0.19);
+      color: var(--ink);
+    }
+
+    .inline-input:focus,
+    .inline-select:focus,
+    .searchbox input:focus {
+      border-color: rgba(48, 213, 255, 0.55);
+      box-shadow: 0 0 0 4px rgba(48, 213, 255, 0.09);
+    }
+
+    .research-pills {
+      gap: 8px;
+    }
+
+    .mini-pill {
+      background: rgba(10, 17, 31, 0.68);
+      border: 1px solid rgba(130,154,186,0.17);
+      color: var(--ink-soft);
+    }
+
+    .mini-pill.active,
+    .panel-note {
+      background: rgba(48, 213, 255, 0.1);
+      border: 1px solid rgba(48, 213, 255, 0.25);
+      color: #c9f6ff;
+    }
+
+    .detail-hero {
+      padding: 16px;
+      background:
+        linear-gradient(135deg, rgba(48, 213, 255, 0.09), rgba(47, 109, 246, 0.05));
+    }
+
+    .detail-title {
+      color: var(--ink);
+      font-size: 20px;
+      font-weight: 900;
+    }
+
+    .detail-box .v {
+      color: var(--ink);
+      font-size: 18px;
+    }
+
+    .score-good,
+    .signal-good {
+      color: var(--green);
+      background: rgba(44, 229, 155, 0.12);
+    }
+
+    .score-medium,
+    .signal-medium {
+      color: var(--amber);
+      background: rgba(255, 184, 77, 0.12);
+    }
+
+    .score-bad,
+    .signal-bad {
+      color: var(--red);
+      background: rgba(255, 93, 108, 0.12);
+    }
+
+    .dot.ok {
+      background: var(--green);
+      box-shadow: 0 0 0 4px rgba(44, 229, 155, 0.12);
+    }
+
+    .dot.warn {
+      background: var(--amber);
+      box-shadow: 0 0 0 4px rgba(255, 184, 77, 0.12);
+    }
+
+    .dot.err {
+      background: var(--red);
+      box-shadow: 0 0 0 4px rgba(255, 93, 108, 0.12);
+    }
+
+    .toast {
+      background: rgba(8, 15, 28, 0.96);
+      border: 1px solid rgba(48, 213, 255, 0.24);
+      border-radius: 14px;
+      box-shadow: var(--shadow-panel);
+    }
+
+    .footer {
+      color: var(--ink-muted);
+    }
+
+    @media (max-width: 1280px) {
+      .app {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        width: auto;
+        position: relative;
+        height: auto;
+      }
+
+      .nav {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .metrics,
+      .workspace-grid,
+      .status-strip {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .main-grid,
+      .workflow-grid,
+      .bottom-grid,
+      .section-grid {
+        grid-template-columns: 1fr;
+      }
+
+      #analysisPanel {
+        position: static;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .content {
+        padding: 14px;
+      }
+
+      .sidebar {
+        padding: 14px 12px;
+      }
+
+      .topbar {
+        grid-template-columns: 1fr;
+        gap: 14px;
+      }
+
+      .nav,
+      .metrics,
+      .workspace-grid,
+      .status-strip,
+      .research-toolbar,
+      .detail-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .result-card {
+        grid-template-columns: 62px minmax(0, 1fr);
+      }
+
+      .result-thumb {
+        height: 58px;
+      }
+
+      .result-stats {
+        grid-column: 2 / -1;
+        justify-items: start;
+      }
+
+      .btn,
+      .pill {
+        width: 100%;
+      }
+    }
+
+    /* Focused workflow shell - grouped menus and reduced dashboard clutter. */
+    .sidebar > .nav:not(.nav-menu) {
+      display: none;
+    }
+
+    .nav-menu {
+      display: grid;
+      gap: 10px;
+      padding: 0 6px 8px;
+    }
+
+    .nav-group {
+      border: 1px solid rgba(130,154,186,0.14);
+      border-radius: 14px;
+      background: rgba(6, 11, 21, 0.38);
+      overflow: hidden;
+    }
+
+    .nav-group summary {
+      list-style: none;
+      cursor: pointer;
+      padding: 11px 12px;
+      color: #d8e7f7;
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      border-bottom: 1px solid transparent;
+    }
+
+    .nav-group summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .nav-group summary::after {
+      content: "+";
+      float: right;
+      color: var(--cyan);
+      font-size: 14px;
+      line-height: 1;
+    }
+
+    .nav-group[open] summary {
+      border-bottom-color: rgba(130,154,186,0.12);
+      background: rgba(48, 213, 255, 0.055);
+    }
+
+    .nav-group[open] summary::after {
+      content: "-";
+    }
+
+    .nav-menu .nav-item {
+      margin: 6px 8px;
+      min-height: 38px;
+      padding: 8px 10px;
+      border-radius: 9px;
+      font-size: 13px;
+    }
+
+    .nav-menu .nav-item .icon {
+      width: 24px;
+      height: 24px;
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: 0;
+    }
+
+    .main-grid {
+      display: none;
+    }
+
+    .topbar {
+      margin-bottom: 12px;
+    }
+
+    .metrics {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      margin: 0 0 12px;
+    }
+
+    .metric {
+      min-height: 96px;
+      padding: 14px 15px;
+    }
+
+    .metric .value {
+      font-size: 25px;
+      margin-top: 8px;
+    }
+
+    .metric .sub {
+      margin-top: 5px;
+      font-size: 12px;
+    }
+
+    .workflow-grid {
+      grid-template-columns: minmax(0, 1.45fr) minmax(330px, 0.72fr);
+      margin-bottom: 12px;
+    }
+
+    .research-results {
+      max-height: 410px;
+    }
+
+    .detail-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .detail-box {
+      padding: 10px;
+    }
+
+    .detail-box .v {
+      font-size: 15px;
+    }
+
+    .action-row {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .workspace-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .workspace-card {
+      min-height: 118px;
+      padding: 14px;
+    }
+
+    .workspace-card p {
+      display: none;
+    }
+
+    .workspace-card h4 {
+      margin-bottom: 10px;
+      line-height: 1.25;
+    }
+
+    .workspace-card .row {
+      padding-top: 0;
+      gap: 7px;
+    }
+
+    .workspace-card .pill {
+      flex: 1 1 auto;
+      min-height: 34px;
+      padding: 8px 10px;
+      text-align: center;
+    }
+
+    .bottom-grid {
+      grid-template-columns: minmax(0, 0.78fr) minmax(360px, 1fr);
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .bottom-grid .panel-header p,
+    .section-grid .small-panel p {
+      display: none;
+    }
+
+    .section-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .section-grid .small-panel {
+      min-height: 76px;
+      padding: 14px;
+    }
+
+    .section-grid .small-panel h4 {
+      margin-bottom: 0;
+    }
+
+    @media (max-width: 1280px) {
+      .main-grid {
+        display: none;
+      }
+
+      .metrics,
+      .workspace-grid,
+      .section-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .workflow-grid,
+      .bottom-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .detail-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 720px) {
+      .metrics,
+      .workspace-grid,
+      .section-grid,
+      .detail-grid,
+      .action-row {
+        grid-template-columns: 1fr;
+      }
+
+      .nav-menu {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Elyon Slate v4 - calm premium admin theme, local CSS-only redesign. */
+    :root {
+      --slate-page: #0b1020;
+      --slate-rail: #0e1628;
+      --slate-panel: rgba(20, 31, 52, 0.88);
+      --slate-panel-soft: rgba(25, 38, 63, 0.78);
+      --slate-line: rgba(177, 193, 216, 0.16);
+      --slate-line-strong: rgba(125, 211, 252, 0.26);
+      --slate-text: #f3f8ff;
+      --slate-soft: #c4d2e5;
+      --slate-muted: #8da0ba;
+      --slate-blue: #60a5fa;
+      --slate-cyan: #67e8f9;
+      --slate-green: #34d399;
+      --slate-amber: #fbbf24;
+      --slate-red: #fb7185;
+      --bg-main: var(--slate-page);
+      --bg-secondary: #111827;
+      --bg-card: var(--slate-panel);
+      --bg-card-solid: #172033;
+      --border-soft: var(--slate-line);
+      --border-strong: var(--slate-line-strong);
+      --text-main: var(--slate-text);
+      --text-soft: var(--slate-soft);
+      --text-muted: var(--slate-muted);
+      --primary: var(--slate-blue);
+      --primary-2: #2563eb;
+      --primary-dark: #2563eb;
+      --primary-glow: rgba(96, 165, 250, 0.22);
+      --success: var(--slate-green);
+      --warning: var(--slate-amber);
+      --danger: var(--slate-red);
+      --radius-xl: 12px;
+      --radius-lg: 10px;
+      --radius-md: 8px;
+      --shadow-panel: 0 16px 36px rgba(0, 0, 0, 0.22);
+      --shadow-soft: 0 10px 22px rgba(0, 0, 0, 0.18);
+    }
+
+    body {
+      color: var(--slate-text);
+      background:
+        linear-gradient(120deg, rgba(96, 165, 250, 0.08), transparent 34%),
+        radial-gradient(circle at 92% 12%, rgba(103, 232, 249, 0.1), transparent 25%),
+        linear-gradient(180deg, #0b1020 0%, #111827 54%, #0a0f1d 100%);
+    }
+
+    body::before {
+      opacity: 0;
+    }
+
+    .app {
+      grid-template-columns: 232px minmax(0, 1fr);
+    }
+
+    .sidebar {
+      width: 232px;
+      padding: 14px 10px;
+      background: rgba(14, 22, 40, 0.96);
+      border-right: 1px solid rgba(177, 193, 216, 0.14);
+      box-shadow: none;
+      backdrop-filter: blur(16px);
+    }
+
+    .brand {
+      padding: 8px 8px 12px;
+      border-bottom: 1px solid rgba(177, 193, 216, 0.12);
+    }
+
+    .brand-mark {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #60a5fa, #67e8f9);
+      box-shadow: none;
+    }
+
+    .brand h1 {
+      font-size: 16px;
+      letter-spacing: -0.02em;
+    }
+
+    .brand p {
+      color: #9fb0c7;
+      font-size: 10px;
+      letter-spacing: 0.14em;
+    }
+
+    .searchbox input {
+      min-height: 38px;
+      border-radius: 9px;
+      background: rgba(8, 13, 24, 0.68);
+      border-color: rgba(177, 193, 216, 0.14);
+    }
+
+    .nav-menu {
+      gap: 8px;
+      padding: 0 4px 8px;
+    }
+
+    .nav-group {
+      border-radius: 11px;
+      background: rgba(8, 13, 24, 0.28);
+      border-color: rgba(177, 193, 216, 0.12);
+    }
+
+    .nav-group summary {
+      padding: 10px 11px;
+      color: #d8e4f5;
+      letter-spacing: 0.08em;
+    }
+
+    .nav-group[open] summary {
+      background: rgba(96, 165, 250, 0.08);
+    }
+
+    .nav-group summary::after {
+      color: var(--slate-cyan);
+    }
+
+    .nav-menu .nav-item {
+      min-height: 36px;
+      padding: 8px 9px;
+      border-radius: 8px;
+      color: #c2d0e4;
+      margin: 5px 7px;
+    }
+
+    .nav-item:hover,
+    .nav-item.active {
+      background: rgba(96, 165, 250, 0.12);
+      border-color: rgba(96, 165, 250, 0.22);
+      color: #ffffff;
+    }
+
+    .nav-item.active::before {
+      background: var(--slate-cyan);
+      box-shadow: none;
+    }
+
+    .nav-menu .nav-item .icon,
+    .nav-item .icon {
+      background: rgba(96, 165, 250, 0.1);
+      color: #bfdbfe;
+      border-radius: 7px;
+    }
+
+    .sidebar-footer {
+      display: none;
+    }
+
+    .content {
+      max-width: 1420px;
+      padding: 22px 26px 32px;
+    }
+
+    .topbar {
+      padding: 0 0 18px;
+      border-bottom-color: rgba(177, 193, 216, 0.14);
+    }
+
+    .topbar::after {
+      display: none;
+    }
+
+    .topbar h2 {
+      font-size: 28px;
+      letter-spacing: -0.045em;
+    }
+
+    .topbar p {
+      color: var(--slate-muted);
+      font-size: 14px;
+    }
+
+    .pill,
+    .btn,
+    .mini-pill {
+      border-radius: 8px;
+      min-height: 36px;
+      padding: 8px 12px;
+      font-weight: 750;
+      box-shadow: none;
+    }
+
+    .pill {
+      background: rgba(20, 31, 52, 0.7);
+      border-color: rgba(177, 193, 216, 0.16);
+      color: var(--slate-soft);
+    }
+
+    .btn {
+      background: linear-gradient(135deg, #60a5fa, #2563eb);
+      border: 1px solid rgba(147, 197, 253, 0.24);
+      box-shadow: none;
+    }
+
+    .btn:hover,
+    .pill:hover {
+      transform: none;
+      box-shadow: none;
+      border-color: rgba(103, 232, 249, 0.3);
+    }
+
+    .metrics {
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .metric,
+    .panel,
+    .workspace-card,
+    .small-panel {
+      background: linear-gradient(180deg, rgba(20, 31, 52, 0.88), rgba(15, 23, 42, 0.88));
+      border: 1px solid rgba(177, 193, 216, 0.14);
+      border-radius: 12px;
+      box-shadow: var(--shadow-soft);
+      backdrop-filter: blur(12px);
+    }
+
+    .metric {
+      min-height: 88px;
+      padding: 13px 14px;
+    }
+
+    .metric::after {
+      display: none;
+    }
+
+    .metric .label,
+    .workspace-card .label,
+    .status-chip .k,
+    .detail-box .k,
+    .toast .k {
+      color: var(--slate-muted);
+      letter-spacing: 0.07em;
+    }
+
+    .metric .value {
+      font-size: 24px;
+      margin-top: 7px;
+    }
+
+    .workflow-grid {
+      grid-template-columns: minmax(0, 1.5fr) minmax(310px, 0.68fr);
+      gap: 10px;
+    }
+
+    .panel-header {
+      padding: 14px 15px 0;
+    }
+
+    .panel-header h3 {
+      font-size: 16px;
+    }
+
+    .panel-body {
+      padding: 12px 15px 15px;
+    }
+
+    .research-toolbar {
+      padding: 8px;
+      gap: 8px;
+      border-radius: 10px;
+      background: rgba(8, 13, 24, 0.35);
+    }
+
+    .inline-input,
+    .inline-select {
+      min-height: 39px;
+      border-radius: 8px;
+      background: rgba(8, 13, 24, 0.72);
+      border-color: rgba(177, 193, 216, 0.14);
+    }
+
+    .research-results {
+      max-height: 360px;
+      gap: 8px;
+    }
+
+    .result-card {
+      grid-template-columns: 66px minmax(0, 1fr) auto;
+      min-height: 78px;
+      padding: 9px;
+      border-radius: 10px;
+    }
+
+    .result-thumb {
+      height: 58px;
+      border-radius: 8px;
+      background: linear-gradient(145deg, rgba(96, 165, 250, 0.9), rgba(15, 23, 42, 0.9));
+    }
+
+    .result-main h5 {
+      font-size: 14px;
+      margin-bottom: 4px;
+    }
+
+    .result-main p {
+      font-size: 12px;
+    }
+
+    .detail-hero,
+    .detail-box,
+    .preview-line,
+    .result-card,
+    .queue-item,
+    .status-chip,
+    .product-item,
+    .mini-row {
+      background: rgba(8, 13, 24, 0.4);
+      border-color: rgba(177, 193, 216, 0.12);
+      border-radius: 9px;
+    }
+
+    .detail-hero {
+      padding: 12px;
+    }
+
+    .detail-title {
+      font-size: 17px;
+    }
+
+    .detail-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 7px;
+    }
+
+    .action-row {
+      grid-template-columns: 1fr;
+    }
+
+    .workspace-grid,
+    .bottom-grid,
+    .section-grid {
+      gap: 9px;
+      margin-bottom: 10px;
+    }
+
+    .workspace-card {
+      min-height: 104px;
+      padding: 12px;
+    }
+
+    .workspace-card h4 {
+      font-size: 14px;
+    }
+
+    .section-grid .small-panel {
+      min-height: 66px;
+      padding: 12px;
+    }
+
+    @media (max-width: 1280px) {
+      .app {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        width: auto;
+      }
+
+      .workflow-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .content {
+        padding: 14px;
+      }
+
+      .result-card {
+        grid-template-columns: 56px minmax(0, 1fr);
+      }
+    }
+
+    /* Elyon Ember v5 - carbon and amber theme, no blue/cyan design language. */
+    :root {
+      --ember-page: #11100d;
+      --ember-rail: #15130f;
+      --ember-panel: rgba(35, 31, 24, 0.88);
+      --ember-panel-soft: rgba(45, 39, 29, 0.78);
+      --ember-card: rgba(39, 34, 26, 0.84);
+      --ember-line: rgba(214, 190, 140, 0.16);
+      --ember-line-strong: rgba(245, 158, 11, 0.34);
+      --ember-text: #fffaf0;
+      --ember-soft: #e8dcc4;
+      --ember-muted: #aa9b80;
+      --ember-primary: #f59e0b;
+      --ember-primary-dark: #b45309;
+      --ember-secondary: #84cc16;
+      --ember-success: #65a30d;
+      --ember-warning: #f59e0b;
+      --ember-danger: #dc2626;
+      --bg-main: var(--ember-page);
+      --bg-secondary: var(--ember-rail);
+      --bg-card: var(--ember-panel);
+      --bg-card-solid: #241f18;
+      --border-soft: var(--ember-line);
+      --border-strong: var(--ember-line-strong);
+      --text-main: var(--ember-text);
+      --text-soft: var(--ember-soft);
+      --text-muted: var(--ember-muted);
+      --primary: var(--ember-primary);
+      --primary-2: var(--ember-primary-dark);
+      --primary-dark: var(--ember-primary-dark);
+      --primary-glow: rgba(245, 158, 11, 0.22);
+      --success: var(--ember-success);
+      --warning: var(--ember-warning);
+      --danger: var(--ember-danger);
+      --cyan: var(--ember-primary);
+      --blue: var(--ember-primary-dark);
+      --slate-blue: var(--ember-primary);
+      --slate-cyan: var(--ember-primary);
+    }
+
+    body {
+      color: var(--ember-text);
+      background:
+        radial-gradient(circle at 14% 0%, rgba(245, 158, 11, 0.14), transparent 28%),
+        radial-gradient(circle at 88% 12%, rgba(132, 204, 22, 0.08), transparent 24%),
+        linear-gradient(145deg, #11100d 0%, #19150f 48%, #0b0a08 100%);
+    }
+
+    body::before {
+      opacity: 1;
+      background:
+        linear-gradient(90deg, rgba(214, 190, 140, 0.04) 1px, transparent 1px),
+        linear-gradient(rgba(214, 190, 140, 0.035) 1px, transparent 1px);
+      background-size: 68px 68px;
+      mask-image: linear-gradient(180deg, #000 0%, transparent 72%);
+    }
+
+    .sidebar {
+      background: rgba(21, 19, 15, 0.96);
+      border-right-color: rgba(214, 190, 140, 0.14);
+    }
+
+    .brand {
+      border-bottom-color: rgba(214, 190, 140, 0.14);
+    }
+
+    .brand-mark {
+      background: linear-gradient(135deg, #f59e0b, #78350f);
+      box-shadow: 0 12px 24px rgba(245, 158, 11, 0.16);
+    }
+
+    .brand-mark::before {
+      border-color: rgba(255, 250, 240, 0.88);
+    }
+
+    .brand h1 {
+      color: var(--ember-text);
+    }
+
+    .brand p,
+    .topbar p,
+    .panel-header p,
+    .workspace-card p,
+    .small-panel p,
+    .result-main p,
+    .product-meta,
+    .metric .sub,
+    .footer {
+      color: var(--ember-muted);
+    }
+
+    .searchbox input,
+    .inline-input,
+    .inline-select {
+      background: rgba(20, 18, 14, 0.78);
+      border-color: rgba(214, 190, 140, 0.16);
+      color: var(--ember-text);
+    }
+
+    .searchbox input:focus,
+    .inline-input:focus,
+    .inline-select:focus {
+      border-color: rgba(245, 158, 11, 0.52);
+      box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.1);
+    }
+
+    .nav-group {
+      background: rgba(20, 18, 14, 0.5);
+      border-color: rgba(214, 190, 140, 0.13);
+    }
+
+    .nav-group summary {
+      color: var(--ember-soft);
+    }
+
+    .nav-group summary::after {
+      color: var(--ember-primary);
+    }
+
+    .nav-group[open] summary {
+      background: rgba(245, 158, 11, 0.08);
+      border-bottom-color: rgba(214, 190, 140, 0.11);
+    }
+
+    .nav-menu .nav-item,
+    .nav-item {
+      color: var(--ember-soft);
+    }
+
+    .nav-menu .nav-item .icon,
+    .nav-item .icon {
+      background: rgba(245, 158, 11, 0.1);
+      color: #fbbf24;
+    }
+
+    .nav-item:hover,
+    .nav-item.active {
+      background: rgba(245, 158, 11, 0.11);
+      border-color: rgba(245, 158, 11, 0.24);
+      color: #fffaf0;
+    }
+
+    .nav-item.active::before {
+      background: var(--ember-primary);
+      box-shadow: 0 0 16px rgba(245, 158, 11, 0.42);
+    }
+
+    .topbar {
+      border-bottom-color: rgba(214, 190, 140, 0.14);
+    }
+
+    .topbar h2,
+    .panel-header h3,
+    .workspace-card h4,
+    .small-panel h4,
+    .result-main h5,
+    .product-title,
+    .detail-title,
+    .metric .value,
+    .detail-box .v,
+    .result-stats strong {
+      color: var(--ember-text);
+    }
+
+    .pill {
+      background: rgba(35, 31, 24, 0.72);
+      border-color: rgba(214, 190, 140, 0.16);
+      color: var(--ember-soft);
+    }
+
+    .btn {
+      background: linear-gradient(135deg, #f59e0b, #92400e);
+      border: 1px solid rgba(251, 191, 36, 0.24);
+      color: #fffaf0;
+      box-shadow: 0 10px 24px rgba(245, 158, 11, 0.14);
+    }
+
+    .btn:hover,
+    .pill:hover {
+      border-color: rgba(245, 158, 11, 0.32);
+      box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.08);
+    }
+
+    .metric,
+    .panel,
+    .workspace-card,
+    .small-panel {
+      background:
+        linear-gradient(180deg, rgba(39, 34, 26, 0.88), rgba(25, 22, 17, 0.9));
+      border-color: rgba(214, 190, 140, 0.15);
+      box-shadow: 0 14px 30px rgba(0, 0, 0, 0.24);
+    }
+
+    .metric .label,
+    .workspace-card .label,
+    .status-chip .k,
+    .detail-box .k,
+    .toast .k {
+      color: var(--ember-muted);
+    }
+
+    .research-toolbar,
+    .detail-hero,
+    .detail-box,
+    .preview-line,
+    .result-card,
+    .queue-item,
+    .status-chip,
+    .product-item,
+    .mini-row {
+      background: rgba(20, 18, 14, 0.48);
+      border-color: rgba(214, 190, 140, 0.13);
+    }
+
+    .result-card:hover,
+    .result-card.active {
+      background: rgba(245, 158, 11, 0.075);
+      border-color: rgba(245, 158, 11, 0.3);
+      outline-color: rgba(245, 158, 11, 0.16);
+    }
+
+    .result-thumb {
+      background:
+        radial-gradient(circle at 30% 18%, rgba(255,250,240,0.18), transparent 24%),
+        linear-gradient(145deg, rgba(245, 158, 11, 0.88), rgba(120, 53, 15, 0.88));
+    }
+
+    .mini-pill {
+      background: rgba(35, 31, 24, 0.68);
+      border-color: rgba(214, 190, 140, 0.16);
+      color: var(--ember-soft);
+    }
+
+    .mini-pill.active,
+    .panel-note {
+      background: rgba(245, 158, 11, 0.11);
+      border-color: rgba(245, 158, 11, 0.28);
+      color: #fde68a;
+    }
+
+    .kpi-positive,
+    .product-profit {
+      color: var(--ember-secondary);
+    }
+
+    .kpi-warning {
+      color: var(--ember-primary);
+    }
+
+    .score-good,
+    .signal-good {
+      color: var(--ember-secondary);
+      background: rgba(132, 204, 22, 0.12);
+    }
+
+    .score-medium,
+    .signal-medium {
+      color: var(--ember-primary);
+      background: rgba(245, 158, 11, 0.12);
+    }
+
+    .score-bad,
+    .signal-bad {
+      color: var(--ember-danger);
+      background: rgba(220, 38, 38, 0.12);
+    }
+
+    .dot.ok {
+      background: var(--ember-secondary);
+      box-shadow: 0 0 0 4px rgba(132, 204, 22, 0.12);
+    }
+
+    .dot.warn {
+      background: var(--ember-primary);
+      box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.12);
+    }
+
+    .dot.err {
+      background: var(--ember-danger);
+      box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.12);
+    }
+
+    .legend-dot.blue,
+    .legend-dot.green {
+      background: var(--ember-primary);
+    }
+
+    .chart-wrap svg [stroke="#4c8dff"],
+    .chart-wrap svg [stroke="#27d39a"] {
+      stroke: var(--ember-primary);
+    }
+
+    .chart-wrap svg [stop-color="#4c8dff"],
+    .chart-wrap svg [stop-color="#27d39a"] {
+      stop-color: var(--ember-primary);
+    }
+
+    .toast {
+      background: rgba(20, 18, 14, 0.96);
+      border-color: rgba(245, 158, 11, 0.24);
+    }
+  </style>
+  <link rel="stylesheet" href="./elyon-clean.css" />
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true"></div>
+        <div>
+          <h1>ELYON</h1>
+          <p>Verkäufer-OS</p>
+        </div>
+      </div>
+
+      <div class="searchbox">
+        <label class="sr-only" for="sidebarSearch">Suche</label>
+        <input id="sidebarSearch" type="text" placeholder="Suchen..." />
+      </div>
+
+      <nav class="nav" aria-label="Main navigation">
+        <a class="nav-item active" href="#dashboard"><span><span class="icon">◫</span> Dashboard</span><span>•</span></a>
+        <a class="nav-item" href="#research"><span><span class="icon">⌕</span> Produktsuche</span><span></span></a>
+        <a class="nav-item" href="#suppliers"><span><span class="icon">⇄</span> Lieferanten</span><span></span></a>
+        <a class="nav-item" href="#listing"><span><span class="icon">▦</span> Listing-Generator</span><span></span></a>
+        <a class="nav-item" href="#orders"><span><span class="icon">☰</span> Bestellungen</span><span></span></a>
+        <a class="nav-item" href="#customers"><span><span class="icon">◌</span> Kunden</span><span></span></a>
+        <a class="nav-item" href="#analytics"><span><span class="icon">▤</span> Analysen</span><span></span></a>
+        <a class="nav-item" href="#calendar"><span><span class="icon">▣</span> Gewinn-Kalender</span><span></span></a>
+        <a class="nav-item" href="#invoices"><span><span class="icon">⌗</span> Rechnungen</span><span></span></a>
+        <a class="nav-item" href="#tasks"><span><span class="icon">☑</span> Aufgaben</span><span></span></a>
+        <a class="nav-item" href="#tools"><span><span class="icon">⌘</span> Werkzeuge</span><span></span></a>
+        <a class="nav-item" href="#automation"><span><span class="icon">↯</span> Automatisierung</span><span></span></a>
+        <a class="nav-item" href="#workflow"><span><span class="icon">↻</span> Ablauf</span><span></span></a>
+      </nav>
+
+      <nav class="nav nav-menu" aria-label="Elyon Seller OS Navigation">
+        <details class="nav-group" open>
+          <summary>Dashboard</summary>
+          <a class="nav-item active" href="#dashboard" data-ui-action="open-view"><span><span class="icon">D</span> Overview</span><span>Live</span></a>
+        </details>
+
+        <details class="nav-group" open>
+          <summary>Product Research</summary>
+          <a class="nav-item" href="#research" data-ui-action="research-source" data-source="eBay"><span><span class="icon">EB</span> eBay Suche</span><span></span></a>
+          <a class="nav-item" href="#research" data-ui-action="research-source" data-source="CJ"><span><span class="icon">CJ</span> CJ Suche</span><span></span></a>
+          <a class="nav-item" href="#research" data-ui-action="research-query" data-query="light"><span><span class="icon">TR</span> Trending Produkte</span><span></span></a>
+          <a class="nav-item" href="#research" data-ui-action="research-score" data-score="good"><span><span class="icon">WIN</span> Gewinner Produkte</span><span></span></a>
+        </details>
+
+        <details class="nav-group" open>
+          <summary>Produktverwaltung</summary>
+          <a class="nav-item" href="#workflow" data-ui-action="open-view"><span><span class="icon">PB</span> Produkt Board</span><span></span></a>
+          <a class="nav-item" href="#workflow" data-ui-action="saved-products"><span><span class="icon">SP</span> Gespeicherte Produkte</span><span></span></a>
+          <a class="nav-item" href="#analytics" data-ui-action="open-view"><span><span class="icon">PA</span> Produktanalyse</span><span></span></a>
+        </details>
+
+        <details class="nav-group">
+          <summary>Listing Center</summary>
+          <a class="nav-item" href="#listing" data-ui-action="open-view"><span><span class="icon">EL</span> eBay Listings</span><span></span></a>
+          <a class="nav-item" href="#listing" data-ui-action="listing-tool" data-tool="title"><span><span class="icon">TG</span> Titel Generator</span><span></span></a>
+          <a class="nav-item" href="#listing" data-ui-action="listing-tool" data-tool="seo"><span><span class="icon">SEO</span> SEO Generator</span><span></span></a>
+          <a class="nav-item" href="#listing" data-ui-action="listing-tool" data-tool="drafts"><span><span class="icon">LD</span> Listing Entwuerfe</span><span></span></a>
+        </details>
+
+        <details class="nav-group">
+          <summary>Orders</summary>
+          <a class="nav-item" href="#orders" data-ui-action="open-view"><span><span class="icon">OR</span> Bestellungen</span><span></span></a>
+          <a class="nav-item" href="#orders" data-ui-action="orders-tool" data-tool="tracking"><span><span class="icon">TRK</span> Tracking</span><span></span></a>
+          <a class="nav-item" href="#customers" data-ui-action="open-view"><span><span class="icon">CS</span> Kundenstatus</span><span></span></a>
+        </details>
+
+        <details class="nav-group">
+          <summary>Automation</summary>
+          <a class="nav-item" href="#automation" data-ui-action="automation-tool" data-tool="auto-import"><span><span class="icon">AI</span> Auto Import</span><span></span></a>
+          <a class="nav-item" href="#automation" data-ui-action="automation-tool" data-tool="price-watch"><span><span class="icon">PW</span> Preisueberwachung</span><span></span></a>
+          <a class="nav-item" href="#automation" data-ui-action="automation-tool" data-tool="stock"><span><span class="icon">LS</span> Lagerstatus</span><span></span></a>
+          <a class="nav-item" href="#automation" data-ui-action="automation-tool" data-tool="alerts"><span><span class="icon">AL</span> Auto Alerts</span><span></span></a>
+        </details>
+
+        <details class="nav-group">
+          <summary>Analytics</summary>
+          <a class="nav-item" href="#analytics" data-ui-action="analytics-tool" data-tool="revenue"><span><span class="icon">UM</span> Umsatz</span><span></span></a>
+          <a class="nav-item" href="#analytics" data-ui-action="analytics-tool" data-tool="profit"><span><span class="icon">GE</span> Gewinn</span><span></span></a>
+          <a class="nav-item" href="#analytics" data-ui-action="analytics-tool" data-tool="performance"><span><span class="icon">PF</span> Produkt Performance</span><span></span></a>
+        </details>
+
+        <details class="nav-group">
+          <summary>Import / Export</summary>
+          <a class="nav-item" href="#tools" data-ui-action="import-export" data-tool="csv"><span><span class="icon">CSV</span> CSV Import</span><span></span></a>
+          <a class="nav-item" href="#tools" data-ui-action="import-export" data-tool="sheets"><span><span class="icon">GS</span> Google Sheets</span><span></span></a>
+          <a class="nav-item" href="#tools" data-ui-action="import-export" data-tool="export"><span><span class="icon">EX</span> Export Center</span><span></span></a>
+        </details>
+
+        <details class="nav-group">
+          <summary>API & Systeme</summary>
+          <a class="nav-item endpoint-link" href="#" data-endpoint="/api/ebay/status"><span><span class="icon">EA</span> eBay API</span><span></span></a>
+          <a class="nav-item endpoint-link" href="#" data-endpoint="/api/cj/status"><span><span class="icon">CA</span> CJ API</span><span></span></a>
+          <a class="nav-item" href="#tools" data-ui-action="system-tool" data-tool="openai"><span><span class="icon">OA</span> OpenAI API</span><span></span></a>
+          <a class="nav-item endpoint-link" href="#" data-endpoint="/api/health"><span><span class="icon">ST</span> Systemstatus</span><span></span></a>
+        </details>
+
+        <details class="nav-group">
+          <summary>Einstellungen</summary>
+          <a class="nav-item" href="#tools" data-ui-action="settings-tool" data-tool="general"><span><span class="icon">G</span> Allgemein</span><span></span></a>
+          <a class="nav-item" href="#tools" data-ui-action="settings-tool" data-tool="accounts"><span><span class="icon">AC</span> Accounts</span><span></span></a>
+          <a class="nav-item" href="#tools" data-ui-action="settings-tool" data-tool="security"><span><span class="icon">SE</span> Sicherheit</span><span></span></a>
+          <a class="nav-item" href="#tools" data-ui-action="settings-tool" data-tool="theme"><span><span class="icon">TH</span> Theme</span><span></span></a>
+        </details>
+      </nav>
+
+      <div class="sidebar-footer">
+        <strong>Ablauf zuerst</strong>
+        <div>Dunkles SaaS-Layout für Recherche, Auswahl und Ausführung mit genug Spielraum für die spätere Tablet-App.</div>
+      </div>
+    </aside>
+
+    <main class="content">
+      <header class="topbar" id="dashboard">
+        <div class="topbar-left">
+          <h2>Dashboard</h2>
+          <p>Willkommen zurück - eine klare Übersicht für Produktsuche und Ausführung.</p>
+        </div>
+        <div class="top-actions">
+          <a class="pill endpoint-link" href="#" data-endpoint="/api/health">Systemstatus</a>
+          <a class="pill endpoint-link" href="#" data-endpoint="/api/env-check">Umgebung</a>
+          <a class="btn endpoint-link" href="#" data-endpoint="/ebay-token-exchange">eBay-Token</a>
+        </div>
+      </header>
+
+      <section class="metrics" aria-label="Key metrics">
+        <article class="metric">
+          <div class="label">Umsatz</div>
+          <div class="value kpi-muted">€124.95</div>
+          <div class="sub"><span class="kpi-positive">↗ +12.5%</span> vs letzte Woche</div>
+        </article>
+        <article class="metric">
+          <div class="label">Gewinn</div>
+          <div class="value kpi-muted">€64.80</div>
+          <div class="sub"><span class="kpi-positive">↗ +8.3%</span> vs letzte Woche</div>
+        </article>
+        <article class="metric">
+          <div class="label">Bestellungen</div>
+          <div class="value kpi-muted">5</div>
+          <div class="sub"><span class="kpi-positive">↗ +5</span> vs letzte Woche</div>
+        </article>
+        <article class="metric">
+          <div class="label">Aktive Produkte</div>
+          <div class="value kpi-warning">0</div>
+          <div class="sub">0 gesamt</div>
+        </article>
+      </section>
+
+      <section class="main-grid">
+        <article class="panel">
+          <div class="panel-header">
+            <div>
+              <h3>Umsatz & Gewinn</h3>
+              <p>Letzte 7 Tage</p>
+            </div>
+            <div class="chart-legend">
+              <span><i class="legend-dot blue"></i>Umsatz</span>
+              <span><i class="legend-dot green"></i>Gewinn</span>
+            </div>
+          </div>
+          <div class="panel-body">
+            <div class="chart-wrap" aria-label="Diagramm">
+              <svg viewBox="0 0 860 360" width="100%" height="360" role="img" aria-label="Umsatz- und Gewinnverlauf">
+                <defs>
+                  <linearGradient id="blueFill" x1="0" x2="0" y1="0" y2="1">
+                    <stop offset="0%" stop-color="#4c8dff" stop-opacity="0.55"/>
+                    <stop offset="100%" stop-color="#4c8dff" stop-opacity="0.04"/>
+                  </linearGradient>
+                  <linearGradient id="greenFill" x1="0" x2="0" y1="0" y2="1">
+                    <stop offset="0%" stop-color="#27d39a" stop-opacity="0.48"/>
+                    <stop offset="100%" stop-color="#27d39a" stop-opacity="0.04"/>
+                  </linearGradient>
+                </defs>
+                <rect x="0" y="0" width="860" height="360" rx="16" fill="transparent"/>
+                <g stroke="rgba(148,163,184,0.12)" stroke-width="1">
+                  <line x1="48" y1="40" x2="822" y2="40" />
+                  <line x1="48" y1="110" x2="822" y2="110" />
+                  <line x1="48" y1="180" x2="822" y2="180" />
+                  <line x1="48" y1="250" x2="822" y2="250" />
+                  <line x1="48" y1="320" x2="822" y2="320" />
+                </g>
+                <g fill="#93a4bd" font-size="12">
+                  <text x="8" y="44">800</text>
+                  <text x="8" y="114">600</text>
+                  <text x="8" y="184">400</text>
+                  <text x="8" y="254">200</text>
+                  <text x="14" y="324">0</text>
+                </g>
+                <g fill="#93a4bd" font-size="12">
+                  <text x="60" y="350">Mo</text>
+                  <text x="170" y="350">Di</text>
+                  <text x="285" y="350">Mi</text>
+                  <text x="395" y="350">Do</text>
+                  <text x="510" y="350">Fr</text>
+                  <text x="620" y="350">Sa</text>
+                  <text x="735" y="350">So</text>
+                </g>
+                <path d="M48,176 C120,190 155,192 220,154 C285,118 340,136 410,122 C480,108 538,82 600,96 C670,110 724,136 822,126 L822,320 L48,320 Z" fill="url(#blueFill)" />
+                <path d="M48,176 C120,190 155,192 220,154 C285,118 340,136 410,122 C480,108 538,82 600,96 C670,110 724,136 822,126" fill="none" stroke="#4c8dff" stroke-width="3.5" stroke-linecap="round" />
+                <path d="M48,242 C120,250 155,260 220,232 C285,206 340,218 410,204 C480,188 538,162 600,176 C670,186 724,206 822,194 L822,320 L48,320 Z" fill="url(#greenFill)" />
+                <path d="M48,242 C120,250 155,260 220,232 C285,206 340,218 410,204 C480,188 538,162 600,176 C670,186 724,206 822,194" fill="none" stroke="#27d39a" stroke-width="3.5" stroke-linecap="round" />
+              </svg>
+            </div>
+          </div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-header">
+            <div>
+              <h3>Top Produkte</h3>
+              <p>Die stärksten Treffer aus der aktuellen Recherche.</p>
+            </div>
+            <a class="pill" href="#research">Öffnen</a>
+          </div>
+          <div class="panel-body">
+            <div class="top-products">
+              <div class="product-item">
+                <div class="product-index">1</div>
+                <div>
+                  <div class="product-title">Bluetooth-Kopfhörer ...</div>
+                  <div class="product-meta">35.7% Marge • ★ 9/10</div>
+                </div>
+                <div class="product-profit">€34.99<br><span class="product-meta">+€12.50</span></div>
+              </div>
+              <div class="product-item">
+                <div class="product-index">2</div>
+                <div>
+                  <div class="product-title">LED Ring Light 10"</div>
+                  <div class="product-meta">40.8% Marge • ★ 8/10</div>
+                </div>
+                <div class="product-profit">€24.99<br><span class="product-meta">+€10.20</span></div>
+              </div>
+              <div class="product-item">
+                <div class="product-index">3</div>
+                <div>
+                  <div class="product-title">Kabellose Maus Pro ...</div>
+                  <div class="product-meta">37.5% Marge • ★ 8/10</div>
+                </div>
+                <div class="product-profit">€19.99<br><span class="product-meta">+€7.50</span></div>
+              </div>
+              <div class="product-item">
+                <div class="product-index">4</div>
+                <div>
+                  <div class="product-title">USB-C-Hub Multi ...</div>
+                  <div class="product-meta">37.3% Marge • ★ 7/10</div>
+                </div>
+                <div class="product-profit">€29.99<br><span class="product-meta">+€11.20</span></div>
+              </div>
+              <div class="product-item">
+                <div class="product-index">5</div>
+                <div>
+                  <div class="product-title">Smartwatch-Armband</div>
+                  <div class="product-meta">52.3% Marge • ★ 9/10</div>
+                </div>
+                <div class="product-profit">€12.99<br><span class="product-meta">+€6.80</span></div>
+              </div>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <section class="workflow-grid" id="workflow">
+        <article class="panel">
+          <div class="panel-header">
+            <div>
+              <h3>Recherche-Arbeitsfläche</h3>
+              <p>Produkte suchen, filtern und vormerken, bevor sie in die Ausführung gehen.</p>
+            </div>
+            <span class="panel-note" id="resultsMeta">Lokaler Demo-Modus</span>
+          </div>
+          <div class="panel-body">
+            <div class="research-toolbar">
+              <label class="sr-only" for="mainSearch">Produkte suchen</label>
+              <input class="inline-input" id="mainSearch" type="search" placeholder="Produkt, Nische, Quelle oder Suchwort suchen" />
+              <select class="inline-select" id="sourceFilter" aria-label="Quellenfilter">
+                <option value="all">Alle Quellen</option>
+                <option value="CJ">CJ Dropshipping</option>
+                <option value="eBay">eBay</option>
+                <option value="Saved">Gespeichert</option>
+              </select>
+              <select class="inline-select" id="scoreFilter" aria-label="Scorefilter">
+                <option value="all">Alle Scores</option>
+                <option value="good">Gut</option>
+                <option value="medium">Mittel</option>
+                <option value="bad">Risiko</option>
+              </select>
+              <button class="btn" type="button" id="refreshResearch">Aktualisieren</button>
+            </div>
+            <div class="research-pills">
+              <button class="mini-pill active" type="button" data-query="all">Alle</button>
+              <button class="mini-pill" type="button" data-query="phone">Elektronik</button>
+              <button class="mini-pill" type="button" data-query="light">Beleuchtung</button>
+              <button class="mini-pill" type="button" data-query="watch">Wearables</button>
+              <button class="mini-pill" type="button" data-query="vacuum">Haushalt</button>
+            </div>
+            <div class="research-results" id="researchResults" aria-live="polite"></div>
+          </div>
+        </article>
+
+        <article class="panel" id="analysisPanel">
+          <div class="panel-header">
+            <div>
+              <h3>Entscheidungsfeld</h3>
+              <p>Ausgewähltes Produkt, Score und nächste Aktion.</p>
+            </div>
+            <span class="panel-note" id="selectedState">Keine Auswahl</span>
+          </div>
+          <div class="panel-body">
+            <div class="detail-summary">
+              <div class="detail-hero">
+                <h4 class="detail-title" id="selectedTitle">Produkt auswählen</h4>
+                <p class="detail-subtitle" id="selectedSubtitle">Klicke auf ein Ergebnis, um Preis, Marge, Score und Empfehlung hier zu laden.</p>
+              </div>
+              <div class="detail-grid">
+                <div class="detail-box">
+                  <div class="k">Quelle</div>
+                  <div class="v" id="selectedSource">-</div>
+                </div>
+                <div class="detail-box">
+                  <div class="k">Score</div>
+                  <div class="v" id="selectedScore">-</div>
+                </div>
+                <div class="detail-box">
+                  <div class="k">Marge</div>
+                  <div class="v" id="selectedMargin">-</div>
+                </div>
+                <div class="detail-box">
+                  <div class="k">Risiko</div>
+                  <div class="v" id="selectedRisk">-</div>
+                </div>
+              </div>
+              <div class="action-row">
+                <button class="btn" type="button" id="saveProductBtn">Speichern</button>
+                <button class="pill" type="button" id="analyzeProductBtn">Analysieren</button>
+                <button class="pill" type="button" id="prepareListingBtn">Listing vorbereiten</button>
+              </div>
+              <div class="listing-preview">
+                <div class="preview-line" id="selectedRecommendation">Die Empfehlung erscheint hier, sobald ein Produkt ausgewählt ist.</div>
+                <div class="preview-line" id="selectedNotes">Workflow-Notizen und Kaufsignale bleiben für den nächsten Schritt sichtbar.</div>
+              </div>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <section class="workspace-grid" id="research">
+        <article class="workspace-card">
+          <div class="label">Produktsuche</div>
+          <h4>Schneller Such- und Vergleichsfluss</h4>
+          <p>Nutze Suche, Quellenfilter und Scorefilter, bevor etwas ins Board übernommen wird.</p>
+          <div class="row">
+            <a class="pill endpoint-link" href="#" data-endpoint="/api/cj/search">CJ-Suche</a>
+            <a class="pill endpoint-link" href="#" data-endpoint="/api/ebay/status">eBay-Status</a>
+          </div>
+        </article>
+        <article class="workspace-card" id="suppliers">
+          <div class="label">Lieferanten</div>
+          <h4>Quellenqualität zuerst</h4>
+          <p>Lieferantenprüfungen getrennt vom Listing halten, damit der Ablauf stabil bleibt.</p>
+          <div class="row">
+            <a class="pill endpoint-link" href="#" data-endpoint="/api/cj/status">CJ-Status</a>
+            <a class="pill endpoint-link" href="#" data-endpoint="/api/health">Systemstatus</a>
+          </div>
+        </article>
+        <article class="workspace-card" id="listing">
+          <div class="label">Listing-Generator</div>
+          <h4>Angebot erst nach Prüfung vorbereiten</h4>
+          <p>Titel, Beschreibung und SEO-Elemente bleiben verfügbar, ohne das Dashboard zu überladen.</p>
+          <div class="listing-preview">
+            <div class="preview-line" id="listingTitle">Listing-Entwurf</div>
+            <div class="preview-line" id="listingBody">Wähle ein Produkt aus der Recherche, um die Listing-Vorschau automatisch zu füllen.</div>
+          </div>
+          <div class="row">
+            <a class="pill" href="#workflow-gates">Ablauf</a>
+            <a class="pill endpoint-link" href="#" data-endpoint="/ebay-token-exchange">Token</a>
+          </div>
+        </article>
+        <article class="workspace-card" id="orders">
+          <div class="label">Bestellungen</div>
+          <h4>Ausführung nur für freigegebene Produkte</h4>
+          <p>Bestellungen sind ein nachgelagerter Schritt, kein Startpunkt.</p>
+          <div class="row">
+            <a class="pill endpoint-link" href="#" data-endpoint="/api/ebay/orders">Bestell-API</a>
+            <a class="pill endpoint-link" href="#" data-endpoint="/api/ebay/status">Einstellungen</a>
+          </div>
+        </article>
+      </section>
+
+      <section class="bottom-grid">
+        <article class="panel">
+          <div class="panel-header">
+            <div>
+              <h3>Aktuelle Recherche-Warteschlange</h3>
+              <p>Gespeicherte Produkte landen hier, damit der Ablauf fokussiert bleibt.</p>
+            </div>
+            <a class="pill" href="#analytics">Analysen</a>
+          </div>
+          <div class="panel-body">
+            <div class="queue-list" id="queueList"></div>
+          </div>
+        </article>
+
+        <article class="panel" id="workflow-gates">
+          <div class="panel-header">
+            <div>
+              <h3>Ablauf-Gates</h3>
+              <p>Ausführungsschritte bleiben getrennt, damit die Recherche nicht untergeht.</p>
+            </div>
+          </div>
+          <div class="panel-body">
+            <div class="status-strip">
+              <div class="status-chip">
+                <div class="k">Health</div>
+                <div class="v" id="healthStatus"><span class="dot warn"></span>Lädt ...</div>
+              </div>
+              <div class="status-chip">
+                <div class="k">Environment</div>
+                <div class="v" id="envStatus"><span class="dot warn"></span>Prüfen ...</div>
+              </div>
+              <div class="status-chip">
+                <div class="k">CJ</div>
+                <div class="v" id="cjStatus"><span class="dot warn"></span>Lädt ...</div>
+              </div>
+              <div class="status-chip">
+                <div class="k">eBay</div>
+                <div class="v" id="ebayStatus"><span class="dot warn"></span>Lädt ...</div>
+              </div>
+            </div>
+
+            <div class="section-grid" style="margin-top: 14px;">
+              <div class="small-panel">
+                <h4>Import / CSV / Tabellen</h4>
+                <p>Bleibt unterhalb des Recherche-Flusses, damit die App wie ein Ablauf wirkt und nicht wie ein Stapel Panels.</p>
+              </div>
+              <div class="small-panel">
+                <h4>Automatisierung & Werkzeuge</h4>
+                <p>Erst öffnen, wenn das Produkt geprüft, bewertet und bereit für die Ausführung ist.</p>
+              </div>
+            </div>
+
+            <div class="footer">
+              Tipp: Wenn die App zu voll wirkt, schiebe weniger wichtige Aktionen in diese unteren Workflow-Karten.
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <section class="section-grid" id="analytics">
+        <div class="small-panel">
+          <h4>Analysen</h4>
+          <p>Hier später kompakte Kennzahlen: Marge, Nachfrage, Wettbewerb und Verkäufergeschwindigkeit.</p>
+        </div>
+        <div class="small-panel">
+          <h4>Kunden / Aufgaben</h4>
+          <p>Spätere Mobile-/Tablet-Ansichten können daraus fokussierte Arbeitslisten machen, ohne das Grundlayout zu ändern.</p>
+        </div>
+      </section>
+
+      <section class="section-grid" id="customers">
+        <div class="small-panel">
+          <h4>Kunden</h4>
+          <p>Kunden- und Support-Fokus für spätere Follow-ups, ohne die Research-Ansicht zu überladen.</p>
+        </div>
+        <div class="small-panel">
+          <h4>Verknüpfung</h4>
+          <p><a class="pill" href="#orders">Zur Bestellansicht</a> <a class="pill" href="#workflow">Zum Ablauf</a></p>
+        </div>
+      </section>
+
+      <section class="section-grid" id="calendar">
+        <div class="small-panel">
+          <h4>Gewinn-Kalender</h4>
+          <p>Planung für Margen, Versandfenster und saisonale Trends. Später ideal für wöchentliche Routinen.</p>
+        </div>
+        <div class="small-panel">
+          <h4>Status</h4>
+          <p><a class="pill endpoint-link" href="#" data-endpoint="/api/health">Systemstatus prüfen</a> <a class="pill" href="#analytics">Analyse öffnen</a></p>
+        </div>
+      </section>
+
+      <section class="section-grid" id="invoices">
+        <div class="small-panel">
+          <h4>Rechnungen</h4>
+          <p>Saubere Trennung zwischen Recherche und Buchhaltung, damit der operative Ablauf leichter bleibt.</p>
+        </div>
+        <div class="small-panel">
+          <h4>Aktionen</h4>
+          <p><a class="pill endpoint-link" href="#" data-endpoint="/api/ebay/orders">Bestellungen laden</a> <a class="pill" href="#workflow-gates">Ablauf-Gates</a></p>
+        </div>
+      </section>
+
+      <section class="section-grid" id="tasks">
+        <div class="small-panel">
+          <h4>Aufgaben</h4>
+          <p>Checklisten, Review-Schritte und Follow-ups für den Produkt-Workflow.</p>
+        </div>
+        <div class="small-panel">
+          <h4>To-dos</h4>
+          <p><a class="pill" href="#research">Nächste Recherche</a> <a class="pill" href="#listing">Listing vorbereiten</a></p>
+        </div>
+      </section>
+
+      <section class="section-grid" id="tools">
+        <div class="small-panel">
+          <h4>Werkzeuge</h4>
+          <p>Hilfsfunktionen, API-Checks und kleine Shortcuts für den Alltag im Seller-Workflow.</p>
+        </div>
+        <div class="small-panel">
+          <h4>Schnellzugriff</h4>
+          <p><a class="pill endpoint-link" href="#" data-endpoint="/api/env-check">Umgebung prüfen</a> <a class="pill endpoint-link" href="#" data-endpoint="/api/cj/status">CJ-Status</a></p>
+        </div>
+      </section>
+
+      <section class="section-grid" id="automation">
+        <div class="small-panel">
+          <h4>Automatisierung</h4>
+          <p>Trigger, Regeln und spätere Abläufe bleiben hier gebündelt, damit die Hauptansicht ruhig bleibt.</p>
+        </div>
+        <div class="small-panel">
+          <h4>Flow</h4>
+          <p><a class="pill endpoint-link" href="#" data-endpoint="/ebay-token-exchange">eBay-Login</a> <a class="pill endpoint-link" href="#" data-endpoint="/api/ebay/status">eBay-API</a></p>
+        </div>
+      </section>
+
+      <div class="footer">
+        Klarer dunkler SaaS-Rahmen für eBay-/CJ-Produktrecherche. Fokus auf Lesbarkeit, Hierarchie und einen Ablauf, der später mitwächst.
+      </div>
+    </main>
+  </div>
+  <div class="toast" id="actionToast" aria-live="polite" aria-atomic="true">
+    <div class="k">Aktion</div>
+    <div class="v" id="actionToastText">Bereit</div>
+  </div>
+
+  <script>
+    const state = {
+      query: "all",
+      source: "all",
+      score: "all",
+      selectedId: null,
+      savedIds: [],
+      products: [
+        {
+          id: "cj-led-lamp",
+          title: "Tragbare LED-Aufbewahrungslampe",
+          source: "CJ",
+          sourceLabel: "CJ Dropshipping",
+          price: 12.9,
+          shipping: 4.2,
+          margin: 0.41,
+          score: 82,
+          risk: "Niedrig",
+          category: "light",
+          recommendation: "Starker Test-Kandidat, weil die Marge gut ist und sich der Artikel leicht bündeln lässt.",
+          note: "Stabile Nachfrage, geringe Komplexität und ein sauberer visueller Auftritt für Bilder.",
+          signal: "good",
+          demand: "Hoch",
+          competition: "Mittel"
+        },
+        {
+          id: "ebay-vacuum-mini",
+          title: "Mini-Funkstaubsauger",
+          source: "eBay",
+          sourceLabel: "eBay-Vergleich",
+          price: 24.9,
+          shipping: 5.9,
+          margin: 0.28,
+          score: 68,
+          risk: "Mittel",
+          category: "vacuum",
+          recommendation: "Kann im Review bleiben. Interessant, wenn der Wettbewerb weich bleibt und die Versandkosten passen.",
+          note: "Höherer Preis, mehr Wettbewerb und etwas engere Zielmarge.",
+          signal: "medium",
+          demand: "Mittel",
+          competition: "Hoch"
+        },
+        {
+          id: "cj-watch-band",
+          title: "Smartwatch-Armband-Set",
+          source: "CJ",
+          sourceLabel: "CJ Dropshipping",
+          price: 8.4,
+          shipping: 2.1,
+          margin: 0.52,
+          score: 43,
+          risk: "Hoch",
+          category: "watch",
+          recommendation: "Noch keine Priorität. Gute Marge, aber schwache Differenzierung und vermutlich gesättigt.",
+          note: "Niedriger Preis kann funktionieren, aber die Kategorie ist stark umkämpft.",
+          signal: "bad",
+          demand: "Mittel",
+          competition: "Hoch"
+        },
+        {
+          id: "ebay-ring-light",
+          title: "LED-Ringlicht 10 Zoll",
+          source: "eBay",
+          sourceLabel: "eBay-Vergleich",
+          price: 19.99,
+          shipping: 4.1,
+          margin: 0.38,
+          score: 88,
+          risk: "Niedrig",
+          category: "light",
+          recommendation: "Beste Wahl für den nächsten Listing-Durchlauf. Guter Score, solide Marge, leicht zu präsentieren.",
+          note: "Guter Content-Winkel für einen mobilen/Tablet-Listing-Flow mit klaren Vorteilen.",
+          signal: "good",
+          demand: "Hoch",
+          competition: "Mittel"
+        },
+        {
+          id: "cj-mouse",
+          title: "Kabellose Pro-Maus",
+          source: "CJ",
+          sourceLabel: "CJ Dropshipping",
+          price: 11.2,
+          shipping: 3.4,
+          margin: 0.37,
+          score: 76,
+          risk: "Niedrig",
+          category: "phone",
+          recommendation: "Solider Mittelweg. Wertvoll, wenn du mehr zubehörbasierte Produkte sammeln willst.",
+          note: "Breites Publikum und einfach in einem Listing zu erklären.",
+          signal: "good",
+          demand: "Hoch",
+          competition: "Mittel"
+        },
+        {
+          id: "ebay-usb-hub",
+          title: "USB-C-Hub Multi Port",
+          source: "eBay",
+          sourceLabel: "eBay-Vergleich",
+          price: 27.5,
+          shipping: 4.9,
+          margin: 0.33,
+          score: 71,
+          risk: "Mittel",
+          category: "phone",
+          recommendation: "Guter Backup-Kandidat. Am besten mit Fokus auf Komfort statt auf den reinen Preis positionieren.",
+          note: "Solider Warenkorbwert, aber die Vergleichsgruppe ist breit, also braucht das Listing einen klaren Winkel.",
+          signal: "medium",
+          demand: "Hoch",
+          competition: "Hoch"
+        }
+      ]
+    };
+
+    const money = value => `€${Number(value || 0).toFixed(2)}`;
+    const pct = value => `${Math.round(Number(value || 0) * 100)}%`;
+    const scoreColor = signal => signal === "good" ? "var(--success)" : signal === "medium" ? "var(--warning)" : "var(--danger)";
+    let toastTimer = null;
+
+    const setStatus = (id, stateValue, text) => {
+      const el = document.getElementById(id);
+      const dotClass = stateValue === "ok" ? "ok" : stateValue === "err" ? "err" : "warn";
+      el.innerHTML = `<span class="dot ${dotClass}"></span>${text}`;
+    };
+
+    function loadSavedState() {
+      try {
+        state.savedIds = JSON.parse(localStorage.getItem("elyon.savedIds") || "[]");
+      } catch {
+        state.savedIds = [];
+      }
+
+      try {
+        state.selectedId = localStorage.getItem("elyon.selectedId") || state.products[0].id;
+      } catch {
+        state.selectedId = state.products[0].id;
+      }
+    }
+
+    function persistState() {
+      try {
+        localStorage.setItem("elyon.savedIds", JSON.stringify(state.savedIds));
+        localStorage.setItem("elyon.selectedId", state.selectedId || "");
+      } catch {}
+    }
+
+    function getProductById(id) {
+      return state.products.find(product => product.id === id) || null;
+    }
+
+    function getFilteredProducts() {
+      const query = (state.query || "").trim().toLowerCase();
+
+      return state.products.filter(product => {
+        const haystack = [
+          product.title,
+          product.source,
+          product.sourceLabel,
+          product.category,
+          product.recommendation,
+          product.note
+        ].join(" ").toLowerCase();
+
+        const matchesQuery = !query || query === "all" || haystack.includes(query);
+        const matchesSource = state.source === "all"
+          ? true
+          : state.source === "Saved"
+            ? state.savedIds.includes(product.id)
+            : product.source === state.source;
+        const matchesScore = state.score === "all"
+          ? true
+          : state.score === product.signal;
+
+        return matchesQuery && matchesSource && matchesScore;
+      });
+    }
+
+    function setSearchValue(value) {
+      state.query = value && value.trim() ? value.trim() : "all";
+      const mainSearch = document.getElementById("mainSearch");
+      const sidebarSearch = document.getElementById("sidebarSearch");
+      if (mainSearch) mainSearch.value = state.query === "all" ? "" : state.query;
+      if (sidebarSearch) sidebarSearch.value = state.query === "all" ? "" : state.query;
+    }
+
+    function renderTopProducts() {
+      const container = document.querySelector(".top-products");
+      if (!container) return;
+
+      const topProducts = [...state.products].sort((a, b) => b.score - a.score).slice(0, 5);
+      container.innerHTML = topProducts.map((product, index) => `
+        <div class="product-item" data-product-id="${product.id}" role="button" tabindex="0" aria-label="Produkt öffnen: ${product.title}">
+          <div class="product-index">${index + 1}</div>
+          <div>
+            <div class="product-title">${product.title.length > 18 ? `${product.title.slice(0, 18)}...` : product.title}</div>
+            <div class="product-meta">${pct(product.margin)} Marge • Score ${product.score}</div>
+          </div>
+          <div class="product-profit">${money(product.price)}<br><span class="product-meta">+${money(product.price * product.margin)}</span></div>
+        </div>
+      `).join("");
+
+      container.querySelectorAll("[data-product-id]").forEach(card => {
+        const open = () => selectProduct(card.getAttribute("data-product-id"), true);
+        card.addEventListener("click", open);
+        card.addEventListener("keydown", event => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            open();
+          }
+        });
+      });
+    }
+
+    function renderResults() {
+      const container = document.getElementById("researchResults");
+      const meta = document.getElementById("resultsMeta");
+      const results = getFilteredProducts();
+
+      if (meta) meta.textContent = `${results.length} Treffer angezeigt`;
+
+      if (!results.length) {
+        container.innerHTML = `
+          <div class="small-panel" style="margin: 0;">
+            <h4>Keine Produkte gefunden</h4>
+            <p>Versuche ein anderes Suchwort oder lockere die Quellen- und Scorefilter.</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = results.map(product => {
+        const isSaved = state.savedIds.includes(product.id);
+        const active = state.selectedId === product.id ? "active" : "";
+
+        return `
+          <article class="result-card ${active}" data-product-id="${product.id}" role="button" tabindex="0" aria-label="Produkt öffnen: ${product.title}">
+            <div class="result-thumb">${product.source}</div>
+            <div class="result-main">
+              <h5>${product.title}</h5>
+              <p>${product.sourceLabel} • ${product.category} • ${product.demand} Nachfrage</p>
+              <p>${product.recommendation}</p>
+            </div>
+            <div class="result-stats">
+              <strong>${money(product.price)}</strong>
+              <span>Marge ${pct(product.margin)}${isSaved ? " • Gespeichert" : ""}</span>
+              <span style="color:${scoreColor(product.signal)};">Score ${product.score}</span>
+            </div>
+          </article>
+        `;
+      }).join("");
+
+      container.querySelectorAll("[data-product-id]").forEach(card => {
+        const open = () => selectProduct(card.getAttribute("data-product-id"), true);
+        card.addEventListener("click", open);
+        card.addEventListener("keydown", event => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            open();
+          }
+        });
+      });
+    }
+
+    function renderQueue() {
+      const container = document.getElementById("queueList");
+      if (!container) return;
+
+      const queue = state.savedIds.map(getProductById).filter(Boolean);
+      if (!queue.length) {
+        container.innerHTML = `
+          <div class="queue-item">
+            <div>
+              <strong>Noch keine gespeicherten Produkte</strong>
+              <div style="color: var(--text-muted); margin-top: 4px;">Wähle ein Produkt aus und speichere es, um die Warteschlange zu füllen.</div>
+            </div>
+            <div style="color: var(--warning); font-weight: 700;">Bereit</div>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = queue.slice(0, 4).map((product, index) => `
+        <div class="queue-item" data-product-id="${product.id}" role="button" tabindex="0" aria-label="Produkt öffnen: ${product.title}">
+          <div>
+            <strong>${index + 1}. ${product.title}</strong>
+            <div style="color: var(--text-muted); margin-top: 4px;">Score ${product.score} • ${pct(product.margin)} Marge</div>
+          </div>
+          <div style="color: ${scoreColor(product.signal)}; font-weight: 700;">${product.score >= 78 ? "Behalten" : product.score >= 60 ? "Prüfen" : "Ausblenden"}</div>
+        </div>
+      `).join("");
+
+      container.querySelectorAll("[data-product-id]").forEach(card => {
+        const open = () => selectProduct(card.getAttribute("data-product-id"), true);
+        card.addEventListener("click", open);
+        card.addEventListener("keydown", event => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            open();
+          }
+        });
+      });
+    }
+
+    function renderSelected(product) {
+      const selectedState = document.getElementById("selectedState");
+      const selectedTitle = document.getElementById("selectedTitle");
+      const selectedSubtitle = document.getElementById("selectedSubtitle");
+      const selectedSource = document.getElementById("selectedSource");
+      const selectedScore = document.getElementById("selectedScore");
+      const selectedMargin = document.getElementById("selectedMargin");
+      const selectedRisk = document.getElementById("selectedRisk");
+      const selectedRecommendation = document.getElementById("selectedRecommendation");
+      const selectedNotes = document.getElementById("selectedNotes");
+      const listingTitle = document.getElementById("listingTitle");
+      const listingBody = document.getElementById("listingBody");
+
+      if (!product) {
+        selectedState.textContent = "Keine Auswahl";
+        selectedTitle.textContent = "Produkt auswählen";
+        selectedSubtitle.textContent = "Klicke auf ein Ergebnis, um Preis, Marge, Score und Empfehlung hier zu laden.";
+        selectedSource.textContent = "-";
+        selectedScore.textContent = "-";
+        selectedMargin.textContent = "-";
+        selectedRisk.textContent = "-";
+        selectedRecommendation.textContent = "Die Empfehlung erscheint hier, sobald ein Produkt ausgewählt ist.";
+        selectedNotes.textContent = "Workflow-Notizen und Kaufsignale bleiben für den nächsten Schritt sichtbar.";
+        if (listingTitle) listingTitle.textContent = "Listing-Entwurf";
+        if (listingBody) listingBody.textContent = "Wähle ein Produkt aus der Recherche, um die Listing-Vorschau automatisch zu füllen.";
+        return;
+      }
+
+      selectedState.textContent = `${product.signal.toUpperCase()}-Signal`;
+      selectedTitle.textContent = product.title;
+      selectedSubtitle.textContent = `${product.sourceLabel} • ${product.demand} Nachfrage • ${product.competition} Wettbewerb`;
+      selectedSource.textContent = product.sourceLabel;
+      selectedScore.textContent = String(product.score);
+      selectedMargin.textContent = pct(product.margin);
+      selectedRisk.textContent = product.risk;
+      selectedRecommendation.textContent = product.recommendation;
+      selectedNotes.textContent = product.note;
+
+      if (listingTitle) listingTitle.textContent = `Listing: ${product.title}`;
+      if (listingBody) {
+        listingBody.textContent = `Titelvorschlag: ${product.title} | Quelle: ${product.sourceLabel} | Erwartete Marge: ${pct(product.margin)} | Score: ${product.score}`;
+      }
+    }
+
+    function showToast(title, message) {
+      const toast = document.getElementById("actionToast");
+      const text = document.getElementById("actionToastText");
+      if (!toast || !text) return;
+
+      text.textContent = message || title;
+      toast.classList.add("show");
+      if (toastTimer) clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.remove("show"), 2600);
+    }
+
+    function selectProduct(id, scrollIntoView = false) {
+      const product = getProductById(id);
+      if (!product) return;
+
+      state.selectedId = id;
+      persistState();
+      renderSelected(product);
+      renderResults();
+      renderTopProducts();
+      renderQueue();
+
+      if (scrollIntoView) {
+        document.getElementById("analysisPanel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+      showToast("Produkt gewählt", product.title);
+    }
+
+    function saveSelectedProduct() {
+      if (!state.selectedId) return;
+      if (!state.savedIds.includes(state.selectedId)) {
+        state.savedIds = [state.selectedId, ...state.savedIds].slice(0, 12);
+        persistState();
+        renderQueue();
+        renderResults();
+        showToast("Gespeichert", "Produkt wurde der Warteschlange hinzugefügt.");
+      } else {
+        showToast("Bereits gespeichert", "Dieses Produkt ist schon in der Warteschlange.");
+      }
+    }
+
+    function analyzeSelectedProduct() {
+      const product = getProductById(state.selectedId);
+      if (!product) return;
+
+      const selectedScore = document.getElementById("selectedScore");
+      const selectedState = document.getElementById("selectedState");
+      const selectedRecommendation = document.getElementById("selectedRecommendation");
+      const boostedScore = Math.min(product.score + 2, 98);
+
+      if (selectedScore) selectedScore.textContent = String(boostedScore);
+      if (selectedState) selectedState.textContent = `Analysiert ${boostedScore}`;
+      if (selectedRecommendation) {
+        selectedRecommendation.textContent = `${product.recommendation} Die Nachanalyse bestätigt, dass das Produkt weiter in die engere Auswahl gehört.`;
+      }
+      showToast("Analyse abgeschlossen", "Die Bewertung wurde aktualisiert.");
+    }
+
+    function prepareListingForSelected() {
+      const product = getProductById(state.selectedId);
+      if (!product) return;
+
+      renderSelected(product);
+      window.location.hash = "listing";
+      applyViewFromHash();
+      document.getElementById("listing")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      showToast("Listing vorbereitet", "Die Vorschau wurde im Listing-Bereich aktualisiert.");
+    }
+
+    const viewCopy = {
+      dashboard: ["Cockpit", "Deine Tagesuebersicht mit KPIs, Warteschlange und Systemstatus."],
+      workflow: ["Arbeitsfluss", "Recherche, Entscheidung und API-Gates als produktiver Ablauf."],
+      research: ["Produktsuche", "Suche Produkte, filtere Quellen und pruefe die besten Kandidaten."],
+      suppliers: ["Lieferanten", "Pruefe Quellen und Verbindungen, bevor ein Produkt ins Listing geht."],
+      listing: ["Listing bauen", "Bereite Titel, Beschreibung und naechste Verkaufsschritte vor."],
+      orders: ["Bestellungen", "Operativer Bereich fuer Bestellungen und eBay-Aufrufe."],
+      customers: ["Kunden", "Support- und Kundenbereich fuer spaetere Follow-ups."],
+      analytics: ["Analyse", "Marge, Nachfrage, Wettbewerb und Produktentscheidungen."],
+      calendar: ["Gewinnplan", "Plane Margen, Versandfenster und wiederkehrende Routinen."],
+      invoices: ["Rechnungen", "Buchhaltung und Bestellbelege getrennt vom Research."],
+      tasks: ["Aufgaben", "To-dos und Review-Schritte fuer deinen Produkt-Workflow."],
+      tools: ["Werkzeuge", "API-Checks, Status und Hilfsfunktionen an einem Ort."],
+      automation: ["Automation", "Regeln, Trigger und spaetere Automatisierungen."]
+    };
+
+    function normalizeView(hash) {
+      const raw = String(hash || "").replace("#", "") || "dashboard";
+      const aliases = { "workflow-gates": "workflow" };
+      const view = aliases[raw] || raw;
+      return viewCopy[view] ? view : "dashboard";
+    }
+
+    function applyViewFromHash() {
+      const view = normalizeView(window.location.hash);
+      document.body.classList.add("app-paged");
+      document.body.dataset.view = view;
+
+      const [title, subtitle] = viewCopy[view];
+      const heading = document.querySelector(".topbar h2");
+      const description = document.querySelector(".topbar p");
+      if (heading) heading.textContent = title;
+      if (description) description.textContent = subtitle;
+
+      document.querySelectorAll(".nav-menu .nav-item").forEach(item => {
+        const href = item.getAttribute("href");
+        const target = href && href.startsWith("#") ? normalizeView(href) : "";
+        item.classList.toggle("active", target === view);
+      });
+    }
+
+    function bindInteractions() {
+      const mainSearch = document.getElementById("mainSearch");
+      const sidebarSearch = document.getElementById("sidebarSearch");
+      const sourceFilter = document.getElementById("sourceFilter");
+      const scoreFilter = document.getElementById("scoreFilter");
+      const refreshResearch = document.getElementById("refreshResearch");
+
+      if (mainSearch) {
+        mainSearch.addEventListener("input", event => {
+          setSearchValue(event.target.value);
+          renderResults();
+        });
+      }
+
+      if (sidebarSearch) {
+        sidebarSearch.addEventListener("input", event => {
+          setSearchValue(event.target.value);
+          renderResults();
+        });
+      }
+
+      if (sourceFilter) {
+        sourceFilter.addEventListener("change", event => {
+          state.source = event.target.value;
+          renderResults();
+          renderQueue();
+        });
+      }
+
+      if (scoreFilter) {
+        scoreFilter.addEventListener("change", event => {
+          state.score = event.target.value;
+          renderResults();
+        });
+      }
+
+      if (refreshResearch) {
+        refreshResearch.addEventListener("click", () => {
+          renderResults();
+          renderTopProducts();
+          renderQueue();
+          showToast("Aktualisiert", "Recherche, Top-Produkte und Warteschlange wurden neu gerendert.");
+        });
+      }
+
+      document.querySelectorAll(".mini-pill[data-query]").forEach(pill => {
+        pill.addEventListener("click", () => {
+          document.querySelectorAll(".mini-pill[data-query]").forEach(node => node.classList.remove("active"));
+          pill.classList.add("active");
+          setSearchValue(pill.getAttribute("data-query") === "all" ? "" : pill.getAttribute("data-query"));
+          renderResults();
+        });
+      });
+
+      document.getElementById("saveProductBtn")?.addEventListener("click", saveSelectedProduct);
+      document.getElementById("analyzeProductBtn")?.addEventListener("click", analyzeSelectedProduct);
+      document.getElementById("prepareListingBtn")?.addEventListener("click", prepareListingForSelected);
+
+      document.querySelectorAll(".endpoint-link").forEach(link => {
+        link.addEventListener("click", event => {
+          event.preventDefault();
+          const endpoint = link.getAttribute("data-endpoint");
+          if (!endpoint) return;
+
+          if (window.location.protocol === "file:") {
+            const routeMap = {
+              "/api/health": { target: "#workflow", text: "Systemstatus findest du im Gate-Bereich." },
+              "/api/env-check": { target: "#tools", text: "Umgebungsprüfung findest du im Werkzeug-Bereich." },
+              "/api/cj/status": { target: "#suppliers", text: "CJ-Status liegt im Lieferanten-Bereich." },
+              "/api/cj/search": { target: "#research", text: "CJ-Suche gehört zur Recherche-Fläche." },
+              "/api/ebay/status": { target: "#workflow", text: "eBay-Status liegt im Gate-Bereich." },
+              "/api/ebay/orders": { target: "#orders", text: "Bestellungen sind im Ausführungsblock verankert." },
+              "/ebay-token-exchange": { target: "#listing", text: "Token-Setup ist im Listing-Generator verlinkt." }
+            };
+            const targetInfo = routeMap[endpoint] || { target: "#dashboard", text: `Lokale Vorschau nur für ${endpoint}` };
+            window.location.hash = targetInfo.target;
+            applyViewFromHash();
+            document.querySelector(targetInfo.target)?.scrollIntoView({ behavior: "smooth", block: "start" });
+            showToast(link.textContent.trim(), targetInfo.text);
+            return;
+          }
+
+          window.location.href = endpoint;
+        });
+      });
+    }
+
+    async function loadStatus() {
+      if (window.location.protocol === "file:") {
+        setStatus("healthStatus", "warn", "Lokale Vorschau");
+        setStatus("envStatus", "warn", "Lokale Vorschau");
+        setStatus("cjStatus", "warn", "Demo-Modus");
+        setStatus("ebayStatus", "warn", "Demo-Modus");
+        return;
+      }
+
+      try {
+        const healthRes = await fetch("/api/health");
+        const healthData = await healthRes.json();
+        const healthOk = healthRes.ok && (healthData.ok || healthData.status === "ok");
+        setStatus("healthStatus", healthOk ? "ok" : "err", healthOk ? "Bereit" : "Problem");
+      } catch {
+        setStatus("healthStatus", "err", "Nicht verfügbar");
+      }
+
+      try {
+        const envRes = await fetch("/api/env-check");
+        const envData = await envRes.json();
+        const envOk = envRes.ok && (envData.ok || envData.ready || envData.status === "ok");
+        setStatus("envStatus", envOk ? "ok" : "warn", envOk ? "Bereit" : "Einrichtung nötig");
+      } catch {
+        setStatus("envStatus", "err", "Nicht verfügbar");
+      }
+
+      try {
+        const cjRes = await fetch("/api/cj/status");
+        const cjData = await cjRes.json();
+        const cjOk = cjRes.ok && (cjData.ok || cjData.status === "ok" || cjData.connected);
+        setStatus("cjStatus", cjOk ? "ok" : "warn", cjOk ? "Verbunden" : "CJ prüfen");
+      } catch {
+        setStatus("cjStatus", "err", "Nicht verfügbar");
+      }
+
+      try {
+        const ebayRes = await fetch("/api/ebay/status");
+        const ebayData = await ebayRes.json();
+        const ebayOk = ebayRes.ok && (ebayData.ok || ebayData.status === "ok" || ebayData.connected);
+        setStatus("ebayStatus", ebayOk ? "ok" : "warn", ebayOk ? "Verbunden" : "eBay prüfen");
+      } catch {
+        setStatus("ebayStatus", "err", "Nicht verfügbar");
+      }
+    }
+
+    function initializeApp() {
+      loadSavedState();
+      setSearchValue("");
+      bindInteractions();
+      window.addEventListener("hashchange", applyViewFromHash);
+      renderResults();
+      renderTopProducts();
+      renderQueue();
+
+      const initial = getProductById(state.selectedId) || state.products[0];
+      if (initial) selectProduct(initial.id, false);
+
+      loadStatus();
+      applyViewFromHash();
+      showToast("Bereit", "Klicke auf Karten, Filter oder Aktionsbuttons, um mit dem Dashboard zu arbeiten.");
+    }
+
+    initializeApp();
+  </script>
+</body>
+</html>

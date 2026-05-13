@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="de">
 <head>
   <meta charset="UTF-8" />
@@ -51,6 +51,18 @@
       }
     }
   </style>
+  <style>
+    .invoice-top{display:grid;grid-template-columns:1.2fr .8fr;gap:18px;align-items:start;margin-bottom:18px}
+    .invoice-sender,.invoice-meta,.invoice-footer{border:1px solid #e5e7eb;border-radius:12px;background:#fff;padding:16px;page-break-inside:avoid;break-inside:avoid}
+    .invoice-meta{text-align:right;background:#f8fafc}
+    .invoice-label{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#64748b;margin-bottom:8px}
+    .invoice-number{font-size:22px;font-weight:900;letter-spacing:-.03em}
+    .invoice-date{margin-top:8px;color:#334155}
+    .invoice-box{page-break-inside:avoid;break-inside:avoid}
+    .invoice-footer{margin-top:18px;color:#334155;font-size:12px;line-height:1.5}
+    .invoice-footer p{margin:0 0 6px}
+    @media(max-width:900px){.invoice-top{grid-template-columns:1fr}.invoice-meta{text-align:left}}
+  </style>
 </head>
 <body>
 <main class="container">
@@ -64,11 +76,11 @@
       <button id="settingsBtn" class="secondary">⚙️ Einstellungen</button>
       <button id="startLauncherBtn" class="secondary">🚀 Schnellstartmenü</button>
       <button id="undoBtn" class="secondary hidden">↩️ Rückgängig</button>
-      <input id="csvImport" class="hidden" type="file" accept=".csv">
+      <input id="csvImport" class="hidden" type="file" accept=".csv,.xlsx,.xls">
       <div style="position:relative;display:inline-block">
-        <button class="secondary" id="importBtn" type="button">CSV importieren</button>
+        <button class="secondary" id="importBtn" type="button">CSV/XLSX importieren</button>
         <div id="csvImportMenu" class="hidden" style="position:absolute;right:0;top:calc(100% + 8px);min-width:280px;background:rgba(15,23,42,.98);border:1px solid rgba(255,255,255,.14);border-radius:18px;padding:12px;z-index:1500;box-shadow:0 18px 50px rgba(0,0,0,.42)">
-          <button class="secondary full" id="localCsvImportBtn" type="button">Lokale CSV-Datei importieren</button>
+          <button class="secondary full" id="localCsvImportBtn" type="button">Lokale CSV/XLSX-Datei importieren</button>
           <button class="secondary full" id="googleCsvImportBtn" type="button" style="margin-top:8px">Von Google Sheets importieren</button>
           <div id="googleSheetImportBox" class="hidden" style="margin-top:10px">
             <input id="googleSheetUrl" placeholder="Google-Sheets-Link einfügen" style="margin-bottom:8px">
@@ -87,15 +99,20 @@
     <button id="ordersBtn" class="secondary">📦 Bestellungen</button>
     <button id="returnsBtn" class="secondary">↩️ Retouren</button>
     <select id="mainMenu" class="menu-select" aria-label="eBay Lab auswählen">
-      <option value="" disabled selected>🟦 Produkt-Pipeline</option>
+      <option value="" disabled selected>🧭 Produkt-Pipeline</option>
       <option value="dashboardTab">1. 🏠 Dashboard</option>
       <option value="productSearchTab">2. 🔎 Produktsuche</option>
-      <option value="productAnalysisTab">3. 🧠 Produktanalyse</option>
-      <option value="productListTab">4. 📋 Meine Produktliste</option>
-      <option value="ebayListingTab">5. ✍️ eBay Listing vorbereiten</option>
+      <option value="productAnalysisTab">3. 📊 Produktanalyse</option>
+      <option value="productListTab">4. 📚 Meine Produktliste</option>
+      <option value="ebayListingTab">5. 🛒 eBay Listing vorbereiten</option>
       <option value="ordersTab">6. 📦 Bestellungen</option>
-      <option value="automationTab">7. ⚙️ Automatisierung</option>
+      <option value="automationTab">7. 🚚 Versandzentrale</option>
       <option value="settingsTab">8. ⚙️ Einstellungen / API Status</option>
+      <option value="importTab">9. Import / Prüfen</option>
+      <option value="marketCheckTab">10. Konkurrenz / Marktcheck</option>
+      <option value="financeTab">11. Kalkulation</option>
+      <option value="listingCheckTab">12. Listing-Check</option>
+      <option value="productStatusTab">13. Produkt-Status</option>
     </select>
     <select id="shopifyMenu" class="menu-select" aria-label="Shopify Bereich auswählen">
       <option value="shopifyTab">🟢 Shopify Lab</option>
@@ -529,6 +546,18 @@
         </div>
         <label>Bestellung für Versanddaten auswählen</label>
         <select id="shippingSaleId"><option value="">Neue Bestellung / keine Auswahl</option></select>
+        <details class="details-box">
+          <summary>Lieferadresse automatisch übernehmen / optional ergänzen</summary>
+          <div class="row">
+            <div><label>Empfängername</label><input id="saleShipRecipientName" placeholder="Wird aus der Bestellung übernommen"></div>
+            <div><label>Adress-Hinweis</label><input id="saleShipAddressHint" placeholder="Optional, z. B. Wohnung, Firma, c/o"></div>
+          </div>
+          <label>Lieferadresse</label>
+          <textarea id="saleShipAddress" placeholder="Straße Hausnummer
+PLZ Ort
+Land"></textarea>
+          <p class="hint">Wenn die Bestellung eine Lieferadresse enthält, wird sie hier automatisch angezeigt. Du kannst sie bei Bedarf manuell ergänzen oder überschreiben.</p>
+        </details>
         <div class="row">
           <div><label>Versanddienstleister</label><select id="saleCarrier"><option>DHL</option><option>Deutsche Post</option><option>Hermes</option><option>DPD</option><option>GLS</option><option>UPS</option><option>Sonstiges</option></select></div>
           <div><label>Versandstatus</label><select id="saleShippingStatus"><option>Noch nicht versendet</option><option>Versand vorbereitet</option><option>Versendet</option><option>Zugestellt</option><option>Problem</option></select></div>
@@ -596,16 +625,16 @@
       <h2>⚙️ Einstellungen / API Status</h2>
       <p class="hint">Arbeitsbereich für externe Daten: CJ Produktdaten, eBay Konkurrenzdaten, eBay Search und eBay Bestellimport. Einstellungen und Backend-Setup bleiben unter ⚙️ Einstellungen → 🔌 Integrationen.</p>
       <div class="dashboard">
-        <div class="metric"><small>Backend</small><strong id="intBackendStatus">Nicht eingerichtet</strong></div>
-        <div class="metric"><small>CJ</small><strong id="intCjStatus">Nicht verbunden</strong></div>
-        <div class="metric"><small>eBay</small><strong id="intEbayStatus">Nicht verbunden</strong></div>
+        <div class="metric"><small>Backend</small><strong id="intBackendStatus">Nicht geprüft</strong></div>
+        <div class="metric"><small>CJ</small><strong id="intCjStatus">Nicht geprüft</strong></div>
+        <div class="metric"><small>eBay</small><strong id="intEbayStatus">Nicht geprüft</strong></div>
         <div class="metric"><small>Modus</small><strong>Lesen zuerst</strong></div>
       </div>
       <div class="row">
         <button id="apiOpenSettingsBtn" class="secondary full" type="button">⚙️ Integrationen einrichten</button>
-        <button id="testBackendBtn" class="secondary full" type="button">Backend testen</button>
+        <button id="testBackendBtn" class="secondary full" type="button">Backend-Verbindung prüfen</button>
       </div>
-      <div id="backendTestResult" class="output-box"><p>Noch kein Backend-Test.</p></div>
+      <div id="backendTestResult" class="output-box"><p>Backend noch nicht geprüft.</p></div>
     </div>
 
     <div class="grid-2" style="margin-top:20px">
@@ -895,7 +924,7 @@
         <div class="settings-grid">
           <div><label>Theme</label><select id="setTheme"><option value="dark">Dark Mode</option><option value="light">Light Mode</option></select></div>
           <div><label>Design-Variante</label><select id="setDesignPreset"><option value="classic">Elyon Classic Dark</option><option value="midnight">Midnight Blue</option><option value="aurora">Aurora Neon</option><option value="emerald">Emerald Business</option><option value="slate">Slate Professional</option></select></div>
-          <div><label>Startseite</label><select id="setStart"><option value="dashboardTab">Dashboard</option><option value="productSearchTab">Produktsuche</option><option value="productListTab">Meine Produktliste</option><option value="productAnalysisTab">Produktanalyse</option><option value="ebayListingTab">eBay Listing vorbereiten</option><option value="ordersTab">Bestellungen</option><option value="automationTab">Automatisierung</option><option value="settingsTab">Einstellungen / API Status</option></select></div>
+          <div><label>Startseite</label><select id="setStart"><option value="dashboardTab">Dashboard</option><option value="productSearchTab">Produktsuche</option><option value="productListTab">Meine Produktliste</option><option value="productAnalysisTab">Produktanalyse</option><option value="ebayListingTab">eBay Listing vorbereiten</option><option value="ordersTab">Bestellungen</option><option value="automationTab">Versandzentrale</option><option value="settingsTab">Einstellungen / API Status</option><option value="importTab">Import / Prüfen</option><option value="marketCheckTab">Konkurrenz / Marktcheck</option><option value="financeTab">Kalkulation</option><option value="listingCheckTab">Listing-Check</option><option value="productStatusTab">Produkt-Status</option></select></div>
         </div>
       </div>
 
@@ -909,28 +938,28 @@
         </div>
       </div>
 
-      <details class="settings-section settings-dropdown">
+        <details class="settings-section settings-dropdown">
         <summary>🔌 Integrationen</summary>
         <div class="settings-dropdown-content">
-          <p class="hint">Vorbereitung für spätere sichere Verbindungen zu eBay und CJ Dropshipping. API-Keys und Secrets gehören später in einen Backend-Tresor, nicht in diese HTML-Datei.</p>
+          <p class="hint">Hier prüfst du, ob dein Vercel-Backend, eBay und CJ technisch erreichbar sind. API-Keys und Secrets bleiben ausschließlich in Vercel Environment Variables, nicht in dieser HTML-Datei.</p>
           <div class="dashboard">
-            <div class="metric"><small>Backend</small><strong id="setIntBackendStatus">Nicht eingerichtet</strong></div>
-            <div class="metric"><small>eBay</small><strong id="setIntEbayStatus">Nicht verbunden</strong></div>
-            <div class="metric"><small>CJ</small><strong id="setIntCjStatus">Nicht verbunden</strong></div>
+            <div class="metric"><small>Backend</small><strong id="setIntBackendStatus">Nicht geprüft</strong></div>
+            <div class="metric"><small>eBay</small><strong id="setIntEbayStatus">Nicht geprüft</strong></div>
+            <div class="metric"><small>CJ</small><strong id="setIntCjStatus">Nicht geprüft</strong></div>
             <div class="metric"><small>Modus</small><strong>Lesen zuerst</strong></div>
           </div>
           <label>Backend URL</label>
           <input id="setIntBackendUrl" placeholder="z. B. http://localhost:3000 oder https://dein-server.de">
           <div class="row">
             <button id="setSaveIntegrationSettingsBtn" class="secondary full">Backend speichern</button>
-            <button id="setTestBackendBtn" class="secondary full">Backend-Test vorbereiten</button>
+            <button id="setTestBackendBtn" class="secondary full">Backend-Verbindung prüfen</button>
           </div>
           <div class="row" style="margin-top:10px">
-            <button id="setEbayConnectPlanBtn" class="secondary full">eBay vorbereiten</button>
-            <button id="setCjConnectPlanBtn" class="secondary full">CJ vorbereiten</button>
+            <button id="setEbayConnectPlanBtn" class="secondary full">eBay API prüfen</button>
+            <button id="setCjConnectPlanBtn" class="secondary full">CJ API prüfen</button>
           </div>
           <button id="resetIntegrationSettingsBtn" class="danger full" style="margin-top:10px">Integrationen zurücksetzen</button>
-          <div id="settingsIntegrationResult" class="output-box"><p>Integrationen sind vorbereitet, aber noch nicht aktiv verbunden.</p></div>
+          <div id="settingsIntegrationResult" class="output-box"><p>Hier prüfst du, ob dein Vercel-Backend, eBay und CJ technisch erreichbar sind. API-Keys und Secrets bleiben ausschließlich in Vercel Environment Variables, nicht in dieser HTML-Datei.</p></div>
 
           <div class="settings-section" style="margin-top:14px">
             <h3>🛡️ Sicherheitsregeln</h3>
@@ -1025,6 +1054,7 @@ PLZ Ort"></textarea>
   </div>
 </main>
 
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script>
 'use strict';
 function loadStoredArray(key){
@@ -1090,7 +1120,12 @@ const TAB_ALIASES = {
   generatorTab: 'ebayListingTab',
   salesTab: 'ordersTab',
   shippingTab: 'automationTab',
-  apiImportTab: 'settingsTab'
+  apiImportTab: 'settingsTab',
+  importTab: 'settingsTab',
+  marketCheckTab: 'productAnalysisTab',
+  financeTab: 'financeTab',
+  listingCheckTab: 'checklistTab',
+  productStatusTab: 'productListTab'
 };
 function resolveTabId(tabId){
   return TAB_ALIASES[tabId] || tabId;
@@ -1159,6 +1194,31 @@ function openApiImport(){
   safe('mainMenu', menu => { menu.value = 'settingsTab'; });
   window.scrollTo({top:0, behavior:'smooth'});
 }
+function openImportCheck(){
+  showTab('settingsTab');
+  safe('mainMenu', menu => { menu.value = 'importTab'; });
+  setTimeout(function(){ safe('importBtn', btn => btn.click()); }, 80);
+}
+function openMarketCheck(){
+  showTab('productAnalysisTab');
+  safe('mainMenu', menu => { menu.value = 'marketCheckTab'; });
+  setTimeout(function(){ safe('rCost', el => el.focus()); }, 80);
+}
+function openFinanceTool(){
+  showTab('financeTab');
+  safe('mainMenu', menu => { menu.value = 'financeTab'; });
+  setTimeout(function(){ safe('fRevenue', el => el.focus()); }, 80);
+}
+function openListingCheck(){
+  showTab('checklistTab');
+  safe('mainMenu', menu => { menu.value = 'listingCheckTab'; });
+  setTimeout(function(){ safe('listingBtn', el => el.scrollIntoView({behavior:'smooth',block:'start'})); }, 80);
+}
+function openProductStatus(){
+  showTab('productListTab');
+  safe('mainMenu', menu => { menu.value = 'productStatusTab'; });
+  setTimeout(function(){ safe('search', el => el.focus()); }, 80);
+}
 function openStartLauncher(){
   renderStartDashboard();
   safe('startLauncherModal', el => el.classList.remove('hidden'));
@@ -1172,8 +1232,8 @@ function renderStartDashboard(){
     return ship !== 'Zugestellt' && ship !== 'Storniert' && (ship !== 'Versendet' || trackingMissing);
   }).length;
   const openReturns = returns.filter(function(r){ return !isReturnClosed(r.status); }).length + shopifyReturns.filter(function(r){ return !isReturnClosed(r.status); }).length;
-  const ebay = integrationSettings.ebayPlanned ? 'eBay vorbereitet' : 'eBay offen';
-  const cj = integrationSettings.cjPlanned ? 'CJ vorbereitet' : 'CJ offen';
+  const ebay = integrationStatusText('ebay', integrationSettings.ebayCheck);
+  const cj = integrationStatusText('cj', integrationSettings.cjCheck);
   safe('startShipTodos',el=>el.textContent=shippingTodos);
   safe('startOpenReturns',el=>el.textContent=openReturns);
   safe('startBackupStatus',el=>el.textContent=lastBackupText());
@@ -1248,15 +1308,18 @@ function saveIntegrationSettings(){
   const modalInput = $('setIntBackendUrl');
   const tabInput = $('intBackendUrl');
   integrationSettings.backendUrl = (modalInput && modalInput.value.trim()) || (tabInput && tabInput.value.trim()) || '';
+  integrationSettings.backendCheck = 'unknown';
+  integrationSettings.ebayCheck = 'unknown';
+  integrationSettings.cjCheck = 'unknown';
   localStorage.setItem('elyonIntegrations', JSON.stringify(integrationSettings));
   renderIntegrationStatus();
   alert('Integrations-Einstellungen gespeichert.');
 }
 function renderIntegrationStatus(){
   const backendUrl = integrationSettings.backendUrl || '';
-  const backendStatus = backendUrl ? 'Vorbereitet' : 'Nicht eingerichtet';
-  const ebayStatus = integrationSettings.ebayPlanned ? 'Vorbereitet' : 'Nicht verbunden';
-  const cjStatus = integrationSettings.cjPlanned ? 'Vorbereitet' : 'Nicht verbunden';
+  const backendStatus = integrationStatusText('backend', integrationSettings.backendCheck);
+  const ebayStatus = integrationStatusText('ebay', integrationSettings.ebayCheck);
+  const cjStatus = integrationStatusText('cj', integrationSettings.cjCheck);
   safe('intBackendUrl', el => el.value = backendUrl);
   safe('setIntBackendUrl', el => el.value = backendUrl);
   safe('intBackendStatus', el => el.textContent = backendStatus);
@@ -1265,6 +1328,19 @@ function renderIntegrationStatus(){
   safe('setIntEbayStatus', el => el.textContent = ebayStatus);
   safe('intCjStatus', el => el.textContent = cjStatus);
   safe('setIntCjStatus', el => el.textContent = cjStatus);
+}
+function integrationStatusText(service, state){
+  if(state === 'ok'){
+    if(service === 'backend') return 'Backend erreichbar';
+    if(service === 'ebay') return 'eBay API erreichbar';
+    return 'CJ API erreichbar';
+  }
+  if(state === 'error'){
+    if(service === 'backend') return 'Backend nicht erreichbar';
+    if(service === 'ebay') return 'eBay API nicht erreichbar';
+    return 'CJ API nicht erreichbar';
+  }
+  return 'Nicht geprüft';
 }
 function normalizeBackendUrl(url){
   let out = String(url || '').trim();
@@ -1304,47 +1380,102 @@ async function fetchBackendJSON(path,options){
 function testBackendConnection(){
   const backendUrl = getBackendUrl();
   if(!backendUrl){
-    setHTML('backendTestResult','<p>Trage zuerst eine Backend URL ein. Ohne Backend bleiben eBay und CJ nur vorbereitet.</p>');
-    setHTML('settingsIntegrationResult','<p>Trage zuerst eine Backend URL ein. Ohne Backend bleiben eBay und CJ nur vorbereitet.</p>');
+    setHTML('backendTestResult','<p>Trage zuerst eine Backend URL ein.</p>');
+    setHTML('settingsIntegrationResult','<p>Trage zuerst eine Backend URL ein.</p>');
     return;
   }
   integrationSettings.backendUrl = backendUrl;
+  integrationSettings.backendCheck = 'unknown';
   localStorage.setItem('elyonIntegrations', JSON.stringify(integrationSettings));
   renderIntegrationStatus();
-  const intro = '<p>Teste Backend: <strong>'+backendUrl+'</strong></p>';
-  setHTML('backendTestResult',intro+'<p>Teste Backend...</p>');
-  setHTML('settingsIntegrationResult',intro+'<p>Teste Backend...</p>');
-  Promise.allSettled([
-    fetchBackendJSON('/api/ping'),
-    fetchBackendJSON('/api/cj/status'),
-    fetchBackendJSON('/api/ebay/status')
-  ]).then(function(results){
-    const labels = ['Ping','CJ Status','eBay Status'];
-    const paths = ['/api/ping','/api/cj/status','/api/ebay/status'];
-    const html = '<h3>Backend-Test</h3><p>Backend URL: <strong>'+backendUrl+'</strong></p><ul>' + results.map(function(r,idx){
-      const direct = backendUrl + paths[idx];
-      if(r.status === 'fulfilled') return '<li>'+labels[idx]+': ✅ erreichbar · <a href="'+direct+'" target="_blank" rel="noopener">direkt öffnen</a></li>';
-      return '<li>'+labels[idx]+': ⚠️ '+(r.reason && r.reason.message ? r.reason.message : 'nicht erreichbar')+' · <a href="'+direct+'" target="_blank" rel="noopener">direkt testen</a></li>';
-    }).join('') + '</ul><div class="output-box"><h3>Einordnung</h3><p>Wenn alle drei mit „Failed to fetch“ scheitern, ist meistens die Backend-URL falsch, die API-Route nicht deployed oder der Browser blockiert den Zugriff wegen CORS. Teste zuerst den Ping-Link direkt im Browser.</p></div>';
+  const intro = '<p>Prüfe Backend: <strong>'+backendUrl+'</strong></p>';
+  setHTML('backendTestResult',intro+'<p>Ping wird geprüft...</p>');
+  setHTML('settingsIntegrationResult',intro+'<p>Ping wird geprüft...</p>');
+  fetchBackendJSON('/api/ping').then(function(data){
+    if(!data || data.ok !== true){
+      throw new Error((data && (data.error || data.message)) ? (data.error || data.message) : 'Ping antwortet nicht mit ok:true');
+    }
+    integrationSettings.backendCheck = 'ok';
+    localStorage.setItem('elyonIntegrations', JSON.stringify(integrationSettings));
+    renderIntegrationStatus();
+    const html = '<h3>Backend-Test</h3><p>Ping: <strong>Backend erreichbar</strong></p><p class="hint">Route geprüft: /api/ping</p>';
+    setHTML('backendTestResult',html);
+    setHTML('settingsIntegrationResult',html);
+  }).catch(function(err){
+    integrationSettings.backendCheck = 'error';
+    localStorage.setItem('elyonIntegrations', JSON.stringify(integrationSettings));
+    renderIntegrationStatus();
+    const msg = err && err.message ? err.message : 'Backend nicht erreichbar';
+    const html = '<h3>Backend-Test</h3><p>Ping: <strong>Backend nicht erreichbar</strong></p><p class="hint">'+msg+'</p><p class="hint">Route geprüft: /api/ping</p>';
     setHTML('backendTestResult',html);
     setHTML('settingsIntegrationResult',html);
   });
 }
 function prepareEbayIntegration(){
-  integrationSettings.ebayPlanned = true;
+  const backendUrl = getBackendUrl();
+  if(!backendUrl){
+    setHTML('ebayIntegrationResult','<p>Bitte zuerst die Backend URL speichern.</p>');
+    setHTML('settingsIntegrationResult','<p>Bitte zuerst die Backend URL speichern.</p>');
+    return;
+  }
+  integrationSettings.backendUrl = backendUrl;
+  integrationSettings.ebayCheck = 'unknown';
   localStorage.setItem('elyonIntegrations', JSON.stringify(integrationSettings));
   renderIntegrationStatus();
-  const line = String.fromCharCode(10);
-  setHTML('ebayIntegrationResult','<p>eBay-Verbindung vorbereitet. Nächster echter Schritt: eBay Developer App erstellen, OAuth Redirect URL festlegen und Backend-Route für den Login bauen.'+line+line+'Startfunktion: Bestellungen lesen und Verkaufslog vorbereiten. Keine automatische Veröffentlichung.</p>');
-  setHTML('settingsIntegrationResult','<p>eBay-Verbindung vorbereitet.'+line+line+'Startfunktion später: Bestellungen lesen und Verkaufslog vorbereiten. Keine automatische Veröffentlichung.</p>');
+  setHTML('ebayIntegrationResult','<p>eBay API wird geprüft...</p>');
+  setHTML('settingsIntegrationResult','<p>eBay API wird geprüft...</p>');
+  fetchBackendJSON('/api/ebay/status').then(function(data){
+    if(!data || data.ok !== true){
+      throw new Error((data && (data.error || data.message)) ? (data.error || data.message) : 'eBay Route antwortet nicht mit ok:true');
+    }
+    integrationSettings.ebayCheck = 'ok';
+    localStorage.setItem('elyonIntegrations', JSON.stringify(integrationSettings));
+    renderIntegrationStatus();
+    const html = '<p>eBay API erreichbar.</p><p class="hint">Route geprüft: /api/ebay/status</p>';
+    setHTML('ebayIntegrationResult',html);
+    setHTML('settingsIntegrationResult',html);
+  }).catch(function(err){
+    integrationSettings.ebayCheck = 'error';
+    localStorage.setItem('elyonIntegrations', JSON.stringify(integrationSettings));
+    renderIntegrationStatus();
+    const msg = err && err.message ? err.message : 'eBay API nicht erreichbar';
+    const html = '<p>eBay API nicht erreichbar.</p><p class="hint">'+msg+'</p><p class="hint">Route geprüft: /api/ebay/status</p>';
+    setHTML('ebayIntegrationResult',html);
+    setHTML('settingsIntegrationResult',html);
+  });
 }
 function prepareCjIntegration(){
-  integrationSettings.cjPlanned = true;
+  const backendUrl = getBackendUrl();
+  if(!backendUrl){
+    setHTML('cjIntegrationResult','<p>Bitte zuerst die Backend URL speichern.</p>');
+    setHTML('settingsIntegrationResult','<p>Bitte zuerst die Backend URL speichern.</p>');
+    return;
+  }
+  integrationSettings.backendUrl = backendUrl;
+  integrationSettings.cjCheck = 'unknown';
   localStorage.setItem('elyonIntegrations', JSON.stringify(integrationSettings));
   renderIntegrationStatus();
-  const line = String.fromCharCode(10);
-  setHTML('cjIntegrationResult','<p>CJ-Verbindung vorbereitet. Nächster echter Schritt: CJ API-Key im Backend speichern und Produktdaten nur lesend abrufen.'+line+line+'Startfunktion: Preis, Bestand, Lieferzeit und CJ Produkt-ID ins Produkt übernehmen.</p>');
-  setHTML('settingsIntegrationResult','<p>CJ-Verbindung vorbereitet.'+line+line+'Startfunktion später: Preis, Bestand, Lieferzeit und CJ Produkt-ID ins Produkt übernehmen.</p>');
+  setHTML('cjIntegrationResult','<p>CJ API wird geprüft...</p>');
+  setHTML('settingsIntegrationResult','<p>CJ API wird geprüft...</p>');
+  fetchBackendJSON('/api/cj/status').then(function(data){
+    if(!data || data.ok !== true){
+      throw new Error((data && (data.error || data.message)) ? (data.error || data.message) : 'CJ Route antwortet nicht mit ok:true');
+    }
+    integrationSettings.cjCheck = 'ok';
+    localStorage.setItem('elyonIntegrations', JSON.stringify(integrationSettings));
+    renderIntegrationStatus();
+    const html = '<p>CJ API erreichbar.</p><p class="hint">Route geprüft: /api/cj/status</p>';
+    setHTML('cjIntegrationResult',html);
+    setHTML('settingsIntegrationResult',html);
+  }).catch(function(err){
+    integrationSettings.cjCheck = 'error';
+    localStorage.setItem('elyonIntegrations', JSON.stringify(integrationSettings));
+    renderIntegrationStatus();
+    const msg = err && err.message ? err.message : 'CJ API nicht erreichbar';
+    const html = '<p>CJ API nicht erreichbar.</p><p class="hint">'+msg+'</p><p class="hint">Route geprüft: /api/cj/status</p>';
+    setHTML('cjIntegrationResult',html);
+    setHTML('settingsIntegrationResult',html);
+  });
 }
 function resetIntegrationSettings(){
   if(!confirm('Integrationen wirklich zurücksetzen? Produktdaten, Verkäufe und Retouren bleiben erhalten.')) return;
@@ -1353,10 +1484,10 @@ function resetIntegrationSettings(){
   lastCjSearchItems = [];
   localStorage.removeItem('elyonIntegrations');
   renderIntegrationStatus();
-  setHTML('settingsIntegrationResult','<p>Integrationen wurden zurückgesetzt. Backend, eBay und CJ sind wieder nicht verbunden/vorbereitet.</p>');
-  setHTML('backendTestResult','<p>Noch kein Backend-Test.</p>');
-  setHTML('ebayIntegrationResult','<p>eBay ist noch nicht verbunden.</p>');
-  setHTML('cjIntegrationResult','<p>CJ ist noch nicht verbunden.</p>');
+  setHTML('settingsIntegrationResult','<p>Integrationen wurden zurückgesetzt. Backend, eBay und CJ sind wieder nicht geprüft.</p>');
+  setHTML('backendTestResult','<p>Backend noch nicht geprüft.</p>');
+  setHTML('ebayIntegrationResult','<p>eBay API noch nicht geprüft.</p>');
+  setHTML('cjIntegrationResult','<p>CJ API noch nicht geprüft.</p>');
   setHTML('cjSearchResult','<p>Noch keine CJ Suche.</p>');
   setHTML('ebayCompetitionResult','<p>Noch keine eBay Konkurrenzprüfung.</p>');
   setHTML('ebayOrdersImportResult','<p>Noch keine Bestellungen abgerufen.</p>');
@@ -1397,13 +1528,35 @@ async function searchCjProducts(){
   if(!keyword){ alert('Bitte CJ Suchbegriff eingeben.'); return; }
   setHTML('cjSearchResult','<p>CJ Produktdaten werden geladen...</p>');
   try{
-    const data = await fetchBackendJSON('/api/cj/search?keyword=' + encodeURIComponent(keyword));
+    const params = new URLSearchParams({ keyword: keyword });
+    const url = '/api/cj/search?' + params.toString();
+    const res = await fetch(url, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json, text/plain, */*' }
+    });
+    const contentType = String(res.headers.get('content-type') || '').toLowerCase();
+    const rawText = await res.text();
+    let data = null;
+    if(rawText && contentType.includes('application/json')){
+      try{ data = JSON.parse(rawText); }catch(parseErr){ data = null; }
+    }
+    if(!res.ok){
+      const detailsText = data && data.details ? (typeof data.details === 'string' ? data.details : JSON.stringify(data.details)) : rawText;
+      throw new Error('HTTP ' + res.status + (res.statusText ? ' ' + res.statusText : '') + ' · URL: ' + url + ' · ' + (data && (data.error || data.message) ? (data.error || data.message) : (rawText || 'Backend-Fehler')) + (detailsText ? ' · Details: ' + detailsText : ''));
+    }
+    if(!data){
+      throw new Error('Unerwartete Antwort · URL: ' + url + (rawText ? ' · ' + rawText : ''));
+    }
+    if(data.ok === false){
+      const detailsText = data.details ? (typeof data.details === 'string' ? data.details : JSON.stringify(data.details)) : '';
+      throw new Error('HTTP ' + (data.status || res.status) + ' · URL: ' + url + ' · ' + (data.error || data.message || 'CJ Fehler') + (detailsText ? ' · Details: ' + detailsText : ''));
+    }
     const items = backendProductItems(data);
     lastCjSearchItems = items;
     if(!items.length){ setHTML('cjSearchResult','<p>Keine CJ Produkte gefunden oder Backend liefert keine Produktliste.</p>'); return; }
     setHTML('cjSearchResult','<h3>CJ Treffer</h3><div class="products">'+items.slice(0,10).map(cjProductCardHTML).join('')+'</div>');
   }catch(err){
-    setHTML('cjSearchResult','<p>⚠️ '+err.message+'</p><p class="hint">Erwartete Backend-Route: /api/cj/search?keyword=...</p>');
+    setHTML('cjSearchResult','<p>⚠️ '+(err && err.message ? err.message : 'Backend nicht erreichbar')+'</p><p class="hint">Erwartete Backend-Route: /api/cj/search?keyword=...</p>');
   }
 }
 function copyCjProductToForm(index){
@@ -1501,6 +1654,7 @@ async function ebaySuche(){
 }
 function mapEbayOrderToSale(order){
   const lineItem = order.lineItems && order.lineItems[0] ? order.lineItems[0] : {};
+  const shipping = extractShippingAddress(order);
   const totalValue = parseFloat((order.pricingSummary && order.pricingSummary.total && order.pricingSummary.total.value) || (lineItem.lineItemCost && lineItem.lineItemCost.value) || order.total || 0) || 0;
   const qty = parseFloat(lineItem.quantity || order.quantity || 1) || 1;
   const product = lineItem.title || order.title || order.product || 'eBay Bestellung';
@@ -1517,6 +1671,9 @@ function mapEbayOrderToSale(order){
     status: order.orderFulfillmentStatus === 'FULFILLED' ? 'Versendet' : 'Bezahlt',
     orderNo: order.orderId || order.legacyOrderId || order.id || '',
     buyerRef: order.buyer && order.buyer.username ? order.buyer.username : (order.buyerUsername || ''),
+    shipToRecipientName: shipping.recipientName || '',
+    shipToAddressHint: '',
+    shipToAddress: shipping.addressText || '',
     returnFlag:'no',
     carrier:'DHL',
     shippingStatus: order.orderFulfillmentStatus === 'FULFILLED' ? 'Versendet' : 'Noch nicht versendet',
@@ -1662,25 +1819,49 @@ function nextImportSku(existingSkuSet){
     num++;
   }
 }
-function csvToImportDraft(text,sourceLabel){
-  const cleanText = String(text || '').trim();
-  if(!cleanText) throw new Error('Keine CSV-Daten erhalten.');
+function normalizeImportNumber(value){
+  const text = String(value === undefined || value === null ? '' : value).trim();
+  if(!text) return 0;
+  const cleaned = text
+    .replace(/\s+/g,'')
+    .replace(/[€$]/g,'')
+    .replace(/\./g,'')
+    .replace(/,/g,'.')
+    .replace(/[^0-9.\-]/g,'');
+  const num = parseFloat(cleaned);
+  return Number.isFinite(num) ? num : 0;
+}
+function firstImportValue(obj, keys){
+  for(let i=0;i<keys.length;i++){
+    const key = keys[i];
+    if(Object.prototype.hasOwnProperty.call(obj, key)){
+      const value = obj[key];
+      if(String(value === undefined || value === null ? '' : value).trim() !== '') return value;
+    }
+  }
+  return '';
+}
+function buildImportDraftFromRows(rows,sourceLabel){
+  const normalizedRows = Array.isArray(rows) ? rows.filter(function(row){
+    if(!row || typeof row !== 'object') return false;
+    return Object.values(row).some(function(value){
+      return String(value === undefined || value === null ? '' : value).trim() !== '';
+    });
+  }) : [];
 
-  const normalizedText = cleanText.split(String.fromCharCode(13)).join('');
-  const lines = normalizedText.split(String.fromCharCode(10)).filter(function(line){ return line.trim(); });
-  if(lines.length < 2) throw new Error('CSV enthält keine Produktdaten.');
+  if(normalizedRows.length < 1) throw new Error('CSV enthält keine Produktdaten.');
 
-  const header = parseCSVLine(lines[0]).map(function(x){ return x.trim(); });
   const existingSkuSet = new Set(products.map(function(p){ return String(p.sku || '').trim().toUpperCase(); }).filter(Boolean));
   const seenInImport = new Set();
   const draft = [];
 
-  for(let i=1;i<lines.length;i++){
-    const cols = parseCSVLine(lines[i]);
-    let obj = {};
-    header.forEach(function(h,idx){ obj[h] = cols[idx] || ''; });
+  normalizedRows.forEach(function(obj, index){
+    const normalizedObj = {};
+    Object.keys(obj).forEach(function(key){
+      normalizedObj[String(key || '').trim()] = obj[key];
+    });
 
-    let sku = String(obj['SKU'] || '').trim().toUpperCase();
+    let sku = String(firstImportValue(normalizedObj, ['SKU','Sku','sku','Artikel-ID','Artikel ID','Artikelnummer','Artikel Nummer','Artikel-Nr.','Artikel-Nr','Artikel Nr','ArtikelNr']) || '').trim().toUpperCase();
     let importStatus = 'bereit';
     let importMessage = 'wird importiert';
 
@@ -1693,32 +1874,92 @@ function csvToImportDraft(text,sourceLabel){
     }
     seenInImport.add(sku);
 
+    const name = String(firstImportValue(normalizedObj, ['Name','Bezeichnung','Titel','Produktname','Produkt','Artikel','Artikelbezeichnung']) || '').trim() || 'Importiertes Produkt';
+    const supplierId = String(firstImportValue(normalizedObj, ['Lieferanten-ID','Lieferanten Id','Supplier ID','Supplier','Anbieter-ID']) || '').trim();
+    const ebayItemId = String(firstImportValue(normalizedObj, ['eBay-Artikelnummer','eBay Artikelnummer','eBay Nummer','eBay-ID']) || '').trim();
+    const supplierLink = String(firstImportValue(normalizedObj, ['Lieferanten-Link','Lieferanten Link','Link','URL']) || '').trim();
+    const status = String(firstImportValue(normalizedObj, ['Status','Typ']) || 'Idee').trim() || 'Idee';
+    const priority = String(firstImportValue(normalizedObj, ['Priorität','Prioritaet','Priorität ','Prio']) || 'Normal').trim() || 'Normal';
+    const buy = normalizeImportNumber(firstImportValue(normalizedObj, ['EK','Preis EK','Einkaufspreis','Kosten','Preis Einkauf']));
+    const ship = normalizeImportNumber(firstImportValue(normalizedObj, ['Versand','Versand mind.','Versand ab','Versandkosten','Shipping']));
+    const sell = normalizeImportNumber(firstImportValue(normalizedObj, ['VK','Preis VK (ebay)','Preis VK','Verkaufspreis','Verkaufspreis eBay','Ebay Preis']));
+    const delivery = normalizeImportNumber(firstImportValue(normalizedObj, ['Lieferzeit','Lieferzeit Tage','Lieferzeit in Tagen','Tage']));
+    const competition = normalizeImportNumber(firstImportValue(normalizedObj, ['Anbieter','Konkurrenz','Kategorie']));
+    const sales = normalizeImportNumber(firstImportValue(normalizedObj, ['Verkäufe','Verkaeufe','Sales']));
+    const risk = String(firstImportValue(normalizedObj, ['Risiko','Risk']) || 'low').trim() || 'low';
+    const notesParts = [];
+    const eBayFees = firstImportValue(normalizedObj, ['Ebay gebühren','eBay gebühren','Ebay Gebühren','eBay Gebühren']);
+    const targetProfit = normalizeImportNumber(firstImportValue(normalizedObj, ['Zielgewinn','Gewinnziel']));
+    const recommendedPrice = firstImportValue(normalizedObj, ['Emph. Zielpreis','Empf. Zielpreis','Empfohlener Zielpreis','Zielpreis']);
+    if(String(firstImportValue(normalizedObj, ['Typ']) || '').trim()) notesParts.push('Typ: ' + String(firstImportValue(normalizedObj, ['Typ'])));
+    if(String(eBayFees || '').trim()) notesParts.push('eBay Gebühren: ' + String(eBayFees));
+    if(String(firstImportValue(normalizedObj, ['Gewinn']) || '').trim()) notesParts.push('Gewinn: ' + String(firstImportValue(normalizedObj, ['Gewinn'])));
+    if(String(targetProfit || '').trim()) notesParts.push('Zielgewinn: ' + String(targetProfit));
+    if(String(recommendedPrice || '').trim()) notesParts.push('Empf. Zielpreis: ' + String(recommendedPrice));
+
     const product = {
-      id: Date.now()+i,
-      name: obj['Name'] || 'Importiertes Produkt',
+      id: Date.now()+index,
+      name: name,
       sku: sku,
-      supplierId: obj['Lieferanten-ID'] || '',
-      ebayItemId: obj['eBay-Artikelnummer'] || '',
-      supplierLink: obj['Lieferanten-Link'] || '',
-      status: obj['Status'] || 'Idee',
-      priority: obj['Priorität'] || 'Normal',
-      buy: parseFloat(String(obj['EK'] || '0').replace(',','.')) || 0,
-      ship: parseFloat(String(obj['Versand'] || '0').replace(',','.')) || 0,
-      sell: parseFloat(String(obj['VK'] || '0').replace(',','.')) || 0,
-      targetProfit: 7,
-      fee: 15,
+      supplierId: supplierId,
+      ebayItemId: ebayItemId,
+      supplierLink: supplierLink,
+      status: status,
+      priority: priority,
+      buy: buy,
+      ship: ship,
+      sell: sell,
+      targetProfit: targetProfit || 7,
+      fee: normalizeImportNumber(eBayFees) || 15,
       riskBuffer: 5,
-      delivery: parseFloat(String(obj['Lieferzeit'] || '0').replace(',','.')) || 0,
-      competition: parseFloat(String(obj['Anbieter'] || '0').replace(',','.')) || 0,
-      sales: parseFloat(String(obj['Verkäufe'] || '0').replace(',','.')) || 0,
-      risk: obj['Risiko'] || 'low',
-      notes: obj['Notizen'] || '',
+      delivery: delivery,
+      competition: competition,
+      sales: sales,
+      risk: risk,
+      notes: String(firstImportValue(normalizedObj, ['Notizen','Notiz','Bemerkung']) || '').trim(),
       created: new Date().toLocaleDateString('de-DE'),
       importSource: sourceLabel || 'CSV'
     };
+    if(notesParts.length){
+      product.notes = [product.notes].concat(notesParts).filter(Boolean).join(' | ');
+    }
     draft.push({product:product,status:importStatus,message:importMessage});
-  }
+  });
+
   return draft;
+}
+function csvToImportDraft(text,sourceLabel){
+  const cleanText = String(text || '').trim();
+  if(!cleanText) throw new Error('Keine CSV-Daten erhalten.');
+
+  const normalizedText = cleanText.split(String.fromCharCode(13)).join('');
+  const lines = normalizedText.split(String.fromCharCode(10)).filter(function(line){ return line.trim(); });
+  if(lines.length < 2) throw new Error('CSV enthält keine Produktdaten.');
+
+  const header = parseCSVLine(lines[0]).map(function(x){ return x.trim(); });
+  const rows = [];
+  for(let i=1;i<lines.length;i++){
+    const cols = parseCSVLine(lines[i]);
+    const obj = {};
+    header.forEach(function(h,idx){ obj[h] = cols[idx] || ''; });
+    rows.push(obj);
+  }
+  return buildImportDraftFromRows(rows, sourceLabel || 'CSV');
+}
+function xlsxToImportDraft(arrayBuffer,sourceLabel){
+  if(typeof XLSX === 'undefined'){
+    throw new Error('XLSX-Bibliothek konnte nicht geladen werden.');
+  }
+  const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+  const preferredSheet = workbook.SheetNames.find(function(name){
+    return String(name || '').trim().toLowerCase() === 'inventar';
+  }) || workbook.SheetNames[0];
+  if(!preferredSheet) throw new Error('Excel-Datei enthält keine Tabellenblätter.');
+  const sheet = workbook.Sheets[preferredSheet];
+  if(!sheet) throw new Error('Tabellenblatt konnte nicht gelesen werden.');
+  const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+  if(!rows.length) throw new Error('Excel enthält keine Produktdaten.');
+  return buildImportDraftFromRows(rows, sourceLabel || ('Excel: ' + preferredSheet));
 }
 function showCsvImportPreview(draft){
   pendingCsvImport = Array.isArray(draft) ? draft : [];
@@ -1757,21 +1998,29 @@ function cancelCsvImport(){
 function importCSV(e){
   const file=e.target.files[0];
   if(!file) return;
+  const name = String(file.name || '').toLowerCase();
+  const isExcel = name.endsWith('.xlsx') || name.endsWith('.xls');
   const reader=new FileReader();
   reader.onload=function(ev){
     try{
-      const draft = csvToImportDraft(String(ev.target.result||''),'Lokale CSV-Datei');
+      const draft = isExcel
+        ? xlsxToImportDraft(ev.target.result,'Lokale Excel-Datei')
+        : csvToImportDraft(String(ev.target.result||''),'Lokale CSV-Datei');
       showCsvImportPreview(draft);
     }catch(err){
-      alert(err.message || 'CSV konnte nicht gelesen werden.');
+      alert(err.message || (isExcel ? 'Excel konnte nicht gelesen werden.' : 'CSV konnte nicht gelesen werden.'));
       safe('csvImport',function(el){ el.value=''; });
     }
   };
   reader.onerror=function(){
-    alert('CSV-Datei konnte nicht gelesen werden.');
+    alert(isExcel ? 'Excel-Datei konnte nicht gelesen werden.' : 'CSV-Datei konnte nicht gelesen werden.');
     safe('csvImport',function(el){ el.value=''; });
   };
-  reader.readAsText(file,'UTF-8');
+  if(isExcel){
+    reader.readAsArrayBuffer(file);
+  }else{
+    reader.readAsText(file,'UTF-8');
+  }
 }
 function toggleCsvImportMenu(){
   safe('csvImportMenu',function(el){ el.classList.toggle('hidden'); });
@@ -1844,6 +2093,91 @@ function renderShippingSaleOptions(){
   }).join('');
   select.value = current;
 }
+function getDeepValue(obj, path){
+  if(!obj || !path) return undefined;
+  return String(path).split('.').reduce(function(acc, key){
+    if(acc === undefined || acc === null) return undefined;
+    if(/^\d+$/.test(key)) return acc[Number(key)];
+    return acc[key];
+  }, obj);
+}
+function firstDeepText(obj, paths){
+  for(const path of paths){
+    const value = getDeepValue(obj, path);
+    if(value !== undefined && value !== null && String(value).trim()) return String(value).trim();
+  }
+  return '';
+}
+function escapeHtml(text){
+  return String(text || '').replace(/[&<>"']/g, function(ch){
+    return ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[ch];
+  });
+}
+function extractShippingAddress(source){
+  const addressSource = getDeepValue(source, 'shippingAddress')
+    || getDeepValue(source, 'fulfillmentStartInstructions.0.shippingStep.shipTo.contactAddress')
+    || getDeepValue(source, 'fulfillmentStartInstructions.0.shippingStep.shipTo.address')
+    || getDeepValue(source, 'shipTo.contactAddress')
+    || getDeepValue(source, 'shipTo.address')
+    || getDeepValue(source, 'deliveryAddress')
+    || {};
+  const recipientName = firstDeepText(source, [
+    'shipTo.fullName',
+    'fulfillmentStartInstructions.0.shippingStep.shipTo.fullName',
+    'shippingAddress.fullName',
+    'shippingAddress.name',
+    'shippingAddress.recipient',
+    'shippingAddress.contactName',
+    'buyer.fullName',
+    'buyer.name',
+    'buyer.username',
+    'buyerUsername',
+    'recipientName',
+    'recipient',
+    'fullName',
+    'name'
+  ]) || firstDeepText(addressSource, ['fullName','name','recipient','contactName']);
+  const address1 = firstDeepText(addressSource, ['addressLine1','address1','street1','street','streetAddress','line1']);
+  const address2 = firstDeepText(addressSource, ['addressLine2','address2','street2','line2']);
+  const postalCode = firstDeepText(addressSource, ['postalCode','zipCode','zipcode','zip','postal']);
+  const city = firstDeepText(addressSource, ['city','town']);
+  const country = firstDeepText(addressSource, ['countryCode','country','countryName']);
+  const lines = [];
+  if(address1) lines.push(address1);
+  if(address2) lines.push(address2);
+  const cityLine = [postalCode, city].filter(Boolean).join(' ');
+  if(cityLine) lines.push(cityLine);
+  if(country) lines.push(country);
+  return {
+    recipientName,
+    address1,
+    address2,
+    postalCode,
+    city,
+    country,
+    addressText: lines.join('\n')
+  };
+}
+function shippingAddressSummary(sale){
+  const name = String(sale?.shipToRecipientName || '').trim();
+  const hint = String(sale?.shipToAddressHint || '').trim();
+  const address = String(sale?.shipToAddress || '').trim();
+  const parts = [];
+  if(name) parts.push(name);
+  if(hint) parts.push(hint);
+  if(address) parts.push(address.replace(/\n+/g, ', '));
+  return parts.join(' · ');
+}
+function formatShippingAddressBlock(name, hint, addressText){
+  const lines = [];
+  const cleanName = String(name || '').trim();
+  const cleanHint = String(hint || '').trim();
+  const cleanAddress = String(addressText || '').trim();
+  if(cleanName) lines.push('<strong>' + escapeHtml(cleanName) + '</strong>');
+  if(cleanHint) lines.push('<span class="muted">' + escapeHtml(cleanHint) + '</span>');
+  if(cleanAddress) lines.push(escapeHtml(cleanAddress).replace(/\n/g, '<br>'));
+  return lines.length ? '<div class="output-box"><h3>Lieferadresse</h3><p>' + lines.join('<br>') + '</p></div>' : '';
+}
 function todayInputDate(){
   const d = new Date();
   const m = String(d.getMonth()+1).padStart(2,'0');
@@ -1859,13 +2193,19 @@ function shippingIssueText(carrier,trackingNo,status){
   return issues;
 }
 function renderShippingPreview(){
+  const selectedSaleId = $('shippingSaleId') ? $('shippingSaleId').value : '';
+  const selectedSale = selectedSaleId ? sales.find(function(s){ return String(s.id) === String(selectedSaleId); }) : null;
   const carrier = $('saleCarrier') ? $('saleCarrier').value : 'DHL';
   const trackingNo = $('saleTrackingNo') ? $('saleTrackingNo').value.trim() : '';
   const status = $('saleShippingStatus') ? $('saleShippingStatus').value : 'Noch nicht versendet';
+  const recipientName = $('saleShipRecipientName') ? $('saleShipRecipientName').value.trim() : (selectedSale?.shipToRecipientName || '');
+  const addressHint = $('saleShipAddressHint') ? $('saleShipAddressHint').value.trim() : (selectedSale?.shipToAddressHint || '');
+  const addressText = $('saleShipAddress') ? $('saleShipAddress').value.trim() : (selectedSale?.shipToAddress || '');
   const url = trackingUrl(carrier,trackingNo);
   const issues = shippingIssueText(carrier,trackingNo,status);
   let html='<h3>Tracking-Vorschau</h3>';
   html+='<div class="pill-row"><span class="pill">Dienstleister: '+carrier+'</span><span class="pill">Status: '+status+'</span>'+(trackingNo?'<span class="pill">Tracking: '+trackingNo+'</span>':'')+'</div>';
+  html += formatShippingAddressBlock(recipientName, addressHint, addressText) || '<div class="output-box"><h3>Lieferadresse</h3><p class="muted">Noch keine Lieferadresse importiert. Sie wird aus der ausgewählten Bestellung übernommen, wenn vorhanden.</p></div>';
   if(url) html+='<p><a href="'+url+'" target="_blank" rel="noopener">Sendung verfolgen öffnen</a></p>';
   if(!url && trackingNo) html+='<p>Für diese Kombination konnte kein direkter Tracking-Link erstellt werden.</p>';
   if(!trackingNo) html+='<p>Trackingnummer eintragen, dann erscheint hier der passende Link.</p>';
@@ -1906,6 +2246,8 @@ function renderShippingCockpit(){
     html += '<div>';
     html += '<div class="product-title">' + (s.product || 'Unbekanntes Produkt') + '</div>';
     html += '<div class="muted">' + (s.orderNo || 'ohne Order-ID') + ' · ' + (s.carrier || 'DHL') + ' · ' + (s.shippingStatus || 'Noch nicht versendet') + '</div>';
+    const addressBlock = formatShippingAddressBlock(s.shipToRecipientName, s.shipToAddressHint, s.shipToAddress);
+    if(addressBlock) html += addressBlock;
     html += '<div class="pill-row">';
     html += '<span class="pill">Status: ' + (s.status || 'Bezahlt') + '</span>';
     html += '<span class="pill">Tracking: ' + (s.trackingNo || 'fehlt') + '</span>';
@@ -1934,6 +2276,9 @@ function clearShippingFields(){
   safe('saleShippingStatus',el=>el.value='Noch nicht versendet');
   safe('saleTrackingNo',el=>el.value='');
   safe('saleShipDate',el=>el.value='');
+  safe('saleShipRecipientName',el=>el.value='');
+  safe('saleShipAddressHint',el=>el.value='');
+  safe('saleShipAddress',el=>el.value='');
   renderShippingPreview();
 }
 function fillShippingFromSelectedSale(){
@@ -1944,6 +2289,9 @@ function fillShippingFromSelectedSale(){
   safe('saleShippingStatus',el=>el.value=sale.shippingStatus||'Noch nicht versendet');
   safe('saleTrackingNo',el=>el.value=sale.trackingNo||'');
   safe('saleShipDate',el=>el.value=sale.shipDate||'');
+  safe('saleShipRecipientName',el=>el.value=sale.shipToRecipientName||'');
+  safe('saleShipAddressHint',el=>el.value=sale.shipToAddressHint||'');
+  safe('saleShipAddress',el=>el.value=sale.shipToAddress||'');
   renderShippingPreview();
 }
 function saveShippingForSelectedSale(){
@@ -1958,6 +2306,9 @@ function saveShippingForSelectedSale(){
     shippingStatus: shipStatus,
     trackingNo: $('saleTrackingNo')?.value.trim() || '',
     shipDate: shipDate,
+    shipToRecipientName: $('saleShipRecipientName')?.value.trim() || '',
+    shipToAddressHint: $('saleShipAddressHint')?.value.trim() || '',
+    shipToAddress: $('saleShipAddress')?.value.trim() || '',
     status: (shipStatus==='Versendet' || shipStatus==='Zugestellt') ? shipStatus : s.status
   } : s);
   saveSales();
@@ -3245,13 +3596,18 @@ function invoiceHTML(invoice,sale){
   const qty = +sale.qty || 1;
   const net = (+sale.price || 0) * qty;
   const sellerAddress = String(invoiceSettings.sellerAddress || '').split(String.fromCharCode(13)).join('').split(String.fromCharCode(10)).join('<br>');
+  const sellerName = invoiceSettings.sellerName || 'Bitte Verkäuferdaten in Einstellungen eintragen';
+  const taxId = invoiceSettings.taxId ? '<div class="invoice-taxid">'+invoiceSettings.taxId+'</div>' : '';
+  const paymentNote = invoiceSettings.paymentNote || 'Bereits über Plattform bezahlt.';
+  const footerNote = (invoiceSettings.footerNote || '').trim();
+  const kleinunternehmer = invoiceSettings.smallBusiness === 'yes' ? 'Kleinunternehmer gemäß § 19 UStG. Es wird keine Umsatzsteuer ausgewiesen.' : '';
   const buyer = sale.buyerRef ? sale.buyerRef : 'Käufer / Plattform-Bestellung';
   let html='';
-  html+='<div class="invoice-head"><div><h1>Rechnung</h1><p><strong>'+invoice.number+'</strong><br>Datum: '+invoice.date+'</p></div><div><h3>Verkäufer</h3><p><strong>'+(invoiceSettings.sellerName||'Bitte Verkäuferdaten in Einstellungen eintragen')+'</strong><br>'+sellerAddress+'</p>'+(invoiceSettings.taxId?'<p>'+invoiceSettings.taxId+'</p>':'')+'</div></div>';
+  html+='<div class="invoice-top"><div class="invoice-sender"><div class="invoice-label">Absender</div><h1>Rechnung</h1><p><strong>'+sellerName+'</strong><br>'+sellerAddress+'</p>'+taxId+'</div><div class="invoice-meta"><div class="invoice-label">Belegdaten</div><div class="invoice-number">'+invoice.number+'</div><div class="invoice-date">Datum: '+invoice.date+'</div></div></div>';
   html+='<div class="invoice-box"><h3>Rechnung an</h3><p>'+buyer+'<br>Order-ID: '+(sale.orderNo||'ohne Order-ID')+'<br>Plattform: '+(sale.platform||'eBay')+'</p></div>';
   html+='<table class="invoice-table"><thead><tr><th>Position</th><th>Menge</th><th>Einzelpreis</th><th>Gesamt</th></tr></thead><tbody><tr><td>'+sale.product+'</td><td>'+qty+'</td><td>'+euro(sale.price)+'</td><td>'+euro(net)+'</td></tr></tbody></table>';
   html+='<div class="invoice-total">Rechnungsbetrag: '+euro(net)+'</div>';
-  html+='<div class="invoice-box"><p>'+((invoiceSettings.paymentNote)||'Bereits über Plattform bezahlt.')+'</p><p>'+((invoiceSettings.footerNote)||'')+'</p></div>';
+  html+='<div class="invoice-footer"><p>'+paymentNote+'</p>'+(kleinunternehmer ? '<p>'+kleinunternehmer+'</p>' : '')+(footerNote ? '<p>'+footerNote+'</p>' : '')+'</div>';
   html+='<p class="muted" style="color:#475569;margin-top:14px">Interne Notiz: Gewinn laut Tool '+euro(sale.profit)+'. Diese Zeile dient nur deiner Kontrolle.</p>';
   return html;
 }
@@ -3271,17 +3627,21 @@ function getCurrentInvoiceHTMLDocument(){
   const parts = [];
   parts.push('<!doctype html><html lang="de"><head><meta charset="UTF-8"><title>Rechnung</title>');
   parts.push('<style>');
-  parts.push('body{font-family:Arial,sans-serif;color:#111827;background:#fff;padding:24px;line-height:1.45}');
+  parts.push('body{font-family:Arial,sans-serif;color:#111827;background:#fff;margin:0;padding:24px;line-height:1.45}');
   parts.push('.page{max-width:794px;margin:0 auto;background:#fff;color:#111827}');
-  parts.push('.invoice-head{display:flex;justify-content:space-between;gap:24px;border-bottom:2px solid #e5e7eb;padding-bottom:18px;margin-bottom:18px}');
-  parts.push('.invoice-head div:last-child{text-align:right}');
+  parts.push('.invoice-top{display:grid;grid-template-columns:1.2fr .8fr;gap:18px;align-items:start;margin-bottom:18px}');
+  parts.push('.invoice-sender,.invoice-meta,.invoice-footer{border:1px solid #e5e7eb;border-radius:12px;background:#fff;padding:16px;page-break-inside:avoid;break-inside:avoid}');
+  parts.push('.invoice-meta{text-align:right;background:#f8fafc}');
+  parts.push('.invoice-label{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#64748b;margin-bottom:8px}');
+  parts.push('.invoice-number{font-size:22px;font-weight:900;letter-spacing:-.03em}.invoice-date{margin-top:8px;color:#334155}');
   parts.push('h1{font-size:34px;margin:0 0 8px;color:#111827}h2,h3,p{color:#111827}');
-  parts.push('.invoice-box{border:1px solid #e5e7eb;border-radius:10px;padding:14px;margin-top:16px;background:#fff}');
+  parts.push('.invoice-box{border:1px solid #e5e7eb;border-radius:12px;padding:16px;margin-top:16px;background:#fff;page-break-inside:avoid;break-inside:avoid}');
   parts.push('.invoice-table{width:100%;border-collapse:collapse;margin-top:18px}');
   parts.push('.invoice-table th,.invoice-table td{border-bottom:1px solid #e5e7eb;padding:11px 9px;text-align:left;color:#111827}');
   parts.push('.invoice-table th{background:#f8fafc}.invoice-table th:last-child,.invoice-table td:last-child{text-align:right}');
-  parts.push('.invoice-total{text-align:right;font-size:22px;font-weight:900;margin-top:20px;color:#111827}.muted{color:#64748b!important;font-size:12px}');
-  parts.push('@media print{@page{size:A4;margin:12mm}body{padding:0}.page{max-width:none;width:100%}}');
+  parts.push('.invoice-total{text-align:right;font-size:22px;font-weight:900;margin-top:20px;color:#111827}.muted{color:#64748b!important;font-size:12px}.invoice-footer{margin-top:18px;color:#334155;font-size:12px;line-height:1.5}.invoice-footer p{margin:0 0 6px}');
+  parts.push('@page{size:A4;margin:12mm}');
+  parts.push('@media print{body{padding:0}.page{max-width:none;width:100%}.invoice-meta{text-align:right}}');
   parts.push('</style></head><body><div class="page">');
   parts.push(content);
   parts.push('</div></body></html>');
@@ -3293,7 +3653,26 @@ function printInvoice(){
     alert('Keine Rechnung ausgewählt.');
     return;
   }
-  alert('Nutze bitte vorerst den Button "Rechnung als HTML herunterladen". Öffne danach die Datei und drücke Strg+P → Als PDF speichern. Der Direktdruck wurde deaktiviert, damit die App-Buttons stabil bleiben.');
+  const html = getCurrentInvoiceHTMLDocument();
+  const printWindow = window.open('', '_blank', 'noopener,noreferrer,width=980,height=1200');
+  if(!printWindow){
+    alert('Druckfenster konnte nicht geöffnet werden. Bitte Popups erlauben.');
+    return;
+  }
+  printWindow.document.open();
+  printWindow.document.write(html);
+  printWindow.document.close();
+  const triggerPrint = function(){
+    try{
+      printWindow.focus();
+      printWindow.print();
+      setTimeout(function(){ try{ printWindow.close(); }catch(err){} }, 500);
+    }catch(err){
+      alert('Druck konnte nicht gestartet werden: ' + (err && err.message ? err.message : 'unbekannter Fehler'));
+    }
+  };
+  if(printWindow.document.readyState === 'complete') triggerPrint();
+  else printWindow.onload = triggerPrint;
 }
 function downloadInvoiceHTML(){
   const preview = $('invoicePreview');
@@ -3858,7 +4237,15 @@ function bindEvents(){
   bind('launcherBackup','click',exportFullBackup);
   bind('returnsBtn','click',()=>showTab('returnsTab'));
   bind('shopifyMenu','change',e=>showShopifyTool(e.target.value));
-  bind('mainMenu','change',e=>showTab(e.target.value));
+  bind('mainMenu','change',e=>{
+    const value = e.target.value;
+    if(value === 'importTab'){ openImportCheck(); return; }
+    if(value === 'marketCheckTab'){ openMarketCheck(); return; }
+    if(value === 'financeTab'){ openFinanceTool(); return; }
+    if(value === 'listingCheckTab'){ openListingCheck(); return; }
+    if(value === 'productStatusTab'){ openProductStatus(); return; }
+    showTab(value);
+  });
   bind('importBtn','click',toggleCsvImportMenu);
   bind('localCsvImportBtn','click',openLocalCsvImport);
   bind('googleCsvImportBtn','click',showGoogleSheetImport);
@@ -4105,14 +4492,40 @@ document.addEventListener('DOMContentLoaded',()=>{
 
   try{
     const backendUrl = getBackendUrl();
-    const res = await fetch(
-      backendUrl + '/api/ebay/search?q=' + encodeURIComponent(keyword) + '&limit=20'
-    );
+    if(!backendUrl){
+      box.innerHTML = '<p>⚠️ Bitte zuerst die Backend URL speichern.</p>';
+      return;
+    }
+    const params = new URLSearchParams({ q: keyword, limit: '20' });
+    const res = await fetch(backendUrl + '/api/ebay/search?' + params.toString(), {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json, text/plain, */*'
+      }
+    });
 
-    const data = await res.json();
+    const contentType = String(res.headers.get('content-type') || '').toLowerCase();
+    let rawText = '';
+    let data = null;
+    try{
+      rawText = await res.text();
+      data = rawText && contentType.includes('application/json') ? JSON.parse(rawText) : null;
+    }catch(parseErr){
+      data = null;
+    }
 
+    const responseText = rawText || '';
     if(!res.ok){
-      throw new Error(data.error || data.message || 'Backend-Fehler');
+      const detailMessage = data && (data.error || data.message) ? (data.error || data.message) : responseText || 'Backend-Fehler';
+      const statusLabel = 'HTTP ' + res.status + (res.statusText ? ' ' + res.statusText : '');
+      throw new Error(statusLabel + ' · ' + detailMessage + (data && data.details ? ' · ' + (typeof data.details === 'string' ? data.details : JSON.stringify(data.details)) : ''));
+    }
+    if(!data){
+      throw new Error('Unerwartete Antwort von /api/ebay/search' + (responseText ? ' · ' + responseText : ''));
+    }
+    if(data.ok === false){
+      const detailsText = typeof data.details === 'string' ? data.details : (data.details ? JSON.stringify(data.details) : '');
+      throw new Error((data.status ? 'HTTP ' + data.status + ' · ' : '') + (data.error || data.message || 'eBay Search Fehler') + (detailsText ? ' · ' + detailsText : ''));
     }
 
     const items = data.items || data.itemSummaries || data.results || [];
@@ -4178,8 +4591,9 @@ document.addEventListener('DOMContentLoaded',()=>{
     box.innerHTML = html;
 
   }catch(err){
+    const message = err && err.message ? err.message : 'Backend nicht erreichbar';
     box.innerHTML =
-      '<p>⚠️ eBay Konkurrenz Fehler: ' + err.message + '</p>' +
+      '<p>⚠️ eBay Konkurrenz Fehler: ' + message + '</p>' +
       '<p class="hint">Diese Funktion nutzt /api/ebay/search?q=...&limit=20</p>';
   }
 }
@@ -4283,3 +4697,6 @@ document.addEventListener('DOMContentLoaded',()=>{
 </script>
 </body>
 </html>
+
+
+
