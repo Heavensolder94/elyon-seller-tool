@@ -86,10 +86,24 @@
   opacity: 0;
   visibility: hidden;
   transition: opacity 180ms ease, transform 180ms ease, visibility 180ms ease;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   scrollbar-gutter: stable;
+}
+
+.elyon-soul-panel::-webkit-scrollbar {
+  width: 10px;
+}
+
+.elyon-soul-panel::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.25);
+  border-radius: 999px;
+}
+
+.elyon-soul-panel::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 .elyon-soul-panel.is-open {
@@ -99,10 +113,15 @@
 }
 
 .elyon-soul-header {
+  position: sticky;
+  top: 0;
+  z-index: 4;
   display: flex;
   justify-content: space-between;
   gap: 14px;
   align-items: flex-start;
+  padding-bottom: 4px;
+  background: linear-gradient(180deg, rgba(17, 24, 39, 0.98), rgba(17, 24, 39, 0.88));
 }
 
 .elyon-soul-eyebrow {
@@ -163,8 +182,7 @@
   flex-direction: column;
   gap: 14px;
   min-height: 0;
-  flex: 1 1 auto;
-  overflow: hidden;
+  flex: 0 0 auto;
 }
 
 .elyon-soul-metric {
@@ -195,8 +213,6 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-  min-height: 0;
-  flex: 1 1 auto;
 }
 
 .elyon-soul-section-title {
@@ -223,9 +239,7 @@
   flex-direction: column;
   gap: 10px;
   min-height: 0;
-  flex: 1 1 auto;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: visible;
   padding-right: 4px;
 }
 
@@ -328,6 +342,18 @@
   opacity: 0.6;
   background: rgba(255, 255, 255, 0.06);
   box-shadow: none;
+}
+
+.elyon-soul-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 12px;
+  background: linear-gradient(180deg, rgba(2, 6, 23, 0.1), rgba(2, 6, 23, 0.96) 24%);
+  backdrop-filter: blur(12px);
 }
 
 .elyon-soul-footnote {

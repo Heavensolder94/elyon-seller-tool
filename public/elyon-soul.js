@@ -222,6 +222,8 @@
             <div class="elyon-soul-section-title">Antworten</div>
             <div id="elyonSoulFeed" class="elyon-soul-feed" aria-live="polite"></div>
           </div>
+        </div>
+        <div class="elyon-soul-footer">
           <div class="elyon-soul-quick" id="elyonSoulQuick"></div>
           <button id="elyonSoulAiButton" class="elyon-soul-ai" type="button">KI-Analyse starten</button>
           <p class="elyon-soul-footnote">Vor dem KI-Modus werden nur anonymisierte Produktdaten gesendet. Keine Namen, Adressen, Telefonnummern, E-Mails oder Bestellnummern.</p>
