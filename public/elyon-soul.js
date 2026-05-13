@@ -211,19 +211,21 @@
           </div>
           <button class="elyon-soul-close" type="button" aria-label="Schliessen">✕</button>
         </header>
-        <div class="elyon-soul-status" id="elyonSoulStatus">Regelbasiert aktiv</div>
-        <div class="elyon-soul-metrics" id="elyonSoulMetrics"></div>
-        <div class="elyon-soul-hints">
-          <div class="elyon-soul-section-title">Coach-Hinweise</div>
-          <div id="elyonSoulHint" class="elyon-soul-hint-box"></div>
+        <div class="elyon-soul-body">
+          <div class="elyon-soul-status" id="elyonSoulStatus">Regelbasiert aktiv</div>
+          <div class="elyon-soul-metrics" id="elyonSoulMetrics"></div>
+          <div class="elyon-soul-hints">
+            <div class="elyon-soul-section-title">Coach-Hinweise</div>
+            <div id="elyonSoulHint" class="elyon-soul-hint-box"></div>
+          </div>
+          <div class="elyon-soul-chat">
+            <div class="elyon-soul-section-title">Antworten</div>
+            <div id="elyonSoulFeed" class="elyon-soul-feed" aria-live="polite"></div>
+          </div>
+          <div class="elyon-soul-quick" id="elyonSoulQuick"></div>
+          <button id="elyonSoulAiButton" class="elyon-soul-ai" type="button">KI-Analyse starten</button>
+          <p class="elyon-soul-footnote">Vor dem KI-Modus werden nur anonymisierte Produktdaten gesendet. Keine Namen, Adressen, Telefonnummern, E-Mails oder Bestellnummern.</p>
         </div>
-        <div class="elyon-soul-chat">
-          <div class="elyon-soul-section-title">Antworten</div>
-          <div id="elyonSoulFeed" class="elyon-soul-feed" aria-live="polite"></div>
-        </div>
-        <div class="elyon-soul-quick" id="elyonSoulQuick"></div>
-        <button id="elyonSoulAiButton" class="elyon-soul-ai" type="button">KI-Analyse starten</button>
-        <p class="elyon-soul-footnote">Vor dem KI-Modus werden nur anonymisierte Produktdaten gesendet. Keine Namen, Adressen, Telefonnummern, E-Mails oder Bestellnummern.</p>
       </section>
     `;
 
@@ -265,6 +267,11 @@
     if (state.open) {
       refreshSummary();
       renderMessages();
+      requestAnimationFrame(() => {
+        if (feed) {
+          feed.scrollTop = feed.scrollHeight;
+        }
+      });
     }
   }
 
