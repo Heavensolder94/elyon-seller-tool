@@ -163,17 +163,23 @@
   flex-direction: column;
   gap: 14px;
   min-height: 0;
+  flex: 1 1 0%;
+  height: 0;
   overflow: hidden;
 }
 
 .elyon-soul-scroll {
   min-height: 0;
+  flex: 1 1 0%;
+  height: 0;
   overflow-y: auto;
   overflow-x: hidden;
   padding-right: 4px;
   display: flex;
   flex-direction: column;
   gap: 14px;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
 }
 
 .elyon-soul-scroll::-webkit-scrollbar {

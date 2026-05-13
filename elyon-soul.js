@@ -48,6 +48,27 @@
     return Array.from(new Set(values.filter(Boolean)));
   }
 
+  function scrollToLatest() {
+    if (scrollArea) {
+      scrollArea.scrollTop = scrollArea.scrollHeight;
+    }
+
+    if (feed) {
+      feed.scrollTop = feed.scrollHeight;
+    }
+  }
+
+  function handlePanelWheel(event) {
+    if (!state.open || !scrollArea) return;
+    if (event.ctrlKey) return;
+
+    const delta = Math.abs(event.deltaY) >= Math.abs(event.deltaX) ? event.deltaY : event.deltaX;
+    if (!delta) return;
+
+    event.preventDefault();
+    scrollArea.scrollTop = Math.max(0, Math.min(scrollArea.scrollHeight, scrollArea.scrollTop + delta));
+  }
+
   function parseProducts() {
     try {
       const raw = localStorage.getItem(CONFIG.storageKey);
@@ -249,6 +270,7 @@
     fab.addEventListener("click", togglePanel);
     closeButton.addEventListener("click", closePanel);
     aiButton.addEventListener("click", runAiAnalysis);
+    panel.addEventListener("wheel", handlePanelWheel, { passive: false });
 
     const quickHost = root.querySelector("#elyonSoulQuick");
     Object.keys(RULE_RESPONSES).forEach((label) => {
@@ -274,12 +296,7 @@
       refreshSummary();
       renderMessages();
       requestAnimationFrame(() => {
-        if (scrollArea) {
-          scrollArea.scrollTop = scrollArea.scrollHeight;
-        }
-        if (feed) {
-          feed.scrollTop = feed.scrollHeight;
-        }
+        scrollToLatest();
       });
     }
   }
@@ -354,10 +371,7 @@
       `)
       .join("");
 
-    feed.scrollTop = feed.scrollHeight;
-    if (scrollArea) {
-      scrollArea.scrollTop = scrollArea.scrollHeight;
-    }
+    scrollToLatest();
   }
 
   function refreshSummary() {
