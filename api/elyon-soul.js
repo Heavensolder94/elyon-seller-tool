@@ -154,19 +154,35 @@ function stripProductList(summary) {
   return copy;
 }
 
-function buildChatMessages(summary, products, prompt) {
+function buildChatMessages(summary, products, prompt, action) {
   const safePrompt = sanitizePrompt(prompt);
   const productContext = summary.total > 0 ? JSON.stringify({ summary, products }, null, 2) : "";
+  const isChat = action === "chat";
+  const roleInstructions = isChat
+    ? [
+        "Du bist Elyon Soul, ein hilfsbereiter, ruhiger Business-Chat-Assistent für einen eBay-Seller.",
+        "Du antwortest natürlich wie ein Coach im Gespräch, nicht wie ein Bericht.",
+        "Wenn die Frage klar ist, gib direkt eine konkrete Empfehlung.",
+        "Wenn etwas unklar ist, stelle genau eine kurze Rückfrage statt zu spekulieren.",
+        "Wenn Produktdaten helfen, nutze sie kurz und anonymisiert.",
+        "Wenn keine Produktdaten da sind, hilf trotzdem mit Prioritäten, Risiken oder dem nächsten Schritt.",
+        "Sprich freundlich, klar und pragmatisch.",
+        "Maximal drei kurze Sätze, ohne Aufzählung, außer der Nutzer wünscht sie ausdrücklich.",
+      ]
+    : [
+        "Du bist Elyon Soul, ein ruhiger, präziser Business-Coach für einen eBay-Seller.",
+        "Du lieferst eine kompakte Analyse und eine klare Handlungsempfehlung.",
+        "Erwähne niemals Namen, Adressen, Telefonnummern, E-Mails oder Bestellnummern.",
+        "Gib genau eine kurze, klare Business-Empfehlung auf Deutsch.",
+        "Maximal zwei Sätze, direkt umsetzbar, ohne Aufzählung.",
+      ];
   return [
     {
       role: "system",
       content: [
-        "Du bist Elyon Soul, ein ruhiger, präziser Business-Coach für einen eBay-Seller.",
-        "Du antwortest direkt auf die Nutzerfrage und wiederholst sie nicht wortwörtlich.",
-        "Du beginnst nicht mit Meta-Hinweisen wie fehlende Produktdaten.",
-        "Erwähne niemals Namen, Adressen, Telefonnummern, E-Mails oder Bestellnummern.",
-        "Gib genau eine kurze, klare Business-Empfehlung auf Deutsch.",
-        "Maximal zwei Sätze, direkt umsetzbar, ohne Aufzählung.",
+        ...roleInstructions,
+        "Wiederhole die Nutzerfrage nicht wortwörtlich.",
+        "Beginne nicht mit Meta-Hinweisen wie fehlende Produktdaten.",
       ].join(" "),
     },
     {
@@ -178,7 +194,7 @@ function buildChatMessages(summary, products, prompt) {
     },
   ];
 }
-async function callDeepSeek(summary, products, prompt) {
+async function callDeepSeek(summary, products, prompt, action) {
   const apiKey = process.env.DEEPSEEK_API_KEY;
   if (!apiKey) {
     return {
@@ -202,7 +218,7 @@ async function callDeepSeek(summary, products, prompt) {
       model: "deepseek-v4-flash",
       temperature: 0.2,
       max_tokens: 300,
-      messages: buildChatMessages(summary, products, prompt),
+      messages: buildChatMessages(summary, products, prompt, action),
     }),
   });
 
@@ -249,6 +265,7 @@ export default async function handler(req, res) {
   const productsInput = Array.isArray(body.products) ? body.products : [];
   const summaryInput = body.summary && typeof body.summary === "object" ? body.summary : {};
   const prompt = toText(body.prompt || body.message || body.query);
+  const action = toText(body.action || "chat") || "chat";
 
   const products = productsInput.map((item, index) => summarizeProduct(item, index));
   const summary = summarizeProducts(products);
@@ -277,7 +294,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const result = await callDeepSeek(mergedSummary, products, prompt);
+    const result = await callDeepSeek(mergedSummary, products, prompt, action);
     return json(res, 200, {
       ...result,
       message:

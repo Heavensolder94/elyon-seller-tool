@@ -68,8 +68,8 @@
   position: fixed;
   right: 20px;
   bottom: 84px;
-  width: min(820px, calc(100vw - 24px));
-  height: min(84vh, 860px);
+  width: min(900px, calc(100vw - 24px));
+  height: min(90vh, 960px);
   display: flex;
   flex-direction: column;
   gap: 18px;
@@ -215,6 +215,7 @@
   padding-right: 4px;
   display: grid;
   grid-template-columns: 1fr;
+  grid-template-rows: auto auto minmax(360px, 1fr);
   grid-template-areas:
     "metrics"
     "hints"
@@ -275,6 +276,7 @@
 .elyon-soul-chat {
   grid-area: chat;
   min-height: 0;
+  align-self: stretch;
 }
 
 .elyon-soul-section-title {
@@ -292,7 +294,7 @@
   color: #e2e8f0;
   line-height: 1.6;
   font-size: 13.25px;
-  min-height: 96px;
+  min-height: 84px;
   white-space: pre-wrap;
 }
 
@@ -301,9 +303,11 @@
   flex-direction: column;
   gap: 12px;
   min-height: 0;
-  overflow: visible;
+  overflow-y: auto;
+  overflow-x: hidden;
   padding-right: 0;
   flex: 1 1 auto;
+  scrollbar-gutter: stable;
 }
 
 .elyon-soul-message {
@@ -427,7 +431,7 @@
 }
 
 .elyon-soul-feedback {
-  min-height: 64px;
+  min-height: 72px;
 }
 
 .elyon-soul-feedback-card {
@@ -520,7 +524,7 @@
   .elyon-soul-panel {
     width: auto;
     bottom: 78px;
-    height: min(70vh, 680px);
+    height: min(78vh, 760px);
     border-radius: 22px;
   }
 
