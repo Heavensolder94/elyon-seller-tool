@@ -1089,6 +1089,13 @@ Land"></textarea>
       </div>
 
       <div class="settings-section">
+        <h3>🤖 KI</h3>
+        <p class="hint">Hier schaltest du alle KI-Funktionen im Tool zentral an oder aus. Wenn du sie deaktivierst, bleiben nur die lokalen Regeln und Standardfunktionen aktiv.</p>
+        <div class="checkrow"><input id="setAiEnabled" type="checkbox"><label for="setAiEnabled">KI-Funktionen aktivieren</label></div>
+        <div id="aiGlobalStatus" class="output-box"><p>Die KI ist noch nicht geprüft.</p></div>
+      </div>
+
+      <div class="settings-section">
         <h3>🧯 Fehlerlog</h3>
         <p class="hint">Wenn im Tool ein Fehler passiert, wird er hier lokal gespeichert. Das hilft beim Debuggen.</p>
         <div id="errorLogBox" class="output-box"><p>Noch keine Fehler gespeichert.</p></div>
@@ -1406,7 +1413,8 @@ const defaultSettings = {
   market: 'DE',
   theme: 'dark',
   designPreset: 'classic',
-  start: 'dashboardTab'
+  start: 'dashboardTab',
+  aiEnabled: true
 };
 let appSettings = { ...defaultSettings, ...JSON.parse(localStorage.getItem('elyonSettings') || '{}') };
 const listingItems = ['Titel enthält Hauptkeyword','Produktbilder vorhanden','Beschreibung verständlich','Preis geprüft','Versandzeit realistisch','Rücknahmebedingungen klar','LUCID/Verpackung bedacht','WEEE/Batt geprüft, falls relevant','Markenrechte geprüft','Gewinn nach Gebühren positiv'];
@@ -4423,6 +4431,9 @@ const AI_BUTTON_META = [
 let aiLoadingButtonId = '';
 const aiCooldownEndsByButton = {};
 const aiCooldownTimersByButton = {};
+function isAiGloballyEnabled(){
+  return appSettings.aiEnabled !== false;
+}
 
 function getLocalDateKey(date){
   const value = date instanceof Date ? date : new Date();
@@ -4483,15 +4494,27 @@ function renderAiUsageStatus(){
   const state = getAiUsageState();
   const estimatedCost = getAiEstimatedCost(state.count);
   const warning = getAiUsageWarning(state.count);
+  const enabled = isAiGloballyEnabled();
   const statusClass = state.count > 100 ? 'ai-level-bad' : state.count > 50 ? 'ai-level-warn' : 'ai-level-good';
-  const html = [
-    '<div class="ai-usage-main">',
-    '<strong>AI Requests heute: ' + state.count + '</strong>',
-    '<span class="ai-usage-meta">Geschätzte Kosten: ~' + estimatedCost.replace('.', ',') + ' $</span>',
-    '</div>',
-    '<span class="ai-usage-warning ' + statusClass + '">' + escapeHtml(warning || 'Niedrige Nutzung') + '</span>'
-  ].join('');
+  const html = enabled
+    ? [
+        '<div class="ai-usage-main">',
+        '<strong>AI Requests heute: ' + state.count + '</strong>',
+        '<span class="ai-usage-meta">Geschätzte Kosten: ~' + estimatedCost.replace('.', ',') + ' $</span>',
+        '</div>',
+        '<span class="ai-usage-warning ' + statusClass + '">' + escapeHtml(warning || 'Niedrige Nutzung') + '</span>'
+      ].join('')
+    : [
+        '<div class="ai-usage-main">',
+        '<strong>KI ist deaktiviert</strong>',
+        '<span class="ai-usage-meta">Aktiviere sie in den Einstellungen, wenn du OpenAI und DeepSeek wieder nutzen willst.</span>',
+        '</div>',
+        '<span class="ai-usage-warning ai-level-warn">Deaktiviert</span>'
+      ].join('');
   setHTML('aiUsageStatus', html);
+  setHTML('aiGlobalStatus', enabled
+    ? '<p>KI ist aktiv. OpenAI- und DeepSeek-Funktionen können genutzt werden.</p>'
+    : '<p>KI ist deaktiviert. Das Tool nutzt nur lokale Regeln und Standardfunktionen.</p>');
 }
 function refreshAiButtonStates(){
   const now = Date.now();
@@ -4499,6 +4522,11 @@ function refreshAiButtonStates(){
     const el = $(button.id);
     if(!el) return;
     if(!el.dataset.originalLabel) el.dataset.originalLabel = button.label;
+    if(!isAiGloballyEnabled()){
+      el.disabled = true;
+      el.textContent = 'KI deaktiviert';
+      return;
+    }
     const cooldownLeft = Math.max(0, (aiCooldownEndsByButton[button.id] || 0) - now);
     const isLoading = !!aiLoadingButtonId;
     const isLoadingButton = aiLoadingButtonId && aiLoadingButtonId === button.id;
@@ -4538,6 +4566,10 @@ function startAiCooldown(buttonId){
 }
 let pendingAiAction = null;
 function openAiBillingWarning(action, mode){
+  if(!isAiGloballyEnabled()){
+    alert('KI ist in den Einstellungen deaktiviert.');
+    return;
+  }
   if(action && typeof action === 'object'){
     pendingAiAction = action;
   }else{
@@ -4611,6 +4643,11 @@ async function postJsonWithTimeout(url, payload, timeoutMs){
   }
 }
 async function requestCentralAi(task, prompt, extra){
+  if(!isAiGloballyEnabled()){
+    const error = new Error('KI ist in den Einstellungen deaktiviert.');
+    error.kind = 'disabled';
+    throw error;
+  }
   incrementAiUsage();
   return postJsonWithTimeout('/api/ai', {
     ...(extra || {}),
@@ -4864,6 +4901,10 @@ function startAiProductSearch(mode){
   openAiBillingWarning('product-search', mode);
 }
 async function executeAiProductSearch(mode){
+  if(!isAiGloballyEnabled()){
+    setHTML('aiSearchResult', '<div class="empty">⚠️ KI ist in den Einstellungen deaktiviert.</div>');
+    return;
+  }
   const payload = readAiProductSearchInput();
   payload.mode = mode;
   payload.requestedMode = mode;
@@ -4921,6 +4962,10 @@ function renderAiListingResult(data, mode){
   setHTML('aiResult', html);
 }
 async function runAiListingOptimizer(mode){
+  if(!isAiGloballyEnabled()){
+    setHTML('aiResult', '<div class="empty">⚠️ KI ist in den Einstellungen deaktiviert.</div>');
+    return;
+  }
   const buttons = {
     improve: 'aiImproveBtn',
     regenerate: 'aiRegenerateBtn',
@@ -5314,6 +5359,9 @@ function applySettings(){
   safe('setTheme',el=>el.value=appSettings.theme);
   safe('setDesignPreset',el=>el.value=appSettings.designPreset || 'classic');
   safe('setStart',el=>el.value=resolveTabId(appSettings.start || 'dashboardTab'));
+  safe('setAiEnabled',el=>el.checked=appSettings.aiEnabled !== false);
+  renderAiUsageStatus();
+  refreshAiButtonStates();
 }
 function readSettingsFromForm(){
   return {
@@ -5331,7 +5379,8 @@ function readSettingsFromForm(){
     market:$('setMarket')?.value||'DE',
     theme:$('setTheme')?.value||'dark',
     designPreset:$('setDesignPreset')?.value||'classic',
-    start:resolveTabId($('setStart')?.value||'dashboardTab')
+    start:resolveTabId($('setStart')?.value||'dashboardTab'),
+    aiEnabled:(function(){ const el = $('setAiEnabled'); return !!(el && el.checked); })()
   };
 }
 function saveSettings(){

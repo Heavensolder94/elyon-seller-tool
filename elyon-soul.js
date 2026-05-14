@@ -43,6 +43,22 @@
     summary: createEmptySummary(),
   };
 
+  function getGlobalAiSettings() {
+    const raw = localStorage.getItem("elyonSettings");
+    const parsed = safeParseJson(raw);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  }
+
+  function isGlobalAiEnabled() {
+    return getGlobalAiSettings().aiEnabled !== false;
+  }
+
+  function createDisabledAiError() {
+    const error = new Error("KI ist in den Einstellungen deaktiviert.");
+    error.kind = "disabled";
+    return error;
+  }
+
   const ui = {
     shell: null,
     fab: null,
@@ -306,7 +322,7 @@
   }
 
   function canUseAi() {
-    return getAiUsage().remaining > 0;
+    return isGlobalAiEnabled() && getAiUsage().remaining > 0;
   }
 
   function consumeAiUsage() {
@@ -370,6 +386,14 @@
       return { label: "Analyse laeuft...", tone: "info", detail: "Anfrage wird gerade verarbeitet." };
     }
 
+    if (!isGlobalAiEnabled()) {
+      return {
+        label: "KI deaktiviert",
+        tone: "warn",
+        detail: "Aktiviere KI in den Einstellungen, um DeepSeek wieder zu nutzen.",
+      };
+    }
+
     if (usage.remaining <= 0) {
       return {
         label: "Tageslimit erreicht",
@@ -400,6 +424,11 @@
     const usage = getAiUsage();
     const consumed = Math.min(usage.limit, usage.count);
     const remaining = Math.max(0, usage.remaining);
+    if (!isGlobalAiEnabled()) {
+      ui.usage.textContent = "KI ist deaktiviert";
+      ui.usage.dataset.tone = "warn";
+      return;
+    }
     ui.usage.textContent = remaining <= 0
       ? `Heute: ${consumed}/${usage.limit} KI-Anfragen verbraucht`
       : `Heute: ${remaining}/${usage.limit} KI-Anfragen übrig`;
@@ -541,9 +570,12 @@
     if (!ui.aiBtn) return;
     const usage = getAiUsage();
     const blocked = usage.remaining <= 0;
-    ui.aiBtn.disabled = state.loading || blocked || !state.aiEnabled;
+    const globalDisabled = !isGlobalAiEnabled();
+    ui.aiBtn.disabled = state.loading || blocked || globalDisabled || !state.aiEnabled;
     ui.aiBtn.textContent = blocked
       ? `Tageslimit erreicht (${usage.limit})`
+      : globalDisabled
+        ? "KI-Modus deaktiviert"
       : state.aiEnabled
         ? "KI-Analyse starten"
         : "KI-Modus nicht aktiv";
@@ -564,6 +596,9 @@
   }
 
   async function requestDeepSeek(prompt, action) {
+    if (!isGlobalAiEnabled()) {
+      throw createDisabledAiError();
+    }
     if (!canUseAi()) {
       const limitError = new Error(`Das KI-Tageslimit von ${CONFIG.aiDailyLimit} Anfragen ist erreicht.`);
       limitError.kind = "limit";
@@ -718,6 +753,11 @@
 
   async function runAiAnalysis() {
     if (state.loading) return;
+    if (!isGlobalAiEnabled()) {
+      renderFeedback("ELYON SOUL", "KI ist in den Einstellungen deaktiviert. Regelbasierte Soul ist aktiv.");
+      setStatus("KI deaktiviert", "warn", "Aktiviere KI in den Einstellungen, um DeepSeek wieder zu nutzen.");
+      return;
+    }
     if (!state.aiEnabled) {
       renderFeedback("ELYON SOUL", "KI-Modus ist noch nicht aktiviert. Regelbasierte Soul ist aktiv.");
       return;
@@ -757,6 +797,13 @@
 
   async function probeCapabilities() {
     const summary = refreshSummary();
+    if (!isGlobalAiEnabled()) {
+      state.aiChecked = true;
+      state.aiEnabled = false;
+      updateAiButton();
+      setStatus("KI deaktiviert", "warn", "Aktiviere KI in den Einstellungen, um DeepSeek wieder zu nutzen.");
+      return;
+    }
     try {
       const response = await fetch(CONFIG.endpoint, {
         method: "POST",
