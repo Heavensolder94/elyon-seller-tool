@@ -1,4 +1,6 @@
 const DEFAULT_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
+const PRODUCT_DECISION_GO_THRESHOLD = 60;
+const PRODUCT_DECISION_TEST_THRESHOLD = 30;
 
 function jsonError(res, status, error, details) {
   return res.status(status).json({
@@ -333,9 +335,9 @@ function normalizeResult(task, rawResult) {
     const rawDecision = readText(rawResult?.decision).toUpperCase();
     const decision = ["GO", "TEST", "NO"].includes(rawDecision)
       ? rawDecision
-      : normalizedScore.total >= 75
+      : normalizedScore.total >= PRODUCT_DECISION_GO_THRESHOLD
         ? "GO"
-        : normalizedScore.total >= 45
+        : normalizedScore.total >= PRODUCT_DECISION_TEST_THRESHOLD
           ? "TEST"
           : "NO";
 

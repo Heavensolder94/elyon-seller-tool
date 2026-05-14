@@ -3371,15 +3371,18 @@ function isAiFeatureEnabled(){
   return true;
 }
 
+const PRODUCT_DECISION_GO_THRESHOLD = 60;
+const PRODUCT_DECISION_TEST_THRESHOLD = 30;
+
 function normalizeProductAiDecision(value){
   const raw = value && typeof value === 'object' ? value : {};
   const score = clampScore(raw.score);
   const decisionRaw = String(raw.decision || '').trim().toUpperCase();
   const decision = ['GO', 'TEST', 'NO'].includes(decisionRaw)
     ? decisionRaw
-    : score >= 75
+    : score >= PRODUCT_DECISION_GO_THRESHOLD
       ? 'GO'
-      : score >= 45
+      : score >= PRODUCT_DECISION_TEST_THRESHOLD
         ? 'TEST'
         : 'NO';
   const riskLevelRaw = String(raw.riskLevel || '').trim().toLowerCase();
