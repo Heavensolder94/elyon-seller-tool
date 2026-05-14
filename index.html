@@ -1100,7 +1100,7 @@ Land"></textarea>
         <button id="syncSuppliersGoogleSheetsBtn" class="secondary full" type="button">Supplier Liste synchronisieren</button>
       </div>
       <div class="row" style="margin-top:10px">
-        <button id="syncSalesGoogleSheetsBtn" class="secondary full" type="button">Sales & Klarna synchronisieren</button>
+ <button id="syncSalesGoogleSheetsBtn" class="secondary full" type="button">InventarTracker synchronisieren</button>
         <button id="syncCostsGoogleSheetsBtn" class="secondary full" type="button">Laufende Kosten synchronisieren</button>
       </div>
       <div id="googleSheetsSyncStatus" class="output-box" style="margin-top:14px"><p>Nicht verbunden</p></div>
@@ -2374,7 +2374,7 @@ function renderGoogleSheetsSyncStatus(){
     '<div class="dashboard" style="margin-top:16px">' +
       '<div class="metric"><small>Inventar</small><strong>' + lastInventory + '</strong></div>' +
       '<div class="metric"><small>Supplier</small><strong>' + lastSupplier + '</strong></div>' +
-      '<div class="metric"><small>Sales & Klarna</small><strong>' + lastSales + '</strong></div>' +
+ '<div class="metric"><small>InventarTracker</small><strong>' + lastSales + '</strong></div>' +
       '<div class="metric"><small>Laufende Kosten</small><strong>' + lastCosts + '</strong></div>' +
     '</div>' +
     '<div class="output-box" style="margin-top:14px"><p>' + (connected ? 'Sync bereit. Beim Start werden URL und Token aus localStorage geladen.' : 'Trage URL und Token ein, um die Google Sheets Sync zu aktivieren.') + '</p></div>'
@@ -2543,7 +2543,7 @@ function buildSyncRows(type, records){
 function getSyncTypeLabel(type){
   if(type === 'inventory') return 'Inventar';
   if(type === 'suppliers') return 'Supplier Liste';
-  if(type === 'sales') return 'Sales & Klarna';
+  if(type === 'sales') return 'InventarTracker';
   if(type === 'costs') return 'Laufende Kosten';
   return type;
 }
@@ -2558,7 +2558,11 @@ async function syncToGoogleSheet(type, records){
     type: type,
     records: rows,
   };
-  const data = await postJsonWithTimeout(config.url, payload, 30000);
+  const data = await postJsonWithTimeout('/api/google-sheets-sync', {
+    method: 'POST',
+    url: config.url,
+    payload: payload
+  }, 30000);
   if(!data || data.ok === false){
     throw new Error((data && (data.error || data.message)) ? (data.error || data.message) : 'Google Sheets Sync fehlgeschlagen.');
   }
@@ -2569,7 +2573,7 @@ async function syncToGoogleSheet(type, records){
 const GOOGLE_SHEETS_SYNC_BUTTONS = [
   { id: 'syncInventoryGoogleSheetsBtn', label: 'Inventar synchronisieren' },
   { id: 'syncSuppliersGoogleSheetsBtn', label: 'Supplier Liste synchronisieren' },
-  { id: 'syncSalesGoogleSheetsBtn', label: 'Sales & Klarna synchronisieren' },
+  { id: 'syncSalesGoogleSheetsBtn', label: 'InventarTracker synchronisieren' },
   { id: 'syncCostsGoogleSheetsBtn', label: 'Laufende Kosten synchronisieren' },
   { id: 'syncAllGoogleSheetsBtn', label: 'Alles synchronisieren' },
 ];
@@ -5416,7 +5420,7 @@ async function postJsonWithTimeout(url, payload, timeoutMs){
       throw new Error('Ungültige JSON-Antwort vom Server.');
     }
     if(!response.ok || !data || data.ok === false){
-      throw new Error((data && (data.error || data.message)) ? (data.error || data.message) : ('KI-Request fehlgeschlagen: HTTP ' + response.status));
+      throw new Error((data && (data.error || data.message)) ? (data.error || data.message) : ('Request fehlgeschlagen: HTTP ' + response.status));
     }
     return data;
   }catch(error){
@@ -5424,7 +5428,7 @@ async function postJsonWithTimeout(url, payload, timeoutMs){
       throw new Error('Timeout: Die KI hat nicht rechtzeitig geantwortet.');
     }
     if(error && error.message && /failed to fetch|network|networkerror/i.test(error.message)){
-      throw new Error('Netzwerkfehler bei der KI-Anfrage.');
+      throw new Error('Netzwerkfehler bei der Anfrage.');
     }
     throw error;
   }finally{
