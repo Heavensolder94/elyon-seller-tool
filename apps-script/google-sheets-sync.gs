@@ -211,7 +211,9 @@ function getExpectedToken_() {
 
 function getSpreadsheet_() {
   const props = PropertiesService.getScriptProperties();
-  const spreadsheetId = props.getProperty("SPREADSHEET_ID") || props.getProperty("GOOGLE_SPREADSHEET_ID") || "";
+  const spreadsheetId = normalizeSpreadsheetId_(
+    props.getProperty("SPREADSHEET_ID") || props.getProperty("GOOGLE_SPREADSHEET_ID") || ""
+  );
   if (spreadsheetId) {
     return SpreadsheetApp.openById(spreadsheetId);
   }
@@ -222,6 +224,27 @@ function getSpreadsheet_() {
   }
 
   throw new Error("Kein Spreadsheet gefunden. Bitte SPREADSHEET_ID setzen oder das Script an ein Spreadsheet binden.");
+}
+
+function normalizeSpreadsheetId_(value) {
+  const raw = String(value || "").trim();
+  if (!raw) {
+    return "";
+  }
+
+  const urlMatch = raw.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/i);
+  if (urlMatch && urlMatch[1]) {
+    return urlMatch[1];
+  }
+
+  if (/^https?:\/\//i.test(raw)) {
+    const directMatch = raw.match(/[?&]id=([a-zA-Z0-9-_]+)/i);
+    if (directMatch && directMatch[1]) {
+      return directMatch[1];
+    }
+  }
+
+  return raw.split(/[/?#]/)[0];
 }
 
 function upsertRecords_(ss, type, records) {
