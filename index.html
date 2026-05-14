@@ -163,6 +163,31 @@
     .toggle-switch input:focus-visible + .toggle-track{
       box-shadow:0 0 0 4px rgba(96,165,250,.18), inset 0 0 0 1px rgba(255,255,255,.08);
     }
+    .toggle-grid{
+      display:grid;
+      gap:10px;
+    }
+    .toggle-subrow{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:14px;
+      padding:11px 14px;
+      border-radius:14px;
+      background:rgba(255,255,255,.04);
+      border:1px solid rgba(255,255,255,.08);
+    }
+    .toggle-subrow label{
+      margin:0;
+      flex:1;
+    }
+    .toggle-subrow small{
+      display:block;
+      margin-top:3px;
+      color:var(--muted);
+      line-height:1.35;
+      font-weight:500;
+    }
     .draft-actions{
       display:grid;
       grid-template-columns:repeat(2,minmax(0,1fr));
@@ -1159,6 +1184,44 @@ Land"></textarea>
             <span class="toggle-track" aria-hidden="true"></span>
           </div>
         </div>
+        <div class="toggle-grid" style="margin-top:12px">
+          <div class="toggle-subrow">
+            <label for="setAiOpenAIEnabled">OpenAI-Tools
+              <small>Titel, Beschreibung, Tags, Listing-Optimizer und Produktsuche.</small>
+            </label>
+            <div class="toggle-switch">
+              <input id="setAiOpenAIEnabled" type="checkbox">
+              <span class="toggle-track" aria-hidden="true"></span>
+            </div>
+          </div>
+          <div class="toggle-subrow">
+            <label for="setAiDeepSeekEnabled">DeepSeek-Chat
+              <small>Elyon Soul Chat und KI-Analyse mit DeepSeek.</small>
+            </label>
+            <div class="toggle-switch">
+              <input id="setAiDeepSeekEnabled" type="checkbox">
+              <span class="toggle-track" aria-hidden="true"></span>
+            </div>
+          </div>
+          <div class="toggle-subrow">
+            <label for="setAiBillingPromptEnabled">KI-Bestätigung
+              <small>Vor jeder KI-Aktion eine Billing-/Kostenwarnung anzeigen.</small>
+            </label>
+            <div class="toggle-switch">
+              <input id="setAiBillingPromptEnabled" type="checkbox">
+              <span class="toggle-track" aria-hidden="true"></span>
+            </div>
+          </div>
+          <div class="toggle-subrow">
+            <label for="setAiAutoProbeEnabled">Auto-Check beim Start
+              <small>Beim Start die DeepSeek-KI automatisch prüfen.</small>
+            </label>
+            <div class="toggle-switch">
+              <input id="setAiAutoProbeEnabled" type="checkbox">
+              <span class="toggle-track" aria-hidden="true"></span>
+            </div>
+          </div>
+        </div>
         <div id="aiGlobalStatus" class="output-box"><p>Die KI ist noch nicht geprüft.</p></div>
       </div>
 
@@ -1481,7 +1544,11 @@ const defaultSettings = {
   theme: 'dark',
   designPreset: 'classic',
   start: 'dashboardTab',
-  aiEnabled: true
+  aiEnabled: true,
+  aiOpenAIEnabled: true,
+  aiDeepSeekEnabled: true,
+  aiBillingPromptEnabled: true,
+  aiAutoProbeEnabled: true
 };
 let appSettings = { ...defaultSettings, ...JSON.parse(localStorage.getItem('elyonSettings') || '{}') };
 const listingItems = ['Titel enthält Hauptkeyword','Produktbilder vorhanden','Beschreibung verständlich','Preis geprüft','Versandzeit realistisch','Rücknahmebedingungen klar','LUCID/Verpackung bedacht','WEEE/Batt geprüft, falls relevant','Markenrechte geprüft','Gewinn nach Gebühren positiv'];
@@ -4501,6 +4568,18 @@ const aiCooldownTimersByButton = {};
 function isAiGloballyEnabled(){
   return appSettings.aiEnabled !== false;
 }
+function isOpenAiEnabled(){
+  return isAiGloballyEnabled() && appSettings.aiOpenAIEnabled !== false;
+}
+function isDeepSeekEnabled(){
+  return isAiGloballyEnabled() && appSettings.aiDeepSeekEnabled !== false;
+}
+function shouldPromptAiBilling(){
+  return isAiGloballyEnabled() && appSettings.aiBillingPromptEnabled !== false;
+}
+function shouldAutoProbeAi(){
+  return isAiGloballyEnabled() && appSettings.aiAutoProbeEnabled !== false;
+}
 
 function getLocalDateKey(date){
   const value = date instanceof Date ? date : new Date();
@@ -4562,12 +4641,14 @@ function renderAiUsageStatus(){
   const estimatedCost = getAiEstimatedCost(state.count);
   const warning = getAiUsageWarning(state.count);
   const enabled = isAiGloballyEnabled();
+  const openAiEnabled = isOpenAiEnabled();
+  const deepSeekEnabled = isDeepSeekEnabled();
   const statusClass = state.count > 100 ? 'ai-level-bad' : state.count > 50 ? 'ai-level-warn' : 'ai-level-good';
   const html = enabled
     ? [
         '<div class="ai-usage-main">',
         '<strong>AI Requests heute: ' + state.count + '</strong>',
-        '<span class="ai-usage-meta">Geschätzte Kosten: ~' + estimatedCost.replace('.', ',') + ' $</span>',
+        '<span class="ai-usage-meta">Geschätzte Kosten: ~' + estimatedCost.replace('.', ',') + ' $ · OpenAI ' + (openAiEnabled ? 'an' : 'aus') + ' · DeepSeek ' + (deepSeekEnabled ? 'an' : 'aus') + '</span>',
         '</div>',
         '<span class="ai-usage-warning ' + statusClass + '">' + escapeHtml(warning || 'Niedrige Nutzung') + '</span>'
       ].join('')
@@ -4580,7 +4661,7 @@ function renderAiUsageStatus(){
       ].join('');
   setHTML('aiUsageStatus', html);
   setHTML('aiGlobalStatus', enabled
-    ? '<p>KI ist aktiv. OpenAI- und DeepSeek-Funktionen können genutzt werden.</p>'
+    ? '<p>KI ist aktiv. OpenAI: <strong>' + (openAiEnabled ? 'an' : 'aus') + '</strong>, DeepSeek: <strong>' + (deepSeekEnabled ? 'an' : 'aus') + '</strong>.</p>'
     : '<p>KI ist deaktiviert. Das Tool nutzt nur lokale Regeln und Standardfunktionen.</p>');
 }
 function refreshAiButtonStates(){
@@ -4592,6 +4673,11 @@ function refreshAiButtonStates(){
     if(!isAiGloballyEnabled()){
       el.disabled = true;
       el.textContent = 'KI deaktiviert';
+      return;
+    }
+    if(!isOpenAiEnabled() && button.id !== 'aiBillingInfoBtn'){
+      el.disabled = true;
+      el.textContent = 'OpenAI aus';
       return;
     }
     const cooldownLeft = Math.max(0, (aiCooldownEndsByButton[button.id] || 0) - now);
@@ -4633,8 +4719,17 @@ function startAiCooldown(buttonId){
 }
 let pendingAiAction = null;
 function openAiBillingWarning(action, mode){
+  if(!isOpenAiEnabled()){
+    alert('OpenAI ist in den Einstellungen deaktiviert.');
+    return;
+  }
   if(!isAiGloballyEnabled()){
     alert('KI ist in den Einstellungen deaktiviert.');
+    return;
+  }
+  if(!shouldPromptAiBilling()){
+    pendingAiAction = action && typeof action === 'object' ? action : { action: action || 'listing', mode: mode || 'regenerate' };
+    proceedAiBillingAction();
     return;
   }
   if(action && typeof action === 'object'){
@@ -4710,6 +4805,11 @@ async function postJsonWithTimeout(url, payload, timeoutMs){
   }
 }
 async function requestCentralAi(task, prompt, extra){
+  if(!isOpenAiEnabled()){
+    const error = new Error('OpenAI ist in den Einstellungen deaktiviert.');
+    error.kind = 'disabled';
+    throw error;
+  }
   if(!isAiGloballyEnabled()){
     const error = new Error('KI ist in den Einstellungen deaktiviert.');
     error.kind = 'disabled';
@@ -4968,6 +5068,10 @@ function startAiProductSearch(mode){
   openAiBillingWarning('product-search', mode);
 }
 async function executeAiProductSearch(mode){
+  if(!isOpenAiEnabled()){
+    setHTML('aiSearchResult', '<div class="empty">⚠️ OpenAI ist in den Einstellungen deaktiviert.</div>');
+    return;
+  }
   if(!isAiGloballyEnabled()){
     setHTML('aiSearchResult', '<div class="empty">⚠️ KI ist in den Einstellungen deaktiviert.</div>');
     return;
@@ -5029,6 +5133,10 @@ function renderAiListingResult(data, mode){
   setHTML('aiResult', html);
 }
 async function runAiListingOptimizer(mode){
+  if(!isOpenAiEnabled()){
+    setHTML('aiResult', '<div class="empty">⚠️ OpenAI ist in den Einstellungen deaktiviert.</div>');
+    return;
+  }
   if(!isAiGloballyEnabled()){
     setHTML('aiResult', '<div class="empty">⚠️ KI ist in den Einstellungen deaktiviert.</div>');
     return;
@@ -5427,6 +5535,10 @@ function applySettings(){
   safe('setDesignPreset',el=>el.value=appSettings.designPreset || 'classic');
   safe('setStart',el=>el.value=resolveTabId(appSettings.start || 'dashboardTab'));
   safe('setAiEnabled',el=>el.checked=appSettings.aiEnabled !== false);
+  safe('setAiOpenAIEnabled',el=>el.checked=appSettings.aiOpenAIEnabled !== false);
+  safe('setAiDeepSeekEnabled',el=>el.checked=appSettings.aiDeepSeekEnabled !== false);
+  safe('setAiBillingPromptEnabled',el=>el.checked=appSettings.aiBillingPromptEnabled !== false);
+  safe('setAiAutoProbeEnabled',el=>el.checked=appSettings.aiAutoProbeEnabled !== false);
   renderAiUsageStatus();
   refreshAiButtonStates();
 }
@@ -5447,7 +5559,11 @@ function readSettingsFromForm(){
     theme:$('setTheme')?.value||'dark',
     designPreset:$('setDesignPreset')?.value||'classic',
     start:resolveTabId($('setStart')?.value||'dashboardTab'),
-    aiEnabled:(function(){ const el = $('setAiEnabled'); return !!(el && el.checked); })()
+    aiEnabled:(function(){ const el = $('setAiEnabled'); return !!(el && el.checked); })(),
+    aiOpenAIEnabled:(function(){ const el = $('setAiOpenAIEnabled'); return !!(el && el.checked); })(),
+    aiDeepSeekEnabled:(function(){ const el = $('setAiDeepSeekEnabled'); return !!(el && el.checked); })(),
+    aiBillingPromptEnabled:(function(){ const el = $('setAiBillingPromptEnabled'); return !!(el && el.checked); })(),
+    aiAutoProbeEnabled:(function(){ const el = $('setAiAutoProbeEnabled'); return !!(el && el.checked); })()
   };
 }
 function saveSettings(){
@@ -6600,6 +6716,11 @@ function runSelfTests(){
   console.assert(!!$('aiDescBtn'), 'KI Beschreibung Button sollte existieren');
   console.assert(!!$('aiScoreBtn'), 'KI Produktanalyse Button sollte existieren');
   console.assert(!!$('aiUsageStatus'), 'AI Statusanzeige sollte existieren');
+  console.assert(!!$('setAiEnabled'), 'KI Hauptschalter sollte existieren');
+  console.assert(!!$('setAiOpenAIEnabled'), 'OpenAI Schalter sollte existieren');
+  console.assert(!!$('setAiDeepSeekEnabled'), 'DeepSeek Schalter sollte existieren');
+  console.assert(!!$('setAiBillingPromptEnabled'), 'KI-Bestätigung Schalter sollte existieren');
+  console.assert(!!$('setAiAutoProbeEnabled'), 'Auto-Check Schalter sollte existieren');
   console.assert(!!$('googleSheetsSyncUrl'), 'Google Sheets Sync URL Feld sollte existieren');
   console.assert(!!$('googleSheetsSyncToken'), 'Google Sheets Sync Token Feld sollte existieren');
   console.assert(!!$('googleSheetsSyncStatus'), 'Google Sheets Sync Status sollte existieren');
