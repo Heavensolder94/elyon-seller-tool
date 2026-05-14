@@ -43,6 +43,10 @@
       "destination": "/api/health"
     },
     {
+      "source": "/api/google-sheets-sync",
+      "destination": "/api/env-check"
+    },
+    {
       "source": "/ebay-token-exchange",
       "destination": "/ebay-token-exchange/index.html"
     },
