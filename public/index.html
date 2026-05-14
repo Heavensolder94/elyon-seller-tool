@@ -3566,6 +3566,9 @@ function renderProductAiMiniCard(product){
   const aiHint = isAiFeatureEnabled()
     ? ''
     : '<div class="ai-compact-note">KI-Funktionen sind derzeit deaktiviert oder OpenAI-Tools sind aus.</div>';
+  const lowScoreHint = hasDecision && (decision.decision === 'NO' || decision.score < PRODUCT_DECISION_TEST_THRESHOLD)
+    ? '<div class="ai-compact-note">Hinweis: Auch wenn der Score schwach ist, kannst du das Produkt trotzdem manuell prüfen oder klein testen, wenn Lieferant, Marge oder Nachfrage einen zweiten Blick wert sind.</div>'
+    : '';
 
   let html = '';
   html += '<div class="ai-product-card" id="' + getProductAiUiId('productAiCard', product.id) + '">';
@@ -3584,6 +3587,7 @@ function renderProductAiMiniCard(product){
   html += '<div class="ai-mini-summary">';
   html += '<p><span class="ai-mini-label">Kurzfassung</span><span class="ai-mini-value">' + escapeHtml(summary) + '</span></p>';
   html += '</div>';
+  html += lowScoreHint;
   html += aiHint;
   html += '</div>';
   return html;
