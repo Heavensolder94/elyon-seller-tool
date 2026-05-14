@@ -26,6 +26,54 @@ function normalizeList(value) {
   return Array.from(new Set(list.map((item) => readText(item)).filter(Boolean)));
 }
 
+function toNumber(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : 0;
+}
+
+function sanitizeProductDecisionInput(body) {
+  const product = body?.product || body?.productData || body?.item || {};
+  const name = readText(product.name || product.productName || product.title);
+  const sku = readText(product.sku);
+  const category = readText(product.category || product.type || product.productType);
+  const supplier = readText(product.supplier || product.supplierName || product.supplierId);
+  const supplierId = readText(product.supplierId || product.supplierID || product.supplier);
+  const description = readText(product.description || product.listingDescription || product.shortDescription || product.summary);
+  const buy = toNumber(product.buy || product.cost || product.purchasePrice);
+  const ship = toNumber(product.ship || product.shipping || product.shippingCost);
+  const sell = toNumber(product.sell || product.price || product.listPrice);
+  const delivery = toNumber(product.delivery || product.deliveryTime || product.deliveryDays);
+  const competition = toNumber(product.competition || product.sellers || product.competitors);
+  const margin = sell - buy - ship;
+  const marginPercent = sell > 0 ? Math.round((margin / sell) * 1000) / 10 : 0;
+  const risk = readText(product.risk || product.riskLevel || product.riskLabel);
+
+  return {
+    name,
+    sku,
+    category,
+    supplier,
+    supplierId,
+    description,
+    buy,
+    ship,
+    sell,
+    margin: Math.round(margin * 100) / 100,
+    marginPercent,
+    delivery,
+    competition,
+    risk,
+    complianceHints: {
+      electronics: Boolean(product.electronics || product.electronic || product.isElectronics),
+      battery: Boolean(product.battery || product.hasBattery || product.containsBattery),
+      brandRisk: Boolean(product.brandRisk || product.markenrisiko),
+      lucidRisk: Boolean(product.lucidRisk || product.packagingRisk),
+      weeeRisk: Boolean(product.weeeRisk || product.wasteElectricalRisk),
+      battRisk: Boolean(product.battRisk || product.batteryRisk),
+    },
+  };
+}
+
 function extractOutputText(data) {
   if (typeof data?.output_text === "string" && data.output_text.trim()) {
     return data.output_text.trim();
@@ -57,6 +105,12 @@ function getSystemPrompt(task) {
 
   if (task === "product_score") {
     base.push("Bewerte das Produkt sachlich mit Chancen, Risiken und einem Score.");
+  }
+
+  if (task === "product_decision") {
+    base.push("Bewerte ein einzelnes Produkt fuer eine interne Kauf- und Listing-Entscheidung.");
+    base.push("Gib nur eine sachliche Beratung, keine Aufforderung zur automatischen Veröffentlichung oder Bestellung.");
+    base.push("Achte besonders auf Marge, Lieferzeit, Wettbewerb, Risiko und moegliche Compliance-Themen wie Elektronik, Akku, Batterie, CE, Markenrisiko, LUCID, WEEE und BATT.");
   }
 
   return base.join(" ");
@@ -185,6 +239,40 @@ function getResponseFormat(task) {
     };
   }
 
+  if (task === "product_decision") {
+    return {
+      type: "json_schema",
+      name: "ai_product_decision_task",
+      strict: true,
+      schema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          score: { type: "integer", minimum: 0, maximum: 100 },
+          decision: { type: "string", enum: ["GO", "TEST", "NO"] },
+          riskLevel: { type: "string", enum: ["low", "medium", "high"] },
+          compliance: { type: "string", enum: ["green", "yellow", "red"] },
+          profitVerdict: { type: "string", enum: ["good", "tight", "bad"] },
+          publishReady: { type: "boolean" },
+          shortSummary: { type: "string" },
+          warnings: { type: "array", items: { type: "string" }, maxItems: 8 },
+          nextSteps: { type: "array", items: { type: "string" }, maxItems: 8 },
+        },
+        required: [
+          "score",
+          "decision",
+          "riskLevel",
+          "compliance",
+          "profitVerdict",
+          "publishReady",
+          "shortSummary",
+          "warnings",
+          "nextSteps",
+        ],
+      },
+    };
+  }
+
   throw new Error(`Unbekannter task: ${task}`);
 }
 
@@ -238,6 +326,61 @@ function normalizeResult(task, rawResult) {
       recommendation: readText(rawResult?.recommendation),
       riskWarnings: normalizeList(rawResult?.riskWarnings).slice(0, 8),
       score: normalizedScore,
+    };
+  }
+
+  if (task === "product_decision") {
+    const rawDecision = readText(rawResult?.decision).toUpperCase();
+    const decision = ["GO", "TEST", "NO"].includes(rawDecision)
+      ? rawDecision
+      : normalizedScore.total >= 75
+        ? "GO"
+        : normalizedScore.total >= 45
+          ? "TEST"
+          : "NO";
+
+    const rawRiskLevel = readText(rawResult?.riskLevel).toLowerCase();
+    const riskLevel = ["low", "medium", "high"].includes(rawRiskLevel)
+      ? rawRiskLevel
+      : decision === "GO"
+        ? "low"
+        : decision === "TEST"
+          ? "medium"
+          : "high";
+
+    const rawCompliance = readText(rawResult?.compliance).toLowerCase();
+    const compliance = ["green", "yellow", "red"].includes(rawCompliance)
+      ? rawCompliance
+      : riskLevel === "low"
+        ? "green"
+        : riskLevel === "medium"
+          ? "yellow"
+          : "red";
+
+    const rawProfitVerdict = readText(rawResult?.profitVerdict).toLowerCase();
+    const profitVerdict = ["good", "tight", "bad"].includes(rawProfitVerdict)
+      ? rawProfitVerdict
+      : decision === "GO"
+        ? "good"
+        : decision === "TEST"
+          ? "tight"
+          : "bad";
+
+    const publishReady = Boolean(
+      rawResult?.publishReady === true ||
+      (decision === "GO" && compliance === "green" && riskLevel === "low")
+    );
+
+    return {
+      score: normalizedScore.total,
+      decision,
+      riskLevel,
+      compliance,
+      profitVerdict,
+      publishReady,
+      shortSummary: readText(rawResult?.shortSummary).slice(0, 260),
+      warnings: normalizeList(rawResult?.warnings).slice(0, 8),
+      nextSteps: normalizeList(rawResult?.nextSteps).slice(0, 8),
     };
   }
 
@@ -310,7 +453,11 @@ async function callOpenAI(task, prompt) {
 
 function buildTaskPrompt(task, prompt, body) {
   const safePrompt = readText(prompt);
-  const payload = JSON.stringify(body || {}, null, 2);
+  const payload = JSON.stringify(
+    task === "product_decision" ? sanitizeProductDecisionInput(body) : (body || {}),
+    null,
+    2
+  );
 
   if (task === "title") {
     return [
@@ -357,6 +504,22 @@ function buildTaskPrompt(task, prompt, body) {
     return [
       "Bewerte die Produktidee sachlich mit Chancen, Risiken und einem Score.",
       "Achte auf Konkurrenz, Marge, Lieferzeit, Batterie/WEEE/LUCID/EPR und Markenrisiko.",
+      "",
+      "Prompt:",
+      safePrompt,
+      "",
+      "Daten:",
+      payload,
+    ].join("\n");
+  }
+
+  if (task === "product_decision") {
+    return [
+      "Bewerte das Produkt fuer eine interne Kauf- und Listing-Entscheidung.",
+      "Antworte nur mit einem kurzen strukturierten JSON-Ergebnis.",
+      "Gib keine langen Fliesstexte aus, sondern kurze Zusammenfassung, Warnungen und naechste Schritte.",
+      "Nenne moegliche Compliance-Themen wie Elektronik, Akku, Batterie, CE, Markenrisiko, LUCID, WEEE und BATT klar.",
+      "Keine automatische Veröffentlichung, keine Bestellungen, nur Beratung.",
       "",
       "Prompt:",
       safePrompt,
