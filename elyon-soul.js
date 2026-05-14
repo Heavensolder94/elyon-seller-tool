@@ -43,6 +43,30 @@
     summary: createEmptySummary(),
   };
 
+  function getGlobalAiSettings() {
+    const raw = localStorage.getItem("elyonSettings");
+    const parsed = safeParseJson(raw);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  }
+
+  function isGlobalAiEnabled() {
+    return getGlobalAiSettings().aiEnabled !== false;
+  }
+
+  function isDeepSeekEnabled() {
+    return isGlobalAiEnabled() && getGlobalAiSettings().aiDeepSeekEnabled !== false;
+  }
+
+  function shouldAutoProbeAi() {
+    return isGlobalAiEnabled() && getGlobalAiSettings().aiAutoProbeEnabled !== false;
+  }
+
+  function createDisabledAiError() {
+    const error = new Error("KI ist in den Einstellungen deaktiviert.");
+    error.kind = "disabled";
+    return error;
+  }
+
   const ui = {
     shell: null,
     fab: null,
@@ -306,7 +330,7 @@
   }
 
   function canUseAi() {
-    return getAiUsage().remaining > 0;
+    return isGlobalAiEnabled() && getAiUsage().remaining > 0;
   }
 
   function consumeAiUsage() {
@@ -370,6 +394,22 @@
       return { label: "Analyse laeuft...", tone: "info", detail: "Anfrage wird gerade verarbeitet." };
     }
 
+    if (!isGlobalAiEnabled()) {
+      return {
+        label: "KI deaktiviert",
+        tone: "warn",
+        detail: "Aktiviere KI in den Einstellungen, um DeepSeek wieder zu nutzen.",
+      };
+    }
+
+    if (!isDeepSeekEnabled()) {
+      return {
+        label: "DeepSeek deaktiviert",
+        tone: "warn",
+        detail: "DeepSeek ist in den Einstellungen ausgeschaltet.",
+      };
+    }
+
     if (usage.remaining <= 0) {
       return {
         label: "Tageslimit erreicht",
@@ -400,6 +440,16 @@
     const usage = getAiUsage();
     const consumed = Math.min(usage.limit, usage.count);
     const remaining = Math.max(0, usage.remaining);
+    if (!isGlobalAiEnabled()) {
+      ui.usage.textContent = "KI ist deaktiviert";
+      ui.usage.dataset.tone = "warn";
+      return;
+    }
+    if (!isDeepSeekEnabled()) {
+      ui.usage.textContent = "DeepSeek ist deaktiviert";
+      ui.usage.dataset.tone = "warn";
+      return;
+    }
     ui.usage.textContent = remaining <= 0
       ? `Heute: ${consumed}/${usage.limit} KI-Anfragen verbraucht`
       : `Heute: ${remaining}/${usage.limit} KI-Anfragen übrig`;
@@ -541,9 +591,15 @@
     if (!ui.aiBtn) return;
     const usage = getAiUsage();
     const blocked = usage.remaining <= 0;
-    ui.aiBtn.disabled = state.loading || blocked || !state.aiEnabled;
+    const globalDisabled = !isGlobalAiEnabled();
+    const deepSeekDisabled = !isDeepSeekEnabled();
+    ui.aiBtn.disabled = state.loading || blocked || globalDisabled || deepSeekDisabled || !state.aiEnabled;
     ui.aiBtn.textContent = blocked
       ? `Tageslimit erreicht (${usage.limit})`
+      : globalDisabled
+        ? "KI-Modus deaktiviert"
+        : deepSeekDisabled
+          ? "DeepSeek deaktiviert"
       : state.aiEnabled
         ? "KI-Analyse starten"
         : "KI-Modus nicht aktiv";
@@ -564,6 +620,14 @@
   }
 
   async function requestDeepSeek(prompt, action) {
+    if (!isGlobalAiEnabled()) {
+      throw createDisabledAiError();
+    }
+    if (!isDeepSeekEnabled()) {
+      const disabledError = createDisabledAiError();
+      disabledError.message = "DeepSeek ist in den Einstellungen deaktiviert.";
+      throw disabledError;
+    }
     if (!canUseAi()) {
       const limitError = new Error(`Das KI-Tageslimit von ${CONFIG.aiDailyLimit} Anfragen ist erreicht.`);
       limitError.kind = "limit";
@@ -702,7 +766,9 @@
           : "DeepSeek ist fuer den Chat gerade nicht aktiv. Der lokale Coach springt ein."
       );
     } catch (error) {
-      const answer = getRuleBasedReply(prompt, summary);
+      const answer = error && error.kind === "disabled"
+        ? "DeepSeek ist in den Einstellungen deaktiviert. Der lokale Coach bleibt aktiv."
+        : getRuleBasedReply(prompt, summary);
       pushMessage("assistant", "ELYON SOUL", answer);
       renderFeedback("ELYON SOUL", answer);
       setStatus(
@@ -718,6 +784,16 @@
 
   async function runAiAnalysis() {
     if (state.loading) return;
+    if (!isGlobalAiEnabled()) {
+      renderFeedback("ELYON SOUL", "KI ist in den Einstellungen deaktiviert. Regelbasierte Soul ist aktiv.");
+      setStatus("KI deaktiviert", "warn", "Aktiviere KI in den Einstellungen, um DeepSeek wieder zu nutzen.");
+      return;
+    }
+    if (!isDeepSeekEnabled()) {
+      renderFeedback("ELYON SOUL", "DeepSeek ist in den Einstellungen deaktiviert. Regelbasierte Soul ist aktiv.");
+      setStatus("DeepSeek deaktiviert", "warn", "Aktiviere DeepSeek in den Einstellungen, um den KI-Chat wieder zu nutzen.");
+      return;
+    }
     if (!state.aiEnabled) {
       renderFeedback("ELYON SOUL", "KI-Modus ist noch nicht aktiviert. Regelbasierte Soul ist aktiv.");
       return;
@@ -757,6 +833,27 @@
 
   async function probeCapabilities() {
     const summary = refreshSummary();
+    if (!isGlobalAiEnabled()) {
+      state.aiChecked = true;
+      state.aiEnabled = false;
+      updateAiButton();
+      setStatus("KI deaktiviert", "warn", "Aktiviere KI in den Einstellungen, um DeepSeek wieder zu nutzen.");
+      return;
+    }
+    if (!shouldAutoProbeAi()) {
+      state.aiChecked = true;
+      state.aiEnabled = false;
+      updateAiButton();
+      setStatus("DeepSeek Statusprüfung aus", "warn", "Die automatische Prüfung ist in den Einstellungen ausgeschaltet.");
+      return;
+    }
+    if (!isDeepSeekEnabled()) {
+      state.aiChecked = true;
+      state.aiEnabled = false;
+      updateAiButton();
+      setStatus("DeepSeek deaktiviert", "warn", "Aktiviere DeepSeek in den Einstellungen, um den KI-Chat zu nutzen.");
+      return;
+    }
     try {
       const response = await fetch(CONFIG.endpoint, {
         method: "POST",
@@ -918,7 +1015,20 @@
     seedConversation();
     updateAiButton();
     setPanelOpen(state.open);
-    probeCapabilities();
+    if (shouldAutoProbeAi()) {
+      probeCapabilities();
+    } else {
+      state.aiChecked = false;
+      setStatus(
+        isGlobalAiEnabled()
+          ? (isDeepSeekEnabled() ? "KI bereit" : "DeepSeek deaktiviert")
+          : "KI deaktiviert",
+        "warn",
+        shouldAutoProbeAi()
+          ? "Die automatische Prüfung ist aktiv."
+          : "Die automatische DeepSeek-Prüfung ist in den Einstellungen ausgeschaltet."
+      );
+    }
   }
 
   if (document.readyState === "loading") {
