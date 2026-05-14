@@ -8,7 +8,8 @@ const SHEET_CONFIG = {
     keyColumn: "Supplier-ID"
   },
   sales: {
-    sheetName: "Sales & Klarna",
+    sheetName: "InventarTracker",
+    legacySheetNames: ["Bestellungen", "Sales & Klarna"],
     keyColumn: "Sale-ID"
   },
   costs: {
@@ -120,6 +121,31 @@ function doPost(e) {
   }
 }
 
+function doGet(e) {
+  try {
+    validateQuery_(e);
+    const type = String((e && e.parameter && e.parameter.type) || "").trim();
+    const ss = getSpreadsheet_();
+    const records = readRecords_(ss, type);
+
+    return jsonResponse_({
+      ok: true,
+      action: "getRecords",
+      type: type,
+      count: records.length,
+      records: records,
+      syncedAt: new Date().toISOString()
+    });
+  } catch (error) {
+    return jsonResponse_({
+      ok: false,
+      error: error && error.message ? error.message : "Unerwarteter Fehler",
+      details: error && error.stack ? String(error.stack) : "",
+      status: 500
+    });
+  }
+}
+
 function parsePayload_(e) {
   if (!e || !e.postData || !e.postData.contents) {
     throw new Error("Fehlender JSON-Body.");
@@ -152,6 +178,29 @@ function validatePayload_(payload) {
 
   if (!SHEET_CONFIG[payload.type]) {
     throw new Error("Unbekannter type: " + String(payload.type || ""));
+  }
+}
+
+function validateQuery_(e) {
+  const expectedToken = getExpectedToken_();
+  if (!expectedToken) {
+    throw new Error("SYNC_TOKEN fehlt in den Script Properties.");
+  }
+
+  const token = String((e && e.parameter && e.parameter.token) || "").trim();
+  const action = String((e && e.parameter && e.parameter.action) || "getRecords").trim();
+  const type = String((e && e.parameter && e.parameter.type) || "").trim();
+
+  if (token !== expectedToken) {
+    throw new Error("Ungultiger Sync Token.");
+  }
+
+  if (action !== "getRecords") {
+    throw new Error("Unbekannte action: " + String(action || ""));
+  }
+
+  if (!SHEET_CONFIG[type]) {
+    throw new Error("Unbekannter type: " + String(type || ""));
   }
 }
 
@@ -218,8 +267,57 @@ function upsertRecords_(ss, type, records) {
   };
 }
 
+function readRecords_(ss, type) {
+  const config = SHEET_CONFIG[type];
+  const headers = HEADERS_BY_TYPE[type];
+  let sheet = ss.getSheetByName(config.sheetName);
+  if (!sheet && Array.isArray(config.legacySheetNames)) {
+    for (let i = 0; i < config.legacySheetNames.length; i += 1) {
+      sheet = ss.getSheetByName(config.legacySheetNames[i]);
+      if (sheet) {
+        break;
+      }
+    }
+  }
+  if (!sheet || sheet.getLastRow() < 2) {
+    return [];
+  }
+
+  const effectiveHeaders = ensureHeaderRow_(sheet, headers);
+  const lastRow = sheet.getLastRow();
+  const lastColumn = Math.max(sheet.getLastColumn(), effectiveHeaders.length);
+  const values = sheet.getRange(2, 1, lastRow - 1, lastColumn).getValues();
+
+  return values.map(function (row) {
+    const record = {};
+    effectiveHeaders.forEach(function (header, index) {
+      if (!header) {
+        return;
+      }
+      record[header] = row[index];
+    });
+    return record;
+  });
+}
+
 function ensureSheet_(ss, sheetName, headers) {
   let sheet = ss.getSheetByName(sheetName);
+  if (!sheet) {
+    for (const configKey of Object.keys(SHEET_CONFIG)) {
+      const config = SHEET_CONFIG[configKey];
+      if (config.sheetName === sheetName && Array.isArray(config.legacySheetNames)) {
+        for (let i = 0; i < config.legacySheetNames.length; i += 1) {
+          sheet = ss.getSheetByName(config.legacySheetNames[i]);
+          if (sheet) {
+            break;
+          }
+        }
+      }
+      if (sheet) {
+        break;
+      }
+    }
+  }
   if (!sheet) {
     sheet = ss.insertSheet(sheetName);
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);

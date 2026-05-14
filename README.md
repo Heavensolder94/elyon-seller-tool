@@ -188,10 +188,39 @@ Fuer den Apps-Script-Sync:
 Der Token-Speicher kann lokal oder ueber Upstash laufen.
 
 - `EBAY_TOKEN_STORE_MODE=upstash`: erzwungener Upstash-Modus
+- `EBAY_TOKEN_STORE_MODE=file`: erzwungener lokaler Datei-Modus
+- Der Wert muss exakt `upstash` oder `file` sein, sonst nutzt die App die automatische Erkennung
 - `EBAY_TOKEN_STORE_URL`: Upstash REST-URL
 - `EBAY_TOKEN_STORE_TOKEN`: Upstash REST-Token
 - `EBAY_TOKEN_STORE_KEY`: eigener Redis-Key
 - `EBAY_TOKEN_STORE_PATH`: lokaler Fallback-Pfad, Standard `./data/ebay-refresh-token.json`
+
+### eBay Schnellstart
+
+Wenn der OAuth-Flow einmal sauber eingerichtet ist, braucht ihr fuer Vercel normalerweise nur diese Werte:
+
+- `EBAY_CLIENT_ID`
+- `EBAY_CLIENT_SECRET`
+- `EBAY_REDIRECT_URI=https://elyon-seller-tool.vercel.app/ebay-callback`
+- `EBAY_SCOPES=https://api.ebay.com/oauth/api_scope https://api.ebay.com/oauth/api_scope/sell.fulfillment.readonly`
+- `EBAY_TOKEN_STORE_MODE=upstash`
+- `EBAY_TOKEN_STORE_URL`
+- `EBAY_TOKEN_STORE_TOKEN`
+
+Wichtig:
+
+- `EBAY_TOKEN_STORE_URL` ist die Upstash REST-URL, zum Beispiel `https://prompt-tiger-116674.upstash.io`
+- `EBAY_TOKEN_STORE_TOKEN` ist der Upstash REST-Token
+- In Vercel steht bei `EBAY_TOKEN_STORE_MODE` nur `upstash`, nicht `EBAY_TOKEN_STORE_MODE=upstash`
+- Nach jeder Scope-Aenderung den eBay-Login-Flow erneut ausfuehren, damit ein neuer Refresh Token erzeugt wird
+
+### eBay Test-Reihenfolge
+
+1. `GET /api/ebay/status`
+2. eBay-Login ueber die Callback-Seite erneut starten
+3. In der Callback-Antwort pruefen, ob `stored: true` angezeigt wird
+4. `GET /api/ebay/token?environment=production`
+5. Optional `GET /api/ebay/orders?environment=production&days=7`
 
 ### OpenAI / KI
 
@@ -467,8 +496,16 @@ Unterstuetzte Sync-Typen:
 
 - `inventory` -> Sheet `Inventar`
 - `suppliers` -> Sheet `Supplier Liste`
-- `sales` -> Sheet `Sales & Klarna`
+- `sales` -> Sheet `InventarTracker`
 - `costs` -> Sheet `Laufende Kosten`
+
+### Mehrgeräte-Flow
+
+- Ein Gerät speichert neue oder geänderte Daten per Sync in Google Sheets.
+- Andere Geräte laden die zentralen `Bestellungen`-Daten anschließend wieder aus demselben Sheet.
+- Falls dein Tab noch `Bestellungen` oder `Sales & Klarna` heißt, erkennt das Script ihn weiter als Fallback.
+- Dafür müssen auf jedem Gerät dieselbe Web-App-URL und derselbe Sync-Token hinterlegt sein.
+- Das Sheet selbst bleibt die gemeinsame Datenquelle; der Browser speichert nur den lokalen Cache.
 
 ### Verhalten
 
@@ -573,4 +610,3 @@ Im Repo liegen bewusst auch Referenzen und Backups:
 - `BACKUP_NOTIZ_2026-05-10.md`
 
 Diese Dateien dienen als Rueckfallebene und historische Sicherung.
-

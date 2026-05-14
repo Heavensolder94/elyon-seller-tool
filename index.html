@@ -145,6 +145,20 @@
     .start-mini-link strong{display:block;font-size:14px}
     .start-mini-link small{display:block;color:#cbd5e1;font-weight:600;line-height:1.35}
     .start-mini-link span:last-child{font-size:18px;color:#bfdbfe;font-weight:900}
+    .start-orders-box{margin-top:14px;padding:16px;border-radius:20px;background:rgba(2,6,23,.34);border:1px solid rgba(255,255,255,.09);display:grid;gap:12px}
+    .start-orders-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap}
+    .start-orders-head h4{margin:4px 0 0;font-size:18px;letter-spacing:-.03em}
+    .start-orders-head small{display:block;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#bfdbfe}
+    .start-orders-head button{flex:0 0 auto}
+    .start-orders-list{display:grid;gap:10px}
+    .start-order-item{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;width:100%;text-align:left;padding:12px 14px;border-radius:16px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1)}
+    .start-order-main{display:grid;gap:4px;min-width:0}
+    .start-order-main strong{font-size:14px;line-height:1.35;letter-spacing:-.01em}
+    .start-order-main small{color:#cbd5e1;font-size:12px;line-height:1.4}
+    .start-order-meta{display:grid;gap:4px;justify-items:end;text-align:right;flex:0 0 auto}
+    .start-order-meta small{color:#94a3b8;font-size:11px;letter-spacing:.03em}
+    .start-order-meta span{font-size:12px;font-weight:800;color:#e2e8f0}
+    .start-order-empty{padding:12px 14px;border-radius:16px;background:rgba(255,255,255,.05);border:1px dashed rgba(255,255,255,.14);color:#cbd5e1;font-size:13px;line-height:1.45}
     @media(max-width:860px){
       .start-focus-layout{grid-template-columns:1fr}
       .start-focus-sidebar{grid-template-columns:1fr}
@@ -302,6 +316,38 @@
   .task-center-notice{margin-top:0}
   .task-center-empty{margin-top:0}
   .task-center-priority-critical{border-color:rgba(239,68,68,.22)}
+  .task-center-triage{display:grid;gap:12px;padding:18px;border-radius:22px;background:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.04));border:1px solid rgba(245,158,11,.18)}
+  .task-center-triage-head{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;flex-wrap:wrap}
+  .task-center-triage-head h4{margin:0;font-size:18px;letter-spacing:-.02em}
+  .task-center-triage-head p{margin-top:4px;color:#cbd5e1;font-size:13px;line-height:1.45}
+  .task-center-triage-list{display:grid;gap:10px}
+  .task-center-triage-item{display:grid;gap:8px;padding:14px 16px;border-radius:18px;background:rgba(2,6,23,.34);border:1px solid rgba(255,255,255,.08);position:relative;overflow:hidden}
+  .task-center-triage-item:before{content:'';position:absolute;inset:0 auto 0 0;width:4px;background:linear-gradient(180deg,#f97316,#ef4444)}
+  .task-center-triage-item[data-task-priority="critical"]:before{background:linear-gradient(180deg,#ef4444,#b91c1c)}
+  .task-center-triage-item[data-task-priority="high"]:before{background:linear-gradient(180deg,#f97316,#f59e0b)}
+  .task-center-triage-item .task-center-triage-title{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+  .task-center-triage-item strong{font-size:15px;letter-spacing:-.01em}
+  .task-center-triage-item span,.task-center-triage-item p{color:#cbd5e1;font-size:13px;line-height:1.45}
+  .task-center-triage-actions{display:flex;gap:8px;flex-wrap:wrap}
+  .task-center-triage-empty{padding:16px;border-radius:18px;background:rgba(2,6,23,.28);border:1px dashed rgba(250,204,21,.24);color:#fde68a;font-size:13px;line-height:1.5}
+  .task-center-card{position:relative;overflow:hidden}
+  .task-center-card:before{content:'';position:absolute;inset:0 auto 0 0;width:4px;background:linear-gradient(180deg,rgba(148,163,184,.55),rgba(148,163,184,.12))}
+  .task-center-priority-low:before{background:linear-gradient(180deg,#38bdf8,#0ea5e9)}
+  .task-center-priority-medium:before{background:linear-gradient(180deg,#f59e0b,#facc15)}
+  .task-center-priority-high:before{background:linear-gradient(180deg,#f97316,#f59e0b)}
+  .task-center-priority-critical:before{background:linear-gradient(180deg,#ef4444,#b91c1c)}
+  .task-center-card-top{padding-left:4px}
+  .task-center-meta-grid{position:relative;z-index:1}
+  .task-remove-modal-panel{max-width:680px;width:min(96vw,680px)}
+  .task-remove-modal{display:grid;gap:14px}
+  .task-remove-modal-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap}
+  .task-remove-modal-head h3{margin:0;font-size:21px;letter-spacing:-.02em}
+  .task-remove-modal-head p{margin-top:4px;color:#cbd5e1;font-size:13px;line-height:1.5}
+  .task-remove-summary{display:grid;gap:10px;padding:16px;border-radius:18px;background:rgba(2,6,23,.38);border:1px solid rgba(255,255,255,.09)}
+  .task-remove-summary small{display:block;margin-bottom:4px;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:#94a3b8}
+  .task-remove-summary strong{display:block;font-size:15px;line-height:1.45}
+  .task-remove-warning{padding:14px 16px;border-radius:18px;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.24);color:#fecaca;font-size:13px;line-height:1.55}
+  .task-remove-modal-actions{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap}
   @media(max-width:900px){
     .settings-agents-overview,.virtual-agent-grid{grid-template-columns:1fr}
     .virtual-agent-system-metrics{grid-template-columns:1fr 1fr}
@@ -312,6 +358,7 @@
     .virtual-agent-head{display:block}
     .task-center-control-row{align-items:stretch}
     .task-center-action-row{justify-content:flex-start}
+    .task-center-triage-head{display:block}
   }
 </style>
 <body>
@@ -417,6 +464,16 @@
             <small style="display:block;color:#94a3b8;font-size:11px;margin-bottom:4px;letter-spacing:.04em;text-transform:uppercase">Integrationen</small>
             <strong id="startIntegrationStatus" style="font-size:16px;letter-spacing:-.02em;color:#e2e8f0">Prüfen</strong>
           </div>
+        </div>
+        <div class="start-orders-box">
+          <div class="start-orders-head">
+            <div>
+              <small>Neue eBay-Bestellungen</small>
+              <h4 id="startOrdersTitle">0 neue Bestellungen</h4>
+            </div>
+            <button id="startOpenOrdersBtn" class="secondary" type="button">Bestellungen öffnen</button>
+          </div>
+          <div id="startRecentOrders" class="start-orders-list"></div>
         </div>
       </div>
       <div class="start-launcher-grid">
@@ -1483,6 +1540,39 @@ PLZ Ort"></textarea>
     </div>
   </div>
 
+  <div id="taskRemoveModal" class="hidden modal-backdrop" aria-hidden="true">
+    <div class="card modal-panel task-remove-modal-panel">
+      <div class="task-remove-modal">
+        <div class="task-remove-modal-head">
+          <div>
+            <h3>Aufgabe entfernen</h3>
+            <p>Die Aufgabe wird lokal aus dem AI Task Center gelöscht. Das ist dauerhaft, aber weiterhin rein browserlokal.</p>
+          </div>
+          <span class="virtual-agent-badge warn">Lokal</span>
+        </div>
+        <div class="task-remove-summary">
+          <div>
+            <small>Titel</small>
+            <strong id="taskRemoveTitle">-</strong>
+          </div>
+          <div>
+            <small>Agent</small>
+            <strong id="taskRemoveAgent">-</strong>
+          </div>
+          <div>
+            <small>Kategorie</small>
+            <strong id="taskRemoveCategory">-</strong>
+          </div>
+        </div>
+        <div class="task-remove-warning">Diese Aktion entfernt die Aufgabe aus der lokalen Queue. Es werden keine API-Anfragen ausgelöst und die restlichen Einstellungen bleiben unverändert.</div>
+        <div class="task-remove-modal-actions">
+          <button type="button" id="taskRemoveCancelBtn" class="secondary">Abbrechen</button>
+          <button type="button" id="taskRemoveConfirmBtn">Entfernen</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div id="invoiceModal" class="hidden modal-backdrop">
     <div class="card modal-panel invoice-modal-panel">
       <h2>🧾 Rechnung</h2>
@@ -1838,6 +1928,7 @@ const START_TARGET_META = {
   product:{kind:'quick', action:'product', label:'Produkt prüfen', description:'Zum Produktformular springen und den nächsten Kandidaten prüfen.', button:'Produktprüfung öffnen'},
   sale:{kind:'quick', action:'sale', label:'Verkauf öffnen', description:'Verkäufe, Gewinn und Status direkt weiterbearbeiten.', button:'Verkauf öffnen'},
   shipping:{kind:'quick', action:'shipping', label:'Versand prüfen', description:'Offene Versandfälle und Tracking nachfassen.', button:'Versand prüfen'},
+  orders:{kind:'quick', action:'orders', label:'Neue Bestellungen', description:'Neue eBay-Bestellungen anzeigen und direkt abarbeiten.', button:'Bestellungen öffnen'},
   invoice:{kind:'tab', tab:'invoiceTab', label:'Rechnungen', description:'Rechnungsübersicht, Status und Export öffnen.', button:'Rechnungen öffnen'},
   return:{kind:'quick', action:'return', label:'Retouren', description:'Offene Rückgaben und Erstattungen klären.', button:'Retouren öffnen'},
   ebay:{kind:'area', area:'ebay', label:'Bestellungen', description:'Den operativen Bereich für Verkäufe, Versand und Rechnungen öffnen.', button:'Bestellungen öffnen'},
@@ -1866,6 +1957,19 @@ function openStartTarget(target){
     if(meta.tab === 'financeTab') safe('fRevenue', el => el.focus());
   }
 }
+function getStartOrderSortTime(order){
+  const createdAt = Date.parse(order.createdAt || order.importedAt || order.updatedAt || '');
+  return Number.isFinite(createdAt) ? createdAt : Number(order.id) || 0;
+}
+function getStartRecentEbayOrders(limit){
+  return sales.filter(function(s){
+    const platform = String(s.platform || '').toLowerCase();
+    const ship = String(s.shippingStatus || 'Noch nicht versendet');
+    return platform === 'ebay' && (ship === 'Noch nicht versendet' || ship === 'Versand vorbereitet' || ship === 'Bezahlt');
+  }).sort(function(a, b){
+    return getStartOrderSortTime(b) - getStartOrderSortTime(a);
+  }).slice(0, limit || 3);
+}
 function getStartLauncherRecommendation(){
   const stats = getTodayFocusData();
   const openReturnCount = returns.filter(function(r){ return !isReturnClosed(r.status); }).length + shopifyReturns.filter(function(r){ return !isReturnClosed(r.status); }).length;
@@ -1874,12 +1978,16 @@ function getStartLauncherRecommendation(){
     const trackingMissing = !String(s.trackingNo || '').trim();
     return ship !== 'Zugestellt' && ship !== 'Storniert' && (ship !== 'Versendet' || trackingMissing);
   }).length;
+  const openEbayOrders = getStartRecentEbayOrders(3);
   if(stats.problemCount > 0) return {target:'product', tone:'bad', eyebrow:'Heute priorisieren', title:'Archivierte Produkte prüfen', text:'Es gibt archivierte oder unklare Produkte. Räume diese Fälle zuerst auf, bevor du weiterarbeitest.'};
   if(stats.missingKeyword > 0 || stats.missingTitle > 0 || stats.missingDescription > 0 || stats.seoCheckCount > 0 || stats.ebayReadyCount > 0){
     return {target:'product', tone:'warn', eyebrow:'Heute priorisieren', title:'Produktdaten und Listing verbessern', text:'Deine Drafts brauchen noch Titel, Keywords oder SEO-Feinschliff. Öffne direkt die Produktarbeit.'};
   }
   if(openReturnCount > 0) return {target:'return', tone:'warn', eyebrow:'Heute priorisieren', title:'Offene Retouren klären', text:openReturnCount + ' offene Retoure(n) warten auf Bearbeitung. Danach sind Versand und Rechnungen dran.'};
   if(stats.trackingMissingCount > 0 || shippingTodos > 0) return {target:'shipping', tone:'info', eyebrow:'Heute priorisieren', title:'Versand und Tracking prüfen', text:(stats.trackingMissingCount || shippingTodos) + ' Versandfall/Fälle brauchen Aufmerksamkeit oder Tracking.'};
+  if(openEbayOrders.length > 0){
+    return {target:'orders', tone:'good', eyebrow:'Neue Bestellungen', title:openEbayOrders.length + (openEbayOrders.length === 1 ? ' neue eBay-Bestellung' : ' neue eBay-Bestellungen'), text:'Öffne die Bestellungen und arbeite die frischen eBay-Vorgänge direkt ab.'};
+  }
   const lastTarget = getLastStartTarget();
   const lastMeta = START_TARGET_META[lastTarget] || START_TARGET_META.ebay;
   return {target:lastTarget, tone:'good', eyebrow:'Weiterarbeiten', title:'Zuletzt: ' + lastMeta.label, text:lastMeta.description};
@@ -1894,6 +2002,7 @@ function renderStartDashboard(){
   const ebay = integrationStatusText('ebay', integrationSettings.ebayCheck);
   const cj = integrationStatusText('cj', integrationSettings.cjCheck);
   const recommendation = getStartLauncherRecommendation();
+  const openEbayOrders = getStartRecentEbayOrders(3);
   safe('startShipTodos',el=>el.textContent=shippingTodos);
   safe('startOpenReturns',el=>el.textContent=openReturns);
   safe('startBackupStatus',el=>el.textContent=lastBackupText());
@@ -1909,6 +2018,22 @@ function renderStartDashboard(){
   safe('startRecommendedBtn', el => {
     el.textContent = (START_TARGET_META[recommendation.target] || START_TARGET_META.ebay).button;
     el.dataset.startTarget = recommendation.target;
+  });
+  safe('startOrdersTitle', el => {
+    el.textContent = openEbayOrders.length + (openEbayOrders.length === 1 ? ' neue Bestellung' : ' neue Bestellungen');
+  });
+  safe('startRecentOrders', el => {
+    if(!openEbayOrders.length){
+      el.innerHTML = '<div class="start-order-empty">Keine neuen eBay-Bestellungen gefunden. Sobald eBay neue Aufträge importiert, erscheinen sie hier automatisch.</div>';
+      return;
+    }
+    el.innerHTML = openEbayOrders.map(function(s){
+      const orderNo = escapeHtml(s.orderNo || 'ohne Order-ID');
+      const product = escapeHtml(s.product || 'eBay Bestellung');
+      const buyer = escapeHtml(s.customerName || s.buyerRef || 'Kunde');
+      const ship = escapeHtml(s.shippingStatus || 'Noch nicht versendet');
+      return '<button type="button" class="start-order-item" onclick="openOrders()"><div class="start-order-main"><strong>' + product + '</strong><small>' + buyer + '</small></div><div class="start-order-meta"><small>' + orderNo + '</small><span>' + ship + '</span></div></button>';
+    }).join('');
   });
 }
 function closeStartLauncher(){
@@ -1939,6 +2064,7 @@ function startQuickAction(action){
   if(action === 'product') scrollToProductForm();
   if(action === 'sale') openSalesAssistant();
   if(action === 'shipping') showTab('automationTab');
+  if(action === 'orders') openOrders();
   if(action === 'invoice'){
     showTab('invoiceTab');
     safe('invoiceSearch', el => el.focus());
@@ -2773,7 +2899,8 @@ function mapEbayOrderToSale(order){
     trackingNo:'',
     shipDate:'',
     note:'Importiert aus eBay Backend-Vorschau. Kosten/Gebühren bitte prüfen.',
-    created:new Date().toLocaleDateString('de-DE')
+    created:new Date().toLocaleDateString('de-DE'),
+    createdAt:new Date().toISOString()
   };
 }
 function syncEbayOrdersImportPanels(){
@@ -6948,6 +7075,7 @@ function bindEvents(){
   bind('startQuickProduct','click',()=>startQuickAction('product'));
   bind('startQuickSale','click',()=>startQuickAction('sale'));
   bind('startQuickShipping','click',()=>startQuickAction('shipping'));
+  bind('startOpenOrdersBtn','click',openOrders);
   bind('startQuickInvoice','click',()=>startQuickAction('invoice'));
   bind('startQuickReturn','click',()=>startQuickAction('return'));
   bind('startBackupNowBtn','click',exportFullBackup);
@@ -7148,8 +7276,9 @@ function runSelfTests(){
   console.assert(!!$('invoiceTab'), 'invoiceTab muss existieren');
   console.assert(!!$('apiImportTab'), 'apiImportTab muss existieren');
   console.assert(!!$('startLauncherModal'), 'Schnellmenü Modal muss existieren');
-  console.assert(typeof openStartLauncher === 'function', 'Schnellmenü öffnen Funktion sollte existieren');
-  console.assert(typeof renderStartDashboard === 'function', 'Schnellstart-Status sollte existieren');
+    console.assert(typeof openStartLauncher === 'function', 'Schnellmenü öffnen Funktion sollte existieren');
+    console.assert(typeof renderStartDashboard === 'function', 'Schnellstart-Status sollte existieren');
+    console.assert(typeof getStartRecentEbayOrders === 'function', 'Neue Bestellungen im Schnellstart sollten existieren');
   console.assert(typeof startQuickAction === 'function', 'Schnellstart-Aktionen sollten existieren');
   console.assert(!!$('shopifyMenu'), 'shopifyMenu muss existieren');
   console.assert(!!$('shopifyPageSection'), 'Shopify Produktseiten-Sektion muss existieren');
@@ -7891,6 +8020,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   let taskStatusFilter = 'all';
   let taskPriorityFilter = 'all';
   let taskCenterNotice = '';
+  let taskRemovalTargetId = '';
   let advancedAutonomyHoldTimer = null;
   let advancedAutonomyHoldFrame = null;
   let advancedAutonomyHoldStart = 0;
@@ -8040,7 +8170,24 @@ document.addEventListener('DOMContentLoaded',()=>{
       if (taskStatusFilter !== 'all' && task.status !== taskStatusFilter) return false;
       if (taskPriorityFilter !== 'all' && task.priority !== taskPriorityFilter) return false;
       return true;
+    }).sort((a, b) => {
+      const rankA = AI_TASK_PRIORITY_ORDER[normalizeTaskPriority(a.priority)] || 0;
+      const rankB = AI_TASK_PRIORITY_ORDER[normalizeTaskPriority(b.priority)] || 0;
+      if (rankA !== rankB) return rankB - rankA;
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
+  };
+
+  const getTriageAiTasks = () => getFilteredAiTasks().filter((task) => {
+    const priority = normalizeTaskPriority(task.priority);
+    return priority === 'high' || priority === 'critical';
+  }).slice(0, 3);
+
+  const getBoardLabel = (task) => {
+    if (task.status === 'in_progress') return 'In Bearbeitung';
+    if (task.status === 'done') return 'Erledigt';
+    if (task.status === 'dismissed') return 'Ausgeblendet';
+    return 'Offen';
   };
 
   const updateAiTask = (taskId, updater) => {
@@ -8107,6 +8254,46 @@ document.addEventListener('DOMContentLoaded',()=>{
   };
 
   const getTaskSourceMeta = (source) => AI_TASK_SOURCE_LABELS[normalizeTaskSource(source)] || 'Manuell';
+  const getTaskPriorityRank = (priority) => AI_TASK_PRIORITY_ORDER[normalizeTaskPriority(priority)] || 0;
+  const getTaskById = (taskId) => (Array.isArray(state.aiTasks) ? state.aiTasks.find((task) => task && task.id === taskId) : null);
+
+  const openTaskRemoveModal = (taskId) => {
+    const task = getTaskById(taskId);
+    if (!task) return;
+    taskRemovalTargetId = taskId;
+    const modal = getEl('taskRemoveModal');
+    const title = getEl('taskRemoveTitle');
+    const agent = getEl('taskRemoveAgent');
+    const category = getEl('taskRemoveCategory');
+    if (title) title.textContent = task.title || '-';
+    if (agent) agent.textContent = task.agent || '-';
+    if (category) category.textContent = task.category || '-';
+    if (modal) {
+      modal.classList.remove('hidden');
+      modal.setAttribute('aria-hidden', 'false');
+    }
+  };
+
+  const closeTaskRemoveModal = () => {
+    taskRemovalTargetId = '';
+    const modal = getEl('taskRemoveModal');
+    if (modal) {
+      modal.classList.add('hidden');
+      modal.setAttribute('aria-hidden', 'true');
+    }
+  };
+
+  const confirmTaskRemoval = () => {
+    if (!taskRemovalTargetId) {
+      closeTaskRemoveModal();
+      return;
+    }
+    state.aiTasks = (Array.isArray(state.aiTasks) ? state.aiTasks : []).filter((item) => item && item.id !== taskRemovalTargetId);
+    taskRemovalTargetId = '';
+    saveState();
+    closeTaskRemoveModal();
+    render();
+  };
 
   const handleTaskAction = (taskId, action) => {
     if (!taskId) return;
@@ -8116,6 +8303,10 @@ document.addEventListener('DOMContentLoaded',()=>{
     }
     if (action === 'dismiss') {
       updateAiTask(taskId, (task) => ({ ...task, status: 'dismissed' }));
+      return;
+    }
+    if (action === 'remove') {
+      openTaskRemoveModal(taskId);
       return;
     }
     if (action === 'in_progress' || action === 'open' || action === 'dismissed' || action === 'done') {
@@ -8145,7 +8336,10 @@ document.addEventListener('DOMContentLoaded',()=>{
       <article class="virtual-agent-card task-center-card task-center-priority-${escapeHtml(normalizeTaskPriority(task.priority))}">
         <div class="task-center-card-top">
           <div class="task-center-card-heading">
-            <h4>${escapeHtml(task.title)}</h4>
+            <div class="task-center-triage-title">
+              <h4>${escapeHtml(task.title)}</h4>
+              <span class="pill">${escapeHtml(getBoardLabel(task))}</span>
+            </div>
             <p>${escapeHtml(task.description)}</p>
           </div>
           <div class="task-center-badge-stack">
@@ -8172,6 +8366,7 @@ document.addEventListener('DOMContentLoaded',()=>{
             <button type="button" class="secondary" data-task-action="prepare" data-task-id="${escapeHtml(task.id)}">${escapeHtml(task.actionLabel)}</button>
             <button type="button" class="secondary" data-task-action="done" data-task-id="${escapeHtml(task.id)}">Erledigt</button>
             <button type="button" class="secondary" data-task-action="dismiss" data-task-id="${escapeHtml(task.id)}">Ausblenden</button>
+            <button type="button" class="secondary" data-task-action="remove" data-task-id="${escapeHtml(task.id)}">Entfernen</button>
           </div>
         </div>
       </article>
@@ -8183,6 +8378,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     const hasSandboxHint = isSecurityLocked();
     const pauseHint = isAllAgentsPaused();
     const tasks = getFilteredAiTasks();
+    const triageTasks = getTriageAiTasks();
     const totalTasks = Array.isArray(state.aiTasks) ? state.aiTasks.length : 0;
     const emptyMessage = totalTasks
       ? 'Keine KI-Aufgaben passen zu den aktiven Filtern.'
@@ -8211,6 +8407,38 @@ document.addEventListener('DOMContentLoaded',()=>{
           ${pauseHint ? '<div class="task-center-alert">Alle Agenten sind pausiert. Es werden keine neuen Aufgaben erzeugt.</div>' : ''}
           ${hasSandboxHint ? `<div class="task-center-alert task-center-alert-warn">${AI_TASK_NOTICE_SANDBOX}</div>` : ''}
           ${taskCenterNotice ? `<div class="output-box task-center-notice"><p>${escapeHtml(taskCenterNotice)}</p></div>` : ''}
+
+          <section class="task-center-triage">
+            <div class="task-center-triage-head">
+              <div>
+                <h4>Wichtige Aufgaben</h4>
+                <p>Kritische und hohe Aufgaben erscheinen hier zuerst. So sieht das Team die dringendsten Hinweise sofort.</p>
+              </div>
+              <span class="virtual-agent-badge warn">${triageTasks.length} Prioritäts-Tasks</span>
+            </div>
+            ${triageTasks.length ? `
+              <div class="task-center-triage-list">
+                ${triageTasks.map((task) => {
+                  const priorityMeta = getTaskPriorityMeta(task.priority);
+                  return `
+                    <article class="task-center-triage-item" data-task-priority="${escapeHtml(normalizeTaskPriority(task.priority))}">
+                      <div class="task-center-triage-title">
+                        <strong>${escapeHtml(task.title)}</strong>
+                        <span>${escapeHtml(task.agent)} · ${escapeHtml(priorityMeta.label)}</span>
+                      </div>
+                      <p>${escapeHtml(task.description)}</p>
+                      <div class="task-center-triage-actions">
+                        <button type="button" class="secondary" data-task-action="prepare" data-task-id="${escapeHtml(task.id)}">${escapeHtml(task.actionLabel)}</button>
+                        <button type="button" class="secondary" data-task-action="done" data-task-id="${escapeHtml(task.id)}">Erledigt</button>
+                        <button type="button" class="secondary" data-task-action="dismiss" data-task-id="${escapeHtml(task.id)}">Ausblenden</button>
+                        <button type="button" class="secondary" data-task-action="remove" data-task-id="${escapeHtml(task.id)}">Entfernen</button>
+                      </div>
+                    </article>
+                  `;
+                }).join('')}
+              </div>
+            ` : '<div class="task-center-triage-empty">Keine hohen oder kritischen Aufgaben offen. Die Triage ist aktuell ruhig.</div>'}
+          </section>
 
           <div class="task-center-filters">
             <div>
@@ -8871,6 +9099,33 @@ document.addEventListener('DOMContentLoaded',()=>{
     });
   };
 
+  const bindTaskRemoveModal = () => {
+    const modal = getEl('taskRemoveModal');
+    const cancelBtn = getEl('taskRemoveCancelBtn');
+    const confirmBtn = getEl('taskRemoveConfirmBtn');
+    if (cancelBtn && !cancelBtn.dataset.bound) {
+      cancelBtn.dataset.bound = 'yes';
+      cancelBtn.addEventListener('click', closeTaskRemoveModal);
+    }
+    if (confirmBtn && !confirmBtn.dataset.bound) {
+      confirmBtn.dataset.bound = 'yes';
+      confirmBtn.addEventListener('click', confirmTaskRemoval);
+    }
+    if (modal && !modal.dataset.bound) {
+      modal.dataset.bound = 'yes';
+      modal.addEventListener('click', (event) => {
+        if (event.target === modal) {
+          closeTaskRemoveModal();
+        }
+      });
+    }
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        closeTaskRemoveModal();
+      }
+    });
+  };
+
   document.addEventListener('click', (event) => {
     const modal = getEl('advancedAutonomyModal');
     if (!modal || modal.classList.contains('hidden')) return;
@@ -8890,6 +9145,7 @@ document.addEventListener('DOMContentLoaded',()=>{
 
   document.addEventListener('DOMContentLoaded', () => {
     bind();
+    bindTaskRemoveModal();
     render();
     const advancedAutonomyCheckbox = getEl('advancedAutonomyRiskCheckbox');
     const advancedAutonomyHoldBtn = getEl('advancedAutonomyHoldBtn');
