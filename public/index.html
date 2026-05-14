@@ -1087,6 +1087,12 @@ Land"></textarea>
       </div>
 
       <div class="settings-section">
+        <h3>🤖 KI</h3>
+        <div class="checkrow"><input type="checkbox" id="setAiEnabled" checked><label for="setAiEnabled">KI-Funktionen aktivieren</label></div>
+        <p class="hint">Wenn diese Option aus ist, bleiben die KI-Buttons sichtbar, aber die Prüfung nutzt keine OpenAI-Funktionen.</p>
+      </div>
+
+      <div class="settings-section">
         <h3>🎨 Darstellung</h3>
         <div class="settings-grid">
           <div><label>Theme</label><select id="setTheme"><option value="dark">Dark Mode</option><option value="light">Light Mode</option></select></div>
@@ -1411,6 +1417,7 @@ const defaultSettings = {
   safeMode: true,
   avoidElectronics: true,
   lucidReminder: true,
+  aiEnabled: true,
   market: 'DE',
   theme: 'dark',
   designPreset: 'classic',
@@ -5639,6 +5646,7 @@ function applySettings(){
   safe('setSafeMode',el=>el.checked=appSettings.safeMode);
   safe('setAvoidElectronics',el=>el.checked=appSettings.avoidElectronics);
   safe('setLucidReminder',el=>el.checked=appSettings.lucidReminder);
+  safe('setAiEnabled',el=>el.checked=appSettings.aiEnabled !== false);
   safe('setMarket',el=>el.value=appSettings.market);
   safe('setTheme',el=>el.value=appSettings.theme);
   safe('setDesignPreset',el=>el.value=appSettings.designPreset || 'classic');
@@ -5657,6 +5665,7 @@ function readSettingsFromForm(){
     safeMode: (function(){ const el = $('setSafeMode'); return !!(el && el.checked); })(),
     avoidElectronics: (function(){ const el = $('setAvoidElectronics'); return !!(el && el.checked); })(),
     lucidReminder: (function(){ const el = $('setLucidReminder'); return !!(el && el.checked); })(),
+    aiEnabled: (function(){ const el = $('setAiEnabled'); return !!(el && el.checked); })(),
     market:$('setMarket')?.value||'DE',
     theme:$('setTheme')?.value||'dark',
     designPreset:$('setDesignPreset')?.value||'classic',
@@ -6869,6 +6878,7 @@ function runSelfTests(){
   console.assert(!!$('launcherNewProduct'), 'Schnellstart Neues Produkt sollte existieren');
   console.assert(!!$('launcherBackup'), 'Schnellstart Backup sollte existieren');
   console.assert(!!$('setDesignPreset'), 'Design-Varianten sollten in Einstellungen existieren');
+  console.assert(!!$('setAiEnabled'), 'KI-Funktionen Schalter sollten in Einstellungen existieren');
   console.assert(!!$('setIntBackendUrl'), 'Integrationen sollten in Einstellungen existieren');
   console.assert(typeof makeSettingsDropdowns === 'function', 'Settings Dropdown Funktion sollte existieren');
   console.assert(typeof renderIntegrationStatus === 'function', 'Integrationen Status Funktion sollte existieren');
