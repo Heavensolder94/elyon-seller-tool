@@ -39,6 +39,8 @@
     loading: false,
     aiChecked: false,
     aiEnabled: false,
+    chatMode: "unknown",
+    chatDetail: "",
     messages: [],
     summary: createEmptySummary(),
   };
@@ -49,6 +51,7 @@
     panel: null,
     status: null,
     usage: null,
+    chatMode: null,
     metrics: null,
     hint: null,
     feed: null,
@@ -406,6 +409,35 @@
     ui.usage.dataset.tone = remaining <= 0 ? "warn" : "info";
   }
 
+  function renderChatMode() {
+    if (!ui.chatMode) return;
+    const labels = {
+      unknown: "Chat -> noch nicht geprüft",
+      deepseek: "Chat -> DeepSeek aktiv",
+      fallback: "Chat -> lokaler Fallback",
+      billing: "Chat -> DeepSeek 402 / Billing nötig",
+      offline: "Chat -> API nicht erreichbar",
+      ready: "Chat -> DeepSeek bereit",
+    };
+    const tones = {
+      unknown: "info",
+      deepseek: "good",
+      fallback: "warn",
+      billing: "warn",
+      offline: "bad",
+      ready: "good",
+    };
+    const label = labels[state.chatMode] || labels.unknown;
+    ui.chatMode.textContent = state.chatDetail ? `${label} · ${state.chatDetail}` : label;
+    ui.chatMode.dataset.tone = tones[state.chatMode] || "info";
+  }
+
+  function setChatMode(mode, detail) {
+    state.chatMode = mode || "unknown";
+    state.chatDetail = text(detail);
+    renderChatMode();
+  }
+
   function setStatus(textValue, tone, detailValue) {
     if (!ui.status) return;
     ui.status.textContent = textValue;
@@ -648,6 +680,7 @@
       refreshSummary();
       renderMessages();
       renderAiUsage();
+      renderChatMode();
       setTimeout(scrollToLatest, 50);
     }
   }
@@ -673,6 +706,7 @@
     pushMessage("assistant", "ELYON SOUL", answer);
     renderFeedback(action.label, answer);
     setStatus(state.aiEnabled ? "DeepSeek aktiv" : summary.total > 0 ? "Regelmodus aktiv" : "Warte auf Produktdaten", state.aiEnabled ? "good" : "warn");
+    setChatMode(state.aiEnabled ? "deepseek" : "fallback", state.aiEnabled ? "Regelantwort aus DeepSeek-Kontext" : "Regelbasierte Antwort");
   }
 
   async function handleComposerSubmit(event) {
@@ -694,6 +728,10 @@
       const title = result.mode === "deepseek" ? "DEEPSEEK" : "ELYON SOUL";
       pushMessage("assistant", title, answer);
       renderFeedback(title, answer);
+      setChatMode(
+        result.mode === "deepseek" ? "deepseek" : "fallback",
+        result.mode === "deepseek" ? "Antwort kam direkt von DeepSeek" : "DeepSeek lieferte keinen Chat-Text, lokaler Coach sprang ein"
+      );
       setStatus(
         result.mode === "deepseek" ? "DeepSeek aktiv" : "Regelmodus aktiv",
         result.mode === "deepseek" ? "good" : "warn",
@@ -705,6 +743,10 @@
       const answer = getRuleBasedReply(prompt, summary);
       pushMessage("assistant", "ELYON SOUL", answer);
       renderFeedback("ELYON SOUL", answer);
+      setChatMode(
+        error?.status === 402 ? "billing" : error?.kind === "network" ? "offline" : "fallback",
+        error?.status === 402 ? "Billing oder Guthaben pruefen" : formatDeepSeekError(error)
+      );
       setStatus(
         error?.kind === "limit" ? "Tageslimit erreicht" : summary.total > 0 ? "Regelmodus aktiv" : "Warte auf Produktdaten",
         error?.kind === "limit" ? "warn" : "warn",
@@ -741,6 +783,7 @@
       const answer = text(result.recommendation) || summary.recommendation;
       pushMessage("assistant", result.mode === "deepseek" ? "DEEPSEEK" : "ELYON SOUL", answer);
       renderFeedback("KI-Analyse", answer);
+      setChatMode(result.mode === "deepseek" ? "deepseek" : "fallback", result.mode === "deepseek" ? "Analyse kam von DeepSeek" : "Lokaler Fallback");
       setStatus(result.mode === "deepseek" ? "DeepSeek aktiv" : "Regelmodus aktiv", result.mode === "deepseek" ? "good" : "warn", result.mode === "deepseek" ? "Die KI-Antwort kommt jetzt von DeepSeek V4 Flash." : "DeepSeek hat regelbasiert geantwortet.");
     } catch (error) {
       state.aiChecked = true;
@@ -748,6 +791,10 @@
       const answer = formatDeepSeekError(error);
       pushMessage("assistant", "ELYON SOUL", answer);
       renderFeedback("KI-Analyse", answer);
+      setChatMode(
+        error?.status === 402 ? "billing" : error?.kind === "network" ? "offline" : "fallback",
+        error?.status === 402 ? "Billing oder Guthaben pruefen" : formatDeepSeekError(error)
+      );
       setStatus(summary.total > 0 ? "Regelmodus aktiv" : "Warte auf Produktdaten", "warn", formatDeepSeekError(error));
     } finally {
       setLoading(false);
@@ -786,6 +833,10 @@
               }
             : { label: summary.total > 0 ? "Regelmodus aktiv" : "Warte auf Produktdaten", tone: "warn", detail: "DeepSeek ist nicht aktiv oder gerade nicht erreichbar." };
       setStatus(status.label, status.tone, status.detail);
+      setChatMode(
+        state.aiEnabled ? "ready" : responseMessage.toLowerCase().includes("nicht aktiviert") ? "fallback" : "ready",
+        state.aiEnabled ? "DeepSeek bereit für Chat" : responseMessage.toLowerCase().includes("nicht aktiviert") ? "Kein API-Key in Production" : "Status geprueft"
+      );
     } catch (error) {
       state.aiChecked = true;
       state.aiEnabled = false;
@@ -794,6 +845,7 @@
         ? { label: "API nicht erreichbar", tone: "bad", detail: String(error?.message || "Die Backend-Route antwortet gerade nicht.").slice(0, 220) }
         : { label: "Warte auf Produktdaten", tone: "warn", detail: "Lokaler Coach aktiv. Lege zuerst Produkte an." };
       setStatus(status.label, status.tone, status.detail);
+      setChatMode("offline", "Probe-Check fehlgeschlagen");
     }
   }
 
@@ -820,6 +872,7 @@
             <div class="elyon-soul-status">Warte auf Produktdaten</div>
             <div class="elyon-soul-status-meta">Lokaler Coach aktiv. Lege zuerst Produkte an.</div>
             <div class="elyon-soul-usage">Heute: 30/30 KI-Anfragen übrig</div>
+            <div class="elyon-soul-chatmode">Chat -> noch nicht geprüft</div>
             <button class="elyon-soul-close" type="button" aria-label="Schliessen">×</button>
           </div>
         </div>
@@ -860,6 +913,7 @@
     ui.panel = shell.querySelector(".elyon-soul-panel");
     ui.status = shell.querySelector(".elyon-soul-status");
     ui.usage = shell.querySelector(".elyon-soul-usage");
+    ui.chatMode = shell.querySelector(".elyon-soul-chatmode");
     ui.metrics = shell.querySelector(".elyon-soul-metrics");
     ui.hint = shell.querySelector(".elyon-soul-hint-box");
     ui.feed = shell.querySelector(".elyon-soul-feed");
@@ -919,6 +973,7 @@
     updateAiButton();
     setPanelOpen(state.open);
     probeCapabilities();
+    renderChatMode();
   }
 
   if (document.readyState === "loading") {

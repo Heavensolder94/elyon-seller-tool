@@ -1,0 +1,1642 @@
+/* Elyon Seller OS - Notion Dark Workspace
+   One controlled design layer. No JavaScript changes, no IDs renamed.
+*/
+
+:root {
+  --workspace-bg: #191919;
+  --chrome-bg: #202020;
+  --page-bg: #191919;
+  --panel: rgba(255, 255, 255, 0.035);
+  --panel-hover: rgba(255, 255, 255, 0.06);
+  --line: rgba(255, 255, 255, 0.075);
+  --line-strong: rgba(255, 255, 255, 0.13);
+  --text: #f4f4f5;
+  --text-soft: #c7c7cc;
+  --muted: #8a8a8f;
+  --faint: #626267;
+  --accent: #60a5fa;
+  --accent-dark: #3b82f6;
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --radius: 12px;
+  --radius-lg: 16px;
+}
+
+body {
+  color: var(--text) !important;
+  background: var(--workspace-bg) !important;
+}
+
+body::before {
+  display: none !important;
+}
+
+.app {
+  grid-template-columns: 252px minmax(0, 1fr) !important;
+  background: var(--workspace-bg) !important;
+}
+
+.sidebar {
+  width: 252px !important;
+  padding: 14px 12px !important;
+  background: var(--chrome-bg) !important;
+  border-right: 1px solid var(--line) !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+}
+
+.brand {
+  padding: 8px 8px 12px !important;
+}
+
+.brand-mark {
+  width: 34px !important;
+  height: 34px !important;
+  border-radius: 8px !important;
+  background:
+    linear-gradient(135deg, #f8d06a 0%, #a16207 48%, #171717 49%, #171717 100%) !important;
+  box-shadow: none !important;
+}
+
+.brand h1 {
+  color: var(--text) !important;
+  font-size: 15px !important;
+  letter-spacing: -0.01em !important;
+}
+
+.brand p {
+  color: var(--faint) !important;
+  font-size: 10px !important;
+}
+
+.searchbox {
+  padding: 0 4px !important;
+}
+
+.searchbox::before {
+  display: none !important;
+}
+
+.searchbox input {
+  min-height: 34px !important;
+  padding: 8px 10px !important;
+  color: var(--text) !important;
+  background: rgba(255, 255, 255, 0.045) !important;
+  border: 1px solid transparent !important;
+  border-radius: 7px !important;
+}
+
+.searchbox input:focus {
+  border-color: var(--line-strong) !important;
+  box-shadow: none !important;
+}
+
+.sidebar > .nav:not(.nav-menu) {
+  display: none !important;
+}
+
+.nav-menu {
+  display: grid !important;
+  gap: 3px !important;
+  padding: 4px 0 10px !important;
+}
+
+.nav-group {
+  margin: 5px 0 9px !important;
+  background: transparent !important;
+  border: 0 !important;
+}
+
+.nav-group summary {
+  list-style: none;
+  padding: 8px 9px 5px !important;
+  color: var(--faint) !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.01em !important;
+  text-transform: none !important;
+  cursor: pointer;
+}
+
+.nav-group summary::-webkit-details-marker {
+  display: none;
+}
+
+.nav-group summary::after {
+  content: "";
+  float: right;
+  width: 6px;
+  height: 6px;
+  margin-top: 4px;
+  border-right: 1px solid var(--faint);
+  border-bottom: 1px solid var(--faint);
+  transform: rotate(45deg);
+  opacity: .55;
+}
+
+.nav-group[open] summary::after {
+  transform: rotate(225deg);
+  margin-top: 7px;
+}
+
+.nav-menu .nav-item {
+  min-height: 30px !important;
+  margin: 1px 0 !important;
+  padding: 6px 8px !important;
+  color: #b8b8bd !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 6px !important;
+  font-size: 13px !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.nav-menu .nav-item:hover,
+.nav-menu .nav-item.active {
+  color: #f4f4f5 !important;
+  background: rgba(255, 255, 255, 0.075) !important;
+}
+
+.nav-menu .nav-item.active::before {
+  display: none !important;
+}
+
+.nav-menu .nav-item .icon {
+  min-width: 22px !important;
+  width: auto !important;
+  height: 22px !important;
+  padding: 0 5px !important;
+  color: #d6d6da !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 5px !important;
+  font-size: 10px !important;
+}
+
+.sidebar-footer {
+  display: none !important;
+}
+
+.content {
+  max-width: none !important;
+  width: 100% !important;
+  padding: 0 0 56px !important;
+  margin: 0 !important;
+  background: var(--page-bg) !important;
+}
+
+.content::before {
+  content: "" !important;
+  display: block !important;
+  height: 178px !important;
+  margin: 0 !important;
+  border: 0 !important;
+  background:
+    linear-gradient(180deg, rgba(25, 25, 25, 0), #191919),
+    radial-gradient(circle at 58% 30%, rgba(255, 255, 255, 0.18), transparent 10%),
+    radial-gradient(circle at 52% 42%, rgba(59, 130, 246, 0.20), transparent 16%),
+    linear-gradient(135deg, #0f172a 0%, #1e293b 42%, #020617 100%) !important;
+}
+
+.topbar,
+.metrics,
+.workflow-grid,
+.main-grid,
+.workspace-grid,
+.bottom-grid,
+.section-grid,
+.footer {
+  width: min(980px, calc(100vw - 320px)) !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+
+.topbar {
+  position: relative !important;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto !important;
+  align-items: end !important;
+  gap: 18px !important;
+  margin-top: -52px !important;
+  margin-bottom: 28px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+}
+
+.topbar::after {
+  display: none !important;
+}
+
+.topbar::before {
+  content: "E";
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  margin-bottom: 16px;
+  color: #111827;
+  background: linear-gradient(135deg, #f8fafc, #94a3b8);
+  border-radius: 14px;
+  font-size: 27px;
+  font-weight: 850;
+}
+
+.topbar h2 {
+  color: var(--text) !important;
+  font-size: clamp(42px, 5vw, 64px) !important;
+  line-height: .95 !important;
+  letter-spacing: -0.075em !important;
+  margin: 0 !important;
+}
+
+.topbar p {
+  max-width: 760px;
+  color: #a3a3a8 !important;
+  font-size: 15px !important;
+  line-height: 1.55 !important;
+}
+
+.top-actions {
+  align-self: start !important;
+  padding-top: 68px !important;
+}
+
+.btn,
+.pill,
+.mini-pill {
+  min-height: 34px !important;
+  padding: 7px 11px !important;
+  border-radius: 7px !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  box-shadow: none !important;
+}
+
+.btn {
+  color: #111827 !important;
+  background: #f8fafc !important;
+  border: 0 !important;
+}
+
+.pill,
+.mini-pill {
+  color: #d4d4d8 !important;
+  background: rgba(255, 255, 255, 0.055) !important;
+  border: 1px solid var(--line) !important;
+}
+
+.metric,
+.panel,
+.workspace-card,
+.small-panel {
+  color: var(--text) !important;
+  background: var(--panel) !important;
+  border: 1px solid var(--line) !important;
+  border-radius: var(--radius) !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+}
+
+.metric {
+  min-height: 92px !important;
+  padding: 14px !important;
+}
+
+.metric .value {
+  font-size: 24px !important;
+}
+
+.metric .label,
+.workspace-card .label,
+.status-chip .k,
+.detail-box .k,
+.toast .k {
+  color: var(--faint) !important;
+}
+
+.metric .sub,
+.panel-header p,
+.workspace-card p,
+.small-panel p,
+.result-main p,
+.product-meta,
+.detail-subtitle,
+.preview-line,
+.queue-item,
+.footer {
+  color: var(--muted) !important;
+}
+
+.workflow-grid {
+  grid-template-columns: minmax(0, 1.35fr) minmax(300px, .75fr) !important;
+  gap: 14px !important;
+}
+
+.main-grid {
+  display: none !important;
+}
+
+.metrics,
+.workspace-grid,
+.section-grid {
+  gap: 10px !important;
+}
+
+.workspace-grid,
+.section-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+}
+
+.panel-header {
+  padding: 18px 18px 0 !important;
+}
+
+.panel-header h3,
+.workspace-card h4,
+.small-panel h4,
+.detail-title,
+.product-title,
+.result-main h5 {
+  color: var(--text) !important;
+  letter-spacing: -0.035em !important;
+}
+
+.panel-body {
+  padding: 14px 18px 18px !important;
+}
+
+.research-toolbar,
+.result-card,
+.detail-hero,
+.detail-box,
+.preview-line,
+.queue-item,
+.status-chip,
+.product-item,
+.mini-row {
+  background: rgba(255, 255, 255, 0.03) !important;
+  border: 1px solid rgba(255, 255, 255, 0.065) !important;
+  border-radius: 10px !important;
+}
+
+.inline-input,
+.inline-select {
+  color: var(--text) !important;
+  background: rgba(255, 255, 255, 0.045) !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 8px !important;
+}
+
+.inline-input:focus,
+.inline-select:focus {
+  border-color: rgba(96, 165, 250, 0.45) !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.11) !important;
+}
+
+.result-card:hover,
+.result-card.active {
+  background: rgba(255, 255, 255, 0.055) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  transform: none !important;
+}
+
+.result-thumb {
+  border-radius: 9px !important;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.16), transparent),
+    linear-gradient(135deg, #334155, #020617) !important;
+}
+
+.score-good,
+.signal-good,
+.kpi-positive,
+.product-profit {
+  color: var(--success) !important;
+}
+
+.score-medium,
+.signal-medium,
+.kpi-warning {
+  color: var(--warning) !important;
+}
+
+.score-bad,
+.signal-bad {
+  color: var(--danger) !important;
+}
+
+.dot.ok { background: var(--success) !important; }
+.dot.warn { background: var(--warning) !important; }
+.dot.err { background: var(--danger) !important; }
+
+@media (max-width: 1280px) {
+  .app {
+    grid-template-columns: 1fr !important;
+  }
+
+  .sidebar {
+    position: relative !important;
+    width: auto !important;
+    height: auto !important;
+  }
+
+  .topbar,
+  .metrics,
+  .workflow-grid,
+  .workspace-grid,
+  .bottom-grid,
+  .section-grid,
+  .footer {
+    width: calc(100vw - 40px) !important;
+  }
+
+  .workflow-grid,
+  .bottom-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 760px) {
+  .content::before {
+    height: 132px !important;
+  }
+
+  .topbar {
+    grid-template-columns: 1fr !important;
+    margin-top: -36px !important;
+  }
+
+  .topbar::before {
+    width: 46px;
+    height: 46px;
+    margin-bottom: 12px;
+    font-size: 22px;
+  }
+
+  .top-actions {
+    padding-top: 0 !important;
+  }
+
+  .metrics,
+  .workspace-grid,
+  .section-grid,
+  .research-toolbar,
+  .detail-grid,
+  .result-card {
+    grid-template-columns: 1fr !important;
+  }
+
+  .btn,
+  .pill {
+    width: 100%;
+  }
+}
+
+/* Apple x Notion x Linear functional layer */
+body {
+  background:
+    radial-gradient(circle at 10% -10%, rgba(96, 165, 250, 0.12), transparent 30%),
+    radial-gradient(circle at 92% 8%, rgba(59, 130, 246, 0.08), transparent 28%),
+    linear-gradient(180deg, #0b0f19 0%, #0f172a 48%, #090d16 100%) !important;
+}
+
+.topbar {
+  min-height: 72px !important;
+  margin-top: -34px !important;
+  margin-bottom: 22px !important;
+  padding: 14px 24px !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+  background: rgba(11, 15, 25, 0.78) !important;
+  backdrop-filter: blur(24px) saturate(140%) !important;
+}
+
+.content::before {
+  height: 116px !important;
+  background:
+    linear-gradient(180deg, rgba(11, 15, 25, 0), rgba(11, 15, 25, 0.94)),
+    radial-gradient(circle at 52% 20%, rgba(96, 165, 250, 0.14), transparent 20%),
+    linear-gradient(135deg, #0b0f19 0%, #111827 54%, #060914 100%) !important;
+}
+
+.top-actions {
+  gap: 10px !important;
+  align-items: center !important;
+}
+
+.elyon-global-search {
+  min-width: min(36vw, 420px);
+  height: 42px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.045);
+  color: rgba(248, 250, 252, 0.72);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.elyon-global-search span {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(148, 163, 184, 0.82);
+}
+
+.elyon-global-search input {
+  width: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #f8fafc;
+  font: inherit;
+}
+
+.elyon-global-search input::placeholder {
+  color: rgba(148, 163, 184, 0.72);
+}
+
+.elyon-global-search kbd {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 7px;
+  padding: 2px 6px;
+  color: #94a3b8;
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.sidebar {
+  background: rgba(8, 12, 21, 0.88) !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.07) !important;
+  box-shadow: 22px 0 60px rgba(0, 0, 0, 0.18) !important;
+}
+
+.nav-menu {
+  gap: 14px !important;
+}
+
+.nav-section {
+  padding: 0 10px !important;
+}
+
+.nav-section summary {
+  border-radius: 12px !important;
+  color: rgba(248, 250, 252, 0.78) !important;
+}
+
+.nav-section[open] summary,
+.nav-section summary:hover {
+  background: rgba(255, 255, 255, 0.045) !important;
+}
+
+.nav-menu .nav-item {
+  min-height: 36px !important;
+  border-radius: 12px !important;
+  border: 1px solid transparent !important;
+  color: rgba(203, 213, 225, 0.8) !important;
+  transition: background 160ms ease, border-color 160ms ease, color 160ms ease, transform 160ms ease;
+}
+
+.nav-menu .nav-item:hover {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border-color: rgba(255, 255, 255, 0.06) !important;
+  transform: translateX(2px);
+}
+
+.nav-menu .nav-item.active {
+  background: rgba(59, 130, 246, 0.1) !important;
+  border-color: rgba(96, 165, 250, 0.22) !important;
+  color: #f8fafc !important;
+}
+
+.icon {
+  background: rgba(255, 255, 255, 0.055) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  color: #94a3b8 !important;
+}
+
+.nav-item.active .icon {
+  background: rgba(59, 130, 246, 0.16) !important;
+  color: #60a5fa !important;
+}
+
+.hero,
+.card,
+.panel,
+.table-card,
+.product-card,
+.analysis-card,
+.elyon-activity {
+  background: rgba(255, 255, 255, 0.045) !important;
+  border: 1px solid rgba(255, 255, 255, 0.075) !important;
+  border-radius: 20px !important;
+  box-shadow: 0 22px 65px rgba(0, 0, 0, 0.18) !important;
+  backdrop-filter: blur(22px) saturate(130%) !important;
+}
+
+.hero {
+  min-height: 188px !important;
+  overflow: hidden !important;
+}
+
+.hero::before {
+  opacity: 0.58 !important;
+  filter: saturate(0.8) contrast(1.02);
+}
+
+.section-card {
+  background: rgba(255, 255, 255, 0.032) !important;
+  border: 1px solid rgba(255, 255, 255, 0.065) !important;
+  border-radius: 22px !important;
+}
+
+.btn {
+  border-radius: 12px !important;
+  transition: transform 160ms ease, background 160ms ease, border-color 160ms ease, box-shadow 160ms ease !important;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+}
+
+.btn-primary {
+  background: linear-gradient(180deg, #60a5fa 0%, #3b82f6 100%) !important;
+  color: #fff !important;
+  box-shadow: 0 12px 32px rgba(59, 130, 246, 0.22) !important;
+}
+
+.btn-secondary,
+.btn-ghost {
+  background: rgba(255, 255, 255, 0.045) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  color: #cbd5e1 !important;
+}
+
+.inline-input,
+.inline-select,
+.input,
+textarea {
+  background: rgba(255, 255, 255, 0.045) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 14px !important;
+  color: #f8fafc !important;
+}
+
+.inline-input:focus,
+.inline-select:focus,
+.input:focus,
+textarea:focus {
+  outline: none !important;
+  border-color: rgba(96, 165, 250, 0.5) !important;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.12) !important;
+}
+
+.elyon-shell-toggle {
+  display: none;
+  position: fixed;
+  left: 14px;
+  top: 14px;
+  z-index: 110;
+  height: 40px;
+  padding: 0 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  background: rgba(11, 15, 25, 0.82);
+  color: #f8fafc;
+  backdrop-filter: blur(18px);
+}
+
+.elyon-sidebar-overlay,
+.elyon-command-backdrop,
+.elyon-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: none;
+  background: rgba(3, 7, 18, 0.58);
+  backdrop-filter: blur(10px);
+}
+
+.elyon-command-backdrop.is-open,
+.elyon-modal-backdrop.is-open,
+body.sidebar-open .elyon-sidebar-overlay {
+  display: grid;
+}
+
+.elyon-command-backdrop,
+.elyon-modal-backdrop {
+  place-items: start center;
+  padding-top: 9vh;
+}
+
+.elyon-command,
+.elyon-modal {
+  width: min(680px, calc(100vw - 28px));
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 24px;
+  background: rgba(13, 18, 31, 0.94);
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.42);
+  color: #f8fafc;
+  overflow: hidden;
+}
+
+.elyon-command-search {
+  display: grid;
+  gap: 10px;
+  padding: 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.075);
+}
+
+.elyon-command-search span {
+  color: #94a3b8;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.elyon-command-search input {
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #f8fafc;
+  font-size: 20px;
+}
+
+.elyon-command-list {
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+  max-height: 440px;
+  overflow: auto;
+}
+
+.elyon-command-item {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  padding: 13px 14px;
+  border: 1px solid transparent;
+  border-radius: 16px;
+  background: transparent;
+  color: #f8fafc;
+  text-align: left;
+  cursor: pointer;
+}
+
+.elyon-command-item:hover {
+  background: rgba(255, 255, 255, 0.055);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.elyon-command-item span,
+.elyon-empty {
+  color: #94a3b8;
+  font-size: 13px;
+}
+
+.elyon-empty {
+  padding: 18px;
+}
+
+.elyon-modal {
+  padding: 22px;
+}
+
+.elyon-modal-close {
+  float: right;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.045);
+  color: #cbd5e1;
+  padding: 7px 12px;
+  cursor: pointer;
+}
+
+.elyon-modal-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 18px 0;
+}
+
+.elyon-modal-grid div {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.075);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.elyon-modal-grid span {
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+.elyon-modal-copy {
+  color: #cbd5e1;
+  line-height: 1.65;
+}
+
+.elyon-activity {
+  padding: 20px !important;
+}
+
+.elyon-feed {
+  display: grid;
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.elyon-feed div {
+  position: relative;
+  display: grid;
+  gap: 3px;
+  padding-left: 20px;
+}
+
+.elyon-feed div span {
+  position: absolute;
+  left: 0;
+  top: 5px;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #60a5fa;
+  box-shadow: 0 0 0 5px rgba(96, 165, 250, 0.1);
+}
+
+.elyon-feed strong {
+  color: #f8fafc;
+}
+
+.elyon-feed small {
+  color: #94a3b8;
+}
+
+@media (max-width: 1280px) {
+  .elyon-shell-toggle {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .sidebar {
+    position: fixed !important;
+    inset: 0 auto 0 0 !important;
+    z-index: 120 !important;
+    width: min(340px, 88vw) !important;
+    transform: translateX(-105%);
+    transition: transform 220ms ease;
+  }
+
+  body.sidebar-open .sidebar {
+    transform: translateX(0);
+  }
+
+  .topbar {
+    padding-left: 76px !important;
+  }
+
+  .elyon-global-search {
+    min-width: 220px;
+  }
+}
+
+@media (max-width: 760px) {
+  .content::before {
+    height: 92px !important;
+  }
+
+  .topbar {
+    align-items: stretch !important;
+    gap: 12px !important;
+    margin-top: -22px !important;
+  }
+
+  .top-actions,
+  .elyon-global-search {
+    width: 100%;
+  }
+
+  .elyon-global-search {
+    min-width: 0;
+  }
+
+  .elyon-command-trigger,
+  .elyon-global-search kbd {
+    display: none !important;
+  }
+
+  .elyon-modal-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Final workspace pass: quiet Notion/Linear product OS */
+:root {
+  --os-bg: #151515;
+  --os-bg-2: #1b1b1b;
+  --os-sidebar: #202020;
+  --os-card: rgba(255, 255, 255, 0.032);
+  --os-card-hover: rgba(255, 255, 255, 0.052);
+  --os-border: rgba(255, 255, 255, 0.08);
+  --os-border-soft: rgba(255, 255, 255, 0.055);
+  --os-text: #f3f4f6;
+  --os-text-2: #b8bbc2;
+  --os-muted: #7b7f87;
+  --os-faint: #5f636b;
+  --os-accent: #8ab4f8;
+  --os-chip: rgba(255, 255, 255, 0.075);
+}
+
+html {
+  background: var(--os-bg) !important;
+}
+
+body {
+  background: var(--os-bg) !important;
+  color: var(--os-text) !important;
+  font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif !important;
+  letter-spacing: -0.012em;
+}
+
+body::after {
+  display: none !important;
+}
+
+.app {
+  min-height: 100vh !important;
+  grid-template-columns: 258px minmax(0, 1fr) !important;
+  background: var(--os-bg) !important;
+}
+
+.content {
+  position: relative !important;
+  min-height: 100vh !important;
+  padding: 0 0 72px !important;
+  background:
+    radial-gradient(circle at 50% -18%, rgba(255, 255, 255, 0.055), transparent 26%),
+    var(--os-bg) !important;
+}
+
+.content::before {
+  height: 64px !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(21, 21, 21, 0)) !important;
+}
+
+.topbar,
+.metrics,
+.main-grid,
+.workspace-grid,
+.bottom-grid,
+.section-grid,
+.footer {
+  width: min(1180px, calc(100vw - 330px)) !important;
+}
+
+.topbar {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 30 !important;
+  min-height: 64px !important;
+  margin-top: 0 !important;
+  margin-bottom: 18px !important;
+  padding: 12px 0 !important;
+  display: grid !important;
+  grid-template-columns: minmax(260px, 1fr) auto !important;
+  align-items: center !important;
+  border: 0 !important;
+  border-bottom: 1px solid var(--os-border-soft) !important;
+  border-radius: 0 !important;
+  background: rgba(21, 21, 21, 0.86) !important;
+  box-shadow: none !important;
+  backdrop-filter: blur(16px) saturate(130%) !important;
+}
+
+.topbar::before,
+.topbar::after {
+  display: none !important;
+}
+
+.topbar h2 {
+  margin: 0 !important;
+  color: var(--os-text) !important;
+  font-size: clamp(28px, 4vw, 48px) !important;
+  line-height: 1.02 !important;
+  font-weight: 760 !important;
+  letter-spacing: -0.055em !important;
+}
+
+.topbar p {
+  margin-top: 8px !important;
+  color: var(--os-muted) !important;
+  font-size: 15px !important;
+  line-height: 1.55 !important;
+  max-width: 720px !important;
+}
+
+.top-actions {
+  padding: 0 !important;
+  justify-content: end !important;
+}
+
+.elyon-global-search {
+  min-width: 320px !important;
+  height: 38px !important;
+  border-radius: 10px !important;
+  background: rgba(255, 255, 255, 0.045) !important;
+  border-color: var(--os-border-soft) !important;
+  box-shadow: none !important;
+}
+
+.elyon-command-trigger {
+  height: 38px !important;
+  padding: 0 12px !important;
+}
+
+.sidebar {
+  width: 258px !important;
+  padding: 12px 10px !important;
+  background: var(--os-sidebar) !important;
+  border-right: 1px solid var(--os-border-soft) !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+}
+
+.brand {
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 8px 8px 14px !important;
+}
+
+.brand-mark {
+  width: 30px !important;
+  height: 30px !important;
+  border-radius: 8px !important;
+  background: linear-gradient(135deg, #e5e7eb 0%, #6b7280 52%, #27272a 53%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+.brand h1 {
+  font-size: 14px !important;
+  font-weight: 650 !important;
+  letter-spacing: -0.02em !important;
+}
+
+.brand p {
+  color: var(--os-faint) !important;
+  letter-spacing: 0.12em !important;
+}
+
+.searchbox {
+  margin: 2px 0 8px !important;
+  padding: 0 5px !important;
+}
+
+.searchbox input {
+  height: 34px !important;
+  min-height: 34px !important;
+  background: rgba(255, 255, 255, 0.045) !important;
+  border: 1px solid transparent !important;
+  border-radius: 8px !important;
+  color: var(--os-text-2) !important;
+}
+
+.nav-menu {
+  padding-top: 2px !important;
+  gap: 2px !important;
+}
+
+.nav-group {
+  margin: 4px 0 10px !important;
+}
+
+.nav-group summary {
+  padding: 9px 9px 6px !important;
+  color: var(--os-faint) !important;
+  font-size: 11px !important;
+  font-weight: 650 !important;
+}
+
+.nav-section {
+  gap: 1px !important;
+  padding: 0 4px !important;
+}
+
+.nav-menu .nav-item {
+  min-height: 34px !important;
+  padding: 7px 8px !important;
+  border-radius: 8px !important;
+  color: var(--os-text-2) !important;
+  font-size: 13px !important;
+  border: 1px solid transparent !important;
+  background: transparent !important;
+  transform: none !important;
+}
+
+.nav-menu .nav-item:hover {
+  background: rgba(255, 255, 255, 0.052) !important;
+  border-color: transparent !important;
+  transform: none !important;
+}
+
+.nav-menu .nav-item.active {
+  color: var(--os-text) !important;
+  background: rgba(255, 255, 255, 0.075) !important;
+  border-color: transparent !important;
+}
+
+.icon,
+.nav-item.active .icon {
+  width: 20px !important;
+  height: 20px !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: var(--os-muted) !important;
+  font-size: 10px !important;
+}
+
+.nav-item span:last-child,
+.nav-item > span {
+  min-width: 0;
+}
+
+.metrics {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 10px !important;
+  margin-bottom: 18px !important;
+}
+
+.metric-card,
+.card,
+.panel,
+.table-card,
+.analysis-card,
+.detail-hero,
+.section-card,
+.elyon-activity {
+  background: var(--os-card) !important;
+  border: 1px solid var(--os-border-soft) !important;
+  border-radius: 14px !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+}
+
+.metric-card {
+  min-height: 114px !important;
+  padding: 16px !important;
+}
+
+.metric-card .label,
+.eyebrow {
+  color: var(--os-muted) !important;
+  font-size: 11px !important;
+  font-weight: 650 !important;
+  letter-spacing: 0.08em !important;
+}
+
+.metric-card .value {
+  color: var(--os-text) !important;
+  font-size: 30px !important;
+  letter-spacing: -0.055em !important;
+}
+
+.main-grid,
+.workspace-grid,
+.bottom-grid {
+  gap: 14px !important;
+}
+
+.main-grid {
+  grid-template-columns: minmax(0, 1.3fr) minmax(320px, 0.7fr) !important;
+}
+
+.workspace-grid {
+  grid-template-columns: minmax(0, 1.15fr) minmax(340px, 0.85fr) !important;
+}
+
+.panel,
+.table-card,
+.analysis-card,
+.section-card {
+  padding: 18px !important;
+}
+
+.panel-head,
+.section-card h2,
+.analysis-card h3 {
+  color: var(--os-text) !important;
+}
+
+.panel-head h2,
+.section-card h2,
+.analysis-card h3 {
+  font-size: 18px !important;
+  letter-spacing: -0.035em !important;
+}
+
+.chart-card {
+  min-height: 280px !important;
+}
+
+.line-chart {
+  opacity: 0.82 !important;
+  filter: saturate(0.55);
+}
+
+.bar-row,
+.queue-row,
+.status-row,
+.order-row,
+.tool-row {
+  border-color: var(--os-border-soft) !important;
+}
+
+.queue-row,
+.status-row,
+.order-row,
+.tool-row {
+  background: transparent !important;
+  border-radius: 10px !important;
+}
+
+.queue-row:hover,
+.status-row:hover,
+.order-row:hover,
+.tool-row:hover {
+  background: var(--os-card-hover) !important;
+}
+
+.research-toolbar {
+  gap: 8px !important;
+  padding: 10px !important;
+  border: 1px solid var(--os-border-soft) !important;
+  border-radius: 12px !important;
+  background: rgba(255, 255, 255, 0.025) !important;
+}
+
+.inline-input,
+.inline-select,
+.input,
+textarea {
+  min-height: 38px !important;
+  border-radius: 10px !important;
+  background: rgba(255, 255, 255, 0.038) !important;
+  border: 1px solid var(--os-border-soft) !important;
+  color: var(--os-text) !important;
+  box-shadow: none !important;
+}
+
+.inline-input:focus,
+.inline-select:focus,
+.input:focus,
+textarea:focus {
+  border-color: rgba(138, 180, 248, 0.42) !important;
+  box-shadow: 0 0 0 3px rgba(138, 180, 248, 0.1) !important;
+}
+
+.result-list {
+  display: grid !important;
+  gap: 8px !important;
+}
+
+.result-card {
+  display: grid !important;
+  grid-template-columns: 58px minmax(0, 1fr) auto !important;
+  align-items: center !important;
+  gap: 12px !important;
+  min-height: 82px !important;
+  padding: 10px 12px !important;
+  border: 1px solid var(--os-border-soft) !important;
+  border-radius: 12px !important;
+  background: rgba(255, 255, 255, 0.025) !important;
+  box-shadow: none !important;
+}
+
+.result-card:hover,
+.result-card.active {
+  background: var(--os-card-hover) !important;
+  border-color: rgba(255, 255, 255, 0.11) !important;
+  transform: none !important;
+}
+
+.result-image,
+.product-image {
+  width: 58px !important;
+  height: 58px !important;
+  border-radius: 10px !important;
+  border: 1px solid var(--os-border-soft) !important;
+  background: #242424 !important;
+}
+
+.result-card h3,
+.product-title,
+.selected-title {
+  color: var(--os-text) !important;
+  font-size: 14px !important;
+  letter-spacing: -0.015em !important;
+}
+
+.result-meta,
+.muted,
+.panel-head p,
+.section-card p,
+.analysis-card p {
+  color: var(--os-muted) !important;
+}
+
+.pill,
+.status-pill,
+.score-badge,
+.source-badge,
+.score-good,
+.score-medium,
+.score-bad {
+  border-radius: 999px !important;
+  border: 1px solid var(--os-border-soft) !important;
+  background: var(--os-chip) !important;
+  box-shadow: none !important;
+  font-weight: 650 !important;
+}
+
+.score-good,
+.status-pill.ok {
+  color: #7ddc9d !important;
+  background: rgba(34, 197, 94, 0.09) !important;
+}
+
+.score-medium,
+.status-pill.warn {
+  color: #f1c36d !important;
+  background: rgba(245, 158, 11, 0.09) !important;
+}
+
+.score-bad,
+.status-pill.err {
+  color: #f18a8a !important;
+  background: rgba(239, 68, 68, 0.09) !important;
+}
+
+.btn,
+.pill {
+  min-height: 36px !important;
+  padding: 8px 12px !important;
+  border-radius: 10px !important;
+  border: 1px solid var(--os-border-soft) !important;
+  background: rgba(255, 255, 255, 0.045) !important;
+  color: var(--os-text-2) !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+.btn:hover,
+.pill:hover {
+  background: rgba(255, 255, 255, 0.075) !important;
+  color: var(--os-text) !important;
+  transform: none !important;
+}
+
+.btn-primary {
+  color: #101010 !important;
+  background: #f4f4f5 !important;
+  border-color: #f4f4f5 !important;
+  box-shadow: none !important;
+}
+
+.btn-secondary,
+.btn-ghost {
+  background: rgba(255, 255, 255, 0.042) !important;
+}
+
+.action-row {
+  gap: 8px !important;
+}
+
+.elyon-activity {
+  min-height: 220px !important;
+}
+
+.elyon-feed div span {
+  background: var(--os-muted) !important;
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.045) !important;
+}
+
+.elyon-command,
+.elyon-modal {
+  background: rgba(29, 29, 29, 0.97) !important;
+  border-color: var(--os-border) !important;
+  border-radius: 18px !important;
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.44) !important;
+}
+
+.elyon-command-item {
+  border-radius: 10px !important;
+}
+
+.toast {
+  background: rgba(29, 29, 29, 0.94) !important;
+  border-color: var(--os-border) !important;
+  border-radius: 14px !important;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.36) !important;
+}
+
+@media (max-width: 1280px) {
+  .topbar,
+  .metrics,
+  .main-grid,
+  .workspace-grid,
+  .bottom-grid,
+  .section-grid,
+  .footer {
+    width: min(1000px, calc(100vw - 56px)) !important;
+  }
+
+  .topbar {
+    padding-left: 0 !important;
+  }
+}
+
+@media (max-width: 980px) {
+  .metrics,
+  .main-grid,
+  .workspace-grid,
+  .bottom-grid,
+  .section-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .topbar {
+    grid-template-columns: 1fr !important;
+    align-items: start !important;
+  }
+
+  .top-actions {
+    justify-content: start !important;
+  }
+}
+
+@media (max-width: 760px) {
+  .content::before {
+    height: 54px !important;
+  }
+
+  .topbar,
+  .metrics,
+  .main-grid,
+  .workspace-grid,
+  .bottom-grid,
+  .section-grid,
+  .footer {
+    width: calc(100vw - 28px) !important;
+  }
+
+  .topbar {
+    padding-top: 58px !important;
+  }
+
+  .topbar h2 {
+    font-size: 34px !important;
+  }
+
+  .metrics {
+    grid-template-columns: 1fr !important;
+  }
+
+  .result-card {
+    grid-template-columns: 48px minmax(0, 1fr) !important;
+  }
+}
+
+/* True page mode: one focused view per navigation item */
+body.app-paged .content > .metrics,
+body.app-paged .content > .main-grid,
+body.app-paged .content > .workflow-grid,
+body.app-paged .content > .workspace-grid,
+body.app-paged .content > .bottom-grid,
+body.app-paged .content > .section-grid,
+body.app-paged .content > .footer {
+  display: none !important;
+}
+
+body.app-paged[data-view="dashboard"] .content > .metrics,
+body.app-paged[data-view="dashboard"] .content > .main-grid {
+  display: grid !important;
+}
+
+body.app-paged[data-view="workflow"] .content > .workflow-grid,
+body.app-paged[data-view="workflow"] .content > .bottom-grid {
+  display: grid !important;
+}
+
+body.app-paged[data-view="research"] .content > .workflow-grid {
+  display: grid !important;
+}
+
+body.app-paged[data-view="suppliers"] .content > .workspace-grid,
+body.app-paged[data-view="listing"] .content > .workspace-grid,
+body.app-paged[data-view="orders"] .content > .workspace-grid {
+  display: grid !important;
+  grid-template-columns: minmax(0, 760px) !important;
+  justify-content: start !important;
+}
+
+body.app-paged[data-view="analytics"] .content > #analytics,
+body.app-paged[data-view="customers"] .content > #customers,
+body.app-paged[data-view="calendar"] .content > #calendar,
+body.app-paged[data-view="invoices"] .content > #invoices,
+body.app-paged[data-view="tasks"] .content > #tasks,
+body.app-paged[data-view="tools"] .content > #tools,
+body.app-paged[data-view="automation"] .content > #automation {
+  display: grid !important;
+}
+
+body.app-paged[data-view="suppliers"] .workspace-grid > .workspace-card,
+body.app-paged[data-view="listing"] .workspace-grid > .workspace-card,
+body.app-paged[data-view="orders"] .workspace-grid > .workspace-card {
+  display: none !important;
+}
+
+body.app-paged[data-view="research"] .workspace-grid,
+body.app-paged[data-view="research"] .bottom-grid {
+  display: none !important;
+}
+
+body.app-paged[data-view="suppliers"] .workspace-grid > #suppliers,
+body.app-paged[data-view="listing"] .workspace-grid > #listing,
+body.app-paged[data-view="orders"] .workspace-grid > #orders {
+  display: block !important;
+}
+
+body.app-paged[data-view="research"] #analysisPanel {
+  position: sticky !important;
+  top: 88px !important;
+  align-self: start !important;
+}
+
+body.app-paged[data-view="research"] .workflow-grid {
+  grid-template-columns: minmax(0, 1.15fr) minmax(340px, 0.85fr) !important;
+}
+
+body.app-paged[data-view="workflow"] .workflow-grid {
+  grid-template-columns: minmax(0, 1fr) minmax(340px, 0.8fr) !important;
+}
+
+body.app-paged[data-view="workflow"] .bottom-grid {
+  margin-top: 14px !important;
+}
+
+body.app-paged[data-view="dashboard"] .topbar,
+body.app-paged[data-view="research"] .topbar,
+body.app-paged[data-view="workflow"] .topbar,
+body.app-paged[data-view="suppliers"] .topbar,
+body.app-paged[data-view="listing"] .topbar,
+body.app-paged[data-view="orders"] .topbar,
+body.app-paged[data-view="analytics"] .topbar,
+body.app-paged[data-view="tools"] .topbar,
+body.app-paged[data-view="automation"] .topbar {
+  margin-bottom: 24px !important;
+}
+
+body.app-paged .content > .metrics,
+body.app-paged .content > .main-grid,
+body.app-paged .content > .workflow-grid,
+body.app-paged .content > .workspace-grid,
+body.app-paged .content > .bottom-grid,
+body.app-paged .content > .section-grid {
+  animation: pageFadeIn 180ms ease both;
+}
+
+@keyframes pageFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 980px) {
+  body.app-paged[data-view="research"] .workflow-grid,
+  body.app-paged[data-view="workflow"] .workflow-grid,
+  body.app-paged[data-view="suppliers"] .content > .workspace-grid,
+  body.app-paged[data-view="listing"] .content > .workspace-grid,
+  body.app-paged[data-view="orders"] .content > .workspace-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  body.app-paged[data-view="research"] #analysisPanel {
+    position: static !important;
+  }
+}

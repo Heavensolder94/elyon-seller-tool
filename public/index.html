@@ -130,6 +130,26 @@
       }
     }
   </style>
+  <style>
+    .start-focus-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap}
+    .start-focus-head h3{margin:0}
+    .start-focus-head p{margin-top:6px;max-width:720px}
+    .start-focus-layout{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(250px,.8fr);gap:12px;margin-top:14px;align-items:stretch}
+    .start-recommendation{display:grid;gap:10px;padding:16px;border-radius:20px;background:linear-gradient(180deg,rgba(59,130,246,.16),rgba(255,255,255,.05));border:1px solid rgba(96,165,250,.22)}
+    .start-recommendation small{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#bfdbfe}
+    .start-recommendation h4{margin:0;font-size:18px;letter-spacing:-.03em;line-height:1.25}
+    .start-recommendation p{margin:0;color:#e2e8f0;line-height:1.55}
+    .start-recommendation button{align-self:flex-start}
+    .start-focus-sidebar{display:grid;gap:10px}
+    .start-mini-link{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:12px 14px;border-radius:16px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.11);text-align:left}
+    .start-mini-link strong{display:block;font-size:14px}
+    .start-mini-link small{display:block;color:#cbd5e1;font-weight:600;line-height:1.35}
+    .start-mini-link span:last-child{font-size:18px;color:#bfdbfe;font-weight:900}
+    @media(max-width:860px){
+      .start-focus-layout{grid-template-columns:1fr}
+      .start-focus-sidebar{grid-template-columns:1fr}
+    }
+  </style>
   <link rel="stylesheet" href="elyon-soul.css" />
 </head>
 <style>
@@ -142,7 +162,10 @@
   .virtual-agent-system-dot.active{background:#22c55e;box-shadow:0 0 0 4px rgba(34,197,94,.12)}
   .virtual-agent-system-dot.paused{background:#f59e0b;box-shadow:0 0 0 4px rgba(245,158,11,.12)}
   .virtual-agent-system-actions{display:flex;gap:10px;flex-wrap:wrap}
-  .virtual-agent-system-metrics{grid-template-columns:repeat(5,minmax(0,1fr))}
+  .virtual-agent-system-actions button{position:relative}
+  .virtual-agent-system-actions button::after{content:attr(data-tooltip);position:absolute;left:50%;top:calc(100% + 10px);transform:translateX(-50%) translateY(4px);width:max-content;max-width:280px;padding:8px 10px;border-radius:12px;background:rgba(15,23,42,.96);border:1px solid rgba(96,165,250,.22);box-shadow:0 16px 40px rgba(0,0,0,.28);color:#e2e8f0;font-size:12px;line-height:1.45;white-space:normal;opacity:0;pointer-events:none;transition:opacity .16s ease,transform .16s ease;z-index:20}
+  .virtual-agent-system-actions button:hover::after,.virtual-agent-system-actions button:focus-visible::after{opacity:1;transform:translateX(-50%) translateY(0)}
+  .virtual-agent-system-metrics{grid-template-columns:repeat(4,minmax(0,1fr))}
   .virtual-agent-system-metrics .metric strong{font-size:20px}
   .virtual-agent-system-statusline{color:#dbeafe;font-size:13px;line-height:1.5}
   .settings-agents-header{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;flex-wrap:wrap}
@@ -229,26 +252,66 @@
   .virtual-future-card h4{margin:0;font-size:17px;letter-spacing:-.02em}
   .virtual-future-card p{margin:4px 0 0;color:#cbd5e1;font-size:13px;line-height:1.5}
   .virtual-future-warning{padding:14px 16px;border-radius:18px;background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.24);color:#fde68a;font-size:13px;line-height:1.55}
+  .extended-autonomy-card{position:relative;overflow:hidden;display:grid;gap:14px;padding:18px;border-radius:22px;background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.04));border:1px solid rgba(96,165,250,.14);box-shadow:0 18px 50px rgba(0,0,0,.18)}
+  .extended-autonomy-card:before{content:'';position:absolute;inset:-2px auto auto -2px;width:180px;height:180px;background:radial-gradient(circle,rgba(59,130,246,.18),transparent 72%);pointer-events:none;filter:blur(8px)}
+  .extended-autonomy-card.active{border-color:rgba(250,204,21,.22);box-shadow:0 20px 60px rgba(245,158,11,.12)}
+  .extended-autonomy-head{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;flex-wrap:wrap;position:relative;z-index:1}
+  .extended-autonomy-head h4{margin:0;font-size:18px;letter-spacing:-.02em}
+  .extended-autonomy-head p{margin-top:4px;color:#cbd5e1;font-size:13px;line-height:1.5}
+  .extended-autonomy-status{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .extended-autonomy-copy{color:#dbeafe;font-size:13px;line-height:1.6}
+  .extended-autonomy-actions{display:flex;gap:10px;flex-wrap:wrap}
+  .extended-autonomy-note{padding:14px 16px;border-radius:18px;background:rgba(59,130,246,.11);border:1px solid rgba(96,165,250,.18);color:#dbeafe;font-size:13px;line-height:1.55}
+  .extended-autonomy-modal-panel{max-width:820px;width:min(96vw,820px)}
+  .autonomy-hold-control{display:grid;gap:10px;margin-top:14px}
+  .autonomy-hold-button{position:relative;overflow:hidden;min-height:52px}
+  .autonomy-hold-button .button-label{position:relative;z-index:1}
+  .autonomy-hold-button[disabled]{opacity:.58;cursor:not-allowed;transform:none;box-shadow:none}
+  .autonomy-hold-button.is-holding{transform:translateY(-1px)}
+  .autonomy-hold-progress{position:absolute;inset:0 auto 0 0;width:0%;border-radius:inherit;background:linear-gradient(90deg,rgba(245,158,11,.14),rgba(250,204,21,.36));transition:none}
+  .autonomy-hold-status{font-size:12px;color:#cbd5e1;line-height:1.45}
   .security-switch-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border-radius:18px;background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.08)}
   .security-switch-row .hint{margin:0}
-  .security-control-card{padding:18px;border-radius:24px;background:linear-gradient(180deg,rgba(12,24,51,.92),rgba(10,18,35,.88));border:1px solid rgba(96,165,250,.18);box-shadow:0 18px 44px rgba(0,0,0,.24);display:grid;gap:16px}
-  .security-control-header{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;flex-wrap:wrap}
-  .security-control-header h3{margin:0;font-size:20px;letter-spacing:-.02em}
-  .security-control-header p{margin-top:6px;color:#cbd5e1;font-size:13px;line-height:1.5;max-width:760px}
-  .security-control-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
-  .security-toggle-card{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border-radius:18px;background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.08);min-height:76px}
-  .security-toggle-card strong{display:block;font-size:14px;letter-spacing:-.01em}
-  .security-toggle-card p{margin:5px 0 0;color:#94a3b8;font-size:12px;line-height:1.45;max-width:340px}
-  .security-toggle-card .agent-switch{margin-left:6px;flex:0 0 auto}
-  .security-toggle-card .agent-switch span:last-child{min-width:58px;text-align:left}
+  .task-center-shell{display:grid;gap:14px}
+  .task-center-head{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;flex-wrap:wrap}
+  .task-center-head h3{margin:0;font-size:20px;letter-spacing:-.02em}
+  .task-center-head p{margin-top:4px;color:#cbd5e1;font-size:13px;line-height:1.45}
+  .task-center-stats{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .task-center-filters{display:grid;gap:14px;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}
+  .task-center-filters label,.task-center-status-field label{display:block;margin-bottom:8px;font-size:12px;color:#bfdbfe;font-weight:800;letter-spacing:.02em;text-transform:uppercase}
+  .task-center-filter-group{display:flex;gap:8px;flex-wrap:wrap}
+  .task-center-filter-btn,.task-center-filter-chip{padding:9px 12px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);color:#dbeafe;font-size:12px;font-weight:800;letter-spacing:.02em;transition:transform .18s ease,background .18s ease,border-color .18s ease,box-shadow .18s ease}
+  .task-center-filter-btn:hover,.task-center-filter-chip:hover{transform:translateY(-1px);border-color:rgba(96,165,250,.28)}
+  .task-center-filter-btn.active,.task-center-filter-chip.active{background:linear-gradient(135deg,#3b82f6,#8b5cf6);border-color:rgba(96,165,250,.34);box-shadow:0 10px 28px rgba(59,130,246,.16)}
+  .task-center-list{display:grid;gap:14px}
+  .task-center-card{display:grid;gap:14px}
+  .task-center-card-top{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;flex-wrap:wrap}
+  .task-center-card-heading h4{margin:0;font-size:18px;letter-spacing:-.02em}
+  .task-center-card-heading p{margin-top:6px;color:#cbd5e1;font-size:13px;line-height:1.5;max-width:820px}
+  .task-center-badge-stack{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .task-center-meta-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+  .task-center-meta-grid div{padding:12px 14px;border-radius:16px;background:rgba(2,6,23,.34);border:1px solid rgba(255,255,255,.08)}
+  .task-center-meta-grid small{display:block;margin-bottom:6px;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:#94a3b8}
+  .task-center-meta-grid strong{font-size:14px;line-height:1.4;color:#e2e8f0}
+  .task-center-control-row{display:flex;justify-content:space-between;gap:14px;align-items:flex-end;flex-wrap:wrap}
+  .task-center-status-field{min-width:220px;flex:1}
+  .task-center-status-field select{width:100%}
+  .task-center-action-row{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+  .task-center-alert{padding:14px 16px;border-radius:18px;background:rgba(59,130,246,.11);border:1px solid rgba(96,165,250,.18);color:#dbeafe;font-size:13px;line-height:1.55}
+  .task-center-alert-warn{background:rgba(245,158,11,.12);border-color:rgba(245,158,11,.2);color:#fde68a}
+  .task-center-notice{margin-top:0}
+  .task-center-empty{margin-top:0}
+  .task-center-priority-critical{border-color:rgba(239,68,68,.22)}
   @media(max-width:900px){
     .settings-agents-overview,.virtual-agent-grid{grid-template-columns:1fr}
     .virtual-agent-system-metrics{grid-template-columns:1fr 1fr}
     .virtual-future-grid{grid-template-columns:1fr}
-    .security-control-grid{grid-template-columns:1fr}
+    .task-center-stats,.task-center-meta-grid,.task-center-filters{grid-template-columns:1fr}
     .settings-agents-header{display:block}
     .virtual-agent-badge{margin-top:10px}
     .virtual-agent-head{display:block}
+    .task-center-control-row{align-items:stretch}
+    .task-center-action-row{justify-content:flex-start}
   }
 </style>
 <body>
@@ -293,13 +356,14 @@
       <option value="productListTab">4. 📚 Meine Produktliste</option>
       <option value="ebayListingTab">5. 🛒 eBay Listing vorbereiten</option>
       <option value="ordersTab">6. 📦 Bestellungen</option>
-      <option value="automationTab">7. 🚚 Versandzentrale</option>
-      <option value="settingsTab">8. ⚙️ Einstellungen / API Status</option>
-      <option value="virtualAgentsTab">9. 🧑‍💼 Virtuelle Mitarbeiter / KI-Agenten</option>
-      <option value="marketCheckTab">10. Konkurrenz / Marktcheck</option>
-      <option value="financeTab">11. Kalkulation</option>
-      <option value="listingCheckTab">12. Listing-Check</option>
-      <option value="productStatusTab">13. Produkt-Status</option>
+      <option value="invoiceTab">7. 🧾 Rechnungen</option>
+      <option value="automationTab">8. 🚚 Versandzentrale</option>
+      <option value="settingsTab">9. ⚙️ Einstellungen / API Status</option>
+      <option value="virtualAgentsTab">10. 🧑‍💼 Virtuelle Mitarbeiter / KI-Agenten</option>
+      <option value="marketCheckTab">11. Konkurrenz / Marktcheck</option>
+      <option value="financeTab">12. Kalkulation</option>
+      <option value="listingCheckTab">13. Listing-Check</option>
+      <option value="productStatusTab">14. Produkt-Status</option>
     </select>
     <select id="shopifyMenu" class="menu-select" aria-label="Shopify Bereich auswählen">
       <option value="shopifyTab">🟢 Shopify Lab</option>
@@ -321,29 +385,60 @@
         <button id="closeStartLauncherBtn" class="secondary">✕</button>
       </div>
       <div class="start-focus-box">
-        <h3>🎯 Heute zuerst</h3>
-        <p id="startTodayFocus">Starte ruhig und strukturiert.</p>
+        <div class="start-focus-head">
+          <div>
+            <h3>🎯 Heute zuerst</h3>
+            <p id="startTodayFocus">Starte ruhig und strukturiert.</p>
+          </div>
+          <span id="startFocusTag" class="status info">Empfohlen</span>
+        </div>
+        <div class="start-focus-layout">
+          <div class="start-recommendation">
+            <small id="startRecommendationEyebrow">Nächster sinnvoller Schritt</small>
+            <h4 id="startRecommendationTitle">Lade Empfehlung ...</h4>
+            <p id="startRecommendationText">Wir zeigen dir hier die beste nächste Aktion anhand deiner aktuellen Daten.</p>
+            <button id="startRecommendedBtn" class="secondary full" type="button">Jetzt öffnen</button>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:12px">
+          <div style="padding:10px 11px;border-radius:16px;background:rgba(2,6,23,.34);border:1px solid rgba(255,255,255,.08)">
+            <small style="display:block;color:#94a3b8;font-size:11px;margin-bottom:4px;letter-spacing:.04em;text-transform:uppercase">Versand offen</small>
+            <strong id="startShipTodos" style="font-size:16px;letter-spacing:-.02em;color:#e2e8f0">0</strong>
+          </div>
+          <div style="padding:10px 11px;border-radius:16px;background:rgba(2,6,23,.34);border:1px solid rgba(255,255,255,.08)">
+            <small style="display:block;color:#94a3b8;font-size:11px;margin-bottom:4px;letter-spacing:.04em;text-transform:uppercase">Retouren offen</small>
+            <strong id="startOpenReturns" style="font-size:16px;letter-spacing:-.02em;color:#e2e8f0">0</strong>
+          </div>
+          <div style="padding:10px 11px;border-radius:16px;background:rgba(2,6,23,.34);border:1px solid rgba(255,255,255,.08)">
+            <small style="display:block;color:#94a3b8;font-size:11px;margin-bottom:4px;letter-spacing:.04em;text-transform:uppercase">Letztes Backup</small>
+            <strong id="startBackupStatus" style="font-size:16px;letter-spacing:-.02em;color:#e2e8f0">Noch nie</strong>
+          </div>
+          <div style="padding:10px 11px;border-radius:16px;background:rgba(2,6,23,.34);border:1px solid rgba(255,255,255,.08)">
+            <small style="display:block;color:#94a3b8;font-size:11px;margin-bottom:4px;letter-spacing:.04em;text-transform:uppercase">Integrationen</small>
+            <strong id="startIntegrationStatus" style="font-size:16px;letter-spacing:-.02em;color:#e2e8f0">Prüfen</strong>
+          </div>
+        </div>
       </div>
       <div class="start-launcher-grid">
         <button class="secondary start-card" id="enterEbayAreaBtn">
-          <strong>🏠 Mein Hauptprogramm</strong>
-          <span>Dein Hauptbereich für eBay: Produkte prüfen, Listings vorbereiten, Verkäufe, Rechnungen, Versand & Retouren verwalten.</span>
+          <strong>📦 Bestellungen</strong>
+          <span>Dein Arbeitsbereich für Verkäufe, Versand, Rechnungen und Retouren im Tagesgeschäft.</span>
         </button>
         <button class="secondary start-card" id="enterShopifyAreaBtn">
-          <strong>🟢 Shopify Lab</strong>
-          <span>Dein Zukunftsbereich: Produktseiten, Ads, Landingpage-Check und One-Product-Store-Potenzial für später vorbereiten.</span>
+          <strong>🟢 Shopify Vorbereitung</strong>
+          <span>Dein Zukunftsbereich für Produktseiten, Ads, Landingpage-Checks und Store-Potenzial.</span>
         </button>
         <button class="secondary start-card" id="enterBackofficeAreaBtn">
           <strong>⚙️ Backoffice & Setup</strong>
-          <span>Dein Verwaltungsbereich: Einstellungen, Backup, Rechnungen, Integrationen, Backend und eBay/CJ-Vorbereitung.</span>
+          <span>Dein Verwaltungsbereich für Einstellungen, Backup, Rechnungen, Integrationen und Backend.</span>
         </button>
       </div>
       <div class="start-quick-row">
         <button class="secondary" id="startQuickProduct">+ Produkt prüfen</button>
-        <button class="secondary" id="startQuickSale">💰 Verkauf erfassen</button>
-        <button class="secondary" id="startQuickShipping">🚚 Versand bearbeiten</button>
-        <button class="secondary" id="startQuickInvoice">🧾 Rechnung erstellen</button>
-        <button class="secondary" id="startQuickReturn">↩️ Retoure bearbeiten</button>
+        <button class="secondary" id="startQuickSale">💰 Verkauf öffnen</button>
+        <button class="secondary" id="startQuickShipping">🚚 Versand prüfen</button>
+        <button class="secondary" id="startQuickInvoice">🧾 Rechnungen</button>
+        <button class="secondary" id="startQuickReturn">↩️ Retouren</button>
       </div>
       <div class="start-launcher-footer">
         <p class="hint">⚠️ Daten werden aktuell lokal im Browser gespeichert. GitHub/Vercel speichern nur den Code. Exportiere regelmäßig ein Backup.</p>
@@ -369,14 +464,14 @@
 
     <div class="card" style="margin-top:20px">
       <h2>🚀 Schnellstart</h2>
-      <p class="hint">Wähle direkt, was du heute machen willst. Kein Suchen im Menü nötig.</p>
+      <p class="hint">Direkt in deinen häufigsten Arbeitsweg springen, ohne den Umweg über das Menü.</p>
       <div class="launcher-grid">
         <button class="secondary launcher-btn" id="launcherNewProduct"><strong>📦 Neues Produkt prüfen</strong><small>Zum Produktformular springen</small></button>
         <button class="secondary launcher-btn" id="launcherBoard"><strong>🧭 Produkt-Board öffnen</strong><small>Produkte, Filter & Kanban</small></button>
         <button class="secondary launcher-btn" id="launcherGenerator"><strong>✍️ Listing erstellen</strong><small>Titel, SEO & Beschreibung</small></button>
-        <button class="secondary launcher-btn" id="launcherSales"><strong>💰 Verkaufsassistent.</strong><small>Bestellung, Status & Gewinn speichern</small></button>
-        <button class="secondary launcher-btn" id="launcherReturns"><strong>↩️ Retoure bearbeiten</strong><small>eBay / Shopify Rückgaben</small></button>
-        <button class="secondary launcher-btn" id="launcherBackup"><strong>💾 Backup exportieren</strong><small>Komplette Daten sichern</small></button>
+        <button class="secondary launcher-btn" id="launcherSales"><strong>💰 Verkauf & Rechnung</strong><small>Bestellung, Status, Gewinn und Beleg</small></button>
+        <button class="secondary launcher-btn" id="launcherReturns"><strong>↩️ Retouren prüfen</strong><small>eBay / Shopify Rückgaben</small></button>
+        <button class="secondary launcher-btn" id="launcherBackup"><strong>💾 Backup sichern</strong><small>Komplette Daten exportieren</small></button>
       </div>
     </div>
 
@@ -1349,6 +1444,45 @@ PLZ Ort"></textarea>
     </div>
   </div>
 
+  <div id="advancedAutonomyModal" class="hidden modal-backdrop">
+    <div class="card modal-panel extended-autonomy-modal-panel">
+      <div class="extended-autonomy-head" style="margin-bottom:10px">
+        <div class="virtual-agent-ident" style="align-items:flex-start">
+          <div class="virtual-agent-icon">🧭</div>
+          <div>
+            <h2 style="margin-bottom:0">Erweiterte Autonomie freischalten?</h2>
+            <p class="hint" style="margin-top:6px">Diese Funktionen sind experimentell.</p>
+          </div>
+        </div>
+        <span class="virtual-agent-badge warn">Sandbox bleibt aktiv</span>
+      </div>
+      <div class="output-box" style="margin-top:0">
+        <p>Später könnten virtuelle Mitarbeiter:</p>
+        <ul>
+          <li>automatische Aktionen vorbereiten</li>
+          <li>Kundennachrichten vorbereiten</li>
+          <li>Listings vorbereiten</li>
+          <li>Workflows automatisieren</li>
+        </ul>
+        <p>Aktuell bleiben Live-Aktionen weiterhin durch Sicherheitsmodus und Sandbox blockiert.</p>
+      </div>
+      <div class="checkrow" style="margin-top:14px">
+        <input id="advancedAutonomyRiskCheckbox" type="checkbox">
+        <label for="advancedAutonomyRiskCheckbox">Ich verstehe die Risiken experimenteller KI-Funktionen.</label>
+      </div>
+      <div class="autonomy-hold-control">
+        <button id="advancedAutonomyHoldBtn" class="secondary full autonomy-hold-button" type="button" disabled>
+          <span class="autonomy-hold-progress" id="advancedAutonomyHoldProgress"></span>
+          <span class="button-label" id="advancedAutonomyHoldLabel">3 Sekunden halten zum Entsperren</span>
+        </button>
+        <div class="autonomy-hold-status" id="advancedAutonomyHoldStatus">Sicherheitsbestätigung erforderlich.</div>
+      </div>
+      <div class="row" style="margin-top:14px">
+        <button type="button" id="advancedAutonomyCloseBtn" class="secondary full">Abbrechen</button>
+      </div>
+    </div>
+  </div>
+
   <div id="invoiceModal" class="hidden modal-backdrop">
     <div class="card modal-panel invoice-modal-panel">
       <h2>🧾 Rechnung</h2>
@@ -1583,6 +1717,22 @@ const TAB_ALIASES = {
   listingCheckTab: 'checklistTab',
   productStatusTab: 'productListTab'
 };
+const START_TARGETS_BY_TAB = {
+  dashboardTab: 'ebay',
+  productSearchTab: 'product',
+  productAnalysisTab: 'product',
+  productListTab: 'productStatus',
+  ebayListingTab: 'product',
+  ordersTab: 'sale',
+  automationTab: 'shipping',
+  settingsTab: 'backoffice',
+  virtualAgentsTab: 'agents',
+  marketCheckTab: 'product',
+  financeTab: 'finance',
+  checklistTab: 'listing',
+  invoiceTab: 'invoice',
+  shopifyTab: 'shopify'
+};
 function resolveTabId(tabId){
   return TAB_ALIASES[tabId] || tabId;
 }
@@ -1593,6 +1743,8 @@ function showTab(tabId){
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   target.classList.add('active');
   safe('mainMenu', menu => { if([...menu.options].some(o => o.value === resolvedId && !o.disabled)) menu.value = resolvedId; });
+  const startTarget = START_TARGETS_BY_TAB[resolvedId];
+  if(startTarget) localStorage.setItem('elyonLastStartTarget', startTarget);
 }
 window.showTab = showTab;
 function showShopifyTool(sectionId){
@@ -1682,6 +1834,56 @@ function openStartLauncher(){
   const showAgain = localStorage.getItem('elyonShowStartLauncher');
   safe('showStartLauncherAgain', el => { el.checked = showAgain !== 'no'; });
 }
+const START_TARGET_META = {
+  product:{kind:'quick', action:'product', label:'Produkt prüfen', description:'Zum Produktformular springen und den nächsten Kandidaten prüfen.', button:'Produktprüfung öffnen'},
+  sale:{kind:'quick', action:'sale', label:'Verkauf öffnen', description:'Verkäufe, Gewinn und Status direkt weiterbearbeiten.', button:'Verkauf öffnen'},
+  shipping:{kind:'quick', action:'shipping', label:'Versand prüfen', description:'Offene Versandfälle und Tracking nachfassen.', button:'Versand prüfen'},
+  invoice:{kind:'tab', tab:'invoiceTab', label:'Rechnungen', description:'Rechnungsübersicht, Status und Export öffnen.', button:'Rechnungen öffnen'},
+  return:{kind:'quick', action:'return', label:'Retouren', description:'Offene Rückgaben und Erstattungen klären.', button:'Retouren öffnen'},
+  ebay:{kind:'area', area:'ebay', label:'Bestellungen', description:'Den operativen Bereich für Verkäufe, Versand und Rechnungen öffnen.', button:'Bestellungen öffnen'},
+  shopify:{kind:'area', area:'shopify', label:'Shopify Vorbereitung', description:'Shopify-Lab und Store-Potenzial öffnen.', button:'Shopify öffnen'},
+  backoffice:{kind:'area', area:'backoffice', label:'Backoffice & Setup', description:'Einstellungen, Backup und Integrationen öffnen.', button:'Backoffice öffnen'},
+  finance:{kind:'tab', tab:'financeTab', label:'Kalkulation', description:'Finanzübersicht und Marge prüfen.', button:'Kalkulation öffnen'},
+  listing:{kind:'tab', tab:'listingCheckTab', label:'Listing-Check', description:'Listing-Checkliste und Konformität prüfen.', button:'Listing-Check öffnen'},
+  productStatus:{kind:'tab', tab:'productStatusTab', label:'Produkt-Status', description:'Produktstatus und offene To-dos ansehen.', button:'Status öffnen'},
+  agents:{kind:'tab', tab:'virtualAgentsTab', label:'KI-Agenten', description:'Virtuelle Mitarbeiter und Automatisierung öffnen.', button:'Agenten öffnen'}
+};
+function setLastStartTarget(target){
+  localStorage.setItem('elyonLastStartTarget', target);
+}
+function getLastStartTarget(){
+  const target = localStorage.getItem('elyonLastStartTarget') || localStorage.getItem('elyonLastMainTab');
+  return START_TARGET_META[target] ? target : 'ebay';
+}
+function openStartTarget(target){
+  const meta = START_TARGET_META[target] || START_TARGET_META.ebay;
+  setLastStartTarget(target);
+  if(meta.kind === 'quick') startQuickAction(meta.action);
+  else if(meta.kind === 'area') enterStartArea(meta.area);
+  else if(meta.kind === 'tab'){
+    showTab(meta.tab);
+    if(meta.tab === 'invoiceTab') safe('invoiceSearch', el => el.focus());
+    if(meta.tab === 'financeTab') safe('fRevenue', el => el.focus());
+  }
+}
+function getStartLauncherRecommendation(){
+  const stats = getTodayFocusData();
+  const openReturnCount = returns.filter(function(r){ return !isReturnClosed(r.status); }).length + shopifyReturns.filter(function(r){ return !isReturnClosed(r.status); }).length;
+  const shippingTodos = sales.filter(function(s){
+    const ship = s.shippingStatus || 'Noch nicht versendet';
+    const trackingMissing = !String(s.trackingNo || '').trim();
+    return ship !== 'Zugestellt' && ship !== 'Storniert' && (ship !== 'Versendet' || trackingMissing);
+  }).length;
+  if(stats.problemCount > 0) return {target:'product', tone:'bad', eyebrow:'Heute priorisieren', title:'Archivierte Produkte prüfen', text:'Es gibt archivierte oder unklare Produkte. Räume diese Fälle zuerst auf, bevor du weiterarbeitest.'};
+  if(stats.missingKeyword > 0 || stats.missingTitle > 0 || stats.missingDescription > 0 || stats.seoCheckCount > 0 || stats.ebayReadyCount > 0){
+    return {target:'product', tone:'warn', eyebrow:'Heute priorisieren', title:'Produktdaten und Listing verbessern', text:'Deine Drafts brauchen noch Titel, Keywords oder SEO-Feinschliff. Öffne direkt die Produktarbeit.'};
+  }
+  if(openReturnCount > 0) return {target:'return', tone:'warn', eyebrow:'Heute priorisieren', title:'Offene Retouren klären', text:openReturnCount + ' offene Retoure(n) warten auf Bearbeitung. Danach sind Versand und Rechnungen dran.'};
+  if(stats.trackingMissingCount > 0 || shippingTodos > 0) return {target:'shipping', tone:'info', eyebrow:'Heute priorisieren', title:'Versand und Tracking prüfen', text:(stats.trackingMissingCount || shippingTodos) + ' Versandfall/Fälle brauchen Aufmerksamkeit oder Tracking.'};
+  const lastTarget = getLastStartTarget();
+  const lastMeta = START_TARGET_META[lastTarget] || START_TARGET_META.ebay;
+  return {target:lastTarget, tone:'good', eyebrow:'Weiterarbeiten', title:'Zuletzt: ' + lastMeta.label, text:lastMeta.description};
+}
 function renderStartDashboard(){
   const shippingTodos = sales.filter(function(s){
     const ship = s.shippingStatus || 'Noch nicht versendet';
@@ -1691,11 +1893,23 @@ function renderStartDashboard(){
   const openReturns = returns.filter(function(r){ return !isReturnClosed(r.status); }).length + shopifyReturns.filter(function(r){ return !isReturnClosed(r.status); }).length;
   const ebay = integrationStatusText('ebay', integrationSettings.ebayCheck);
   const cj = integrationStatusText('cj', integrationSettings.cjCheck);
+  const recommendation = getStartLauncherRecommendation();
   safe('startShipTodos',el=>el.textContent=shippingTodos);
   safe('startOpenReturns',el=>el.textContent=openReturns);
   safe('startBackupStatus',el=>el.textContent=lastBackupText());
   safe('startIntegrationStatus',el=>el.textContent=ebay+' / '+cj);
   safe('startTodayFocus',el=>el.textContent=getSmartDailyFocus());
+  safe('startFocusTag', el => {
+    el.textContent = recommendation.eyebrow;
+    el.className = 'status ' + recommendation.tone;
+  });
+  safe('startRecommendationEyebrow', el => { el.textContent = recommendation.eyebrow; });
+  safe('startRecommendationTitle', el => { el.textContent = recommendation.title; });
+  safe('startRecommendationText', el => { el.textContent = recommendation.text; });
+  safe('startRecommendedBtn', el => {
+    el.textContent = (START_TARGET_META[recommendation.target] || START_TARGET_META.ebay).button;
+    el.dataset.startTarget = recommendation.target;
+  });
 }
 function closeStartLauncher(){
   safe('startLauncherModal', el => el.classList.add('hidden'));
@@ -1704,9 +1918,10 @@ function closeStartLauncher(){
   });
 }
 function enterStartArea(area){
+  setLastStartTarget(area);
   closeStartLauncher();
   if(area === 'ebay'){
-    showDashboard();
+    openOrders();
     return;
   }
   if(area === 'shopify'){
@@ -1719,11 +1934,15 @@ function enterStartArea(area){
   }
 }
 function startQuickAction(action){
+  setLastStartTarget(action);
   closeStartLauncher();
   if(action === 'product') scrollToProductForm();
   if(action === 'sale') openSalesAssistant();
   if(action === 'shipping') showTab('automationTab');
-  if(action === 'invoice') openSalesAssistant();
+  if(action === 'invoice'){
+    showTab('invoiceTab');
+    safe('invoiceSearch', el => el.focus());
+  }
   if(action === 'return') openReturnsCenter();
 }
 function save(){ products = normalizeProductsCollection(products); localStorage.setItem('elyonProducts', JSON.stringify(products)); render(); renderReturnProductOptions(); }
@@ -4039,13 +4258,13 @@ function getSmartDailyFocus(){
   const goWithoutSales = goProducts.filter(function(p){ return getSalesStatsForProduct(p.id).count === 0; }).length;
 
   if(products.length === 0) return 'Heute: 1 neues Produkt vollständig prüfen und sauber kalkulieren.';
-  if(openReturnCount > 0) return 'Heute zuerst: ' + openReturnCount + ' offene Retoure(n) klären, bevor du weiter testest.';
+  if(openReturnCount > 0) return 'Heute zuerst: ' + openReturnCount + ' offene Retoure(n) klären. Danach Versand und Rechnungen prüfen.';
   if(duplicates.length > 0) return 'Heute: doppelte SKU prüfen: ' + duplicates[0].sku + '.';
   if(missingSku > 0) return 'Heute: SKU bei ' + missingSku + ' Produkt(en) ergänzen.';
   if(incomplete > 0) return 'Heute: Stammdaten bei ' + incomplete + ' Produkt(en) vervollständigen.';
   if(goWithoutSales > 0) return 'Heute: 1 Listing-Kandidat sauber fürs eBay-Listing vorbereiten.';
   if(goProducts.length === 0) return 'Heute: 1 neues Produkt suchen, bis ein klarer Listing-Kandidat entsteht.';
-  return 'Heute: ruhig weiterarbeiten - 1 Produkt prüfen, 1 Listing verbessern, Backup exportieren.';
+  return 'Heute: ruhig weiterarbeiten - 1 Produkt prüfen, 1 Listing verbessern, dann ein frisches Backup exportieren.';
 }
 function renderTodayFocusDashboard(){
   const box = $('dailyChecklist');
@@ -6722,6 +6941,7 @@ function bindEvents(){
   bind('settingsBtn','click',openIntegrations);
   bind('startLauncherBtn','click',openStartLauncher);
   bind('closeStartLauncherBtn','click',closeStartLauncher);
+  bind('startRecommendedBtn','click',e=>openStartTarget(e.currentTarget.dataset.startTarget || 'ebay'));
   bind('enterEbayAreaBtn','click',()=>enterStartArea('ebay'));
   bind('enterShopifyAreaBtn','click',()=>enterStartArea('shopify'));
   bind('enterBackofficeAreaBtn','click',()=>enterStartArea('backoffice'));
@@ -7396,122 +7616,82 @@ document.addEventListener('DOMContentLoaded',()=>{
   ];
   const DEFAULT_ACTIVITY = 'Noch keine Aktivität';
   const DEFAULT_TEST_RESPONSE = 'Bereit für lokalen Testlauf';
+  const AI_TASK_STATUS_OPTIONS = [
+    { value: 'all', label: 'Alle' },
+    { value: 'open', label: 'Offen' },
+    { value: 'in_progress', label: 'In Bearbeitung' },
+    { value: 'done', label: 'Erledigt' },
+    { value: 'dismissed', label: 'Ausgeblendet' },
+  ];
+  const AI_TASK_PRIORITY_OPTIONS = [
+    { value: 'all', label: 'Alle Prioritäten' },
+    { value: 'low', label: 'Niedrig' },
+    { value: 'medium', label: 'Mittel' },
+    { value: 'high', label: 'Hoch' },
+    { value: 'critical', label: 'Kritisch' },
+  ];
+  const AI_TASK_PRIORITY_ORDER = { low: 1, medium: 2, high: 3, critical: 4 };
+  const AI_TASK_STATUS_LABELS = {
+    open: 'Offen',
+    in_progress: 'In Bearbeitung',
+    done: 'Erledigt',
+    dismissed: 'Ausgeblendet',
+  };
+  const AI_TASK_PRIORITY_LABELS = {
+    low: 'Niedrig',
+    medium: 'Mittel',
+    high: 'Hoch',
+    critical: 'Kritisch',
+  };
+  const AI_TASK_NOTICE_DEFAULT = 'Aktion vorbereitet: Diese Funktion wird später mit dem passenden Agenten verbunden.';
+  const AI_TASK_NOTICE_SANDBOX = 'Sandbox aktiv – Aufgaben werden nur vorbereitet.';
+  const AI_TASK_NOTICE_PAUSED = 'Alle Agenten sind pausiert. Es werden keine neuen Aufgaben erzeugt.';
+  const AI_TASK_SOURCE_LABELS = {
+    manual: 'Manuell',
+    agent: 'Agent',
+    demo: 'Demo',
+  };
+  const AI_TASK_DEMO_BASE_TIME = Date.now();
+  const createTaskId = () => `ai-task-${Math.random().toString(36).slice(2, 10)}-${Date.now().toString(36)}`;
 
-  const buildDefaultAgentRecord = (def) => ({
-    active: true,
-    mode: 'suggestions',
-    notifications: true,
-    model: 'deepseek',
-    dailyLimit: 0.25,
-    description: def.description || def.task,
-    statusState: 'Idle',
-    usageToday: 0,
-    lastActivity: DEFAULT_ACTIVITY,
-    lastTestResponse: DEFAULT_TEST_RESPONSE,
-    lastTestedAt: '',
-  });
-
-  function getDefaultAiAgentSettings() {
-    return {
-      version: 2,
-      securityMode: true,
-      sandboxMode: true,
-      advancedMode: false,
-      autonomyLocked: true,
-      pauseAllAgents: false,
-      safetyMode: true,
-      pausedAll: false,
-      activePanel: 'overview',
-      openCards: {},
-      agents: AGENT_DEFS.reduce((acc, def) => {
-        acc[def.id] = buildDefaultAgentRecord(def);
-        return acc;
-      }, {}),
-    };
-  }
-
-  function createDefaultState() {
-    return getDefaultAiAgentSettings();
-  }
-
-  function mergeAiAgentSettings(defaults, saved) {
-    const base = defaults && typeof defaults === 'object' ? defaults : getDefaultAiAgentSettings();
-    const source = saved && typeof saved === 'object' ? saved : {};
-    const next = { ...base, ...source };
-    const savedAgents = source.agents && typeof source.agents === 'object' && !Array.isArray(source.agents) ? source.agents : {};
-    const mergedAgents = {};
-
-    Object.keys(savedAgents).forEach((agentId) => {
-      if (!AGENT_DEFS.some((def) => def.id === agentId)) {
-        mergedAgents[agentId] = savedAgents[agentId];
-      }
-    });
-
-    AGENT_DEFS.forEach((def) => {
-      const incoming = savedAgents[def.id] && typeof savedAgents[def.id] === 'object' ? savedAgents[def.id] : {};
-      const fallback = base.agents && base.agents[def.id] ? base.agents[def.id] : buildDefaultAgentRecord(def);
-      mergedAgents[def.id] = {
-        active: typeof incoming.active === 'boolean' ? incoming.active : fallback.active,
-        mode: normalizeMode(incoming.mode !== undefined ? incoming.mode : fallback.mode),
-        notifications: typeof incoming.notifications === 'boolean' ? incoming.notifications : fallback.notifications,
-        model: normalizeModel(incoming.model !== undefined ? incoming.model : fallback.model),
-        dailyLimit: normalizeLimit(incoming.dailyLimit !== undefined ? incoming.dailyLimit : fallback.dailyLimit),
-        description: sanitizeDescription(incoming.description !== undefined ? incoming.description : fallback.description, def.description || def.task),
-        statusState: normalizeStatusState(incoming.statusState !== undefined ? incoming.statusState : fallback.statusState),
-        usageToday: normalizeUsage(incoming.usageToday !== undefined ? incoming.usageToday : fallback.usageToday),
-        lastActivity: sanitizeActivity(incoming.lastActivity !== undefined ? incoming.lastActivity : fallback.lastActivity, DEFAULT_ACTIVITY),
-        lastTestResponse: sanitizeActivity(incoming.lastTestResponse !== undefined ? incoming.lastTestResponse : fallback.lastTestResponse, DEFAULT_TEST_RESPONSE),
-        lastTestedAt: sanitizeActivity(incoming.lastTestedAt !== undefined ? incoming.lastTestedAt : fallback.lastTestedAt, ''),
-      };
-    });
-
-    next.version = Number.isFinite(Number(source.version)) ? Math.max(Number(base.version) || 1, Number(source.version) || 1) : base.version;
-    next.securityMode = typeof source.securityMode === 'boolean'
-      ? source.securityMode
-      : typeof source.safetyMode === 'boolean'
-        ? source.safetyMode
-        : base.securityMode;
-    next.sandboxMode = typeof source.sandboxMode === 'boolean' ? source.sandboxMode : base.sandboxMode;
-    next.advancedMode = typeof source.advancedMode === 'boolean' ? source.advancedMode : base.advancedMode;
-    next.autonomyLocked = typeof source.autonomyLocked === 'boolean' ? source.autonomyLocked : base.autonomyLocked;
-    next.pauseAllAgents = typeof source.pauseAllAgents === 'boolean'
-      ? source.pauseAllAgents
-      : typeof source.pausedAll === 'boolean'
-        ? source.pausedAll
-        : base.pauseAllAgents;
-    next.safetyMode = typeof source.safetyMode === 'boolean' ? source.safetyMode : next.securityMode;
-    next.pausedAll = typeof source.pausedAll === 'boolean' ? source.pausedAll : next.pauseAllAgents;
-    next.activePanel = normalizePanel(source.activePanel || base.activePanel || 'overview');
-    next.openCards = source.openCards && typeof source.openCards === 'object' && !Array.isArray(source.openCards)
-      ? { ...source.openCards }
-      : {};
-    next.agents = mergedAgents;
-    return next;
-  }
-
-  function saveAiAgentSettings(settings) {
-    const merged = mergeAiAgentSettings(getDefaultAiAgentSettings(), settings);
-    merged.safetyMode = merged.securityMode !== false;
-    merged.pausedAll = merged.pauseAllAgents === true;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
-    return merged;
-  }
-
-  function loadAiAgentSettings() {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      const parsed = raw ? JSON.parse(raw) : null;
-      const merged = mergeAiAgentSettings(getDefaultAiAgentSettings(), parsed);
-      merged.safetyMode = merged.securityMode !== false;
-      merged.pausedAll = merged.pauseAllAgents === true;
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
-      return merged;
-    } catch (error) {
-      const fallback = getDefaultAiAgentSettings();
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(fallback));
-      return fallback;
-    }
-  }
+  const buildDemoAiTasks = () => [
+    {
+      id: 'demo-product-margin',
+      title: 'Produktmarge prüfen',
+      description: 'Soul Finance würde Produkte mit niedriger Marge markieren.',
+      agent: 'Soul Finance',
+      category: 'Finanzen',
+      priority: 'high',
+      status: 'open',
+      createdAt: new Date(AI_TASK_DEMO_BASE_TIME - 3 * 60000).toISOString(),
+      source: 'demo',
+      actionLabel: 'Prüfung ansehen',
+    },
+    {
+      id: 'demo-seo-opportunity',
+      title: 'SEO-Chance erkennen',
+      description: 'Soul SEO würde Listings mit schwachem Titel oder fehlenden Keywords markieren.',
+      agent: 'Soul SEO',
+      category: 'SEO',
+      priority: 'medium',
+      status: 'open',
+      createdAt: new Date(AI_TASK_DEMO_BASE_TIME - 2 * 60000).toISOString(),
+      source: 'demo',
+      actionLabel: 'SEO prüfen',
+    },
+    {
+      id: 'demo-delivery-risk',
+      title: 'Lieferzeit-Risiko beobachten',
+      description: 'Soul Guard würde Produkte mit langer Lieferzeit oder riskantem Supplier markieren.',
+      agent: 'Soul Guard',
+      category: 'Risiko',
+      priority: 'critical',
+      status: 'open',
+      createdAt: new Date(AI_TASK_DEMO_BASE_TIME - 1 * 60000).toISOString(),
+      source: 'demo',
+      actionLabel: 'Risiko ansehen',
+    },
+  ];
 
   const getEl = (id) => document.getElementById(id);
   const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (ch) => ({
@@ -7523,7 +7703,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   }[ch]));
 
   const normalizePanel = (panel) => {
-    const valid = ['overview', 'virtual-ma', 'ki-agents'];
+    const valid = ['overview', 'ai-task-center', 'virtual-ma', 'ki-agents'];
     return valid.includes(panel) ? panel : 'overview';
   };
 
@@ -7566,18 +7746,166 @@ document.addEventListener('DOMContentLoaded',()=>{
     return text.slice(0, 220);
   };
 
-  const state = loadAiAgentSettings();
+  const sanitizeTaskText = (value, fallback, maxLength) => {
+    const text = String(value ?? '').replace(/\s+/g, ' ').trim();
+    if (!text) return fallback;
+    return text.slice(0, maxLength);
+  };
+
+  const normalizeTaskPriority = (value) => {
+    const input = String(value || '').trim();
+    return Object.prototype.hasOwnProperty.call(AI_TASK_PRIORITY_LABELS, input) ? input : 'medium';
+  };
+
+  const normalizeTaskStatus = (value) => {
+    const input = String(value || '').trim();
+    return Object.prototype.hasOwnProperty.call(AI_TASK_STATUS_LABELS, input) ? input : 'open';
+  };
+
+  const normalizeTaskSource = (value) => {
+    const input = String(value || '').trim();
+    return Object.prototype.hasOwnProperty.call(AI_TASK_SOURCE_LABELS, input) ? input : 'manual';
+  };
+
+  const normalizeAiTask = (task, index) => {
+    if (!task || typeof task !== 'object' || Array.isArray(task)) return null;
+    const createdAt = Date.parse(task.createdAt || '');
+    return {
+      id: sanitizeTaskText(task.id || `ai-task-${index + 1}`, `ai-task-${index + 1}`, 80),
+      title: sanitizeTaskText(task.title, 'Unbenannte Aufgabe', 120),
+      description: sanitizeTaskText(task.description, '', 260),
+      agent: sanitizeTaskText(task.agent, 'Unbekannter Agent', 80),
+      category: sanitizeTaskText(task.category, 'Allgemein', 60),
+      priority: normalizeTaskPriority(task.priority),
+      status: normalizeTaskStatus(task.status),
+      createdAt: Number.isFinite(createdAt) ? new Date(createdAt).toISOString() : new Date().toISOString(),
+      source: normalizeTaskSource(task.source),
+      actionLabel: sanitizeTaskText(task.actionLabel, 'Aktion vorbereiten', 40),
+    };
+  };
+
+  const normalizeAiTasks = (value) => {
+    const list = Array.isArray(value) ? value : [];
+    const next = list
+      .map((task, index) => normalizeAiTask(task, index))
+      .filter(Boolean);
+    return next.length ? next : buildDemoAiTasks();
+  };
+
+  const createDefaultState = () => ({
+    version: 2,
+    securityMode: true,
+    sandboxMode: true,
+    advancedMode: false,
+    autonomyLocked: true,
+    pauseAllAgents: false,
+    pauseAllSnapshot: {},
+    masterAgentsDisabled: false,
+    masterAgentsSnapshot: {},
+    safetyMode: true,
+    pausedAll: false,
+    activePanel: 'overview',
+    openCards: {},
+    aiTasks: [],
+    agents: AGENT_DEFS.reduce((acc, def) => {
+      acc[def.id] = {
+        active: true,
+        mode: 'suggestions',
+        notifications: true,
+        model: 'deepseek',
+        dailyLimit: 0.25,
+        description: def.description || def.task,
+        statusState: 'Idle',
+        usageToday: 0,
+        lastActivity: DEFAULT_ACTIVITY,
+        lastTestResponse: DEFAULT_TEST_RESPONSE,
+        lastTestedAt: '',
+      };
+      return acc;
+    }, {}),
+  });
+
+  const normalizeState = (raw) => {
+    const defaults = createDefaultState();
+    const source = raw && typeof raw === 'object' ? raw : {};
+    const next = {
+      version: Number.isFinite(Number(source.version)) ? Math.max(Number(defaults.version) || 1, Number(source.version) || 1) : defaults.version,
+      securityMode: typeof source.securityMode === 'boolean' ? source.securityMode : source.safetyMode !== false,
+      sandboxMode: typeof source.sandboxMode === 'boolean' ? source.sandboxMode : defaults.sandboxMode,
+      advancedMode: typeof source.advancedMode === 'boolean' ? source.advancedMode : defaults.advancedMode,
+      autonomyLocked: typeof source.autonomyLocked === 'boolean' ? source.autonomyLocked : defaults.autonomyLocked,
+      pauseAllAgents: typeof source.pauseAllAgents === 'boolean' ? source.pauseAllAgents : source.pausedAll === true,
+      pauseAllSnapshot: source.pauseAllSnapshot && typeof source.pauseAllSnapshot === 'object' ? {...source.pauseAllSnapshot} : {},
+      masterAgentsDisabled: typeof source.masterAgentsDisabled === 'boolean' ? source.masterAgentsDisabled : defaults.masterAgentsDisabled,
+      masterAgentsSnapshot: source.masterAgentsSnapshot && typeof source.masterAgentsSnapshot === 'object' ? {...source.masterAgentsSnapshot} : {},
+      safetyMode: typeof source.safetyMode === 'boolean' ? source.safetyMode : (typeof source.securityMode === 'boolean' ? source.securityMode : defaults.safetyMode),
+      pausedAll: typeof source.pausedAll === 'boolean' ? source.pausedAll : (typeof source.pauseAllAgents === 'boolean' ? source.pauseAllAgents : source.pausedAll === true),
+      activePanel: normalizePanel(source.activePanel || defaults.activePanel),
+      openCards: source.openCards && typeof source.openCards === 'object' ? {...source.openCards} : {},
+      aiTasks: normalizeAiTasks(source.aiTasks),
+      agents: {},
+    };
+
+    AGENT_DEFS.forEach((def) => {
+      const incoming = source.agents && typeof source.agents === 'object' ? source.agents[def.id] : null;
+      const fallback = defaults.agents[def.id];
+      next.agents[def.id] = {
+        active: incoming && typeof incoming.active === 'boolean' ? incoming.active : fallback.active,
+        mode: normalizeMode(incoming && incoming.mode !== undefined ? incoming.mode : fallback.mode),
+        notifications: incoming && typeof incoming.notifications === 'boolean' ? incoming.notifications : fallback.notifications,
+        model: normalizeModel(incoming && incoming.model !== undefined ? incoming.model : fallback.model),
+        dailyLimit: normalizeLimit(incoming && incoming.dailyLimit !== undefined ? incoming.dailyLimit : fallback.dailyLimit),
+        description: sanitizeDescription(incoming && incoming.description !== undefined ? incoming.description : fallback.description, def.description || def.task),
+        statusState: normalizeStatusState(incoming && incoming.statusState !== undefined ? incoming.statusState : fallback.statusState),
+        usageToday: normalizeUsage(incoming && incoming.usageToday !== undefined ? incoming.usageToday : fallback.usageToday),
+        lastActivity: sanitizeActivity(incoming && incoming.lastActivity !== undefined ? incoming.lastActivity : fallback.lastActivity, DEFAULT_ACTIVITY),
+        lastTestResponse: sanitizeActivity(incoming && incoming.lastTestResponse !== undefined ? incoming.lastTestResponse : fallback.lastTestResponse, DEFAULT_TEST_RESPONSE),
+        lastTestedAt: sanitizeActivity(incoming && incoming.lastTestedAt !== undefined ? incoming.lastTestedAt : fallback.lastTestedAt, ''),
+      };
+    });
+
+    next.safetyMode = next.securityMode;
+    next.pausedAll = next.pauseAllAgents || next.pausedAll;
+    next.pauseAllSnapshot = next.pauseAllSnapshot && typeof next.pauseAllSnapshot === 'object' ? next.pauseAllSnapshot : {};
+    next.masterAgentsDisabled = next.masterAgentsDisabled === true;
+    next.masterAgentsSnapshot = next.masterAgentsSnapshot && typeof next.masterAgentsSnapshot === 'object' ? next.masterAgentsSnapshot : {};
+    return next;
+  };
+
+  const loadState = () => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      const parsed = raw ? JSON.parse(raw) : null;
+      const state = normalizeState(parsed);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      return state;
+    } catch (error) {
+      const fallback = createDefaultState();
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(fallback));
+      return fallback;
+    }
+  };
+
+  const state = loadState();
   let activePanel = normalizePanel(state.activePanel);
+  let taskStatusFilter = 'all';
+  let taskPriorityFilter = 'all';
+  let taskCenterNotice = '';
+  let advancedAutonomyHoldTimer = null;
+  let advancedAutonomyHoldFrame = null;
+  let advancedAutonomyHoldStart = 0;
+  let advancedAutonomyHoldActive = false;
 
   const saveState = () => {
     state.activePanel = activePanel;
-    const persisted = saveAiAgentSettings(state);
-    Object.assign(state, persisted);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   };
 
   const isSecurityLocked = () => state.securityMode !== false || state.sandboxMode !== false;
   const isAutonomyLocked = () => state.autonomyLocked !== false;
   const isAllAgentsPaused = () => state.pauseAllAgents === true || state.pausedAll === true;
+  const isAdvancedAutonomyUnlocked = () => state.advancedMode === true && state.autonomyLocked === false;
+  const isMasterAgentsDisabled = () => state.masterAgentsDisabled === true;
 
   const getAgent = (agentId) => state.agents[agentId] || null;
   const getDefinition = (agentId) => AGENT_DEFS.find((item) => item.id === agentId) || null;
@@ -7649,46 +7977,6 @@ document.addEventListener('DOMContentLoaded',()=>{
     };
     return map[agentId] || 0.02;
   };
-  const buildSecurityToggle = (field, label, description, checked, onLabel, offLabel) => `
-    <div class="security-toggle-card">
-      <div>
-        <strong>${label}</strong>
-        <p>${description}</p>
-      </div>
-      <label class="agent-switch" style="margin:0">
-        <input type="checkbox" data-agent-field="${field}" ${checked ? 'checked' : ''}>
-        <span class="agent-switch-track"></span>
-        <span>${checked ? onLabel : offLabel}</span>
-      </label>
-    </div>
-  `;
-  const buildSecurityControlPanel = () => {
-    const securityMode = state.securityMode !== false;
-    const sandboxMode = state.sandboxMode !== false;
-    const advancedMode = state.advancedMode === true;
-    const autonomyLocked = state.autonomyLocked !== false;
-    const pauseAllAgents = isAllAgentsPaused();
-    const liveActionsBlocked = securityMode || sandboxMode;
-    return `
-      <section class="security-control-card">
-        <div class="security-control-header">
-          <div>
-            <h3>Sicherheits- & Autonomie-Steuerung</h3>
-            <p>Hier werden Sicherheitsrahmen und Autonomiegrenzen für die virtuellen Mitarbeiter verwaltet. Live-Aktionen bleiben blockiert, solange Sicherheitsmodus oder Sandbox aktiv ist.</p>
-          </div>
-          <span class="virtual-agent-badge ${liveActionsBlocked ? 'warn' : 'info'}">${liveActionsBlocked ? 'Live gesperrt' : 'Nur Vorschau'}</span>
-        </div>
-        <div class="security-control-grid">
-          ${buildSecurityToggle('securityMode', 'Sicherheitsmodus', 'Wenn aktiv, dürfen keine autonomen Aktionen ausgeführt werden.', securityMode, 'aktiv', 'inaktiv')}
-          ${buildSecurityToggle('sandboxMode', 'Sandbox-Modus', 'Wenn aktiv, werden Aktionen nur simuliert und nicht live ausgeführt.', sandboxMode, 'aktiv', 'inaktiv')}
-          ${buildSecurityToggle('advancedMode', 'Erweiterter Modus', 'Bleibt standardmäßig gesperrt, damit Autonomie-Funktionen nicht versehentlich geöffnet werden.', advancedMode, 'aktiv', 'inaktiv')}
-          ${buildSecurityToggle('autonomyLocked', 'Autonomie-Sperre', 'Sperrt Vollautomatik, automatische Bestellungen, Kundennachrichten und autonomes eBay-Posting.', autonomyLocked, 'aktiv', 'inaktiv')}
-          ${buildSecurityToggle('pauseAllAgents', 'Alle Agenten pausieren', 'Schaltet die gesamte Agentenansicht optisch auf Pause.', pauseAllAgents, 'an', 'aus')}
-        </div>
-        <div class="virtual-agents-note">${autonomyLocked ? 'Noch nicht aktivierbar – Sicherheitsfreigabe erforderlich.' : 'Autonomie-Freigabe gespeichert, aber Live-Aktionen bleiben in dieser Version weiterhin blockiert.'}</div>
-      </section>
-    `;
-  };
   const buildGlobalStatusBar = () => {
     const onlineCount = getOnlineCount();
     const pausedLabel = isAllAgentsPaused() ? 'pausiert' : 'aktiv';
@@ -7696,6 +7984,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     const securityMode = state.securityMode !== false;
     const sandboxMode = state.sandboxMode !== false;
     const autonomyLocked = isAutonomyLocked();
+    const masterDisabled = isMasterAgentsDisabled();
     return `
       <div class="virtual-agent-system-bar">
         <div class="virtual-agent-system-top">
@@ -7704,27 +7993,247 @@ document.addEventListener('DOMContentLoaded',()=>{
               <span class="virtual-agent-system-dot ${dotClass}"></span>
               <strong>${isAllAgentsPaused() ? 'KI-System pausiert' : 'KI-System aktiv'}</strong>
               <span class="pill">${onlineCount} von ${AGENT_DEFS.length} Agenten online</span>
-              <span class="pill">Sicherheitsmodus ${securityMode ? 'aktiv' : 'inaktiv'}</span>
-              <span class="pill">Sandbox ${sandboxMode ? 'aktiv' : 'inaktiv'}</span>
+              <span class="pill">Sicherheitsmodus ${securityMode ? 'aktiv' : 'aus'}</span>
+              <span class="pill">Sandbox ${sandboxMode ? 'aktiv' : 'aus'}</span>
+              ${masterDisabled ? '<span class="pill bad">Alle Agenten & MA deaktiviert</span>' : ''}
             </div>
-            <p class="virtual-agent-system-statusline" style="margin-top:8px">🟢 KI-System ${pausedLabel} - ${onlineCount} von ${AGENT_DEFS.length} Agenten online - Sicherheitsmodus ${securityMode ? 'aktiv' : 'inaktiv'} - Sandbox ${sandboxMode ? 'aktiv' : 'inaktiv'} - Autonomie ${autonomyLocked ? 'gesperrt' : 'frei'}</p>
+            <p class="virtual-agent-system-statusline" style="margin-top:8px">🟢 KI-System ${pausedLabel} - ${onlineCount} von ${AGENT_DEFS.length} Agenten online - Sicherheitsmodus ${securityMode ? 'aktiv' : 'aus'} - Sandbox ${sandboxMode ? 'aktiv' : 'aus'} - Autonomie ${autonomyLocked ? 'gesperrt' : 'frei'}</p>
           </div>
           <div class="virtual-agent-system-actions">
-            <button type="button" class="secondary" data-agent-action="pause-all">${isAllAgentsPaused() ? 'System fortsetzen' : 'Pause-All'}</button>
+            <button type="button" class="secondary" data-agent-action="pause-all" data-tooltip="${isAllAgentsPaused() ? 'Hebt die globale Pause auf und schaltet alle Agenten wieder an.' : 'Pausiert alle Agenten global und setzt alle Schalter auf Aus.'}">${isAllAgentsPaused() ? 'Alle Agenten fortsetzen' : 'Alle Agenten pausieren'}</button>
+            <button type="button" class="danger" data-agent-action="master-toggle-all" data-tooltip="${isMasterAgentsDisabled() ? 'Stellt die vorher gespeicherten Aktiv-Status wieder her.' : 'Deaktiviert alle Agenten und MA komplett und speichert den Zustand.'}">${isMasterAgentsDisabled() ? 'Alle Agenten & MA wiederherstellen' : 'Alle Agenten & MA deaktivieren'}</button>
           </div>
         </div>
         <div class="settings-agents-overview virtual-agent-system-metrics">
           <div class="metric"><small>Agenten online</small><strong>${onlineCount} / ${AGENT_DEFS.length}</strong></div>
           <div class="metric"><small>Sicherheitsmodus</small><strong>${securityMode ? 'Aktiv' : 'Aus'}</strong></div>
           <div class="metric"><small>Sandbox-Modus</small><strong>${sandboxMode ? 'Aktiv' : 'Aus'}</strong></div>
+          <div class="metric"><small>Autonomie</small><strong>${autonomyLocked ? 'Gesperrt' : 'Frei'}</strong></div>
           <div class="metric"><small>Geschätztes Tageslimit gesamt</small><strong>${formatEuro(getDailyLimitTotal())}</strong></div>
           <div class="metric"><small>Heutige KI-Nutzung</small><strong>${formatEuro(getUsageTotal())} <span class="hint" style="display:block;margin-top:4px">Mock</span></strong></div>
         </div>
-        <div class="virtual-agents-note">Automatische Aktionen werden vorbereitet, aber nicht ohne Bestätigung ausgeführt.</div>
+        <div class="virtual-agents-note">${isSecurityLocked() ? 'Sandbox aktiv – Aufgaben werden nur vorbereitet.' : 'Automatische Aktionen werden vorbereitet, aber nicht ohne Bestätigung ausgeführt.'}</div>
       </div>
     `;
   };
   const formatEuro = (value) => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(Number(value) || 0);
+
+  const formatTaskDate = (value) => {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return 'Unbekannt';
+    return date.toLocaleString('de-DE', { dateStyle: 'medium', timeStyle: 'short' });
+  };
+
+  const getTaskStatCounts = () => {
+    const tasks = Array.isArray(state.aiTasks) ? state.aiTasks : [];
+    return {
+      active: tasks.filter((task) => task.status === 'open' || task.status === 'in_progress').length,
+      highPriority: tasks.filter((task) => task.priority === 'high' || task.priority === 'critical').length,
+      done: tasks.filter((task) => task.status === 'done').length,
+      dismissed: tasks.filter((task) => task.status === 'dismissed').length,
+    };
+  };
+
+  const getFilteredAiTasks = () => {
+    const tasks = Array.isArray(state.aiTasks) ? state.aiTasks : [];
+    return tasks.filter((task) => {
+      if (taskStatusFilter !== 'all' && task.status !== taskStatusFilter) return false;
+      if (taskPriorityFilter !== 'all' && task.priority !== taskPriorityFilter) return false;
+      return true;
+    });
+  };
+
+  const updateAiTask = (taskId, updater) => {
+    const tasks = Array.isArray(state.aiTasks) ? state.aiTasks.slice() : [];
+    const index = tasks.findIndex((task) => task && task.id === taskId);
+    if (index < 0) return null;
+    const current = tasks[index];
+    const next = typeof updater === 'function' ? updater(current) : current;
+    if (!next || typeof next !== 'object') return null;
+    tasks[index] = {
+      ...current,
+      ...next,
+      id: current.id,
+      title: sanitizeTaskText(next.title !== undefined ? next.title : current.title, current.title, 120),
+      description: sanitizeTaskText(next.description !== undefined ? next.description : current.description, current.description, 260),
+      agent: sanitizeTaskText(next.agent !== undefined ? next.agent : current.agent, current.agent, 80),
+      category: sanitizeTaskText(next.category !== undefined ? next.category : current.category, current.category, 60),
+      priority: normalizeTaskPriority(next.priority !== undefined ? next.priority : current.priority),
+      status: normalizeTaskStatus(next.status !== undefined ? next.status : current.status),
+      createdAt: current.createdAt,
+      source: normalizeTaskSource(next.source !== undefined ? next.source : current.source),
+      actionLabel: sanitizeTaskText(next.actionLabel !== undefined ? next.actionLabel : current.actionLabel, current.actionLabel, 40),
+    };
+    state.aiTasks = tasks;
+    saveState();
+    render();
+    return tasks[index];
+  };
+
+  const setTaskStatusFilter = (value) => {
+    taskStatusFilter = AI_TASK_STATUS_OPTIONS.some((item) => item.value === value) ? value : 'all';
+    render();
+  };
+
+  const setTaskPriorityFilter = (value) => {
+    taskPriorityFilter = AI_TASK_PRIORITY_OPTIONS.some((item) => item.value === value) ? value : 'all';
+    render();
+  };
+
+  const setTaskCenterNotice = (value) => {
+    taskCenterNotice = sanitizeActivity(value, AI_TASK_NOTICE_DEFAULT);
+  };
+
+  const getTaskStatusMeta = (status) => {
+    const normalized = normalizeTaskStatus(status);
+    const map = {
+      open: 'info',
+      in_progress: 'warn',
+      done: 'good',
+      dismissed: 'bad',
+    };
+    return { label: AI_TASK_STATUS_LABELS[normalized], tone: map[normalized] || 'info' };
+  };
+
+  const getTaskPriorityMeta = (priority) => {
+    const normalized = normalizeTaskPriority(priority);
+    const map = {
+      low: 'info',
+      medium: 'warn',
+      high: 'bad',
+      critical: 'bad',
+    };
+    return { label: AI_TASK_PRIORITY_LABELS[normalized], tone: map[normalized] || 'info' };
+  };
+
+  const getTaskSourceMeta = (source) => AI_TASK_SOURCE_LABELS[normalizeTaskSource(source)] || 'Manuell';
+
+  const handleTaskAction = (taskId, action) => {
+    if (!taskId) return;
+    if (action === 'done') {
+      updateAiTask(taskId, (task) => ({ ...task, status: 'done' }));
+      return;
+    }
+    if (action === 'dismiss') {
+      updateAiTask(taskId, (task) => ({ ...task, status: 'dismissed' }));
+      return;
+    }
+    if (action === 'in_progress' || action === 'open' || action === 'dismissed' || action === 'done') {
+      updateAiTask(taskId, (task) => ({ ...task, status: action }));
+      return;
+    }
+    if (action === 'prepare') {
+      setTaskCenterNotice(isSecurityLocked() ? AI_TASK_NOTICE_SANDBOX : AI_TASK_NOTICE_DEFAULT);
+      render();
+    }
+  };
+
+  const buildTaskFilterButton = (group, value, label, activeValue) => `
+    <button
+      type="button"
+      class="${group === 'status' ? 'task-center-filter-btn' : 'task-center-filter-chip'} ${activeValue === value ? 'active' : ''}"
+      data-task-filter-group="${group}"
+      data-task-filter-value="${value}"
+    >${escapeHtml(label)}</button>
+  `;
+
+  const buildTaskCard = (task) => {
+    const priorityMeta = getTaskPriorityMeta(task.priority);
+    const statusMeta = getTaskStatusMeta(task.status);
+    const createdAt = formatTaskDate(task.createdAt);
+    return `
+      <article class="virtual-agent-card task-center-card task-center-priority-${escapeHtml(normalizeTaskPriority(task.priority))}">
+        <div class="task-center-card-top">
+          <div class="task-center-card-heading">
+            <h4>${escapeHtml(task.title)}</h4>
+            <p>${escapeHtml(task.description)}</p>
+          </div>
+          <div class="task-center-badge-stack">
+            <span class="virtual-agent-badge ${priorityMeta.tone}">${escapeHtml(priorityMeta.label)}</span>
+            <span class="virtual-agent-badge ${statusMeta.tone}">${escapeHtml(statusMeta.label)}</span>
+          </div>
+        </div>
+
+        <div class="task-center-meta-grid">
+          <div><small>Agent</small><strong>${escapeHtml(task.agent)}</strong></div>
+          <div><small>Kategorie</small><strong>${escapeHtml(task.category)}</strong></div>
+          <div><small>Erstellt</small><strong>${escapeHtml(createdAt)}</strong></div>
+          <div><small>Quelle</small><strong>${escapeHtml(getTaskSourceMeta(task.source))}</strong></div>
+        </div>
+
+        <div class="task-center-control-row">
+          <div class="task-center-status-field">
+            <label>Status ändern</label>
+            <select data-task-id="${escapeHtml(task.id)}" data-task-field="status">
+              ${AI_TASK_STATUS_OPTIONS.filter((item) => item.value !== 'all').map((item) => `<option value="${item.value}" ${task.status === item.value ? 'selected' : ''}>${item.label}</option>`).join('')}
+            </select>
+          </div>
+          <div class="task-center-action-row">
+            <button type="button" class="secondary" data-task-action="prepare" data-task-id="${escapeHtml(task.id)}">${escapeHtml(task.actionLabel)}</button>
+            <button type="button" class="secondary" data-task-action="done" data-task-id="${escapeHtml(task.id)}">Erledigt</button>
+            <button type="button" class="secondary" data-task-action="dismiss" data-task-id="${escapeHtml(task.id)}">Ausblenden</button>
+          </div>
+        </div>
+      </article>
+    `;
+  };
+
+  const buildTaskCenterPanel = () => {
+    const stats = getTaskStatCounts();
+    const hasSandboxHint = isSecurityLocked();
+    const pauseHint = isAllAgentsPaused();
+    const tasks = getFilteredAiTasks();
+    const totalTasks = Array.isArray(state.aiTasks) ? state.aiTasks.length : 0;
+    const emptyMessage = totalTasks
+      ? 'Keine KI-Aufgaben passen zu den aktiven Filtern.'
+      : 'Keine KI-Aufgaben vorhanden. Sobald Agenten aktiv werden, erscheinen hier Empfehlungen und Warnungen.';
+    return `
+      <div class="virtual-agent-card virtual-agents-panel ${activePanel === 'ai-task-center' ? 'active' : ''}" data-panel="ai-task-center">
+        <div class="task-center-shell">
+          <div class="task-center-head">
+            <div class="virtual-agent-ident">
+              <div class="virtual-agent-icon">📌</div>
+              <div>
+                <h3>AI Task Center</h3>
+                <p>Aufgaben, Warnungen und Empfehlungen deiner virtuellen Mitarbeiter.</p>
+              </div>
+            </div>
+            <span class="virtual-agent-badge info">Lokale Task-Queue</span>
+          </div>
+
+          <div class="settings-agents-overview task-center-stats">
+            <div class="metric"><small>Offene Aufgaben</small><strong>${stats.active}</strong></div>
+            <div class="metric"><small>Hohe Priorität</small><strong>${stats.highPriority}</strong></div>
+            <div class="metric"><small>Erledigt</small><strong>${stats.done}</strong></div>
+            <div class="metric"><small>Pausiert / ausgeblendet</small><strong>${stats.dismissed}</strong></div>
+          </div>
+
+          ${pauseHint ? '<div class="task-center-alert">Alle Agenten sind pausiert. Es werden keine neuen Aufgaben erzeugt.</div>' : ''}
+          ${hasSandboxHint ? `<div class="task-center-alert task-center-alert-warn">${AI_TASK_NOTICE_SANDBOX}</div>` : ''}
+          ${taskCenterNotice ? `<div class="output-box task-center-notice"><p>${escapeHtml(taskCenterNotice)}</p></div>` : ''}
+
+          <div class="task-center-filters">
+            <div>
+              <label>Status filtern</label>
+              <div class="task-center-filter-group">
+                ${AI_TASK_STATUS_OPTIONS.map((option) => buildTaskFilterButton('status', option.value, option.label, taskStatusFilter)).join('')}
+              </div>
+            </div>
+            <div>
+              <label>Priorität filtern</label>
+              <div class="task-center-filter-group">
+                ${AI_TASK_PRIORITY_OPTIONS.map((option) => buildTaskFilterButton('priority', option.value, option.label, taskPriorityFilter)).join('')}
+              </div>
+            </div>
+          </div>
+
+          <div class="task-center-list">
+            ${tasks.length ? tasks.map((task) => buildTaskCard(task)).join('') : `<div class="empty task-center-empty">${escapeHtml(emptyMessage)}</div>`}
+          </div>
+        </div>
+      </div>
+    `;
+  };
 
   const buildOverviewPanel = () => {
     return `
@@ -7733,24 +8242,51 @@ document.addEventListener('DOMContentLoaded',()=>{
           <div class="virtual-agent-ident">
             <div class="virtual-agent-icon">🧭</div>
             <div>
-              <h3>Steuerzentrale</h3>
-              <p>Hier bleiben die Agenten nur vorbereitet. Die bestehenden KI-Funktionen werden später an diese Ebene angebunden.</p>
+              <h3>Sicherheits- & Steuerzentrale</h3>
+              <p>Hier werden Sicherheitsrahmen und Autonomiegrenzen für die virtuellen Mitarbeiter verwaltet. Live-Aktionen bleiben blockiert, solange Sicherheitsmodus oder Sandbox aktiv ist.</p>
             </div>
           </div>
           <span class="virtual-agent-badge info">Lokale Orchestrierung</span>
         </div>
-        <div class="virtual-agents-note" style="margin-top:14px">Der neue Sicherheitsblock oberhalb der Agentenansicht steuert Sicherheitsmodus, Sandbox, Autonomie und Pausen. Alle Werte bleiben lokal im Browser gespeichert.</div>
-        <details class="form-accordion" style="margin-top:14px">
-          <summary>Erweiterte Hinweise</summary>
-          <div class="accordion-body">
-            <p class="hint" style="margin-top:10px">Aktivierung, Modus, Modellwahl, Benachrichtigungen und Kostenlimits werden pro Mitarbeiter gespeichert. Sicherheits- und Autonomie-Felder werden zusätzlich im gleichen lokalen Datensatz geführt.</p>
-            <div class="settings-agents-overview" style="margin-top:10px">
-              <div class="metric"><small>Aktive Mitarbeiter</small><strong>${getOnlineCount()} / ${AGENT_DEFS.length}</strong></div>
-              <div class="metric"><small>Geschätztes Tageslimit gesamt</small><strong>${formatEuro(getDailyLimitTotal())}</strong></div>
-              <div class="metric"><small>Sicherheitsmodus</small><strong>${state.securityMode !== false ? 'Aktiv' : 'Aus'}</strong></div>
-            </div>
+        <div class="security-switch-row" style="margin-top:14px">
+          <div>
+            <strong>Sicherheitsmodus</strong>
+            <p class="hint">Automatische Aktionen bleiben bestätigtspflichtig. Sandbox und Autonomie bleiben lokal abgesichert.</p>
           </div>
-        </details>
+          <label class="agent-switch" style="margin:0">
+            <input type="checkbox" data-agent-field="safetyMode" ${state.safetyMode !== false ? 'checked' : ''}>
+            <span class="agent-switch-track"></span>
+            <span>Sicherheitsmodus</span>
+          </label>
+        </div>
+        <div class="virtual-agents-note" style="margin-top:14px">${isSecurityLocked() ? 'Sandbox aktiv – Aufgaben werden nur vorbereitet.' : 'Automatische Aktionen werden vorbereitet, aber nicht ohne Bestätigung ausgeführt.'}</div>
+        <div class="extended-autonomy-card ${state.advancedMode === true && state.autonomyLocked === false ? 'active' : ''}" style="margin-top:14px">
+          <div class="extended-autonomy-head">
+            <div class="virtual-agent-ident" style="align-items:flex-start">
+              <div class="virtual-agent-icon">${state.advancedMode === true && state.autonomyLocked === false ? '🟡' : '🔒'}</div>
+              <div>
+                <h4>${state.advancedMode === true && state.autonomyLocked === false ? 'Erweiterte Autonomie aktiv' : 'Erweiterte Autonomie gesperrt'}</h4>
+                <p>${state.advancedMode === true && state.autonomyLocked === false ? 'Sandbox-Modus weiterhin aktiv' : 'Erweiterte Zukunftsfunktionen bleiben sicher blockiert und werden nur vorbereitet.'}</p>
+              </div>
+            </div>
+            <span class="virtual-agent-badge ${state.advancedMode === true && state.autonomyLocked === false ? 'warn' : 'info'}">${state.advancedMode === true && state.autonomyLocked === false ? 'Experimentell' : 'Geschützt'}</span>
+          </div>
+          <div class="extended-autonomy-copy">
+            ${state.advancedMode === true && state.autonomyLocked === false ? 'Live-Aktionen bleiben weiterhin blockiert, solange Sicherheitsmodus oder Sandbox aktiv sind.' : 'Erst nach einer manuellen Freigabe werden experimentelle Autonomie-Optionen sichtbar vorbereitet. Live-Aktionen bleiben dabei gesperrt.'}
+          </div>
+          <div class="extended-autonomy-status">
+            <span class="pill">Sicherheitsmodus ${state.securityMode !== false ? 'aktiv' : 'aus'}</span>
+            <span class="pill">Sandbox-Modus ${state.sandboxMode !== false ? 'aktiv' : 'aus'}</span>
+            <span class="pill">Autonomie ${state.autonomyLocked === false ? 'frei' : 'gesperrt'}</span>
+            <span class="pill">Erweiterte Autonomie ${state.advancedMode === true && state.autonomyLocked === false ? 'aktiv' : 'gesperrt'}</span>
+          </div>
+          <div class="extended-autonomy-note">
+            ${state.advancedMode === true && state.autonomyLocked === false ? 'Live-Aktionen bleiben weiterhin blockiert, solange Sicherheitsmodus oder Sandbox aktiv sind.' : 'Diese Freischaltung dient nur dazu, Zukunftsfunktionen vorbereitet sichtbar zu machen. Keine echten Live-Aktionen werden ausgelöst.'}
+          </div>
+          <div class="extended-autonomy-actions">
+            ${state.advancedMode === true && state.autonomyLocked === false ? '<button type="button" class="secondary" data-agent-action="lock-advanced-autonomy">Erweiterte Autonomie sperren</button>' : '<button type="button" class="secondary" data-agent-action="open-advanced-autonomy">Erweiterte Autonomie freischalten</button>'}
+          </div>
+        </div>
         <div class="virtual-agent-footer">
           <button type="button" class="secondary" data-agent-action="reset-all">Alle Agenten auf Standardwerte zurücksetzen</button>
         </div>
@@ -7793,7 +8329,7 @@ document.addEventListener('DOMContentLoaded',()=>{
         <div class="virtual-agent-body">
           <div class="virtual-agent-mini" style="margin-top:12px">
             <span class="pill">Status: ${escapeHtml(badge.label)}</span>
-            <span class="pill">Sicherheitsmodus: ${state.securityMode !== false ? 'Aktiv' : 'Aus'}</span>
+            <span class="pill">Sicherheitsmodus: ${state.safetyMode !== false ? 'Aktiv' : 'Aus'}</span>
             <span class="pill">Modell: ${escapeHtml(normalizeModel(agent.model))}</span>
             <span class="pill">Heute: ${escapeHtml(formatEuro(agent.usageToday || 0))} / ${escapeHtml(formatEuro(agent.dailyLimit || 0))}</span>
           </div>
@@ -7902,7 +8438,6 @@ document.addEventListener('DOMContentLoaded',()=>{
   };
 
   const buildFutureFunctionsSection = () => {
-    const liveActionsBlocked = isSecurityLocked();
     const lockedMessage = 'Noch nicht aktivierbar – Sicherheitsfreigabe erforderlich.';
     const items = [
       {
@@ -7933,7 +8468,7 @@ document.addEventListener('DOMContentLoaded',()=>{
             <div class="virtual-agent-ident">
               <div class="virtual-agent-icon">🔒</div>
               <div>
-                <h3>Autonomie & Zukunftsfunktionen</h3>
+                <h3>Vorschau gesperrter Funktionen</h3>
                 <p>Vorbereitet, aber aus Sicherheitsgründen deaktiviert. Erst mit manueller Freigabe aktivierbar.</p>
               </div>
             </div>
@@ -7941,12 +8476,12 @@ document.addEventListener('DOMContentLoaded',()=>{
           </div>
           <div class="virtual-agent-summary-meta">
             <span class="pill">4 gesperrte Funktionen</span>
-            <span class="pill">${liveActionsBlocked ? 'Live blockiert' : 'Live getrennt'}</span>
+            <span class="pill">${isSecurityLocked() ? 'Live blockiert' : 'Live getrennt'}</span>
             <span class="pill">Sicherheitsfreigabe erforderlich</span>
           </div>
         </summary>
         <div class="virtual-agent-body">
-          <div class="virtual-future-warning">Diese Funktionen sind vorbereitet, aber aus Sicherheitsgründen deaktiviert. ${liveActionsBlocked ? 'Live-Aktionen bleiben durch Sicherheitsmodus oder Sandbox blockiert.' : 'Live-Aktionen bleiben in dieser Version bewusst getrennt.'} ${lockedMessage}</div>
+          <div class="virtual-future-warning">Diese Funktionen sind vorbereitet, aber aus Sicherheitsgründen deaktiviert. ${isSecurityLocked() ? 'Live-Aktionen bleiben durch Sicherheitsmodus oder Sandbox blockiert.' : 'Live-Aktionen bleiben in dieser Version bewusst getrennt.'} ${lockedMessage}</div>
           <div class="virtual-future-grid" style="margin-top:14px">
             ${items.map((item) => `
               <div class="virtual-future-card">
@@ -7982,23 +8517,145 @@ document.addEventListener('DOMContentLoaded',()=>{
     state.openCards = openCards;
     const nav = [
       `<button type="button" class="${activePanel === 'overview' ? 'active' : ''}" data-agent-panel="overview">Übersicht</button>`,
+      `<button type="button" class="${activePanel === 'ai-task-center' ? 'active' : ''}" data-agent-panel="ai-task-center">AI Task Center</button>`,
       `<button type="button" class="${activePanel === 'ki-agents' ? 'active' : ''}" data-agent-panel="ki-agents">KI-Agenten</button>`,
-      `<button type="button" class="${activePanel === 'virtual-ma' ? 'active' : ''}" data-agent-panel="virtual-ma">Virtuelle Mitarbeiter</button>`,
+      `<button type="button" class="${activePanel === 'virtual-ma' ? 'active' : ''}" data-agent-panel="virtual-ma">Virtuelle MA</button>`,
     ].join('');
     const panels = [
       buildOverviewPanel(),
-      buildCategoryPanel('ki-agents', 'KI-Agenten', 'Analytische und strategische Rollen für Recherche, Risiko, SEO und Optimierung.', 'ki-agents', 'info'),
-      buildCategoryPanel('virtual-ma', 'Virtuelle Mitarbeiter', 'Operative Helfer für Finance, Support und Tagesorganisation.', 'virtual-ma', 'good'),
+      buildTaskCenterPanel(),
+      buildCategoryPanel('ki-agents', 'KI-Agenten', 'Strategische Analyse- und Optimierungsrollen für Recherche und Content.', 'ki-agents', 'info'),
+      buildCategoryPanel('virtual-ma', 'Virtuelle Mitarbeiter', 'Operative Helfer für Support, Finance und Tagesorganisation.', 'virtual-ma', 'good'),
       buildFutureFunctionsSection(),
     ].join('');
     root.innerHTML = `
       <div class="virtual-agents-shell">
-        ${buildSecurityControlPanel()}
         ${buildGlobalStatusBar()}
         <div class="virtual-agents-nav" role="tablist" aria-label="Virtuelle Mitarbeiter Navigation">${nav}</div>
         <div class="virtual-agents-panels">${panels}</div>
       </div>
     `;
+  };
+
+  const updateAdvancedAutonomyHoldUI = () => {
+    const checkbox = getEl('advancedAutonomyRiskCheckbox');
+    const button = getEl('advancedAutonomyHoldBtn');
+    const progress = getEl('advancedAutonomyHoldProgress');
+    const label = getEl('advancedAutonomyHoldLabel');
+    const status = getEl('advancedAutonomyHoldStatus');
+    if (!checkbox || !button || !progress || !label || !status) return;
+    const enabled = !!checkbox.checked;
+    button.disabled = !enabled || isAdvancedAutonomyUnlocked();
+    if (isAdvancedAutonomyUnlocked()) {
+      label.textContent = 'Bereits entsperrt';
+      status.textContent = 'Erweiterte Autonomie ist bereits aktiv.';
+      progress.style.width = '100%';
+      return;
+    }
+    if (!enabled) {
+      label.textContent = '3 Sekunden halten zum Entsperren';
+      status.textContent = 'Sicherheitsbestätigung erforderlich.';
+      progress.style.width = '0%';
+      button.classList.remove('is-holding');
+      return;
+    }
+    if (!advancedAutonomyHoldActive) {
+      label.textContent = '3 Sekunden halten zum Entsperren';
+      status.textContent = 'Halte den Button gedrückt, um die experimentelle Autonomie freizuschalten.';
+      progress.style.width = '0%';
+      button.classList.remove('is-holding');
+    }
+  };
+
+  const cancelAdvancedAutonomyHold = (message) => {
+    if (advancedAutonomyHoldTimer) {
+      window.clearTimeout(advancedAutonomyHoldTimer);
+      advancedAutonomyHoldTimer = null;
+    }
+    if (advancedAutonomyHoldFrame) {
+      window.cancelAnimationFrame(advancedAutonomyHoldFrame);
+      advancedAutonomyHoldFrame = null;
+    }
+    advancedAutonomyHoldActive = false;
+    const button = getEl('advancedAutonomyHoldBtn');
+    const progress = getEl('advancedAutonomyHoldProgress');
+    const label = getEl('advancedAutonomyHoldLabel');
+    const status = getEl('advancedAutonomyHoldStatus');
+    if (button) button.classList.remove('is-holding');
+    if (progress) progress.style.width = '0%';
+    if (label && !isAdvancedAutonomyUnlocked()) label.textContent = '3 Sekunden halten zum Entsperren';
+    if (status && !isAdvancedAutonomyUnlocked()) status.textContent = message || 'Vorgang abgebrochen. Erneut gedrückt halten, um zu entsperren.';
+  };
+
+  const closeAdvancedAutonomyModal = () => {
+    cancelAdvancedAutonomyHold();
+    const modal = getEl('advancedAutonomyModal');
+    if (modal) modal.classList.add('hidden');
+    const checkbox = getEl('advancedAutonomyRiskCheckbox');
+    if (checkbox) checkbox.checked = false;
+    updateAdvancedAutonomyHoldUI();
+  };
+
+  const openAdvancedAutonomyModal = () => {
+    const modal = getEl('advancedAutonomyModal');
+    const checkbox = getEl('advancedAutonomyRiskCheckbox');
+    if (!modal || !checkbox) return;
+    checkbox.checked = false;
+    modal.classList.remove('hidden');
+    window.setTimeout(() => {
+      checkbox.focus();
+      updateAdvancedAutonomyHoldUI();
+    }, 0);
+  };
+
+  const unlockAdvancedAutonomy = () => {
+    state.advancedMode = true;
+    state.autonomyLocked = false;
+    saveState();
+    render();
+    closeAdvancedAutonomyModal();
+  };
+
+  const lockAdvancedAutonomy = () => {
+    state.advancedMode = false;
+    state.autonomyLocked = true;
+    saveState();
+    render();
+  };
+
+  const startAdvancedAutonomyHold = (event) => {
+    const checkbox = getEl('advancedAutonomyRiskCheckbox');
+    const button = getEl('advancedAutonomyHoldBtn');
+    const progress = getEl('advancedAutonomyHoldProgress');
+    const label = getEl('advancedAutonomyHoldLabel');
+    const status = getEl('advancedAutonomyHoldStatus');
+    if (!checkbox || !button || !progress || !label || !status || !checkbox.checked || isAdvancedAutonomyUnlocked()) return;
+    if (typeof event.pointerId === 'number' && button.setPointerCapture) {
+      try {
+        button.setPointerCapture(event.pointerId);
+      } catch (captureError) {
+        // Ignore capture failures and continue with the hold timer.
+      }
+    }
+    cancelAdvancedAutonomyHold();
+    advancedAutonomyHoldActive = true;
+    advancedAutonomyHoldStart = performance.now();
+    button.classList.add('is-holding');
+    status.textContent = 'Halten läuft ... bitte gedrückt lassen.';
+    const tick = () => {
+      if (!advancedAutonomyHoldActive) return;
+      const elapsed = performance.now() - advancedAutonomyHoldStart;
+      const percent = Math.max(0, Math.min(100, (elapsed / 3000) * 100));
+      progress.style.width = `${percent}%`;
+      label.textContent = percent >= 100 ? 'Freischaltung wird bestätigt ...' : '3 Sekunden halten zum Entsperren';
+      if (percent >= 100) return;
+      advancedAutonomyHoldFrame = window.requestAnimationFrame(tick);
+    };
+    advancedAutonomyHoldFrame = window.requestAnimationFrame(tick);
+    advancedAutonomyHoldTimer = window.setTimeout(() => {
+      if (!advancedAutonomyHoldActive) return;
+      unlockAdvancedAutonomy();
+    }, 3000);
   };
 
   const setPanel = (panel) => {
@@ -8009,17 +8666,53 @@ document.addEventListener('DOMContentLoaded',()=>{
   };
 
   const resetAllAgents = () => {
-    const defaults = getDefaultAiAgentSettings();
+    const defaults = createDefaultState();
     state.agents = defaults.agents;
     state.securityMode = defaults.securityMode;
     state.sandboxMode = defaults.sandboxMode;
     state.advancedMode = defaults.advancedMode;
     state.autonomyLocked = defaults.autonomyLocked;
-    state.pauseAllAgents = defaults.pauseAllAgents;
-    state.safetyMode = defaults.safetyMode;
     state.pausedAll = defaults.pausedAll;
+    state.pauseAllAgents = defaults.pauseAllAgents;
+    state.masterAgentsDisabled = defaults.masterAgentsDisabled;
+    state.masterAgentsSnapshot = defaults.masterAgentsSnapshot;
+    state.safetyMode = defaults.safetyMode;
     activePanel = 'overview';
     state.activePanel = activePanel;
+    saveState();
+    render();
+  };
+
+  const toggleMasterAgents = () => {
+    const nextDisabled = !isMasterAgentsDisabled();
+    if (nextDisabled) {
+      const snapshot = {
+        agents: {},
+        pauseAllAgents: state.pauseAllAgents === true,
+        pausedAll: state.pausedAll === true,
+      };
+      AGENT_DEFS.forEach((def) => {
+        const agent = getAgent(def.id);
+        snapshot.agents[def.id] = !!(agent && agent.active);
+        if (agent) agent.active = false;
+      });
+      state.masterAgentsSnapshot = snapshot;
+      state.masterAgentsDisabled = true;
+      state.pauseAllAgents = true;
+      state.pausedAll = true;
+    } else {
+      const snapshot = state.masterAgentsSnapshot && typeof state.masterAgentsSnapshot === 'object' ? state.masterAgentsSnapshot : {};
+      const agentSnapshot = snapshot.agents && typeof snapshot.agents === 'object' ? snapshot.agents : {};
+      AGENT_DEFS.forEach((def) => {
+        const agent = getAgent(def.id);
+        if (!agent) return;
+        agent.active = typeof agentSnapshot[def.id] === 'boolean' ? agentSnapshot[def.id] : true;
+      });
+      state.pauseAllAgents = typeof snapshot.pauseAllAgents === 'boolean' ? snapshot.pauseAllAgents : false;
+      state.pausedAll = typeof snapshot.pausedAll === 'boolean' ? snapshot.pausedAll : state.pauseAllAgents;
+      state.masterAgentsDisabled = false;
+      state.masterAgentsSnapshot = {};
+    }
     saveState();
     render();
   };
@@ -8034,18 +8727,9 @@ document.addEventListener('DOMContentLoaded',()=>{
 
     if (field === 'active' || field === 'notifications') {
       agent[field] = !!target.checked;
-    } else if (field === 'securityMode') {
-      state.securityMode = !!target.checked;
-      state.safetyMode = state.securityMode;
-    } else if (field === 'sandboxMode') {
-      state.sandboxMode = !!target.checked;
-    } else if (field === 'advancedMode') {
-      state.advancedMode = !!target.checked;
-    } else if (field === 'autonomyLocked') {
-      state.autonomyLocked = !!target.checked;
-    } else if (field === 'pauseAllAgents') {
-      state.pauseAllAgents = !!target.checked;
-      state.pausedAll = state.pauseAllAgents;
+    } else if (field === 'safetyMode') {
+      state.safetyMode = !!target.checked;
+      state.securityMode = state.safetyMode;
     } else if (field === 'mode') {
       agent.mode = normalizeMode(target.value);
     } else if (field === 'model') {
@@ -8057,6 +8741,8 @@ document.addEventListener('DOMContentLoaded',()=>{
       agent.description = sanitizeDescription(target.value, def.task);
     } else if (field === 'statusState') {
       agent.statusState = normalizeStatusState(target.value);
+    } else if (field === 'taskStatus') {
+      handleTaskAction(target.dataset.taskId, normalizeTaskStatus(target.value));
     }
 
     saveState();
@@ -8064,8 +8750,25 @@ document.addEventListener('DOMContentLoaded',()=>{
   };
 
   const pauseAllAgents = () => {
-    state.pauseAllAgents = !isAllAgentsPaused();
-    state.pausedAll = state.pauseAllAgents;
+    const next = !isAllAgentsPaused();
+    if (next) {
+      AGENT_DEFS.forEach((def) => {
+        const agent = getAgent(def.id);
+        if (agent) agent.active = false;
+      });
+      state.pauseAllSnapshot = {};
+      state.pausedAll = true;
+      state.pauseAllAgents = true;
+    } else {
+      AGENT_DEFS.forEach((def) => {
+        const agent = getAgent(def.id);
+        if (!agent) return;
+        agent.active = isMasterAgentsDisabled() ? false : true;
+      });
+      state.pauseAllSnapshot = {};
+      state.pausedAll = false;
+      state.pauseAllAgents = false;
+    }
     saveState();
     render();
   };
@@ -8119,6 +8822,37 @@ document.addEventListener('DOMContentLoaded',()=>{
         pauseAllAgents();
         return;
       }
+      const masterToggleButton = event.target.closest('[data-agent-action="master-toggle-all"]');
+      if (masterToggleButton) {
+        toggleMasterAgents();
+        return;
+      }
+      const openAutonomyButton = event.target.closest('[data-agent-action="open-advanced-autonomy"]');
+      if (openAutonomyButton) {
+        openAdvancedAutonomyModal();
+        return;
+      }
+      const lockAutonomyButton = event.target.closest('[data-agent-action="lock-advanced-autonomy"]');
+      if (lockAutonomyButton) {
+        lockAdvancedAutonomy();
+        return;
+      }
+      const taskFilterButton = event.target.closest('[data-task-filter-group][data-task-filter-value]');
+      if (taskFilterButton) {
+        const filterGroup = taskFilterButton.dataset.taskFilterGroup;
+        const filterValue = taskFilterButton.dataset.taskFilterValue;
+        if (filterGroup === 'status') {
+          setTaskStatusFilter(filterValue);
+        } else if (filterGroup === 'priority') {
+          setTaskPriorityFilter(filterValue);
+        }
+        return;
+      }
+      const taskActionButton = event.target.closest('[data-task-action]');
+      if (taskActionButton) {
+        handleTaskAction(taskActionButton.dataset.taskId, taskActionButton.dataset.taskAction);
+        return;
+      }
       const testButton = event.target.closest('[data-agent-action="test-agent"]');
       if (testButton) {
         runAgentTest(testButton.dataset.agentId);
@@ -8129,18 +8863,26 @@ document.addEventListener('DOMContentLoaded',()=>{
       const target = event.target;
       if (target && target.dataset && target.dataset.agentField) {
         handleFieldChange(target);
+        return;
+      }
+      if (target && target.dataset && target.dataset.taskField === 'status') {
+        handleTaskAction(target.dataset.taskId, normalizeTaskStatus(target.value));
       }
     });
   };
 
-  window.loadAiAgentSettings = loadAiAgentSettings;
-  window.saveAiAgentSettings = saveAiAgentSettings;
-  window.getDefaultAiAgentSettings = getDefaultAiAgentSettings;
-  window.mergeAiAgentSettings = mergeAiAgentSettings;
+  document.addEventListener('click', (event) => {
+    const modal = getEl('advancedAutonomyModal');
+    if (!modal || modal.classList.contains('hidden')) return;
+    if (event.target === modal) {
+      closeAdvancedAutonomyModal();
+    }
+  });
+
   window.openVirtualAgentsSettings = openAgentSettings;
   window.renderVirtualAgentsSettings = render;
   window.reloadVirtualAgentsSettings = () => {
-    const next = loadAiAgentSettings();
+    const next = loadState();
     Object.assign(state, next);
     activePanel = normalizePanel(state.activePanel);
     render();
@@ -8149,6 +8891,22 @@ document.addEventListener('DOMContentLoaded',()=>{
   document.addEventListener('DOMContentLoaded', () => {
     bind();
     render();
+    const advancedAutonomyCheckbox = getEl('advancedAutonomyRiskCheckbox');
+    const advancedAutonomyHoldBtn = getEl('advancedAutonomyHoldBtn');
+    const advancedAutonomyCloseBtn = getEl('advancedAutonomyCloseBtn');
+    if (advancedAutonomyCheckbox) {
+      advancedAutonomyCheckbox.addEventListener('change', updateAdvancedAutonomyHoldUI);
+    }
+    if (advancedAutonomyHoldBtn) {
+      advancedAutonomyHoldBtn.addEventListener('pointerdown', startAdvancedAutonomyHold);
+      advancedAutonomyHoldBtn.addEventListener('pointerup', () => cancelAdvancedAutonomyHold());
+      advancedAutonomyHoldBtn.addEventListener('pointercancel', () => cancelAdvancedAutonomyHold());
+      advancedAutonomyHoldBtn.addEventListener('mouseleave', () => cancelAdvancedAutonomyHold());
+      advancedAutonomyHoldBtn.addEventListener('blur', () => cancelAdvancedAutonomyHold());
+    }
+    if (advancedAutonomyCloseBtn) {
+      advancedAutonomyCloseBtn.addEventListener('click', closeAdvancedAutonomyModal);
+    }
     const openBtn = getEl('openVirtualAgentsSettingsBtn');
     if (openBtn && !openBtn.dataset.bound) {
       openBtn.dataset.bound = 'yes';
@@ -8159,6 +8917,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       modalBtn.dataset.bound = 'yes';
       modalBtn.addEventListener('click', openAgentSettings);
     }
+    updateAdvancedAutonomyHoldUI();
     console.assert(!!getEl('virtualAgentsSettingsRoot'), 'Virtuelle Mitarbeiter Bereich sollte existieren');
     console.assert(!!getEl('virtualAgentsTab'), 'virtualAgentsTab sollte existieren');
   });
