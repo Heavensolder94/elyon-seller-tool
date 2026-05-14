@@ -2642,7 +2642,11 @@ async function syncToGoogleSheet(type, records){
     type: type,
     records: rows,
   };
-  const data = await postJsonWithTimeout(config.url, payload, 30000);
+  const data = await postJsonWithTimeout('/api/google-sheets-sync', {
+    method: 'POST',
+    url: config.url,
+    payload: payload
+  }, 30000);
   if(!data || data.ok === false){
     throw new Error((data && (data.error || data.message)) ? (data.error || data.message) : 'Google Sheets Sync fehlgeschlagen.');
   }
@@ -2654,23 +2658,14 @@ async function loadFromGoogleSheet(type){
   const config = getGoogleSheetsSyncConfig();
   if(!config.url) throw new Error('Google Apps Script Web-App URL fehlt.');
   if(!config.token) throw new Error('Sync Token fehlt.');
-  const url = config.url + '?action=getRecords&type=' + encodeURIComponent(type) + '&token=' + encodeURIComponent(config.token);
-  const response = await fetch(url, {
+  const data = await postJsonWithTimeout('/api/google-sheets-sync', {
     method: 'GET',
-    headers: { 'Accept': 'application/json, text/plain, */*' }
-  });
-  const text = await response.text();
-  const trimmed = text.trim().toLowerCase();
-  if(trimmed.startsWith('<!doctype html') || trimmed.startsWith('<html')){
-    throw new Error('Die Google-Sheets-URL liefert HTML statt JSON. Bitte die Google Apps Script Web-App-URL (/exec) eintragen, nicht die Spreadsheet-, Datei- oder Browser-URL.');
-  }
-  let data = null;
-  try{
-    data = text ? JSON.parse(text) : null;
-  }catch(parseError){
-    throw new Error('Google Sheets Antwort konnte nicht gelesen werden.');
-  }
-  if(!response.ok || !data || data.ok === false){
+    url: config.url,
+    action: 'getRecords',
+    type: type,
+    token: config.token
+  }, 30000);
+  if(!data || data.ok === false){
     throw new Error((data && (data.error || data.message)) ? (data.error || data.message) : 'Google Sheets Laden fehlgeschlagen.');
   }
   return data;
