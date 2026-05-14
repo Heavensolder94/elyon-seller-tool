@@ -4,17 +4,19 @@ const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+const DEFAULT_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
+
 const MODEL_BY_TASK = {
-  category: "gpt-4.1-nano",
-  tags: "gpt-4.1-nano",
-  title: "gpt-4.1-mini",
-  description: "gpt-4.1-mini",
-  product_score: "gpt-4.1-mini",
-  assistant: "gpt-4.1-mini",
+  category: DEFAULT_MODEL,
+  tags: DEFAULT_MODEL,
+  title: DEFAULT_MODEL,
+  description: DEFAULT_MODEL,
+  product_score: DEFAULT_MODEL,
+  assistant: DEFAULT_MODEL,
 };
 
 function chooseModel(task) {
-  return MODEL_BY_TASK[task] || "gpt-4.1-mini";
+  return MODEL_BY_TASK[task] || DEFAULT_MODEL;
 }
 
 export default async function handler(req, res) {
