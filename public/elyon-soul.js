@@ -409,6 +409,10 @@
     `;
   }
 
+  function setFeedback(title, body) {
+    renderFeedback(title, body);
+  }
+
   function renderMessages() {
     if (!ui.feed) return;
     const visible = state.messages.slice(-MAX_MESSAGES);
@@ -591,14 +595,33 @@
     if (ui.input) ui.input.value = "";
     const summary = refreshSummary();
     pushMessage("user", "Du", prompt);
-    setFeedback("ELYON SOUL", "Antworte...");
+    setFeedback("DEEPSEEK", "Analysiere...");
     setLoading(true);
 
     try {
+      const result = await requestDeepSeek(prompt, "chat");
+      state.aiChecked = true;
+      state.aiEnabled = result.aiEnabled === true && result.mode === "deepseek";
+      const answer = text(result.recommendation) || getRuleBasedReply(prompt, summary);
+      const title = result.mode === "deepseek" ? "DEEPSEEK" : "ELYON SOUL";
+      pushMessage("assistant", title, answer);
+      renderFeedback(title, answer);
+      setStatus(
+        result.mode === "deepseek" ? "DeepSeek aktiv" : "Regelmodus aktiv",
+        result.mode === "deepseek" ? "good" : "warn",
+        result.mode === "deepseek"
+          ? "Die Chat-Antwort kam direkt von DeepSeek V4 Flash."
+          : "DeepSeek ist fuer den Chat gerade nicht aktiv. Der lokale Coach springt ein."
+      );
+    } catch (error) {
       const answer = getRuleBasedReply(prompt, summary);
       pushMessage("assistant", "ELYON SOUL", answer);
       renderFeedback("ELYON SOUL", answer);
-      setStatus(summary.total > 0 ? "Regelmodus aktiv" : "Warte auf Produktdaten", "warn", "Texteingaben laufen bewusst nur im regelbasierten Modus. DeepSeek startest du nur ueber den Button.");
+      setStatus(
+        summary.total > 0 ? "Regelmodus aktiv" : "Warte auf Produktdaten",
+        "warn",
+        formatDeepSeekError(error)
+      );
     } finally {
       setLoading(false);
       scrollToLatest();
