@@ -211,16 +211,16 @@ function getExpectedToken_() {
 
 function getSpreadsheet_() {
   const props = PropertiesService.getScriptProperties();
+  const active = SpreadsheetApp.getActiveSpreadsheet();
+  if (active) {
+    return active;
+  }
+
   const spreadsheetId = normalizeSpreadsheetId_(
     props.getProperty("SPREADSHEET_ID") || props.getProperty("GOOGLE_SPREADSHEET_ID") || ""
   );
   if (spreadsheetId) {
     return SpreadsheetApp.openById(spreadsheetId);
-  }
-
-  const active = SpreadsheetApp.getActiveSpreadsheet();
-  if (active) {
-    return active;
   }
 
   throw new Error("Kein Spreadsheet gefunden. Bitte SPREADSHEET_ID setzen oder das Script an ein Spreadsheet binden.");
