@@ -348,7 +348,7 @@
           <summary>1. Basisdaten</summary>
           <div class="accordion-body">
             <label>Produktname</label><input id="name" placeholder="z. B. Tragbarer Mixer USB">
-            <div class="row"><div><label>Produkt-Status</label><select id="productStatus"><option>Recherche</option><option>Draft</option><option>SEO prüfen</option><option>eBay Ready</option><option>Live</option><option>Verkauft</option><option>Versand offen</option><option>Abgeschlossen</option><option>Problem</option></select></div><div><label>Priorität</label><select id="priority"><option>Normal</option><option>⭐ Favorit</option><option>🔥 Heiß</option><option>❄️ Später</option></select></div></div>
+            <div class="row"><div><label>Produkt-Status</label><select id="productStatus"><option>Recherche</option><option>Draft</option><option>SEO prüfen</option><option>eBay Ready</option><option>Live</option><option>Verkauft</option><option>Versand offen</option><option>Abgeschlossen</option><option>Archiviert</option></select></div><div><label>Priorität</label><select id="priority"><option>Normal</option><option>⭐ Favorit</option><option>🔥 Heiß</option><option>❄️ Später</option></select></div></div>
           </div>
         </details>
 
@@ -1254,7 +1254,7 @@ function loadStoredArray(key){
     return [];
   }
 }
-const PRODUCT_STATUS_VALUES = ['Recherche','Draft','SEO prüfen','eBay Ready','Live','Verkauft','Versand offen','Abgeschlossen','Problem'];
+const PRODUCT_STATUS_VALUES = ['Recherche','Draft','SEO prüfen','eBay Ready','Live','Verkauft','Versand offen','Abgeschlossen','Archiviert'];
 const PRODUCT_STATUS_ALIASES = {
   idee: 'Draft',
   entwurf: 'Draft',
@@ -1272,9 +1272,10 @@ const PRODUCT_STATUS_ALIASES = {
   verkauft: 'Verkauft',
   'versand offen': 'Versand offen',
   abgeschlossen: 'Abgeschlossen',
-  problem: 'Problem',
-  problemfall: 'Problem',
-  rauswerfen: 'Problem'
+  archiviert: 'Archiviert',
+  problem: 'Archiviert',
+  problemfall: 'Archiviert',
+  rauswerfen: 'Archiviert'
 };
 function parseLooseDateIso(value, fallback){
   const fallbackIso = fallback || new Date().toISOString();
@@ -2502,7 +2503,7 @@ function productStatusMeta(status){
     'Verkauft': {label:'📦 Verkauft', cls:'good'},
     'Versand offen': {label:'🚚 Versand offen', cls:'warn'},
     'Abgeschlossen': {label:'🏁 Abgeschlossen', cls:'good'},
-    'Problem': {label:'⚠️ Problem', cls:'bad'},
+    'Archiviert': {label:'🗂️ Archiviert', cls:'bad'},
   };
   return meta[value] || {label:value, cls:'info'};
 }
@@ -2553,7 +2554,7 @@ function toggleShopifyCandidate(id){
   save();
 }
 function stopProduct(id){
-  products = products.map(p => p.id === id ? normalizeProductRecord({...p,productStatus:'Problem',status:'Problem',stoppedAt:new Date().toLocaleDateString('de-DE'),updatedAt:new Date().toISOString()}) : p);
+  products = products.map(p => p.id === id ? normalizeProductRecord({...p,productStatus:'Archiviert',status:'Archiviert',stoppedAt:new Date().toLocaleDateString('de-DE'),updatedAt:new Date().toISOString()}) : p);
   save();
 }
 function clearAll(){ if(confirm('Wirklich alle Produkte löschen?')){ products=[]; save(); } }
@@ -3222,7 +3223,7 @@ function productHealth(p){
   if(net<0) score-=20;
   if((+p.delivery||0)>14) score-=10;
   if(p.risk==='high') score-=15;
-  if(normalizeProductStatus(p.productStatus || p.status || 'Draft', 'Draft')==='Problem') score=20;
+  if(normalizeProductStatus(p.productStatus || p.status || 'Draft', 'Draft')==='Archiviert') score=20;
   score=Math.max(0,Math.min(100,score));
   const cls=score>=75?'good':score>=50?'warn':'bad';
   const label=score>=75?'🟢 Gesund':score>=50?'🟡 Beobachten':'🔴 Kritisch';
@@ -3855,8 +3856,8 @@ function getTodayFocusData(){
     return normalizeProductStatus(p.productStatus || p.status || 'Draft', 'Draft') === 'eBay Ready';
   }).length + (latestEbayListingDraft && normalizeProductStatus(latestEbayListingDraft.productStatus || latestEbayListingDraft.status || 'Draft', 'Draft') === 'eBay Ready' ? 1 : 0);
   const problemCount = products.filter(function(p){
-    return normalizeProductStatus(p.productStatus || p.status || 'Draft', 'Draft') === 'Problem';
-  }).length + (latestEbayListingDraft && normalizeProductStatus(latestEbayListingDraft.productStatus || latestEbayListingDraft.status || 'Draft', 'Draft') === 'Problem' ? 1 : 0);
+    return normalizeProductStatus(p.productStatus || p.status || 'Draft', 'Draft') === 'Archiviert';
+  }).length + (latestEbayListingDraft && normalizeProductStatus(latestEbayListingDraft.productStatus || latestEbayListingDraft.status || 'Draft', 'Draft') === 'Archiviert' ? 1 : 0);
   const trackingMissingCount = sales.filter(function(s){
     const ship = String(s.shippingStatus || 'Noch nicht versendet');
     return ship !== 'Zugestellt' && ship !== 'Storniert' && (ship !== 'Versendet' || !String(s.trackingNo || '').trim());
@@ -3877,7 +3878,7 @@ function getTodayFocusData(){
 }
 function getSmartDailyFocus(){
   const stats = getTodayFocusData();
-  if(stats.problemCount > 0) return 'Heute zuerst: ' + stats.problemCount + ' Produkt(e) mit Status Problem klären.';
+  if(stats.problemCount > 0) return 'Heute zuerst: ' + stats.problemCount + ' Produkt(e) mit Status Archiviert prüfen.';
   if(stats.missingKeyword > 0) return 'Heute zuerst: ' + stats.missingKeyword + ' Draft(s) brauchen noch ein Hauptkeyword.';
   if(stats.missingTitle > 0) return 'Heute: ' + stats.missingTitle + ' Draft(s) haben noch keinen sauberen Titel.';
   if(stats.missingDescription > 0) return 'Heute: ' + stats.missingDescription + ' Draft(s) brauchen noch eine Beschreibung.';
@@ -3915,7 +3916,7 @@ function renderTodayFocusDashboard(){
     '<div class="dashboard" style="margin-top:12px">' +
       '<div class="metric"><small>🔎 SEO prüfen</small><strong>' + stats.seoCheckCount + '</strong></div>' +
       '<div class="metric"><small>✅ eBay Ready</small><strong>' + stats.ebayReadyCount + '</strong></div>' +
-      '<div class="metric"><small>⚠️ Problem</small><strong>' + stats.problemCount + '</strong></div>' +
+      '<div class="metric"><small>🗂️ Archiviert</small><strong>' + stats.problemCount + '</strong></div>' +
       '<div class="metric"><small>Aktive Drafts</small><strong>' + stats.draftCount + '</strong></div>' +
     '</div>' +
     '<div class="output-box" style="margin-top:14px"><h3>Fokus</h3><p>' + escapeHtml(summary) + '</p></div>';
@@ -4280,7 +4281,7 @@ function render(){
     const hasAi = hasProductAiDecision(p);
     if(filter==='shopify') return !!p.shopifyCandidate;
     if(filter==='winner') return dashboardProductScore(p)>=75;
-    if(filter==='kill') return normalizeProductStatus(p.productStatus || p.status || 'Draft', 'Draft')==='Problem';
+    if(filter==='kill') return normalizeProductStatus(p.productStatus || p.status || 'Draft', 'Draft')==='Archiviert';
     if(filter==='ai-unchecked') return !hasAi;
     if(filter==='ai-go') return hasAi && ai.decision==='GO';
     if(filter==='ai-test') return hasAi && ai.decision==='TEST';
@@ -4293,7 +4294,7 @@ function render(){
   if(!items.length){ list.innerHTML='<div class="empty">Noch keine passenden Produkte.</div>'; return; }
 
   if(productViewMode==='kanban'){
-    const groups=['Recherche','Draft','SEO prüfen','eBay Ready','Live','Verkauft','Versand offen','Abgeschlossen','Problem'];
+    const groups=['Recherche','Draft','SEO prüfen','eBay Ready','Live','Verkauft','Versand offen','Abgeschlossen','Archiviert'];
     list.innerHTML='<div class="kanban-board">'+groups.map(g=>{
       const groupItems=items.filter(p=>normalizeProductStatus(p.productStatus || p.status || 'Draft', 'Draft')===g);
       return '<div class="kanban-column"><h3>'+g+' · '+groupItems.length+'</h3>'+(groupItems.length?groupItems.map(p=>productCardHTML(p,true)).join(''):'<div class="empty">Leer</div>')+'</div>';
@@ -6393,7 +6394,7 @@ function problemProductRankingHTML(){
     if(!['Abgeschlossen','Erstattet'].includes(r.status)) grouped[name].open++;
   });
   const rows = Object.entries(grouped).sort((a,b)=>b[1].loss-a[1].loss || b[1].count-a[1].count).slice(0,5);
-  if(!rows.length) return 'Noch keine Problem-Produkte erkannt.';
+  if(!rows.length) return 'Noch keine archivierten Produkte erkannt.';
   return '<ul>'+rows.map(([name,data])=>'<li><strong>'+name+'</strong> · '+data.platform+' · '+data.count+' Retoure(n) · Verlust: '+euro(data.loss)+' · offen: '+data.open+'</li>').join('')+'</ul>';
 }
 function renderReturnsOverview(){
