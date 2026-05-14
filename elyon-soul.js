@@ -48,6 +48,7 @@
     fab: null,
     panel: null,
     status: null,
+    usage: null,
     metrics: null,
     hint: null,
     feed: null,
@@ -394,6 +395,17 @@
     };
   }
 
+  function renderAiUsage() {
+    if (!ui.usage) return;
+    const usage = getAiUsage();
+    const consumed = Math.min(usage.limit, usage.count);
+    const remaining = Math.max(0, usage.remaining);
+    ui.usage.textContent = remaining <= 0
+      ? `Heute: ${consumed}/${usage.limit} KI-Anfragen verbraucht`
+      : `Heute: ${remaining}/${usage.limit} KI-Anfragen übrig`;
+    ui.usage.dataset.tone = remaining <= 0 ? "warn" : "info";
+  }
+
   function setStatus(textValue, tone, detailValue) {
     if (!ui.status) return;
     ui.status.textContent = textValue;
@@ -426,6 +438,7 @@
     ui.status.style.color = fg;
     ui.status.style.background = bg;
     ui.status.style.borderColor = border;
+    renderAiUsage();
   }
 
   function renderMetrics(summary) {
@@ -534,6 +547,7 @@
       : state.aiEnabled
         ? "KI-Analyse starten"
         : "KI-Modus nicht aktiv";
+    renderAiUsage();
   }
 
   function buildPayload(prompt, action) {
@@ -633,6 +647,7 @@
     if (isOpen) {
       refreshSummary();
       renderMessages();
+      renderAiUsage();
       setTimeout(scrollToLatest, 50);
     }
   }
@@ -804,6 +819,7 @@
           <div class="elyon-soul-status-wrap">
             <div class="elyon-soul-status">Warte auf Produktdaten</div>
             <div class="elyon-soul-status-meta">Lokaler Coach aktiv. Lege zuerst Produkte an.</div>
+            <div class="elyon-soul-usage">Heute: 30/30 KI-Anfragen übrig</div>
             <button class="elyon-soul-close" type="button" aria-label="Schliessen">×</button>
           </div>
         </div>
@@ -843,6 +859,7 @@
     ui.fab = shell.querySelector(".elyon-soul-fab");
     ui.panel = shell.querySelector(".elyon-soul-panel");
     ui.status = shell.querySelector(".elyon-soul-status");
+    ui.usage = shell.querySelector(".elyon-soul-usage");
     ui.metrics = shell.querySelector(".elyon-soul-metrics");
     ui.hint = shell.querySelector(".elyon-soul-hint-box");
     ui.feed = shell.querySelector(".elyon-soul-feed");

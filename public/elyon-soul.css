@@ -157,6 +157,28 @@
   text-align: right;
 }
 
+.elyon-soul-usage {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-end;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(96, 165, 250, 0.2);
+  background: rgba(15, 23, 42, 0.6);
+  color: #bfdbfe;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+.elyon-soul-usage[data-tone="warn"] {
+  border-color: rgba(250, 204, 21, 0.28);
+  background: rgba(69, 52, 10, 0.3);
+  color: #fde68a;
+}
+
 .elyon-soul-close {
   border: 1px solid rgba(148, 163, 184, 0.14);
   background: rgba(15, 23, 42, 0.7);
