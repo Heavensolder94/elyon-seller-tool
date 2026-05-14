@@ -5,6 +5,8 @@
     storageKey: "elyonProducts",
     stateKey: "elyonSoulOpen",
     endpoint: "/api/elyon-soul",
+    aiUsageKey: "elyonSoulAiUsage",
+    aiDailyLimit: 30,
   };
 
   const QUICK_ACTIONS = [
@@ -46,6 +48,7 @@
     fab: null,
     panel: null,
     status: null,
+    usage: null,
     metrics: null,
     hint: null,
     feed: null,
@@ -268,6 +271,54 @@
       .slice(0, 240);
   }
 
+  function getTodayKey() {
+    return new Date().toISOString().slice(0, 10);
+  }
+
+  function loadAiUsage() {
+    const raw = localStorage.getItem(CONFIG.aiUsageKey);
+    const parsed = safeParseJson(raw);
+    if (!parsed || typeof parsed !== "object") {
+      return { day: getTodayKey(), count: 0 };
+    }
+
+    if (parsed.day !== getTodayKey()) {
+      return { day: getTodayKey(), count: 0 };
+    }
+
+    return {
+      day: parsed.day,
+      count: Number.isFinite(Number(parsed.count)) ? Number(parsed.count) : 0,
+    };
+  }
+
+  function saveAiUsage(usage) {
+    localStorage.setItem(CONFIG.aiUsageKey, JSON.stringify(usage));
+  }
+
+  function getAiUsage() {
+    const usage = loadAiUsage();
+    return {
+      ...usage,
+      limit: CONFIG.aiDailyLimit,
+      remaining: Math.max(0, CONFIG.aiDailyLimit - usage.count),
+    };
+  }
+
+  function canUseAi() {
+    return getAiUsage().remaining > 0;
+  }
+
+  function consumeAiUsage() {
+    const usage = loadAiUsage();
+    const next = {
+      day: getTodayKey(),
+      count: usage.day === getTodayKey() ? usage.count + 1 : 1,
+    };
+    saveAiUsage(next);
+    return next;
+  }
+
   function getRuleBasedReply(input, summary) {
     const query = text(input).toLowerCase();
     const totals = summary || createEmptySummary();
@@ -314,8 +365,17 @@
   }
 
   function getStatusTone(summary) {
+    const usage = getAiUsage();
     if (state.loading) {
       return { label: "Analyse laeuft...", tone: "info", detail: "Anfrage wird gerade verarbeitet." };
+    }
+
+    if (usage.remaining <= 0) {
+      return {
+        label: "Tageslimit erreicht",
+        tone: "warn",
+        detail: `Das KI-Tageslimit von ${CONFIG.aiDailyLimit} Anfragen ist erreicht. Regelmodus bleibt aktiv.`,
+      };
     }
 
     if (!state.aiChecked) {
@@ -333,6 +393,17 @@
       tone: "warn",
       detail: "DeepSeek ist nicht aktiv. Pruefe den Production-Key in Vercel.",
     };
+  }
+
+  function renderAiUsage() {
+    if (!ui.usage) return;
+    const usage = getAiUsage();
+    const consumed = Math.min(usage.limit, usage.count);
+    const remaining = Math.max(0, usage.remaining);
+    ui.usage.textContent = remaining <= 0
+      ? `Heute: ${consumed}/${usage.limit} KI-Anfragen verbraucht`
+      : `Heute: ${remaining}/${usage.limit} KI-Anfragen übrig`;
+    ui.usage.dataset.tone = remaining <= 0 ? "warn" : "info";
   }
 
   function setStatus(textValue, tone, detailValue) {
@@ -367,6 +438,7 @@
     ui.status.style.color = fg;
     ui.status.style.background = bg;
     ui.status.style.borderColor = border;
+    renderAiUsage();
   }
 
   function renderMetrics(summary) {
@@ -407,6 +479,10 @@
         <p>${escapeHtml(body).replace(/\n/g, "<br>")}</p>
       </div>
     `;
+  }
+
+  function setFeedback(title, body) {
+    renderFeedback(title, body);
   }
 
   function renderMessages() {
@@ -463,8 +539,15 @@
 
   function updateAiButton() {
     if (!ui.aiBtn) return;
-    ui.aiBtn.disabled = state.loading || !state.aiEnabled;
-    ui.aiBtn.textContent = state.aiEnabled ? "KI-Analyse starten" : "KI-Modus nicht aktiv";
+    const usage = getAiUsage();
+    const blocked = usage.remaining <= 0;
+    ui.aiBtn.disabled = state.loading || blocked || !state.aiEnabled;
+    ui.aiBtn.textContent = blocked
+      ? `Tageslimit erreicht (${usage.limit})`
+      : state.aiEnabled
+        ? "KI-Analyse starten"
+        : "KI-Modus nicht aktiv";
+    renderAiUsage();
   }
 
   function buildPayload(prompt, action) {
@@ -481,6 +564,13 @@
   }
 
   async function requestDeepSeek(prompt, action) {
+    if (!canUseAi()) {
+      const limitError = new Error(`Das KI-Tageslimit von ${CONFIG.aiDailyLimit} Anfragen ist erreicht.`);
+      limitError.kind = "limit";
+      throw limitError;
+    }
+
+    consumeAiUsage();
     const payload = buildPayload(prompt, action);
     let response;
 
@@ -520,6 +610,7 @@
   function formatDeepSeekError(error) {
     if (!error) return "DeepSeek ist gerade nicht verfuegbar. Regelbasierte Soul ist aktiv.";
     if (error.kind === "network") return "DeepSeek ist gerade nicht erreichbar. Regelbasierte Soul ist aktiv.";
+    if (error.kind === "limit") return `Tageslimit erreicht. Regelmodus bleibt aktiv.`;
 
     const parts = [];
     if (error.status) parts.push(`Status ${error.status}`);
@@ -556,6 +647,7 @@
     if (isOpen) {
       refreshSummary();
       renderMessages();
+      renderAiUsage();
       setTimeout(scrollToLatest, 50);
     }
   }
@@ -591,14 +683,33 @@
     if (ui.input) ui.input.value = "";
     const summary = refreshSummary();
     pushMessage("user", "Du", prompt);
-    setFeedback("ELYON SOUL", "Antworte...");
+    setFeedback("DEEPSEEK", "Analysiere...");
     setLoading(true);
 
     try {
+      const result = await requestDeepSeek(prompt, "chat");
+      state.aiChecked = true;
+      state.aiEnabled = result.aiEnabled === true && result.mode === "deepseek";
+      const answer = text(result.recommendation) || getRuleBasedReply(prompt, summary);
+      const title = result.mode === "deepseek" ? "DEEPSEEK" : "ELYON SOUL";
+      pushMessage("assistant", title, answer);
+      renderFeedback(title, answer);
+      setStatus(
+        result.mode === "deepseek" ? "DeepSeek aktiv" : "Regelmodus aktiv",
+        result.mode === "deepseek" ? "good" : "warn",
+        result.mode === "deepseek"
+          ? "Die Chat-Antwort kam direkt von DeepSeek V4 Flash."
+          : "DeepSeek ist fuer den Chat gerade nicht aktiv. Der lokale Coach springt ein."
+      );
+    } catch (error) {
       const answer = getRuleBasedReply(prompt, summary);
       pushMessage("assistant", "ELYON SOUL", answer);
       renderFeedback("ELYON SOUL", answer);
-      setStatus(summary.total > 0 ? "Regelmodus aktiv" : "Warte auf Produktdaten", "warn", "Texteingaben laufen bewusst nur im regelbasierten Modus. DeepSeek startest du nur ueber den Button.");
+      setStatus(
+        error?.kind === "limit" ? "Tageslimit erreicht" : summary.total > 0 ? "Regelmodus aktiv" : "Warte auf Produktdaten",
+        error?.kind === "limit" ? "warn" : "warn",
+        formatDeepSeekError(error)
+      );
     } finally {
       setLoading(false);
       scrollToLatest();
@@ -609,6 +720,13 @@
     if (state.loading) return;
     if (!state.aiEnabled) {
       renderFeedback("ELYON SOUL", "KI-Modus ist noch nicht aktiviert. Regelbasierte Soul ist aktiv.");
+      return;
+    }
+
+    if (!canUseAi()) {
+      renderFeedback("ELYON SOUL", `Tageslimit erreicht. Regelmodus bleibt aktiv.`);
+      setStatus("Tageslimit erreicht", "warn", `Das KI-Tageslimit von ${CONFIG.aiDailyLimit} Anfragen ist erreicht.`);
+      updateAiButton();
       return;
     }
 
@@ -701,6 +819,7 @@
           <div class="elyon-soul-status-wrap">
             <div class="elyon-soul-status">Warte auf Produktdaten</div>
             <div class="elyon-soul-status-meta">Lokaler Coach aktiv. Lege zuerst Produkte an.</div>
+            <div class="elyon-soul-usage">Heute: 30/30 KI-Anfragen übrig</div>
             <button class="elyon-soul-close" type="button" aria-label="Schliessen">×</button>
           </div>
         </div>
@@ -740,6 +859,7 @@
     ui.fab = shell.querySelector(".elyon-soul-fab");
     ui.panel = shell.querySelector(".elyon-soul-panel");
     ui.status = shell.querySelector(".elyon-soul-status");
+    ui.usage = shell.querySelector(".elyon-soul-usage");
     ui.metrics = shell.querySelector(".elyon-soul-metrics");
     ui.hint = shell.querySelector(".elyon-soul-hint-box");
     ui.feed = shell.querySelector(".elyon-soul-feed");
