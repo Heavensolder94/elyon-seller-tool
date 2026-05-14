@@ -4580,6 +4580,30 @@ function shouldPromptAiBilling(){
 function shouldAutoProbeAi(){
   return isAiGloballyEnabled() && appSettings.aiAutoProbeEnabled !== false;
 }
+function syncAiSubSettingsState(){
+  const enabled = isAiGloballyEnabled();
+  const openAi = enabled && appSettings.aiOpenAIEnabled !== false;
+  const deepSeek = enabled && appSettings.aiDeepSeekEnabled !== false;
+  const billing = enabled && appSettings.aiBillingPromptEnabled !== false;
+  const autoProbe = enabled && appSettings.aiAutoProbeEnabled !== false;
+
+  safe('setAiOpenAIEnabled', el => {
+    el.disabled = !enabled;
+    el.checked = enabled ? openAi : false;
+  });
+  safe('setAiDeepSeekEnabled', el => {
+    el.disabled = !enabled;
+    el.checked = enabled ? deepSeek : false;
+  });
+  safe('setAiBillingPromptEnabled', el => {
+    el.disabled = !enabled;
+    el.checked = enabled ? billing : false;
+  });
+  safe('setAiAutoProbeEnabled', el => {
+    el.disabled = !enabled;
+    el.checked = enabled ? autoProbe : false;
+  });
+}
 
 function getLocalDateKey(date){
   const value = date instanceof Date ? date : new Date();
@@ -5535,14 +5559,18 @@ function applySettings(){
   safe('setDesignPreset',el=>el.value=appSettings.designPreset || 'classic');
   safe('setStart',el=>el.value=resolveTabId(appSettings.start || 'dashboardTab'));
   safe('setAiEnabled',el=>el.checked=appSettings.aiEnabled !== false);
-  safe('setAiOpenAIEnabled',el=>el.checked=appSettings.aiOpenAIEnabled !== false);
-  safe('setAiDeepSeekEnabled',el=>el.checked=appSettings.aiDeepSeekEnabled !== false);
-  safe('setAiBillingPromptEnabled',el=>el.checked=appSettings.aiBillingPromptEnabled !== false);
-  safe('setAiAutoProbeEnabled',el=>el.checked=appSettings.aiAutoProbeEnabled !== false);
+  if(appSettings.aiEnabled === false){
+    appSettings.aiOpenAIEnabled = false;
+    appSettings.aiDeepSeekEnabled = false;
+    appSettings.aiBillingPromptEnabled = false;
+    appSettings.aiAutoProbeEnabled = false;
+  }
+  syncAiSubSettingsState();
   renderAiUsageStatus();
   refreshAiButtonStates();
 }
 function readSettingsFromForm(){
+  const mainEnabled = !!($('setAiEnabled') && $('setAiEnabled').checked);
   return {
     profit:n('setProfit')||7,
     fees:n('setFees')||15,
@@ -5559,11 +5587,11 @@ function readSettingsFromForm(){
     theme:$('setTheme')?.value||'dark',
     designPreset:$('setDesignPreset')?.value||'classic',
     start:resolveTabId($('setStart')?.value||'dashboardTab'),
-    aiEnabled:(function(){ const el = $('setAiEnabled'); return !!(el && el.checked); })(),
-    aiOpenAIEnabled:(function(){ const el = $('setAiOpenAIEnabled'); return !!(el && el.checked); })(),
-    aiDeepSeekEnabled:(function(){ const el = $('setAiDeepSeekEnabled'); return !!(el && el.checked); })(),
-    aiBillingPromptEnabled:(function(){ const el = $('setAiBillingPromptEnabled'); return !!(el && el.checked); })(),
-    aiAutoProbeEnabled:(function(){ const el = $('setAiAutoProbeEnabled'); return !!(el && el.checked); })()
+    aiEnabled: mainEnabled,
+    aiOpenAIEnabled: mainEnabled ? !!($('setAiOpenAIEnabled') && $('setAiOpenAIEnabled').checked) : false,
+    aiDeepSeekEnabled: mainEnabled ? !!($('setAiDeepSeekEnabled') && $('setAiDeepSeekEnabled').checked) : false,
+    aiBillingPromptEnabled: mainEnabled ? !!($('setAiBillingPromptEnabled') && $('setAiBillingPromptEnabled').checked) : false,
+    aiAutoProbeEnabled: mainEnabled ? !!($('setAiAutoProbeEnabled') && $('setAiAutoProbeEnabled').checked) : false
   };
 }
 function saveSettings(){
@@ -6492,6 +6520,26 @@ function bindEvents(){
   bind('fullBackupExport','click',exportFullBackup);
   bind('fullBackupImportBtn','click',()=>safe('fullBackupImport',el=>el.click()));
   bind('fullBackupImport','change',importFullBackup);
+  bind('setAiEnabled','change',function(){
+    appSettings.aiEnabled = !!($('setAiEnabled') && $('setAiEnabled').checked);
+    if(appSettings.aiEnabled){
+      syncAiSubSettingsState();
+      renderAiUsageStatus();
+      refreshAiButtonStates();
+      return;
+    }
+    appSettings.aiOpenAIEnabled = false;
+    appSettings.aiDeepSeekEnabled = false;
+    appSettings.aiBillingPromptEnabled = false;
+    appSettings.aiAutoProbeEnabled = false;
+    syncAiSubSettingsState();
+    renderAiUsageStatus();
+    refreshAiButtonStates();
+  });
+  bind('setAiOpenAIEnabled','change',function(){ appSettings.aiOpenAIEnabled = !!($('setAiOpenAIEnabled') && $('setAiOpenAIEnabled').checked); renderAiUsageStatus(); refreshAiButtonStates(); });
+  bind('setAiDeepSeekEnabled','change',function(){ appSettings.aiDeepSeekEnabled = !!($('setAiDeepSeekEnabled') && $('setAiDeepSeekEnabled').checked); renderAiUsageStatus(); refreshAiButtonStates(); });
+  bind('setAiBillingPromptEnabled','change',function(){ appSettings.aiBillingPromptEnabled = !!($('setAiBillingPromptEnabled') && $('setAiBillingPromptEnabled').checked); renderAiUsageStatus(); refreshAiButtonStates(); });
+  bind('setAiAutoProbeEnabled','change',function(){ appSettings.aiAutoProbeEnabled = !!($('setAiAutoProbeEnabled') && $('setAiAutoProbeEnabled').checked); renderAiUsageStatus(); refreshAiButtonStates(); });
   bind('dashboardBtn','click',showDashboard);
   bind('ordersBtn','click',openOrders);
   bind('launcherNewProduct','click',scrollToProductForm);
