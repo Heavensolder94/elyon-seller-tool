@@ -132,6 +132,125 @@
   </style>
   <link rel="stylesheet" href="elyon-soul.css" />
 </head>
+<style>
+  .virtual-agents-shell{display:grid;gap:16px}
+  .virtual-agent-system-bar{display:grid;gap:14px;padding:18px;border-radius:24px;background:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.045));border:1px solid rgba(255,255,255,.11);box-shadow:0 18px 50px rgba(0,0,0,.22)}
+  .virtual-agent-system-top{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;flex-wrap:wrap}
+  .virtual-agent-system-title{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .virtual-agent-system-title strong{font-size:16px;letter-spacing:-.02em}
+  .virtual-agent-system-dot{width:10px;height:10px;border-radius:50%;display:inline-block;box-shadow:0 0 0 4px rgba(59,130,246,.1)}
+  .virtual-agent-system-dot.active{background:#22c55e;box-shadow:0 0 0 4px rgba(34,197,94,.12)}
+  .virtual-agent-system-dot.paused{background:#f59e0b;box-shadow:0 0 0 4px rgba(245,158,11,.12)}
+  .virtual-agent-system-actions{display:flex;gap:10px;flex-wrap:wrap}
+  .virtual-agent-system-metrics{grid-template-columns:repeat(5,minmax(0,1fr))}
+  .virtual-agent-system-metrics .metric strong{font-size:20px}
+  .virtual-agent-system-statusline{color:#dbeafe;font-size:13px;line-height:1.5}
+  .settings-agents-header{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;flex-wrap:wrap}
+  .settings-agents-header h2{margin-bottom:8px}
+  .settings-agents-overview{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;width:100%}
+  .virtual-agents-note{padding:14px 16px;border-radius:18px;background:rgba(59,130,246,.11);border:1px solid rgba(96,165,250,.18);color:#dbeafe;font-size:13px;line-height:1.55}
+  .virtual-agents-nav{display:flex;gap:8px;flex-wrap:wrap}
+  .virtual-agents-nav button{padding:10px 12px;border-radius:999px;font-size:13px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);transition:transform .18s ease,background .18s ease,border-color .18s ease,box-shadow .18s ease}
+  .virtual-agents-nav button:hover{transform:translateY(-1px)}
+  .virtual-agents-nav button.active{background:linear-gradient(135deg,#3b82f6,#8b5cf6);border-color:rgba(96,165,250,.3);box-shadow:0 10px 30px rgba(59,130,246,.18)}
+  .virtual-agents-panels{display:grid;gap:14px}
+  .virtual-agents-panel{display:none;animation:elyonAgentFade .22s ease}
+  .virtual-agents-panel.active{display:block}
+  @keyframes elyonAgentFade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+  .virtual-agent-card{padding:18px;border-radius:22px;background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.09);box-shadow:0 18px 50px rgba(0,0,0,.22);transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}
+  .virtual-agent-card:hover{transform:translateY(-2px);border-color:rgba(96,165,250,.22);box-shadow:0 22px 60px rgba(0,0,0,.26)}
+  .virtual-agent-disclosure{overflow:hidden}
+  .virtual-agent-disclosure[open]{border-color:rgba(96,165,250,.24);box-shadow:0 22px 60px rgba(0,0,0,.28)}
+  .virtual-agent-summary{list-style:none;cursor:pointer;display:block;margin:-18px;padding:18px}
+  .virtual-agent-summary::-webkit-details-marker{display:none}
+  .virtual-agent-summary-top{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;flex-wrap:wrap}
+  .virtual-agent-summary-meta{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:10px}
+  .virtual-agent-summary-chevron{width:34px;height:34px;border-radius:999px;display:grid;place-items:center;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:#cbd5e1;font-size:12px;transition:transform .18s ease,background .18s ease,color .18s ease}
+  .virtual-agent-disclosure[open] .virtual-agent-summary-chevron{transform:rotate(180deg);background:rgba(59,130,246,.14);color:#dbeafe}
+  .virtual-agent-disclosure .virtual-agent-body{padding-top:4px}
+  .virtual-agent-head{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;flex-wrap:wrap}
+  .virtual-agent-ident{display:flex;gap:14px;align-items:center}
+  .virtual-agent-icon{width:44px;height:44px;border-radius:16px;display:grid;place-items:center;background:linear-gradient(135deg,rgba(59,130,246,.28),rgba(139,92,246,.28));border:1px solid rgba(255,255,255,.12);font-size:20px;flex:0 0 auto}
+  .virtual-agent-ident h3{margin:0;font-size:18px;letter-spacing:-.02em}
+  .virtual-agent-ident p{margin-top:4px;color:#cbd5e1;font-size:13px;line-height:1.45}
+  .virtual-agent-badge{display:inline-flex;align-items:center;padding:8px 11px;border-radius:999px;font-size:12px;font-weight:900;letter-spacing:.02em}
+  .virtual-agent-badge.good{color:#86efac;background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.24)}
+  .virtual-agent-badge.warn{color:#fde68a;background:rgba(250,204,21,.11);border:1px solid rgba(250,204,21,.24)}
+  .virtual-agent-badge.info{color:#93c5fd;background:rgba(59,130,246,.12);border:1px solid rgba(59,130,246,.24)}
+  .virtual-agent-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:16px}
+  .virtual-agent-summary-side{display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:flex-end}
+  .virtual-agent-summary-side .agent-switch{transform:scale(.92);transform-origin:right center}
+  .virtual-agent-summary-side .agent-switch span:last-child{font-size:12px}
+  .virtual-agent-summary-side .pill{font-size:11px;padding:5px 8px}
+  .virtual-agent-status-select{min-width:180px}
+  .virtual-agent-cost{margin-top:8px;padding:14px;border-radius:18px;background:rgba(2,6,23,.36);border:1px solid rgba(255,255,255,.08)}
+  .virtual-agent-cost .score-top{margin-bottom:10px}
+  .virtual-agent-cost .score-top strong{font-size:14px}
+  .virtual-agent-cost .progress{height:10px}
+  .virtual-agent-log{margin-top:14px;padding:14px;border-radius:18px;background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.08)}
+  .virtual-agent-log ul{margin:0;padding-left:18px;color:#e2e8f0;line-height:1.55}
+  .virtual-agent-log li{margin:4px 0}
+  .virtual-agent-connections{display:flex;gap:8px;flex-wrap:wrap}
+  .agent-switch{display:inline-flex;align-items:center;gap:10px;color:#e5e7eb;font-weight:700;font-size:13px;cursor:pointer;user-select:none;position:relative;min-height:26px}
+  .agent-switch input{position:absolute;opacity:0;pointer-events:none}
+  .agent-switch-track{width:52px;height:28px;border-radius:999px;background:linear-gradient(180deg,rgba(15,23,42,.95),rgba(30,41,59,.95));border:1px solid rgba(148,163,184,.24);position:relative;transition:background .2s ease,border-color .2s ease,box-shadow .2s ease,transform .2s ease;box-shadow:inset 0 1px 0 rgba(255,255,255,.04)}
+  .agent-switch-track:before{content:'';position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:linear-gradient(180deg,#fff,#dbeafe);box-shadow:0 5px 14px rgba(0,0,0,.3);transition:transform .2s ease,box-shadow .2s ease}
+  .agent-switch-track:after{content:'AUS';position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:10px;letter-spacing:.08em;color:#94a3b8;font-weight:900;transition:opacity .2s ease,color .2s ease}
+  .agent-switch input:checked + .agent-switch-track{background:linear-gradient(135deg,#3b82f6,#8b5cf6);border-color:rgba(96,165,250,.44);box-shadow:0 0 0 4px rgba(59,130,246,.12),inset 0 1px 0 rgba(255,255,255,.08)}
+  .agent-switch input:checked + .agent-switch-track:before{transform:translateX(24px)}
+  .agent-switch input:checked + .agent-switch-track:after{content:'AN';color:#e0f2fe}
+  .agent-switch input:focus-visible + .agent-switch-track{outline:2px solid rgba(96,165,250,.65);outline-offset:3px}
+  .agent-switch:hover .agent-switch-track{border-color:rgba(96,165,250,.34);transform:translateY(-1px)}
+  .agent-switch-locked{opacity:.75;cursor:not-allowed}
+  .agent-switch-locked .agent-switch-track{background:linear-gradient(180deg,rgba(71,85,105,.8),rgba(51,65,85,.8));border-color:rgba(148,163,184,.2)}
+  .agent-switch-locked .agent-switch-track:before{background:linear-gradient(180deg,#f8fafc,#cbd5e1);transform:translateX(0)}
+  .agent-switch-locked .agent-switch-track:after{content:'🔒';right:7px;color:#cbd5e1;font-size:11px}
+  .virtual-agent-card textarea{min-height:92px}
+  .virtual-agent-footer{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+  .virtual-agent-footnote{font-size:12px;color:#94a3b8;line-height:1.45;margin-top:12px}
+  .virtual-agent-mini{display:flex;gap:8px;flex-wrap:wrap}
+  .virtual-agent-mini .pill{font-size:11px;padding:5px 8px}
+  .virtual-agent-accent-scout .virtual-agent-icon{background:linear-gradient(135deg,rgba(59,130,246,.34),rgba(37,99,235,.25))}
+  .virtual-agent-accent-seo .virtual-agent-icon{background:linear-gradient(135deg,rgba(139,92,246,.34),rgba(168,85,247,.24))}
+  .virtual-agent-accent-guard .virtual-agent-icon{background:linear-gradient(135deg,rgba(249,115,22,.32),rgba(251,146,60,.22))}
+  .virtual-agent-accent-finance .virtual-agent-icon{background:linear-gradient(135deg,rgba(34,197,94,.32),rgba(16,185,129,.22))}
+  .virtual-agent-accent-support .virtual-agent-icon{background:linear-gradient(135deg,rgba(236,72,153,.32),rgba(99,102,241,.22))}
+  .virtual-agent-accent-operations .virtual-agent-icon{background:linear-gradient(135deg,rgba(34,211,238,.32),rgba(14,165,233,.22))}
+  .virtual-agent-accent-scout{border-top:1px solid rgba(59,130,246,.18)}
+  .virtual-agent-accent-seo{border-top:1px solid rgba(139,92,246,.18)}
+  .virtual-agent-accent-guard{border-top:1px solid rgba(249,115,22,.18)}
+  .virtual-agent-accent-finance{border-top:1px solid rgba(34,197,94,.18)}
+  .virtual-agent-accent-support{border-top:1px solid rgba(236,72,153,.18)}
+  .virtual-agent-accent-operations{border-top:1px solid rgba(34,211,238,.18)}
+  .virtual-future-section{display:block}
+  .virtual-future-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+  .virtual-future-card{padding:18px;border-radius:20px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);display:grid;gap:12px}
+  .virtual-future-card .virtual-agent-ident{align-items:flex-start}
+  .virtual-future-card h4{margin:0;font-size:17px;letter-spacing:-.02em}
+  .virtual-future-card p{margin:4px 0 0;color:#cbd5e1;font-size:13px;line-height:1.5}
+  .virtual-future-warning{padding:14px 16px;border-radius:18px;background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.24);color:#fde68a;font-size:13px;line-height:1.55}
+  .security-switch-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border-radius:18px;background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.08)}
+  .security-switch-row .hint{margin:0}
+  .security-control-card{padding:18px;border-radius:24px;background:linear-gradient(180deg,rgba(12,24,51,.92),rgba(10,18,35,.88));border:1px solid rgba(96,165,250,.18);box-shadow:0 18px 44px rgba(0,0,0,.24);display:grid;gap:16px}
+  .security-control-header{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;flex-wrap:wrap}
+  .security-control-header h3{margin:0;font-size:20px;letter-spacing:-.02em}
+  .security-control-header p{margin-top:6px;color:#cbd5e1;font-size:13px;line-height:1.5;max-width:760px}
+  .security-control-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+  .security-toggle-card{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border-radius:18px;background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.08);min-height:76px}
+  .security-toggle-card strong{display:block;font-size:14px;letter-spacing:-.01em}
+  .security-toggle-card p{margin:5px 0 0;color:#94a3b8;font-size:12px;line-height:1.45;max-width:340px}
+  .security-toggle-card .agent-switch{margin-left:6px;flex:0 0 auto}
+  .security-toggle-card .agent-switch span:last-child{min-width:58px;text-align:left}
+  @media(max-width:900px){
+    .settings-agents-overview,.virtual-agent-grid{grid-template-columns:1fr}
+    .virtual-agent-system-metrics{grid-template-columns:1fr 1fr}
+    .virtual-future-grid{grid-template-columns:1fr}
+    .security-control-grid{grid-template-columns:1fr}
+    .settings-agents-header{display:block}
+    .virtual-agent-badge{margin-top:10px}
+    .virtual-agent-head{display:block}
+  }
+</style>
 <body>
 <main class="container">
   <section class="hero">
@@ -176,10 +295,11 @@
       <option value="ordersTab">6. 📦 Bestellungen</option>
       <option value="automationTab">7. 🚚 Versandzentrale</option>
       <option value="settingsTab">8. ⚙️ Einstellungen / API Status</option>
-      <option value="marketCheckTab">9. Konkurrenz / Marktcheck</option>
-      <option value="financeTab">10. Kalkulation</option>
-      <option value="listingCheckTab">11. Listing-Check</option>
-      <option value="productStatusTab">12. Produkt-Status</option>
+      <option value="virtualAgentsTab">9. 🧑‍💼 Virtuelle Mitarbeiter / KI-Agenten</option>
+      <option value="marketCheckTab">10. Konkurrenz / Marktcheck</option>
+      <option value="financeTab">11. Kalkulation</option>
+      <option value="listingCheckTab">12. Listing-Check</option>
+      <option value="productStatusTab">13. Produkt-Status</option>
     </select>
     <select id="shopifyMenu" class="menu-select" aria-label="Shopify Bereich auswählen">
       <option value="shopifyTab">🟢 Shopify Lab</option>
@@ -850,6 +970,19 @@ Land"></textarea>
     </div>
   </section>
 
+  <section id="virtualAgentsTab" class="tab">
+    <div class="card">
+      <div class="settings-agents-header">
+        <div>
+          <h2>Virtuelle Mitarbeiter / KI-Agenten</h2>
+          <p class="hint">Eigene Verwaltungs- und Steuerungsebene für die vorhandenen KI-Funktionen. Automatische Aktionen bleiben vorerst bestätigungspflichtig.</p>
+        </div>
+        <button id="openVirtualAgentsSettingsBtn" class="secondary" type="button">Agentenbereich fokussieren</button>
+      </div>
+      <div id="virtualAgentsSettingsRoot" class="virtual-agents-shell"></div>
+    </div>
+  </section>
+
   <section id="returnsTab" class="tab">
     <div class="card">
       <h2>Retouren-Zentrale</h2>
@@ -1090,6 +1223,12 @@ Land"></textarea>
         <h3>🤖 KI</h3>
         <div class="checkrow"><input type="checkbox" id="setAiEnabled" checked><label for="setAiEnabled">KI-Funktionen aktivieren</label></div>
         <p class="hint">Wenn diese Option aus ist, bleiben die KI-Buttons sichtbar, aber die Prüfung nutzt keine OpenAI-Funktionen.</p>
+      </div>
+
+      <div class="settings-section">
+        <h3>🧑‍💼 Virtuelle Mitarbeiter</h3>
+        <p class="hint">Die Agentensteuerung liegt im Einstellungsbereich unten und bleibt lokal gespeichert.</p>
+        <button id="openVirtualAgentsSettingsBtnModal" class="secondary full" type="button">Virtuelle Mitarbeiter / KI-Agenten öffnen</button>
       </div>
 
       <div class="settings-section">
@@ -5727,6 +5866,7 @@ function exportFullBackup(){
     listingDraft: latestEbayListingDraft || loadStoredEbayListingDraft(),
     settings:appSettings,
     invoiceSettings:invoiceSettings,
+    aiAgentsSettings: localStorage.getItem('elyon_ai_agents_settings') || '',
     googleSheetsSync:{
       url: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.url) || '',
       token: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.token) || '',
@@ -5777,6 +5917,9 @@ function importFullBackup(e){
       }
       localStorage.setItem('elyonSettings',JSON.stringify(appSettings));
       localStorage.setItem('elyonInvoiceSettings',JSON.stringify(invoiceSettings));
+      if(data.aiAgentsSettings !== undefined){
+        localStorage.setItem('elyon_ai_agents_settings', String(data.aiAgentsSettings || ''));
+      }
       applySettings();
       applyInvoiceSettings();
       renderGoogleSheetsSyncStatus();
@@ -5789,6 +5932,9 @@ function importFullBackup(e){
   renderShippingCockpit();
   renderInvoiceOverview();
       renderReturnProductOptions();
+      if(typeof window.reloadVirtualAgentsSettings === 'function'){
+        window.reloadVirtualAgentsSettings();
+      }
       alert('Backup wurde wiederhergestellt.');
       safe('fullBackupImport',el=>el.value='');
     }catch(err){
@@ -7161,6 +7307,862 @@ document.addEventListener('DOMContentLoaded',()=>{
       '<p class="hint">Diese Funktion nutzt /api/ebay/search?q=...&limit=20</p>';
   }
 }
+</script>
+<script>
+'use strict';
+(function(){
+  const STORAGE_KEY = 'elyon_ai_agents_settings';
+  const AGENT_DEFS = [
+    {
+      id: 'soul-scout',
+      group: 'ki-agents',
+      name: 'Soul Scout',
+      icon: '🛰️',
+      task: 'Produktideen & Chancen erkennen',
+      accent: 'scout',
+      connections: ['Produktanalyse', 'Trend-Erkennung', 'Ideenprüfung'],
+      description: 'Analysiert neue Produktideen, erkennt Nachfrage, prüft Trend-Potenzial und markiert Chancen oder Nischen, die sich für einen Test eignen. Gibt nur Hinweise und sortiert Ideen nach Potenzial.'
+    },
+    {
+      id: 'soul-seo',
+      group: 'ki-agents',
+      name: 'Soul SEO',
+      icon: '🔎',
+      task: 'Titel, Beschreibung, Keywords verbessern',
+      accent: 'seo',
+      connections: ['OpenAI Listing KI', 'Titelgenerator', 'Beschreibungsgenerator'],
+      description: 'Optimiert Titel, Beschreibung und Keywords für Sichtbarkeit, Klickrate und Conversion. Prüft Formulierungen auf Klarheit, Relevanz und eBay-Tauglichkeit.'
+    },
+    {
+      id: 'soul-guard',
+      group: 'ki-agents',
+      name: 'Soul Guard',
+      icon: '🛡️',
+      task: 'Risiken, Marge, Lieferzeit und EPR-Hinweise prüfen',
+      accent: 'guard',
+      connections: ['Produktanalyse', 'Margenprüfung', 'EPR-Hinweise'],
+      description: 'Prüft Risiko, Marge, Lieferzeit, Compliance und EPR-/WEEE-Hinweise. Warnt vor problematischen Produkten und markiert Dinge, die vor einem Listing geprüft werden sollten.'
+    },
+    {
+      id: 'soul-finance',
+      group: 'virtual-ma',
+      name: 'Soul Finance',
+      icon: '💶',
+      task: 'Gewinn, Gebühren, Break-even und Cashflow bewerten',
+      accent: 'finance',
+      connections: ['Gewinnrechner', 'Gebühren-Check', 'Cashflow-Modul'],
+      description: 'Bewertet Gewinn, Gebühren, Break-even, Cashflow und Preisstabilität. Zeigt, ob ein Produkt wirtschaftlich sinnvoll ist und wo die Kosten schnell zu hoch werden.'
+    },
+    {
+      id: 'soul-support',
+      group: 'virtual-ma',
+      name: 'Soul Support',
+      icon: '💬',
+      task: 'Kundenantworten und Retouren-Kommunikation vorbereiten',
+      accent: 'support',
+      connections: ['Elyon Soul / Coach', 'Antwortvorlagen', 'Retouren-Workflow'],
+      description: 'Formuliert freundliche Kundenantworten, Retouren-Kommunikation und Eskalationshinweise. Hilft, schnell und professionell zu antworten, ohne unüberlegte Zusagen zu machen.'
+    },
+    {
+      id: 'soul-operations',
+      group: 'virtual-ma',
+      name: 'Soul Operations',
+      icon: '📋',
+      task: 'Tagesfokus, offene Aufgaben und Warnungen erstellen',
+      accent: 'operations',
+      connections: ['Tagesfokus', 'Aufgabenboard', 'Warnlogik'],
+      description: 'Erstellt Tagesfokus, offene Aufgaben und Warnungen aus den laufenden Vorgängen. Priorisiert die wichtigsten To-dos und zeigt, wo du heute hinschauen solltest.'
+    },
+  ];
+  const MODE_OPTIONS = [
+    { value: 'off', label: 'aus' },
+    { value: 'suggestions', label: 'nur Vorschläge' },
+    { value: 'semi', label: 'halbautomatisch' },
+    { value: 'auto', label: 'automatisch' },
+  ];
+  const MODEL_OPTIONS = [
+    { value: 'deepseek', label: 'deepseek' },
+    { value: 'openai-mini', label: 'openai-mini' },
+    { value: 'openai-standard', label: 'openai-standard' },
+  ];
+  const STATUS_OPTIONS = [
+    { value: 'Idle', label: 'Idle' },
+    { value: 'Aktiv', label: 'Aktiv' },
+    { value: 'Analysiert', label: 'Analysiert' },
+    { value: 'Warnung', label: 'Warnung' },
+    { value: 'Pausiert', label: 'Pausiert' },
+    { value: 'Fehler', label: 'Fehler' },
+    { value: 'Gesperrt', label: 'Gesperrt' },
+  ];
+  const DEFAULT_ACTIVITY = 'Noch keine Aktivität';
+  const DEFAULT_TEST_RESPONSE = 'Bereit für lokalen Testlauf';
+
+  const buildDefaultAgentRecord = (def) => ({
+    active: true,
+    mode: 'suggestions',
+    notifications: true,
+    model: 'deepseek',
+    dailyLimit: 0.25,
+    description: def.description || def.task,
+    statusState: 'Idle',
+    usageToday: 0,
+    lastActivity: DEFAULT_ACTIVITY,
+    lastTestResponse: DEFAULT_TEST_RESPONSE,
+    lastTestedAt: '',
+  });
+
+  function getDefaultAiAgentSettings() {
+    return {
+      version: 2,
+      securityMode: true,
+      sandboxMode: true,
+      advancedMode: false,
+      autonomyLocked: true,
+      pauseAllAgents: false,
+      safetyMode: true,
+      pausedAll: false,
+      activePanel: 'overview',
+      openCards: {},
+      agents: AGENT_DEFS.reduce((acc, def) => {
+        acc[def.id] = buildDefaultAgentRecord(def);
+        return acc;
+      }, {}),
+    };
+  }
+
+  function createDefaultState() {
+    return getDefaultAiAgentSettings();
+  }
+
+  function mergeAiAgentSettings(defaults, saved) {
+    const base = defaults && typeof defaults === 'object' ? defaults : getDefaultAiAgentSettings();
+    const source = saved && typeof saved === 'object' ? saved : {};
+    const next = { ...base, ...source };
+    const savedAgents = source.agents && typeof source.agents === 'object' && !Array.isArray(source.agents) ? source.agents : {};
+    const mergedAgents = {};
+
+    Object.keys(savedAgents).forEach((agentId) => {
+      if (!AGENT_DEFS.some((def) => def.id === agentId)) {
+        mergedAgents[agentId] = savedAgents[agentId];
+      }
+    });
+
+    AGENT_DEFS.forEach((def) => {
+      const incoming = savedAgents[def.id] && typeof savedAgents[def.id] === 'object' ? savedAgents[def.id] : {};
+      const fallback = base.agents && base.agents[def.id] ? base.agents[def.id] : buildDefaultAgentRecord(def);
+      mergedAgents[def.id] = {
+        active: typeof incoming.active === 'boolean' ? incoming.active : fallback.active,
+        mode: normalizeMode(incoming.mode !== undefined ? incoming.mode : fallback.mode),
+        notifications: typeof incoming.notifications === 'boolean' ? incoming.notifications : fallback.notifications,
+        model: normalizeModel(incoming.model !== undefined ? incoming.model : fallback.model),
+        dailyLimit: normalizeLimit(incoming.dailyLimit !== undefined ? incoming.dailyLimit : fallback.dailyLimit),
+        description: sanitizeDescription(incoming.description !== undefined ? incoming.description : fallback.description, def.description || def.task),
+        statusState: normalizeStatusState(incoming.statusState !== undefined ? incoming.statusState : fallback.statusState),
+        usageToday: normalizeUsage(incoming.usageToday !== undefined ? incoming.usageToday : fallback.usageToday),
+        lastActivity: sanitizeActivity(incoming.lastActivity !== undefined ? incoming.lastActivity : fallback.lastActivity, DEFAULT_ACTIVITY),
+        lastTestResponse: sanitizeActivity(incoming.lastTestResponse !== undefined ? incoming.lastTestResponse : fallback.lastTestResponse, DEFAULT_TEST_RESPONSE),
+        lastTestedAt: sanitizeActivity(incoming.lastTestedAt !== undefined ? incoming.lastTestedAt : fallback.lastTestedAt, ''),
+      };
+    });
+
+    next.version = Number.isFinite(Number(source.version)) ? Math.max(Number(base.version) || 1, Number(source.version) || 1) : base.version;
+    next.securityMode = typeof source.securityMode === 'boolean'
+      ? source.securityMode
+      : typeof source.safetyMode === 'boolean'
+        ? source.safetyMode
+        : base.securityMode;
+    next.sandboxMode = typeof source.sandboxMode === 'boolean' ? source.sandboxMode : base.sandboxMode;
+    next.advancedMode = typeof source.advancedMode === 'boolean' ? source.advancedMode : base.advancedMode;
+    next.autonomyLocked = typeof source.autonomyLocked === 'boolean' ? source.autonomyLocked : base.autonomyLocked;
+    next.pauseAllAgents = typeof source.pauseAllAgents === 'boolean'
+      ? source.pauseAllAgents
+      : typeof source.pausedAll === 'boolean'
+        ? source.pausedAll
+        : base.pauseAllAgents;
+    next.safetyMode = typeof source.safetyMode === 'boolean' ? source.safetyMode : next.securityMode;
+    next.pausedAll = typeof source.pausedAll === 'boolean' ? source.pausedAll : next.pauseAllAgents;
+    next.activePanel = normalizePanel(source.activePanel || base.activePanel || 'overview');
+    next.openCards = source.openCards && typeof source.openCards === 'object' && !Array.isArray(source.openCards)
+      ? { ...source.openCards }
+      : {};
+    next.agents = mergedAgents;
+    return next;
+  }
+
+  function saveAiAgentSettings(settings) {
+    const merged = mergeAiAgentSettings(getDefaultAiAgentSettings(), settings);
+    merged.safetyMode = merged.securityMode !== false;
+    merged.pausedAll = merged.pauseAllAgents === true;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+    return merged;
+  }
+
+  function loadAiAgentSettings() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      const parsed = raw ? JSON.parse(raw) : null;
+      const merged = mergeAiAgentSettings(getDefaultAiAgentSettings(), parsed);
+      merged.safetyMode = merged.securityMode !== false;
+      merged.pausedAll = merged.pauseAllAgents === true;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+      return merged;
+    } catch (error) {
+      const fallback = getDefaultAiAgentSettings();
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(fallback));
+      return fallback;
+    }
+  }
+
+  const getEl = (id) => document.getElementById(id);
+  const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (ch) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  }[ch]));
+
+  const normalizePanel = (panel) => {
+    const valid = ['overview', 'virtual-ma', 'ki-agents'];
+    return valid.includes(panel) ? panel : 'overview';
+  };
+
+  const normalizeMode = (value) => {
+    const input = String(value || '').trim();
+    return MODE_OPTIONS.some((item) => item.value === input) ? input : 'suggestions';
+  };
+
+  const normalizeModel = (value) => {
+    const input = String(value || '').trim();
+    return MODEL_OPTIONS.some((item) => item.value === input) ? input : 'deepseek';
+  };
+
+  const normalizeLimit = (value) => {
+    const parsed = Number.parseFloat(String(value ?? '').replace(',', '.'));
+    if (!Number.isFinite(parsed) || parsed < 0) return 0.25;
+    return Math.round(parsed * 100) / 100;
+  };
+
+  const normalizeStatusState = (value) => {
+    const input = String(value || '').trim();
+    return STATUS_OPTIONS.some((item) => item.value === input) ? input : 'Idle';
+  };
+
+  const normalizeUsage = (value) => {
+    const parsed = Number.parseFloat(String(value ?? '').replace(',', '.'));
+    if (!Number.isFinite(parsed) || parsed < 0) return 0;
+    return Math.round(parsed * 100) / 100;
+  };
+
+  const sanitizeDescription = (value, fallback) => {
+    const text = String(value ?? '').replace(/\s+/g, ' ').trim();
+    if (!text) return fallback;
+    return text.slice(0, 240);
+  };
+
+  const sanitizeActivity = (value, fallback) => {
+    const text = String(value ?? '').replace(/\s+/g, ' ').trim();
+    if (!text) return fallback;
+    return text.slice(0, 220);
+  };
+
+  const state = loadAiAgentSettings();
+  let activePanel = normalizePanel(state.activePanel);
+
+  const saveState = () => {
+    state.activePanel = activePanel;
+    const persisted = saveAiAgentSettings(state);
+    Object.assign(state, persisted);
+  };
+
+  const isSecurityLocked = () => state.securityMode !== false || state.sandboxMode !== false;
+  const isAutonomyLocked = () => state.autonomyLocked !== false;
+  const isAllAgentsPaused = () => state.pauseAllAgents === true || state.pausedAll === true;
+
+  const getAgent = (agentId) => state.agents[agentId] || null;
+  const getDefinition = (agentId) => AGENT_DEFS.find((item) => item.id === agentId) || null;
+  const getBadgeMeta = (agent) => {
+    const mode = normalizeMode(agent && agent.mode);
+    const enabled = !!(agent && agent.active);
+    const customStatus = normalizeStatusState(agent && agent.statusState);
+    if (isAllAgentsPaused()) return { label: 'Pausiert', tone: 'warn' };
+    if (!enabled || mode === 'off') return { label: 'Pausiert', tone: 'warn' };
+    if (customStatus === 'Fehler') return { label: 'Fehler', tone: 'bad' };
+    if (customStatus === 'Gesperrt') return { label: 'Gesperrt', tone: 'bad' };
+    if (customStatus === 'Warnung') return { label: 'Warnung', tone: 'warn' };
+    if (customStatus === 'Analysiert') return { label: 'Analysiert', tone: 'info' };
+    if (customStatus === 'Aktiv') return { label: 'Aktiv', tone: 'good' };
+    if (mode === 'auto') return { label: 'Automatisch', tone: 'good' };
+    if (mode === 'semi') return { label: 'Aktiv', tone: 'info' };
+    return { label: 'Idle', tone: 'info' };
+  };
+  const getOnlineCount = () => {
+    if (isAllAgentsPaused()) return 0;
+    return AGENT_DEFS.filter((def) => {
+      const agent = getAgent(def.id);
+      return agent && agent.active && normalizeMode(agent.mode) !== 'off';
+    }).length;
+  };
+  const getDailyLimitTotal = () => AGENT_DEFS.reduce((sum, def) => {
+    const agent = getAgent(def.id);
+    if (!agent || !agent.active || normalizeMode(agent.mode) === 'off') return sum;
+    return sum + (Number(agent.dailyLimit) || 0);
+  }, 0);
+  const getUsageTotal = () => AGENT_DEFS.reduce((sum, def) => {
+    const agent = getAgent(def.id);
+    return sum + (Number(agent && agent.usageToday) || 0);
+  }, 0);
+  const getUsagePercent = (agent) => {
+    const limit = Number(agent && agent.dailyLimit) || 0;
+    const usage = Number(agent && agent.usageToday) || 0;
+    if (!limit) return 0;
+    return Math.max(0, Math.min(100, (usage / limit) * 100));
+  };
+  const getConnectionItems = (def) => Array.isArray(def && def.connections) ? def.connections : [];
+  const getActivityLogItems = (agent, def) => {
+    const entries = [
+      agent && agent.lastActivity ? agent.lastActivity : DEFAULT_ACTIVITY,
+      agent && agent.lastTestResponse ? agent.lastTestResponse : DEFAULT_TEST_RESPONSE,
+      isAllAgentsPaused() ? 'System pausiert – alle Agenten warten auf Freigabe.' : 'Wartet auf Aufgabe',
+    ];
+    return entries.filter((item, index, arr) => item && arr.indexOf(item) === index).slice(0, 3);
+  };
+  const getTestResponse = (def) => {
+    const responses = {
+      'soul-scout': 'Test erfolgreich: Soul Scout würde Produktideen, Nachfrage und Potenzial prüfen.',
+      'soul-seo': 'Test erfolgreich: Soul SEO würde Titel, Beschreibung und Keywords prüfen.',
+      'soul-guard': 'Test erfolgreich: Soul Guard würde Marge, Lieferzeit und Risiko prüfen.',
+      'soul-finance': 'Test erfolgreich: Soul Finance würde Gewinn, Gebühren und Break-even prüfen.',
+      'soul-support': 'Test erfolgreich: Soul Support würde Kundenantworten und Retouren-Kommunikation vorbereiten.',
+      'soul-operations': 'Test erfolgreich: Soul Operations würde Tagesfokus, offene Aufgaben und Warnungen erstellen.',
+    };
+    return responses[def.id] || 'Test erfolgreich: Lokale Vorschau ohne echte API-Anfrage.';
+  };
+  const getUsageDelta = (agentId) => {
+    const map = {
+      'soul-scout': 0.03,
+      'soul-seo': 0.04,
+      'soul-guard': 0.05,
+      'soul-finance': 0.03,
+      'soul-support': 0.02,
+      'soul-operations': 0.02,
+    };
+    return map[agentId] || 0.02;
+  };
+  const buildSecurityToggle = (field, label, description, checked, onLabel, offLabel) => `
+    <div class="security-toggle-card">
+      <div>
+        <strong>${label}</strong>
+        <p>${description}</p>
+      </div>
+      <label class="agent-switch" style="margin:0">
+        <input type="checkbox" data-agent-field="${field}" ${checked ? 'checked' : ''}>
+        <span class="agent-switch-track"></span>
+        <span>${checked ? onLabel : offLabel}</span>
+      </label>
+    </div>
+  `;
+  const buildSecurityControlPanel = () => {
+    const securityMode = state.securityMode !== false;
+    const sandboxMode = state.sandboxMode !== false;
+    const advancedMode = state.advancedMode === true;
+    const autonomyLocked = state.autonomyLocked !== false;
+    const pauseAllAgents = isAllAgentsPaused();
+    const liveActionsBlocked = securityMode || sandboxMode;
+    return `
+      <section class="security-control-card">
+        <div class="security-control-header">
+          <div>
+            <h3>Sicherheits- & Autonomie-Steuerung</h3>
+            <p>Hier werden Sicherheitsrahmen und Autonomiegrenzen für die virtuellen Mitarbeiter verwaltet. Live-Aktionen bleiben blockiert, solange Sicherheitsmodus oder Sandbox aktiv ist.</p>
+          </div>
+          <span class="virtual-agent-badge ${liveActionsBlocked ? 'warn' : 'info'}">${liveActionsBlocked ? 'Live gesperrt' : 'Nur Vorschau'}</span>
+        </div>
+        <div class="security-control-grid">
+          ${buildSecurityToggle('securityMode', 'Sicherheitsmodus', 'Wenn aktiv, dürfen keine autonomen Aktionen ausgeführt werden.', securityMode, 'aktiv', 'inaktiv')}
+          ${buildSecurityToggle('sandboxMode', 'Sandbox-Modus', 'Wenn aktiv, werden Aktionen nur simuliert und nicht live ausgeführt.', sandboxMode, 'aktiv', 'inaktiv')}
+          ${buildSecurityToggle('advancedMode', 'Erweiterter Modus', 'Bleibt standardmäßig gesperrt, damit Autonomie-Funktionen nicht versehentlich geöffnet werden.', advancedMode, 'aktiv', 'inaktiv')}
+          ${buildSecurityToggle('autonomyLocked', 'Autonomie-Sperre', 'Sperrt Vollautomatik, automatische Bestellungen, Kundennachrichten und autonomes eBay-Posting.', autonomyLocked, 'aktiv', 'inaktiv')}
+          ${buildSecurityToggle('pauseAllAgents', 'Alle Agenten pausieren', 'Schaltet die gesamte Agentenansicht optisch auf Pause.', pauseAllAgents, 'an', 'aus')}
+        </div>
+        <div class="virtual-agents-note">${autonomyLocked ? 'Noch nicht aktivierbar – Sicherheitsfreigabe erforderlich.' : 'Autonomie-Freigabe gespeichert, aber Live-Aktionen bleiben in dieser Version weiterhin blockiert.'}</div>
+      </section>
+    `;
+  };
+  const buildGlobalStatusBar = () => {
+    const onlineCount = getOnlineCount();
+    const pausedLabel = isAllAgentsPaused() ? 'pausiert' : 'aktiv';
+    const dotClass = isAllAgentsPaused() ? 'paused' : 'active';
+    const securityMode = state.securityMode !== false;
+    const sandboxMode = state.sandboxMode !== false;
+    const autonomyLocked = isAutonomyLocked();
+    return `
+      <div class="virtual-agent-system-bar">
+        <div class="virtual-agent-system-top">
+          <div>
+            <div class="virtual-agent-system-title">
+              <span class="virtual-agent-system-dot ${dotClass}"></span>
+              <strong>${isAllAgentsPaused() ? 'KI-System pausiert' : 'KI-System aktiv'}</strong>
+              <span class="pill">${onlineCount} von ${AGENT_DEFS.length} Agenten online</span>
+              <span class="pill">Sicherheitsmodus ${securityMode ? 'aktiv' : 'inaktiv'}</span>
+              <span class="pill">Sandbox ${sandboxMode ? 'aktiv' : 'inaktiv'}</span>
+            </div>
+            <p class="virtual-agent-system-statusline" style="margin-top:8px">🟢 KI-System ${pausedLabel} - ${onlineCount} von ${AGENT_DEFS.length} Agenten online - Sicherheitsmodus ${securityMode ? 'aktiv' : 'inaktiv'} - Sandbox ${sandboxMode ? 'aktiv' : 'inaktiv'} - Autonomie ${autonomyLocked ? 'gesperrt' : 'frei'}</p>
+          </div>
+          <div class="virtual-agent-system-actions">
+            <button type="button" class="secondary" data-agent-action="pause-all">${isAllAgentsPaused() ? 'System fortsetzen' : 'Pause-All'}</button>
+          </div>
+        </div>
+        <div class="settings-agents-overview virtual-agent-system-metrics">
+          <div class="metric"><small>Agenten online</small><strong>${onlineCount} / ${AGENT_DEFS.length}</strong></div>
+          <div class="metric"><small>Sicherheitsmodus</small><strong>${securityMode ? 'Aktiv' : 'Aus'}</strong></div>
+          <div class="metric"><small>Sandbox-Modus</small><strong>${sandboxMode ? 'Aktiv' : 'Aus'}</strong></div>
+          <div class="metric"><small>Geschätztes Tageslimit gesamt</small><strong>${formatEuro(getDailyLimitTotal())}</strong></div>
+          <div class="metric"><small>Heutige KI-Nutzung</small><strong>${formatEuro(getUsageTotal())} <span class="hint" style="display:block;margin-top:4px">Mock</span></strong></div>
+        </div>
+        <div class="virtual-agents-note">Automatische Aktionen werden vorbereitet, aber nicht ohne Bestätigung ausgeführt.</div>
+      </div>
+    `;
+  };
+  const formatEuro = (value) => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(Number(value) || 0);
+
+  const buildOverviewPanel = () => {
+    return `
+      <div class="virtual-agent-card virtual-agents-panel ${activePanel === 'overview' ? 'active' : ''}" data-panel="overview">
+        <div class="virtual-agent-head">
+          <div class="virtual-agent-ident">
+            <div class="virtual-agent-icon">🧭</div>
+            <div>
+              <h3>Steuerzentrale</h3>
+              <p>Hier bleiben die Agenten nur vorbereitet. Die bestehenden KI-Funktionen werden später an diese Ebene angebunden.</p>
+            </div>
+          </div>
+          <span class="virtual-agent-badge info">Lokale Orchestrierung</span>
+        </div>
+        <div class="virtual-agents-note" style="margin-top:14px">Der neue Sicherheitsblock oberhalb der Agentenansicht steuert Sicherheitsmodus, Sandbox, Autonomie und Pausen. Alle Werte bleiben lokal im Browser gespeichert.</div>
+        <details class="form-accordion" style="margin-top:14px">
+          <summary>Erweiterte Hinweise</summary>
+          <div class="accordion-body">
+            <p class="hint" style="margin-top:10px">Aktivierung, Modus, Modellwahl, Benachrichtigungen und Kostenlimits werden pro Mitarbeiter gespeichert. Sicherheits- und Autonomie-Felder werden zusätzlich im gleichen lokalen Datensatz geführt.</p>
+            <div class="settings-agents-overview" style="margin-top:10px">
+              <div class="metric"><small>Aktive Mitarbeiter</small><strong>${getOnlineCount()} / ${AGENT_DEFS.length}</strong></div>
+              <div class="metric"><small>Geschätztes Tageslimit gesamt</small><strong>${formatEuro(getDailyLimitTotal())}</strong></div>
+              <div class="metric"><small>Sicherheitsmodus</small><strong>${state.securityMode !== false ? 'Aktiv' : 'Aus'}</strong></div>
+            </div>
+          </div>
+        </details>
+        <div class="virtual-agent-footer">
+          <button type="button" class="secondary" data-agent-action="reset-all">Alle Agenten auf Standardwerte zurücksetzen</button>
+        </div>
+      </div>
+    `;
+  };
+
+  const buildAgentCard = (def) => {
+    const agent = getAgent(def.id) || createDefaultState().agents[def.id];
+    const badge = getBadgeMeta(agent);
+    const usagePercent = getUsagePercent(agent);
+    const activityItems = getActivityLogItems(agent, def);
+    return `
+      <details class="virtual-agent-card virtual-agent-disclosure virtual-agent-accent-${escapeHtml(def.accent || 'scout')}" data-agent-id="${def.id}" ${state.openCards && state.openCards[def.id] ? 'open' : ''}>
+        <summary class="virtual-agent-summary">
+          <div class="virtual-agent-summary-top">
+            <div class="virtual-agent-ident">
+              <div class="virtual-agent-icon">${def.icon}</div>
+              <div>
+                <h3>${escapeHtml(def.name)}</h3>
+                <p>${escapeHtml(def.task)}</p>
+              </div>
+            </div>
+            <span class="virtual-agent-summary-chevron">⌄</span>
+          </div>
+          <div class="virtual-agent-summary-meta">
+            <span class="pill">Modus: ${escapeHtml(MODE_OPTIONS.find((item) => item.value === normalizeMode(agent.mode))?.label || 'nur Vorschläge')}</span>
+            <span class="pill">Modell: ${escapeHtml(normalizeModel(agent.model))}</span>
+            <span class="pill">Klick zum Aufklappen</span>
+          </div>
+          <div class="virtual-agent-summary-side" onclick="event.stopPropagation()">
+            <span class="virtual-agent-badge ${badge.tone}">${escapeHtml(badge.label)}</span>
+            <label class="agent-switch" style="margin-left:2px">
+              <input type="checkbox" data-agent-id="${def.id}" data-agent-field="active" ${agent.active ? 'checked' : ''}>
+              <span class="agent-switch-track"></span>
+              <span>Aktiv / Inaktiv</span>
+            </label>
+          </div>
+        </summary>
+        <div class="virtual-agent-body">
+          <div class="virtual-agent-mini" style="margin-top:12px">
+            <span class="pill">Status: ${escapeHtml(badge.label)}</span>
+            <span class="pill">Sicherheitsmodus: ${state.securityMode !== false ? 'Aktiv' : 'Aus'}</span>
+            <span class="pill">Modell: ${escapeHtml(normalizeModel(agent.model))}</span>
+            <span class="pill">Heute: ${escapeHtml(formatEuro(agent.usageToday || 0))} / ${escapeHtml(formatEuro(agent.dailyLimit || 0))}</span>
+          </div>
+
+          <div class="virtual-agent-grid" style="margin-top:14px">
+            <div>
+              <label>Status Badge</label>
+              <div class="virtual-agent-badge ${badge.tone}" style="width:100%;justify-content:center">${badge.label}</div>
+            </div>
+
+            <div>
+              <label>Agenten-Status</label>
+              <select class="virtual-agent-status-select" data-agent-id="${def.id}" data-agent-field="statusState">
+                ${STATUS_OPTIONS.map((item) => `<option value="${item.value}" ${normalizeStatusState(agent.statusState) === item.value ? 'selected' : ''}>${item.label}</option>`).join('')}
+              </select>
+            </div>
+
+            <div>
+              <label>Modus</label>
+              <select data-agent-id="${def.id}" data-agent-field="mode">
+                ${MODE_OPTIONS.map((item) => `<option value="${item.value}" ${normalizeMode(agent.mode) === item.value ? 'selected' : ''}>${item.label}</option>`).join('')}
+              </select>
+            </div>
+
+            <div>
+              <label>Modell</label>
+              <select data-agent-id="${def.id}" data-agent-field="model">
+                ${MODEL_OPTIONS.map((item) => `<option value="${item.value}" ${normalizeModel(agent.model) === item.value ? 'selected' : ''}>${item.label}</option>`).join('')}
+              </select>
+            </div>
+
+            <div>
+              <label>Tageslimit für KI-Kosten (€)</label>
+              <input data-agent-id="${def.id}" data-agent-field="dailyLimit" type="number" step="0.01" min="0" value="${Number(agent.dailyLimit || 0).toFixed(2)}">
+            </div>
+
+            <label class="agent-switch">
+              <input type="checkbox" data-agent-id="${def.id}" data-agent-field="notifications" ${agent.notifications ? 'checked' : ''}>
+              <span class="agent-switch-track"></span>
+              <span>Benachrichtigungen</span>
+            </label>
+          </div>
+
+          <div class="virtual-agent-cost">
+            <div class="score-top">
+              <span class="muted">Heute: ${escapeHtml(formatEuro(agent.usageToday || 0))} / ${escapeHtml(formatEuro(agent.dailyLimit || 0))}</span>
+              <strong>${Math.round(usagePercent)}%</strong>
+            </div>
+            <div class="progress"><div class="bar" style="width:${usagePercent}%"></div></div>
+          </div>
+
+          <div style="margin-top:14px">
+            <label>Kurze Beschreibung der Aufgabe</label>
+            <textarea data-agent-id="${def.id}" data-agent-field="description" placeholder="${escapeHtml(def.description || def.task)}">${escapeHtml(agent.description || def.description || def.task)}</textarea>
+          </div>
+
+          <div class="virtual-agent-log">
+            <label>Letzte Aktivität</label>
+            <ul>
+              ${activityItems.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}
+            </ul>
+            ${agent.lastTestedAt ? `<p class="hint" style="margin-top:10px">Letzter lokaler Test: ${escapeHtml(agent.lastTestedAt)}</p>` : ''}
+          </div>
+
+          <div style="margin-top:14px">
+            <label>Verwendete KI-Verbindung</label>
+            <div class="virtual-agent-connections" style="margin-top:8px">
+              ${getConnectionItems(def).map((item) => `<span class="pill">${escapeHtml(item)}</span>`).join('')}
+            </div>
+          </div>
+
+          <div class="virtual-agent-footer">
+            <button type="button" class="secondary" data-agent-action="test-agent" data-agent-id="${def.id}">Agent testen</button>
+          </div>
+
+          <div class="output-box" style="margin-top:12px">
+            <p>${escapeHtml(agent.lastTestResponse || DEFAULT_TEST_RESPONSE)}</p>
+          </div>
+
+          <div class="virtual-agent-footnote">Die Vorschläge dieses Mitarbeiters können später die vorhandenen KI-Funktionen anstoßen, aber aktuell werden noch keine autonomen Aktionen ausgeführt.</div>
+        </div>
+      </details>
+    `;
+  };
+
+  const buildCategoryPanel = (panelId, title, description, groupKey, toneClass) => {
+    const items = AGENT_DEFS.filter((def) => def.group === groupKey);
+    const isActive = activePanel === panelId;
+    return `
+      <div class="virtual-agent-card virtual-agents-panel ${isActive ? 'active' : ''}" data-panel="${panelId}">
+        <div class="virtual-agent-head">
+          <div class="virtual-agent-ident">
+            <div class="virtual-agent-icon">${toneClass === 'good' ? '👥' : '🤖'}</div>
+            <div>
+              <h3>${escapeHtml(title)}</h3>
+              <p>${escapeHtml(description)}</p>
+            </div>
+          </div>
+          <span class="virtual-agent-badge ${toneClass}">${items.length} Rollen</span>
+        </div>
+        <div class="virtual-agents-panels" style="margin-top:14px">
+          ${items.map((def) => buildAgentCard(def)).join('')}
+        </div>
+      </div>
+    `;
+  };
+
+  const buildFutureFunctionsSection = () => {
+    const liveActionsBlocked = isSecurityLocked();
+    const lockedMessage = 'Noch nicht aktivierbar – Sicherheitsfreigabe erforderlich.';
+    const items = [
+      {
+        icon: '🔒',
+        title: 'Vollautomatische Aktionen',
+        description: 'Agenten könnten später Aufgaben ohne manuelle Auslösung vorbereiten oder ausführen.',
+      },
+      {
+        icon: '🔒',
+        title: 'Automatische Bestellungen',
+        description: 'Bestellungen beim Supplier automatisch vorbereiten oder auslösen.',
+      },
+      {
+        icon: '🔒',
+        title: 'Automatische Kundennachrichten',
+        description: 'Kundenantworten automatisch senden.',
+      },
+      {
+        icon: '🔒',
+        title: 'Autonomes eBay-Posting',
+        description: 'Produkte automatisch bei eBay veröffentlichen.',
+      },
+    ];
+    return `
+      <details class="virtual-agent-card virtual-future-section">
+        <summary class="virtual-agent-summary">
+          <div class="virtual-agent-summary-top">
+            <div class="virtual-agent-ident">
+              <div class="virtual-agent-icon">🔒</div>
+              <div>
+                <h3>Autonomie & Zukunftsfunktionen</h3>
+                <p>Vorbereitet, aber aus Sicherheitsgründen deaktiviert. Erst mit manueller Freigabe aktivierbar.</p>
+              </div>
+            </div>
+            <span class="virtual-agent-summary-chevron">⌄</span>
+          </div>
+          <div class="virtual-agent-summary-meta">
+            <span class="pill">4 gesperrte Funktionen</span>
+            <span class="pill">${liveActionsBlocked ? 'Live blockiert' : 'Live getrennt'}</span>
+            <span class="pill">Sicherheitsfreigabe erforderlich</span>
+          </div>
+        </summary>
+        <div class="virtual-agent-body">
+          <div class="virtual-future-warning">Diese Funktionen sind vorbereitet, aber aus Sicherheitsgründen deaktiviert. ${liveActionsBlocked ? 'Live-Aktionen bleiben durch Sicherheitsmodus oder Sandbox blockiert.' : 'Live-Aktionen bleiben in dieser Version bewusst getrennt.'} ${lockedMessage}</div>
+          <div class="virtual-future-grid" style="margin-top:14px">
+            ${items.map((item) => `
+              <div class="virtual-future-card">
+                <div class="virtual-agent-ident">
+                  <div class="virtual-agent-icon">${item.icon}</div>
+                  <div>
+                    <h4>${escapeHtml(item.title)}</h4>
+                    <p>${escapeHtml(item.description)}</p>
+                  </div>
+                </div>
+                <div class="settings-agents-overview" style="grid-template-columns:1fr auto;gap:10px;align-items:center">
+                  <span class="virtual-agent-badge warn">Gesperrt</span>
+                  <div class="agent-switch agent-switch-locked" aria-disabled="true">
+                    <span class="agent-switch-track"></span>
+                    <span>${lockedMessage}</span>
+                  </div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      </details>
+    `;
+  };
+
+  const render = () => {
+    const root = getEl('virtualAgentsSettingsRoot');
+    if (!root) return;
+    const openCards = {};
+    root.querySelectorAll('.virtual-agent-disclosure[open][data-agent-id]').forEach((card) => {
+      openCards[card.dataset.agentId] = true;
+    });
+    state.openCards = openCards;
+    const nav = [
+      `<button type="button" class="${activePanel === 'overview' ? 'active' : ''}" data-agent-panel="overview">Übersicht</button>`,
+      `<button type="button" class="${activePanel === 'ki-agents' ? 'active' : ''}" data-agent-panel="ki-agents">KI-Agenten</button>`,
+      `<button type="button" class="${activePanel === 'virtual-ma' ? 'active' : ''}" data-agent-panel="virtual-ma">Virtuelle Mitarbeiter</button>`,
+    ].join('');
+    const panels = [
+      buildOverviewPanel(),
+      buildCategoryPanel('ki-agents', 'KI-Agenten', 'Analytische und strategische Rollen für Recherche, Risiko, SEO und Optimierung.', 'ki-agents', 'info'),
+      buildCategoryPanel('virtual-ma', 'Virtuelle Mitarbeiter', 'Operative Helfer für Finance, Support und Tagesorganisation.', 'virtual-ma', 'good'),
+      buildFutureFunctionsSection(),
+    ].join('');
+    root.innerHTML = `
+      <div class="virtual-agents-shell">
+        ${buildSecurityControlPanel()}
+        ${buildGlobalStatusBar()}
+        <div class="virtual-agents-nav" role="tablist" aria-label="Virtuelle Mitarbeiter Navigation">${nav}</div>
+        <div class="virtual-agents-panels">${panels}</div>
+      </div>
+    `;
+  };
+
+  const setPanel = (panel) => {
+    activePanel = normalizePanel(panel);
+    state.activePanel = activePanel;
+    saveState();
+    render();
+  };
+
+  const resetAllAgents = () => {
+    const defaults = getDefaultAiAgentSettings();
+    state.agents = defaults.agents;
+    state.securityMode = defaults.securityMode;
+    state.sandboxMode = defaults.sandboxMode;
+    state.advancedMode = defaults.advancedMode;
+    state.autonomyLocked = defaults.autonomyLocked;
+    state.pauseAllAgents = defaults.pauseAllAgents;
+    state.safetyMode = defaults.safetyMode;
+    state.pausedAll = defaults.pausedAll;
+    activePanel = 'overview';
+    state.activePanel = activePanel;
+    saveState();
+    render();
+  };
+
+  const handleFieldChange = (target) => {
+    const agentId = target.dataset.agentId;
+    const field = target.dataset.agentField;
+    if (!agentId || !field) return;
+    const agent = getAgent(agentId);
+    const def = getDefinition(agentId);
+    if (!agent || !def) return;
+
+    if (field === 'active' || field === 'notifications') {
+      agent[field] = !!target.checked;
+    } else if (field === 'securityMode') {
+      state.securityMode = !!target.checked;
+      state.safetyMode = state.securityMode;
+    } else if (field === 'sandboxMode') {
+      state.sandboxMode = !!target.checked;
+    } else if (field === 'advancedMode') {
+      state.advancedMode = !!target.checked;
+    } else if (field === 'autonomyLocked') {
+      state.autonomyLocked = !!target.checked;
+    } else if (field === 'pauseAllAgents') {
+      state.pauseAllAgents = !!target.checked;
+      state.pausedAll = state.pauseAllAgents;
+    } else if (field === 'mode') {
+      agent.mode = normalizeMode(target.value);
+    } else if (field === 'model') {
+      agent.model = normalizeModel(target.value);
+    } else if (field === 'dailyLimit') {
+      agent.dailyLimit = normalizeLimit(target.value);
+      target.value = Number(agent.dailyLimit || 0).toFixed(2);
+    } else if (field === 'description') {
+      agent.description = sanitizeDescription(target.value, def.task);
+    } else if (field === 'statusState') {
+      agent.statusState = normalizeStatusState(target.value);
+    }
+
+    saveState();
+    render();
+  };
+
+  const pauseAllAgents = () => {
+    state.pauseAllAgents = !isAllAgentsPaused();
+    state.pausedAll = state.pauseAllAgents;
+    saveState();
+    render();
+  };
+
+  const runAgentTest = (agentId) => {
+    const agent = getAgent(agentId);
+    const def = getDefinition(agentId);
+    if (!agent || !def) return;
+    const response = getTestResponse(def);
+    agent.lastTestResponse = response;
+    agent.lastActivity = 'Letzte Prüfung vorbereitet';
+    agent.lastTestedAt = new Date().toLocaleString('de-DE');
+    agent.statusState = 'Analysiert';
+    agent.usageToday = Math.min(Number(agent.dailyLimit || 0), Math.round(((Number(agent.usageToday) || 0) + getUsageDelta(agentId)) * 100) / 100);
+    saveState();
+    render();
+  };
+
+  const openAgentSettings = () => {
+    const modal = getEl('settingsModal');
+    if (modal) modal.classList.add('hidden');
+    if (typeof window.showTab === 'function') {
+      window.showTab('virtualAgentsTab');
+    }
+    window.setTimeout(() => {
+      const root = getEl('virtualAgentsSettingsRoot');
+      if (root) root.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 120);
+  };
+
+  const bind = () => {
+    const root = getEl('virtualAgentsSettingsRoot');
+    if (!root || root.dataset.virtualAgentsBound === 'yes') return;
+    root.dataset.virtualAgentsBound = 'yes';
+
+    root.addEventListener('click', (event) => {
+      const panelButton = event.target.closest('[data-agent-panel]');
+      if (panelButton) {
+        setPanel(panelButton.dataset.agentPanel);
+        return;
+      }
+      const resetButton = event.target.closest('[data-agent-action="reset-all"]');
+      if (resetButton) {
+        if (window.confirm('Alle virtuellen Mitarbeiter auf Standardwerte zurücksetzen?')) {
+          resetAllAgents();
+        }
+        return;
+      }
+      const pauseAllButton = event.target.closest('[data-agent-action="pause-all"]');
+      if (pauseAllButton) {
+        pauseAllAgents();
+        return;
+      }
+      const testButton = event.target.closest('[data-agent-action="test-agent"]');
+      if (testButton) {
+        runAgentTest(testButton.dataset.agentId);
+      }
+    });
+
+    root.addEventListener('change', (event) => {
+      const target = event.target;
+      if (target && target.dataset && target.dataset.agentField) {
+        handleFieldChange(target);
+      }
+    });
+  };
+
+  window.loadAiAgentSettings = loadAiAgentSettings;
+  window.saveAiAgentSettings = saveAiAgentSettings;
+  window.getDefaultAiAgentSettings = getDefaultAiAgentSettings;
+  window.mergeAiAgentSettings = mergeAiAgentSettings;
+  window.openVirtualAgentsSettings = openAgentSettings;
+  window.renderVirtualAgentsSettings = render;
+  window.reloadVirtualAgentsSettings = () => {
+    const next = loadAiAgentSettings();
+    Object.assign(state, next);
+    activePanel = normalizePanel(state.activePanel);
+    render();
+  };
+
+  document.addEventListener('DOMContentLoaded', () => {
+    bind();
+    render();
+    const openBtn = getEl('openVirtualAgentsSettingsBtn');
+    if (openBtn && !openBtn.dataset.bound) {
+      openBtn.dataset.bound = 'yes';
+      openBtn.addEventListener('click', openAgentSettings);
+    }
+    const modalBtn = getEl('openVirtualAgentsSettingsBtnModal');
+    if (modalBtn && !modalBtn.dataset.bound) {
+      modalBtn.dataset.bound = 'yes';
+      modalBtn.addEventListener('click', openAgentSettings);
+    }
+    console.assert(!!getEl('virtualAgentsSettingsRoot'), 'Virtuelle Mitarbeiter Bereich sollte existieren');
+    console.assert(!!getEl('virtualAgentsTab'), 'virtualAgentsTab sollte existieren');
+  });
+})();
 </script>
 <script defer src="elyon-soul.js"></script>
 </body>
