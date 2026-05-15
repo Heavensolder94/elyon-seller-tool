@@ -348,6 +348,13 @@
   .task-remove-summary strong{display:block;font-size:15px;line-height:1.45}
   .task-remove-warning{padding:14px 16px;border-radius:18px;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.24);color:#fecaca;font-size:13px;line-height:1.55}
   .task-remove-modal-actions{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap}
+  .tool-popup-panel{max-width:620px;width:min(96vw,620px)}
+  .tool-popup-body{display:grid;gap:14px}
+  .tool-popup-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap}
+  .tool-popup-head h3{margin:0;font-size:22px;letter-spacing:-.02em}
+  .tool-popup-head p{margin-top:4px;color:#cbd5e1;font-size:13px;line-height:1.5}
+  .tool-popup-message{padding:16px;border-radius:18px;background:rgba(2,6,23,.38);border:1px solid rgba(255,255,255,.09);color:#e2e8f0;font-size:14px;line-height:1.6}
+  .tool-popup-actions{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap}
   @media(max-width:900px){
     .settings-agents-overview,.virtual-agent-grid{grid-template-columns:1fr}
     .virtual-agent-system-metrics{grid-template-columns:1fr 1fr}
@@ -1571,6 +1578,81 @@ PLZ Ort"></textarea>
         <div class="task-remove-modal-actions">
           <button type="button" id="taskRemoveCancelBtn" class="secondary">Abbrechen</button>
           <button type="button" id="taskRemoveConfirmBtn">Entfernen</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="approvalQueueDetailModal" class="hidden modal-backdrop" aria-hidden="true">
+    <div class="card modal-panel task-remove-modal-panel">
+      <div class="task-remove-modal">
+        <div class="task-remove-modal-head">
+          <div>
+            <h3 id="approvalDetailTitle">Freigabe-Details</h3>
+            <p>Nur Vorschau. Keine echte Ausführung.</p>
+          </div>
+          <span class="virtual-agent-badge info">Bestätigungspflichtig</span>
+        </div>
+        <div class="task-remove-summary">
+          <div>
+            <small>Agent</small>
+            <strong id="approvalDetailAgent">-</strong>
+          </div>
+          <div>
+            <small>Typ</small>
+            <strong id="approvalDetailType">-</strong>
+          </div>
+          <div>
+            <small>Status</small>
+            <strong id="approvalDetailStatus">-</strong>
+          </div>
+        </div>
+        <div class="task-remove-summary" style="margin-top:12px">
+          <div>
+            <small>Risiko</small>
+            <strong id="approvalDetailRisk">-</strong>
+          </div>
+          <div>
+            <small>Erstellt</small>
+            <strong id="approvalDetailCreatedAt">-</strong>
+          </div>
+          <div>
+            <small>Bestätigung</small>
+            <strong>Erforderlich</strong>
+          </div>
+        </div>
+        <div class="output-box" style="margin-top:12px">
+          <h4>Beschreibung</h4>
+          <p id="approvalDetailDescription">-</p>
+        </div>
+        <div class="output-box" style="margin-top:12px">
+          <h4>Vorschau</h4>
+          <p id="approvalDetailPreview">-</p>
+        </div>
+        <div class="output-box" style="margin-top:12px">
+          <h4>Payload</h4>
+          <pre id="approvalDetailPayload" style="white-space:pre-wrap;word-break:break-word;margin:0">-</pre>
+        </div>
+        <div class="task-remove-modal-actions">
+          <button type="button" id="approvalDetailCloseBtn" class="secondary">Schließen</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toolPopupModal" class="hidden modal-backdrop" aria-hidden="true">
+    <div class="card modal-panel tool-popup-panel">
+      <div class="tool-popup-body">
+        <div class="tool-popup-head">
+          <div>
+            <h3 id="toolPopupTitle">Bestätigung</h3>
+            <p id="toolPopupSubtitle">Elyon Tool Rückmeldung</p>
+          </div>
+          <span class="virtual-agent-badge good">Übernommen</span>
+        </div>
+        <div class="tool-popup-message" id="toolPopupMessage">-</div>
+        <div class="tool-popup-actions">
+          <button type="button" id="toolPopupCloseBtn" class="secondary">OK</button>
         </div>
       </div>
     </div>
@@ -8009,6 +8091,27 @@ document.addEventListener('DOMContentLoaded',()=>{
   };
   const AI_TASK_DEMO_BASE_TIME = Date.now();
   const createTaskId = () => `ai-task-${Math.random().toString(36).slice(2, 10)}-${Date.now().toString(36)}`;
+  const APPROVAL_QUEUE_TYPE_LABELS = {
+    support_reply: 'Supportantwort',
+    listing_update: 'Listing-Update',
+    order_prepare: 'Bestellung vorbereiten',
+    seo_update: 'SEO-Optimierung',
+    risk_action: 'Risikobehandlung',
+  };
+  const APPROVAL_QUEUE_STATUS_LABELS = {
+    pending: 'Offen',
+    approved: 'Genehmigt',
+    rejected: 'Abgelehnt',
+    executed: 'Ausgeführt',
+  };
+  const APPROVAL_QUEUE_RISK_LABELS = {
+    low: 'Niedrig',
+    medium: 'Mittel',
+    high: 'Hoch',
+    critical: 'Kritisch',
+  };
+  const APPROVAL_QUEUE_DEMO_BASE_TIME = Date.now();
+  const createApprovalQueueId = () => `approval-${Math.random().toString(36).slice(2, 10)}-${Date.now().toString(36)}`;
 
   const buildDemoAiTasks = () => [
     {
@@ -8049,6 +8152,57 @@ document.addEventListener('DOMContentLoaded',()=>{
     },
   ];
 
+  const buildDemoApprovalQueue = () => [
+    {
+      id: 'demo-approval-support',
+      title: 'Supportantwort vorbereiten',
+      description: 'Eine Antwortvorlage für eine Kundenanfrage wird vorbereitet. Es wird nichts automatisch versendet.',
+      agent: 'Soul Support',
+      type: 'support_reply',
+      status: 'pending',
+      riskLevel: 'medium',
+      createdAt: new Date(APPROVAL_QUEUE_DEMO_BASE_TIME - 3 * 60000).toISOString(),
+      payload: {
+        source: 'demo',
+        context: 'support',
+      },
+      previewText: 'Hallo, danke für deine Nachricht. Ich prüfe den Versandstatus und melde mich zeitnah.',
+      requiresConfirmation: true,
+    },
+    {
+      id: 'demo-approval-seo',
+      title: 'SEO-Optimierung übernehmen',
+      description: 'Ein SEO-Entwurf wird lokal vorbereitet. Es werden keine Live-Änderungen veröffentlicht.',
+      agent: 'Soul SEO',
+      type: 'seo_update',
+      status: 'pending',
+      riskLevel: 'low',
+      createdAt: new Date(APPROVAL_QUEUE_DEMO_BASE_TIME - 2 * 60000).toISOString(),
+      payload: {
+        source: 'demo',
+        context: 'seo',
+      },
+      previewText: 'Neuer Titelvorschlag: Premium Organizer für Schreibtisch & Büro – kompakt, modern, praktisch',
+      requiresConfirmation: true,
+    },
+    {
+      id: 'demo-approval-order',
+      title: 'Bestellung vorbereiten',
+      description: 'Eine Supplier-Bestellung ist vorbereitet. Die Freigabe setzt nur den Status, aber keine Ausführung.',
+      agent: 'Soul Operations',
+      type: 'order_prepare',
+      status: 'pending',
+      riskLevel: 'high',
+      createdAt: new Date(APPROVAL_QUEUE_DEMO_BASE_TIME - 1 * 60000).toISOString(),
+      payload: {
+        source: 'demo',
+        context: 'operations',
+      },
+      previewText: 'Supplier-Bestellung vorbereitet. Keine Bestellung wurde ausgeführt.',
+      requiresConfirmation: true,
+    },
+  ];
+
   const getEl = (id) => document.getElementById(id);
   const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (ch) => ({
     '&': '&amp;',
@@ -8059,13 +8213,23 @@ document.addEventListener('DOMContentLoaded',()=>{
   }[ch]));
 
   const normalizePanel = (panel) => {
-    const valid = ['overview', 'ai-task-center', 'virtual-ma', 'ki-agents'];
+    const valid = ['overview', 'ai-task-center', 'approval-queue', 'virtual-ma', 'ki-agents'];
     return valid.includes(panel) ? panel : 'overview';
   };
 
   const normalizeMode = (value) => {
     const input = String(value || '').trim();
     return MODE_OPTIONS.some((item) => item.value === input) ? input : 'suggestions';
+  };
+
+  const getAgentModeDisplayValue = (value) => {
+    const mode = normalizeMode(value);
+    return mode === 'semi' || mode === 'auto' ? 'semi' : 'suggestions';
+  };
+
+  const getAgentModeLabel = (value) => {
+    const mode = normalizeMode(value);
+    return mode === 'semi' || mode === 'auto' ? 'Halbautomatisch' : 'Nur Vorschläge';
   };
 
   const normalizeModel = (value) => {
@@ -8123,6 +8287,48 @@ document.addEventListener('DOMContentLoaded',()=>{
     return Object.prototype.hasOwnProperty.call(AI_TASK_SOURCE_LABELS, input) ? input : 'manual';
   };
 
+  const normalizeApprovalQueueType = (value) => {
+    const input = String(value || '').trim();
+    return Object.prototype.hasOwnProperty.call(APPROVAL_QUEUE_TYPE_LABELS, input) ? input : 'listing_update';
+  };
+
+  const normalizeApprovalQueueStatus = (value) => {
+    const input = String(value || '').trim();
+    return Object.prototype.hasOwnProperty.call(APPROVAL_QUEUE_STATUS_LABELS, input) ? input : 'pending';
+  };
+
+  const normalizeApprovalQueueRisk = (value) => {
+    const input = String(value || '').trim();
+    return Object.prototype.hasOwnProperty.call(APPROVAL_QUEUE_RISK_LABELS, input) ? input : 'medium';
+  };
+
+  const normalizeApprovalQueueItem = (item, index) => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return null;
+    const createdAt = Date.parse(item.createdAt || '');
+    const payload = item.payload && typeof item.payload === 'object' && !Array.isArray(item.payload) ? { ...item.payload } : {};
+    return {
+      id: sanitizeTaskText(item.id || `approval-${index + 1}`, `approval-${index + 1}`, 80),
+      title: sanitizeTaskText(item.title, 'Unbenannter Freigabe-Eintrag', 120),
+      description: sanitizeTaskText(item.description, '', 260),
+      agent: sanitizeTaskText(item.agent, 'Unbekannter Agent', 80),
+      type: normalizeApprovalQueueType(item.type),
+      status: normalizeApprovalQueueStatus(item.status),
+      riskLevel: normalizeApprovalQueueRisk(item.riskLevel),
+      createdAt: Number.isFinite(createdAt) ? new Date(createdAt).toISOString() : new Date().toISOString(),
+      payload,
+      previewText: sanitizeTaskText(item.previewText, '', 320),
+      requiresConfirmation: true,
+    };
+  };
+
+  const normalizeApprovalQueue = (value) => {
+    const list = Array.isArray(value) ? value : [];
+    const next = list
+      .map((item, index) => normalizeApprovalQueueItem(item, index))
+      .filter(Boolean);
+    return next.length ? next : buildDemoApprovalQueue();
+  };
+
   const normalizeAiTask = (task, index) => {
     if (!task || typeof task !== 'object' || Array.isArray(task)) return null;
     const createdAt = Date.parse(task.createdAt || '');
@@ -8149,7 +8355,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   };
 
   const createDefaultState = () => ({
-    version: 2,
+    version: 3,
     securityMode: true,
     sandboxMode: true,
     advancedMode: false,
@@ -8163,6 +8369,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     activePanel: 'overview',
     openCards: {},
     aiTasks: [],
+    approvalQueue: buildDemoApprovalQueue(),
     agents: AGENT_DEFS.reduce((acc, def) => {
       acc[def.id] = {
         active: true,
@@ -8199,6 +8406,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       activePanel: normalizePanel(source.activePanel || defaults.activePanel),
       openCards: source.openCards && typeof source.openCards === 'object' ? {...source.openCards} : {},
       aiTasks: normalizeAiTasks(source.aiTasks),
+      approvalQueue: normalizeApprovalQueue(source.approvalQueue),
       agents: {},
     };
 
@@ -8248,6 +8456,8 @@ document.addEventListener('DOMContentLoaded',()=>{
   let taskPriorityFilter = 'all';
   let taskCenterNotice = '';
   let taskRemovalTargetId = '';
+  let approvalDetailTargetId = '';
+  let toolPopupCloseTimeout = null;
   let advancedAutonomyHoldTimer = null;
   let advancedAutonomyHoldFrame = null;
   let advancedAutonomyHoldStart = 0;
@@ -8303,6 +8513,37 @@ document.addEventListener('DOMContentLoaded',()=>{
     if (!limit) return 0;
     return Math.max(0, Math.min(100, (usage / limit) * 100));
   };
+  const getAgentModeStats = () => AGENT_DEFS.reduce((acc, def) => {
+    const agent = getAgent(def.id);
+    if (getAgentModeDisplayValue(agent && agent.mode) === 'semi') {
+      acc.semi += 1;
+    } else {
+      acc.suggestions += 1;
+    }
+    return acc;
+  }, { suggestions: 0, semi: 0 });
+  const getSharedAgentDailyLimit = () => {
+    const values = AGENT_DEFS.map((def) => {
+      const agent = getAgent(def.id);
+      return Number(agent && agent.dailyLimit) || 0;
+    });
+    if (!values.length) return '';
+    const first = values[0];
+    return values.every((value) => Math.abs(value - first) < 0.0001) ? Number(first).toFixed(2) : '';
+  };
+  const applyGlobalAgentDailyLimit = (value) => {
+    const limit = normalizeLimit(value);
+    AGENT_DEFS.forEach((def) => {
+      const agent = getAgent(def.id);
+      if (agent) {
+        agent.dailyLimit = limit;
+      }
+    });
+    saveState();
+    render();
+    showToolPopup('KI-Kosten übernommen', `Das KI-Tageslimit wurde für alle Agenten auf ${formatEuro(limit)} gesetzt.`, 'good');
+    return limit;
+  };
   const getConnectionItems = (def) => Array.isArray(def && def.connections) ? def.connections : [];
   const getActivityLogItems = (agent, def) => {
     const entries = [
@@ -8342,6 +8583,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     const sandboxMode = state.sandboxMode !== false;
     const autonomyLocked = isAutonomyLocked();
     const masterDisabled = isMasterAgentsDisabled();
+    const modeStats = getAgentModeStats();
     return `
       <div class="virtual-agent-system-bar">
         <div class="virtual-agent-system-top">
@@ -8352,6 +8594,8 @@ document.addEventListener('DOMContentLoaded',()=>{
               <span class="pill">${onlineCount} von ${AGENT_DEFS.length} Agenten online</span>
               <span class="pill">Sicherheitsmodus ${securityMode ? 'aktiv' : 'aus'}</span>
               <span class="pill">Sandbox ${sandboxMode ? 'aktiv' : 'aus'}</span>
+              <span class="pill">Vorschlagsmodus: ${modeStats.suggestions}</span>
+              <span class="pill">Halbautomatisch: ${modeStats.semi}</span>
               ${masterDisabled ? '<span class="pill bad">Alle Agenten & MA deaktiviert</span>' : ''}
             </div>
             <p class="virtual-agent-system-statusline" style="margin-top:8px">🟢 KI-System ${pausedLabel} - ${onlineCount} von ${AGENT_DEFS.length} Agenten online - Sicherheitsmodus ${securityMode ? 'aktiv' : 'aus'} - Sandbox ${sandboxMode ? 'aktiv' : 'aus'} - Autonomie ${autonomyLocked ? 'gesperrt' : 'frei'}</p>
@@ -8365,6 +8609,8 @@ document.addEventListener('DOMContentLoaded',()=>{
           <div class="metric"><small>Agenten online</small><strong>${onlineCount} / ${AGENT_DEFS.length}</strong></div>
           <div class="metric"><small>Sicherheitsmodus</small><strong>${securityMode ? 'Aktiv' : 'Aus'}</strong></div>
           <div class="metric"><small>Sandbox-Modus</small><strong>${sandboxMode ? 'Aktiv' : 'Aus'}</strong></div>
+          <div class="metric"><small>Vorschlagsmodus</small><strong>${modeStats.suggestions}</strong></div>
+          <div class="metric"><small>Halbautomatisch</small><strong>${modeStats.semi}</strong></div>
           <div class="metric"><small>Autonomie</small><strong>${autonomyLocked ? 'Gesperrt' : 'Frei'}</strong></div>
           <div class="metric"><small>Geschätztes Tageslimit gesamt</small><strong>${formatEuro(getDailyLimitTotal())}</strong></div>
           <div class="metric"><small>Heutige KI-Nutzung</small><strong>${formatEuro(getUsageTotal())} <span class="hint" style="display:block;margin-top:4px">Mock</span></strong></div>
@@ -8484,6 +8730,50 @@ document.addEventListener('DOMContentLoaded',()=>{
   const getTaskPriorityRank = (priority) => AI_TASK_PRIORITY_ORDER[normalizeTaskPriority(priority)] || 0;
   const getTaskById = (taskId) => (Array.isArray(state.aiTasks) ? state.aiTasks.find((task) => task && task.id === taskId) : null);
 
+  const getApprovalQueue = () => (Array.isArray(state.approvalQueue) ? state.approvalQueue : []);
+  const getApprovalQueueById = (entryId) => getApprovalQueue().find((entry) => entry && entry.id === entryId) || null;
+  const getApprovalTypeLabel = (type) => APPROVAL_QUEUE_TYPE_LABELS[normalizeApprovalQueueType(type)] || 'Listing-Update';
+  const getApprovalStatusMeta = (status) => {
+    const normalized = normalizeApprovalQueueStatus(status);
+    const map = {
+      pending: 'info',
+      approved: 'good',
+      rejected: 'bad',
+      executed: 'warn',
+    };
+    return { label: APPROVAL_QUEUE_STATUS_LABELS[normalized], tone: map[normalized] || 'info' };
+  };
+  const getApprovalRiskMeta = (riskLevel) => {
+    const normalized = normalizeApprovalQueueRisk(riskLevel);
+    const map = {
+      low: 'info',
+      medium: 'warn',
+      high: 'bad',
+      critical: 'bad',
+    };
+    return { label: APPROVAL_QUEUE_RISK_LABELS[normalized], tone: map[normalized] || 'info' };
+  };
+  const getApprovalQueueStats = () => {
+    const items = getApprovalQueue();
+    return {
+      open: items.filter((item) => normalizeApprovalQueueStatus(item.status) === 'pending').length,
+      approved: items.filter((item) => normalizeApprovalQueueStatus(item.status) === 'approved').length,
+      rejected: items.filter((item) => normalizeApprovalQueueStatus(item.status) === 'rejected').length,
+      critical: items.filter((item) => normalizeApprovalQueueRisk(item.riskLevel) === 'critical').length,
+    };
+  };
+  const getApprovalQueueItems = () => getApprovalQueue().slice().sort((a, b) => {
+    const statusOrder = { pending: 3, approved: 2, rejected: 1, executed: 0 };
+    const riskOrder = { low: 1, medium: 2, high: 3, critical: 4 };
+    const statusA = statusOrder[normalizeApprovalQueueStatus(a.status)] || 0;
+    const statusB = statusOrder[normalizeApprovalQueueStatus(b.status)] || 0;
+    if (statusA !== statusB) return statusB - statusA;
+    const riskA = riskOrder[normalizeApprovalQueueRisk(a.riskLevel)] || 0;
+    const riskB = riskOrder[normalizeApprovalQueueRisk(b.riskLevel)] || 0;
+    if (riskA !== riskB) return riskB - riskA;
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
+
   const openTaskRemoveModal = (taskId) => {
     const task = getTaskById(taskId);
     if (!task) return;
@@ -8522,6 +8812,197 @@ document.addEventListener('DOMContentLoaded',()=>{
     render();
   };
 
+  const createApprovalQueueEntryFromTask = (taskId) => {
+    const task = getTaskById(taskId);
+    if (!task) return null;
+    const label = String(task.actionLabel || task.title || '').toLowerCase();
+    const text = [task.title, task.description, task.category, task.agent, task.actionLabel].join(' ').toLowerCase();
+    let entry;
+    if (text.includes('seo')) {
+      entry = {
+        title: 'SEO-Optimierung vorbereiten',
+        description: 'Ein SEO-Entwurf wird lokal vorbereitet. Es werden keine Live-Änderungen veröffentlicht.',
+        agent: task.agent || 'Soul SEO',
+        type: 'seo_update',
+        riskLevel: 'low',
+        previewText: 'Neuer Titelvorschlag: Premium Organizer für Schreibtisch & Büro – kompakt, modern, praktisch',
+      };
+    } else if (text.includes('support') || text.includes('kunde') || text.includes('retour')) {
+      entry = {
+        title: 'Supportantwort vorbereiten',
+        description: 'Eine Antwortvorlage für eine Kundenanfrage wird vorbereitet. Es wird nichts automatisch versendet.',
+        agent: task.agent || 'Soul Support',
+        type: 'support_reply',
+        riskLevel: 'medium',
+        previewText: 'Hallo, danke für deine Nachricht. Ich prüfe den Versandstatus und melde mich zeitnah.',
+      };
+    } else if (text.includes('order') || text.includes('supplier') || text.includes('bestell')) {
+      entry = {
+        title: 'Bestellung vorbereiten',
+        description: 'Eine Supplier-Bestellung ist vorbereitet. Die Freigabe setzt nur den Status, aber keine Ausführung.',
+        agent: task.agent || 'Soul Operations',
+        type: 'order_prepare',
+        riskLevel: 'high',
+        previewText: 'Supplier-Bestellung vorbereitet. Keine Bestellung wurde ausgeführt.',
+      };
+    } else if (text.includes('risk') || text.includes('liefer') || text.includes('warn') || text.includes('problem')) {
+      entry = {
+        title: 'Risikobehandlung vorbereiten',
+        description: 'Ein risikorelevanter Arbeitsschritt wird lokal vorbereitet. Live-Aktionen bleiben blockiert.',
+        agent: task.agent || 'Soul Guard',
+        type: 'risk_action',
+        riskLevel: 'critical',
+        previewText: 'Risikoprüfung vorbereitet. Keine Live-Aktion wurde ausgeführt.',
+      };
+    } else {
+      entry = {
+        title: `${task.title || task.actionLabel || 'Aufgabe'} vorbereiten`,
+        description: task.description || 'Eine halbautomatische Aktion wird lokal für die Freigabe vorbereitet.',
+        agent: task.agent || 'Soul Operations',
+        type: 'listing_update',
+        riskLevel: 'medium',
+        previewText: task.description || 'Entwurf vorbereitet. Keine Live-Aktion ausgeführt.',
+      };
+    }
+
+    const createdAt = new Date().toISOString();
+    const normalized = normalizeApprovalQueueItem({
+      id: createApprovalQueueId(),
+      ...entry,
+      status: 'pending',
+      createdAt,
+      payload: {
+        source: 'ai-task-center',
+        sourceTaskId: task.id,
+        sourceActionLabel: task.actionLabel || label || '',
+        sourceTaskTitle: task.title || '',
+        sourceCategory: task.category || '',
+      },
+      requiresConfirmation: true,
+    }, getApprovalQueue().length);
+
+    state.approvalQueue = [normalized, ...getApprovalQueue()];
+    saveState();
+    render();
+    return normalized;
+  };
+
+  const updateApprovalQueueEntry = (entryId, updater) => {
+    const items = getApprovalQueue().slice();
+    const index = items.findIndex((item) => item && item.id === entryId);
+    if (index < 0) return null;
+    const current = items[index];
+    const next = typeof updater === 'function' ? updater(current) : current;
+    if (!next || typeof next !== 'object') return null;
+    items[index] = {
+      ...current,
+      ...next,
+      id: current.id,
+      title: sanitizeTaskText(next.title !== undefined ? next.title : current.title, current.title, 120),
+      description: sanitizeTaskText(next.description !== undefined ? next.description : current.description, current.description, 260),
+      agent: sanitizeTaskText(next.agent !== undefined ? next.agent : current.agent, current.agent, 80),
+      type: normalizeApprovalQueueType(next.type !== undefined ? next.type : current.type),
+      status: normalizeApprovalQueueStatus(next.status !== undefined ? next.status : current.status),
+      riskLevel: normalizeApprovalQueueRisk(next.riskLevel !== undefined ? next.riskLevel : current.riskLevel),
+      createdAt: current.createdAt,
+      payload: next.payload && typeof next.payload === 'object' && !Array.isArray(next.payload) ? { ...next.payload } : { ...(current.payload || {}) },
+      previewText: sanitizeTaskText(next.previewText !== undefined ? next.previewText : current.previewText, current.previewText, 320),
+      requiresConfirmation: true,
+    };
+    state.approvalQueue = items;
+    saveState();
+    render();
+    return items[index];
+  };
+
+  const openApprovalDetailsModal = (entryId) => {
+    const entry = getApprovalQueueById(entryId);
+    if (!entry) return;
+    approvalDetailTargetId = entryId;
+    const modal = getEl('approvalQueueDetailModal');
+    const title = getEl('approvalDetailTitle');
+    const agent = getEl('approvalDetailAgent');
+    const type = getEl('approvalDetailType');
+    const status = getEl('approvalDetailStatus');
+    const risk = getEl('approvalDetailRisk');
+    const createdAt = getEl('approvalDetailCreatedAt');
+    const description = getEl('approvalDetailDescription');
+    const preview = getEl('approvalDetailPreview');
+    const payload = getEl('approvalDetailPayload');
+    if (title) title.textContent = entry.title || '-';
+    if (agent) agent.textContent = entry.agent || '-';
+    if (type) type.textContent = getApprovalTypeLabel(entry.type);
+    if (status) status.textContent = getApprovalStatusMeta(entry.status).label;
+    if (risk) risk.textContent = getApprovalRiskMeta(entry.riskLevel).label;
+    if (createdAt) createdAt.textContent = formatTaskDate(entry.createdAt);
+    if (description) description.textContent = entry.description || 'Keine Beschreibung vorhanden.';
+    if (preview) preview.textContent = entry.previewText || 'Keine Vorschau vorhanden.';
+    if (payload) payload.textContent = JSON.stringify(entry.payload || {}, null, 2);
+    if (modal) {
+      modal.classList.remove('hidden');
+      modal.setAttribute('aria-hidden', 'false');
+    }
+  };
+
+  const closeApprovalDetailsModal = () => {
+    approvalDetailTargetId = '';
+    const modal = getEl('approvalQueueDetailModal');
+    if (modal) {
+      modal.classList.add('hidden');
+      modal.setAttribute('aria-hidden', 'true');
+    }
+  };
+
+  const closeToolPopup = () => {
+    if (toolPopupCloseTimeout) {
+      window.clearTimeout(toolPopupCloseTimeout);
+      toolPopupCloseTimeout = null;
+    }
+    const modal = getEl('toolPopupModal');
+    if (modal) {
+      modal.classList.add('hidden');
+      modal.setAttribute('aria-hidden', 'true');
+    }
+  };
+
+  const showToolPopup = (title, message, tone) => {
+    const modal = getEl('toolPopupModal');
+    const popupTitle = getEl('toolPopupTitle');
+    const popupSubtitle = getEl('toolPopupSubtitle');
+    const popupMessage = getEl('toolPopupMessage');
+    if (!modal || !popupTitle || !popupSubtitle || !popupMessage) return;
+    const badge = modal.querySelector('.virtual-agent-badge');
+    closeToolPopup();
+    popupTitle.textContent = title || 'Bestätigung';
+    popupSubtitle.textContent = 'Elyon Tool Rückmeldung';
+    popupMessage.textContent = message || '';
+    if (badge) {
+      const toneClass = tone === 'warn' ? 'warn' : tone === 'bad' ? 'bad' : 'good';
+      badge.className = `virtual-agent-badge ${toneClass}`;
+      badge.textContent = toneClass === 'warn' ? 'Hinweis' : toneClass === 'bad' ? 'Achtung' : 'Übernommen';
+    }
+    modal.classList.remove('hidden');
+    modal.setAttribute('aria-hidden', 'false');
+    toolPopupCloseTimeout = window.setTimeout(() => {
+      closeToolPopup();
+    }, 4500);
+  };
+
+  const handleApprovalAction = (entryId, action) => {
+    if (!entryId) return;
+    if (action === 'approve') {
+      updateApprovalQueueEntry(entryId, (entry) => ({ ...entry, status: 'approved' }));
+      return;
+    }
+    if (action === 'reject') {
+      updateApprovalQueueEntry(entryId, (entry) => ({ ...entry, status: 'rejected' }));
+      return;
+    }
+    if (action === 'details') {
+      openApprovalDetailsModal(entryId);
+    }
+  };
+
   const handleTaskAction = (taskId, action) => {
     if (!taskId) return;
     if (action === 'done') {
@@ -8541,6 +9022,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       return;
     }
     if (action === 'prepare') {
+      createApprovalQueueEntryFromTask(taskId);
       setTaskCenterNotice(isSecurityLocked() ? AI_TASK_NOTICE_SANDBOX : AI_TASK_NOTICE_DEFAULT);
       render();
     }
@@ -8690,14 +9172,102 @@ document.addEventListener('DOMContentLoaded',()=>{
     `;
   };
 
+  const buildApprovalQueueCard = (entry) => {
+    const riskMeta = getApprovalRiskMeta(entry.riskLevel);
+    const statusMeta = getApprovalStatusMeta(entry.status);
+    const createdAt = formatTaskDate(entry.createdAt);
+    return `
+      <article class="virtual-agent-card task-center-card approval-queue-card approval-queue-risk-${escapeHtml(normalizeApprovalQueueRisk(entry.riskLevel))}">
+        <div class="task-center-card-top">
+          <div class="task-center-card-heading">
+            <div class="task-center-triage-title">
+              <h4>${escapeHtml(entry.title)}</h4>
+              <span class="pill">${entry.requiresConfirmation ? 'Bestätigung nötig' : 'Keine Bestätigung'}</span>
+            </div>
+            <p>${escapeHtml(entry.description)}</p>
+          </div>
+          <div class="task-center-badge-stack">
+            <span class="virtual-agent-badge ${riskMeta.tone}">${escapeHtml(riskMeta.label)}</span>
+            <span class="virtual-agent-badge ${statusMeta.tone}">${escapeHtml(statusMeta.label)}</span>
+          </div>
+        </div>
+
+        <div class="task-center-meta-grid">
+          <div><small>Agent</small><strong>${escapeHtml(entry.agent)}</strong></div>
+          <div><small>Typ</small><strong>${escapeHtml(getApprovalTypeLabel(entry.type))}</strong></div>
+          <div><small>Erstellt</small><strong>${escapeHtml(createdAt)}</strong></div>
+          <div><small>Bestätigung</small><strong>${entry.requiresConfirmation ? 'Erforderlich' : 'Nicht nötig'}</strong></div>
+        </div>
+
+        <div class="output-box" style="margin-top:12px">
+          <p>${escapeHtml(entry.previewText || 'Keine Vorschau vorhanden.')}</p>
+        </div>
+
+        <div class="task-center-control-row">
+          <div class="task-center-status-field">
+            <label>Risiko</label>
+            <div class="virtual-agent-badge ${riskMeta.tone}" style="justify-content:center;width:100%">${escapeHtml(riskMeta.label)}</div>
+          </div>
+          <div class="task-center-action-row">
+            <button type="button" class="secondary" data-approval-action="approve" data-approval-id="${escapeHtml(entry.id)}">Genehmigen</button>
+            <button type="button" class="secondary" data-approval-action="reject" data-approval-id="${escapeHtml(entry.id)}">Ablehnen</button>
+            <button type="button" class="secondary" data-approval-action="details" data-approval-id="${escapeHtml(entry.id)}">Details ansehen</button>
+          </div>
+        </div>
+      </article>
+    `;
+  };
+
+  const buildApprovalQueuePanel = () => {
+    const stats = getApprovalQueueStats();
+    const hasSandboxHint = isSecurityLocked();
+    const items = getApprovalQueueItems();
+    const totalItems = getApprovalQueue().length;
+    const emptyMessage = totalItems
+      ? 'Keine Freigabe-Einträge passen zu den aktuellen Filtern.'
+      : 'Noch keine Einträge vorhanden. Sobald ein Agent eine halbautomatische Aktion vorbereitet, erscheint sie hier.';
+    return `
+      <div class="virtual-agent-card virtual-agents-panel ${activePanel === 'approval-queue' ? 'active' : ''}" data-panel="approval-queue">
+        <div class="task-center-shell">
+          <div class="task-center-head">
+            <div class="virtual-agent-ident">
+              <div class="virtual-agent-icon">✅</div>
+              <div>
+                <h3>Freigabe-Warteschlange</h3>
+                <p>Halbautomatische Aktionen, die deine Bestätigung benötigen.</p>
+              </div>
+            </div>
+            <span class="virtual-agent-badge info">Manuelle Freigabe</span>
+          </div>
+
+          <div class="settings-agents-overview task-center-stats">
+            <div class="metric"><small>Offen</small><strong>${stats.open}</strong></div>
+            <div class="metric"><small>Genehmigt</small><strong>${stats.approved}</strong></div>
+            <div class="metric"><small>Abgelehnt</small><strong>${stats.rejected}</strong></div>
+            <div class="metric"><small>Kritisch</small><strong>${stats.critical}</strong></div>
+          </div>
+
+          ${hasSandboxHint ? '<div class="task-center-alert task-center-alert-warn">Sandbox aktiv – Genehmigung wird nur simuliert.</div>' : '<div class="task-center-alert">Genehmigung setzt nur den Status auf approved. Keine Live-Aktion wird ausgeführt.</div>'}
+          <div class="task-center-alert">Auch im halbautomatischen Modus werden keine echten Bestellungen, Nachrichten oder eBay-Listings ausgelöst.</div>
+
+          <div class="task-center-list">
+            ${items.length ? items.map((entry) => buildApprovalQueueCard(entry)).join('') : `<div class="empty task-center-empty">${escapeHtml(emptyMessage)}</div>`}
+          </div>
+        </div>
+      </div>
+    `;
+  };
+
   const buildOverviewPanel = () => {
+    const modeStats = getAgentModeStats();
+    const sharedDailyLimit = getSharedAgentDailyLimit();
     return `
       <div class="virtual-agent-card virtual-agents-panel ${activePanel === 'overview' ? 'active' : ''}" data-panel="overview">
         <div class="virtual-agent-head">
           <div class="virtual-agent-ident">
             <div class="virtual-agent-icon">🧭</div>
             <div>
-              <h3>Sicherheits- & Steuerzentrale</h3>
+              <h3>Sicherheits- & Autonomie-Steuerung</h3>
               <p>Hier werden Sicherheitsrahmen und Autonomiegrenzen für die virtuellen Mitarbeiter verwaltet. Live-Aktionen bleiben blockiert, solange Sicherheitsmodus oder Sandbox aktiv ist.</p>
             </div>
           </div>
@@ -8715,6 +9285,23 @@ document.addEventListener('DOMContentLoaded',()=>{
           </label>
         </div>
         <div class="virtual-agents-note" style="margin-top:14px">${isSecurityLocked() ? 'Sandbox aktiv – Aufgaben werden nur vorbereitet.' : 'Automatische Aktionen werden vorbereitet, aber nicht ohne Bestätigung ausgeführt.'}</div>
+        <div class="settings-agents-overview" style="margin-top:14px">
+          <div class="metric"><small>Agenten im Vorschlagsmodus</small><strong>${modeStats.suggestions}</strong></div>
+          <div class="metric"><small>Agenten im halbautomatischen Modus</small><strong>${modeStats.semi}</strong></div>
+        </div>
+        <div class="settings-section" style="margin-top:14px;padding:16px;border-radius:18px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08)">
+          <h4 style="margin-bottom:8px">Gesamte KI-Kosten auf alle übernehmen</h4>
+          <p class="hint">Setzt das Tageslimit für alle Agenten auf denselben Wert. Bestehende Einzelwerte werden erst mit deinem Klick überschrieben.</p>
+          <div class="row" style="margin-top:10px">
+            <div style="flex:1;min-width:220px">
+              <label>Wert für alle Agenten (€)</label>
+              <input id="globalAgentDailyLimitInput" type="number" min="0" step="0.01" value="${sharedDailyLimit}">
+            </div>
+            <div style="display:flex;align-items:end">
+              <button type="button" class="secondary" data-agent-action="apply-global-daily-limit">Für alle übernehmen</button>
+            </div>
+          </div>
+        </div>
         <div class="extended-autonomy-card ${state.advancedMode === true && state.autonomyLocked === false ? 'active' : ''}" style="margin-top:14px">
           <div class="extended-autonomy-head">
             <div class="virtual-agent-ident" style="align-items:flex-start">
@@ -8768,7 +9355,7 @@ document.addEventListener('DOMContentLoaded',()=>{
             <span class="virtual-agent-summary-chevron">⌄</span>
           </div>
           <div class="virtual-agent-summary-meta">
-            <span class="pill">Modus: ${escapeHtml(MODE_OPTIONS.find((item) => item.value === normalizeMode(agent.mode))?.label || 'nur Vorschläge')}</span>
+            <span class="pill">Modus: ${escapeHtml(getAgentModeLabel(agent.mode))}</span>
             <span class="pill">Modell: ${escapeHtml(normalizeModel(agent.model))}</span>
             <span class="pill">Klick zum Aufklappen</span>
           </div>
@@ -8804,9 +9391,11 @@ document.addEventListener('DOMContentLoaded',()=>{
 
             <div>
               <label>Modus</label>
-              <select data-agent-id="${def.id}" data-agent-field="mode">
-                ${MODE_OPTIONS.map((item) => `<option value="${item.value}" ${normalizeMode(agent.mode) === item.value ? 'selected' : ''}>${item.label}</option>`).join('')}
-              </select>
+              <div class="agent-mode-segment" role="group" aria-label="Modus für ${escapeHtml(def.name)}">
+                <button type="button" class="secondary ${getAgentModeDisplayValue(agent.mode) === 'suggestions' ? 'active' : ''}" data-agent-mode="${def.id}" data-agent-mode-value="suggestions">Nur Vorschläge</button>
+                <button type="button" class="secondary ${getAgentModeDisplayValue(agent.mode) === 'semi' ? 'active' : ''}" data-agent-mode="${def.id}" data-agent-mode-value="semi">Halbautomatisch</button>
+              </div>
+              <div class="hint" style="margin-top:6px">Bestehende Modi bleiben erhalten, bis du sie änderst.</div>
             </div>
 
             <div>
@@ -8973,12 +9562,14 @@ document.addEventListener('DOMContentLoaded',()=>{
     const nav = [
       `<button type="button" class="${activePanel === 'overview' ? 'active' : ''}" data-agent-panel="overview">Übersicht</button>`,
       `<button type="button" class="${activePanel === 'ai-task-center' ? 'active' : ''}" data-agent-panel="ai-task-center">AI Task Center</button>`,
+      `<button type="button" class="${activePanel === 'approval-queue' ? 'active' : ''}" data-agent-panel="approval-queue">Freigabe-Warteschlange</button>`,
       `<button type="button" class="${activePanel === 'ki-agents' ? 'active' : ''}" data-agent-panel="ki-agents">KI-Agenten</button>`,
       `<button type="button" class="${activePanel === 'virtual-ma' ? 'active' : ''}" data-agent-panel="virtual-ma">Virtuelle MA</button>`,
     ].join('');
     const panels = [
       buildOverviewPanel(),
       buildTaskCenterPanel(),
+      buildApprovalQueuePanel(),
       buildCategoryPanel('ki-agents', 'KI-Agenten', 'Strategische Analyse- und Optimierungsrollen für Recherche und Content.', 'ki-agents', 'info'),
       buildCategoryPanel('virtual-ma', 'Virtuelle Mitarbeiter', 'Operative Helfer für Support, Finance und Tagesorganisation.', 'virtual-ma', 'good'),
       buildFutureFunctionsSection(),
@@ -9123,6 +9714,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   const resetAllAgents = () => {
     const defaults = createDefaultState();
     state.agents = defaults.agents;
+    state.approvalQueue = defaults.approvalQueue;
     state.securityMode = defaults.securityMode;
     state.sandboxMode = defaults.sandboxMode;
     state.advancedMode = defaults.advancedMode;
@@ -9272,6 +9864,14 @@ document.addEventListener('DOMContentLoaded',()=>{
         }
         return;
       }
+      const globalLimitButton = event.target.closest('[data-agent-action="apply-global-daily-limit"]');
+      if (globalLimitButton) {
+        const input = getEl('globalAgentDailyLimitInput');
+        if (input) {
+          applyGlobalAgentDailyLimit(input.value);
+        }
+        return;
+      }
       const pauseAllButton = event.target.closest('[data-agent-action="pause-all"]');
       if (pauseAllButton) {
         pauseAllAgents();
@@ -9280,6 +9880,16 @@ document.addEventListener('DOMContentLoaded',()=>{
       const masterToggleButton = event.target.closest('[data-agent-action="master-toggle-all"]');
       if (masterToggleButton) {
         toggleMasterAgents();
+        return;
+      }
+      const agentModeButton = event.target.closest('[data-agent-mode][data-agent-mode-value]');
+      if (agentModeButton) {
+        const agent = getAgent(agentModeButton.dataset.agentMode);
+        if (agent) {
+          agent.mode = agentModeButton.dataset.agentModeValue === 'semi' ? 'semi' : 'suggestions';
+          saveState();
+          render();
+        }
         return;
       }
       const openAutonomyButton = event.target.closest('[data-agent-action="open-advanced-autonomy"]');
@@ -9306,6 +9916,11 @@ document.addEventListener('DOMContentLoaded',()=>{
       const taskActionButton = event.target.closest('[data-task-action]');
       if (taskActionButton) {
         handleTaskAction(taskActionButton.dataset.taskId, taskActionButton.dataset.taskAction);
+        return;
+      }
+      const approvalActionButton = event.target.closest('[data-approval-action]');
+      if (approvalActionButton) {
+        handleApprovalAction(approvalActionButton.dataset.approvalId, approvalActionButton.dataset.approvalAction);
         return;
       }
       const testButton = event.target.closest('[data-agent-action="test-agent"]');
@@ -9349,8 +9964,44 @@ document.addEventListener('DOMContentLoaded',()=>{
     document.addEventListener('keydown', (event) => {
       if (event.key === 'Escape') {
         closeTaskRemoveModal();
+        closeApprovalDetailsModal();
+        closeToolPopup();
       }
     });
+  };
+
+  const bindApprovalDetailsModal = () => {
+    const modal = getEl('approvalQueueDetailModal');
+    const closeBtn = getEl('approvalDetailCloseBtn');
+    if (closeBtn && !closeBtn.dataset.bound) {
+      closeBtn.dataset.bound = 'yes';
+      closeBtn.addEventListener('click', closeApprovalDetailsModal);
+    }
+    if (modal && !modal.dataset.bound) {
+      modal.dataset.bound = 'yes';
+      modal.addEventListener('click', (event) => {
+        if (event.target === modal) {
+          closeApprovalDetailsModal();
+        }
+      });
+    }
+  };
+
+  const bindToolPopupModal = () => {
+    const modal = getEl('toolPopupModal');
+    const closeBtn = getEl('toolPopupCloseBtn');
+    if (closeBtn && !closeBtn.dataset.bound) {
+      closeBtn.dataset.bound = 'yes';
+      closeBtn.addEventListener('click', closeToolPopup);
+    }
+    if (modal && !modal.dataset.bound) {
+      modal.dataset.bound = 'yes';
+      modal.addEventListener('click', (event) => {
+        if (event.target === modal) {
+          closeToolPopup();
+        }
+      });
+    }
   };
 
   document.addEventListener('click', (event) => {
@@ -9373,6 +10024,8 @@ document.addEventListener('DOMContentLoaded',()=>{
   document.addEventListener('DOMContentLoaded', () => {
     bind();
     bindTaskRemoveModal();
+    bindApprovalDetailsModal();
+    bindToolPopupModal();
     render();
     const advancedAutonomyCheckbox = getEl('advancedAutonomyRiskCheckbox');
     const advancedAutonomyHoldBtn = getEl('advancedAutonomyHoldBtn');
