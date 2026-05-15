@@ -2301,6 +2301,12 @@ const GOOGLE_SHEETS_SYNC_KEYS = {
   supplierAt: 'elyon_last_supplier_sync_at',
   salesAt: 'elyon_last_sales_sync_at',
   costsAt: 'elyon_last_costs_sync_at',
+  salesLoadAt: 'elyon_last_sales_load_at',
+  inventoryError: 'elyon_last_inventory_sync_error',
+  supplierError: 'elyon_last_supplier_sync_error',
+  salesError: 'elyon_last_sales_sync_error',
+  costsError: 'elyon_last_costs_sync_error',
+  salesLoadError: 'elyon_last_sales_load_error',
 };
 const GOOGLE_SHEETS_SYNC_TYPES = {
   inventory: 'inventory',
@@ -2336,6 +2342,27 @@ function formatSyncTimestamp(value){
     minute: '2-digit',
   });
 }
+function formatSyncRelativeTimestamp(value){
+  if(!value) return 'Noch nie';
+  const date = new Date(value);
+  if(Number.isNaN(date.getTime())) return sheetText(value);
+  const diff = Date.now() - date.getTime();
+  if(diff < 0) return 'gerade eben';
+  const minute = 60 * 1000;
+  const hour = 60 * minute;
+  const day = 24 * hour;
+  if(diff < minute) return 'gerade eben';
+  if(diff < hour){
+    const mins = Math.max(1, Math.round(diff / minute));
+    return 'vor ' + mins + ' Min';
+  }
+  if(diff < day){
+    const hours = Math.max(1, Math.round(diff / hour));
+    return 'vor ' + hours + ' Std';
+  }
+  const days = Math.max(1, Math.round(diff / day));
+  return 'vor ' + days + ' Tag' + (days === 1 ? '' : 'en');
+}
 function getGoogleSheetsSyncConfig(){
   const storedUrl = localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.url) || '';
   const storedToken = localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.token) || '';
@@ -2345,6 +2372,15 @@ function getGoogleSheetsSyncConfig(){
     url: formUrl || storedUrl,
     token: formToken || storedToken,
   };
+}
+function getGoogleSheetsSyncErrorKey(type){
+  const map = {
+    inventory: GOOGLE_SHEETS_SYNC_KEYS.inventoryError,
+    suppliers: GOOGLE_SHEETS_SYNC_KEYS.supplierError,
+    sales: GOOGLE_SHEETS_SYNC_KEYS.salesError,
+    costs: GOOGLE_SHEETS_SYNC_KEYS.costsError,
+  };
+  return map[type] || '';
 }
 function setGoogleSheetsSyncTimestamp(type, iso){
   const map = {
@@ -2358,25 +2394,58 @@ function setGoogleSheetsSyncTimestamp(type, iso){
     localStorage.setItem(key, iso || new Date().toISOString());
   }
 }
+function clearGoogleSheetsSyncError(type){
+  const key = getGoogleSheetsSyncErrorKey(type);
+  if(key) localStorage.removeItem(key);
+}
+function setGoogleSheetsSyncError(type, message){
+  const key = getGoogleSheetsSyncErrorKey(type);
+  if(key) localStorage.setItem(key, message ? String(message) : '');
+}
+function clearGoogleSheetsSyncLoadError(){
+  localStorage.removeItem(GOOGLE_SHEETS_SYNC_KEYS.salesLoadError);
+}
+function setGoogleSheetsSyncLoadError(message){
+  localStorage.setItem(GOOGLE_SHEETS_SYNC_KEYS.salesLoadError, message ? String(message) : '');
+}
+function renderGoogleSheetsMetric(label, timestampValue, errorValue){
+  const relative = formatSyncRelativeTimestamp(timestampValue);
+  const exact = formatSyncTimestamp(timestampValue);
+  const errorHtml = errorValue ? '<div style="margin-top:6px;font-size:12px;line-height:1.35;color:#ffb4b4">Letzter Fehler: ' + escapeHtml(errorValue) + '</div>' : '';
+  return '<div class="metric">' +
+    '<small>' + escapeHtml(label) + '</small>' +
+    '<strong>' + escapeHtml(relative) + '</strong>' +
+    '<div style="margin-top:6px;font-size:12px;line-height:1.35;opacity:.78">Letzter erfolgreicher Lauf: ' + escapeHtml(exact) + '</div>' +
+    errorHtml +
+  '</div>';
+}
 function renderGoogleSheetsSyncStatus(){
   const config = getGoogleSheetsSyncConfig();
   const connected = !!(config.url && config.token);
-  const statusText = connected ? 'Google Sheets Sync eingerichtet' : 'Nicht verbunden';
-  const statusClass = connected ? 'good' : 'bad';
-  const lastInventory = formatSyncTimestamp(localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.inventoryAt));
-  const lastSupplier = formatSyncTimestamp(localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.supplierAt));
-  const lastSales = formatSyncTimestamp(localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.salesAt));
-  const lastCosts = formatSyncTimestamp(localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.costsAt));
+  const inventoryAt = localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.inventoryAt);
+  const supplierAt = localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.supplierAt);
+  const salesAt = localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.salesAt);
+  const costsAt = localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.costsAt);
+  const salesLoadAt = localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.salesLoadAt);
+  const inventoryError = localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.inventoryError) || '';
+  const supplierError = localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.supplierError) || '';
+  const salesError = localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.salesError) || '';
+  const costsError = localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.costsError) || '';
+  const salesLoadError = localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.salesLoadError) || '';
+  const anyError = !!(inventoryError || supplierError || salesError || costsError || salesLoadError);
+  const statusText = connected ? (anyError ? 'Verbunden, aber zuletzt mit Fehlern' : 'Google Sheets Sync eingerichtet') : 'Nicht verbunden';
+  const statusClass = connected ? (anyError ? 'warn' : 'good') : 'bad';
   safe('googleSheetsSyncUrl', el => el.value = config.url || '');
   safe('googleSheetsSyncToken', el => el.value = config.token || '');
   setHTML('googleSheetsSyncStatus',
     '<div class="score-top"><span class="status ' + statusClass + '">' + statusText + '</span><span class="score-number">' + (connected ? 'SYNC' : 'OFF') + '</span></div>' +
     '<div class="dashboard" style="margin-top:16px">' +
-      '<div class="metric"><small>Inventar</small><strong>' + lastInventory + '</strong></div>' +
-      '<div class="metric"><small>Supplier</small><strong>' + lastSupplier + '</strong></div>' +
- '<div class="metric"><small>InventarTracker</small><strong>' + lastSales + '</strong></div>' +
-      '<div class="metric"><small>Laufende Kosten</small><strong>' + lastCosts + '</strong></div>' +
+      renderGoogleSheetsMetric('Inventar', inventoryAt, inventoryError) +
+      renderGoogleSheetsMetric('Supplier', supplierAt, supplierError) +
+      renderGoogleSheetsMetric('InventarTracker', salesAt, salesError) +
+      renderGoogleSheetsMetric('Laufende Kosten', costsAt, costsError) +
     '</div>' +
+    '<div class="output-box" style="margin-top:14px"><p>Letztes Laden von InventarTracker: <strong>' + escapeHtml(formatSyncTimestamp(salesLoadAt)) + '</strong>' + (salesLoadError ? '<br><span style="color:#ffb4b4">Letzter Fehler beim Laden: ' + escapeHtml(salesLoadError) + '</span>' : '') + '</p></div>' +
     '<div class="output-box" style="margin-top:14px"><p>' + (connected ? 'Sync bereit. Beim Start werden URL und Token aus localStorage geladen.' : 'Trage URL und Token ein, um die Google Sheets Sync zu aktivieren.') + '</p></div>'
   );
 }
@@ -2435,7 +2504,7 @@ function getSupplierSyncRecords(){
   return deriveSuppliersFromProducts();
 }
 function getSalesSyncRecords(){
-  return Array.isArray(sales) ? sales : [];
+  return Array.isArray(products) ? products : [];
 }
 function getCostSyncRecords(){
   return loadStoredArray('elyonCosts');
@@ -2489,48 +2558,194 @@ function mapSupplierToSheetRow(supplier){
   ];
 }
 function mapSaleToSheetRow(sale){
-  const s = sale || {};
-  const cost = sheetNumber(s.cost);
-  const shipping = sheetNumber(s.shippingCost ?? s.shipping ?? s.ship);
-  const price = sheetNumber(s.price ?? s.sell);
-  const fees = sheetNumber(s.fees ?? s.ebayFees);
-  const profit = sheetNumber(s.profit);
+  const p = sale || {};
+  const calc = calcProductSafe(p) || {};
+  const totalCost = (sheetNumber(p.buy) || 0) + (sheetNumber(p.ship) || 0);
   return [
-    sheetText(s.id || s.saleId || s.orderId || ''),
-    sheetText(s.date || s.created || todayInputDate()),
-    sheetText(s.orderNo || s.ebayOrderNo || ''),
-    sheetText(s.productId || s.sku || ''),
-    sheetText(s.product || s.name || ''),
-    price,
-    fees,
-    cost,
-    shipping,
-    Number.isFinite(profit) && profit !== '' ? profit : ((price || 0) - (fees || 0) - (cost || 0) - (shipping || 0)),
-    sheetYesNo(s.payoutReceived || s.paidOut || s.outpaid),
-    sheetYesNo(s.klarnaUsed || s.klarna || (String(s.paymentMethod || '').toLowerCase() === 'klarna')),
-    sheetNumber(s.klarnaAmount),
-    sheetText(s.klarnaDue || s.klarnaDueDate || ''),
-    sheetYesNo(s.supplierOrdered),
-    sheetText(s.trackingNo || s.tracking || ''),
-    sheetText(s.status || s.shippingStatus || ''),
-    sheetText(s.notes || ''),
+    sheetText(p.id || p.articleId || p.sku || ''),
+    sheetText(p.name || p.title || 'Unbenanntes Produkt'),
+    sheetText(p.type || p.category || 'Produkt'),
+    sheetNumber(p.buy),
+    sheetNumber(p.ship),
+    totalCost,
+    sheetNumber(p.sell),
+    sheetNumber(p.fee ?? appSettings.fees),
+    sheetNumber(calc.profit),
+    sheetNumber(p.targetProfit ?? appSettings.profit),
+    sheetNumber(calc.recommendedPrice),
+    sheetText(p.shipFrom || p.shippingFrom || ''),
+    sheetText(p.stock || p.qty || ''),
+    sheetText(normalizeProductStatus(p.productStatus || p.status || 'Draft', 'Draft')),
+    sheetText(p.supplierName || p.supplier || p.supplierId || ''),
+    sheetText(p.delivery || p.deliveryTime || ''),
+    sheetText(p.ebayLink || p.ebayUrl || p.ebayItemId || ''),
+    sheetText(p.notes || ''),
   ];
 }
 function mapCostToSheetRow(cost){
   const c = cost || {};
   return [
-    sheetText(c.id || c.costId || ''),
-    sheetText(c.date || c.created || todayInputDate()),
-    sheetText(c.category || ''),
-    sheetText(c.description || c.note || ''),
-    sheetNumber(c.amount ?? c.value ?? ''),
-    sheetText(c.paymentMethod || c.paymentType || ''),
-    sheetYesNo(c.recurring),
+    sheetText(c.name || c.title || c.category || c.description || 'Kosten'),
     sheetText(c.interval || c.repeatInterval || ''),
-    sheetText(c.nextDue || c.nextDueDate || ''),
-    sheetText(c.status || 'offen'),
-    sheetText(c.notes || ''),
+    sheetNumber(c.amount ?? c.value ?? ''),
+    sheetText(c.note || c.notes || c.description || c.category || ''),
   ];
+}
+function sheetRecordField(record, names){
+  const source = record && typeof record === 'object' ? record : {};
+  const lookup = {};
+  Object.keys(source).forEach(function(key){
+    lookup[sheetText(key).toLowerCase().replace(/[^a-z0-9]+/g, '')] = source[key];
+  });
+  const list = Array.isArray(names) ? names : [names];
+  for(let i = 0; i < list.length; i += 1){
+    const target = sheetText(list[i]).toLowerCase().replace(/[^a-z0-9]+/g, '');
+    if(Object.prototype.hasOwnProperty.call(lookup, target)){
+      return lookup[target];
+    }
+  }
+  return '';
+}
+function sheetRecordDate(value){
+  if(!value) return '';
+  if(value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString();
+  const parsed = Date.parse(String(value).trim());
+  return Number.isFinite(parsed) ? new Date(parsed).toISOString() : '';
+}
+function sheetRecordDateLabel(value){
+  const iso = sheetRecordDate(value);
+  if(!iso) return '';
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString('de-DE');
+}
+function mapGoogleSheetSaleRecord(record, index){
+  const articleId = sheetRecordField(record, ['Artikel-ID', 'ArtikelId', 'SKU', 'id']);
+  const name = sheetRecordField(record, ['Bezeichnung', 'Produkt', 'Product', 'name', 'title']) || 'Unbenanntes Produkt';
+  const type = sheetRecordField(record, ['Typ', 'Kategorie', 'Category']) || 'Produkt';
+  const buy = sheetNumber(sheetRecordField(record, ['Preis EK', 'EK', 'Cost', 'Einkaufspreis']));
+  const ship = sheetNumber(sheetRecordField(record, ['Versand mind.', 'Versand', 'Shipping']));
+  const totalCost = sheetNumber(sheetRecordField(record, ['PreisGesamt EK', 'Gesamt EK'])) || (buy + ship);
+  const sell = sheetNumber(sheetRecordField(record, ['Preis VK (ebay)', 'Preis VK', 'VK', 'Preis', 'Umsatz']));
+  const fee = sheetNumber(sheetRecordField(record, ['Ebay gebühren', 'Ebay Gebühren', 'eBay Gebühren', 'Gebühren']));
+  const profitRaw = sheetRecordField(record, ['Gewinn', 'Profit']);
+  const targetProfit = sheetNumber(sheetRecordField(record, ['Zielgewinn', 'Target Profit']));
+  const recommendedPrice = sheetNumber(sheetRecordField(record, ['Emph. Zielpreis', 'Empf. Zielpreis', 'Empfohlener Preis']));
+  const shipFrom = sheetRecordField(record, ['Versand ab', 'Ship From', 'Versandort']);
+  const stock = sheetRecordField(record, ['Stock', 'Lager', 'Menge', 'qty']);
+  const status = sheetRecordField(record, ['Status']) || 'Draft';
+  const supplier = sheetRecordField(record, ['Lieferant', 'Supplier', 'supplierName']);
+  const delivery = sheetRecordField(record, ['Versandzeit', 'Delivery', 'Lieferzeit']);
+  const ebayLink = sheetRecordField(record, ['Ebay Link', 'eBay Link', 'Ebay URL', 'Link']);
+  const note = sheetRecordField(record, ['Hinweise', 'Notizen', 'Notiz', 'note']);
+  const trackingNo = sheetRecordField(record, ['Trackingnummer', 'Tracking', 'Tracking No']);
+  const createdAt = sheetRecordField(record, ['Datum', 'createdAt', 'Erstellt am']);
+  const profit = Number.isFinite(Number(profitRaw)) ? Number(profitRaw) : (Number.isFinite(sell) ? (sell - buy - ship - fee) : 0);
+  return {
+    id: articleId || (Date.now() + index),
+    articleId: articleId || '',
+    productId: articleId || '',
+    sku: articleId || '',
+    product: name,
+    name: name,
+    title: name,
+    type: type,
+    category: type,
+    price: Number.isFinite(sell) ? sell : 0,
+    sell: Number.isFinite(sell) ? sell : 0,
+    cost: Number.isFinite(buy) ? buy : 0,
+    buy: Number.isFinite(buy) ? buy : 0,
+    ship: Number.isFinite(ship) ? ship : 0,
+    shipping: Number.isFinite(ship) ? ship : 0,
+    totalCost: Number.isFinite(totalCost) ? totalCost : (buy + ship),
+    fees: Number.isFinite(fee) ? fee : 0,
+    fee: Number.isFinite(fee) ? fee : 0,
+    qty: Number(sheetRecordField(record, ['Stückzahl', 'Menge', 'qty']) || 1) || 1,
+    profit: Number.isFinite(profit) ? profit : 0,
+    targetProfit: Number.isFinite(targetProfit) ? targetProfit : 0,
+    recommendedPrice: Number.isFinite(recommendedPrice) ? recommendedPrice : 0,
+    platform: sheetRecordField(record, ['Plattform', 'Platform']) || 'eBay',
+    status: status,
+    orderNo: articleId || '',
+    buyerRef: sheetRecordField(record, ['Käufer-Referenz', 'buyerRef', 'Käuferref']) || '',
+    customerName: sheetRecordField(record, ['Kundenname', 'customerName']) || '',
+    customerEmail: sheetRecordField(record, ['E-Mail', 'Email', 'customerEmail']) || '',
+    customerPhone: sheetRecordField(record, ['Telefon', 'phone', 'customerPhone']) || '',
+    customerAddressHint: '',
+    shipToRecipientName: '',
+    shipToAddressHint: '',
+    shipToStreet: '',
+    shipToPostalCode: '',
+    shipToCity: '',
+    shipToCountry: '',
+    shipToAddress: '',
+    returnFlag: String(sheetRecordField(record, ['Retoure', 'returnFlag']) || 'no').toLowerCase(),
+    carrier: sheetRecordField(record, ['Versanddienstleister', 'carrier']) || 'DHL',
+    shippingStatus: String(status).toLowerCase() === 'versendet' ? 'Versendet' : 'Noch nicht versendet',
+    trackingNo: trackingNo,
+    shipDate: sheetRecordField(record, ['Versanddatum', 'shipDate']) || '',
+    note: note,
+    notes: note,
+    supplierName: supplier,
+    supplier: supplier,
+    delivery: delivery,
+    deliveryTime: delivery,
+    shipFrom: shipFrom,
+    shippingFrom: shipFrom,
+    ebayLink: ebayLink,
+    ebayUrl: ebayLink,
+    created: sheetRecordDateLabel(createdAt) || sheetText(createdAt || new Date().toISOString()),
+    createdAt: sheetRecordDate(createdAt) || new Date().toISOString(),
+    updatedAt: sheetRecordDate(createdAt) || new Date().toISOString(),
+  };
+}
+async function loadFromGoogleSheet(type){
+  const config = getGoogleSheetsSyncConfig();
+  if(!config.url) throw new Error('Google Apps Script Web-App URL fehlt.');
+  if(!config.token) throw new Error('Sync Token fehlt.');
+  try{
+    const data = await postJsonWithTimeout('/api/google-sheets-sync', {
+      method: 'GET',
+      url: config.url,
+      action: 'getRecords',
+      type: type,
+      token: config.token
+    }, 30000);
+    if(!data || data.ok === false){
+      throw new Error((data && (data.error || data.message)) ? (data.error || data.message) : 'Google Sheets Laden fehlgeschlagen.');
+    }
+    clearGoogleSheetsSyncError(type);
+    return data;
+  }catch(error){
+    setGoogleSheetsSyncError(type, error && error.message ? error.message : 'Unbekannter Ladefehler');
+    renderGoogleSheetsSyncStatus();
+    throw error;
+  }
+}
+function replaceSalesFromSheetRecords(records){
+  const next = Array.isArray(records) ? records.map(mapGoogleSheetSaleRecord).filter(function(item){
+    return !!String(item.productId || item.articleId || item.id || '').trim() || !!String(item.product || '').trim();
+  }) : [];
+  sales = next;
+  saveSales();
+  localStorage.setItem(GOOGLE_SHEETS_SYNC_KEYS.salesLoadAt, new Date().toISOString());
+  renderGoogleSheetsSyncStatus();
+  return next;
+}
+async function loadSalesFromGoogleSheet(){
+  setHTML('googleSheetsSyncResult', '<p>InventarTracker wird aus Google Sheets geladen...</p>');
+  try{
+    const data = await loadFromGoogleSheet('sales');
+    const records = Array.isArray(data.records) ? data.records : [];
+    const next = replaceSalesFromSheetRecords(records);
+    clearGoogleSheetsSyncLoadError();
+    setHTML('googleSheetsSyncResult', '<p>✅ <strong>InventarTracker</strong>: ' + next.length + ' Datensätze aus Google Sheets geladen.</p>');
+    return next;
+  }catch(error){
+    const message = error && error.message ? error.message : 'Unbekannter Ladefehler';
+    setGoogleSheetsSyncLoadError(message);
+    setHTML('googleSheetsSyncResult', '<p>⚠️ <strong>InventarTracker</strong>: ' + escapeHtml(message) + '</p>');
+    throw error;
+  }
 }
 function buildSyncRows(type, records){
   const list = Array.isArray(records) ? records : [];
@@ -2558,17 +2773,24 @@ async function syncToGoogleSheet(type, records){
     type: type,
     records: rows,
   };
-  const data = await postJsonWithTimeout('/api/google-sheets-sync', {
-    method: 'POST',
-    url: config.url,
-    payload: payload
-  }, 30000);
-  if(!data || data.ok === false){
-    throw new Error((data && (data.error || data.message)) ? (data.error || data.message) : 'Google Sheets Sync fehlgeschlagen.');
+  try{
+    const data = await postJsonWithTimeout('/api/google-sheets-sync', {
+      method: 'POST',
+      url: config.url,
+      payload: payload
+    }, 30000);
+    if(!data || data.ok === false){
+      throw new Error((data && (data.error || data.message)) ? (data.error || data.message) : 'Google Sheets Sync fehlgeschlagen.');
+    }
+    setGoogleSheetsSyncTimestamp(type, data.syncedAt || new Date().toISOString());
+    clearGoogleSheetsSyncError(type);
+    renderGoogleSheetsSyncStatus();
+    return data;
+  }catch(error){
+    setGoogleSheetsSyncError(type, error && error.message ? error.message : 'Unbekannter Sync-Fehler');
+    renderGoogleSheetsSyncStatus();
+    throw error;
   }
-  setGoogleSheetsSyncTimestamp(type, data.syncedAt || new Date().toISOString());
-  renderGoogleSheetsSyncStatus();
-  return data;
 }
 const GOOGLE_SHEETS_SYNC_BUTTONS = [
   { id: 'syncInventoryGoogleSheetsBtn', label: 'Inventar synchronisieren' },
