@@ -2432,6 +2432,107 @@ function getGoogleSheetsSyncConfig(){
     token: formToken || storedToken,
   };
 }
+function getGoogleSheetsSyncSnapshot(){
+  return {
+    url: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.url) || '',
+    token: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.token) || '',
+    lastInventorySyncAt: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.inventoryAt) || '',
+    lastSupplierSyncAt: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.supplierAt) || '',
+    lastSalesSyncAt: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.salesAt) || '',
+    lastCostsSyncAt: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.costsAt) || '',
+    lastSalesLoadAt: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.salesLoadAt) || '',
+  };
+}
+function applyGoogleSheetsSyncSnapshot(snapshot){
+  const data = snapshot && typeof snapshot === 'object' ? snapshot : {};
+  const entries = [
+    [GOOGLE_SHEETS_SYNC_KEYS.url, data.url],
+    [GOOGLE_SHEETS_SYNC_KEYS.token, data.token],
+    [GOOGLE_SHEETS_SYNC_KEYS.inventoryAt, data.lastInventorySyncAt],
+    [GOOGLE_SHEETS_SYNC_KEYS.supplierAt, data.lastSupplierSyncAt],
+    [GOOGLE_SHEETS_SYNC_KEYS.salesAt, data.lastSalesSyncAt],
+    [GOOGLE_SHEETS_SYNC_KEYS.costsAt, data.lastCostsSyncAt],
+    [GOOGLE_SHEETS_SYNC_KEYS.salesLoadAt, data.lastSalesLoadAt],
+  ];
+  entries.forEach(function(pair){
+    const key = pair[0];
+    const value = pair[1];
+    if(key && value !== undefined && value !== null){
+      localStorage.setItem(key, String(value || ''));
+    }
+  });
+  safe('googleSheetsSyncUrl', el => el.value = data.url || localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.url) || '');
+  safe('googleSheetsSyncToken', el => el.value = data.token || localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.token) || '');
+}
+function getGoogleSheetsSyncCloudEndpoint(){
+  if(typeof window === 'undefined' || !window.location || !/^https?:$/i.test(window.location.protocol || '')){
+    return '';
+  }
+  return '/api/google-sheets-sync-settings';
+}
+async function loadGoogleSheetsSyncSettingsFromCloud(){
+  const endpoint = getGoogleSheetsSyncCloudEndpoint();
+  if(!endpoint) return null;
+  try{
+    const response = await fetch(endpoint, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+      },
+    });
+    const rawText = await response.text();
+    if(!rawText || !rawText.trim()) return null;
+    const data = JSON.parse(rawText);
+    if(!response.ok || !data || data.ok === false || !data.settings || typeof data.settings !== 'object'){
+      return null;
+    }
+    applyGoogleSheetsSyncSnapshot(data.settings);
+    renderGoogleSheetsSyncStatus();
+    return data.settings;
+  }catch(error){
+    console.warn('Google Sheets Sync settings cloud load failed:', error);
+    return null;
+  }
+}
+let googleSheetsSyncSettingsCloudSaveTimer = null;
+function queueGoogleSheetsSyncSettingsCloudSave(){
+  const endpoint = getGoogleSheetsSyncCloudEndpoint();
+  if(!endpoint) return;
+  if(googleSheetsSyncSettingsCloudSaveTimer){
+    clearTimeout(googleSheetsSyncSettingsCloudSaveTimer);
+  }
+  googleSheetsSyncSettingsCloudSaveTimer = setTimeout(function(){
+    googleSheetsSyncSettingsCloudSaveTimer = null;
+    void saveGoogleSheetsSyncSettingsToCloud();
+  }, 350);
+}
+async function saveGoogleSheetsSyncSettingsToCloud(){
+  const endpoint = getGoogleSheetsSyncCloudEndpoint();
+  if(!endpoint) return { ok: false, skipped: true, reason: 'offline' };
+  const snapshot = getGoogleSheetsSyncSnapshot();
+  try{
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify({ settings: snapshot }),
+    });
+    const rawText = await response.text();
+    if(!rawText || !rawText.trim()){
+      throw new Error('Leere Antwort vom Server.');
+    }
+    const data = JSON.parse(rawText);
+    if(!response.ok || !data || data.ok === false){
+      throw new Error((data && (data.error || data.message)) ? (data.error || data.message) : ('Request fehlgeschlagen: HTTP ' + response.status));
+    }
+    return data;
+  }catch(error){
+    console.warn('Google Sheets Sync settings cloud save failed:', error);
+    throw error;
+  }
+}
 function setGoogleSheetsSyncTimestamp(type, iso){
   const map = {
     inventory: GOOGLE_SHEETS_SYNC_KEYS.inventoryAt,
@@ -2442,6 +2543,7 @@ function setGoogleSheetsSyncTimestamp(type, iso){
   const key = map[type];
   if(key){
     localStorage.setItem(key, iso || new Date().toISOString());
+    queueGoogleSheetsSyncSettingsCloudSave();
   }
 }
 function formatSyncRelativeTimestamp(value){
@@ -2539,7 +2641,7 @@ function renderGoogleSheetsSyncStatus(){
     '<div class="output-box" style="margin-top:14px"><p>' + (connected ? 'Sync bereit. Beim Start werden URL und Token aus localStorage geladen.' : 'Trage URL und Token ein, um die Google Sheets Sync zu aktivieren.') + '</p></div>'
   );
 }
-function saveGoogleSheetsSyncSettings(){
+async function saveGoogleSheetsSyncSettings(){
   const url = $('googleSheetsSyncUrl') ? $('googleSheetsSyncUrl').value.trim() : '';
   const token = $('googleSheetsSyncToken') ? $('googleSheetsSyncToken').value.trim() : '';
   if(!url || !token){
@@ -2550,7 +2652,18 @@ function saveGoogleSheetsSyncSettings(){
   localStorage.setItem(GOOGLE_SHEETS_SYNC_KEYS.url, url);
   localStorage.setItem(GOOGLE_SHEETS_SYNC_KEYS.token, token);
   renderGoogleSheetsSyncStatus();
-  setHTML('googleSheetsSyncResult', '<p>Sync-Einstellungen gespeichert.</p>');
+  try{
+    const cloudResult = await saveGoogleSheetsSyncSettingsToCloud();
+    if(cloudResult && cloudResult.ok){
+      setHTML('googleSheetsSyncResult', '<p>Sync-Einstellungen gespeichert und cloud-synchronisiert.</p>');
+    }else if(cloudResult && cloudResult.skipped){
+      setHTML('googleSheetsSyncResult', '<p>Sync-Einstellungen lokal gespeichert. Cloud-Sync ist in der Datei-Ansicht nicht aktiv.</p>');
+    }else{
+      setHTML('googleSheetsSyncResult', '<p>Sync-Einstellungen lokal gespeichert.</p>');
+    }
+  }catch(error){
+    setHTML('googleSheetsSyncResult', '<p>Sync-Einstellungen lokal gespeichert. Cloud-Sync nicht verfügbar: ' + escapeHtml(error && error.message ? error.message : 'Unbekannter Fehler') + '</p>');
+  }
   alert('Google Sheets Sync-Einstellungen gespeichert.');
 }
 function calcProductSafe(product){
@@ -2824,6 +2937,7 @@ async function syncToGoogleSheet(type, records){
     }
     setGoogleSheetsSyncTimestamp(type, data.syncedAt || new Date().toISOString());
     clearGoogleSheetsSyncError(type);
+    queueGoogleSheetsSyncSettingsCloudSave();
     renderGoogleSheetsSyncStatus();
     return data;
   }catch(error){
@@ -2872,6 +2986,7 @@ async function loadSalesFromGoogleSheet(){
     const records = Array.isArray(data.records) ? data.records : [];
     const next = replaceSalesFromSheetRecords(records);
     clearGoogleSheetsSyncLoadError();
+    queueGoogleSheetsSyncSettingsCloudSave();
     setHTML('googleSheetsSyncResult', '<p>✅ <strong>Google Sheets</strong>: ' + next.length + ' Datensätze aus Google Sheets geladen.</p>');
     return next;
   }catch(error){
@@ -7730,6 +7845,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   applySettings();
   applyInvoiceSettings();
   renderGoogleSheetsSyncStatus();
+  void loadGoogleSheetsSyncSettingsFromCloud();
   renderAiUsageStatus();
   refreshAiButtonStates();
   const storedEbayDraft = loadStoredEbayListingDraft();

@@ -496,7 +496,7 @@ Unterstuetzte Sync-Typen:
 
 - `inventory` -> Sheet `Inventar`
 - `suppliers` -> Sheet `Supplier Liste`
-- `sales` -> Sheet `InventarTracker`
+- `sales` -> Sheet `Inventar`
 - `costs` -> Sheet `Laufende Kosten`
 
 ### Mehrgeräte-Flow
@@ -519,6 +519,18 @@ Unterstuetzte Sync-Typen:
 - `SYNC_TOKEN`
 - `SPREADSHEET_ID`
 - alternativ kompatible Alias-Keys wie `ELYON_SYNC_TOKEN` oder `GOOGLE_SPREADSHEET_ID`
+
+### Zentraler Settings-Store
+
+- Die Google-Sheets-Web-App-URL und der Sync-Token koennen optional zentral ueber Vercel gespeichert werden.
+- Dann sind sie auf allen Geraeten nach dem Laden der App direkt verfuegbar.
+- Der lokale Browser-Cache bleibt als Fallback bestehen.
+- Relevante Env-Variablen:
+  - `GOOGLE_SHEETS_SYNC_STORE_MODE=upstash|file`
+  - `GOOGLE_SHEETS_SYNC_STORE_URL`
+  - `GOOGLE_SHEETS_SYNC_STORE_TOKEN`
+  - optional `GOOGLE_SHEETS_SYNC_STORE_KEY`
+  - optional `GOOGLE_SHEETS_SYNC_STORE_PATH`
 
 ## Vercel Deployment
 
@@ -553,6 +565,7 @@ Die Datei `vercel.json` routet:
 - `OPENAI_MODEL`
 - `DEEPSEEK_API_KEY`
 - optional die Token-Store-Variablen fuer Upstash
+- optional die Google-Sheets-Settings-Store-Variablen fuer Upstash
 
 ### Deploy-Schritte
 
@@ -595,6 +608,13 @@ Die Datei `vercel.json` routet:
 - Speicher-Modus pruefen: local file oder Upstash
 - bei Upstash `EBAY_TOKEN_STORE_URL` und `EBAY_TOKEN_STORE_TOKEN` pruefen
 - lokal den Pfad in `EBAY_TOKEN_STORE_PATH` kontrollieren
+
+### Google-Sheets-Settings werden nicht uebernommen
+
+- die App muss ueber `http://`, `https://` oder `localhost` laufen, nicht ueber `file://`
+- den Cloud-Store-Modus pruefen: `GOOGLE_SHEETS_SYNC_STORE_MODE`
+- bei Upstash die Google-Sheets-Store-URL und das Token pruefen
+- auf dem deployten Vercel-Stand einmal `Sync-Einstellungen speichern` ausfuehren
 
 ## Weiterfuehrende Doku
 
