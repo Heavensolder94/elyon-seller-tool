@@ -2514,12 +2514,22 @@ function renderGoogleSheetsSyncStatus(){
   const costsError = localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.costsError) || '';
   const salesLoadError = localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.salesLoadError) || '';
   const anyError = !!(inventoryError || supplierError || salesError || costsError || salesLoadError);
-  const statusText = connected ? (anyError ? 'Verbunden, aber zuletzt mit Fehlern' : 'Google Sheets Sync eingerichtet') : 'Nicht verbunden';
+  const latestAt = [
+    inventoryAt,
+    supplierAt,
+    salesAt,
+    costsAt,
+    salesLoadAt
+  ].filter(Boolean).sort().slice(-1)[0] || '';
+  const statusText = connected ? 'Verbunden' : 'Nicht verbunden';
   const statusClass = connected ? (anyError ? 'warn' : 'good') : 'bad';
   safe('googleSheetsSyncUrl', el => el.value = config.url || '');
   safe('googleSheetsSyncToken', el => el.value = config.token || '');
   setHTML('googleSheetsSyncStatus',
     '<div class="score-top"><span class="status ' + statusClass + '">' + statusText + '</span><span class="score-number">' + (connected ? 'SYNC' : 'OFF') + '</span></div>' +
+    '<div style="margin-top:8px;font-size:12px;line-height:1.4;opacity:.75">' +
+      'Zuletzt: <strong>' + escapeHtml(formatSyncTimestamp(latestAt)) + '</strong>' +
+    '</div>' +
     '<div class="dashboard" style="margin-top:16px">' +
       renderGoogleSheetsMetric('Inventar', inventoryAt, inventoryError) +
       renderGoogleSheetsMetric('Supplier', supplierAt, supplierError) +
@@ -8078,6 +8088,8 @@ document.addEventListener('DOMContentLoaded',()=>{
     critical: 'Kritisch',
   };
   const AI_TASK_NOTICE_DEFAULT = 'Aktion vorbereitet: Diese Funktion wird später mit dem passenden Agenten verbunden.';
+  const AI_TASK_NOTICE_SUGGESTION = 'Nur Vorschläge: Eine neue Empfehlung wurde im AI Task Center erstellt.';
+  const AI_TASK_NOTICE_APPROVAL = 'Halbautomatisch: Die vorbereitete Aktion liegt in der Freigabe-Warteschlange.';
   const AI_TASK_NOTICE_SANDBOX = 'Sandbox aktiv – Aufgaben werden nur vorbereitet.';
   const AI_TASK_NOTICE_PAUSED = 'Alle Agenten sind pausiert. Es werden keine neuen Aufgaben erzeugt.';
   const AI_TASK_SOURCE_LABELS = {
@@ -8471,6 +8483,24 @@ document.addEventListener('DOMContentLoaded',()=>{
   const isMasterAgentsDisabled = () => state.masterAgentsDisabled === true;
 
   const getAgent = (agentId) => state.agents[agentId] || null;
+  const normalizeAgentName = (value) => String(value || '').trim().toLowerCase();
+  const getAgentByName = (agentName) => {
+    const normalized = normalizeAgentName(agentName);
+    if (!normalized) return null;
+    return AGENT_DEFS.reduce((found, def) => {
+      if (found) return found;
+      const agent = getAgent(def.id);
+      if (!agent) return null;
+      if (normalizeAgentName(def.name) === normalized || normalizeAgentName(def.id) === normalized) {
+        return { def, agent };
+      }
+      return null;
+    }, null);
+  };
+  const getAgentModeByName = (agentName) => {
+    const match = getAgentByName(agentName);
+    return normalizeMode(match && match.agent && match.agent.mode);
+  };
   const getDefinition = (agentId) => AGENT_DEFS.find((item) => item.id === agentId) || null;
   const getBadgeMeta = (agent) => {
     const mode = normalizeMode(agent && agent.mode);
@@ -8883,6 +8913,28 @@ document.addEventListener('DOMContentLoaded',()=>{
     return normalized;
   };
 
+  const createTaskCenterSuggestionFromTask = (taskId) => {
+    const task = getTaskById(taskId);
+    if (!task) return null;
+    const tasks = Array.isArray(state.aiTasks) ? state.aiTasks.slice() : [];
+    const normalized = normalizeAiTask({
+      id: createTaskId(),
+      title: `Hinweis: ${task.title || task.actionLabel || 'Aufgabe'}`,
+      description: task.description || 'Eine Empfehlung wurde lokal vorbereitet. Es wird keine Live-Aktion ausgeführt.',
+      agent: task.agent || 'Soul Operations',
+      category: task.category || 'Allgemein',
+      priority: normalizeTaskPriority(task.priority || 'medium'),
+      status: 'open',
+      createdAt: new Date().toISOString(),
+      source: 'agent',
+      actionLabel: 'Empfehlung ansehen',
+    }, tasks.length);
+    state.aiTasks = [normalized, ...tasks];
+    saveState();
+    render();
+    return normalized;
+  };
+
   const updateApprovalQueueEntry = (entryId, updater) => {
     const items = getApprovalQueue().slice();
     const index = items.findIndex((item) => item && item.id === entryId);
@@ -9018,8 +9070,20 @@ document.addEventListener('DOMContentLoaded',()=>{
       return;
     }
     if (action === 'prepare') {
-      createApprovalQueueEntryFromTask(taskId);
-      setTaskCenterNotice(isSecurityLocked() ? AI_TASK_NOTICE_SANDBOX : AI_TASK_NOTICE_DEFAULT);
+      if (isAllAgentsPaused()) {
+        setTaskCenterNotice(AI_TASK_NOTICE_PAUSED);
+        render();
+        return;
+      }
+      const task = getTaskById(taskId);
+      const mode = getAgentModeByName(task && task.agent);
+      if (mode === 'semi') {
+        createApprovalQueueEntryFromTask(taskId);
+        setTaskCenterNotice(isSecurityLocked() ? AI_TASK_NOTICE_SANDBOX : AI_TASK_NOTICE_APPROVAL);
+      } else {
+        createTaskCenterSuggestionFromTask(taskId);
+        setTaskCenterNotice(AI_TASK_NOTICE_SUGGESTION);
+      }
       render();
     }
   };
@@ -9037,6 +9101,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     const priorityMeta = getTaskPriorityMeta(task.priority);
     const statusMeta = getTaskStatusMeta(task.status);
     const createdAt = formatTaskDate(task.createdAt);
+    const agentModeLabel = getAgentModeLabel(getAgentModeByName(task.agent));
     return `
       <article class="virtual-agent-card task-center-card task-center-priority-${escapeHtml(normalizeTaskPriority(task.priority))}">
         <div class="task-center-card-top">
@@ -9055,6 +9120,7 @@ document.addEventListener('DOMContentLoaded',()=>{
 
         <div class="task-center-meta-grid">
           <div><small>Agent</small><strong>${escapeHtml(task.agent)}</strong></div>
+          <div><small>Agentenmodus</small><strong>${escapeHtml(agentModeLabel)}</strong></div>
           <div><small>Kategorie</small><strong>${escapeHtml(task.category)}</strong></div>
           <div><small>Erstellt</small><strong>${escapeHtml(createdAt)}</strong></div>
           <div><small>Quelle</small><strong>${escapeHtml(getTaskSourceMeta(task.source))}</strong></div>
@@ -9074,6 +9140,7 @@ document.addEventListener('DOMContentLoaded',()=>{
             <button type="button" class="secondary" data-task-action="remove" data-task-id="${escapeHtml(task.id)}">Entfernen</button>
           </div>
         </div>
+        <div class="hint" style="margin-top:10px">${agentModeLabel === 'Halbautomatisch' ? 'Halbautomatisch: der Button legt einen Eintrag in die Freigabe-Warteschlange.' : 'Nur Vorschläge: der Button erzeugt eine Empfehlung im AI Task Center.'}</div>
       </article>
     `;
   };
@@ -9129,7 +9196,7 @@ document.addEventListener('DOMContentLoaded',()=>{
                     <article class="task-center-triage-item" data-task-priority="${escapeHtml(normalizeTaskPriority(task.priority))}">
                       <div class="task-center-triage-title">
                         <strong>${escapeHtml(task.title)}</strong>
-                        <span>${escapeHtml(task.agent)} · ${escapeHtml(priorityMeta.label)}</span>
+                        <span>${escapeHtml(task.agent)} · ${escapeHtml(priorityMeta.label)} · ${escapeHtml(getAgentModeLabel(getAgentModeByName(task.agent)))}</span>
                       </div>
                       <p>${escapeHtml(task.description)}</p>
                       <div class="task-center-triage-actions">
