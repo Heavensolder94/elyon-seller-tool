@@ -54,6 +54,14 @@
     {
       "source": "/ebay-token-exchange/",
       "destination": "/ebay-token-exchange/index.html"
+    },
+    {
+      "source": "/api/ai/listing-optimizer",
+      "destination": "/api/ai?task=listing-optimizer"
+    },
+    {
+      "source": "/api/ai/product-search",
+      "destination": "/api/ai?task=product-search"
     }
   ]
 }
