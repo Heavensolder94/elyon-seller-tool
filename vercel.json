@@ -43,6 +43,22 @@
       "destination": "/api/health"
     },
     {
+      "source": "/api/google-drive/oauth/start",
+      "destination": "/api/google-drive/oauth/start"
+    },
+    {
+      "source": "/api/google-drive/oauth/start/",
+      "destination": "/api/google-drive/oauth/start"
+    },
+    {
+      "source": "/api/google-drive/oauth/callback",
+      "destination": "/api/google-drive/oauth/callback"
+    },
+    {
+      "source": "/api/google-drive/oauth/callback/",
+      "destination": "/api/google-drive/oauth/callback"
+    },
+    {
       "source": "/ebay-token-exchange",
       "destination": "/ebay-token-exchange/index.html"
     },
