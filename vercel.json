@@ -43,6 +43,26 @@
       "destination": "/api/health"
     },
     {
+      "source": "/api/ai/product-search",
+      "destination": "/api/ai?task=product-search"
+    },
+    {
+      "source": "/api/ai/listing-optimizer",
+      "destination": "/api/ai?task=listing-optimizer"
+    },
+    {
+      "source": "/api/google-drive/status",
+      "destination": "/api/google-drive?action=status"
+    },
+    {
+      "source": "/api/google-drive/auth-url",
+      "destination": "/api/google-drive?action=auth-url"
+    },
+    {
+      "source": "/api/google-drive/upload-backup",
+      "destination": "/api/google-drive?action=upload-backup"
+    },
+    {
       "source": "/ebay-token-exchange",
       "destination": "/ebay-token-exchange/index.html"
     },
