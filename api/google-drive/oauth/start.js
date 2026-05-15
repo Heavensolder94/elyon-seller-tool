@@ -41,7 +41,7 @@ function getGoogleAuthUrl(state) {
   const clientId = String(process.env.GOOGLE_CLIENT_ID || "").trim();
   const redirectUri = String(process.env.GOOGLE_REDIRECT_URI || "").trim();
   if (!clientId || !redirectUri) {
-    throw new Error("GOOGLE_CLIENT_ID oder GOOGLE_REDIRECT_URI fehlt in Vercel.");
+    return { error: "GOOGLE_CLIENT_ID oder GOOGLE_REDIRECT_URI fehlt in Vercel." };
   }
 
   const url = new URL(GOOGLE_AUTH_URL);
@@ -64,7 +64,18 @@ export default async function handler(req, res) {
     }
 
     const state = makeState();
-    const authUrl = getGoogleAuthUrl(state);
+    const authUrlResult = getGoogleAuthUrl(state);
+    if (authUrlResult.error) {
+      return res.status(200).json({
+        ok: false,
+        service: "Google Drive",
+        connected: false,
+        error: authUrlResult.error,
+        message: authUrlResult.error,
+      });
+    }
+
+    const authUrl = authUrlResult;
     const headers = buildCookieHeaders(req, [
       {
         name: "elyon_google_drive_oauth_state",

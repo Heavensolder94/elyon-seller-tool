@@ -53,7 +53,7 @@ async function exchangeGoogleCode(code) {
   const redirectUri = String(process.env.GOOGLE_REDIRECT_URI || "").trim();
 
   if (!clientId || !clientSecret || !redirectUri) {
-    throw new Error("GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET oder GOOGLE_REDIRECT_URI fehlt in Vercel.");
+    return { error: "GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET oder GOOGLE_REDIRECT_URI fehlt in Vercel." };
   }
 
   const response = await fetch(GOOGLE_TOKEN_URL, {
@@ -97,8 +97,17 @@ export default async function handler(req, res) {
     }
 
     const tokenData = await exchangeGoogleCode(code);
+    if (tokenData.error) {
+      return res.status(200).json({
+        ok: false,
+        service: "Google Drive",
+        connected: false,
+        error: tokenData.error,
+        message: tokenData.error,
+      });
+    }
     if (!tokenData.refresh_token) {
-      return res.status(500).json({
+      return res.status(200).json({
         ok: false,
         error: "Google hat keinen refresh_token geliefert. Bitte bei Google mit Offline-Zugriff und Zustimmung erneut verbinden.",
       });
