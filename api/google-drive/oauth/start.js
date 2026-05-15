@@ -1,5 +1,7 @@
 const GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 const GOOGLE_SCOPE = "https://www.googleapis.com/auth/drive.file";
+const FALLBACK_GOOGLE_CLIENT_ID = "524424807058-vukfhlqr9kla9m18nspdnlf33u5dikfc.apps.googleusercontent.com";
+const FALLBACK_GOOGLE_REDIRECT_URI = "https://elyon-seller-tool.vercel.app/api/google-drive/oauth/callback";
 
 function isSecureRequest(req) {
   const forwardedProto = String(req?.headers?.["x-forwarded-proto"] || "").toLowerCase();
@@ -38,8 +40,8 @@ function makeState() {
 }
 
 function getGoogleAuthUrl(state) {
-  const clientId = String(process.env.GOOGLE_CLIENT_ID || "").trim();
-  const redirectUri = String(process.env.GOOGLE_REDIRECT_URI || "").trim();
+  const clientId = String(process.env.GOOGLE_CLIENT_ID || FALLBACK_GOOGLE_CLIENT_ID || "").trim();
+  const redirectUri = String(process.env.GOOGLE_REDIRECT_URI || FALLBACK_GOOGLE_REDIRECT_URI || "").trim();
   if (!clientId || !redirectUri) {
     return { error: "GOOGLE_CLIENT_ID oder GOOGLE_REDIRECT_URI fehlt in Vercel." };
   }
