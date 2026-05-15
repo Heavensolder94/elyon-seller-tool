@@ -1,18 +1,4 @@
-import { buildCookieHeaders, exchangeGoogleCode, getOAuthStateCookie, getOrigin } from "../../../lib/google-drive.js";
-
-function getCode(req) {
-  if (req.method === "POST") {
-    return String(req.body?.code || req.body?.authorization_code || "").trim();
-  }
-  return String(req.query.code || req.query.authorization_code || "").trim();
-}
-
-function getState(req) {
-  if (req.method === "POST") {
-    return String(req.body?.state || "").trim();
-  }
-  return String(req.query.state || "").trim();
-}
+import { buildCookieHeaders, exchangeGoogleCode, getOAuthStateCookie } from "../../../lib/google-drive.js";
 
 function setResponseCookies(req, res, cookies) {
   const headers = buildCookieHeaders(req, cookies);
@@ -23,27 +9,30 @@ function setResponseCookies(req, res, cookies) {
 
 export default async function handler(req, res) {
   try {
-    if (req.method !== "GET" && req.method !== "POST") {
-      return res.status(405).send("Nur GET oder POST erlaubt.");
+    if (req.method !== "GET") {
+      return res.status(405).json({ ok: false, error: "Nur GET erlaubt." });
     }
 
-    const code = getCode(req);
-    const state = getState(req);
+    const code = String(req.query.code || req.query.authorization_code || "").trim();
+    const state = String(req.query.state || "").trim();
     if (!code) {
-      return res.status(400).send("Google OAuth code fehlt.");
+      return res.status(400).json({ ok: false, error: "Google OAuth code fehlt." });
     }
 
     const expectedState = getOAuthStateCookie(req);
     if (!expectedState) {
-      return res.status(400).send("OAuth state fehlt oder ist abgelaufen. Bitte Login neu starten.");
+      return res.status(400).json({ ok: false, error: "OAuth state fehlt oder ist abgelaufen. Bitte Login neu starten." });
     }
     if (state && state !== expectedState) {
-      return res.status(400).send("OAuth state stimmt nicht. Bitte Login neu starten.");
+      return res.status(400).json({ ok: false, error: "OAuth state stimmt nicht. Bitte Login neu starten." });
     }
 
     const tokenData = await exchangeGoogleCode(code);
     if (!tokenData.refresh_token) {
-      return res.status(500).send("Google hat keinen refresh_token geliefert. Bitte bei Google mit Offline-Zugriff und Zustimmung erneut verbinden.");
+      return res.status(500).json({
+        ok: false,
+        error: "Google hat keinen refresh_token geliefert. Bitte bei Google mit Offline-Zugriff und Zustimmung erneut verbinden.",
+      });
     }
 
     setResponseCookies(req, res, [
@@ -70,10 +59,12 @@ export default async function handler(req, res) {
       },
     ]);
 
-    const redirectTo = `${getOrigin(req)}/?googleDrive=connected`;
-    res.statusCode = 302;
-    res.setHeader("Location", redirectTo);
-    return res.end("Google Drive verbunden. Du kannst dieses Fenster schließen.");
+    return res.status(200).json({
+      ok: true,
+      service: "Google Drive",
+      connected: true,
+      message: "Google Drive verbunden.",
+    });
   } catch (error) {
     setResponseCookies(req, res, [
       {
@@ -85,9 +76,10 @@ export default async function handler(req, res) {
       },
     ]);
 
-    const redirectTo = `${getOrigin(req)}/?googleDrive=error&googleDriveMessage=${encodeURIComponent(error.message || "Google Drive OAuth fehlgeschlagen.")}`;
-    res.statusCode = 302;
-    res.setHeader("Location", redirectTo);
-    return res.end("Google Drive Login fehlgeschlagen.");
+    return res.status(500).json({
+      ok: false,
+      service: "Google Drive",
+      error: error.message || "Google Drive OAuth fehlgeschlagen.",
+    });
   }
 }
