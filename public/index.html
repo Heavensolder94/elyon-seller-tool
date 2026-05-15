@@ -99,8 +99,135 @@
     .ai-usage-status .ai-usage-warning.ai-level-good{color:#86efac}
     .ai-usage-status .ai-usage-warning.ai-level-warn{color:#fde68a}
     .ai-usage-status .ai-usage-warning.ai-level-bad{color:#fca5a5}
+    .ai-status-badges{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      margin-top:10px;
+    }
+    .ai-status-badge{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.12);
+      background:rgba(255,255,255,.07);
+      color:#cbd5e1;
+      font-size:12px;
+      font-weight:800;
+    }
+    .ai-status-badge.good{
+      color:#86efac;
+      background:rgba(34,197,94,.12);
+      border-color:rgba(34,197,94,.25);
+    }
+    .ai-status-badge.warn{
+      color:#fde68a;
+      background:rgba(250,204,21,.11);
+      border-color:rgba(250,204,21,.25);
+    }
+    .ai-status-badge.bad{
+      color:#fca5a5;
+      background:rgba(239,68,68,.12);
+      border-color:rgba(239,68,68,.25);
+    }
+    .ai-subheading{
+      margin:14px 0 8px;
+      color:#bfdbfe;
+      font-size:12px;
+      font-weight:950;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+    }
     @media(max-width:560px){
       .ai-usage-status .ai-usage-warning{margin-left:0}
+    }
+    .toggle-row{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:14px;
+      padding:12px 14px;
+      border-radius:16px;
+      background:rgba(255,255,255,.055);
+      border:1px solid rgba(255,255,255,.09);
+    }
+    .toggle-row label{
+      margin:0;
+      flex:1;
+    }
+    .toggle-switch{
+      position:relative;
+      width:58px;
+      height:32px;
+      flex:0 0 auto;
+    }
+    .toggle-switch input{
+      position:absolute;
+      inset:0;
+      opacity:0;
+      margin:0;
+      width:100%;
+      height:100%;
+      cursor:pointer;
+      z-index:2;
+    }
+    .toggle-track{
+      position:absolute;
+      inset:0;
+      border-radius:999px;
+      background:#6b7280;
+      border:1px solid rgba(255,255,255,.12);
+      transition:background .18s ease, box-shadow .18s ease;
+      box-shadow:inset 0 0 0 1px rgba(255,255,255,.04);
+    }
+    .toggle-track:before{
+      content:'';
+      position:absolute;
+      top:3px;
+      left:3px;
+      width:24px;
+      height:24px;
+      border-radius:50%;
+      background:#f8fafc;
+      box-shadow:0 4px 10px rgba(0,0,0,.3);
+      transition:transform .18s ease;
+    }
+    .toggle-switch input:checked + .toggle-track{
+      background:#16a34a;
+      box-shadow:0 0 0 1px rgba(34,197,94,.22), inset 0 0 0 1px rgba(255,255,255,.08);
+    }
+    .toggle-switch input:checked + .toggle-track:before{
+      transform:translateX(26px);
+    }
+    .toggle-switch input:focus-visible + .toggle-track{
+      box-shadow:0 0 0 4px rgba(96,165,250,.18), inset 0 0 0 1px rgba(255,255,255,.08);
+    }
+    .toggle-grid{
+      display:grid;
+      gap:10px;
+    }
+    .toggle-subrow{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:14px;
+      padding:11px 14px;
+      border-radius:14px;
+      background:rgba(255,255,255,.04);
+      border:1px solid rgba(255,255,255,.08);
+    }
+    .toggle-subrow label{
+      margin:0;
+      flex:1;
+    }
+    .toggle-subrow small{
+      display:block;
+      margin-top:3px;
+      color:var(--muted);
+      line-height:1.35;
+      font-weight:500;
     }
     .draft-actions{
       display:grid;
@@ -244,6 +371,19 @@
         <div class="metric"><small>🟢 Listing-Kandidaten</small><strong id="dGo">0</strong></div>
         <div class="metric"><small>Shopify-Kandidaten</small><strong id="dShopifyCandidates">0</strong></div>
         <div class="metric"><small>Netto-Gewinn</small><strong id="dNetProfit">0€</strong></div>
+      </div>
+    </div>
+
+      <div id="backupReminderCard" class="card" style="margin-top:20px;display:none">
+        <h2>⚠️ Backup empfohlen</h2>
+        <p id="backupReminderText" class="hint">Dein letztes Backup ist älter als dein eingestelltes Intervall.</p>
+        <div class="row">
+          <button id="backupReminderLocalBtn" class="secondary full" title="Erstellt sofort ein lokales JSON-Komplett-Backup auf deinem Gerät.">Lokales Backup erstellen</button>
+          <button id="backupReminderDriveBtn" class="secondary full" title="Lädt das Backup in den verbundenen Google-Drive-Ordner hoch.">In Google Drive sichern</button>
+        </div>
+      <div class="row" style="margin-top:10px">
+        <button id="backupReminderLaterBtn" class="secondary full" title="Blendet die Erinnerung für 24 Stunden aus.">Später erinnern</button>
+        <div></div>
       </div>
     </div>
 
@@ -1089,6 +1229,164 @@ Land"></textarea>
       </div>
 
       <div class="settings-section">
+        <h3>🤖 KI</h3>
+        <p class="hint">Hier schaltest du alle KI-Funktionen im Tool zentral an oder aus. Wenn du sie deaktivierst, bleiben nur die lokalen Regeln und Standardfunktionen aktiv.</p>
+        <!-- KI-Bereich: die folgenden Schalter steuern die Sichtbarkeit und Nutzung der einzelnen KI-Funktionen. -->
+        <div class="toggle-row">
+          <label for="setAiEnabled">KI-Funktionen aktivieren</label>
+          <div class="toggle-switch">
+            <input id="setAiEnabled" type="checkbox">
+            <span class="toggle-track" aria-hidden="true"></span>
+          </div>
+        </div>
+        <div class="settings-grid" style="margin-top:12px">
+          <div>
+            <label for="setAiPromptPreset">Antwortstil</label>
+            <select id="setAiPromptPreset">
+              <option value="balanced">Ausgewogen</option>
+              <option value="concise">Knapp</option>
+              <option value="detailed">Gründlich</option>
+            </select>
+          </div>
+          <div>
+            <label for="setAiDailyLimit">KI-Tageslimit</label>
+            <input id="setAiDailyLimit" type="number" min="1" step="1" value="30">
+          </div>
+        </div>
+        <div class="ai-subheading">KI-Funktionen einzeln schalten</div>
+        <div class="toggle-grid" style="margin-top:12px">
+          <div class="toggle-subrow">
+            <label for="setAiListingImproveEnabled">Listing verbessern
+              <small>Optimiert bestehende Listing-Entwürfe mit KI.</small>
+            </label>
+            <div class="toggle-switch">
+              <input id="setAiListingImproveEnabled" type="checkbox">
+              <span class="toggle-track" aria-hidden="true"></span>
+            </div>
+          </div>
+          <div class="toggle-subrow">
+            <label for="setAiListingRegenerateEnabled">Listing neu generieren
+              <small>Erstellt einen frischen Listing-Entwurf aus deinen Produktdaten.</small>
+            </label>
+            <div class="toggle-switch">
+              <input id="setAiListingRegenerateEnabled" type="checkbox">
+              <span class="toggle-track" aria-hidden="true"></span>
+            </div>
+          </div>
+          <div class="toggle-subrow">
+            <label for="setAiListingCheckEnabled">Listing prüfen
+              <small>Prüft Titel, Beschreibung, SEO und Risiko.</small>
+            </label>
+            <div class="toggle-switch">
+              <input id="setAiListingCheckEnabled" type="checkbox">
+              <span class="toggle-track" aria-hidden="true"></span>
+            </div>
+          </div>
+          <div class="toggle-subrow">
+            <label for="setAiSearchImproveEnabled">Produktsuche verbessern
+              <small>Erweitert Suchbegriffe, Synonyme und Suchwinkel.</small>
+            </label>
+            <div class="toggle-switch">
+              <input id="setAiSearchImproveEnabled" type="checkbox">
+              <span class="toggle-track" aria-hidden="true"></span>
+            </div>
+          </div>
+          <div class="toggle-subrow">
+            <label for="setAiSearchAnalyzeEnabled">Produktidee prüfen
+              <small>Bewertet Marktchance, Konkurrenz und Risiken.</small>
+            </label>
+            <div class="toggle-switch">
+              <input id="setAiSearchAnalyzeEnabled" type="checkbox">
+              <span class="toggle-track" aria-hidden="true"></span>
+            </div>
+          </div>
+          <div class="toggle-subrow">
+            <label for="setAiTitleEnabled">Titel mit KI
+              <small>Schreibt den Listing-Titel neu.</small>
+            </label>
+            <div class="toggle-switch">
+              <input id="setAiTitleEnabled" type="checkbox">
+              <span class="toggle-track" aria-hidden="true"></span>
+            </div>
+          </div>
+          <div class="toggle-subrow">
+            <label for="setAiDescriptionEnabled">Beschreibung mit KI
+              <small>Erstellt oder verbessert die ausführliche Beschreibung.</small>
+            </label>
+            <div class="toggle-switch">
+              <input id="setAiDescriptionEnabled" type="checkbox">
+              <span class="toggle-track" aria-hidden="true"></span>
+            </div>
+          </div>
+          <div class="toggle-subrow">
+            <label for="setAiTagsEnabled">SEO / Tags mit KI
+              <small>Ergänzt Keywords, Synonyme und Titelideen.</small>
+            </label>
+            <div class="toggle-switch">
+              <input id="setAiTagsEnabled" type="checkbox">
+              <span class="toggle-track" aria-hidden="true"></span>
+            </div>
+          </div>
+          <div class="toggle-subrow">
+            <label for="setAiScoreEnabled">Produktanalyse mit KI
+              <small>Scort Konkurrenz, Marge, Risiko und Marktchance.</small>
+            </label>
+            <div class="toggle-switch">
+              <input id="setAiScoreEnabled" type="checkbox">
+              <span class="toggle-track" aria-hidden="true"></span>
+            </div>
+          </div>
+        </div>
+        <div class="ai-subheading">Provider & Sicherheit</div>
+        <div class="toggle-grid" style="margin-top:12px">
+          <div class="toggle-subrow">
+            <label for="setAiOpenAIEnabled">OpenAI-Tools
+              <small>Titel, Beschreibung, Tags, Listing-Optimizer und Produktsuche.</small>
+            </label>
+            <div class="toggle-switch">
+              <input id="setAiOpenAIEnabled" type="checkbox">
+              <span class="toggle-track" aria-hidden="true"></span>
+            </div>
+          </div>
+          <div class="toggle-subrow">
+            <label for="setAiDeepSeekEnabled">DeepSeek-Chat
+              <small>Elyon Soul Chat und KI-Analyse mit DeepSeek.</small>
+            </label>
+            <div class="toggle-switch">
+              <input id="setAiDeepSeekEnabled" type="checkbox">
+              <span class="toggle-track" aria-hidden="true"></span>
+            </div>
+          </div>
+          <div class="toggle-subrow">
+            <label for="setAiBillingPromptEnabled">KI-Bestätigung
+              <small>Vor jeder KI-Aktion eine Billing-/Kostenwarnung anzeigen.</small>
+            </label>
+            <div class="toggle-switch">
+              <input id="setAiBillingPromptEnabled" type="checkbox">
+              <span class="toggle-track" aria-hidden="true"></span>
+            </div>
+          </div>
+          <div class="toggle-subrow">
+            <label for="setAiAutoProbeEnabled">Auto-Check beim Start
+              <small>Beim Start die DeepSeek-KI automatisch prüfen.</small>
+            </label>
+            <div class="toggle-switch">
+              <input id="setAiAutoProbeEnabled" type="checkbox">
+              <span class="toggle-track" aria-hidden="true"></span>
+            </div>
+          </div>
+        </div>
+        <div id="aiUsageStatus" class="ai-usage-status" style="margin-top:12px">
+          <div class="ai-usage-main">
+            <strong>KI wird geladen...</strong>
+            <span class="ai-usage-meta">Status wird gleich aktualisiert.</span>
+          </div>
+          <span class="ai-usage-warning ai-level-warn">Prüfe Einstellungen</span>
+        </div>
+        <div id="aiGlobalStatus" class="output-box"><p>Die KI ist noch nicht geprüft.</p></div>
+      </div>
+
+      <div class="settings-section">
         <h3>🧯 Fehlerlog</h3>
         <p class="hint">Wenn im Tool ein Fehler passiert, wird er hier lokal gespeichert. Das hilft beim Debuggen.</p>
         <div id="errorLogBox" class="output-box"><p>Noch keine Fehler gespeichert.</p></div>
@@ -1159,17 +1457,57 @@ PLZ Ort"></textarea>
       </div>
 
       <div class="settings-section">
-        <h3>💾 Backup & Daten</h3>
+        <h3>💾 Backup & Wiederherstellung</h3>
         <div class="row">
-          <button id="backupSettings" class="secondary full">Einstellungen exportieren</button>
-          <button id="resetSettings" class="danger full">Einstellungen zurücksetzen</button>
+          <button id="backupSettings" class="secondary full" title="Exportiert nur deine Einstellungen als CSV-Datei.">Einstellungen exportieren</button>
+          <button id="resetSettings" class="danger full" title="Setzt nur die Einstellungen zurück, nicht deine gespeicherten Daten.">Einstellungen zurücksetzen</button>
         </div>
         <div class="row" style="margin-top:10px">
-          <button id="fullBackupExport" class="secondary full">Komplettes Backup exportieren</button>
-          <button id="fullBackupImportBtn" class="secondary full">Backup wiederherstellen</button>
+          <button id="fullBackupExport" class="secondary full" title="Erstellt ein lokales JSON-Backup mit allen wichtigen Daten.">Komplettes Backup exportieren</button>
+          <button id="fullBackupImportBtn" class="secondary full" title="Wählt ein JSON-Backup zur Wiederherstellung aus.">Backup wiederherstellen</button>
         </div>
         <input id="fullBackupImport" class="hidden" type="file" accept=".json,application/json">
-        <p class="hint">Komplettes Backup sichert Produkte, Verkäufe, eBay-Retouren, Shopify-Retouren und Einstellungen in einer JSON-Datei.</p>
+        <div id="backupRestorePreview" class="output-box"><p>Noch keine Backup-Datei ausgewählt.</p></div>
+        <div class="row" style="margin-top:10px">
+          <button id="applyRestoreBackupBtn" class="secondary full" title="Übernimmt das ausgewählte Backup in deine lokalen Daten.">Wiederherstellung ausführen</button>
+          <button id="undoRestoreBtn" class="secondary full" title="Setzt den Zustand vor der letzten Wiederherstellung wieder her.">Restore rückgängig machen</button>
+        </div>
+        <p class="hint">Komplettes Backup sichert Produkte, Verkäufe, eBay-Retouren, Shopify-Retouren und Einstellungen in einer JSON-Datei. Vor jeder Wiederherstellung wird ein Snapshot des aktuellen Zustands gesichert.</p>
+        <div class="settings-section" style="margin-top:14px">
+          <h3>⏱ Backup-Intervall</h3>
+          <label for="backupIntervalSelect">Backup-Intervall</label>
+          <select id="backupIntervalSelect" title="Steuert, wie oft die Backup-Erinnerung angezeigt wird.">
+            <option value="manual">Manuell</option>
+            <option value="daily">Täglich</option>
+            <option value="every_3_days">Alle 3 Tage</option>
+            <option value="weekly">Wöchentlich</option>
+            <option value="monthly">Monatlich</option>
+          </select>
+          <div class="dashboard" style="grid-template-columns:repeat(3,1fr);margin-bottom:14px">
+            <div class="metric"><small>Aktuelles Intervall</small><strong id="backupIntervalCurrent">Manuell</strong></div>
+            <div class="metric"><small>Letztes Backup</small><strong id="backupIntervalLast">Noch nie</strong></div>
+            <div class="metric"><small>Nächstes empfohlenes Backup</small><strong id="backupIntervalNext">Nicht fällig</strong></div>
+          </div>
+          <p class="hint">Manuell schaltet die automatische Erinnerung aus. Die Erinnerung erscheint erst wieder, wenn das letzte Dismiss-Datum 24 Stunden zurückliegt.</p>
+        </div>
+        <div class="settings-section" style="margin-top:14px">
+          <h3>📍 Backup-Speicherorte</h3>
+          <div id="backupStorageBox" class="output-box" style="margin-top:10px"><p>Backup-Speicherorte werden geprüft...</p><p><strong>Letzter Backup-Check:</strong> Noch nie</p></div>
+        </div>
+        <div class="settings-section" style="margin-top:14px">
+          <h3>☁️ Google Drive</h3>
+          <p class="hint">Die Verbindung läuft über Google OAuth. Dein Token bleibt in den API-Routen und wird nicht im Frontend gespeichert.</p>
+          <div class="dashboard" style="grid-template-columns:repeat(3,1fr);margin-bottom:14px">
+            <div class="metric"><small>Verbindung</small><strong id="googleDriveStatus">Nicht verbunden</strong></div>
+            <div class="metric"><small>Letztes Drive-Backup</small><strong id="googleDriveLastBackup">Noch nie</strong></div>
+            <div class="metric"><small>Fehler</small><strong id="googleDriveErrorStatus">Kein Fehler</strong></div>
+          </div>
+          <div class="row">
+            <button id="googleDriveConnectBtn" class="secondary full" title="Startet den Google-OAuth-Login für Drive.">Mit Google Drive verbinden</button>
+            <button id="googleDriveUploadBtn" class="secondary full" title="Lädt das aktuelle Komplett-Backup in Google Drive hoch.">Backup in Google Drive speichern</button>
+          </div>
+          <div id="googleDriveStatusBox" class="output-box" style="margin-top:10px"><p>Google Drive noch nicht geprüft.</p></div>
+        </div>
       </div>
 
       <button id="saveSettings" class="full">Einstellungen speichern</button>
@@ -1406,7 +1744,23 @@ const defaultSettings = {
   market: 'DE',
   theme: 'dark',
   designPreset: 'classic',
-  start: 'dashboardTab'
+  start: 'dashboardTab',
+  aiEnabled: true,
+  aiOpenAIEnabled: true,
+  aiDeepSeekEnabled: true,
+  aiBillingPromptEnabled: true,
+  aiAutoProbeEnabled: true,
+  aiListingImproveEnabled: true,
+  aiListingRegenerateEnabled: true,
+  aiListingCheckEnabled: true,
+  aiSearchImproveEnabled: true,
+  aiSearchAnalyzeEnabled: true,
+  aiTitleEnabled: true,
+  aiDescriptionEnabled: true,
+  aiTagsEnabled: true,
+  aiScoreEnabled: true,
+  aiDailyLimit: 30,
+  aiPromptPreset: 'balanced'
 };
 let appSettings = { ...defaultSettings, ...JSON.parse(localStorage.getItem('elyonSettings') || '{}') };
 const listingItems = ['Titel enthält Hauptkeyword','Produktbilder vorhanden','Beschreibung verständlich','Preis geprüft','Versandzeit realistisch','Rücknahmebedingungen klar','LUCID/Verpackung bedacht','WEEE/Batt geprüft, falls relevant','Markenrechte geprüft','Gewinn nach Gebühren positiv'];
@@ -1539,7 +1893,7 @@ function renderStartDashboard(){
   const cj = integrationStatusText('cj', integrationSettings.cjCheck);
   safe('startShipTodos',el=>el.textContent=shippingTodos);
   safe('startOpenReturns',el=>el.textContent=openReturns);
-  safe('startBackupStatus',el=>el.textContent=lastBackupText());
+  safe('startBackupStatus',el=>el.textContent=typeof backupStorageSummaryText==='function' ? backupStorageSummaryText() : lastBackupText());
   safe('startIntegrationStatus',el=>el.textContent=ebay+' / '+cj);
   safe('startTodayFocus',el=>el.textContent=getSmartDailyFocus());
 }
@@ -4409,20 +4763,240 @@ const AI_REQUEST_DATE_KEY = 'elyon_ai_date';
 const AI_REQUEST_COST_PER_REQUEST = 0.005;
 const AI_REQUEST_COOLDOWN_MS = 3000;
 const AI_BUTTON_META = [
-  { id: 'aiImproveBtn', label: 'Mit KI verbessern' },
-  { id: 'aiRegenerateBtn', label: 'KI neu generieren' },
-  { id: 'aiCheckBtn', label: 'Listing prüfen' },
-  { id: 'aiSearchImproveBtn', label: 'Suche mit KI verbessern' },
-  { id: 'aiSearchAnalyzeBtn', label: 'Produktidee prüfen' },
-  { id: 'aiSearchBillingBtn', label: 'KI-Kostenwarnung' },
-  { id: 'aiTitleBtn', label: 'Titel mit KI' },
-  { id: 'aiTagsBtn', label: 'SEO / Tags mit KI' },
-  { id: 'aiDescBtn', label: 'Beschreibung mit KI' },
-  { id: 'aiScoreBtn', label: 'Produktanalyse mit KI' },
+  { id: 'aiImproveBtn', label: 'Mit KI verbessern', feature: 'listingImprove' },
+  { id: 'aiRegenerateBtn', label: 'KI neu generieren', feature: 'listingRegenerate' },
+  { id: 'aiCheckBtn', label: 'Listing prüfen', feature: 'listingCheck' },
+  { id: 'aiBillingInfoBtn', label: 'KI-Kostenwarnung', feature: 'listingRegenerate' },
+  { id: 'aiSearchImproveBtn', label: 'Suche mit KI verbessern', feature: 'searchImprove' },
+  { id: 'aiSearchAnalyzeBtn', label: 'Produktidee prüfen', feature: 'searchAnalyze' },
+  { id: 'aiSearchBillingBtn', label: 'KI-Kostenwarnung', feature: 'searchImprove' },
+  { id: 'aiTitleBtn', label: 'Titel mit KI', feature: 'title' },
+  { id: 'aiTagsBtn', label: 'SEO / Tags mit KI', feature: 'tags' },
+  { id: 'aiDescBtn', label: 'Beschreibung mit KI', feature: 'description' },
+  { id: 'aiScoreBtn', label: 'Produktanalyse mit KI', feature: 'productScore' },
 ];
 let aiLoadingButtonId = '';
 const aiCooldownEndsByButton = {};
 const aiCooldownTimersByButton = {};
+const AI_FEATURES = {
+  listingImprove: { label: 'Listing verbessern', setting: 'aiListingImproveEnabled' },
+  listingRegenerate: { label: 'Listing neu generieren', setting: 'aiListingRegenerateEnabled' },
+  listingCheck: { label: 'Listing prüfen', setting: 'aiListingCheckEnabled' },
+  searchImprove: { label: 'Produktsuche verbessern', setting: 'aiSearchImproveEnabled' },
+  searchAnalyze: { label: 'Produktidee prüfen', setting: 'aiSearchAnalyzeEnabled' },
+  title: { label: 'Titel mit KI', setting: 'aiTitleEnabled' },
+  description: { label: 'Beschreibung mit KI', setting: 'aiDescriptionEnabled' },
+  tags: { label: 'SEO / Tags mit KI', setting: 'aiTagsEnabled' },
+  productScore: { label: 'Produktanalyse mit KI', setting: 'aiScoreEnabled' },
+};
+const AI_PROMPT_PRESETS = {
+  balanced: {
+    label: 'Ausgewogen',
+    instruction: 'Antworte klar, praxisnah und mit der richtigen Mischung aus Kurzfassung und Detail.',
+  },
+  concise: {
+    label: 'Knapp',
+    instruction: 'Antworte knapp, direkt und ohne unnötige Ausschweifungen.',
+  },
+  detailed: {
+    label: 'Gründlich',
+    instruction: 'Antworte strukturiert, gründlich und mit vollständigen, umsetzbaren Details.',
+  },
+};
+const AI_FEATURE_ORDER = [
+  'listingImprove',
+  'listingRegenerate',
+  'listingCheck',
+  'searchImprove',
+  'searchAnalyze',
+  'title',
+  'description',
+  'tags',
+  'productScore',
+];
+function isAiGloballyEnabled(){
+  return appSettings.aiEnabled !== false;
+}
+function isOpenAiEnabled(){
+  return isAiGloballyEnabled() && appSettings.aiOpenAIEnabled !== false;
+}
+function isDeepSeekEnabled(){
+  return isAiGloballyEnabled() && appSettings.aiDeepSeekEnabled !== false;
+}
+function shouldPromptAiBilling(){
+  return isAiGloballyEnabled() && appSettings.aiBillingPromptEnabled !== false;
+}
+function shouldAutoProbeAi(){
+  return isAiGloballyEnabled() && appSettings.aiAutoProbeEnabled !== false;
+}
+function getAiDailyLimit(){
+  const limit = Math.floor(Number(appSettings.aiDailyLimit) || 30);
+  return Math.max(1, limit);
+}
+function getAiPromptPresetKey(){
+  return AI_PROMPT_PRESETS[appSettings.aiPromptPreset] ? appSettings.aiPromptPreset : 'balanced';
+}
+function getAiPromptPresetLabel(){
+  return AI_PROMPT_PRESETS[getAiPromptPresetKey()].label;
+}
+function getAiPromptPresetInstruction(task){
+  const preset = AI_PROMPT_PRESETS[getAiPromptPresetKey()] || AI_PROMPT_PRESETS.balanced;
+  const taskHints = {
+    title: 'Fokussiere auf starke Suchbegriffe, klare Reihenfolge und maximale Relevanz fuer eBay.',
+    description: 'Fokussiere auf Struktur, Nutzen, Vertrauen und sichere Formulierungen.',
+    tags: 'Fokussiere auf SEO-Keywords, Synonyme und passende Titelideen.',
+    productScore: 'Fokussiere auf Marge, Wettbewerb, Risiken und eine klare Entscheidung.',
+    listingImprove: 'Fokussiere auf eine bessere Fassung des vorhandenen Listing-Entwurfs.',
+    listingRegenerate: 'Fokussiere auf einen frischen, leistungsstarken Listing-Entwurf.',
+    listingCheck: 'Fokussiere auf eine sachliche Pruefung mit klaren Hinweisen.',
+    searchImprove: 'Fokussiere auf bessere Suchbegriffe, Synonyme und Suchwinkel.',
+    searchAnalyze: 'Fokussiere auf Marktchance, Wettbewerb und Risiken.',
+  };
+  return [preset.instruction, taskHints[task] || 'Antworte so, dass die Ausgabe direkt im Tool nutzbar ist.'].join(' ');
+}
+function getAiPromptPrefix(task){
+  return [
+    'Antwortstil: ' + getAiPromptPresetLabel() + '.',
+    getAiPromptPresetInstruction(task),
+    'Arbeite sauber, praezise und nutzerfreundlich.',
+  ].join('\n');
+}
+function prependAiPromptPreset(prompt, task){
+  return [getAiPromptPrefix(task), '', String(prompt || '').trim()].join('\n').trim();
+}
+function getAiFeatureConfig(feature){
+  return AI_FEATURES[feature] || null;
+}
+function getAiFeatureLabel(feature){
+  const config = getAiFeatureConfig(feature);
+  return config ? config.label : 'KI-Funktion';
+}
+function isAiFeatureEnabled(feature){
+  if(!isAiGloballyEnabled()) return false;
+  const config = getAiFeatureConfig(feature);
+  if(!config || !config.setting) return true;
+  return appSettings[config.setting] !== false;
+}
+function getAiActionFeature(action, mode){
+  if(action && typeof action === 'object'){
+    if(action.task === 'title') return 'title';
+    if(action.task === 'description') return 'description';
+    if(action.task === 'tags') return 'tags';
+    if(action.task === 'product_score') return 'productScore';
+    return null;
+  }
+  if(action === 'product-search'){
+    return mode === 'analyze' ? 'searchAnalyze' : 'searchImprove';
+  }
+  if(action === 'listing'){
+    if(mode === 'improve') return 'listingImprove';
+    if(mode === 'check') return 'listingCheck';
+    return 'listingRegenerate';
+  }
+  return null;
+}
+function canUseAiRequest(){
+  return getAiUsageState().count < getAiDailyLimit();
+}
+function getAiActionLimitMessage(){
+  return 'Das KI-Tageslimit von ' + getAiDailyLimit() + ' Anfragen wurde erreicht. Bitte morgen weitermachen oder das Limit in den Einstellungen erhoehen.';
+}
+function getAiActiveFeatureSummary(){
+  return AI_FEATURE_ORDER.filter(function(feature){ return isAiFeatureEnabled(feature); }).map(function(feature){ return getAiFeatureLabel(feature); });
+}
+function assertAiActionAllowed(action, mode){
+  if(!isAiGloballyEnabled()){
+    return 'KI ist in den Einstellungen deaktiviert.';
+  }
+  if(!isOpenAiEnabled()){
+    return 'OpenAI ist in den Einstellungen deaktiviert.';
+  }
+  const feature = getAiActionFeature(action, mode);
+  if(feature && !isAiFeatureEnabled(feature)){
+    return getAiFeatureLabel(feature) + ' ist in den Einstellungen deaktiviert.';
+  }
+  if(!canUseAiRequest()){
+    return getAiActionLimitMessage();
+  }
+  return '';
+}
+function syncAiSubSettingsState(){
+  const enabled = isAiGloballyEnabled();
+  const openAi = enabled && appSettings.aiOpenAIEnabled !== false;
+  const deepSeek = enabled && appSettings.aiDeepSeekEnabled !== false;
+  const billing = enabled && appSettings.aiBillingPromptEnabled !== false;
+  const autoProbe = enabled && appSettings.aiAutoProbeEnabled !== false;
+  const listingImprove = enabled && appSettings.aiListingImproveEnabled !== false;
+  const listingRegenerate = enabled && appSettings.aiListingRegenerateEnabled !== false;
+  const listingCheck = enabled && appSettings.aiListingCheckEnabled !== false;
+  const searchImprove = enabled && appSettings.aiSearchImproveEnabled !== false;
+  const searchAnalyze = enabled && appSettings.aiSearchAnalyzeEnabled !== false;
+  const title = enabled && appSettings.aiTitleEnabled !== false;
+  const description = enabled && appSettings.aiDescriptionEnabled !== false;
+  const tags = enabled && appSettings.aiTagsEnabled !== false;
+  const score = enabled && appSettings.aiScoreEnabled !== false;
+
+  safe('setAiOpenAIEnabled', el => {
+    el.disabled = !enabled;
+    el.checked = enabled ? openAi : false;
+  });
+  safe('setAiDeepSeekEnabled', el => {
+    el.disabled = !enabled;
+    el.checked = enabled ? deepSeek : false;
+  });
+  safe('setAiBillingPromptEnabled', el => {
+    el.disabled = !enabled;
+    el.checked = enabled ? billing : false;
+  });
+  safe('setAiAutoProbeEnabled', el => {
+    el.disabled = !enabled;
+    el.checked = enabled ? autoProbe : false;
+  });
+  safe('setAiListingImproveEnabled', el => {
+    el.disabled = !enabled;
+    el.checked = enabled ? listingImprove : false;
+  });
+  safe('setAiListingRegenerateEnabled', el => {
+    el.disabled = !enabled;
+    el.checked = enabled ? listingRegenerate : false;
+  });
+  safe('setAiListingCheckEnabled', el => {
+    el.disabled = !enabled;
+    el.checked = enabled ? listingCheck : false;
+  });
+  safe('setAiSearchImproveEnabled', el => {
+    el.disabled = !enabled;
+    el.checked = enabled ? searchImprove : false;
+  });
+  safe('setAiSearchAnalyzeEnabled', el => {
+    el.disabled = !enabled;
+    el.checked = enabled ? searchAnalyze : false;
+  });
+  safe('setAiTitleEnabled', el => {
+    el.disabled = !enabled;
+    el.checked = enabled ? title : false;
+  });
+  safe('setAiDescriptionEnabled', el => {
+    el.disabled = !enabled;
+    el.checked = enabled ? description : false;
+  });
+  safe('setAiTagsEnabled', el => {
+    el.disabled = !enabled;
+    el.checked = enabled ? tags : false;
+  });
+  safe('setAiScoreEnabled', el => {
+    el.disabled = !enabled;
+    el.checked = enabled ? score : false;
+  });
+  safe('setAiPromptPreset', el => {
+    el.disabled = !enabled;
+    el.value = getAiPromptPresetKey();
+  });
+  safe('setAiDailyLimit', el => {
+    el.disabled = !enabled;
+    el.value = String(getAiDailyLimit());
+  });
+}
 
 function getLocalDateKey(date){
   const value = date instanceof Date ? date : new Date();
@@ -4483,15 +5057,35 @@ function renderAiUsageStatus(){
   const state = getAiUsageState();
   const estimatedCost = getAiEstimatedCost(state.count);
   const warning = getAiUsageWarning(state.count);
+  const enabled = isAiGloballyEnabled();
+  const openAiEnabled = isOpenAiEnabled();
+  const deepSeekEnabled = isDeepSeekEnabled();
+  const limit = getAiDailyLimit();
+  const presetLabel = getAiPromptPresetLabel();
+  const activeFeatures = getAiActiveFeatureSummary();
+  const featureBadges = activeFeatures.length
+    ? activeFeatures.map(function(item){ return '<span class="ai-status-badge good">' + escapeHtml(item) + '</span>'; }).join('')
+    : '<span class="ai-status-badge warn">Keine Unter-Funktionen aktiv</span>';
   const statusClass = state.count > 100 ? 'ai-level-bad' : state.count > 50 ? 'ai-level-warn' : 'ai-level-good';
-  const html = [
-    '<div class="ai-usage-main">',
-    '<strong>AI Requests heute: ' + state.count + '</strong>',
-    '<span class="ai-usage-meta">Geschätzte Kosten: ~' + estimatedCost.replace('.', ',') + ' $</span>',
-    '</div>',
-    '<span class="ai-usage-warning ' + statusClass + '">' + escapeHtml(warning || 'Niedrige Nutzung') + '</span>'
-  ].join('');
+  const html = enabled
+    ? [
+        '<div class="ai-usage-main">',
+        '<strong>AI Requests heute: ' + state.count + ' / ' + limit + '</strong>',
+        '<span class="ai-usage-meta">Geschätzte Kosten: ~' + estimatedCost.replace('.', ',') + ' $ · Stil: ' + escapeHtml(presetLabel) + ' · OpenAI ' + (openAiEnabled ? 'an' : 'aus') + ' · DeepSeek ' + (deepSeekEnabled ? 'an' : 'aus') + '</span>',
+        '</div>',
+        '<span class="ai-usage-warning ' + statusClass + '">' + escapeHtml(warning || 'Niedrige Nutzung') + '</span>'
+      ].join('')
+    : [
+        '<div class="ai-usage-main">',
+        '<strong>KI ist deaktiviert</strong>',
+        '<span class="ai-usage-meta">Aktiviere sie in den Einstellungen, wenn du OpenAI und DeepSeek wieder nutzen willst.</span>',
+        '</div>',
+        '<span class="ai-usage-warning ai-level-warn">Deaktiviert</span>'
+      ].join('');
   setHTML('aiUsageStatus', html);
+  setHTML('aiGlobalStatus', enabled
+    ? '<p>KI ist aktiv. OpenAI: <strong>' + (openAiEnabled ? 'an' : 'aus') + '</strong>, DeepSeek: <strong>' + (deepSeekEnabled ? 'an' : 'aus') + '</strong>, Antwortstil: <strong>' + escapeHtml(presetLabel) + '</strong>, Tageslimit: <strong>' + limit + '</strong>.</p><div class="ai-status-badges">' + featureBadges + '</div>'
+    : '<p>KI ist deaktiviert. Das Tool nutzt nur lokale Regeln und Standardfunktionen.</p><div class="ai-status-badges"><span class="ai-status-badge bad">Alles aus</span></div>');
 }
 function refreshAiButtonStates(){
   const now = Date.now();
@@ -4499,6 +5093,26 @@ function refreshAiButtonStates(){
     const el = $(button.id);
     if(!el) return;
     if(!el.dataset.originalLabel) el.dataset.originalLabel = button.label;
+    if(!isAiGloballyEnabled()){
+      el.disabled = true;
+      el.textContent = 'KI deaktiviert';
+      return;
+    }
+    if(!isOpenAiEnabled() && button.id !== 'aiBillingInfoBtn'){
+      el.disabled = true;
+      el.textContent = 'OpenAI aus';
+      return;
+    }
+    if(button.feature && !isAiFeatureEnabled(button.feature)){
+      el.disabled = true;
+      el.textContent = getAiFeatureLabel(button.feature) + ' aus';
+      return;
+    }
+    if(!canUseAiRequest()){
+      el.disabled = true;
+      el.textContent = 'Tageslimit erreicht';
+      return;
+    }
     const cooldownLeft = Math.max(0, (aiCooldownEndsByButton[button.id] || 0) - now);
     const isLoading = !!aiLoadingButtonId;
     const isLoadingButton = aiLoadingButtonId && aiLoadingButtonId === button.id;
@@ -4538,6 +5152,16 @@ function startAiCooldown(buttonId){
 }
 let pendingAiAction = null;
 function openAiBillingWarning(action, mode){
+  const featureError = assertAiActionAllowed(action, mode);
+  if(featureError){
+    alert(featureError);
+    return;
+  }
+  if(!shouldPromptAiBilling()){
+    pendingAiAction = action && typeof action === 'object' ? action : { action: action || 'listing', mode: mode || 'regenerate' };
+    proceedAiBillingAction();
+    return;
+  }
   if(action && typeof action === 'object'){
     pendingAiAction = action;
   }else{
@@ -4611,11 +5235,28 @@ async function postJsonWithTimeout(url, payload, timeoutMs){
   }
 }
 async function requestCentralAi(task, prompt, extra){
-  incrementAiUsage();
+  if(!isOpenAiEnabled()){
+    const error = new Error('OpenAI ist in den Einstellungen deaktiviert.');
+    error.kind = 'disabled';
+    throw error;
+  }
+  if(!isAiGloballyEnabled()){
+    const error = new Error('KI ist in den Einstellungen deaktiviert.');
+    error.kind = 'disabled';
+    throw error;
+  }
+  if(!canUseAiRequest()){
+    const error = new Error(getAiActionLimitMessage());
+    error.kind = 'limit';
+    throw error;
+  }
+  reserveAiRequest();
+  const enrichedPrompt = prependAiPromptPreset(prompt, task);
   return postJsonWithTimeout('/api/ai', {
     ...(extra || {}),
     task: task,
-    prompt: prompt,
+    prompt: enrichedPrompt,
+    promptPreset: getAiPromptPresetKey(),
   }, 30000);
 }
 function readAiProductSearchInput(){
@@ -4795,6 +5436,15 @@ async function executeCentralAiTask(config){
   const buttonId = config && config.buttonId ? config.buttonId : '';
   const resultId = config && config.resultId ? config.resultId : '';
   if(!task || !prompt) return;
+  const featureError = assertAiActionAllowed({ task: task }, 'regenerate');
+  if(featureError){
+    if(resultId){
+      setHTML(resultId, '<div class="empty">⚠️ ' + escapeHtml(featureError) + '</div>');
+    }else{
+      alert(featureError);
+    }
+    return;
+  }
   if(buttonId){
     setAiButtonsLoading(true, buttonId);
   }
@@ -4864,10 +5514,16 @@ function startAiProductSearch(mode){
   openAiBillingWarning('product-search', mode);
 }
 async function executeAiProductSearch(mode){
+  const featureError = assertAiActionAllowed('product-search', mode);
+  if(featureError){
+    setHTML('aiSearchResult', '<div class="empty">⚠️ ' + escapeHtml(featureError) + '</div>');
+    return;
+  }
   const payload = readAiProductSearchInput();
   payload.mode = mode;
   payload.requestedMode = mode;
-  incrementAiUsage();
+  payload.promptPreset = getAiPromptPresetKey();
+  reserveAiRequest();
   setAiButtonsLoading(true, mode === 'analyze' ? 'aiSearchAnalyzeBtn' : 'aiSearchImproveBtn');
   setHTML('aiSearchResult', '<div class="empty">KI-Produktsuche läuft...</div>');
   try{
@@ -4921,6 +5577,11 @@ function renderAiListingResult(data, mode){
   setHTML('aiResult', html);
 }
 async function runAiListingOptimizer(mode){
+  const featureError = assertAiActionAllowed('listing', mode);
+  if(featureError){
+    setHTML('aiResult', '<div class="empty">⚠️ ' + escapeHtml(featureError) + '</div>');
+    return;
+  }
   const buttons = {
     improve: 'aiImproveBtn',
     regenerate: 'aiRegenerateBtn',
@@ -4931,7 +5592,8 @@ async function runAiListingOptimizer(mode){
   payload.requestedMode = mode;
   payload.product.currentTitle = getGeneratedTitle();
   payload.product.currentDescription = getGeneratedDescription();
-  incrementAiUsage();
+  payload.promptPreset = getAiPromptPresetKey();
+  reserveAiRequest();
   setAiButtonsLoading(true, buttons[mode] || buttons.regenerate);
   setHTML('aiResult', '<div class="empty">KI-Analyse läuft...</div>');
 
@@ -5314,8 +5976,28 @@ function applySettings(){
   safe('setTheme',el=>el.value=appSettings.theme);
   safe('setDesignPreset',el=>el.value=appSettings.designPreset || 'classic');
   safe('setStart',el=>el.value=resolveTabId(appSettings.start || 'dashboardTab'));
+  safe('setAiEnabled',el=>el.checked=appSettings.aiEnabled !== false);
+  if(appSettings.aiEnabled === false){
+    appSettings.aiOpenAIEnabled = false;
+    appSettings.aiDeepSeekEnabled = false;
+    appSettings.aiBillingPromptEnabled = false;
+    appSettings.aiAutoProbeEnabled = false;
+    appSettings.aiListingImproveEnabled = false;
+    appSettings.aiListingRegenerateEnabled = false;
+    appSettings.aiListingCheckEnabled = false;
+    appSettings.aiSearchImproveEnabled = false;
+    appSettings.aiSearchAnalyzeEnabled = false;
+    appSettings.aiTitleEnabled = false;
+    appSettings.aiDescriptionEnabled = false;
+    appSettings.aiTagsEnabled = false;
+    appSettings.aiScoreEnabled = false;
+  }
+  syncAiSubSettingsState();
+  renderAiUsageStatus();
+  refreshAiButtonStates();
 }
 function readSettingsFromForm(){
+  const mainEnabled = !!($('setAiEnabled') && $('setAiEnabled').checked);
   return {
     profit:n('setProfit')||7,
     fees:n('setFees')||15,
@@ -5331,7 +6013,23 @@ function readSettingsFromForm(){
     market:$('setMarket')?.value||'DE',
     theme:$('setTheme')?.value||'dark',
     designPreset:$('setDesignPreset')?.value||'classic',
-    start:resolveTabId($('setStart')?.value||'dashboardTab')
+    start:resolveTabId($('setStart')?.value||'dashboardTab'),
+    aiEnabled: mainEnabled,
+    aiOpenAIEnabled: mainEnabled ? !!($('setAiOpenAIEnabled') && $('setAiOpenAIEnabled').checked) : false,
+    aiDeepSeekEnabled: mainEnabled ? !!($('setAiDeepSeekEnabled') && $('setAiDeepSeekEnabled').checked) : false,
+    aiBillingPromptEnabled: mainEnabled ? !!($('setAiBillingPromptEnabled') && $('setAiBillingPromptEnabled').checked) : false,
+    aiAutoProbeEnabled: mainEnabled ? !!($('setAiAutoProbeEnabled') && $('setAiAutoProbeEnabled').checked) : false,
+    aiListingImproveEnabled: mainEnabled ? !!($('setAiListingImproveEnabled') && $('setAiListingImproveEnabled').checked) : false,
+    aiListingRegenerateEnabled: mainEnabled ? !!($('setAiListingRegenerateEnabled') && $('setAiListingRegenerateEnabled').checked) : false,
+    aiListingCheckEnabled: mainEnabled ? !!($('setAiListingCheckEnabled') && $('setAiListingCheckEnabled').checked) : false,
+    aiSearchImproveEnabled: mainEnabled ? !!($('setAiSearchImproveEnabled') && $('setAiSearchImproveEnabled').checked) : false,
+    aiSearchAnalyzeEnabled: mainEnabled ? !!($('setAiSearchAnalyzeEnabled') && $('setAiSearchAnalyzeEnabled').checked) : false,
+    aiTitleEnabled: mainEnabled ? !!($('setAiTitleEnabled') && $('setAiTitleEnabled').checked) : false,
+    aiDescriptionEnabled: mainEnabled ? !!($('setAiDescriptionEnabled') && $('setAiDescriptionEnabled').checked) : false,
+    aiTagsEnabled: mainEnabled ? !!($('setAiTagsEnabled') && $('setAiTagsEnabled').checked) : false,
+    aiScoreEnabled: mainEnabled ? !!($('setAiScoreEnabled') && $('setAiScoreEnabled').checked) : false,
+    aiDailyLimit: Math.max(1, Math.floor(n('setAiDailyLimit') || 30)),
+    aiPromptPreset: $('setAiPromptPreset')?.value || 'balanced'
   };
 }
 function saveSettings(){
@@ -5361,13 +6059,16 @@ function downloadJSON(data,name){
 }
 function lastBackupText(){
   const iso=localStorage.getItem('elyonLastBackupAt');
-  if(!iso) return 'Noch nie';
-  const diff=Math.floor((Date.now()-new Date(iso).getTime())/86400000);
+  const driveIso=localStorage.getItem('elyonLastGoogleDriveBackupAt');
+  const latestIso = [iso, driveIso].filter(Boolean).sort().slice(-1)[0] || '';
+  if(!latestIso) return 'Noch nie';
+  const diff=Math.floor((Date.now()-new Date(latestIso).getTime())/86400000);
   if(diff<=0) return 'Heute';
   if(diff===1) return 'Gestern';
   return 'Vor '+diff+' Tagen';
 }
 function backupWarningText(){
+  if(typeof window.getElyonBackupWarningText === 'function') return window.getElyonBackupWarningText();
   const iso=localStorage.getItem('elyonLastBackupAt');
   if(!iso) return 'Noch kein Komplett-Backup exportiert. Bitte Backup erstellen.';
   const diff=Math.floor((Date.now()-new Date(iso).getTime())/86400000);
@@ -5375,34 +6076,42 @@ function backupWarningText(){
   return '';
 }
 function exportFullBackup(){
-  const data={
-    app:'Elyon Seller Tool',
-    version:'1.0',
-    exportedAt:new Date().toISOString(),
-    products: normalizeProductsCollection(products),
-    sales,
-    suppliers: loadStoredArray('elyonSuppliers'),
-    runningCosts: loadStoredArray('elyonCosts'),
-    returns,
-    shopifyReturns,
-    invoices,
-    listingDraft: latestEbayListingDraft || loadStoredEbayListingDraft(),
-    settings:appSettings,
-    invoiceSettings:invoiceSettings,
-    googleSheetsSync:{
-      url: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.url) || '',
-      token: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.token) || '',
-      lastInventorySyncAt: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.inventoryAt) || '',
-      lastSupplierSyncAt: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.supplierAt) || '',
-      lastSalesSyncAt: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.salesAt) || '',
-      lastCostsSyncAt: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.costsAt) || '',
-    }
-  };
+  const data = typeof window.buildElyonFullBackupData === 'function'
+    ? window.buildElyonFullBackupData()
+    : {
+        app:'Elyon Seller Tool',
+        version:'1.0',
+        exportedAt:new Date().toISOString(),
+        products: normalizeProductsCollection(products),
+        sales,
+        suppliers: loadStoredArray('elyonSuppliers'),
+        runningCosts: loadStoredArray('elyonCosts'),
+        returns,
+        shopifyReturns,
+        invoices,
+        listingDraft: latestEbayListingDraft || loadStoredEbayListingDraft(),
+        settings:appSettings,
+        invoiceSettings:invoiceSettings,
+        backupInterval: localStorage.getItem('elyonBackupInterval') || 'manual',
+        backupReminderDismissedAt: localStorage.getItem('elyonBackupReminderDismissedAt') || '',
+        googleSheetsSync:{
+          url: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.url) || '',
+          token: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.token) || '',
+          lastInventorySyncAt: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.inventoryAt) || '',
+          lastSupplierSyncAt: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.supplierAt) || '',
+          lastSalesSyncAt: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.salesAt) || '',
+          lastCostsSyncAt: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.costsAt) || '',
+        }
+      };
   downloadJSON(data,'elyon-komplett-backup.json');
   localStorage.setItem('elyonLastBackupAt',new Date().toISOString());
   render();
 }
 function importFullBackup(e){
+  if(typeof window.prepareElyonBackupRestore === 'function'){
+    window.prepareElyonBackupRestore(e);
+    return;
+  }
   const file=e.target.files[0];
   if(!file) return;
   const reader=new FileReader();
@@ -5439,6 +6148,8 @@ function importFullBackup(e){
       }
       localStorage.setItem('elyonSettings',JSON.stringify(appSettings));
       localStorage.setItem('elyonInvoiceSettings',JSON.stringify(invoiceSettings));
+      if(typeof data.backupInterval === 'string') localStorage.setItem('elyonBackupInterval', data.backupInterval || 'manual');
+      if(data.backupReminderDismissedAt !== undefined) localStorage.setItem('elyonBackupReminderDismissedAt', String(data.backupReminderDismissedAt || ''));
       applySettings();
       applyInvoiceSettings();
       renderGoogleSheetsSyncStatus();
@@ -6260,6 +6971,46 @@ function bindEvents(){
   bind('fullBackupExport','click',exportFullBackup);
   bind('fullBackupImportBtn','click',()=>safe('fullBackupImport',el=>el.click()));
   bind('fullBackupImport','change',importFullBackup);
+  bind('setAiEnabled','change',function(){
+    appSettings.aiEnabled = !!($('setAiEnabled') && $('setAiEnabled').checked);
+    if(appSettings.aiEnabled){
+      syncAiSubSettingsState();
+      renderAiUsageStatus();
+      refreshAiButtonStates();
+      return;
+    }
+    appSettings.aiOpenAIEnabled = false;
+    appSettings.aiDeepSeekEnabled = false;
+    appSettings.aiBillingPromptEnabled = false;
+    appSettings.aiAutoProbeEnabled = false;
+    appSettings.aiListingImproveEnabled = false;
+    appSettings.aiListingRegenerateEnabled = false;
+    appSettings.aiListingCheckEnabled = false;
+    appSettings.aiSearchImproveEnabled = false;
+    appSettings.aiSearchAnalyzeEnabled = false;
+    appSettings.aiTitleEnabled = false;
+    appSettings.aiDescriptionEnabled = false;
+    appSettings.aiTagsEnabled = false;
+    appSettings.aiScoreEnabled = false;
+    syncAiSubSettingsState();
+    renderAiUsageStatus();
+    refreshAiButtonStates();
+  });
+  bind('setAiOpenAIEnabled','change',function(){ appSettings.aiOpenAIEnabled = !!($('setAiOpenAIEnabled') && $('setAiOpenAIEnabled').checked); renderAiUsageStatus(); refreshAiButtonStates(); });
+  bind('setAiDeepSeekEnabled','change',function(){ appSettings.aiDeepSeekEnabled = !!($('setAiDeepSeekEnabled') && $('setAiDeepSeekEnabled').checked); renderAiUsageStatus(); refreshAiButtonStates(); });
+  bind('setAiBillingPromptEnabled','change',function(){ appSettings.aiBillingPromptEnabled = !!($('setAiBillingPromptEnabled') && $('setAiBillingPromptEnabled').checked); renderAiUsageStatus(); refreshAiButtonStates(); });
+  bind('setAiAutoProbeEnabled','change',function(){ appSettings.aiAutoProbeEnabled = !!($('setAiAutoProbeEnabled') && $('setAiAutoProbeEnabled').checked); renderAiUsageStatus(); refreshAiButtonStates(); });
+  bind('setAiListingImproveEnabled','change',function(){ appSettings.aiListingImproveEnabled = !!($('setAiListingImproveEnabled') && $('setAiListingImproveEnabled').checked); renderAiUsageStatus(); refreshAiButtonStates(); });
+  bind('setAiListingRegenerateEnabled','change',function(){ appSettings.aiListingRegenerateEnabled = !!($('setAiListingRegenerateEnabled') && $('setAiListingRegenerateEnabled').checked); renderAiUsageStatus(); refreshAiButtonStates(); });
+  bind('setAiListingCheckEnabled','change',function(){ appSettings.aiListingCheckEnabled = !!($('setAiListingCheckEnabled') && $('setAiListingCheckEnabled').checked); renderAiUsageStatus(); refreshAiButtonStates(); });
+  bind('setAiSearchImproveEnabled','change',function(){ appSettings.aiSearchImproveEnabled = !!($('setAiSearchImproveEnabled') && $('setAiSearchImproveEnabled').checked); renderAiUsageStatus(); refreshAiButtonStates(); });
+  bind('setAiSearchAnalyzeEnabled','change',function(){ appSettings.aiSearchAnalyzeEnabled = !!($('setAiSearchAnalyzeEnabled') && $('setAiSearchAnalyzeEnabled').checked); renderAiUsageStatus(); refreshAiButtonStates(); });
+  bind('setAiTitleEnabled','change',function(){ appSettings.aiTitleEnabled = !!($('setAiTitleEnabled') && $('setAiTitleEnabled').checked); renderAiUsageStatus(); refreshAiButtonStates(); });
+  bind('setAiDescriptionEnabled','change',function(){ appSettings.aiDescriptionEnabled = !!($('setAiDescriptionEnabled') && $('setAiDescriptionEnabled').checked); renderAiUsageStatus(); refreshAiButtonStates(); });
+  bind('setAiTagsEnabled','change',function(){ appSettings.aiTagsEnabled = !!($('setAiTagsEnabled') && $('setAiTagsEnabled').checked); renderAiUsageStatus(); refreshAiButtonStates(); });
+  bind('setAiScoreEnabled','change',function(){ appSettings.aiScoreEnabled = !!($('setAiScoreEnabled') && $('setAiScoreEnabled').checked); renderAiUsageStatus(); refreshAiButtonStates(); });
+  bind('setAiPromptPreset','change',function(){ appSettings.aiPromptPreset = $('setAiPromptPreset') ? $('setAiPromptPreset').value : 'balanced'; renderAiUsageStatus(); refreshAiButtonStates(); });
+  bind('setAiDailyLimit','change',function(){ appSettings.aiDailyLimit = Math.max(1, Math.floor(n('setAiDailyLimit') || 30)); renderAiUsageStatus(); refreshAiButtonStates(); });
   bind('dashboardBtn','click',showDashboard);
   bind('ordersBtn','click',openOrders);
   bind('launcherNewProduct','click',scrollToProductForm);
@@ -6484,6 +7235,22 @@ function runSelfTests(){
   console.assert(!!$('aiDescBtn'), 'KI Beschreibung Button sollte existieren');
   console.assert(!!$('aiScoreBtn'), 'KI Produktanalyse Button sollte existieren');
   console.assert(!!$('aiUsageStatus'), 'AI Statusanzeige sollte existieren');
+  console.assert(!!$('setAiEnabled'), 'KI Hauptschalter sollte existieren');
+  console.assert(!!$('setAiOpenAIEnabled'), 'OpenAI Schalter sollte existieren');
+  console.assert(!!$('setAiDeepSeekEnabled'), 'DeepSeek Schalter sollte existieren');
+  console.assert(!!$('setAiBillingPromptEnabled'), 'KI-Bestätigung Schalter sollte existieren');
+  console.assert(!!$('setAiAutoProbeEnabled'), 'Auto-Check Schalter sollte existieren');
+  console.assert(!!$('setAiPromptPreset'), 'Antwortstil Auswahl sollte existieren');
+  console.assert(!!$('setAiDailyLimit'), 'KI-Tageslimit Feld sollte existieren');
+  console.assert(!!$('setAiListingImproveEnabled'), 'Listing verbessern Schalter sollte existieren');
+  console.assert(!!$('setAiListingRegenerateEnabled'), 'Listing neu generieren Schalter sollte existieren');
+  console.assert(!!$('setAiListingCheckEnabled'), 'Listing prüfen Schalter sollte existieren');
+  console.assert(!!$('setAiSearchImproveEnabled'), 'Produktsuche verbessern Schalter sollte existieren');
+  console.assert(!!$('setAiSearchAnalyzeEnabled'), 'Produktidee prüfen Schalter sollte existieren');
+  console.assert(!!$('setAiTitleEnabled'), 'Titel mit KI Schalter sollte existieren');
+  console.assert(!!$('setAiDescriptionEnabled'), 'Beschreibung mit KI Schalter sollte existieren');
+  console.assert(!!$('setAiTagsEnabled'), 'SEO/Tags mit KI Schalter sollte existieren');
+  console.assert(!!$('setAiScoreEnabled'), 'Produktanalyse mit KI Schalter sollte existieren');
   console.assert(!!$('googleSheetsSyncUrl'), 'Google Sheets Sync URL Feld sollte existieren');
   console.assert(!!$('googleSheetsSyncToken'), 'Google Sheets Sync Token Feld sollte existieren');
   console.assert(!!$('googleSheetsSyncStatus'), 'Google Sheets Sync Status sollte existieren');
@@ -6820,7 +7587,8 @@ document.addEventListener('DOMContentLoaded',()=>{
   }
 }
 </script>
-<script defer src="elyon-soul.js"></script>
+  <script defer src="elyon-soul.js"></script>
+  <script defer src="google-drive-backup.js"></script>
 </body>
 </html>
 

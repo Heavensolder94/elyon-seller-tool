@@ -374,6 +374,19 @@
       </div>
     </div>
 
+      <div id="backupReminderCard" class="card" style="margin-top:20px;display:none">
+        <h2>⚠️ Backup empfohlen</h2>
+        <p id="backupReminderText" class="hint">Dein letztes Backup ist älter als dein eingestelltes Intervall.</p>
+        <div class="row">
+          <button id="backupReminderLocalBtn" class="secondary full" title="Erstellt sofort ein lokales JSON-Komplett-Backup auf deinem Gerät.">Lokales Backup erstellen</button>
+          <button id="backupReminderDriveBtn" class="secondary full" title="Lädt das Backup in den verbundenen Google-Drive-Ordner hoch.">In Google Drive sichern</button>
+        </div>
+      <div class="row" style="margin-top:10px">
+        <button id="backupReminderLaterBtn" class="secondary full" title="Blendet die Erinnerung für 24 Stunden aus.">Später erinnern</button>
+        <div></div>
+      </div>
+    </div>
+
     <div class="card" style="margin-top:20px">
       <h2>🚀 Schnellstart</h2>
       <p class="hint">Wähle direkt, was du heute machen willst. Kein Suchen im Menü nötig.</p>
@@ -1444,17 +1457,57 @@ PLZ Ort"></textarea>
       </div>
 
       <div class="settings-section">
-        <h3>💾 Backup & Daten</h3>
+        <h3>💾 Backup & Wiederherstellung</h3>
         <div class="row">
-          <button id="backupSettings" class="secondary full">Einstellungen exportieren</button>
-          <button id="resetSettings" class="danger full">Einstellungen zurücksetzen</button>
+          <button id="backupSettings" class="secondary full" title="Exportiert nur deine Einstellungen als CSV-Datei.">Einstellungen exportieren</button>
+          <button id="resetSettings" class="danger full" title="Setzt nur die Einstellungen zurück, nicht deine gespeicherten Daten.">Einstellungen zurücksetzen</button>
         </div>
         <div class="row" style="margin-top:10px">
-          <button id="fullBackupExport" class="secondary full">Komplettes Backup exportieren</button>
-          <button id="fullBackupImportBtn" class="secondary full">Backup wiederherstellen</button>
+          <button id="fullBackupExport" class="secondary full" title="Erstellt ein lokales JSON-Backup mit allen wichtigen Daten.">Komplettes Backup exportieren</button>
+          <button id="fullBackupImportBtn" class="secondary full" title="Wählt ein JSON-Backup zur Wiederherstellung aus.">Backup wiederherstellen</button>
         </div>
         <input id="fullBackupImport" class="hidden" type="file" accept=".json,application/json">
-        <p class="hint">Komplettes Backup sichert Produkte, Verkäufe, eBay-Retouren, Shopify-Retouren und Einstellungen in einer JSON-Datei.</p>
+        <div id="backupRestorePreview" class="output-box"><p>Noch keine Backup-Datei ausgewählt.</p></div>
+        <div class="row" style="margin-top:10px">
+          <button id="applyRestoreBackupBtn" class="secondary full" title="Übernimmt das ausgewählte Backup in deine lokalen Daten.">Wiederherstellung ausführen</button>
+          <button id="undoRestoreBtn" class="secondary full" title="Setzt den Zustand vor der letzten Wiederherstellung wieder her.">Restore rückgängig machen</button>
+        </div>
+        <p class="hint">Komplettes Backup sichert Produkte, Verkäufe, eBay-Retouren, Shopify-Retouren und Einstellungen in einer JSON-Datei. Vor jeder Wiederherstellung wird ein Snapshot des aktuellen Zustands gesichert.</p>
+        <div class="settings-section" style="margin-top:14px">
+          <h3>⏱ Backup-Intervall</h3>
+          <label for="backupIntervalSelect">Backup-Intervall</label>
+          <select id="backupIntervalSelect" title="Steuert, wie oft die Backup-Erinnerung angezeigt wird.">
+            <option value="manual">Manuell</option>
+            <option value="daily">Täglich</option>
+            <option value="every_3_days">Alle 3 Tage</option>
+            <option value="weekly">Wöchentlich</option>
+            <option value="monthly">Monatlich</option>
+          </select>
+          <div class="dashboard" style="grid-template-columns:repeat(3,1fr);margin-bottom:14px">
+            <div class="metric"><small>Aktuelles Intervall</small><strong id="backupIntervalCurrent">Manuell</strong></div>
+            <div class="metric"><small>Letztes Backup</small><strong id="backupIntervalLast">Noch nie</strong></div>
+            <div class="metric"><small>Nächstes empfohlenes Backup</small><strong id="backupIntervalNext">Nicht fällig</strong></div>
+          </div>
+          <p class="hint">Manuell schaltet die automatische Erinnerung aus. Die Erinnerung erscheint erst wieder, wenn das letzte Dismiss-Datum 24 Stunden zurückliegt.</p>
+        </div>
+        <div class="settings-section" style="margin-top:14px">
+          <h3>📍 Backup-Speicherorte</h3>
+          <div id="backupStorageBox" class="output-box" style="margin-top:10px"><p>Backup-Speicherorte werden geprüft...</p><p><strong>Letzter Backup-Check:</strong> Noch nie</p></div>
+        </div>
+        <div class="settings-section" style="margin-top:14px">
+          <h3>☁️ Google Drive</h3>
+          <p class="hint">Die Verbindung läuft über Google OAuth. Dein Token bleibt in den API-Routen und wird nicht im Frontend gespeichert.</p>
+          <div class="dashboard" style="grid-template-columns:repeat(3,1fr);margin-bottom:14px">
+            <div class="metric"><small>Verbindung</small><strong id="googleDriveStatus">Nicht verbunden</strong></div>
+            <div class="metric"><small>Letztes Drive-Backup</small><strong id="googleDriveLastBackup">Noch nie</strong></div>
+            <div class="metric"><small>Fehler</small><strong id="googleDriveErrorStatus">Kein Fehler</strong></div>
+          </div>
+          <div class="row">
+            <button id="googleDriveConnectBtn" class="secondary full" title="Startet den Google-OAuth-Login für Drive.">Mit Google Drive verbinden</button>
+            <button id="googleDriveUploadBtn" class="secondary full" title="Lädt das aktuelle Komplett-Backup in Google Drive hoch.">Backup in Google Drive speichern</button>
+          </div>
+          <div id="googleDriveStatusBox" class="output-box" style="margin-top:10px"><p>Google Drive noch nicht geprüft.</p></div>
+        </div>
       </div>
 
       <button id="saveSettings" class="full">Einstellungen speichern</button>
@@ -1840,7 +1893,7 @@ function renderStartDashboard(){
   const cj = integrationStatusText('cj', integrationSettings.cjCheck);
   safe('startShipTodos',el=>el.textContent=shippingTodos);
   safe('startOpenReturns',el=>el.textContent=openReturns);
-  safe('startBackupStatus',el=>el.textContent=lastBackupText());
+  safe('startBackupStatus',el=>el.textContent=typeof backupStorageSummaryText==='function' ? backupStorageSummaryText() : lastBackupText());
   safe('startIntegrationStatus',el=>el.textContent=ebay+' / '+cj);
   safe('startTodayFocus',el=>el.textContent=getSmartDailyFocus());
 }
@@ -6006,13 +6059,16 @@ function downloadJSON(data,name){
 }
 function lastBackupText(){
   const iso=localStorage.getItem('elyonLastBackupAt');
-  if(!iso) return 'Noch nie';
-  const diff=Math.floor((Date.now()-new Date(iso).getTime())/86400000);
+  const driveIso=localStorage.getItem('elyonLastGoogleDriveBackupAt');
+  const latestIso = [iso, driveIso].filter(Boolean).sort().slice(-1)[0] || '';
+  if(!latestIso) return 'Noch nie';
+  const diff=Math.floor((Date.now()-new Date(latestIso).getTime())/86400000);
   if(diff<=0) return 'Heute';
   if(diff===1) return 'Gestern';
   return 'Vor '+diff+' Tagen';
 }
 function backupWarningText(){
+  if(typeof window.getElyonBackupWarningText === 'function') return window.getElyonBackupWarningText();
   const iso=localStorage.getItem('elyonLastBackupAt');
   if(!iso) return 'Noch kein Komplett-Backup exportiert. Bitte Backup erstellen.';
   const diff=Math.floor((Date.now()-new Date(iso).getTime())/86400000);
@@ -6020,34 +6076,42 @@ function backupWarningText(){
   return '';
 }
 function exportFullBackup(){
-  const data={
-    app:'Elyon Seller Tool',
-    version:'1.0',
-    exportedAt:new Date().toISOString(),
-    products: normalizeProductsCollection(products),
-    sales,
-    suppliers: loadStoredArray('elyonSuppliers'),
-    runningCosts: loadStoredArray('elyonCosts'),
-    returns,
-    shopifyReturns,
-    invoices,
-    listingDraft: latestEbayListingDraft || loadStoredEbayListingDraft(),
-    settings:appSettings,
-    invoiceSettings:invoiceSettings,
-    googleSheetsSync:{
-      url: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.url) || '',
-      token: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.token) || '',
-      lastInventorySyncAt: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.inventoryAt) || '',
-      lastSupplierSyncAt: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.supplierAt) || '',
-      lastSalesSyncAt: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.salesAt) || '',
-      lastCostsSyncAt: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.costsAt) || '',
-    }
-  };
+  const data = typeof window.buildElyonFullBackupData === 'function'
+    ? window.buildElyonFullBackupData()
+    : {
+        app:'Elyon Seller Tool',
+        version:'1.0',
+        exportedAt:new Date().toISOString(),
+        products: normalizeProductsCollection(products),
+        sales,
+        suppliers: loadStoredArray('elyonSuppliers'),
+        runningCosts: loadStoredArray('elyonCosts'),
+        returns,
+        shopifyReturns,
+        invoices,
+        listingDraft: latestEbayListingDraft || loadStoredEbayListingDraft(),
+        settings:appSettings,
+        invoiceSettings:invoiceSettings,
+        backupInterval: localStorage.getItem('elyonBackupInterval') || 'manual',
+        backupReminderDismissedAt: localStorage.getItem('elyonBackupReminderDismissedAt') || '',
+        googleSheetsSync:{
+          url: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.url) || '',
+          token: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.token) || '',
+          lastInventorySyncAt: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.inventoryAt) || '',
+          lastSupplierSyncAt: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.supplierAt) || '',
+          lastSalesSyncAt: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.salesAt) || '',
+          lastCostsSyncAt: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.costsAt) || '',
+        }
+      };
   downloadJSON(data,'elyon-komplett-backup.json');
   localStorage.setItem('elyonLastBackupAt',new Date().toISOString());
   render();
 }
 function importFullBackup(e){
+  if(typeof window.prepareElyonBackupRestore === 'function'){
+    window.prepareElyonBackupRestore(e);
+    return;
+  }
   const file=e.target.files[0];
   if(!file) return;
   const reader=new FileReader();
@@ -6084,6 +6148,8 @@ function importFullBackup(e){
       }
       localStorage.setItem('elyonSettings',JSON.stringify(appSettings));
       localStorage.setItem('elyonInvoiceSettings',JSON.stringify(invoiceSettings));
+      if(typeof data.backupInterval === 'string') localStorage.setItem('elyonBackupInterval', data.backupInterval || 'manual');
+      if(data.backupReminderDismissedAt !== undefined) localStorage.setItem('elyonBackupReminderDismissedAt', String(data.backupReminderDismissedAt || ''));
       applySettings();
       applyInvoiceSettings();
       renderGoogleSheetsSyncStatus();
@@ -7521,7 +7587,8 @@ document.addEventListener('DOMContentLoaded',()=>{
   }
 }
 </script>
-<script defer src="elyon-soul.js"></script>
+  <script defer src="elyon-soul.js"></script>
+  <script defer src="google-drive-backup.js"></script>
 </body>
 </html>
 
