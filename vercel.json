@@ -48,6 +48,26 @@
       "destination": "/api/env-check"
     },
     {
+      "source": "/api/google-drive/status",
+      "destination": "/api/google-drive?action=status"
+    },
+    {
+      "source": "/api/google-drive/auth-url",
+      "destination": "/api/google-drive?action=auth-url"
+    },
+    {
+      "source": "/api/google-drive/upload-backup",
+      "destination": "/api/google-drive?action=upload-backup"
+    },
+    {
+      "source": "/api/google-drive/oauth/start",
+      "destination": "/api/google-drive?action=start"
+    },
+    {
+      "source": "/api/google-drive/oauth/callback",
+      "destination": "/api/google-drive?action=callback"
+    },
+    {
       "source": "/ebay-token-exchange",
       "destination": "/ebay-token-exchange/index.html"
     },
