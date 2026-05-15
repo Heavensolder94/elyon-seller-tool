@@ -1,4 +1,4 @@
-import { readToken, writeToken, getTokenStoreDescription } from "../lib/ebay-token-store.js";
+import { readToken, writeToken, getTokenStoreDescription } from "../../lib/ebay-token-store.js";
 
 const SANDBOX_AUTH_URL = "https://auth.sandbox.ebay.com/oauth2/authorize";
 const PRODUCTION_AUTH_URL = "https://auth.ebay.com/oauth2/authorize";
