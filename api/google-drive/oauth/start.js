@@ -1,10 +1,33 @@
-import { buildCookieHeaders, getGoogleAuthUrl } from "../../../lib/google-drive.js";
+const GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
+const GOOGLE_SCOPE = "https://www.googleapis.com/auth/drive.file";
 
-function setResponseCookies(req, res, cookies) {
-  const headers = buildCookieHeaders(req, cookies);
-  if (headers.length) {
-    res.setHeader("Set-Cookie", headers);
-  }
+function isSecureRequest(req) {
+  const forwardedProto = String(req?.headers?.["x-forwarded-proto"] || "").toLowerCase();
+  if (forwardedProto.includes("https")) return true;
+  const host = String(req?.headers?.["x-forwarded-host"] || req?.headers?.host || "");
+  return !/localhost|127\.0\.0\.1|::1/i.test(host);
+}
+
+function serializeCookie(name, value, options = {}) {
+  const parts = [`${name}=${encodeURIComponent(String(value ?? ""))}`];
+  parts.push(`Path=${options.path || "/"}`);
+  if (options.maxAge !== undefined) parts.push(`Max-Age=${Math.max(0, Math.floor(Number(options.maxAge) || 0))}`);
+  if (options.httpOnly !== false) parts.push("HttpOnly");
+  if (options.sameSite) parts.push(`SameSite=${options.sameSite}`);
+  if (options.secure) parts.push("Secure");
+  return parts.join("; ");
+}
+
+function buildCookieHeaders(req, cookies = []) {
+  const secure = isSecureRequest(req);
+  return cookies.map(cookie =>
+    serializeCookie(cookie.name, cookie.value, {
+      maxAge: cookie.maxAge,
+      httpOnly: cookie.httpOnly,
+      sameSite: cookie.sameSite,
+      secure,
+    })
+  );
 }
 
 function makeState() {
@@ -12,6 +35,26 @@ function makeState() {
     return globalThis.crypto.randomUUID();
   }
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function getGoogleAuthUrl(state) {
+  const clientId = String(process.env.GOOGLE_CLIENT_ID || "").trim();
+  const redirectUri = String(process.env.GOOGLE_REDIRECT_URI || "").trim();
+  if (!clientId || !redirectUri) {
+    throw new Error("GOOGLE_CLIENT_ID oder GOOGLE_REDIRECT_URI fehlt in Vercel.");
+  }
+
+  const url = new URL(GOOGLE_AUTH_URL);
+  url.searchParams.set("client_id", clientId);
+  url.searchParams.set("redirect_uri", redirectUri);
+  url.searchParams.set("response_type", "code");
+  url.searchParams.set("scope", GOOGLE_SCOPE);
+  url.searchParams.set("access_type", "offline");
+  url.searchParams.set("prompt", "consent");
+  url.searchParams.set("include_granted_scopes", "true");
+  url.searchParams.set("state", state);
+  url.searchParams.set("hl", "de");
+  return url.toString();
 }
 
 export default async function handler(req, res) {
@@ -22,8 +65,7 @@ export default async function handler(req, res) {
 
     const state = makeState();
     const authUrl = getGoogleAuthUrl(state);
-
-    setResponseCookies(req, res, [
+    const headers = buildCookieHeaders(req, [
       {
         name: "elyon_google_drive_oauth_state",
         value: state,
@@ -32,6 +74,10 @@ export default async function handler(req, res) {
         sameSite: "Lax",
       },
     ]);
+
+    if (headers.length) {
+      res.setHeader("Set-Cookie", headers);
+    }
 
     res.statusCode = 302;
     res.setHeader("Location", authUrl);

@@ -1,10 +1,79 @@
-import { buildCookieHeaders, exchangeGoogleCode, getOAuthStateCookie } from "../../../lib/google-drive.js";
+const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
 
-function setResponseCookies(req, res, cookies) {
-  const headers = buildCookieHeaders(req, cookies);
-  if (headers.length) {
-    res.setHeader("Set-Cookie", headers);
+function isSecureRequest(req) {
+  const forwardedProto = String(req?.headers?.["x-forwarded-proto"] || "").toLowerCase();
+  if (forwardedProto.includes("https")) return true;
+  const host = String(req?.headers?.["x-forwarded-host"] || req?.headers?.host || "");
+  return !/localhost|127\.0\.0\.1|::1/i.test(host);
+}
+
+function parseCookies(cookieHeader) {
+  const cookies = {};
+  const raw = String(cookieHeader || "");
+  raw.split(";").forEach(pair => {
+    const index = pair.indexOf("=");
+    if (index < 0) return;
+    const name = pair.slice(0, index).trim();
+    const value = pair.slice(index + 1).trim();
+    if (!name) return;
+    cookies[name] = decodeURIComponent(value);
+  });
+  return cookies;
+}
+
+function serializeCookie(name, value, options = {}) {
+  const parts = [`${name}=${encodeURIComponent(String(value ?? ""))}`];
+  parts.push(`Path=${options.path || "/"}`);
+  if (options.maxAge !== undefined) parts.push(`Max-Age=${Math.max(0, Math.floor(Number(options.maxAge) || 0))}`);
+  if (options.httpOnly !== false) parts.push("HttpOnly");
+  if (options.sameSite) parts.push(`SameSite=${options.sameSite}`);
+  if (options.secure) parts.push("Secure");
+  return parts.join("; ");
+}
+
+function buildCookieHeaders(req, cookies = []) {
+  const secure = isSecureRequest(req);
+  return cookies.map(cookie =>
+    serializeCookie(cookie.name, cookie.value, {
+      maxAge: cookie.maxAge,
+      httpOnly: cookie.httpOnly,
+      sameSite: cookie.sameSite,
+      secure,
+    })
+  );
+}
+
+function getOAuthStateCookie(req) {
+  return parseCookies(req?.headers?.cookie || "")["elyon_google_drive_oauth_state"] || "";
+}
+
+async function exchangeGoogleCode(code) {
+  const clientId = String(process.env.GOOGLE_CLIENT_ID || "").trim();
+  const clientSecret = String(process.env.GOOGLE_CLIENT_SECRET || "").trim();
+  const redirectUri = String(process.env.GOOGLE_REDIRECT_URI || "").trim();
+
+  if (!clientId || !clientSecret || !redirectUri) {
+    throw new Error("GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET oder GOOGLE_REDIRECT_URI fehlt in Vercel.");
   }
+
+  const response = await fetch(GOOGLE_TOKEN_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      code,
+      client_id: clientId,
+      client_secret: clientSecret,
+      redirect_uri: redirectUri,
+      grant_type: "authorization_code",
+    }),
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.error_description || data.error || "Google OAuth Code konnte nicht eingetauscht werden.");
+  }
+
+  return data;
 }
 
 export default async function handler(req, res) {
@@ -35,7 +104,7 @@ export default async function handler(req, res) {
       });
     }
 
-    setResponseCookies(req, res, [
+    const headers = buildCookieHeaders(req, [
       {
         name: "elyon_google_drive_refresh_token",
         value: tokenData.refresh_token,
@@ -59,6 +128,10 @@ export default async function handler(req, res) {
       },
     ]);
 
+    if (headers.length) {
+      res.setHeader("Set-Cookie", headers);
+    }
+
     return res.status(200).json({
       ok: true,
       service: "Google Drive",
@@ -66,7 +139,7 @@ export default async function handler(req, res) {
       message: "Google Drive verbunden.",
     });
   } catch (error) {
-    setResponseCookies(req, res, [
+    const headers = buildCookieHeaders(req, [
       {
         name: "elyon_google_drive_oauth_state",
         value: "",
@@ -75,6 +148,10 @@ export default async function handler(req, res) {
         sameSite: "Lax",
       },
     ]);
+
+    if (headers.length) {
+      res.setHeader("Set-Cookie", headers);
+    }
 
     return res.status(500).json({
       ok: false,
