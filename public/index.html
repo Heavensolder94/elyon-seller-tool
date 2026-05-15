@@ -1100,7 +1100,6 @@ Land"></textarea>
         <button id="syncSuppliersGoogleSheetsBtn" class="secondary full" type="button">Supplier Liste synchronisieren</button>
       </div>
       <div class="row" style="margin-top:10px">
-        <button id="syncSalesGoogleSheetsBtn" class="secondary full" type="button">InventarTracker synchronisieren</button>
         <button id="syncCostsGoogleSheetsBtn" class="secondary full" type="button">Laufende Kosten synchronisieren</button>
       </div>
       <div class="row" style="margin-top:10px">
@@ -2441,10 +2440,10 @@ function renderGoogleSheetsSyncStatus(){
     '<div class="dashboard" style="margin-top:16px">' +
       renderGoogleSheetsMetric('Inventar', inventoryAt, inventoryError) +
       renderGoogleSheetsMetric('Supplier', supplierAt, supplierError) +
-      renderGoogleSheetsMetric('InventarTracker', salesAt, salesError) +
+      renderGoogleSheetsMetric('Google Sheets', salesAt, salesError) +
       renderGoogleSheetsMetric('Laufende Kosten', costsAt, costsError) +
     '</div>' +
-    '<div class="output-box" style="margin-top:14px"><p>Letztes Laden von InventarTracker: <strong>' + escapeHtml(formatSyncTimestamp(salesLoadAt)) + '</strong>' + (salesLoadError ? '<br><span style="color:#ffb4b4">Letzter Fehler beim Laden: ' + escapeHtml(salesLoadError) + '</span>' : '') + '</p></div>' +
+    '<div class="output-box" style="margin-top:14px"><p>Letztes Laden von Google Sheets: <strong>' + escapeHtml(formatSyncTimestamp(salesLoadAt)) + '</strong>' + (salesLoadError ? '<br><span style="color:#ffb4b4">Letzter Fehler beim Laden: ' + escapeHtml(salesLoadError) + '</span>' : '') + '</p></div>' +
     '<div class="output-box" style="margin-top:14px"><p>' + (connected ? 'Sync bereit. Beim Start werden URL und Token aus localStorage geladen.' : 'Trage URL und Token ein, um die Google Sheets Sync zu aktivieren.') + '</p></div>'
   );
 }
@@ -2707,7 +2706,7 @@ function buildSyncRows(type, records){
 function getSyncTypeLabel(type){
   if(type === 'inventory') return 'Inventar';
   if(type === 'suppliers') return 'Supplier Liste';
-  if(type === 'sales') return 'InventarTracker';
+  if(type === 'sales') return 'Google Sheets';
   if(type === 'costs') return 'Laufende Kosten';
   return type;
 }
@@ -2775,25 +2774,24 @@ function replaceSalesFromSheetRecords(records){
   return next;
 }
 async function loadSalesFromGoogleSheet(){
-  setHTML('googleSheetsSyncResult', '<p>InventarTracker wird aus Google Sheets geladen...</p>');
+  setHTML('googleSheetsSyncResult', '<p>Daten aus Google Sheets werden geladen...</p>');
   try{
     const data = await loadFromGoogleSheet('sales');
     const records = Array.isArray(data.records) ? data.records : [];
     const next = replaceSalesFromSheetRecords(records);
     clearGoogleSheetsSyncLoadError();
-    setHTML('googleSheetsSyncResult', '<p>✅ <strong>InventarTracker</strong>: ' + next.length + ' Datensätze aus Google Sheets geladen.</p>');
+    setHTML('googleSheetsSyncResult', '<p>✅ <strong>Google Sheets</strong>: ' + next.length + ' Datensätze aus Google Sheets geladen.</p>');
     return next;
   }catch(error){
     const message = error && error.message ? error.message : 'Unbekannter Ladefehler';
     setGoogleSheetsSyncLoadError(message);
-    setHTML('googleSheetsSyncResult', '<p>⚠️ <strong>InventarTracker</strong>: ' + escapeHtml(message) + '</p>');
+    setHTML('googleSheetsSyncResult', '<p>⚠️ <strong>Google Sheets</strong>: ' + escapeHtml(message) + '</p>');
     throw error;
   }
 }
 const GOOGLE_SHEETS_SYNC_BUTTONS = [
   { id: 'syncInventoryGoogleSheetsBtn', label: 'Inventar synchronisieren' },
   { id: 'syncSuppliersGoogleSheetsBtn', label: 'Supplier Liste synchronisieren' },
-  { id: 'syncSalesGoogleSheetsBtn', label: 'InventarTracker synchronisieren' },
   { id: 'syncCostsGoogleSheetsBtn', label: 'Laufende Kosten synchronisieren' },
   { id: 'syncAllGoogleSheetsBtn', label: 'Alles synchronisieren' },
 ];
@@ -2839,7 +2837,7 @@ function syncSuppliersToGoogleSheet(){
 function syncSalesToGoogleSheet(){
   return runGoogleSheetsSyncTask('sales', function(){
     return syncToGoogleSheet('sales', getSalesSyncRecords());
-  }, 'syncSalesGoogleSheetsBtn');
+  });
 }
 function syncCostsToGoogleSheet(){
   return runGoogleSheetsSyncTask('costs', function(){
@@ -7313,7 +7311,6 @@ function bindEvents(){
   bind('saveGoogleSheetsSyncBtn','click',saveGoogleSheetsSyncSettings);
   bind('syncInventoryGoogleSheetsBtn','click',syncInventoryToGoogleSheet);
   bind('syncSuppliersGoogleSheetsBtn','click',syncSuppliersToGoogleSheet);
-  bind('syncSalesGoogleSheetsBtn','click',syncSalesToGoogleSheet);
   bind('loadSalesGoogleSheetsBtn','click',loadSalesFromGoogleSheet);
   bind('syncCostsGoogleSheetsBtn','click',syncCostsToGoogleSheet);
   bind('syncAllGoogleSheetsBtn','click',syncAllToGoogleSheet);
