@@ -1,4 +1,4 @@
-import { buildCookieHeaders, exchangeGoogleCode, getOAuthStateCookie, getOrigin } from "../../../../lib/google-drive.js";
+import { buildCookieHeaders, exchangeGoogleCode, getOAuthStateCookie, getOrigin } from "../../../lib/google-drive.js";
 
 function getCode(req) {
   if (req.method === "POST") {

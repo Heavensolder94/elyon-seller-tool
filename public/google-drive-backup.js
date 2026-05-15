@@ -709,12 +709,7 @@
   async function connectGoogleDrive() {
     try {
       renderGoogleDriveStatus({ connected: false, error: "Google Drive Verbindung wird gestartet..." });
-      const response = await fetch("/api/google-drive/auth-url", { method: "GET", credentials: "same-origin" });
-      const data = await response.json();
-      if (!response.ok || !data.ok || !data.authUrl) {
-        throw new Error(data.error || "Google Drive Auth-URL konnte nicht geladen werden.");
-      }
-      window.location.assign(data.authUrl);
+      window.location.assign("/api/google-drive/oauth/start");
     } catch (error) {
       setValue(STORAGE_KEYS.lastDriveBackupError, error.message || "Google Drive Verbindung fehlgeschlagen.");
       renderGoogleDriveStatus({ connected: false, error: error.message || "Google Drive Verbindung fehlgeschlagen." });
