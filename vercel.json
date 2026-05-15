@@ -1,5 +1,5 @@
 {
-  "buildCommand": "node scripts/prepare-vercel.mjs",
+  "buildCommand": "VERCEL_FORCE_NO_BUILD_CACHE=1 node scripts/prepare-vercel.mjs",
   "outputDirectory": "public",
   "rewrites": [
     {
