@@ -1095,9 +1095,15 @@ Land"></textarea>
       <h2>Google Sheets Sync</h2>
       <p class="hint">Synchronisiert deine Elyon-Daten mit einem Google Apps Script Web-App Endpoint. Die bestehenden CSV-Import/Export-Funktionen bleiben unverändert.</p>
       <label>Google Apps Script Web-App URL</label>
-      <input id="googleSheetsSyncUrl" placeholder="https://script.google.com/macros/s/....../exec">
+      <div style="display:flex;gap:8px;align-items:center">
+        <input id="googleSheetsSyncUrl" type="password" placeholder="https://script.google.com/macros/s/....../exec" style="flex:1;min-width:0">
+        <button id="toggleGoogleSheetsSyncUrlVisibilityBtn" type="button" class="secondary" aria-label="Google Apps Script Web-App URL sichtbar machen" onclick="toggleGoogleSheetsSecretField('googleSheetsSyncUrl')">👁️</button>
+      </div>
       <label>Sync Token</label>
-      <input id="googleSheetsSyncToken" placeholder="Dein Sync-Token">
+      <div style="display:flex;gap:8px;align-items:center">
+        <input id="googleSheetsSyncToken" type="password" placeholder="Dein Sync-Token" style="flex:1;min-width:0">
+        <button id="toggleGoogleSheetsSyncTokenVisibilityBtn" type="button" class="secondary" aria-label="Sync Token sichtbar machen" onclick="toggleGoogleSheetsSecretField('googleSheetsSyncToken')">👁️</button>
+      </div>
       <div class="row">
         <button id="saveGoogleSheetsSyncBtn" class="secondary full" type="button">Sync-Einstellungen speichern</button>
         <button id="syncAllGoogleSheetsBtn" class="full" type="button">Alles synchronisieren</button>
@@ -2432,6 +2438,26 @@ function getGoogleSheetsSyncConfig(){
     token: formToken || storedToken,
   };
 }
+function setGoogleSheetsSecretFieldVisibility(fieldId, visible){
+  const input = $(fieldId);
+  const buttonId = fieldId === 'googleSheetsSyncUrl' ? 'toggleGoogleSheetsSyncUrlVisibilityBtn' : fieldId === 'googleSheetsSyncToken' ? 'toggleGoogleSheetsSyncTokenVisibilityBtn' : '';
+  const button = buttonId ? $(buttonId) : null;
+  if(input){
+    input.type = visible ? 'text' : 'password';
+  }
+  if(button){
+    button.textContent = visible ? '🙈' : '👁️';
+    button.setAttribute('aria-label', visible ? 'Feld verbergen' : 'Feld sichtbar machen');
+  }
+}
+function toggleGoogleSheetsSecretField(fieldId){
+  const input = $(fieldId);
+  setGoogleSheetsSecretFieldVisibility(fieldId, !(input && input.type === 'text'));
+}
+function refreshGoogleSheetsSecretFieldVisibility(){
+  setGoogleSheetsSecretFieldVisibility('googleSheetsSyncUrl', !!($('googleSheetsSyncUrl') && $('googleSheetsSyncUrl').type === 'text'));
+  setGoogleSheetsSecretFieldVisibility('googleSheetsSyncToken', !!($('googleSheetsSyncToken') && $('googleSheetsSyncToken').type === 'text'));
+}
 function getGoogleSheetsSyncSnapshot(){
   return {
     url: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.url) || '',
@@ -2626,6 +2652,7 @@ function renderGoogleSheetsSyncStatus(){
   const statusClass = connected ? (anyError ? 'warn' : 'good') : 'bad';
   safe('googleSheetsSyncUrl', el => el.value = config.url || '');
   safe('googleSheetsSyncToken', el => el.value = config.token || '');
+  refreshGoogleSheetsSecretFieldVisibility();
   setHTML('googleSheetsSyncStatus',
     '<div class="score-top"><span class="status ' + statusClass + '">' + statusText + '</span><span class="score-number">' + (connected ? 'SYNC' : 'OFF') + '</span></div>' +
     '<div style="margin-top:8px;font-size:12px;line-height:1.4;opacity:.75">' +
@@ -7844,6 +7871,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   bindEvents();
   applySettings();
   applyInvoiceSettings();
+  refreshGoogleSheetsSecretFieldVisibility();
   renderGoogleSheetsSyncStatus();
   void loadGoogleSheetsSyncSettingsFromCloud();
   renderAiUsageStatus();
