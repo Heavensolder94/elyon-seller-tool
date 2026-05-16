@@ -51,9 +51,25 @@
     }
   </style>
   <style>
+    .quick-actions{
+      align-items:center;
+    }
+    .quick-actions-spacer{
+      flex:1 1 auto;
+      min-width:12px;
+    }
     .quick-actions button.active{
       background:linear-gradient(135deg,#3b82f6,#8b5cf6);
       border-color:rgba(255,255,255,.2);
+    }
+    .quick-actions .return-create-btn{
+      background:linear-gradient(135deg,#0f766e,#14b8a6);
+      border:1px solid rgba(45,212,191,.35);
+      color:#ecfeff;
+      box-shadow:0 10px 24px rgba(20,184,166,.15);
+    }
+    .quick-actions .return-create-btn:hover{
+      filter:brightness(1.05);
     }
   </style>
   <style>
@@ -1171,14 +1187,20 @@ Land"></textarea>
 
   <section id="returnsTab" class="tab">
     <div class="card">
-      <h2>Retouren-Zentrale</h2>
-      <p class="hint">Ein zentraler Arbeitsbereich für offene Fälle, Fristen, Erstattung, Wiedereinlagerung und Problemfälle. Die alten eBay-/Shopify-Silos sind hier bewusst zusammengezogen.</p>
+      <div class="settings-agents-header" style="align-items:center">
+        <div>
+          <h2>Retouren-Zentrale</h2>
+          <p class="hint">Ein zentraler Arbeitsbereich für offene Fälle, Fristen, Erstattung, Wiedereinlagerung und Problemfälle. Die alten eBay-/Shopify-Silos sind hier bewusst zusammengezogen.</p>
+        </div>
+      </div>
       <div class="quick-actions">
         <button class="secondary" data-return-view="all">Gesamtübersicht</button>
         <button class="secondary" data-return-view="today">Heute zuerst</button>
         <button class="secondary" data-return-view="open">Nur offen</button>
         <button class="secondary" data-return-view="problem">Problemfälle</button>
         <button class="secondary" data-return-view="closed">Abgeschlossen</button>
+        <span class="quick-actions-spacer" aria-hidden="true"></span>
+        <button id="openReturnCaseModalBtn" class="secondary return-create-btn" type="button">Retouren-Fall anlegen</button>
       </div>
       <div class="dashboard">
         <div class="metric"><small>Alle Fälle</small><strong id="returnsOverviewTotalCount">0</strong></div>
@@ -1207,10 +1229,55 @@ Land"></textarea>
         <div id="returnsProblemRanking">Noch keine Problem-Produkte erkannt.</div>
       </div>
     </div>
-
     <div class="card" style="margin-top:20px">
-      <h2>Retouren-Fall anlegen</h2>
-      <p class="hint">Hier dokumentierst du alle relevanten Infos an einem Ort: Plattform, Kunde, SKU, Frist, Entscheidung und den nächsten Schritt.</p>
+      <h2>Arbeitsliste</h2>
+      <p class="hint">Die wichtigsten Fälle stehen oben. Nutze die Schnellaktionen pro Karte, um ohne Umwege zu entscheiden.</p>
+      <div class="toolbar">
+        <select id="returnStatusFilter">
+          <option value="all">Alle Fälle</option>
+          <option value="open">Nur offene Fälle</option>
+          <option value="problem">Nur Problemfälle</option>
+          <option value="closed">Nur abgeschlossen</option>
+        </select>
+        <select id="returnReasonFilter">
+          <option value="all">Alle Gründe</option>
+          <option value="Kunde gefällt es nicht">Kunde gefällt es nicht</option>
+          <option value="Artikel defekt">Artikel defekt</option>
+          <option value="Falscher Artikel">Falscher Artikel</option>
+          <option value="Zu spät geliefert">Zu spät geliefert</option>
+          <option value="Beschreibung/Bilder unklar">Beschreibung/Bilder unklar</option>
+          <option value="Landingpage/Beschreibung unklar">Landingpage/Beschreibung unklar</option>
+          <option value="Sonstiges">Sonstiges</option>
+        </select>
+      </div>
+      <div id="returnsSummary" class="empty">Noch keine Retoure erfasst.</div>
+      <div class="kanban-board" style="margin-top:14px">
+        <div class="kanban-column">
+          <h3>Heute zuerst</h3>
+          <div id="returnsTodayList" class="products"></div>
+        </div>
+        <div class="kanban-column">
+          <h3>Offene Fälle</h3>
+          <div id="returnsOpenList" class="products"></div>
+        </div>
+        <div class="kanban-column">
+          <h3>Problemfälle</h3>
+          <div id="returnsProblemList" class="products"></div>
+        </div>
+      </div>
+      <div id="returnsList" class="products" style="margin-top:14px"></div>
+    </div>
+  </section>
+
+  <div id="returnCaseModal" class="hidden modal-backdrop" aria-hidden="true">
+    <div class="card modal-panel">
+      <div class="settings-agents-header" style="align-items:center">
+        <div>
+          <h2>Retouren-Fall anlegen</h2>
+          <p class="hint">Hier dokumentierst du alle relevanten Infos an einem Ort: Plattform, Kunde, SKU, Frist, Entscheidung und den nächsten Schritt.</p>
+        </div>
+        <button id="closeReturnCaseModalBtn" class="secondary" type="button">Schließen</button>
+      </div>
       <div class="row">
         <div>
           <label>Plattform</label>
@@ -1271,45 +1338,7 @@ Land"></textarea>
       <label>Notiz</label><textarea id="retNote" placeholder="Was ist passiert? Was musst du beim nächsten Mal anders machen?"></textarea>
       <button class="full" id="returnAddBtn">Fall speichern</button>
     </div>
-    <div class="card" style="margin-top:20px">
-      <h2>Arbeitsliste</h2>
-      <p class="hint">Die wichtigsten Fälle stehen oben. Nutze die Schnellaktionen pro Karte, um ohne Umwege zu entscheiden.</p>
-      <div class="toolbar">
-        <select id="returnStatusFilter">
-          <option value="all">Alle Fälle</option>
-          <option value="open">Nur offene Fälle</option>
-          <option value="problem">Nur Problemfälle</option>
-          <option value="closed">Nur abgeschlossen</option>
-        </select>
-        <select id="returnReasonFilter">
-          <option value="all">Alle Gründe</option>
-          <option value="Kunde gefällt es nicht">Kunde gefällt es nicht</option>
-          <option value="Artikel defekt">Artikel defekt</option>
-          <option value="Falscher Artikel">Falscher Artikel</option>
-          <option value="Zu spät geliefert">Zu spät geliefert</option>
-          <option value="Beschreibung/Bilder unklar">Beschreibung/Bilder unklar</option>
-          <option value="Landingpage/Beschreibung unklar">Landingpage/Beschreibung unklar</option>
-          <option value="Sonstiges">Sonstiges</option>
-        </select>
-      </div>
-      <div id="returnsSummary" class="empty">Noch keine Retoure erfasst.</div>
-      <div class="kanban-board" style="margin-top:14px">
-        <div class="kanban-column">
-          <h3>Heute zuerst</h3>
-          <div id="returnsTodayList" class="products"></div>
-        </div>
-        <div class="kanban-column">
-          <h3>Offene Fälle</h3>
-          <div id="returnsOpenList" class="products"></div>
-        </div>
-        <div class="kanban-column">
-          <h3>Problemfälle</h3>
-          <div id="returnsProblemList" class="products"></div>
-        </div>
-      </div>
-      <div id="returnsList" class="products" style="margin-top:14px"></div>
-    </div>
-  </section>
+  </div>
 
   <section id="shopifyTab" class="tab">
     <div class="card">
@@ -2062,6 +2091,12 @@ function openReturnsCenter(){
   renderReturnsOverview();
   renderReturns();
   resetMenusToLabNames();
+}
+function openReturnCaseModal(){
+  safe('returnCaseModal',function(el){ el.classList.remove('hidden'); });
+}
+function closeReturnCaseModal(){
+  safe('returnCaseModal',function(el){ el.classList.add('hidden'); });
 }
 function openGenerator(){
   showTab('ebayListingTab');
@@ -7443,6 +7478,7 @@ function addReturn(){
   safe('retDecision',function(el){ el.value='review'; });
   safe('retResell',function(el){ el.value='maybe'; });
   safe('retCondition',function(el){ el.value='unchecked'; });
+  closeReturnCaseModal();
 }
 function addShopifyReturn(){
   safe('retPlatform',function(el){ el.value='shopify'; });
@@ -7781,6 +7817,8 @@ function bindEvents(){
   bind('launcherReturns','click',openReturnsCenter);
   bind('launcherBackup','click',exportFullBackup);
   bind('returnsBtn','click',()=>showTab('returnsTab'));
+  bind('openReturnCaseModalBtn','click',openReturnCaseModal);
+  bind('closeReturnCaseModalBtn','click',closeReturnCaseModal);
   bind('shopifyMenu','change',e=>showShopifyTool(e.target.value));
   bind('mainMenu','change',e=>{
     const value = e.target.value;
@@ -7874,6 +7912,9 @@ function bindEvents(){
   safe('aiSearchResult', el => el.addEventListener('click', handleGeneratorClick));
   safe('aiBillingModal', el => el.addEventListener('click', function(event){
     if(event.target === el) closeAiBillingWarning();
+  }));
+  safe('returnCaseModal', el => el.addEventListener('click', function(event){
+    if(event.target === el) closeReturnCaseModal();
   }));
   document.querySelectorAll('[data-return-view]').forEach(function(btn){
     btn.addEventListener('click', function(){
