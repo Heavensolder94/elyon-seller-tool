@@ -249,7 +249,7 @@
   .virtual-agent-log ul{margin:0;padding-left:18px;color:#e2e8f0;line-height:1.55}
   .virtual-agent-log li{margin:4px 0}
   .virtual-agent-connections{display:flex;gap:8px;flex-wrap:wrap}
-  .agent-switch{display:inline-flex;align-items:center;gap:10px;color:#e5e7eb;font-weight:700;font-size:13px;cursor:pointer;user-select:none;position:relative;min-height:26px}
+  .agent-switch{display:inline-flex;align-items:center;gap:10px;color:#e5e7eb;font-weight:700;font-size:13px;cursor:pointer;user-select:none;position:relative;min-height:26px;border:0;background:transparent;padding:0;text-align:left;appearance:none;-webkit-appearance:none}
   .agent-switch input{position:absolute;opacity:0;pointer-events:none}
   .agent-switch-track{width:52px;height:28px;border-radius:999px;background:linear-gradient(180deg,rgba(15,23,42,.95),rgba(30,41,59,.95));border:1px solid rgba(148,163,184,.24);position:relative;transition:background .2s ease,border-color .2s ease,box-shadow .2s ease,transform .2s ease;box-shadow:inset 0 1px 0 rgba(255,255,255,.04)}
   .agent-switch-track:before{content:'';position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:linear-gradient(180deg,#fff,#dbeafe);box-shadow:0 5px 14px rgba(0,0,0,.3);transition:transform .2s ease,box-shadow .2s ease}
@@ -263,6 +263,10 @@
   .agent-switch-locked .agent-switch-track{background:linear-gradient(180deg,rgba(71,85,105,.8),rgba(51,65,85,.8));border-color:rgba(148,163,184,.2)}
   .agent-switch-locked .agent-switch-track:before{background:linear-gradient(180deg,#f8fafc,#cbd5e1);transform:translateX(0)}
   .agent-switch-locked .agent-switch-track:after{content:'🔒';right:7px;color:#cbd5e1;font-size:11px}
+  .agent-switch-unlocked{cursor:pointer}
+  .agent-switch-unlocked .agent-switch-track{background:linear-gradient(135deg,#3b82f6,#8b5cf6);border-color:rgba(96,165,250,.44);box-shadow:0 0 0 4px rgba(59,130,246,.12),inset 0 1px 0 rgba(255,255,255,.08)}
+  .agent-switch-unlocked .agent-switch-track:before{transform:translateX(24px)}
+  .agent-switch-unlocked .agent-switch-track:after{content:'AN';color:#e0f2fe}
   .virtual-agent-card textarea{min-height:92px}
   .virtual-agent-field-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px}
   .description-edit-toggle{width:30px;height:30px;border-radius:999px;border:1px solid rgba(148,163,184,.28);background:rgba(15,23,42,.65);color:#e2e8f0;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:none}
@@ -8960,9 +8964,18 @@ document.addEventListener('DOMContentLoaded',()=>{
   };
 
   const isSecurityLocked = () => state.securityMode !== false || state.sandboxMode !== false;
+  const isAiMasterEnabled = () => isAiFeatureEnabled();
+  const isAiActionBlocked = () => !isAiMasterEnabled();
+  const getAiActionBlockReason = () => (isAiActionBlocked() ? 'KI-Funktionen deaktiviert' : '');
+  const showAiBlockedNotice = (label) => {
+    const reason = getAiActionBlockReason();
+    const text = reason ? `${label} ist gesperrt, weil ${reason} ist.` : `${label} ist gesperrt.`;
+    showToolPopup('KI-Block', text, 'warn');
+  };
   const isAutonomyLocked = () => state.autonomyLocked !== false;
   const isAllAgentsPaused = () => state.pauseAllAgents === true || state.pausedAll === true;
   const isAdvancedAutonomyUnlocked = () => state.advancedMode === true && state.autonomyLocked === false;
+  const isFutureCapabilityUnlocked = () => isAdvancedAutonomyUnlocked();
   const isMasterAgentsDisabled = () => state.masterAgentsDisabled === true;
   const getFutureCapabilityRecord = (kind, id) => {
     const bucket = state.futureCapabilities && state.futureCapabilities[kind] && typeof state.futureCapabilities[kind] === 'object'
@@ -8971,6 +8984,28 @@ document.addEventListener('DOMContentLoaded',()=>{
     return bucket[id] && typeof bucket[id] === 'object'
       ? bucket[id]
       : { prepared: true, enabled: false, lastPreparedAt: '', notes: '' };
+  };
+  const toggleFutureCapability = (kind, id) => {
+    if (!isFutureCapabilityUnlocked()) {
+      showSecurityBlockedNotice('Das Entsperren der Zukunftsfunktionen');
+      return;
+    }
+    const collection = kind === 'lockedRoles' ? FUTURE_CAPABILITY_DEFS.lockedRoles : FUTURE_CAPABILITY_DEFS.lockedFunctions;
+    const def = Array.isArray(collection) ? collection.find((item) => item.id === id) : null;
+    if (!def) return;
+    state.futureCapabilities = state.futureCapabilities && typeof state.futureCapabilities === 'object' ? state.futureCapabilities : createFutureCapabilityState();
+    state.futureCapabilities[kind] = state.futureCapabilities[kind] && typeof state.futureCapabilities[kind] === 'object' ? state.futureCapabilities[kind] : {};
+    const current = getFutureCapabilityRecord(kind, id);
+    const nextEnabled = !current.enabled;
+    state.futureCapabilities[kind][id] = {
+      prepared: true,
+      enabled: nextEnabled,
+      lastPreparedAt: new Date().toISOString(),
+      notes: nextEnabled ? `${def.title} entsperrt.` : `${def.title} gesperrt.`,
+    };
+    setTaskCenterNotice(nextEnabled ? `${def.title} entsperrt.` : `${def.title} gesperrt.`);
+    saveState();
+    render();
   };
   const getProductList = () => (Array.isArray(products) ? products : []);
   const getReturnList = () => [
@@ -9122,6 +9157,10 @@ document.addEventListener('DOMContentLoaded',()=>{
     const def = getDefinition(agentId);
     const agent = getAgent(agentId);
     if (!def || !agent) return;
+    if (isAiActionBlocked()) {
+      showAiBlockedNotice('Das Generieren eines KI-Prompts');
+      return;
+    }
     const descriptionValue = agent.description || def.description || def.task;
     const guardrailsValue = agent.guardrails || 'Nur Vorschläge, Entwürfe und lokale Analysen. Keine autonomen Live-Aktionen.';
     agent.prompt = buildSuggestedAgentPrompt(def, descriptionValue, guardrailsValue);
@@ -9160,7 +9199,7 @@ document.addEventListener('DOMContentLoaded',()=>{
             <div class="virtual-agent-field-head">
               <label>Prompt</label>
               <div style="display:flex;gap:8px;align-items:center">
-                <button type="button" class="secondary" data-agent-action="generate-agent-prompt" data-agent-id="${def.id}">Generieren</button>
+                <button type="button" class="secondary" data-agent-action="generate-agent-prompt" data-agent-id="${def.id}" ${isAiActionBlocked() ? 'disabled aria-disabled="true"' : ''} title="${isAiActionBlocked() ? getAiActionBlockReason() : 'Prompt generieren'}">Generieren</button>
                 <button type="button" class="description-edit-toggle ${isPromptEditing(def.id) ? 'active' : ''}" data-agent-action="toggle-agent-text-edit" data-agent-edit-field="prompt" data-agent-id="${def.id}" aria-label="${isPromptEditing(def.id) ? 'Prompt sperren' : 'Prompt bearbeiten'}">${isPromptEditing(def.id) ? '🔓' : '✎'}</button>
               </div>
             </div>
@@ -9216,6 +9255,10 @@ document.addEventListener('DOMContentLoaded',()=>{
     const def = getDefinition(agentId);
     const agent = getAgent(agentId);
     if (!def || !agent) return null;
+    if (isAiActionBlocked()) {
+      showAiBlockedNotice('Die lokale Analyse');
+      return null;
+    }
 
     const insights = getProductList().map(getProductInsight);
     const openReturns = getReturnList().filter((item) => !isReturnClosed(item && item.status));
@@ -10426,8 +10469,8 @@ document.addEventListener('DOMContentLoaded',()=>{
           </div>
           <div class="extended-autonomy-actions">
             ${state.advancedMode === true && state.autonomyLocked === false
-              ? `<button type="button" class="secondary" data-agent-action="lock-advanced-autonomy" ${isSecurityLocked() ? 'disabled aria-disabled="true"' : ''}>Erweiterte Autonomie sperren</button>`
-              : `<button type="button" class="secondary" data-agent-action="open-advanced-autonomy" ${isSecurityLocked() ? 'disabled aria-disabled="true"' : ''} title="${isSecurityLocked() ? `Gesperrt: ${getLiveActionBlockReason()}` : 'Erweiterte Autonomie freischalten'}">Erweiterte Autonomie freischalten</button>`}
+              ? `<button type="button" class="secondary" data-agent-action="lock-advanced-autonomy" ${isAiActionBlocked() || isSecurityLocked() ? 'disabled aria-disabled="true"' : ''}>Erweiterte Autonomie sperren</button>`
+              : `<button type="button" class="secondary" data-agent-action="open-advanced-autonomy" ${isAiActionBlocked() || isSecurityLocked() ? 'disabled aria-disabled="true"' : ''} title="${isAiActionBlocked() ? getAiActionBlockReason() : (isSecurityLocked() ? `Gesperrt: ${getLiveActionBlockReason()}` : 'Erweiterte Autonomie freischalten')}">Erweiterte Autonomie freischalten</button>`}
           </div>
         </div>
         <div class="virtual-agent-footer">
@@ -10550,8 +10593,8 @@ document.addEventListener('DOMContentLoaded',()=>{
           </div>
 
           <div class="virtual-agent-footer">
-            <button type="button" class="secondary" data-agent-action="run-agent-workflow" data-agent-id="${def.id}">Lokale Analyse</button>
-            <button type="button" class="secondary" data-agent-action="test-agent" data-agent-id="${def.id}">Agent testen</button>
+            <button type="button" class="secondary" data-agent-action="run-agent-workflow" data-agent-id="${def.id}" ${isAiActionBlocked() ? 'disabled aria-disabled="true"' : ''} title="${isAiActionBlocked() ? getAiActionBlockReason() : 'Lokale Analyse'}">Lokale Analyse</button>
+            <button type="button" class="secondary" data-agent-action="test-agent" data-agent-id="${def.id}" ${isAiActionBlocked() ? 'disabled aria-disabled="true"' : ''} title="${isAiActionBlocked() ? getAiActionBlockReason() : 'Agent testen'}">Agent testen</button>
             <button type="button" class="secondary" data-agent-action="open-agent-instructions" data-agent-id="${def.id}">Erweiterte KI-Anweisungen öffnen</button>
           </div>
 
@@ -10588,7 +10631,10 @@ document.addEventListener('DOMContentLoaded',()=>{
   };
 
   const buildFutureFunctionsSection = () => {
-    const lockedMessage = 'Noch nicht aktivierbar – Sicherheitsfreigabe erforderlich.';
+    const futureUnlocked = isFutureCapabilityUnlocked();
+    const lockedMessage = futureUnlocked
+      ? 'Freigegeben – für spätere Aktivierung vorbereitet.'
+      : 'Noch nicht aktivierbar – Sicherheitsfreigabe erforderlich.';
     const items = [
       {
         icon: '🔒',
@@ -10619,24 +10665,24 @@ document.addEventListener('DOMContentLoaded',()=>{
               <div class="virtual-agent-icon">🔒</div>
               <div>
                 <h3>Vorschau gesperrter Funktionen</h3>
-                <p>Vorbereitet, aber aus Sicherheitsgründen deaktiviert. Erst mit manueller Freigabe aktivierbar.</p>
+                <p>${futureUnlocked ? 'Erweiterte Autonomie ist aktiv. Die Vorschau unten ist jetzt freigegeben.' : 'Vorbereitet, aber aus Sicherheitsgründen deaktiviert. Erst mit manueller Freigabe aktivierbar.'}</p>
               </div>
             </div>
             <span class="virtual-agent-summary-chevron">⌄</span>
           </div>
           <div class="virtual-agent-summary-meta">
             <span class="pill">4 gesperrte Funktionen</span>
-            <span class="pill">${isSecurityLocked() ? 'Live blockiert' : 'Live getrennt'}</span>
-            <span class="pill">Sicherheitsfreigabe erforderlich</span>
+            <span class="pill">${futureUnlocked ? 'Freigegeben' : (isSecurityLocked() ? 'Live blockiert' : 'Live getrennt')}</span>
+            <span class="pill">${futureUnlocked ? 'Erweiterte Autonomie aktiv' : 'Sicherheitsfreigabe erforderlich'}</span>
           </div>
         </summary>
         <div class="virtual-agent-body">
-          <div class="virtual-future-warning">Diese Funktionen sind vorbereitet, aber aus Sicherheitsgründen deaktiviert. ${isSecurityLocked() ? 'Live-Aktionen bleiben durch Sicherheitsmodus oder Sandbox blockiert.' : 'Live-Aktionen bleiben in dieser Version bewusst getrennt.'} ${lockedMessage}</div>
+          <div class="virtual-future-warning">${futureUnlocked ? 'Erweiterte Autonomie ist aktiv. Die unteren Zukunftsfunktionen sind freigegeben und können weiter vorbereitet werden.' : `Diese Funktionen sind vorbereitet, aber aus Sicherheitsgründen deaktiviert. ${isSecurityLocked() ? 'Live-Aktionen bleiben durch Sicherheitsmodus oder Sandbox blockiert.' : 'Live-Aktionen bleiben in dieser Version bewusst getrennt.'} ${lockedMessage}`}</div>
           <div class="virtual-future-grid" style="margin-top:14px">
             ${items.map((item) => `
               ${(() => {
                 const record = getFutureCapabilityRecord('lockedFunctions', item.id);
-                const statusLabel = record.prepared ? 'Vorbereitet' : 'Noch offen';
+                const statusLabel = futureUnlocked ? (record.enabled ? 'Entsperrt' : 'Gesperrt') : (record.prepared ? 'Vorbereitet' : 'Noch offen');
                 return `
               <div class="virtual-future-card">
                 <div class="virtual-agent-ident">
@@ -10646,16 +10692,16 @@ document.addEventListener('DOMContentLoaded',()=>{
                     <p>${escapeHtml(item.description)}</p>
                     <div style="margin-top:8px" class="virtual-agent-summary-meta">
                       <span class="pill">${escapeHtml(statusLabel)}</span>
-                      <span class="pill">Gesperrt</span>
+                      <span class="pill">${futureUnlocked ? (record.enabled ? 'Aktiv' : 'Bereit') : 'Gesperrt'}</span>
                     </div>
                   </div>
                 </div>
                 <div class="settings-agents-overview" style="grid-template-columns:1fr auto;gap:10px;align-items:center">
-                  <span class="virtual-agent-badge warn">Gesperrt</span>
-                  <div class="agent-switch agent-switch-locked" aria-disabled="true">
+                  <span class="virtual-agent-badge ${futureUnlocked ? (record.enabled ? 'good' : 'info') : 'warn'}">${futureUnlocked ? (record.enabled ? 'Aktiv' : 'Bereit') : 'Gesperrt'}</span>
+                  <button type="button" class="agent-switch ${futureUnlocked ? (record.enabled ? 'agent-switch-unlocked' : '') : 'agent-switch-locked'}" data-future-action="toggle-future-capability" data-future-kind="lockedFunctions" data-future-id="${item.id}" ${futureUnlocked ? '' : 'disabled aria-disabled="true"'} title="${futureUnlocked ? (record.enabled ? 'Sperren' : 'Freigeben') : lockedMessage}">
                     <span class="agent-switch-track"></span>
-                    <span>${lockedMessage}</span>
-                  </div>
+                    <span>${futureUnlocked ? (record.enabled ? 'Entsperrt' : 'Freigeben') : lockedMessage}</span>
+                  </button>
                 </div>
                 ${record.lastPreparedAt ? `<p class="hint" style="margin-top:10px">Zuletzt vorbereitet: ${escapeHtml(formatTaskDate(record.lastPreparedAt))}</p>` : ''}
               </div>`; 
@@ -10668,7 +10714,10 @@ document.addEventListener('DOMContentLoaded',()=>{
   };
 
   const buildFutureRolesSection = () => {
-    const lockedMessage = 'Noch nicht aktivierbar – Sicherheitsfreigabe erforderlich.';
+    const futureUnlocked = isFutureCapabilityUnlocked();
+    const lockedMessage = futureUnlocked
+      ? 'Freigegeben – für spätere Aktivierung vorbereitet.'
+      : 'Noch nicht aktivierbar – Sicherheitsfreigabe erforderlich.';
     const items = [
       { icon: '🤖', title: 'Soul Listing', description: 'Erstellt Listing-Entwürfe, Produktblöcke und Strukturvorschläge für neue eBay-Angebote.' },
       { icon: '💹', title: 'Soul Pricing', description: 'Prüft Preisstrategie, Untergrenzen, Wettbewerbsdruck und mögliche Anpassungen.' },
@@ -10687,24 +10736,24 @@ document.addEventListener('DOMContentLoaded',()=>{
               <div class="virtual-agent-icon">🧑‍💼</div>
               <div>
                 <h3>Vorschau gesperrter Rollen</h3>
-                <p>Neue KI-Agenten und virtuelle MA, die später erweitert werden könnten. Aktuell nur als sichere Vorschau sichtbar.</p>
+                <p>${futureUnlocked ? 'Erweiterte Autonomie ist aktiv. Neue Rollen sind jetzt freigegeben.' : 'Neue KI-Agenten und virtuelle MA, die später erweitert werden könnten. Aktuell nur als sichere Vorschau sichtbar.'}</p>
               </div>
             </div>
             <span class="virtual-agent-summary-chevron">⌄</span>
           </div>
           <div class="virtual-agent-summary-meta">
             <span class="pill">8 gesperrte Rollen</span>
-            <span class="pill">${isSecurityLocked() ? 'Live blockiert' : 'Live getrennt'}</span>
-            <span class="pill">Sicherheitsfreigabe erforderlich</span>
+            <span class="pill">${futureUnlocked ? 'Freigegeben' : (isSecurityLocked() ? 'Live blockiert' : 'Live getrennt')}</span>
+            <span class="pill">${futureUnlocked ? 'Erweiterte Autonomie aktiv' : 'Sicherheitsfreigabe erforderlich'}</span>
           </div>
         </summary>
         <div class="virtual-agent-body">
-          <div class="virtual-future-warning">Diese Rollen sind nur als Planungsvorschau angelegt. ${isSecurityLocked() ? 'Live-Aktionen bleiben durch Sicherheitsmodus oder Sandbox blockiert.' : 'Live-Aktionen bleiben in dieser Version bewusst getrennt.'} ${lockedMessage}</div>
+          <div class="virtual-future-warning">${futureUnlocked ? 'Erweiterte Autonomie ist aktiv. Die unteren Rollen sind freigegeben und können weiter vorbereitet werden.' : `Diese Rollen sind nur als Planungsvorschau angelegt. ${isSecurityLocked() ? 'Live-Aktionen bleiben durch Sicherheitsmodus oder Sandbox blockiert.' : 'Live-Aktionen bleiben in dieser Version bewusst getrennt.'} ${lockedMessage}`}</div>
           <div class="virtual-future-grid" style="margin-top:14px">
             ${items.map((item) => `
               ${(() => {
                 const record = getFutureCapabilityRecord('lockedRoles', item.id);
-                const statusLabel = record.prepared ? 'Vorbereitet' : 'Noch offen';
+                const statusLabel = futureUnlocked ? 'Freigegeben' : (record.prepared ? 'Vorbereitet' : 'Noch offen');
                 return `
               <div class="virtual-future-card">
                 <div class="virtual-agent-ident">
@@ -10714,15 +10763,15 @@ document.addEventListener('DOMContentLoaded',()=>{
                     <p>${escapeHtml(item.description)}</p>
                     <div style="margin-top:8px" class="virtual-agent-summary-meta">
                       <span class="pill">${escapeHtml(statusLabel)}</span>
-                      <span class="pill">Gesperrt</span>
+                      <span class="pill">${futureUnlocked ? 'Entsperrt' : 'Gesperrt'}</span>
                     </div>
                   </div>
                 </div>
                 <div class="settings-agents-overview" style="grid-template-columns:1fr auto;gap:10px;align-items:center">
-                  <span class="virtual-agent-badge warn">Gesperrt</span>
-                  <div class="agent-switch agent-switch-locked" aria-disabled="true">
+                  <span class="virtual-agent-badge ${futureUnlocked ? 'good' : 'warn'}">${futureUnlocked ? 'Entsperrt' : 'Gesperrt'}</span>
+                  <div class="agent-switch ${futureUnlocked ? 'agent-switch-unlocked' : 'agent-switch-locked'}" aria-disabled="${futureUnlocked ? 'false' : 'true'}">
                     <span class="agent-switch-track"></span>
-                    <span>${lockedMessage}</span>
+                    <span>${futureUnlocked ? 'Freigegeben' : lockedMessage}</span>
                   </div>
                 </div>
                 ${record.lastPreparedAt ? `<p class="hint" style="margin-top:10px">Zuletzt vorbereitet: ${escapeHtml(formatTaskDate(record.lastPreparedAt))}</p>` : ''}
@@ -10829,6 +10878,10 @@ document.addEventListener('DOMContentLoaded',()=>{
   };
 
   const openAdvancedAutonomyModal = () => {
+    if (isAiActionBlocked()) {
+      showAiBlockedNotice('Die erweiterte Autonomie');
+      return;
+    }
     if (isSecurityLocked()) {
       showSecurityBlockedNotice('Die erweiterte Autonomie');
       return;
@@ -10845,6 +10898,10 @@ document.addEventListener('DOMContentLoaded',()=>{
   };
 
   const unlockAdvancedAutonomy = () => {
+    if (isAiActionBlocked()) {
+      showAiBlockedNotice('Die Freischaltung der erweiterten Autonomie');
+      return;
+    }
     if (isSecurityLocked()) {
       showSecurityBlockedNotice('Die Freischaltung der erweiterten Autonomie');
       return;
@@ -10857,6 +10914,10 @@ document.addEventListener('DOMContentLoaded',()=>{
   };
 
   const lockAdvancedAutonomy = () => {
+    if (isAiActionBlocked()) {
+      showAiBlockedNotice('Das Sperren der erweiterten Autonomie');
+      return;
+    }
     if (isSecurityLocked() && state.autonomyLocked !== false) {
       showSecurityBlockedNotice('Das Sperren der erweiterten Autonomie');
       return;
@@ -10868,6 +10929,10 @@ document.addEventListener('DOMContentLoaded',()=>{
   };
 
   const startAdvancedAutonomyHold = (event) => {
+    if (isAiActionBlocked()) {
+      showAiBlockedNotice('Die Freischaltung per Haltebutton');
+      return;
+    }
     if (isSecurityLocked()) {
       showSecurityBlockedNotice('Die Freischaltung per Haltebutton');
       return;
@@ -11040,6 +11105,10 @@ document.addEventListener('DOMContentLoaded',()=>{
     const agent = getAgent(agentId);
     const def = getDefinition(agentId);
     if (!agent || !def) return;
+    if (isAiActionBlocked()) {
+      showAiBlockedNotice('Der Agententest');
+      return;
+    }
     const response = getTestResponse(def);
     agent.lastTestResponse = response;
     agent.lastActivity = 'Letzte Prüfung vorbereitet';
@@ -11144,6 +11213,11 @@ document.addEventListener('DOMContentLoaded',()=>{
       const closeInstructionsButton = event.target.closest('[data-agent-action="close-agent-instructions"]');
       if (closeInstructionsButton) {
         closeAgentInstructionsModal();
+        return;
+      }
+      const futureCapabilityButton = event.target.closest('[data-future-action="toggle-future-capability"]');
+      if (futureCapabilityButton) {
+        toggleFutureCapability(futureCapabilityButton.dataset.futureKind, futureCapabilityButton.dataset.futureId);
         return;
       }
       const workflowButton = event.target.closest('[data-agent-action="run-agent-workflow"]');
