@@ -348,6 +348,13 @@
   .task-remove-summary strong{display:block;font-size:15px;line-height:1.45}
   .task-remove-warning{padding:14px 16px;border-radius:18px;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.24);color:#fecaca;font-size:13px;line-height:1.55}
   .task-remove-modal-actions{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap}
+  .tool-popup-panel{max-width:620px;width:min(96vw,620px)}
+  .tool-popup-body{display:grid;gap:14px}
+  .tool-popup-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap}
+  .tool-popup-head h3{margin:0;font-size:22px;letter-spacing:-.02em}
+  .tool-popup-head p{margin-top:4px;color:#cbd5e1;font-size:13px;line-height:1.5}
+  .tool-popup-message{padding:16px;border-radius:18px;background:rgba(2,6,23,.38);border:1px solid rgba(255,255,255,.09);color:#e2e8f0;font-size:14px;line-height:1.6}
+  .tool-popup-actions{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap}
   @media(max-width:900px){
     .settings-agents-overview,.virtual-agent-grid{grid-template-columns:1fr}
     .virtual-agent-system-metrics{grid-template-columns:1fr 1fr}
@@ -1088,9 +1095,15 @@ Land"></textarea>
       <h2>Google Sheets Sync</h2>
       <p class="hint">Synchronisiert deine Elyon-Daten mit einem Google Apps Script Web-App Endpoint. Die bestehenden CSV-Import/Export-Funktionen bleiben unverändert.</p>
       <label>Google Apps Script Web-App URL</label>
-      <input id="googleSheetsSyncUrl" placeholder="https://script.google.com/macros/s/....../exec">
+      <div style="display:flex;gap:8px;align-items:center">
+        <input id="googleSheetsSyncUrl" type="password" placeholder="https://script.google.com/macros/s/....../exec" style="flex:1;min-width:0">
+        <button id="toggleGoogleSheetsSyncUrlVisibilityBtn" type="button" class="secondary" aria-label="Google Apps Script Web-App URL sichtbar machen" onclick="toggleGoogleSheetsSecretField('googleSheetsSyncUrl')">👁️</button>
+      </div>
       <label>Sync Token</label>
-      <input id="googleSheetsSyncToken" placeholder="Dein Sync-Token">
+      <div style="display:flex;gap:8px;align-items:center">
+        <input id="googleSheetsSyncToken" type="password" placeholder="Dein Sync-Token" style="flex:1;min-width:0">
+        <button id="toggleGoogleSheetsSyncTokenVisibilityBtn" type="button" class="secondary" aria-label="Sync Token sichtbar machen" onclick="toggleGoogleSheetsSecretField('googleSheetsSyncToken')">👁️</button>
+      </div>
       <div class="row">
         <button id="saveGoogleSheetsSyncBtn" class="secondary full" type="button">Sync-Einstellungen speichern</button>
         <button id="syncAllGoogleSheetsBtn" class="full" type="button">Alles synchronisieren</button>
@@ -1100,7 +1113,6 @@ Land"></textarea>
         <button id="syncSuppliersGoogleSheetsBtn" class="secondary full" type="button">Supplier Liste synchronisieren</button>
       </div>
       <div class="row" style="margin-top:10px">
- <button id="syncSalesGoogleSheetsBtn" class="secondary full" type="button">InventarTracker synchronisieren</button>
         <button id="syncCostsGoogleSheetsBtn" class="secondary full" type="button">Laufende Kosten synchronisieren</button>
       </div>
       <div id="googleSheetsSyncStatus" class="output-box" style="margin-top:14px"><p>Nicht verbunden</p></div>
@@ -1568,6 +1580,81 @@ PLZ Ort"></textarea>
         <div class="task-remove-modal-actions">
           <button type="button" id="taskRemoveCancelBtn" class="secondary">Abbrechen</button>
           <button type="button" id="taskRemoveConfirmBtn">Entfernen</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="approvalQueueDetailModal" class="hidden modal-backdrop" aria-hidden="true">
+    <div class="card modal-panel task-remove-modal-panel">
+      <div class="task-remove-modal">
+        <div class="task-remove-modal-head">
+          <div>
+            <h3 id="approvalDetailTitle">Freigabe-Details</h3>
+            <p>Nur Vorschau. Keine echte Ausführung.</p>
+          </div>
+          <span class="virtual-agent-badge info">Bestätigungspflichtig</span>
+        </div>
+        <div class="task-remove-summary">
+          <div>
+            <small>Agent</small>
+            <strong id="approvalDetailAgent">-</strong>
+          </div>
+          <div>
+            <small>Typ</small>
+            <strong id="approvalDetailType">-</strong>
+          </div>
+          <div>
+            <small>Status</small>
+            <strong id="approvalDetailStatus">-</strong>
+          </div>
+        </div>
+        <div class="task-remove-summary" style="margin-top:12px">
+          <div>
+            <small>Risiko</small>
+            <strong id="approvalDetailRisk">-</strong>
+          </div>
+          <div>
+            <small>Erstellt</small>
+            <strong id="approvalDetailCreatedAt">-</strong>
+          </div>
+          <div>
+            <small>Bestätigung</small>
+            <strong>Erforderlich</strong>
+          </div>
+        </div>
+        <div class="output-box" style="margin-top:12px">
+          <h4>Beschreibung</h4>
+          <p id="approvalDetailDescription">-</p>
+        </div>
+        <div class="output-box" style="margin-top:12px">
+          <h4>Vorschau</h4>
+          <p id="approvalDetailPreview">-</p>
+        </div>
+        <div class="output-box" style="margin-top:12px">
+          <h4>Payload</h4>
+          <pre id="approvalDetailPayload" style="white-space:pre-wrap;word-break:break-word;margin:0">-</pre>
+        </div>
+        <div class="task-remove-modal-actions">
+          <button type="button" id="approvalDetailCloseBtn" class="secondary">Schließen</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toolPopupModal" class="hidden modal-backdrop" aria-hidden="true">
+    <div class="card modal-panel tool-popup-panel">
+      <div class="tool-popup-body">
+        <div class="tool-popup-head">
+          <div>
+            <h3 id="toolPopupTitle">Bestätigung</h3>
+            <p id="toolPopupSubtitle">Elyon Tool Rückmeldung</p>
+          </div>
+          <span class="virtual-agent-badge good">Übernommen</span>
+        </div>
+        <div class="tool-popup-message" id="toolPopupMessage">-</div>
+        <div class="tool-popup-actions">
+          <button type="button" id="toolPopupCloseBtn" class="secondary">OK</button>
         </div>
       </div>
     </div>
@@ -2301,6 +2388,12 @@ const GOOGLE_SHEETS_SYNC_KEYS = {
   supplierAt: 'elyon_last_supplier_sync_at',
   salesAt: 'elyon_last_sales_sync_at',
   costsAt: 'elyon_last_costs_sync_at',
+  salesLoadAt: 'elyon_last_sales_load_at',
+  inventoryError: 'elyon_last_inventory_sync_error',
+  supplierError: 'elyon_last_supplier_sync_error',
+  salesError: 'elyon_last_sales_sync_error',
+  costsError: 'elyon_last_costs_sync_error',
+  salesLoadError: 'elyon_last_sales_load_error',
 };
 const GOOGLE_SHEETS_SYNC_TYPES = {
   inventory: 'inventory',
@@ -2336,6 +2429,27 @@ function formatSyncTimestamp(value){
     minute: '2-digit',
   });
 }
+function formatSyncRelativeTimestamp(value){
+  if(!value) return 'Noch nie';
+  const date = new Date(value);
+  if(Number.isNaN(date.getTime())) return sheetText(value);
+  const diff = Date.now() - date.getTime();
+  if(diff < 0) return 'gerade eben';
+  const minute = 60 * 1000;
+  const hour = 60 * minute;
+  const day = 24 * hour;
+  if(diff < minute) return 'gerade eben';
+  if(diff < hour){
+    const mins = Math.max(1, Math.round(diff / minute));
+    return 'vor ' + mins + ' Min';
+  }
+  if(diff < day){
+    const hours = Math.max(1, Math.round(diff / hour));
+    return 'vor ' + hours + ' Std';
+  }
+  const days = Math.max(1, Math.round(diff / day));
+  return 'vor ' + days + ' Tag' + (days === 1 ? '' : 'en');
+}
 function getGoogleSheetsSyncConfig(){
   const storedUrl = localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.url) || '';
   const storedToken = localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.token) || '';
@@ -2345,6 +2459,136 @@ function getGoogleSheetsSyncConfig(){
     url: formUrl || storedUrl,
     token: formToken || storedToken,
   };
+}
+function setGoogleSheetsSecretFieldVisibility(fieldId, visible){
+  const input = $(fieldId);
+  const buttonId = fieldId === 'googleSheetsSyncUrl' ? 'toggleGoogleSheetsSyncUrlVisibilityBtn' : fieldId === 'googleSheetsSyncToken' ? 'toggleGoogleSheetsSyncTokenVisibilityBtn' : '';
+  const button = buttonId ? $(buttonId) : null;
+  if(input){
+    input.type = visible ? 'text' : 'password';
+  }
+  if(button){
+    button.textContent = visible ? '🙈' : '👁️';
+    button.setAttribute('aria-label', visible ? 'Feld verbergen' : 'Feld sichtbar machen');
+  }
+}
+function toggleGoogleSheetsSecretField(fieldId){
+  const input = $(fieldId);
+  setGoogleSheetsSecretFieldVisibility(fieldId, !(input && input.type === 'text'));
+}
+function refreshGoogleSheetsSecretFieldVisibility(){
+  setGoogleSheetsSecretFieldVisibility('googleSheetsSyncUrl', !!($('googleSheetsSyncUrl') && $('googleSheetsSyncUrl').type === 'text'));
+  setGoogleSheetsSecretFieldVisibility('googleSheetsSyncToken', !!($('googleSheetsSyncToken') && $('googleSheetsSyncToken').type === 'text'));
+}
+function getGoogleSheetsSyncSnapshot(){
+  return {
+    url: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.url) || '',
+    token: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.token) || '',
+    lastInventorySyncAt: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.inventoryAt) || '',
+    lastSupplierSyncAt: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.supplierAt) || '',
+    lastSalesSyncAt: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.salesAt) || '',
+    lastCostsSyncAt: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.costsAt) || '',
+    lastSalesLoadAt: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.salesLoadAt) || '',
+  };
+}
+function applyGoogleSheetsSyncSnapshot(snapshot){
+  const data = snapshot && typeof snapshot === 'object' ? snapshot : {};
+  const entries = [
+    [GOOGLE_SHEETS_SYNC_KEYS.url, data.url],
+    [GOOGLE_SHEETS_SYNC_KEYS.token, data.token],
+    [GOOGLE_SHEETS_SYNC_KEYS.inventoryAt, data.lastInventorySyncAt],
+    [GOOGLE_SHEETS_SYNC_KEYS.supplierAt, data.lastSupplierSyncAt],
+    [GOOGLE_SHEETS_SYNC_KEYS.salesAt, data.lastSalesSyncAt],
+    [GOOGLE_SHEETS_SYNC_KEYS.costsAt, data.lastCostsSyncAt],
+    [GOOGLE_SHEETS_SYNC_KEYS.salesLoadAt, data.lastSalesLoadAt],
+  ];
+  entries.forEach(function(pair){
+    const key = pair[0];
+    const value = pair[1];
+    if(key && value !== undefined && value !== null){
+      localStorage.setItem(key, String(value || ''));
+    }
+  });
+  safe('googleSheetsSyncUrl', el => el.value = data.url || localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.url) || '');
+  safe('googleSheetsSyncToken', el => el.value = data.token || localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.token) || '');
+}
+function getGoogleSheetsSyncCloudEndpoint(){
+  if(typeof window === 'undefined' || !window.location || !/^https?:$/i.test(window.location.protocol || '')){
+    return '';
+  }
+  return '/api/google-sheets-sync-settings';
+}
+async function loadGoogleSheetsSyncSettingsFromCloud(){
+  const endpoint = getGoogleSheetsSyncCloudEndpoint();
+  if(!endpoint) return null;
+  try{
+    const response = await fetch(endpoint, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+      },
+    });
+    const rawText = await response.text();
+    if(!rawText || !rawText.trim()) return null;
+    const data = JSON.parse(rawText);
+    if(!response.ok || !data || data.ok === false || !data.settings || typeof data.settings !== 'object'){
+      return null;
+    }
+    applyGoogleSheetsSyncSnapshot(data.settings);
+    renderGoogleSheetsSyncStatus();
+    return data.settings;
+  }catch(error){
+    console.warn('Google Sheets Sync settings cloud load failed:', error);
+    return null;
+  }
+}
+let googleSheetsSyncSettingsCloudSaveTimer = null;
+function queueGoogleSheetsSyncSettingsCloudSave(){
+  const endpoint = getGoogleSheetsSyncCloudEndpoint();
+  if(!endpoint) return;
+  if(googleSheetsSyncSettingsCloudSaveTimer){
+    clearTimeout(googleSheetsSyncSettingsCloudSaveTimer);
+  }
+  googleSheetsSyncSettingsCloudSaveTimer = setTimeout(function(){
+    googleSheetsSyncSettingsCloudSaveTimer = null;
+    void saveGoogleSheetsSyncSettingsToCloud();
+  }, 350);
+}
+async function saveGoogleSheetsSyncSettingsToCloud(){
+  const endpoint = getGoogleSheetsSyncCloudEndpoint();
+  if(!endpoint) return { ok: false, skipped: true, reason: 'offline' };
+  const snapshot = getGoogleSheetsSyncSnapshot();
+  try{
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify({ settings: snapshot }),
+    });
+    const rawText = await response.text();
+    if(!rawText || !rawText.trim()){
+      throw new Error('Leere Antwort vom Server.');
+    }
+    const data = JSON.parse(rawText);
+    if(!response.ok || !data || data.ok === false){
+      throw new Error((data && (data.error || data.message)) ? (data.error || data.message) : ('Request fehlgeschlagen: HTTP ' + response.status));
+    }
+    return data;
+  }catch(error){
+    console.warn('Google Sheets Sync settings cloud save failed:', error);
+    throw error;
+  }
+}
+function getGoogleSheetsSyncErrorKey(type){
+  const map = {
+    inventory: GOOGLE_SHEETS_SYNC_KEYS.inventoryError,
+    suppliers: GOOGLE_SHEETS_SYNC_KEYS.supplierError,
+    sales: GOOGLE_SHEETS_SYNC_KEYS.salesError,
+    costs: GOOGLE_SHEETS_SYNC_KEYS.costsError,
+  };
+  return map[type] || '';
 }
 function setGoogleSheetsSyncTimestamp(type, iso){
   const map = {
@@ -2356,31 +2600,76 @@ function setGoogleSheetsSyncTimestamp(type, iso){
   const key = map[type];
   if(key){
     localStorage.setItem(key, iso || new Date().toISOString());
+    queueGoogleSheetsSyncSettingsCloudSave();
   }
+}
+function clearGoogleSheetsSyncError(type){
+  const key = getGoogleSheetsSyncErrorKey(type);
+  if(key) localStorage.removeItem(key);
+}
+function setGoogleSheetsSyncError(type, message){
+  const key = getGoogleSheetsSyncErrorKey(type);
+  if(key) localStorage.setItem(key, message ? String(message) : '');
+}
+function clearGoogleSheetsSyncLoadError(){
+  localStorage.removeItem(GOOGLE_SHEETS_SYNC_KEYS.salesLoadError);
+}
+function setGoogleSheetsSyncLoadError(message){
+  localStorage.setItem(GOOGLE_SHEETS_SYNC_KEYS.salesLoadError, message ? String(message) : '');
+}
+function renderGoogleSheetsMetric(label, timestampValue, errorValue){
+  const relative = formatSyncRelativeTimestamp(timestampValue);
+  const exact = formatSyncTimestamp(timestampValue);
+  const errorHtml = errorValue ? '<div style="margin-top:6px;font-size:12px;line-height:1.35;color:#ffb4b4">Letzter Fehler: ' + escapeHtml(errorValue) + '</div>' : '';
+  return '<div class="metric">' +
+    '<small>' + escapeHtml(label) + '</small>' +
+    '<strong>' + escapeHtml(relative) + '</strong>' +
+    '<div style="margin-top:6px;font-size:12px;line-height:1.35;opacity:.78">Letzter erfolgreicher Lauf: ' + escapeHtml(exact) + '</div>' +
+    errorHtml +
+  '</div>';
 }
 function renderGoogleSheetsSyncStatus(){
   const config = getGoogleSheetsSyncConfig();
   const connected = !!(config.url && config.token);
-  const statusText = connected ? 'Google Sheets Sync eingerichtet' : 'Nicht verbunden';
-  const statusClass = connected ? 'good' : 'bad';
-  const lastInventory = formatSyncTimestamp(localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.inventoryAt));
-  const lastSupplier = formatSyncTimestamp(localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.supplierAt));
-  const lastSales = formatSyncTimestamp(localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.salesAt));
-  const lastCosts = formatSyncTimestamp(localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.costsAt));
+  const inventoryAt = localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.inventoryAt);
+  const supplierAt = localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.supplierAt);
+  const salesAt = localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.salesAt);
+  const costsAt = localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.costsAt);
+  const salesLoadAt = localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.salesLoadAt);
+  const inventoryError = localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.inventoryError) || '';
+  const supplierError = localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.supplierError) || '';
+  const salesError = localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.salesError) || '';
+  const costsError = localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.costsError) || '';
+  const salesLoadError = localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.salesLoadError) || '';
+  const anyError = !!(inventoryError || supplierError || salesError || costsError || salesLoadError);
+  const latestAt = [
+    inventoryAt,
+    supplierAt,
+    salesAt,
+    costsAt,
+    salesLoadAt
+  ].filter(Boolean).sort().slice(-1)[0] || '';
+  const statusText = connected ? 'Verbunden' : 'Nicht verbunden';
+  const statusClass = connected ? (anyError ? 'warn' : 'good') : 'bad';
   safe('googleSheetsSyncUrl', el => el.value = config.url || '');
   safe('googleSheetsSyncToken', el => el.value = config.token || '');
+  refreshGoogleSheetsSecretFieldVisibility();
   setHTML('googleSheetsSyncStatus',
     '<div class="score-top"><span class="status ' + statusClass + '">' + statusText + '</span><span class="score-number">' + (connected ? 'SYNC' : 'OFF') + '</span></div>' +
-    '<div class="dashboard" style="margin-top:16px">' +
-      '<div class="metric"><small>Inventar</small><strong>' + lastInventory + '</strong></div>' +
-      '<div class="metric"><small>Supplier</small><strong>' + lastSupplier + '</strong></div>' +
- '<div class="metric"><small>InventarTracker</small><strong>' + lastSales + '</strong></div>' +
-      '<div class="metric"><small>Laufende Kosten</small><strong>' + lastCosts + '</strong></div>' +
+    '<div style="margin-top:8px;font-size:12px;line-height:1.4;opacity:.75">' +
+      'Zuletzt: <strong>' + escapeHtml(formatSyncTimestamp(latestAt)) + '</strong>' +
     '</div>' +
+    '<div class="dashboard" style="margin-top:16px">' +
+      renderGoogleSheetsMetric('Inventar', inventoryAt, inventoryError) +
+      renderGoogleSheetsMetric('Supplier', supplierAt, supplierError) +
+      renderGoogleSheetsMetric('Google Sheets', salesAt, salesError) +
+      renderGoogleSheetsMetric('Laufende Kosten', costsAt, costsError) +
+    '</div>' +
+    '<div class="output-box" style="margin-top:14px"><p>Letztes Laden von Google Sheets: <strong>' + escapeHtml(formatSyncTimestamp(salesLoadAt)) + '</strong>' + (salesLoadError ? '<br><span style="color:#ffb4b4">Letzter Fehler beim Laden: ' + escapeHtml(salesLoadError) + '</span>' : '') + '</p></div>' +
     '<div class="output-box" style="margin-top:14px"><p>' + (connected ? 'Sync bereit. Beim Start werden URL und Token aus localStorage geladen.' : 'Trage URL und Token ein, um die Google Sheets Sync zu aktivieren.') + '</p></div>'
   );
 }
-function saveGoogleSheetsSyncSettings(){
+async function saveGoogleSheetsSyncSettings(){
   const url = $('googleSheetsSyncUrl') ? $('googleSheetsSyncUrl').value.trim() : '';
   const token = $('googleSheetsSyncToken') ? $('googleSheetsSyncToken').value.trim() : '';
   if(!url || !token){
@@ -2391,7 +2680,18 @@ function saveGoogleSheetsSyncSettings(){
   localStorage.setItem(GOOGLE_SHEETS_SYNC_KEYS.url, url);
   localStorage.setItem(GOOGLE_SHEETS_SYNC_KEYS.token, token);
   renderGoogleSheetsSyncStatus();
-  setHTML('googleSheetsSyncResult', '<p>Sync-Einstellungen gespeichert.</p>');
+  try{
+    const cloudResult = await saveGoogleSheetsSyncSettingsToCloud();
+    if(cloudResult && cloudResult.ok){
+      setHTML('googleSheetsSyncResult', '<p>Sync-Einstellungen gespeichert und cloud-synchronisiert.</p>');
+    }else if(cloudResult && cloudResult.skipped){
+      setHTML('googleSheetsSyncResult', '<p>Sync-Einstellungen lokal gespeichert. Cloud-Sync ist in der Datei-Ansicht nicht aktiv.</p>');
+    }else{
+      setHTML('googleSheetsSyncResult', '<p>Sync-Einstellungen lokal gespeichert.</p>');
+    }
+  }catch(error){
+    setHTML('googleSheetsSyncResult', '<p>Sync-Einstellungen lokal gespeichert. Cloud-Sync nicht verfügbar: ' + escapeHtml(error && error.message ? error.message : 'Unbekannter Fehler') + '</p>');
+  }
   alert('Google Sheets Sync-Einstellungen gespeichert.');
 }
 function calcProductSafe(product){
@@ -2435,7 +2735,7 @@ function getSupplierSyncRecords(){
   return deriveSuppliersFromProducts();
 }
 function getSalesSyncRecords(){
-  return Array.isArray(sales) ? sales : [];
+  return Array.isArray(products) ? products : [];
 }
 function getCostSyncRecords(){
   return loadStoredArray('elyonCosts');
@@ -2489,48 +2789,195 @@ function mapSupplierToSheetRow(supplier){
   ];
 }
 function mapSaleToSheetRow(sale){
-  const s = sale || {};
-  const cost = sheetNumber(s.cost);
-  const shipping = sheetNumber(s.shippingCost ?? s.shipping ?? s.ship);
-  const price = sheetNumber(s.price ?? s.sell);
-  const fees = sheetNumber(s.fees ?? s.ebayFees);
-  const profit = sheetNumber(s.profit);
+  const p = sale || {};
+  const calc = calcProductSafe(p) || {};
+  const totalCost = (sheetNumber(p.buy) || 0) + (sheetNumber(p.ship) || 0);
   return [
-    sheetText(s.id || s.saleId || s.orderId || ''),
-    sheetText(s.date || s.created || todayInputDate()),
-    sheetText(s.orderNo || s.ebayOrderNo || ''),
-    sheetText(s.productId || s.sku || ''),
-    sheetText(s.product || s.name || ''),
-    price,
-    fees,
-    cost,
-    shipping,
-    Number.isFinite(profit) && profit !== '' ? profit : ((price || 0) - (fees || 0) - (cost || 0) - (shipping || 0)),
-    sheetYesNo(s.payoutReceived || s.paidOut || s.outpaid),
-    sheetYesNo(s.klarnaUsed || s.klarna || (String(s.paymentMethod || '').toLowerCase() === 'klarna')),
-    sheetNumber(s.klarnaAmount),
-    sheetText(s.klarnaDue || s.klarnaDueDate || ''),
-    sheetYesNo(s.supplierOrdered),
-    sheetText(s.trackingNo || s.tracking || ''),
-    sheetText(s.status || s.shippingStatus || ''),
-    sheetText(s.notes || ''),
+    sheetText(p.id || p.articleId || p.sku || ''),
+    sheetText(p.name || p.title || 'Unbenanntes Produkt'),
+    sheetText(p.type || p.category || 'Produkt'),
+    sheetNumber(p.buy),
+    sheetNumber(p.ship),
+    totalCost,
+    sheetNumber(p.sell),
+    sheetNumber(p.fee ?? appSettings.fees),
+    sheetNumber(calc.profit),
+    sheetNumber(p.targetProfit ?? appSettings.profit),
+    sheetNumber(calc.recommendedPrice),
+    sheetText(p.shipFrom || p.shippingFrom || ''),
+    sheetText(p.stock || p.qty || ''),
+    sheetText(normalizeProductStatus(p.productStatus || p.status || 'Draft', 'Draft')),
+    sheetText(p.supplierName || p.supplier || p.supplierId || ''),
+    sheetText(p.delivery || p.deliveryTime || ''),
+    sheetText(p.ebayLink || p.ebayUrl || p.ebayItemId || ''),
+    sheetText(p.notes || ''),
   ];
 }
 function mapCostToSheetRow(cost){
   const c = cost || {};
   return [
-    sheetText(c.id || c.costId || ''),
-    sheetText(c.date || c.created || todayInputDate()),
-    sheetText(c.category || ''),
-    sheetText(c.description || c.note || ''),
-    sheetNumber(c.amount ?? c.value ?? ''),
-    sheetText(c.paymentMethod || c.paymentType || ''),
-    sheetYesNo(c.recurring),
+    sheetText(c.name || c.title || c.category || c.description || 'Kosten'),
     sheetText(c.interval || c.repeatInterval || ''),
-    sheetText(c.nextDue || c.nextDueDate || ''),
-    sheetText(c.status || 'offen'),
-    sheetText(c.notes || ''),
+    sheetNumber(c.amount ?? c.value ?? ''),
+    sheetText(c.note || c.notes || c.description || c.category || ''),
   ];
+}
+function sheetRecordField(record, names){
+  const source = record && typeof record === 'object' ? record : {};
+  const lookup = {};
+  Object.keys(source).forEach(function(key){
+    lookup[sheetText(key).toLowerCase().replace(/[^a-z0-9]+/g, '')] = source[key];
+  });
+  const list = Array.isArray(names) ? names : [names];
+  for(let i = 0; i < list.length; i += 1){
+    const target = sheetText(list[i]).toLowerCase().replace(/[^a-z0-9]+/g, '');
+    if(Object.prototype.hasOwnProperty.call(lookup, target)){
+      return lookup[target];
+    }
+  }
+  return '';
+}
+function sheetRecordDate(value){
+  if(!value) return '';
+  if(value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString();
+  const parsed = Date.parse(String(value).trim());
+  return Number.isFinite(parsed) ? new Date(parsed).toISOString() : '';
+}
+function sheetRecordDateLabel(value){
+  const iso = sheetRecordDate(value);
+  if(!iso) return '';
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString('de-DE');
+}
+function mapGoogleSheetSaleRecord(record, index){
+  const articleId = sheetRecordField(record, ['Artikel-ID', 'ArtikelId', 'SKU', 'id']);
+  const name = sheetRecordField(record, ['Bezeichnung', 'Produkt', 'Product', 'name', 'title']) || 'Unbenanntes Produkt';
+  const type = sheetRecordField(record, ['Typ', 'Kategorie', 'Category']) || 'Produkt';
+  const buy = sheetNumber(sheetRecordField(record, ['Preis EK', 'EK', 'Cost', 'Einkaufspreis']));
+  const ship = sheetNumber(sheetRecordField(record, ['Versand mind.', 'Versand', 'Shipping']));
+  const totalCost = sheetNumber(sheetRecordField(record, ['PreisGesamt EK', 'Gesamt EK'])) || (buy + ship);
+  const sell = sheetNumber(sheetRecordField(record, ['Preis VK (ebay)', 'Preis VK', 'VK', 'Preis', 'Umsatz']));
+  const fee = sheetNumber(sheetRecordField(record, ['Ebay gebühren', 'Ebay Gebühren', 'eBay Gebühren', 'Gebühren']));
+  const profitRaw = sheetRecordField(record, ['Gewinn', 'Profit']);
+  const targetProfit = sheetNumber(sheetRecordField(record, ['Zielgewinn', 'Target Profit']));
+  const recommendedPrice = sheetNumber(sheetRecordField(record, ['Emph. Zielpreis', 'Empf. Zielpreis', 'Empfohlener Preis']));
+  const shipFrom = sheetRecordField(record, ['Versand ab', 'Ship From', 'Versandort']);
+  const stock = sheetRecordField(record, ['Stock', 'Lager', 'Menge', 'qty']);
+  const status = sheetRecordField(record, ['Status']) || 'Draft';
+  const supplier = sheetRecordField(record, ['Lieferant', 'Supplier', 'supplierName']);
+  const delivery = sheetRecordField(record, ['Versandzeit', 'Delivery', 'Lieferzeit']);
+  const ebayLink = sheetRecordField(record, ['Ebay Link', 'eBay Link', 'Ebay URL', 'Link']);
+  const note = sheetRecordField(record, ['Hinweise', 'Notizen', 'Notiz', 'note']);
+  const trackingNo = sheetRecordField(record, ['Trackingnummer', 'Tracking', 'Tracking No']);
+  const createdAt = sheetRecordField(record, ['Datum', 'createdAt', 'Erstellt am']);
+  const profit = Number.isFinite(Number(profitRaw)) ? Number(profitRaw) : (Number.isFinite(sell) ? (sell - buy - ship - fee) : 0);
+  return {
+    id: articleId || (Date.now() + index),
+    articleId: articleId || '',
+    productId: articleId || '',
+    sku: articleId || '',
+    product: name,
+    name: name,
+    title: name,
+    type: type,
+    category: type,
+    price: Number.isFinite(sell) ? sell : 0,
+    sell: Number.isFinite(sell) ? sell : 0,
+    cost: Number.isFinite(buy) ? buy : 0,
+    buy: Number.isFinite(buy) ? buy : 0,
+    ship: Number.isFinite(ship) ? ship : 0,
+    shipping: Number.isFinite(ship) ? ship : 0,
+    totalCost: Number.isFinite(totalCost) ? totalCost : (buy + ship),
+    fees: Number.isFinite(fee) ? fee : 0,
+    fee: Number.isFinite(fee) ? fee : 0,
+    qty: Number(sheetRecordField(record, ['Stückzahl', 'Menge', 'qty']) || 1) || 1,
+    profit: Number.isFinite(profit) ? profit : 0,
+    targetProfit: Number.isFinite(targetProfit) ? targetProfit : 0,
+    recommendedPrice: Number.isFinite(recommendedPrice) ? recommendedPrice : 0,
+    platform: sheetRecordField(record, ['Plattform', 'Platform']) || 'eBay',
+    status: status,
+    orderNo: articleId || '',
+    buyerRef: sheetRecordField(record, ['Käufer-Referenz', 'buyerRef', 'Käuferref']) || '',
+    customerName: sheetRecordField(record, ['Kundenname', 'customerName']) || '',
+    customerEmail: sheetRecordField(record, ['E-Mail', 'Email', 'customerEmail']) || '',
+    customerPhone: sheetRecordField(record, ['Telefon', 'phone', 'customerPhone']) || '',
+    customerAddressHint: '',
+    shipToRecipientName: '',
+    shipToAddressHint: '',
+    shipToStreet: '',
+    shipToPostalCode: '',
+    shipToCity: '',
+    shipToCountry: '',
+    shipToAddress: '',
+    returnFlag: String(sheetRecordField(record, ['Retoure', 'returnFlag']) || 'no').toLowerCase(),
+    carrier: sheetRecordField(record, ['Versanddienstleister', 'carrier']) || 'DHL',
+    shippingStatus: String(status).toLowerCase() === 'versendet' ? 'Versendet' : 'Noch nicht versendet',
+    trackingNo: trackingNo,
+    shipDate: sheetRecordField(record, ['Versanddatum', 'shipDate']) || '',
+    note: note,
+    notes: note,
+    supplierName: supplier,
+    supplier: supplier,
+    delivery: delivery,
+    deliveryTime: delivery,
+    shipFrom: shipFrom,
+    shippingFrom: shipFrom,
+    ebayLink: ebayLink,
+    ebayUrl: ebayLink,
+    created: sheetRecordDateLabel(createdAt) || sheetText(createdAt || new Date().toISOString()),
+    createdAt: sheetRecordDate(createdAt) || new Date().toISOString(),
+    updatedAt: sheetRecordDate(createdAt) || new Date().toISOString(),
+  };
+}
+async function loadFromGoogleSheet(type){
+  const config = getGoogleSheetsSyncConfig();
+  if(!config.url) throw new Error('Google Apps Script Web-App URL fehlt.');
+  if(!config.token) throw new Error('Sync Token fehlt.');
+  try{
+    const data = await postJsonWithTimeout('/api/google-sheets-sync', {
+      method: 'GET',
+      url: config.url,
+      action: 'getRecords',
+      type: type,
+      token: config.token
+    }, 30000);
+    if(!data || data.ok === false){
+      throw new Error((data && (data.error || data.message)) ? (data.error || data.message) : 'Google Sheets Laden fehlgeschlagen.');
+    }
+    clearGoogleSheetsSyncError(type);
+    return data;
+  }catch(error){
+    setGoogleSheetsSyncError(type, error && error.message ? error.message : 'Unbekannter Ladefehler');
+    renderGoogleSheetsSyncStatus();
+    throw error;
+  }
+}
+function replaceSalesFromSheetRecords(records){
+  const next = Array.isArray(records) ? records.map(mapGoogleSheetSaleRecord).filter(function(item){
+    return !!String(item.productId || item.articleId || item.id || '').trim() || !!String(item.product || '').trim();
+  }) : [];
+  sales = next;
+  saveSales();
+  localStorage.setItem(GOOGLE_SHEETS_SYNC_KEYS.salesLoadAt, new Date().toISOString());
+  renderGoogleSheetsSyncStatus();
+  return next;
+}
+async function loadSalesFromGoogleSheet(){
+  setHTML('googleSheetsSyncResult', '<p>Daten aus Google Sheets werden geladen...</p>');
+  try{
+    const data = await loadFromGoogleSheet('sales');
+    const records = Array.isArray(data.records) ? data.records : [];
+    const next = replaceSalesFromSheetRecords(records);
+    clearGoogleSheetsSyncLoadError();
+    queueGoogleSheetsSyncSettingsCloudSave();
+    setHTML('googleSheetsSyncResult', '<p>✅ <strong>Google Sheets</strong>: ' + next.length + ' Datensätze aus Google Sheets geladen.</p>');
+    return next;
+  }catch(error){
+    const message = error && error.message ? error.message : 'Unbekannter Ladefehler';
+    setGoogleSheetsSyncLoadError(message);
+    setHTML('googleSheetsSyncResult', '<p>⚠️ <strong>Google Sheets</strong>: ' + escapeHtml(message) + '</p>');
+    throw error;
+  }
 }
 function buildSyncRows(type, records){
   const list = Array.isArray(records) ? records : [];
@@ -2543,7 +2990,7 @@ function buildSyncRows(type, records){
 function getSyncTypeLabel(type){
   if(type === 'inventory') return 'Inventar';
   if(type === 'suppliers') return 'Supplier Liste';
-  if(type === 'sales') return 'InventarTracker';
+  if(type === 'sales') return 'Google Sheets';
   if(type === 'costs') return 'Laufende Kosten';
   return type;
 }
@@ -2558,22 +3005,29 @@ async function syncToGoogleSheet(type, records){
     type: type,
     records: rows,
   };
-  const data = await postJsonWithTimeout('/api/google-sheets-sync', {
-    method: 'POST',
-    url: config.url,
-    payload: payload
-  }, 30000);
-  if(!data || data.ok === false){
-    throw new Error((data && (data.error || data.message)) ? (data.error || data.message) : 'Google Sheets Sync fehlgeschlagen.');
+  try{
+    const data = await postJsonWithTimeout('/api/google-sheets-sync', {
+      method: 'POST',
+      url: config.url,
+      payload: payload
+    }, 30000);
+    if(!data || data.ok === false){
+      throw new Error((data && (data.error || data.message)) ? (data.error || data.message) : 'Google Sheets Sync fehlgeschlagen.');
+    }
+    setGoogleSheetsSyncTimestamp(type, data.syncedAt || new Date().toISOString());
+    clearGoogleSheetsSyncError(type);
+    queueGoogleSheetsSyncSettingsCloudSave();
+    renderGoogleSheetsSyncStatus();
+    return data;
+  }catch(error){
+    setGoogleSheetsSyncError(type, error && error.message ? error.message : 'Unbekannter Sync-Fehler');
+    renderGoogleSheetsSyncStatus();
+    throw error;
   }
-  setGoogleSheetsSyncTimestamp(type, data.syncedAt || new Date().toISOString());
-  renderGoogleSheetsSyncStatus();
-  return data;
 }
 const GOOGLE_SHEETS_SYNC_BUTTONS = [
   { id: 'syncInventoryGoogleSheetsBtn', label: 'Inventar synchronisieren' },
   { id: 'syncSuppliersGoogleSheetsBtn', label: 'Supplier Liste synchronisieren' },
-  { id: 'syncSalesGoogleSheetsBtn', label: 'InventarTracker synchronisieren' },
   { id: 'syncCostsGoogleSheetsBtn', label: 'Laufende Kosten synchronisieren' },
   { id: 'syncAllGoogleSheetsBtn', label: 'Alles synchronisieren' },
 ];
@@ -2619,7 +3073,7 @@ function syncSuppliersToGoogleSheet(){
 function syncSalesToGoogleSheet(){
   return runGoogleSheetsSyncTask('sales', function(){
     return syncToGoogleSheet('sales', getSalesSyncRecords());
-  }, 'syncSalesGoogleSheetsBtn');
+  });
 }
 function syncCostsToGoogleSheet(){
   return runGoogleSheetsSyncTask('costs', function(){
@@ -7089,7 +7543,6 @@ function bindEvents(){
   bind('saveGoogleSheetsSyncBtn','click',saveGoogleSheetsSyncSettings);
   bind('syncInventoryGoogleSheetsBtn','click',syncInventoryToGoogleSheet);
   bind('syncSuppliersGoogleSheetsBtn','click',syncSuppliersToGoogleSheet);
-  bind('syncSalesGoogleSheetsBtn','click',syncSalesToGoogleSheet);
   bind('syncCostsGoogleSheetsBtn','click',syncCostsToGoogleSheet);
   bind('syncAllGoogleSheetsBtn','click',syncAllToGoogleSheet);
   bind('backupSettings','click',exportSettings);
@@ -7414,7 +7867,9 @@ document.addEventListener('DOMContentLoaded',()=>{
   bindEvents();
   applySettings();
   applyInvoiceSettings();
+  refreshGoogleSheetsSecretFieldVisibility();
   renderGoogleSheetsSyncStatus();
+  void loadGoogleSheetsSyncSettingsFromCloud();
   renderAiUsageStatus();
   refreshAiButtonStates();
   const storedEbayDraft = loadStoredEbayListingDraft();
@@ -7777,6 +8232,8 @@ document.addEventListener('DOMContentLoaded',()=>{
     critical: 'Kritisch',
   };
   const AI_TASK_NOTICE_DEFAULT = 'Aktion vorbereitet: Diese Funktion wird später mit dem passenden Agenten verbunden.';
+  const AI_TASK_NOTICE_SUGGESTION = 'Nur Vorschläge: Eine neue Empfehlung wurde im AI Task Center erstellt.';
+  const AI_TASK_NOTICE_APPROVAL = 'Halbautomatisch: Die vorbereitete Aktion liegt in der Freigabe-Warteschlange.';
   const AI_TASK_NOTICE_SANDBOX = 'Sandbox aktiv – Aufgaben werden nur vorbereitet.';
   const AI_TASK_NOTICE_PAUSED = 'Alle Agenten sind pausiert. Es werden keine neuen Aufgaben erzeugt.';
   const AI_TASK_SOURCE_LABELS = {
@@ -7786,6 +8243,27 @@ document.addEventListener('DOMContentLoaded',()=>{
   };
   const AI_TASK_DEMO_BASE_TIME = Date.now();
   const createTaskId = () => `ai-task-${Math.random().toString(36).slice(2, 10)}-${Date.now().toString(36)}`;
+  const APPROVAL_QUEUE_TYPE_LABELS = {
+    support_reply: 'Supportantwort',
+    listing_update: 'Listing-Update',
+    order_prepare: 'Bestellung vorbereiten',
+    seo_update: 'SEO-Optimierung',
+    risk_action: 'Risikobehandlung',
+  };
+  const APPROVAL_QUEUE_STATUS_LABELS = {
+    pending: 'Offen',
+    approved: 'Genehmigt',
+    rejected: 'Abgelehnt',
+    executed: 'Ausgeführt',
+  };
+  const APPROVAL_QUEUE_RISK_LABELS = {
+    low: 'Niedrig',
+    medium: 'Mittel',
+    high: 'Hoch',
+    critical: 'Kritisch',
+  };
+  const APPROVAL_QUEUE_DEMO_BASE_TIME = Date.now();
+  const createApprovalQueueId = () => `approval-${Math.random().toString(36).slice(2, 10)}-${Date.now().toString(36)}`;
 
   const buildDemoAiTasks = () => [
     {
@@ -7826,6 +8304,57 @@ document.addEventListener('DOMContentLoaded',()=>{
     },
   ];
 
+  const buildDemoApprovalQueue = () => [
+    {
+      id: 'demo-approval-support',
+      title: 'Supportantwort vorbereiten',
+      description: 'Eine Antwortvorlage für eine Kundenanfrage wird vorbereitet. Es wird nichts automatisch versendet.',
+      agent: 'Soul Support',
+      type: 'support_reply',
+      status: 'pending',
+      riskLevel: 'medium',
+      createdAt: new Date(APPROVAL_QUEUE_DEMO_BASE_TIME - 3 * 60000).toISOString(),
+      payload: {
+        source: 'demo',
+        context: 'support',
+      },
+      previewText: 'Hallo, danke für deine Nachricht. Ich prüfe den Versandstatus und melde mich zeitnah.',
+      requiresConfirmation: true,
+    },
+    {
+      id: 'demo-approval-seo',
+      title: 'SEO-Optimierung übernehmen',
+      description: 'Ein SEO-Entwurf wird lokal vorbereitet. Es werden keine Live-Änderungen veröffentlicht.',
+      agent: 'Soul SEO',
+      type: 'seo_update',
+      status: 'pending',
+      riskLevel: 'low',
+      createdAt: new Date(APPROVAL_QUEUE_DEMO_BASE_TIME - 2 * 60000).toISOString(),
+      payload: {
+        source: 'demo',
+        context: 'seo',
+      },
+      previewText: 'Neuer Titelvorschlag: Premium Organizer für Schreibtisch & Büro – kompakt, modern, praktisch',
+      requiresConfirmation: true,
+    },
+    {
+      id: 'demo-approval-order',
+      title: 'Bestellung vorbereiten',
+      description: 'Eine Supplier-Bestellung ist vorbereitet. Die Freigabe setzt nur den Status, aber keine Ausführung.',
+      agent: 'Soul Operations',
+      type: 'order_prepare',
+      status: 'pending',
+      riskLevel: 'high',
+      createdAt: new Date(APPROVAL_QUEUE_DEMO_BASE_TIME - 1 * 60000).toISOString(),
+      payload: {
+        source: 'demo',
+        context: 'operations',
+      },
+      previewText: 'Supplier-Bestellung vorbereitet. Keine Bestellung wurde ausgeführt.',
+      requiresConfirmation: true,
+    },
+  ];
+
   const getEl = (id) => document.getElementById(id);
   const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (ch) => ({
     '&': '&amp;',
@@ -7836,13 +8365,23 @@ document.addEventListener('DOMContentLoaded',()=>{
   }[ch]));
 
   const normalizePanel = (panel) => {
-    const valid = ['overview', 'ai-task-center', 'virtual-ma', 'ki-agents'];
+    const valid = ['overview', 'ai-task-center', 'approval-queue', 'virtual-ma', 'ki-agents'];
     return valid.includes(panel) ? panel : 'overview';
   };
 
   const normalizeMode = (value) => {
     const input = String(value || '').trim();
     return MODE_OPTIONS.some((item) => item.value === input) ? input : 'suggestions';
+  };
+
+  const getAgentModeDisplayValue = (value) => {
+    const mode = normalizeMode(value);
+    return mode === 'semi' || mode === 'auto' ? 'semi' : 'suggestions';
+  };
+
+  const getAgentModeLabel = (value) => {
+    const mode = normalizeMode(value);
+    return mode === 'semi' || mode === 'auto' ? 'Halbautomatisch' : 'Nur Vorschläge';
   };
 
   const normalizeModel = (value) => {
@@ -7900,6 +8439,48 @@ document.addEventListener('DOMContentLoaded',()=>{
     return Object.prototype.hasOwnProperty.call(AI_TASK_SOURCE_LABELS, input) ? input : 'manual';
   };
 
+  const normalizeApprovalQueueType = (value) => {
+    const input = String(value || '').trim();
+    return Object.prototype.hasOwnProperty.call(APPROVAL_QUEUE_TYPE_LABELS, input) ? input : 'listing_update';
+  };
+
+  const normalizeApprovalQueueStatus = (value) => {
+    const input = String(value || '').trim();
+    return Object.prototype.hasOwnProperty.call(APPROVAL_QUEUE_STATUS_LABELS, input) ? input : 'pending';
+  };
+
+  const normalizeApprovalQueueRisk = (value) => {
+    const input = String(value || '').trim();
+    return Object.prototype.hasOwnProperty.call(APPROVAL_QUEUE_RISK_LABELS, input) ? input : 'medium';
+  };
+
+  const normalizeApprovalQueueItem = (item, index) => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return null;
+    const createdAt = Date.parse(item.createdAt || '');
+    const payload = item.payload && typeof item.payload === 'object' && !Array.isArray(item.payload) ? { ...item.payload } : {};
+    return {
+      id: sanitizeTaskText(item.id || `approval-${index + 1}`, `approval-${index + 1}`, 80),
+      title: sanitizeTaskText(item.title, 'Unbenannter Freigabe-Eintrag', 120),
+      description: sanitizeTaskText(item.description, '', 260),
+      agent: sanitizeTaskText(item.agent, 'Unbekannter Agent', 80),
+      type: normalizeApprovalQueueType(item.type),
+      status: normalizeApprovalQueueStatus(item.status),
+      riskLevel: normalizeApprovalQueueRisk(item.riskLevel),
+      createdAt: Number.isFinite(createdAt) ? new Date(createdAt).toISOString() : new Date().toISOString(),
+      payload,
+      previewText: sanitizeTaskText(item.previewText, '', 320),
+      requiresConfirmation: true,
+    };
+  };
+
+  const normalizeApprovalQueue = (value) => {
+    const list = Array.isArray(value) ? value : [];
+    const next = list
+      .map((item, index) => normalizeApprovalQueueItem(item, index))
+      .filter(Boolean);
+    return next.length ? next : buildDemoApprovalQueue();
+  };
+
   const normalizeAiTask = (task, index) => {
     if (!task || typeof task !== 'object' || Array.isArray(task)) return null;
     const createdAt = Date.parse(task.createdAt || '');
@@ -7926,7 +8507,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   };
 
   const createDefaultState = () => ({
-    version: 2,
+    version: 3,
     securityMode: true,
     sandboxMode: true,
     advancedMode: false,
@@ -7940,6 +8521,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     activePanel: 'overview',
     openCards: {},
     aiTasks: [],
+    approvalQueue: buildDemoApprovalQueue(),
     agents: AGENT_DEFS.reduce((acc, def) => {
       acc[def.id] = {
         active: true,
@@ -7976,6 +8558,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       activePanel: normalizePanel(source.activePanel || defaults.activePanel),
       openCards: source.openCards && typeof source.openCards === 'object' ? {...source.openCards} : {},
       aiTasks: normalizeAiTasks(source.aiTasks),
+      approvalQueue: normalizeApprovalQueue(source.approvalQueue),
       agents: {},
     };
 
@@ -8025,6 +8608,8 @@ document.addEventListener('DOMContentLoaded',()=>{
   let taskPriorityFilter = 'all';
   let taskCenterNotice = '';
   let taskRemovalTargetId = '';
+  let approvalDetailTargetId = '';
+  let toolPopupCloseTimeout = null;
   let advancedAutonomyHoldTimer = null;
   let advancedAutonomyHoldFrame = null;
   let advancedAutonomyHoldStart = 0;
@@ -8042,6 +8627,24 @@ document.addEventListener('DOMContentLoaded',()=>{
   const isMasterAgentsDisabled = () => state.masterAgentsDisabled === true;
 
   const getAgent = (agentId) => state.agents[agentId] || null;
+  const normalizeAgentName = (value) => String(value || '').trim().toLowerCase();
+  const getAgentByName = (agentName) => {
+    const normalized = normalizeAgentName(agentName);
+    if (!normalized) return null;
+    return AGENT_DEFS.reduce((found, def) => {
+      if (found) return found;
+      const agent = getAgent(def.id);
+      if (!agent) return null;
+      if (normalizeAgentName(def.name) === normalized || normalizeAgentName(def.id) === normalized) {
+        return { def, agent };
+      }
+      return null;
+    }, null);
+  };
+  const getAgentModeByName = (agentName) => {
+    const match = getAgentByName(agentName);
+    return normalizeMode(match && match.agent && match.agent.mode);
+  };
   const getDefinition = (agentId) => AGENT_DEFS.find((item) => item.id === agentId) || null;
   const getBadgeMeta = (agent) => {
     const mode = normalizeMode(agent && agent.mode);
@@ -8079,6 +8682,37 @@ document.addEventListener('DOMContentLoaded',()=>{
     const usage = Number(agent && agent.usageToday) || 0;
     if (!limit) return 0;
     return Math.max(0, Math.min(100, (usage / limit) * 100));
+  };
+  const getAgentModeStats = () => AGENT_DEFS.reduce((acc, def) => {
+    const agent = getAgent(def.id);
+    if (getAgentModeDisplayValue(agent && agent.mode) === 'semi') {
+      acc.semi += 1;
+    } else {
+      acc.suggestions += 1;
+    }
+    return acc;
+  }, { suggestions: 0, semi: 0 });
+  const getSharedAgentDailyLimit = () => {
+    const values = AGENT_DEFS.map((def) => {
+      const agent = getAgent(def.id);
+      return Number(agent && agent.dailyLimit) || 0;
+    });
+    if (!values.length) return '';
+    const first = values[0];
+    return values.every((value) => Math.abs(value - first) < 0.0001) ? Number(first).toFixed(2) : '';
+  };
+  const applyGlobalAgentDailyLimit = (value) => {
+    const limit = normalizeLimit(value);
+    AGENT_DEFS.forEach((def) => {
+      const agent = getAgent(def.id);
+      if (agent) {
+        agent.dailyLimit = limit;
+      }
+    });
+    saveState();
+    render();
+    showToolPopup('KI-Kosten übernommen', `Das KI-Tageslimit wurde für alle Agenten auf ${formatEuro(limit)} gesetzt.`, 'good');
+    return limit;
   };
   const getConnectionItems = (def) => Array.isArray(def && def.connections) ? def.connections : [];
   const getActivityLogItems = (agent, def) => {
@@ -8119,6 +8753,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     const sandboxMode = state.sandboxMode !== false;
     const autonomyLocked = isAutonomyLocked();
     const masterDisabled = isMasterAgentsDisabled();
+    const modeStats = getAgentModeStats();
     return `
       <div class="virtual-agent-system-bar">
         <div class="virtual-agent-system-top">
@@ -8129,6 +8764,8 @@ document.addEventListener('DOMContentLoaded',()=>{
               <span class="pill">${onlineCount} von ${AGENT_DEFS.length} Agenten online</span>
               <span class="pill">Sicherheitsmodus ${securityMode ? 'aktiv' : 'aus'}</span>
               <span class="pill">Sandbox ${sandboxMode ? 'aktiv' : 'aus'}</span>
+              <span class="pill">Vorschlagsmodus: ${modeStats.suggestions}</span>
+              <span class="pill">Halbautomatisch: ${modeStats.semi}</span>
               ${masterDisabled ? '<span class="pill bad">Alle Agenten & MA deaktiviert</span>' : ''}
             </div>
             <p class="virtual-agent-system-statusline" style="margin-top:8px">🟢 KI-System ${pausedLabel} - ${onlineCount} von ${AGENT_DEFS.length} Agenten online - Sicherheitsmodus ${securityMode ? 'aktiv' : 'aus'} - Sandbox ${sandboxMode ? 'aktiv' : 'aus'} - Autonomie ${autonomyLocked ? 'gesperrt' : 'frei'}</p>
@@ -8142,6 +8779,8 @@ document.addEventListener('DOMContentLoaded',()=>{
           <div class="metric"><small>Agenten online</small><strong>${onlineCount} / ${AGENT_DEFS.length}</strong></div>
           <div class="metric"><small>Sicherheitsmodus</small><strong>${securityMode ? 'Aktiv' : 'Aus'}</strong></div>
           <div class="metric"><small>Sandbox-Modus</small><strong>${sandboxMode ? 'Aktiv' : 'Aus'}</strong></div>
+          <div class="metric"><small>Vorschlagsmodus</small><strong>${modeStats.suggestions}</strong></div>
+          <div class="metric"><small>Halbautomatisch</small><strong>${modeStats.semi}</strong></div>
           <div class="metric"><small>Autonomie</small><strong>${autonomyLocked ? 'Gesperrt' : 'Frei'}</strong></div>
           <div class="metric"><small>Geschätztes Tageslimit gesamt</small><strong>${formatEuro(getDailyLimitTotal())}</strong></div>
           <div class="metric"><small>Heutige KI-Nutzung</small><strong>${formatEuro(getUsageTotal())} <span class="hint" style="display:block;margin-top:4px">Mock</span></strong></div>
@@ -8261,6 +8900,50 @@ document.addEventListener('DOMContentLoaded',()=>{
   const getTaskPriorityRank = (priority) => AI_TASK_PRIORITY_ORDER[normalizeTaskPriority(priority)] || 0;
   const getTaskById = (taskId) => (Array.isArray(state.aiTasks) ? state.aiTasks.find((task) => task && task.id === taskId) : null);
 
+  const getApprovalQueue = () => (Array.isArray(state.approvalQueue) ? state.approvalQueue : []);
+  const getApprovalQueueById = (entryId) => getApprovalQueue().find((entry) => entry && entry.id === entryId) || null;
+  const getApprovalTypeLabel = (type) => APPROVAL_QUEUE_TYPE_LABELS[normalizeApprovalQueueType(type)] || 'Listing-Update';
+  const getApprovalStatusMeta = (status) => {
+    const normalized = normalizeApprovalQueueStatus(status);
+    const map = {
+      pending: 'info',
+      approved: 'good',
+      rejected: 'bad',
+      executed: 'warn',
+    };
+    return { label: APPROVAL_QUEUE_STATUS_LABELS[normalized], tone: map[normalized] || 'info' };
+  };
+  const getApprovalRiskMeta = (riskLevel) => {
+    const normalized = normalizeApprovalQueueRisk(riskLevel);
+    const map = {
+      low: 'info',
+      medium: 'warn',
+      high: 'bad',
+      critical: 'bad',
+    };
+    return { label: APPROVAL_QUEUE_RISK_LABELS[normalized], tone: map[normalized] || 'info' };
+  };
+  const getApprovalQueueStats = () => {
+    const items = getApprovalQueue();
+    return {
+      open: items.filter((item) => normalizeApprovalQueueStatus(item.status) === 'pending').length,
+      approved: items.filter((item) => normalizeApprovalQueueStatus(item.status) === 'approved').length,
+      rejected: items.filter((item) => normalizeApprovalQueueStatus(item.status) === 'rejected').length,
+      critical: items.filter((item) => normalizeApprovalQueueRisk(item.riskLevel) === 'critical').length,
+    };
+  };
+  const getApprovalQueueItems = () => getApprovalQueue().slice().sort((a, b) => {
+    const statusOrder = { pending: 3, approved: 2, rejected: 1, executed: 0 };
+    const riskOrder = { low: 1, medium: 2, high: 3, critical: 4 };
+    const statusA = statusOrder[normalizeApprovalQueueStatus(a.status)] || 0;
+    const statusB = statusOrder[normalizeApprovalQueueStatus(b.status)] || 0;
+    if (statusA !== statusB) return statusB - statusA;
+    const riskA = riskOrder[normalizeApprovalQueueRisk(a.riskLevel)] || 0;
+    const riskB = riskOrder[normalizeApprovalQueueRisk(b.riskLevel)] || 0;
+    if (riskA !== riskB) return riskB - riskA;
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
+
   const openTaskRemoveModal = (taskId) => {
     const task = getTaskById(taskId);
     if (!task) return;
@@ -8299,6 +8982,219 @@ document.addEventListener('DOMContentLoaded',()=>{
     render();
   };
 
+  const createApprovalQueueEntryFromTask = (taskId) => {
+    const task = getTaskById(taskId);
+    if (!task) return null;
+    const label = String(task.actionLabel || task.title || '').toLowerCase();
+    const text = [task.title, task.description, task.category, task.agent, task.actionLabel].join(' ').toLowerCase();
+    let entry;
+    if (text.includes('seo')) {
+      entry = {
+        title: 'SEO-Optimierung vorbereiten',
+        description: 'Ein SEO-Entwurf wird lokal vorbereitet. Es werden keine Live-Änderungen veröffentlicht.',
+        agent: task.agent || 'Soul SEO',
+        type: 'seo_update',
+        riskLevel: 'low',
+        previewText: 'Neuer Titelvorschlag: Premium Organizer für Schreibtisch & Büro – kompakt, modern, praktisch',
+      };
+    } else if (text.includes('support') || text.includes('kunde') || text.includes('retour')) {
+      entry = {
+        title: 'Supportantwort vorbereiten',
+        description: 'Eine Antwortvorlage für eine Kundenanfrage wird vorbereitet. Es wird nichts automatisch versendet.',
+        agent: task.agent || 'Soul Support',
+        type: 'support_reply',
+        riskLevel: 'medium',
+        previewText: 'Hallo, danke für deine Nachricht. Ich prüfe den Versandstatus und melde mich zeitnah.',
+      };
+    } else if (text.includes('order') || text.includes('supplier') || text.includes('bestell')) {
+      entry = {
+        title: 'Bestellung vorbereiten',
+        description: 'Eine Supplier-Bestellung ist vorbereitet. Die Freigabe setzt nur den Status, aber keine Ausführung.',
+        agent: task.agent || 'Soul Operations',
+        type: 'order_prepare',
+        riskLevel: 'high',
+        previewText: 'Supplier-Bestellung vorbereitet. Keine Bestellung wurde ausgeführt.',
+      };
+    } else if (text.includes('risk') || text.includes('liefer') || text.includes('warn') || text.includes('problem')) {
+      entry = {
+        title: 'Risikobehandlung vorbereiten',
+        description: 'Ein risikorelevanter Arbeitsschritt wird lokal vorbereitet. Live-Aktionen bleiben blockiert.',
+        agent: task.agent || 'Soul Guard',
+        type: 'risk_action',
+        riskLevel: 'critical',
+        previewText: 'Risikoprüfung vorbereitet. Keine Live-Aktion wurde ausgeführt.',
+      };
+    } else {
+      entry = {
+        title: `${task.title || task.actionLabel || 'Aufgabe'} vorbereiten`,
+        description: task.description || 'Eine halbautomatische Aktion wird lokal für die Freigabe vorbereitet.',
+        agent: task.agent || 'Soul Operations',
+        type: 'listing_update',
+        riskLevel: 'medium',
+        previewText: task.description || 'Entwurf vorbereitet. Keine Live-Aktion ausgeführt.',
+      };
+    }
+
+    const createdAt = new Date().toISOString();
+    const normalized = normalizeApprovalQueueItem({
+      id: createApprovalQueueId(),
+      ...entry,
+      status: 'pending',
+      createdAt,
+      payload: {
+        source: 'ai-task-center',
+        sourceTaskId: task.id,
+        sourceActionLabel: task.actionLabel || label || '',
+        sourceTaskTitle: task.title || '',
+        sourceCategory: task.category || '',
+      },
+      requiresConfirmation: true,
+    }, getApprovalQueue().length);
+
+    state.approvalQueue = [normalized, ...getApprovalQueue()];
+    saveState();
+    render();
+    return normalized;
+  };
+
+  const createTaskCenterSuggestionFromTask = (taskId) => {
+    const task = getTaskById(taskId);
+    if (!task) return null;
+    const tasks = Array.isArray(state.aiTasks) ? state.aiTasks.slice() : [];
+    const normalized = normalizeAiTask({
+      id: createTaskId(),
+      title: `Hinweis: ${task.title || task.actionLabel || 'Aufgabe'}`,
+      description: task.description || 'Eine Empfehlung wurde lokal vorbereitet. Es wird keine Live-Aktion ausgeführt.',
+      agent: task.agent || 'Soul Operations',
+      category: task.category || 'Allgemein',
+      priority: normalizeTaskPriority(task.priority || 'medium'),
+      status: 'open',
+      createdAt: new Date().toISOString(),
+      source: 'agent',
+      actionLabel: 'Empfehlung ansehen',
+    }, tasks.length);
+    state.aiTasks = [normalized, ...tasks];
+    saveState();
+    render();
+    return normalized;
+  };
+
+  const updateApprovalQueueEntry = (entryId, updater) => {
+    const items = getApprovalQueue().slice();
+    const index = items.findIndex((item) => item && item.id === entryId);
+    if (index < 0) return null;
+    const current = items[index];
+    const next = typeof updater === 'function' ? updater(current) : current;
+    if (!next || typeof next !== 'object') return null;
+    items[index] = {
+      ...current,
+      ...next,
+      id: current.id,
+      title: sanitizeTaskText(next.title !== undefined ? next.title : current.title, current.title, 120),
+      description: sanitizeTaskText(next.description !== undefined ? next.description : current.description, current.description, 260),
+      agent: sanitizeTaskText(next.agent !== undefined ? next.agent : current.agent, current.agent, 80),
+      type: normalizeApprovalQueueType(next.type !== undefined ? next.type : current.type),
+      status: normalizeApprovalQueueStatus(next.status !== undefined ? next.status : current.status),
+      riskLevel: normalizeApprovalQueueRisk(next.riskLevel !== undefined ? next.riskLevel : current.riskLevel),
+      createdAt: current.createdAt,
+      payload: next.payload && typeof next.payload === 'object' && !Array.isArray(next.payload) ? { ...next.payload } : { ...(current.payload || {}) },
+      previewText: sanitizeTaskText(next.previewText !== undefined ? next.previewText : current.previewText, current.previewText, 320),
+      requiresConfirmation: true,
+    };
+    state.approvalQueue = items;
+    saveState();
+    render();
+    return items[index];
+  };
+
+  const openApprovalDetailsModal = (entryId) => {
+    const entry = getApprovalQueueById(entryId);
+    if (!entry) return;
+    approvalDetailTargetId = entryId;
+    const modal = getEl('approvalQueueDetailModal');
+    const title = getEl('approvalDetailTitle');
+    const agent = getEl('approvalDetailAgent');
+    const type = getEl('approvalDetailType');
+    const status = getEl('approvalDetailStatus');
+    const risk = getEl('approvalDetailRisk');
+    const createdAt = getEl('approvalDetailCreatedAt');
+    const description = getEl('approvalDetailDescription');
+    const preview = getEl('approvalDetailPreview');
+    const payload = getEl('approvalDetailPayload');
+    if (title) title.textContent = entry.title || '-';
+    if (agent) agent.textContent = entry.agent || '-';
+    if (type) type.textContent = getApprovalTypeLabel(entry.type);
+    if (status) status.textContent = getApprovalStatusMeta(entry.status).label;
+    if (risk) risk.textContent = getApprovalRiskMeta(entry.riskLevel).label;
+    if (createdAt) createdAt.textContent = formatTaskDate(entry.createdAt);
+    if (description) description.textContent = entry.description || 'Keine Beschreibung vorhanden.';
+    if (preview) preview.textContent = entry.previewText || 'Keine Vorschau vorhanden.';
+    if (payload) payload.textContent = JSON.stringify(entry.payload || {}, null, 2);
+    if (modal) {
+      modal.classList.remove('hidden');
+      modal.setAttribute('aria-hidden', 'false');
+    }
+  };
+
+  const closeApprovalDetailsModal = () => {
+    approvalDetailTargetId = '';
+    const modal = getEl('approvalQueueDetailModal');
+    if (modal) {
+      modal.classList.add('hidden');
+      modal.setAttribute('aria-hidden', 'true');
+    }
+  };
+
+  const closeToolPopup = () => {
+    if (toolPopupCloseTimeout) {
+      window.clearTimeout(toolPopupCloseTimeout);
+      toolPopupCloseTimeout = null;
+    }
+    const modal = getEl('toolPopupModal');
+    if (modal) {
+      modal.classList.add('hidden');
+      modal.setAttribute('aria-hidden', 'true');
+    }
+  };
+
+  const showToolPopup = (title, message, tone) => {
+    const modal = getEl('toolPopupModal');
+    const popupTitle = getEl('toolPopupTitle');
+    const popupSubtitle = getEl('toolPopupSubtitle');
+    const popupMessage = getEl('toolPopupMessage');
+    if (!modal || !popupTitle || !popupSubtitle || !popupMessage) return;
+    const badge = modal.querySelector('.virtual-agent-badge');
+    closeToolPopup();
+    popupTitle.textContent = title || 'Bestätigung';
+    popupSubtitle.textContent = 'Elyon Tool Rückmeldung';
+    popupMessage.textContent = message || '';
+    if (badge) {
+      const toneClass = tone === 'warn' ? 'warn' : tone === 'bad' ? 'bad' : 'good';
+      badge.className = `virtual-agent-badge ${toneClass}`;
+      badge.textContent = toneClass === 'warn' ? 'Hinweis' : toneClass === 'bad' ? 'Achtung' : 'Übernommen';
+    }
+    modal.classList.remove('hidden');
+    modal.setAttribute('aria-hidden', 'false');
+    toolPopupCloseTimeout = window.setTimeout(() => {
+      closeToolPopup();
+    }, 4500);
+  };
+
+  const handleApprovalAction = (entryId, action) => {
+    if (!entryId) return;
+    if (action === 'approve') {
+      updateApprovalQueueEntry(entryId, (entry) => ({ ...entry, status: 'approved' }));
+      return;
+    }
+    if (action === 'reject') {
+      updateApprovalQueueEntry(entryId, (entry) => ({ ...entry, status: 'rejected' }));
+      return;
+    }
+    if (action === 'details') {
+      openApprovalDetailsModal(entryId);
+    }
+  };
+
   const handleTaskAction = (taskId, action) => {
     if (!taskId) return;
     if (action === 'done') {
@@ -8318,7 +9214,20 @@ document.addEventListener('DOMContentLoaded',()=>{
       return;
     }
     if (action === 'prepare') {
-      setTaskCenterNotice(isSecurityLocked() ? AI_TASK_NOTICE_SANDBOX : AI_TASK_NOTICE_DEFAULT);
+      if (isAllAgentsPaused()) {
+        setTaskCenterNotice(AI_TASK_NOTICE_PAUSED);
+        render();
+        return;
+      }
+      const task = getTaskById(taskId);
+      const mode = getAgentModeByName(task && task.agent);
+      if (mode === 'semi') {
+        createApprovalQueueEntryFromTask(taskId);
+        setTaskCenterNotice(isSecurityLocked() ? AI_TASK_NOTICE_SANDBOX : AI_TASK_NOTICE_APPROVAL);
+      } else {
+        createTaskCenterSuggestionFromTask(taskId);
+        setTaskCenterNotice(AI_TASK_NOTICE_SUGGESTION);
+      }
       render();
     }
   };
@@ -8336,6 +9245,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     const priorityMeta = getTaskPriorityMeta(task.priority);
     const statusMeta = getTaskStatusMeta(task.status);
     const createdAt = formatTaskDate(task.createdAt);
+    const agentModeLabel = getAgentModeLabel(getAgentModeByName(task.agent));
     return `
       <article class="virtual-agent-card task-center-card task-center-priority-${escapeHtml(normalizeTaskPriority(task.priority))}">
         <div class="task-center-card-top">
@@ -8354,6 +9264,7 @@ document.addEventListener('DOMContentLoaded',()=>{
 
         <div class="task-center-meta-grid">
           <div><small>Agent</small><strong>${escapeHtml(task.agent)}</strong></div>
+          <div><small>Agentenmodus</small><strong>${escapeHtml(agentModeLabel)}</strong></div>
           <div><small>Kategorie</small><strong>${escapeHtml(task.category)}</strong></div>
           <div><small>Erstellt</small><strong>${escapeHtml(createdAt)}</strong></div>
           <div><small>Quelle</small><strong>${escapeHtml(getTaskSourceMeta(task.source))}</strong></div>
@@ -8373,6 +9284,7 @@ document.addEventListener('DOMContentLoaded',()=>{
             <button type="button" class="secondary" data-task-action="remove" data-task-id="${escapeHtml(task.id)}">Entfernen</button>
           </div>
         </div>
+        <div class="hint" style="margin-top:10px">${agentModeLabel === 'Halbautomatisch' ? 'Halbautomatisch: der Button legt einen Eintrag in die Freigabe-Warteschlange.' : 'Nur Vorschläge: der Button erzeugt eine Empfehlung im AI Task Center.'}</div>
       </article>
     `;
   };
@@ -8428,7 +9340,7 @@ document.addEventListener('DOMContentLoaded',()=>{
                     <article class="task-center-triage-item" data-task-priority="${escapeHtml(normalizeTaskPriority(task.priority))}">
                       <div class="task-center-triage-title">
                         <strong>${escapeHtml(task.title)}</strong>
-                        <span>${escapeHtml(task.agent)} · ${escapeHtml(priorityMeta.label)}</span>
+                        <span>${escapeHtml(task.agent)} · ${escapeHtml(priorityMeta.label)} · ${escapeHtml(getAgentModeLabel(getAgentModeByName(task.agent)))}</span>
                       </div>
                       <p>${escapeHtml(task.description)}</p>
                       <div class="task-center-triage-actions">
@@ -8467,14 +9379,102 @@ document.addEventListener('DOMContentLoaded',()=>{
     `;
   };
 
+  const buildApprovalQueueCard = (entry) => {
+    const riskMeta = getApprovalRiskMeta(entry.riskLevel);
+    const statusMeta = getApprovalStatusMeta(entry.status);
+    const createdAt = formatTaskDate(entry.createdAt);
+    return `
+      <article class="virtual-agent-card task-center-card approval-queue-card approval-queue-risk-${escapeHtml(normalizeApprovalQueueRisk(entry.riskLevel))}">
+        <div class="task-center-card-top">
+          <div class="task-center-card-heading">
+            <div class="task-center-triage-title">
+              <h4>${escapeHtml(entry.title)}</h4>
+              <span class="pill">${entry.requiresConfirmation ? 'Bestätigung nötig' : 'Keine Bestätigung'}</span>
+            </div>
+            <p>${escapeHtml(entry.description)}</p>
+          </div>
+          <div class="task-center-badge-stack">
+            <span class="virtual-agent-badge ${riskMeta.tone}">${escapeHtml(riskMeta.label)}</span>
+            <span class="virtual-agent-badge ${statusMeta.tone}">${escapeHtml(statusMeta.label)}</span>
+          </div>
+        </div>
+
+        <div class="task-center-meta-grid">
+          <div><small>Agent</small><strong>${escapeHtml(entry.agent)}</strong></div>
+          <div><small>Typ</small><strong>${escapeHtml(getApprovalTypeLabel(entry.type))}</strong></div>
+          <div><small>Erstellt</small><strong>${escapeHtml(createdAt)}</strong></div>
+          <div><small>Bestätigung</small><strong>${entry.requiresConfirmation ? 'Erforderlich' : 'Nicht nötig'}</strong></div>
+        </div>
+
+        <div class="output-box" style="margin-top:12px">
+          <p>${escapeHtml(entry.previewText || 'Keine Vorschau vorhanden.')}</p>
+        </div>
+
+        <div class="task-center-control-row">
+          <div class="task-center-status-field">
+            <label>Risiko</label>
+            <div class="virtual-agent-badge ${riskMeta.tone}" style="justify-content:center;width:100%">${escapeHtml(riskMeta.label)}</div>
+          </div>
+          <div class="task-center-action-row">
+            <button type="button" class="secondary" data-approval-action="approve" data-approval-id="${escapeHtml(entry.id)}">Genehmigen</button>
+            <button type="button" class="secondary" data-approval-action="reject" data-approval-id="${escapeHtml(entry.id)}">Ablehnen</button>
+            <button type="button" class="secondary" data-approval-action="details" data-approval-id="${escapeHtml(entry.id)}">Details ansehen</button>
+          </div>
+        </div>
+      </article>
+    `;
+  };
+
+  const buildApprovalQueuePanel = () => {
+    const stats = getApprovalQueueStats();
+    const hasSandboxHint = isSecurityLocked();
+    const items = getApprovalQueueItems();
+    const totalItems = getApprovalQueue().length;
+    const emptyMessage = totalItems
+      ? 'Keine Freigabe-Einträge passen zu den aktuellen Filtern.'
+      : 'Noch keine Einträge vorhanden. Sobald ein Agent eine halbautomatische Aktion vorbereitet, erscheint sie hier.';
+    return `
+      <div class="virtual-agent-card virtual-agents-panel ${activePanel === 'approval-queue' ? 'active' : ''}" data-panel="approval-queue">
+        <div class="task-center-shell">
+          <div class="task-center-head">
+            <div class="virtual-agent-ident">
+              <div class="virtual-agent-icon">✅</div>
+              <div>
+                <h3>Freigabe-Warteschlange</h3>
+                <p>Halbautomatische Aktionen, die deine Bestätigung benötigen.</p>
+              </div>
+            </div>
+            <span class="virtual-agent-badge info">Manuelle Freigabe</span>
+          </div>
+
+          <div class="settings-agents-overview task-center-stats">
+            <div class="metric"><small>Offen</small><strong>${stats.open}</strong></div>
+            <div class="metric"><small>Genehmigt</small><strong>${stats.approved}</strong></div>
+            <div class="metric"><small>Abgelehnt</small><strong>${stats.rejected}</strong></div>
+            <div class="metric"><small>Kritisch</small><strong>${stats.critical}</strong></div>
+          </div>
+
+          ${hasSandboxHint ? '<div class="task-center-alert task-center-alert-warn">Sandbox aktiv – Genehmigung wird nur simuliert.</div>' : '<div class="task-center-alert">Genehmigung setzt nur den Status auf approved. Keine Live-Aktion wird ausgeführt.</div>'}
+          <div class="task-center-alert">Auch im halbautomatischen Modus werden keine echten Bestellungen, Nachrichten oder eBay-Listings ausgelöst.</div>
+
+          <div class="task-center-list">
+            ${items.length ? items.map((entry) => buildApprovalQueueCard(entry)).join('') : `<div class="empty task-center-empty">${escapeHtml(emptyMessage)}</div>`}
+          </div>
+        </div>
+      </div>
+    `;
+  };
+
   const buildOverviewPanel = () => {
+    const modeStats = getAgentModeStats();
+    const sharedDailyLimit = getSharedAgentDailyLimit();
     return `
       <div class="virtual-agent-card virtual-agents-panel ${activePanel === 'overview' ? 'active' : ''}" data-panel="overview">
         <div class="virtual-agent-head">
           <div class="virtual-agent-ident">
             <div class="virtual-agent-icon">🧭</div>
             <div>
-              <h3>Sicherheits- & Steuerzentrale</h3>
+              <h3>Sicherheits- & Autonomie-Steuerung</h3>
               <p>Hier werden Sicherheitsrahmen und Autonomiegrenzen für die virtuellen Mitarbeiter verwaltet. Live-Aktionen bleiben blockiert, solange Sicherheitsmodus oder Sandbox aktiv ist.</p>
             </div>
           </div>
@@ -8492,6 +9492,23 @@ document.addEventListener('DOMContentLoaded',()=>{
           </label>
         </div>
         <div class="virtual-agents-note" style="margin-top:14px">${isSecurityLocked() ? 'Sandbox aktiv – Aufgaben werden nur vorbereitet.' : 'Automatische Aktionen werden vorbereitet, aber nicht ohne Bestätigung ausgeführt.'}</div>
+        <div class="settings-agents-overview" style="margin-top:14px">
+          <div class="metric"><small>Agenten im Vorschlagsmodus</small><strong>${modeStats.suggestions}</strong></div>
+          <div class="metric"><small>Agenten im halbautomatischen Modus</small><strong>${modeStats.semi}</strong></div>
+        </div>
+        <div class="settings-section" style="margin-top:14px;padding:16px;border-radius:18px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08)">
+          <h4 style="margin-bottom:8px">Gesamte KI-Kosten auf alle übernehmen</h4>
+          <p class="hint">Setzt das Tageslimit für alle Agenten auf denselben Wert. Bestehende Einzelwerte werden erst mit deinem Klick überschrieben.</p>
+          <div class="row" style="margin-top:10px">
+            <div style="flex:1;min-width:220px">
+              <label>Wert für alle Agenten (€)</label>
+              <input id="globalAgentDailyLimitInput" type="number" min="0" step="0.01" value="${sharedDailyLimit}">
+            </div>
+            <div style="display:flex;align-items:end">
+              <button type="button" class="secondary" data-agent-action="apply-global-daily-limit">Für alle übernehmen</button>
+            </div>
+          </div>
+        </div>
         <div class="extended-autonomy-card ${state.advancedMode === true && state.autonomyLocked === false ? 'active' : ''}" style="margin-top:14px">
           <div class="extended-autonomy-head">
             <div class="virtual-agent-ident" style="align-items:flex-start">
@@ -8545,7 +9562,7 @@ document.addEventListener('DOMContentLoaded',()=>{
             <span class="virtual-agent-summary-chevron">⌄</span>
           </div>
           <div class="virtual-agent-summary-meta">
-            <span class="pill">Modus: ${escapeHtml(MODE_OPTIONS.find((item) => item.value === normalizeMode(agent.mode))?.label || 'nur Vorschläge')}</span>
+            <span class="pill">Modus: ${escapeHtml(getAgentModeLabel(agent.mode))}</span>
             <span class="pill">Modell: ${escapeHtml(normalizeModel(agent.model))}</span>
             <span class="pill">Klick zum Aufklappen</span>
           </div>
@@ -8581,9 +9598,11 @@ document.addEventListener('DOMContentLoaded',()=>{
 
             <div>
               <label>Modus</label>
-              <select data-agent-id="${def.id}" data-agent-field="mode">
-                ${MODE_OPTIONS.map((item) => `<option value="${item.value}" ${normalizeMode(agent.mode) === item.value ? 'selected' : ''}>${item.label}</option>`).join('')}
-              </select>
+              <div class="agent-mode-segment" role="group" aria-label="Modus für ${escapeHtml(def.name)}">
+                <button type="button" class="secondary ${getAgentModeDisplayValue(agent.mode) === 'suggestions' ? 'active' : ''}" data-agent-mode="${def.id}" data-agent-mode-value="suggestions">Nur Vorschläge</button>
+                <button type="button" class="secondary ${getAgentModeDisplayValue(agent.mode) === 'semi' ? 'active' : ''}" data-agent-mode="${def.id}" data-agent-mode-value="semi">Halbautomatisch</button>
+              </div>
+              <div class="hint" style="margin-top:6px">Bestehende Modi bleiben erhalten, bis du sie änderst.</div>
             </div>
 
             <div>
@@ -8750,12 +9769,14 @@ document.addEventListener('DOMContentLoaded',()=>{
     const nav = [
       `<button type="button" class="${activePanel === 'overview' ? 'active' : ''}" data-agent-panel="overview">Übersicht</button>`,
       `<button type="button" class="${activePanel === 'ai-task-center' ? 'active' : ''}" data-agent-panel="ai-task-center">AI Task Center</button>`,
+      `<button type="button" class="${activePanel === 'approval-queue' ? 'active' : ''}" data-agent-panel="approval-queue">Freigabe-Warteschlange</button>`,
       `<button type="button" class="${activePanel === 'ki-agents' ? 'active' : ''}" data-agent-panel="ki-agents">KI-Agenten</button>`,
       `<button type="button" class="${activePanel === 'virtual-ma' ? 'active' : ''}" data-agent-panel="virtual-ma">Virtuelle MA</button>`,
     ].join('');
     const panels = [
       buildOverviewPanel(),
       buildTaskCenterPanel(),
+      buildApprovalQueuePanel(),
       buildCategoryPanel('ki-agents', 'KI-Agenten', 'Strategische Analyse- und Optimierungsrollen für Recherche und Content.', 'ki-agents', 'info'),
       buildCategoryPanel('virtual-ma', 'Virtuelle Mitarbeiter', 'Operative Helfer für Support, Finance und Tagesorganisation.', 'virtual-ma', 'good'),
       buildFutureFunctionsSection(),
@@ -8900,6 +9921,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   const resetAllAgents = () => {
     const defaults = createDefaultState();
     state.agents = defaults.agents;
+    state.approvalQueue = defaults.approvalQueue;
     state.securityMode = defaults.securityMode;
     state.sandboxMode = defaults.sandboxMode;
     state.advancedMode = defaults.advancedMode;
@@ -9049,6 +10071,14 @@ document.addEventListener('DOMContentLoaded',()=>{
         }
         return;
       }
+      const globalLimitButton = event.target.closest('[data-agent-action="apply-global-daily-limit"]');
+      if (globalLimitButton) {
+        const input = getEl('globalAgentDailyLimitInput');
+        if (input) {
+          applyGlobalAgentDailyLimit(input.value);
+        }
+        return;
+      }
       const pauseAllButton = event.target.closest('[data-agent-action="pause-all"]');
       if (pauseAllButton) {
         pauseAllAgents();
@@ -9057,6 +10087,16 @@ document.addEventListener('DOMContentLoaded',()=>{
       const masterToggleButton = event.target.closest('[data-agent-action="master-toggle-all"]');
       if (masterToggleButton) {
         toggleMasterAgents();
+        return;
+      }
+      const agentModeButton = event.target.closest('[data-agent-mode][data-agent-mode-value]');
+      if (agentModeButton) {
+        const agent = getAgent(agentModeButton.dataset.agentMode);
+        if (agent) {
+          agent.mode = agentModeButton.dataset.agentModeValue === 'semi' ? 'semi' : 'suggestions';
+          saveState();
+          render();
+        }
         return;
       }
       const openAutonomyButton = event.target.closest('[data-agent-action="open-advanced-autonomy"]');
@@ -9083,6 +10123,11 @@ document.addEventListener('DOMContentLoaded',()=>{
       const taskActionButton = event.target.closest('[data-task-action]');
       if (taskActionButton) {
         handleTaskAction(taskActionButton.dataset.taskId, taskActionButton.dataset.taskAction);
+        return;
+      }
+      const approvalActionButton = event.target.closest('[data-approval-action]');
+      if (approvalActionButton) {
+        handleApprovalAction(approvalActionButton.dataset.approvalId, approvalActionButton.dataset.approvalAction);
         return;
       }
       const testButton = event.target.closest('[data-agent-action="test-agent"]');
@@ -9126,8 +10171,44 @@ document.addEventListener('DOMContentLoaded',()=>{
     document.addEventListener('keydown', (event) => {
       if (event.key === 'Escape') {
         closeTaskRemoveModal();
+        closeApprovalDetailsModal();
+        closeToolPopup();
       }
     });
+  };
+
+  const bindApprovalDetailsModal = () => {
+    const modal = getEl('approvalQueueDetailModal');
+    const closeBtn = getEl('approvalDetailCloseBtn');
+    if (closeBtn && !closeBtn.dataset.bound) {
+      closeBtn.dataset.bound = 'yes';
+      closeBtn.addEventListener('click', closeApprovalDetailsModal);
+    }
+    if (modal && !modal.dataset.bound) {
+      modal.dataset.bound = 'yes';
+      modal.addEventListener('click', (event) => {
+        if (event.target === modal) {
+          closeApprovalDetailsModal();
+        }
+      });
+    }
+  };
+
+  const bindToolPopupModal = () => {
+    const modal = getEl('toolPopupModal');
+    const closeBtn = getEl('toolPopupCloseBtn');
+    if (closeBtn && !closeBtn.dataset.bound) {
+      closeBtn.dataset.bound = 'yes';
+      closeBtn.addEventListener('click', closeToolPopup);
+    }
+    if (modal && !modal.dataset.bound) {
+      modal.dataset.bound = 'yes';
+      modal.addEventListener('click', (event) => {
+        if (event.target === modal) {
+          closeToolPopup();
+        }
+      });
+    }
   };
 
   document.addEventListener('click', (event) => {
@@ -9150,6 +10231,8 @@ document.addEventListener('DOMContentLoaded',()=>{
   document.addEventListener('DOMContentLoaded', () => {
     bind();
     bindTaskRemoveModal();
+    bindApprovalDetailsModal();
+    bindToolPopupModal();
     render();
     const advancedAutonomyCheckbox = getEl('advancedAutonomyRiskCheckbox');
     const advancedAutonomyHoldBtn = getEl('advancedAutonomyHoldBtn');

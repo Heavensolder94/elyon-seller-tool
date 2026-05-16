@@ -8,13 +8,13 @@ const SHEET_CONFIG = {
     keyColumn: "Supplier-ID"
   },
   sales: {
-    sheetName: "InventarTracker",
-    legacySheetNames: ["Bestellungen", "Sales & Klarna"],
-    keyColumn: "Sale-ID"
+    sheetName: "Inventar",
+    legacySheetNames: ["InventarTracker", "Bestellungen", "Sales & Klarna"],
+    keyColumn: "Artikel-ID"
   },
   costs: {
     sheetName: "Laufende Kosten",
-    keyColumn: "Kosten-ID"
+    keyColumn: "Name"
   }
 };
 
@@ -54,39 +54,34 @@ const HEADERS_BY_TYPE = {
     "Notizen"
   ],
   sales: [
-    "Sale-ID",
-    "Datum",
-    "eBay Bestellnummer",
     "Artikel-ID",
-    "Produkt",
-    "Verkaufspreis",
-    "eBay Gebühren",
-    "Einkaufspreis",
-    "Versandkosten",
+    "Bezeichnung",
+    "Typ",
+    "Preis EK",
+    "Versand mind.",
+    "PreisGesamt EK",
+    "Preis VK (ebay)",
+    "Ebay gebühren",
     "Gewinn",
-    "Auszahlung erhalten",
-    "Klarna genutzt",
-    "Klarna Betrag",
-    "Klarna Fällig am",
-    "Supplier bestellt",
-    "Trackingnummer",
+    "Zielgewinn",
+    "Emph. Zielpreis",
+    "Versand ab",
+    "Stock",
     "Status",
-    "Notizen"
+    "Lieferant",
+    "Versandzeit",
+    "Ebay Link",
+    "Hinweise"
   ],
   costs: [
-    "Kosten-ID",
-    "Datum",
-    "Kategorie",
-    "Beschreibung",
+    "Name",
+    "Interval",
     "Betrag",
-    "Zahlungsart",
-    "Wiederkehrend",
-    "Intervall",
-    "Nächste Fälligkeit",
-    "Status",
-    "Notizen"
+    "Notiz"
   ]
 };
+
+const SCRIPT_BUILD = "2026-05-15-inventartracker-schema-v3";
 
 function doPost(e) {
   const lock = LockService.getScriptLock();
@@ -100,6 +95,7 @@ function doPost(e) {
 
     return jsonResponse_({
       ok: true,
+      build: SCRIPT_BUILD,
       action: payload.action,
       type: payload.type,
       sheetName: result.sheetName,
@@ -130,6 +126,7 @@ function doGet(e) {
 
     return jsonResponse_({
       ok: true,
+      build: SCRIPT_BUILD,
       action: "getRecords",
       type: type,
       count: records.length,
@@ -210,41 +207,18 @@ function getExpectedToken_() {
 }
 
 function getSpreadsheet_() {
-  const props = PropertiesService.getScriptProperties();
   const active = SpreadsheetApp.getActiveSpreadsheet();
   if (active) {
     return active;
   }
 
-  const spreadsheetId = normalizeSpreadsheetId_(
-    props.getProperty("SPREADSHEET_ID") || props.getProperty("GOOGLE_SPREADSHEET_ID") || ""
-  );
+  const props = PropertiesService.getScriptProperties();
+  const spreadsheetId = String(props.getProperty("SPREADSHEET_ID") || props.getProperty("GOOGLE_SPREADSHEET_ID") || "").trim();
   if (spreadsheetId) {
     return SpreadsheetApp.openById(spreadsheetId);
   }
 
-  throw new Error("Kein Spreadsheet gefunden. Bitte SPREADSHEET_ID setzen oder das Script an ein Spreadsheet binden.");
-}
-
-function normalizeSpreadsheetId_(value) {
-  const raw = String(value || "").trim();
-  if (!raw) {
-    return "";
-  }
-
-  const urlMatch = raw.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/i);
-  if (urlMatch && urlMatch[1]) {
-    return urlMatch[1];
-  }
-
-  if (/^https?:\/\//i.test(raw)) {
-    const directMatch = raw.match(/[?&]id=([a-zA-Z0-9-_]+)/i);
-    if (directMatch && directMatch[1]) {
-      return directMatch[1];
-    }
-  }
-
-  return raw.split(/[/?#]/)[0];
+  throw new Error("Kein Spreadsheet gefunden. Bitte das Script direkt an der Google-Tabelle ausführen oder SPREADSHEET_ID setzen.");
 }
 
 function upsertRecords_(ss, type, records) {
