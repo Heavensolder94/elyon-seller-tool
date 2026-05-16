@@ -1656,6 +1656,10 @@ PLZ Ort"></textarea>
           <h4>Payload</h4>
           <pre id="approvalDetailPayload" style="white-space:pre-wrap;word-break:break-word;margin:0">-</pre>
         </div>
+        <div class="output-box" style="margin-top:12px">
+          <h4>Live-Pipeline</h4>
+          <p id="approvalDetailPipeline">-</p>
+        </div>
         <div class="task-remove-modal-actions">
           <button type="button" id="approvalDetailCloseBtn" class="secondary">Schließen</button>
         </div>
@@ -8391,6 +8395,147 @@ document.addEventListener('DOMContentLoaded',()=>{
   };
   const APPROVAL_QUEUE_DEMO_BASE_TIME = Date.now();
   const createApprovalQueueId = () => `approval-${Math.random().toString(36).slice(2, 10)}-${Date.now().toString(36)}`;
+  const LIVE_ACTION_BLUEPRINTS = {
+    support_reply: {
+      label: 'Support-Antwort',
+      stages: ['Analyse', 'Antwortentwurf', 'Manuelle Freigabe', 'Versand später'],
+      connector: 'support-mail',
+    },
+    seo_update: {
+      label: 'SEO-Optimierung',
+      stages: ['Analyse', 'Listing-Entwurf', 'Manuelle Freigabe', 'Publikation später'],
+      connector: 'listing-seo',
+    },
+    order_prepare: {
+      label: 'Bestellvorbereitung',
+      stages: ['Analyse', 'Bestellentwurf', 'Manuelle Freigabe', 'Bestellung später'],
+      connector: 'supplier-order',
+    },
+    listing_update: {
+      label: 'Listing-Update',
+      stages: ['Analyse', 'Listing-Entwurf', 'Manuelle Freigabe', 'Veröffentlichung später'],
+      connector: 'listing-publish',
+    },
+    risk_action: {
+      label: 'Risikobehandlung',
+      stages: ['Analyse', 'Risikoentwurf', 'Manuelle Freigabe', 'Weitere Prüfung später'],
+      connector: 'risk-review',
+    },
+  };
+  const getLiveActionBlueprint = (type) => LIVE_ACTION_BLUEPRINTS[normalizeApprovalQueueType(type)] || LIVE_ACTION_BLUEPRINTS.listing_update;
+  const buildLiveActionPipeline = (type, context) => {
+    const blueprint = getLiveActionBlueprint(type);
+    return {
+      stage: 'planned',
+      liveEnabled: false,
+      requiresConfirmation: true,
+      actionType: normalizeApprovalQueueType(type),
+      label: blueprint.label,
+      connector: blueprint.connector,
+      stages: blueprint.stages.slice(),
+      context: context && typeof context === 'object' ? { ...context } : {},
+    };
+  };
+  const decorateApprovalPayload = (type, payload, context) => {
+    const basePayload = payload && typeof payload === 'object' && !Array.isArray(payload) ? { ...payload } : {};
+    basePayload.livePipeline = buildLiveActionPipeline(type, context);
+    return basePayload;
+  };
+  const formatLivePipelineText = (pipeline) => {
+    if (!pipeline || typeof pipeline !== 'object') return 'Keine Live-Pipeline hinterlegt.';
+    const stages = Array.isArray(pipeline.stages) ? pipeline.stages.join(' → ') : '';
+    const connector = pipeline.connector ? `Connector: ${pipeline.connector}` : '';
+    const liveState = pipeline.liveEnabled ? 'Live später aktivierbar' : 'Nur vorbereitet, keine Live-Ausführung';
+    return [pipeline.label || 'Live-Pipeline', liveState, stages, connector].filter(Boolean).join(' | ');
+  };
+  const executeLiveAction = (approvalEntry) => {
+    const pipeline = approvalEntry && approvalEntry.payload && approvalEntry.payload.livePipeline;
+    if (!pipeline) {
+      return { ok: false, status: 'missing_pipeline', message: 'Keine Live-Pipeline vorhanden.' };
+    }
+    if (isSecurityLocked() || isAiActionBlocked()) {
+      return { ok: false, status: 'blocked', message: 'Live-Ausführung ist derzeit gesperrt.' };
+    }
+    return {
+      ok: false,
+      status: 'prepared',
+      message: 'Live-Ausführung ist noch nicht aktiviert. Die Pipeline bleibt nur vorbereitet.',
+      pipeline,
+    };
+  };
+  const getLivePipelineRoadmap = () => [
+    {
+      title: 'Support-Antwort',
+      type: 'support_reply',
+      connector: 'support-mail',
+      note: 'Antworten vorbereiten, dann manuell freigeben.',
+    },
+    {
+      title: 'SEO-Optimierung',
+      type: 'seo_update',
+      connector: 'listing-seo',
+      note: 'Listing-Texte erst prüfen, später anwenden.',
+    },
+    {
+      title: 'Bestellvorbereitung',
+      type: 'order_prepare',
+      connector: 'supplier-order',
+      note: 'Supplier-Daten vorbereiten, aber nichts absenden.',
+    },
+    {
+      title: 'Listing-Update',
+      type: 'listing_update',
+      connector: 'listing-publish',
+      note: 'Änderung erst nach manueller Freigabe publizieren.',
+    },
+    {
+      title: 'Risikobehandlung',
+      type: 'risk_action',
+      connector: 'risk-review',
+      note: 'Risikofälle nur vorbereiten und prüfen.',
+    },
+  ];
+  const buildLivePipelineRoadmapCard = () => {
+    const items = getLivePipelineRoadmap();
+    return `
+      <article class="virtual-agent-card task-center-card">
+        <div class="task-center-card-top">
+          <div class="task-center-card-heading">
+            <div class="task-center-triage-title">
+              <h4>Live-Pipeline Blueprint</h4>
+              <span class="pill">Vorbereitet, nicht aktiv</span>
+            </div>
+            <p>Diese Struktur zeigt, wie spätere Live-Aktionen angedockt werden können. Aktuell bleibt alles in der Freigabe-Logik.</p>
+          </div>
+          <div class="task-center-badge-stack">
+            <span class="virtual-agent-badge info">Gerüst</span>
+            <span class="virtual-agent-badge warn">Keine Ausführung</span>
+          </div>
+        </div>
+        <div class="virtual-future-grid" style="margin-top:14px">
+          ${items.map((item) => {
+            const blueprint = getLiveActionBlueprint(item.type);
+            return `
+              <div class="virtual-future-card">
+                <div class="virtual-agent-ident">
+                  <div class="virtual-agent-icon">🧭</div>
+                  <div>
+                    <h4>${escapeHtml(item.title)}</h4>
+                    <p>${escapeHtml(item.note)}</p>
+                    <div style="margin-top:8px" class="virtual-agent-summary-meta">
+                      <span class="pill">${escapeHtml(blueprint.label)}</span>
+                      <span class="pill">${escapeHtml(item.connector)}</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="hint" style="margin-top:10px">${escapeHtml(blueprint.stages.join(' → '))}</div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </article>
+    `;
+  };
 
   const buildDemoAiTasks = () => [
     {
@@ -8444,6 +8589,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       payload: {
         source: 'demo',
         context: 'support',
+        livePipeline: buildLiveActionPipeline('support_reply', { source: 'demo' }),
       },
       previewText: 'Hallo, danke für deine Nachricht. Ich prüfe den Versandstatus und melde mich zeitnah.',
       requiresConfirmation: true,
@@ -8460,6 +8606,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       payload: {
         source: 'demo',
         context: 'seo',
+        livePipeline: buildLiveActionPipeline('seo_update', { source: 'demo' }),
       },
       previewText: 'Neuer Titelvorschlag: Premium Organizer für Schreibtisch & Büro – kompakt, modern, praktisch',
       requiresConfirmation: true,
@@ -8476,6 +8623,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       payload: {
         source: 'demo',
         context: 'operations',
+        livePipeline: buildLiveActionPipeline('order_prepare', { source: 'demo' }),
       },
       previewText: 'Supplier-Bestellung vorbereitet. Keine Bestellung wurde ausgeführt.',
       requiresConfirmation: true,
@@ -8688,8 +8836,10 @@ document.addEventListener('DOMContentLoaded',()=>{
     safetyMode: true,
     pausedAll: false,
     futureCapabilities: createFutureCapabilityState(),
+    futureSectionsOpen: { lockedFunctions: true, lockedRoles: true },
     activePanel: 'overview',
     openCards: {},
+    futureDetailsOpen: {},
     descriptionEditing: {},
     promptEditing: {},
     guardrailsEditing: {},
@@ -8735,8 +8885,22 @@ document.addEventListener('DOMContentLoaded',()=>{
         lockedFunctions: {...defaults.futureCapabilities.lockedFunctions},
         lockedRoles: {...defaults.futureCapabilities.lockedRoles},
       },
+      futureSectionsOpen: source.futureSectionsOpen && typeof source.futureSectionsOpen === 'object' ? {
+        lockedFunctions: typeof source.futureSectionsOpen.lockedFunctions === 'boolean' ? source.futureSectionsOpen.lockedFunctions : true,
+        lockedRoles: typeof source.futureSectionsOpen.lockedRoles === 'boolean' ? source.futureSectionsOpen.lockedRoles : true,
+      } : {
+        lockedFunctions: true,
+        lockedRoles: true,
+      },
       activePanel: normalizePanel(source.activePanel || defaults.activePanel),
       openCards: source.openCards && typeof source.openCards === 'object' ? {...source.openCards} : {},
+      futureDetailsOpen: source.futureDetailsOpen && typeof source.futureDetailsOpen === 'object' ? {
+        lockedFunctions: source.futureDetailsOpen.lockedFunctions && typeof source.futureDetailsOpen.lockedFunctions === 'object' ? {...source.futureDetailsOpen.lockedFunctions} : {},
+        lockedRoles: source.futureDetailsOpen.lockedRoles && typeof source.futureDetailsOpen.lockedRoles === 'object' ? {...source.futureDetailsOpen.lockedRoles} : {},
+      } : {
+        lockedFunctions: {},
+        lockedRoles: {},
+      },
       descriptionEditing: source.descriptionEditing && typeof source.descriptionEditing === 'object' ? {...source.descriptionEditing} : {},
       promptEditing: source.promptEditing && typeof source.promptEditing === 'object' ? {...source.promptEditing} : {},
       guardrailsEditing: source.guardrailsEditing && typeof source.guardrailsEditing === 'object' ? {...source.guardrailsEditing} : {},
@@ -8774,6 +8938,12 @@ document.addEventListener('DOMContentLoaded',()=>{
       lockedFunctions: mergeFutureCapabilityState(defaults.futureCapabilities.lockedFunctions, source.futureCapabilities && source.futureCapabilities.lockedFunctions),
       lockedRoles: mergeFutureCapabilityState(defaults.futureCapabilities.lockedRoles, source.futureCapabilities && source.futureCapabilities.lockedRoles),
     };
+    next.futureDetailsOpen = next.futureDetailsOpen && typeof next.futureDetailsOpen === 'object' ? next.futureDetailsOpen : { lockedFunctions: {}, lockedRoles: {} };
+    next.futureDetailsOpen.lockedFunctions = next.futureDetailsOpen.lockedFunctions && typeof next.futureDetailsOpen.lockedFunctions === 'object' ? next.futureDetailsOpen.lockedFunctions : {};
+    next.futureDetailsOpen.lockedRoles = next.futureDetailsOpen.lockedRoles && typeof next.futureDetailsOpen.lockedRoles === 'object' ? next.futureDetailsOpen.lockedRoles : {};
+    next.futureSectionsOpen = next.futureSectionsOpen && typeof next.futureSectionsOpen === 'object' ? next.futureSectionsOpen : { lockedFunctions: true, lockedRoles: true };
+    next.futureSectionsOpen.lockedFunctions = typeof next.futureSectionsOpen.lockedFunctions === 'boolean' ? next.futureSectionsOpen.lockedFunctions : true;
+    next.futureSectionsOpen.lockedRoles = typeof next.futureSectionsOpen.lockedRoles === 'boolean' ? next.futureSectionsOpen.lockedRoles : true;
     return next;
   };
 
@@ -8837,6 +9007,25 @@ document.addEventListener('DOMContentLoaded',()=>{
     return bucket[id] && typeof bucket[id] === 'object'
       ? bucket[id]
       : { prepared: true, enabled: false, lastPreparedAt: '', notes: '' };
+  };
+  const isFutureDetailsOpen = (kind, id) => !!(state.futureDetailsOpen && state.futureDetailsOpen[kind] && state.futureDetailsOpen[kind][id]);
+  const setFutureDetailsOpen = (kind, id, open) => {
+    state.futureDetailsOpen = state.futureDetailsOpen && typeof state.futureDetailsOpen === 'object'
+      ? state.futureDetailsOpen
+      : { lockedFunctions: {}, lockedRoles: {} };
+    state.futureDetailsOpen[kind] = state.futureDetailsOpen[kind] && typeof state.futureDetailsOpen[kind] === 'object'
+      ? state.futureDetailsOpen[kind]
+      : {};
+    state.futureDetailsOpen[kind][id] = !!open;
+    saveState();
+  };
+  const isFutureSectionOpen = (kind) => !!(state.futureSectionsOpen && state.futureSectionsOpen[kind]);
+  const setFutureSectionOpen = (kind, open) => {
+    state.futureSectionsOpen = state.futureSectionsOpen && typeof state.futureSectionsOpen === 'object'
+      ? state.futureSectionsOpen
+      : { lockedFunctions: true, lockedRoles: true };
+    state.futureSectionsOpen[kind] = !!open;
+    saveState();
   };
   const toggleFutureCapability = (kind, id) => {
     if (!isFutureCapabilityUnlocked()) {
@@ -9179,7 +9368,7 @@ document.addEventListener('DOMContentLoaded',()=>{
           status: 'pending',
           riskLevel: critical ? 'critical' : 'high',
           createdAt,
-          payload: { source: 'agent-workflow', agentId, items: candidates.map((item) => ({ title: item.title, score: item.score, delivery: item.delivery, supplierName: item.supplierName, riskFlags: item.riskFlags })) },
+          payload: decorateApprovalPayload('risk_action', { source: 'agent-workflow', agentId, items: candidates.map((item) => ({ title: item.title, score: item.score, delivery: item.delivery, supplierName: item.supplierName, riskFlags: item.riskFlags })) }, { agentId, agentName: def.name, workflow: 'guard' }),
           previewText: `Risiko-Check lokal vorbereitet. ${candidates.map((item) => item.title).join(', ')}`,
           requiresConfirmation: true,
         };
@@ -9234,7 +9423,7 @@ document.addEventListener('DOMContentLoaded',()=>{
           status: 'pending',
           riskLevel: 'medium',
           createdAt,
-          payload: { source: 'agent-workflow', agentId, openCount: openReturns.length, examples: highlights },
+          payload: decorateApprovalPayload('support_reply', { source: 'agent-workflow', agentId, openCount: openReturns.length, examples: highlights }, { agentId, agentName: def.name, workflow: 'support' }),
           previewText: 'Hallo, danke für deine Nachricht. Ich prüfe den Fall und melde mich zeitnah.',
           requiresConfirmation: true,
         };
@@ -9269,7 +9458,7 @@ document.addEventListener('DOMContentLoaded',()=>{
           status: 'pending',
           riskLevel: 'high',
           createdAt,
-          payload: { source: 'agent-workflow', agentId, items: restockCandidates.map((item) => ({ title: item.title, stock: item.stock, delivery: item.delivery, supplierName: item.supplierName })) },
+          payload: decorateApprovalPayload('order_prepare', { source: 'agent-workflow', agentId, items: restockCandidates.map((item) => ({ title: item.title, stock: item.stock, delivery: item.delivery, supplierName: item.supplierName })) }, { agentId, agentName: def.name, workflow: 'operations' }),
           previewText: `Nachschub lokal vorbereitet für: ${restockCandidates.map((item) => item.title).join(', ')}`,
           requiresConfirmation: true,
         };
@@ -9331,12 +9520,16 @@ document.addEventListener('DOMContentLoaded',()=>{
         status: 'pending',
         riskLevel: 'critical',
         createdAt,
-        payload: {
+        payload: decorateApprovalPayload(kind === 'lockedRoles' ? 'listing_update' : 'risk_action', {
           source: 'future-workflow',
           kind,
           id,
           title: def.title,
-        },
+        }, {
+          futureKind: kind,
+          futureId: id,
+          futureTitle: def.title,
+        }),
         previewText: `${def.title} bleibt gesperrt und nur lokal vorbereitet.`,
         requiresConfirmation: true,
       };
@@ -9387,12 +9580,16 @@ document.addEventListener('DOMContentLoaded',()=>{
         status: 'pending',
         riskLevel: 'medium',
         createdAt,
-        payload: {
+        payload: decorateApprovalPayload(kind === 'lockedRoles' ? 'listing_update' : 'risk_action', {
           source: 'future-workflow',
           kind,
           id,
           title: def.title,
-        },
+        }, {
+          futureKind: kind,
+          futureId: id,
+          futureTitle: def.title,
+        }),
         previewText: `${def.title} wurde nur vorbereitet, nicht live geschaltet.`,
         requiresConfirmation: true,
       };
@@ -9822,13 +10019,17 @@ document.addEventListener('DOMContentLoaded',()=>{
       ...entry,
       status: 'pending',
       createdAt,
-      payload: {
+      payload: decorateApprovalPayload(entry.type, {
         source: 'ai-task-center',
         sourceTaskId: task.id,
         sourceActionLabel: task.actionLabel || label || '',
         sourceTaskTitle: task.title || '',
         sourceCategory: task.category || '',
-      },
+      }, {
+        sourceTaskId: task.id,
+        taskTitle: task.title || '',
+        agent: task.agent || '',
+      }),
       requiresConfirmation: true,
     }, getApprovalQueue().length);
 
@@ -9902,6 +10103,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     const description = getEl('approvalDetailDescription');
     const preview = getEl('approvalDetailPreview');
     const payload = getEl('approvalDetailPayload');
+    const pipeline = getEl('approvalDetailPipeline');
     if (title) title.textContent = entry.title || '-';
     if (agent) agent.textContent = entry.agent || '-';
     if (type) type.textContent = getApprovalTypeLabel(entry.type);
@@ -9911,6 +10113,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     if (description) description.textContent = entry.description || 'Keine Beschreibung vorhanden.';
     if (preview) preview.textContent = entry.previewText || 'Keine Vorschau vorhanden.';
     if (payload) payload.textContent = JSON.stringify(entry.payload || {}, null, 2);
+    if (pipeline) pipeline.textContent = formatLivePipelineText(entry.payload && entry.payload.livePipeline);
     if (modal) {
       modal.classList.remove('hidden');
       modal.setAttribute('aria-hidden', 'false');
@@ -9963,12 +10166,19 @@ document.addEventListener('DOMContentLoaded',()=>{
 
   const handleApprovalAction = (entryId, action) => {
     if (!entryId) return;
+    const entry = getApprovalQueueById(entryId);
     if (action === 'approve') {
       updateApprovalQueueEntry(entryId, (entry) => ({ ...entry, status: 'approved' }));
+      if (entry) {
+        showToolPopup('Freigabe vorbereitet', formatLivePipelineText(entry.payload && entry.payload.livePipeline), 'good');
+      }
       return;
     }
     if (action === 'reject') {
       updateApprovalQueueEntry(entryId, (entry) => ({ ...entry, status: 'rejected' }));
+      if (entry) {
+        showToolPopup('Freigabe abgelehnt', formatLivePipelineText(entry.payload && entry.payload.livePipeline), 'warn');
+      }
       return;
     }
     if (action === 'details') {
@@ -10330,6 +10540,7 @@ document.addEventListener('DOMContentLoaded',()=>{
               : `<button type="button" class="secondary" data-agent-action="open-advanced-autonomy" ${isAiActionBlocked() ? 'disabled aria-disabled="true"' : ''} title="${isAiActionBlocked() ? getAiActionBlockReason() : 'Erweiterte Autonomie freischalten'}">Erweiterte Autonomie freischalten</button>`}
           </div>
         </div>
+        ${buildLivePipelineRoadmapCard()}
         <div class="virtual-agent-footer">
           <button type="button" class="secondary" data-agent-action="reset-all">Alle Agenten auf Standardwerte zurücksetzen</button>
         </div>
@@ -10494,7 +10705,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       : 'Noch nicht aktivierbar – Sicherheitsfreigabe erforderlich.';
     const items = FUTURE_CAPABILITY_DEFS.lockedFunctions;
     return `
-      <details class="virtual-agent-card virtual-future-section">
+      <details class="virtual-agent-card virtual-future-section" data-future-section-kind="lockedFunctions" ${isFutureSectionOpen('lockedFunctions') ? 'open' : ''}>
         <summary class="virtual-agent-summary">
           <div class="virtual-agent-summary-top">
             <div class="virtual-agent-ident">
@@ -10519,6 +10730,7 @@ document.addEventListener('DOMContentLoaded',()=>{
               ${(() => {
                 const record = getFutureCapabilityRecord('lockedFunctions', item.id);
                 const statusLabel = futureUnlocked ? (record.enabled ? 'Entsperrt' : 'Gesperrt') : (record.prepared ? 'Vorbereitet' : 'Noch offen');
+                const detailsOpen = isFutureDetailsOpen('lockedFunctions', item.id);
                 return `
               <div class="virtual-future-card">
                 <div class="virtual-agent-ident">
@@ -10532,6 +10744,15 @@ document.addEventListener('DOMContentLoaded',()=>{
                     </div>
                   </div>
                 </div>
+                <details class="virtual-future-inner-details" data-future-detail-kind="lockedFunctions" data-future-detail-id="${item.id}" ${detailsOpen ? 'open' : ''} style="margin-top:12px">
+                  <summary class="pill" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px">Details ansehen <span aria-hidden="true">⌄</span></summary>
+                  <div class="virtual-future-inner-content" style="margin-top:10px">
+                    <p><strong>Zweck:</strong> ${escapeHtml(item.description)}</p>
+                    <p><strong>Status:</strong> ${escapeHtml(statusLabel)}. ${futureUnlocked ? 'Die Funktion ist vorbereitet, aber weiterhin ohne Live-Ausführung.' : 'Die Funktion bleibt gesperrt, bis die Sicherheitsfreigabe aktiv ist.'}</p>
+                    <p><strong>Voraussetzung:</strong> ${escapeHtml(lockedMessage)}</p>
+                    <p><strong>Sicherheitsregel:</strong> Keine echte Aktion wird automatisch ausgeführt.</p>
+                  </div>
+                </details>
                 <div class="settings-agents-overview" style="grid-template-columns:1fr auto;gap:10px;align-items:center">
                   <span class="virtual-agent-badge ${futureUnlocked ? (record.enabled ? 'good' : 'info') : 'warn'}">${futureUnlocked ? (record.enabled ? 'Aktiv' : 'Bereit') : 'Gesperrt'}</span>
                   <button type="button" class="agent-switch ${futureUnlocked ? (record.enabled ? 'agent-switch-unlocked' : '') : 'agent-switch-locked'}" data-future-action="toggle-future-capability" data-future-kind="lockedFunctions" data-future-id="${item.id}" ${futureUnlocked ? '' : 'disabled aria-disabled="true"'} title="${futureUnlocked ? (record.enabled ? 'Sperren' : 'Freigeben') : lockedMessage}">
@@ -10565,7 +10786,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       { icon: '⭐', title: 'Soul Review', description: 'Analysiert Bewertungen, Kundenfeedback und wiederkehrende Muster aus Rückmeldungen.' },
     ];
     return `
-      <details class="virtual-agent-card virtual-future-section">
+      <details class="virtual-agent-card virtual-future-section" data-future-section-kind="lockedRoles" ${isFutureSectionOpen('lockedRoles') ? 'open' : ''}>
         <summary class="virtual-agent-summary">
           <div class="virtual-agent-summary-top">
             <div class="virtual-agent-ident">
@@ -10590,6 +10811,7 @@ document.addEventListener('DOMContentLoaded',()=>{
               ${(() => {
                 const record = getFutureCapabilityRecord('lockedRoles', item.id);
                 const statusLabel = futureUnlocked ? (record.enabled ? 'Entsperrt' : 'Gesperrt') : (record.prepared ? 'Vorbereitet' : 'Noch offen');
+                const detailsOpen = isFutureDetailsOpen('lockedRoles', item.id);
                 return `
               <div class="virtual-future-card">
                 <div class="virtual-agent-ident">
@@ -10603,8 +10825,17 @@ document.addEventListener('DOMContentLoaded',()=>{
                     </div>
                   </div>
                 </div>
+                <details class="virtual-future-inner-details" data-future-detail-kind="lockedRoles" data-future-detail-id="${item.id}" ${detailsOpen ? 'open' : ''} style="margin-top:12px">
+                  <summary class="pill" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px">Details ansehen <span aria-hidden="true">⌄</span></summary>
+                  <div class="virtual-future-inner-content" style="margin-top:10px">
+                    <p><strong>Zweck:</strong> ${escapeHtml(item.description)}</p>
+                    <p><strong>Status:</strong> ${escapeHtml(statusLabel)}. ${futureUnlocked ? 'Die Rolle kann jetzt einzeln freigegeben oder gesperrt werden. Weiterhin keine Live-Ausführung.' : 'Die Rolle bleibt gesperrt, bis die Sicherheitsfreigabe aktiv ist.'}</p>
+                    <p><strong>Voraussetzung:</strong> ${escapeHtml(lockedMessage)}</p>
+                    <p><strong>Sicherheitsregel:</strong> Keine echte Aktion wird automatisch ausgeführt.</p>
+                  </div>
+                </details>
                 <div class="settings-agents-overview" style="grid-template-columns:1fr auto;gap:10px;align-items:center">
-                  <span class="virtual-agent-badge ${futureUnlocked ? (record.enabled ? 'good' : 'info') : 'warn'}">${futureUnlocked ? (record.enabled ? 'Aktiv' : 'Bereit') : 'Gesperrt'}</span>
+                  <span class="virtual-agent-badge ${futureUnlocked ? (record.enabled ? 'good' : 'info') : 'warn'}">${futureUnlocked ? (record.enabled ? 'Entsperrt' : 'Bereit') : 'Gesperrt'}</span>
                   <button type="button" class="agent-switch ${futureUnlocked ? (record.enabled ? 'agent-switch-unlocked' : '') : 'agent-switch-locked'}" data-future-action="toggle-future-capability" data-future-kind="lockedRoles" data-future-id="${item.id}" ${futureUnlocked ? '' : 'disabled aria-disabled="true"'} title="${futureUnlocked ? (record.enabled ? 'Sperren' : 'Freigeben') : lockedMessage}">
                     <span class="agent-switch-track"></span>
                     <span>${futureUnlocked ? (record.enabled ? 'Entsperrt' : 'Freigeben') : lockedMessage}</span>
@@ -10652,6 +10883,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       </div>
     `;
     syncAgentInstructionsModal();
+    bindFutureDetailsToggle();
   };
 
   const updateAdvancedAutonomyHoldUI = () => {
@@ -11186,6 +11418,30 @@ document.addEventListener('DOMContentLoaded',()=>{
     }
   };
 
+  const bindFutureDetailsToggle = () => {
+    const root = getEl('virtualAgentsSettingsRoot');
+    if (!root) return;
+    root.querySelectorAll('.virtual-future-section').forEach((section) => {
+      if (section.dataset.boundSection === 'yes') return;
+      section.dataset.boundSection = 'yes';
+      section.addEventListener('toggle', () => {
+        const kind = section.dataset.futureSectionKind;
+        if (!kind) return;
+        setFutureSectionOpen(kind, section.open);
+      });
+    });
+    root.querySelectorAll('.virtual-future-inner-details').forEach((details) => {
+      if (details.dataset.bound === 'yes') return;
+      details.dataset.bound = 'yes';
+      details.addEventListener('toggle', () => {
+        const kind = details.dataset.futureDetailKind;
+        const id = details.dataset.futureDetailId;
+        if (!kind || !id) return;
+        setFutureDetailsOpen(kind, id, details.open);
+      });
+    });
+  };
+
   document.addEventListener('click', (event) => {
     const modal = getEl('advancedAutonomyModal');
     if (!modal || modal.classList.contains('hidden')) return;
@@ -11211,6 +11467,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     bindToolPopupModal();
     syncGeneralAiSettingsToAgentSecurity();
     render();
+    bindFutureDetailsToggle();
     const advancedAutonomyCheckbox = getEl('advancedAutonomyRiskCheckbox');
     const advancedAutonomyHoldBtn = getEl('advancedAutonomyHoldBtn');
     const advancedAutonomyCloseBtn = getEl('advancedAutonomyCloseBtn');
