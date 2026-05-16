@@ -243,6 +243,19 @@
   .agent-switch-locked .agent-switch-track:before{background:linear-gradient(180deg,#f8fafc,#cbd5e1);transform:translateX(0)}
   .agent-switch-locked .agent-switch-track:after{content:'🔒';right:7px;color:#cbd5e1;font-size:11px}
   .virtual-agent-card textarea{min-height:92px}
+  .virtual-agent-field-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px}
+  .description-edit-toggle{width:30px;height:30px;border-radius:999px;border:1px solid rgba(148,163,184,.28);background:rgba(15,23,42,.65);color:#e2e8f0;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:none}
+  .description-edit-toggle:hover{border-color:rgba(96,165,250,.55);background:rgba(30,41,59,.88)}
+  .description-edit-toggle.active{border-color:rgba(96,165,250,.75);background:rgba(30,64,175,.22);color:#bfdbfe}
+  .virtual-agent-card textarea[readonly]{opacity:.72;cursor:not-allowed;background:rgba(15,23,42,.56);border-style:dashed}
+  .agent-instructions-modal-panel{max-width:920px;width:min(96vw,920px)}
+  .agent-instructions-modal{display:grid;gap:14px}
+  .agent-instructions-modal-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap}
+  .agent-instructions-modal-head h2{margin:0;font-size:24px;letter-spacing:-.03em}
+  .agent-instructions-modal-head p{margin-top:4px;color:#cbd5e1;font-size:13px;line-height:1.5}
+  .agent-instructions-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .agent-instructions-note{padding:14px 16px;border-radius:18px;background:rgba(59,130,246,.11);border:1px solid rgba(96,165,250,.18);color:#dbeafe;font-size:13px;line-height:1.55}
+  .agent-instructions-actions{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap}
   .virtual-agent-footer{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
   .virtual-agent-footnote{font-size:12px;color:#94a3b8;line-height:1.45;margin-top:12px}
   .virtual-agent-mini{display:flex;gap:8px;flex-wrap:wrap}
@@ -1387,6 +1400,10 @@ Land"></textarea>
         <h3>🤖 KI</h3>
         <div class="checkrow"><input type="checkbox" id="setAiEnabled" checked><label for="setAiEnabled">KI-Funktionen aktivieren</label></div>
         <p class="hint">Wenn diese Option aus ist, bleiben die KI-Buttons sichtbar, aber die Prüfung nutzt keine OpenAI-Funktionen.</p>
+        <div class="checkrow"><input type="checkbox" id="setAiConfirmLiveActions" checked><label for="setAiConfirmLiveActions">Live-Aktionen nur nach Bestätigung</label></div>
+        <div class="checkrow"><input type="checkbox" id="setAiSandboxMode" checked><label for="setAiSandboxMode">Sandbox-Modus aktiv</label></div>
+        <div class="checkrow"><input type="checkbox" id="setAiAdvancedMode"><label for="setAiAdvancedMode">Erweiterter Modus aktiv</label></div>
+        <p class="hint">Diese drei Schalter steuern die bestehende Sicherheitslogik der Agenten mit: Bestätigung blockiert Live-Aktionen, Sandbox simuliert nur, der erweiterte Modus bereitet spätere Freigaben vor.</p>
       </div>
 
       <div class="settings-section">
@@ -1660,6 +1677,12 @@ PLZ Ort"></textarea>
     </div>
   </div>
 
+  <div id="agentInstructionsModal" class="hidden modal-backdrop" aria-hidden="true">
+    <div class="card modal-panel agent-instructions-modal-panel">
+      <div id="agentInstructionsModalBody"></div>
+    </div>
+  </div>
+
   <div id="invoiceModal" class="hidden modal-backdrop">
     <div class="card modal-panel invoice-modal-panel">
       <h2>🧾 Rechnung</h2>
@@ -1868,6 +1891,9 @@ const defaultSettings = {
   avoidElectronics: true,
   lucidReminder: true,
   aiEnabled: true,
+  aiConfirmLiveActions: true,
+  aiSandboxMode: true,
+  aiAdvancedMode: false,
   market: 'DE',
   theme: 'dark',
   designPreset: 'classic',
@@ -6590,6 +6616,9 @@ function applySettings(){
   safe('setAvoidElectronics',el=>el.checked=appSettings.avoidElectronics);
   safe('setLucidReminder',el=>el.checked=appSettings.lucidReminder);
   safe('setAiEnabled',el=>el.checked=appSettings.aiEnabled !== false);
+  safe('setAiConfirmLiveActions',el=>el.checked=appSettings.aiConfirmLiveActions !== false);
+  safe('setAiSandboxMode',el=>el.checked=appSettings.aiSandboxMode !== false);
+  safe('setAiAdvancedMode',el=>el.checked=appSettings.aiAdvancedMode === true);
   safe('setMarket',el=>el.value=appSettings.market);
   safe('setTheme',el=>el.value=appSettings.theme);
   safe('setDesignPreset',el=>el.value=appSettings.designPreset || 'classic');
@@ -6609,15 +6638,30 @@ function readSettingsFromForm(){
     avoidElectronics: (function(){ const el = $('setAvoidElectronics'); return !!(el && el.checked); })(),
     lucidReminder: (function(){ const el = $('setLucidReminder'); return !!(el && el.checked); })(),
     aiEnabled: (function(){ const el = $('setAiEnabled'); return !!(el && el.checked); })(),
+    aiConfirmLiveActions: (function(){ const el = $('setAiConfirmLiveActions'); return !!(el && el.checked); })(),
+    aiSandboxMode: (function(){ const el = $('setAiSandboxMode'); return !!(el && el.checked); })(),
+    aiAdvancedMode: (function(){ const el = $('setAiAdvancedMode'); return !!(el && el.checked); })(),
     market:$('setMarket')?.value||'DE',
     theme:$('setTheme')?.value||'dark',
     designPreset:$('setDesignPreset')?.value||'classic',
     start:resolveTabId($('setStart')?.value||'dashboardTab')
   };
 }
+function syncGeneralAiSettingsToAgentSecurity(){
+  if(typeof state !== 'object' || !state) return;
+  const confirmLiveActions = appSettings.aiConfirmLiveActions !== false;
+  const sandboxMode = appSettings.aiSandboxMode !== false;
+  const advancedMode = appSettings.aiAdvancedMode === true;
+  state.securityMode = confirmLiveActions;
+  state.safetyMode = confirmLiveActions;
+  state.sandboxMode = sandboxMode;
+  state.advancedMode = advancedMode;
+  saveState();
+}
 function saveSettings(){
   appSettings = { ...defaultSettings, ...readSettingsFromForm() };
   localStorage.setItem('elyonSettings', JSON.stringify(appSettings));
+  syncGeneralAiSettingsToAgentSecurity();
   applySettings();
   render();
   alert('Einstellungen gespeichert und angewendet ✅');
@@ -6626,6 +6670,7 @@ function resetSettings(){
   if(!confirm('Einstellungen wirklich zurücksetzen?')) return;
   appSettings = {...defaultSettings};
   localStorage.setItem('elyonSettings', JSON.stringify(appSettings));
+  syncGeneralAiSettingsToAgentSecurity();
   applySettings();
   render();
 }
@@ -8182,6 +8227,84 @@ document.addEventListener('DOMContentLoaded',()=>{
       description: 'Erstellt Tagesfokus, offene Aufgaben und Warnungen aus den laufenden Vorgängen. Priorisiert die wichtigsten To-dos und zeigt, wo du heute hinschauen solltest.'
     },
   ];
+  const FUTURE_CAPABILITY_DEFS = {
+    lockedFunctions: [
+      {
+        id: 'full-automation',
+        icon: '🔒',
+        title: 'Vollautomatische Aktionen',
+        description: 'Agenten könnten später Aufgaben ohne manuelle Auslösung vorbereiten oder ausführen.',
+      },
+      {
+        id: 'auto-orders',
+        icon: '🔒',
+        title: 'Automatische Bestellungen',
+        description: 'Bestellungen beim Supplier automatisch vorbereiten oder auslösen.',
+      },
+      {
+        id: 'auto-messages',
+        icon: '🔒',
+        title: 'Automatische Kundennachrichten',
+        description: 'Kundenantworten automatisch senden.',
+      },
+      {
+        id: 'auto-ebay-posting',
+        icon: '🔒',
+        title: 'Autonomes eBay-Posting',
+        description: 'Produkte automatisch bei eBay veröffentlichen.',
+      },
+    ],
+    lockedRoles: [
+      {
+        id: 'soul-listing',
+        icon: '🤖',
+        title: 'Soul Listing',
+        description: 'Erstellt Listing-Entwürfe, Produktblöcke und Strukturvorschläge für neue eBay-Angebote.',
+      },
+      {
+        id: 'soul-pricing',
+        icon: '💹',
+        title: 'Soul Pricing',
+        description: 'Prüft Preisstrategie, Untergrenzen, Wettbewerbsdruck und mögliche Anpassungen.',
+      },
+      {
+        id: 'soul-supplier',
+        icon: '📦',
+        title: 'Soul Supplier',
+        description: 'Hilft bei Lieferantenprüfung, Nachfass-Hinweisen und Beschaffungs-Checks.',
+      },
+      {
+        id: 'soul-compliance',
+        icon: '🧾',
+        title: 'Soul Compliance',
+        description: 'Prüft EPR, WEEE, Impressum und andere rechtliche Warnsignale vor einem Live-Schritt.',
+      },
+      {
+        id: 'soul-returns',
+        icon: '↩️',
+        title: 'Soul Returns',
+        description: 'Bereitet Retouren-Triage, Antwortentwürfe und Eskalationshinweise vor.',
+      },
+      {
+        id: 'soul-dispatch',
+        icon: '📮',
+        title: 'Soul Dispatch',
+        description: 'Priorisiert operative Tagesaufgaben, Versandthemen und To-dos mit Auswirkung auf den Ablauf.',
+      },
+      {
+        id: 'soul-inventory',
+        icon: '📊',
+        title: 'Soul Inventory',
+        description: 'Zeigt Bestandswarnungen, Nachschubbedarf und mögliche Engpässe frühzeitig an.',
+      },
+      {
+        id: 'soul-review',
+        icon: '⭐',
+        title: 'Soul Review',
+        description: 'Analysiert Bewertungen, Kundenfeedback und wiederkehrende Muster aus Rückmeldungen.',
+      },
+    ],
+  };
   const MODE_OPTIONS = [
     { value: 'off', label: 'aus' },
     { value: 'suggestions', label: 'nur Vorschläge' },
@@ -8506,6 +8629,48 @@ document.addEventListener('DOMContentLoaded',()=>{
     return next.length ? next : buildDemoAiTasks();
   };
 
+  const normalizeSecurityMode = (source) => {
+    if (typeof source.securityMode === 'boolean') return source.securityMode;
+    if (typeof source.safetyMode === 'boolean') return source.safetyMode;
+    return true;
+  };
+
+  const createFutureCapabilityState = () => ({
+    lockedFunctions: FUTURE_CAPABILITY_DEFS.lockedFunctions.reduce((acc, item) => {
+      acc[item.id] = {
+        prepared: true,
+        enabled: false,
+        lastPreparedAt: '',
+        notes: '',
+      };
+      return acc;
+    }, {}),
+    lockedRoles: FUTURE_CAPABILITY_DEFS.lockedRoles.reduce((acc, item) => {
+      acc[item.id] = {
+        prepared: true,
+        enabled: false,
+        lastPreparedAt: '',
+        notes: '',
+      };
+      return acc;
+    }, {}),
+  });
+
+  const mergeFutureCapabilityState = (defaults, saved) => {
+    const source = saved && typeof saved === 'object' ? saved : {};
+    return Object.keys(defaults || {}).reduce((acc, key) => {
+      const fallback = defaults[key] && typeof defaults[key] === 'object' ? defaults[key] : {};
+      const incoming = source[key] && typeof source[key] === 'object' ? source[key] : {};
+      acc[key] = {
+        prepared: typeof incoming.prepared === 'boolean' ? incoming.prepared : fallback.prepared === true,
+        enabled: typeof incoming.enabled === 'boolean' ? incoming.enabled : fallback.enabled === true,
+        lastPreparedAt: typeof incoming.lastPreparedAt === 'string' ? incoming.lastPreparedAt : (typeof fallback.lastPreparedAt === 'string' ? fallback.lastPreparedAt : ''),
+        notes: typeof incoming.notes === 'string' ? incoming.notes : (typeof fallback.notes === 'string' ? fallback.notes : ''),
+      };
+      return acc;
+    }, {});
+  };
+
   const createDefaultState = () => ({
     version: 3,
     securityMode: true,
@@ -8518,8 +8683,12 @@ document.addEventListener('DOMContentLoaded',()=>{
     masterAgentsSnapshot: {},
     safetyMode: true,
     pausedAll: false,
+    futureCapabilities: createFutureCapabilityState(),
     activePanel: 'overview',
     openCards: {},
+    descriptionEditing: {},
+    promptEditing: {},
+    guardrailsEditing: {},
     aiTasks: [],
     approvalQueue: buildDemoApprovalQueue(),
     agents: AGENT_DEFS.reduce((acc, def) => {
@@ -8530,6 +8699,8 @@ document.addEventListener('DOMContentLoaded',()=>{
         model: 'deepseek',
         dailyLimit: 0.25,
         description: def.description || def.task,
+        prompt: def.description || def.task,
+        guardrails: 'Nur Vorschläge, Entwürfe und lokale Analysen. Keine autonomen Live-Aktionen.',
         statusState: 'Idle',
         usageToday: 0,
         lastActivity: DEFAULT_ACTIVITY,
@@ -8543,9 +8714,10 @@ document.addEventListener('DOMContentLoaded',()=>{
   const normalizeState = (raw) => {
     const defaults = createDefaultState();
     const source = raw && typeof raw === 'object' ? raw : {};
+    const securityMode = normalizeSecurityMode(source);
     const next = {
       version: Number.isFinite(Number(source.version)) ? Math.max(Number(defaults.version) || 1, Number(source.version) || 1) : defaults.version,
-      securityMode: typeof source.securityMode === 'boolean' ? source.securityMode : source.safetyMode !== false,
+      securityMode,
       sandboxMode: typeof source.sandboxMode === 'boolean' ? source.sandboxMode : defaults.sandboxMode,
       advancedMode: typeof source.advancedMode === 'boolean' ? source.advancedMode : defaults.advancedMode,
       autonomyLocked: typeof source.autonomyLocked === 'boolean' ? source.autonomyLocked : defaults.autonomyLocked,
@@ -8553,10 +8725,17 @@ document.addEventListener('DOMContentLoaded',()=>{
       pauseAllSnapshot: source.pauseAllSnapshot && typeof source.pauseAllSnapshot === 'object' ? {...source.pauseAllSnapshot} : {},
       masterAgentsDisabled: typeof source.masterAgentsDisabled === 'boolean' ? source.masterAgentsDisabled : defaults.masterAgentsDisabled,
       masterAgentsSnapshot: source.masterAgentsSnapshot && typeof source.masterAgentsSnapshot === 'object' ? {...source.masterAgentsSnapshot} : {},
-      safetyMode: typeof source.safetyMode === 'boolean' ? source.safetyMode : (typeof source.securityMode === 'boolean' ? source.securityMode : defaults.safetyMode),
+      safetyMode: securityMode,
       pausedAll: typeof source.pausedAll === 'boolean' ? source.pausedAll : (typeof source.pauseAllAgents === 'boolean' ? source.pauseAllAgents : source.pausedAll === true),
+      futureCapabilities: {
+        lockedFunctions: {...defaults.futureCapabilities.lockedFunctions},
+        lockedRoles: {...defaults.futureCapabilities.lockedRoles},
+      },
       activePanel: normalizePanel(source.activePanel || defaults.activePanel),
       openCards: source.openCards && typeof source.openCards === 'object' ? {...source.openCards} : {},
+      descriptionEditing: source.descriptionEditing && typeof source.descriptionEditing === 'object' ? {...source.descriptionEditing} : {},
+      promptEditing: source.promptEditing && typeof source.promptEditing === 'object' ? {...source.promptEditing} : {},
+      guardrailsEditing: source.guardrailsEditing && typeof source.guardrailsEditing === 'object' ? {...source.guardrailsEditing} : {},
       aiTasks: normalizeAiTasks(source.aiTasks),
       approvalQueue: normalizeApprovalQueue(source.approvalQueue),
       agents: {},
@@ -8572,6 +8751,8 @@ document.addEventListener('DOMContentLoaded',()=>{
         model: normalizeModel(incoming && incoming.model !== undefined ? incoming.model : fallback.model),
         dailyLimit: normalizeLimit(incoming && incoming.dailyLimit !== undefined ? incoming.dailyLimit : fallback.dailyLimit),
         description: sanitizeDescription(incoming && incoming.description !== undefined ? incoming.description : fallback.description, def.description || def.task),
+        prompt: sanitizeDescription(incoming && incoming.prompt !== undefined ? incoming.prompt : fallback.prompt, def.description || def.task),
+        guardrails: sanitizeDescription(incoming && incoming.guardrails !== undefined ? incoming.guardrails : fallback.guardrails, 'Nur Vorschläge, Entwürfe und lokale Analysen. Keine autonomen Live-Aktionen.'),
         statusState: normalizeStatusState(incoming && incoming.statusState !== undefined ? incoming.statusState : fallback.statusState),
         usageToday: normalizeUsage(incoming && incoming.usageToday !== undefined ? incoming.usageToday : fallback.usageToday),
         lastActivity: sanitizeActivity(incoming && incoming.lastActivity !== undefined ? incoming.lastActivity : fallback.lastActivity, DEFAULT_ACTIVITY),
@@ -8585,6 +8766,10 @@ document.addEventListener('DOMContentLoaded',()=>{
     next.pauseAllSnapshot = next.pauseAllSnapshot && typeof next.pauseAllSnapshot === 'object' ? next.pauseAllSnapshot : {};
     next.masterAgentsDisabled = next.masterAgentsDisabled === true;
     next.masterAgentsSnapshot = next.masterAgentsSnapshot && typeof next.masterAgentsSnapshot === 'object' ? next.masterAgentsSnapshot : {};
+    next.futureCapabilities = {
+      lockedFunctions: mergeFutureCapabilityState(defaults.futureCapabilities.lockedFunctions, source.futureCapabilities && source.futureCapabilities.lockedFunctions),
+      lockedRoles: mergeFutureCapabilityState(defaults.futureCapabilities.lockedRoles, source.futureCapabilities && source.futureCapabilities.lockedRoles),
+    };
     return next;
   };
 
@@ -8609,6 +8794,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   let taskCenterNotice = '';
   let taskRemovalTargetId = '';
   let approvalDetailTargetId = '';
+  let agentInstructionsTargetId = '';
   let toolPopupCloseTimeout = null;
   let advancedAutonomyHoldTimer = null;
   let advancedAutonomyHoldFrame = null;
@@ -8617,6 +8803,8 @@ document.addEventListener('DOMContentLoaded',()=>{
 
   const saveState = () => {
     state.activePanel = activePanel;
+    state.securityMode = state.securityMode !== false;
+    state.safetyMode = state.securityMode;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   };
 
@@ -8625,6 +8813,93 @@ document.addEventListener('DOMContentLoaded',()=>{
   const isAllAgentsPaused = () => state.pauseAllAgents === true || state.pausedAll === true;
   const isAdvancedAutonomyUnlocked = () => state.advancedMode === true && state.autonomyLocked === false;
   const isMasterAgentsDisabled = () => state.masterAgentsDisabled === true;
+  const getFutureCapabilityRecord = (kind, id) => {
+    const bucket = state.futureCapabilities && state.futureCapabilities[kind] && typeof state.futureCapabilities[kind] === 'object'
+      ? state.futureCapabilities[kind]
+      : {};
+    return bucket[id] && typeof bucket[id] === 'object'
+      ? bucket[id]
+      : { prepared: true, enabled: false, lastPreparedAt: '', notes: '' };
+  };
+
+  const getProductList = () => (Array.isArray(products) ? products : []);
+  const getReturnList = () => [
+    ...(Array.isArray(returns) ? returns : []),
+    ...(Array.isArray(shopifyReturns) ? shopifyReturns : []),
+  ];
+  const getProductDisplayName = (product) => String(
+    product && (product.name || product.title || product.productName || product.itemName || product.sku || 'Unbenanntes Produkt')
+  ).trim() || 'Unbenanntes Produkt';
+  const getProductInsight = (product) => {
+    const calc = typeof calcProduct === 'function'
+      ? calcProduct(product)
+      : { profit: 0, score: 0, totalCost: 0, fee: 0, buffer: 0, recommendedPrice: 0 };
+    const salesStats = typeof getSalesStatsForProduct === 'function'
+      ? getSalesStatsForProduct(product && product.id)
+      : { count: 0, revenue: 0 };
+    const returnStats = typeof getReturnStatsForProduct === 'function'
+      ? getReturnStatsForProduct(product && product.id)
+      : { count: 0 };
+    const delivery = Number(product && (product.delivery || product.deliveryTime || product.shippingTime)) || 0;
+    const stock = Number(product && (product.stock || product.qty || product.quantity)) || 0;
+    const title = getProductDisplayName(product);
+    const maxDelivery = Number(appSettings && appSettings.maxDelivery) || 14;
+    const supplierName = String(product && (product.supplierName || product.supplier || product.supplierId || '')).trim();
+    const titleLength = title.length;
+    const riskFlags = [
+      titleLength < 45 ? 'Titel kurz' : '',
+      titleLength > 80 ? 'Titel lang' : '',
+      delivery > maxDelivery ? 'Lieferzeit hoch' : '',
+      !supplierName ? 'Lieferant fehlt' : '',
+      salesStats.count === 0 ? 'Noch keine Verkäufe' : '',
+      returnStats.count > 0 ? 'Retouren vorhanden' : '',
+      stock > 0 && stock <= 3 ? 'Niedriger Bestand' : '',
+    ].filter(Boolean);
+    return {
+      product,
+      title,
+      calc,
+      salesStats,
+      returnStats,
+      delivery,
+      stock,
+      supplierName,
+      titleLength,
+      riskFlags,
+      score: Number(calc.score) || 0,
+      profit: Number(calc.profit) || 0,
+      margin: Number(calc.totalCost) > 0 ? (((Number(calc.profit) || 0) / Number(calc.totalCost)) * 100) : 0,
+      maxDelivery,
+    };
+  };
+  const upsertAiTaskRecord = (task) => {
+    const items = Array.isArray(state.aiTasks) ? state.aiTasks.slice() : [];
+    const normalized = normalizeAiTask(task, items.length);
+    const index = items.findIndex((item) => item && item.id === normalized.id);
+    if (index >= 0) {
+      items[index] = { ...items[index], ...normalized };
+    } else {
+      items.unshift(normalized);
+    }
+    state.aiTasks = items;
+    return normalized;
+  };
+  const upsertApprovalQueueRecord = (entry) => {
+    const items = getApprovalQueue().slice();
+    const normalized = normalizeApprovalQueueItem(entry, items.length);
+    const index = items.findIndex((item) => item && item.id === normalized.id);
+    if (index >= 0) {
+      items[index] = { ...items[index], ...normalized };
+    } else {
+      items.unshift(normalized);
+    }
+    state.approvalQueue = items;
+    return normalized;
+  };
+  const buildWorkflowSummaryText = (title, points) => {
+    const filtered = Array.isArray(points) ? points.filter(Boolean) : [];
+    return filtered.length ? `${title}: ${filtered.join(' · ')}` : `${title}: keine Auffälligkeiten gefunden.`;
+  };
 
   const getAgent = (agentId) => state.agents[agentId] || null;
   const normalizeAgentName = (value) => String(value || '').trim().toLowerCase();
@@ -8646,6 +8921,465 @@ document.addEventListener('DOMContentLoaded',()=>{
     return normalizeMode(match && match.agent && match.agent.mode);
   };
   const getDefinition = (agentId) => AGENT_DEFS.find((item) => item.id === agentId) || null;
+  const isAgentTextEditing = (fieldKey, agentId) => !!(state[`${fieldKey}Editing`] && state[`${fieldKey}Editing`][agentId]);
+  const setAgentTextEditing = (fieldKey, agentId, next) => {
+    if (!agentId) return;
+    const stateKey = `${fieldKey}Editing`;
+    state[stateKey] = {
+      ...(state[stateKey] && typeof state[stateKey] === 'object' ? state[stateKey] : {}),
+      [agentId]: !!next,
+    };
+    saveState();
+    render();
+    if (next) {
+      setTimeout(() => {
+        const textarea = document.querySelector(`[data-agent-id="${agentId}"][data-agent-field="${fieldKey}"]`);
+        if (textarea) {
+          textarea.focus();
+          textarea.select?.();
+        }
+      }, 0);
+    }
+  };
+  const isDescriptionEditing = (agentId) => isAgentTextEditing('description', agentId);
+  const setDescriptionEditing = (agentId, next) => setAgentTextEditing('description', agentId, next);
+  const isPromptEditing = (agentId) => isAgentTextEditing('prompt', agentId);
+  const setPromptEditing = (agentId, next) => setAgentTextEditing('prompt', agentId, next);
+  const isGuardrailsEditing = (agentId) => isAgentTextEditing('guardrails', agentId);
+  const setGuardrailsEditing = (agentId, next) => setAgentTextEditing('guardrails', agentId, next);
+  const buildSuggestedAgentPrompt = (def, descriptionValue, guardrailsValue) => {
+    const descriptionText = sanitizeDescription(descriptionValue || def.description || def.task, def.description || def.task);
+    const guardrailsText = sanitizeDescription(guardrailsValue || 'Nur Vorschläge, Entwürfe und lokale Analysen. Keine autonomen Live-Aktionen.', 'Nur Vorschläge, Entwürfe und lokale Analysen. Keine autonomen Live-Aktionen.');
+    return [
+      `Du bist ${def.name}.`,
+      `Aufgabe: ${descriptionText}.`,
+      'Arbeite lokal, strukturiert und mit klaren Empfehlungen.',
+      'Antworte knapp, hilfreich und im Elyon-Stil.',
+      `Beachte diese Guardrails: ${guardrailsText}.`,
+    ].join(' ');
+  };
+  const generateAgentPrompt = (agentId) => {
+    const def = getDefinition(agentId);
+    const agent = getAgent(agentId);
+    if (!def || !agent) return;
+    const descriptionValue = agent.description || def.description || def.task;
+    const guardrailsValue = agent.guardrails || 'Nur Vorschläge, Entwürfe und lokale Analysen. Keine autonomen Live-Aktionen.';
+    agent.prompt = buildSuggestedAgentPrompt(def, descriptionValue, guardrailsValue);
+    setPromptEditing(agentId, true);
+  };
+  const buildAgentInstructionsModalContent = (agentId) => {
+    const def = getDefinition(agentId);
+    const agent = getAgent(agentId);
+    if (!def || !agent) return '';
+    const descriptionValue = agent.description || def.description || def.task;
+    const promptValue = agent.prompt || def.description || def.task;
+    const guardrailsValue = agent.guardrails || 'Nur Vorschläge, Entwürfe und lokale Analysen. Keine autonomen Live-Aktionen.';
+    return `
+      <div class="agent-instructions-modal">
+        <div class="agent-instructions-modal-head">
+          <div>
+            <div class="badge">🪄 Erweiterte KI-Anweisungen</div>
+            <h2>${escapeHtml(def.name)}</h2>
+            <p>${escapeHtml(def.task)}</p>
+          </div>
+          <button type="button" class="secondary" data-agent-action="close-agent-instructions">Schließen</button>
+        </div>
+
+        <div class="agent-instructions-note">Die Felder werden lokal gespeichert. Beschreibung, Prompt und Guardrails bleiben getrennt und sind standardmäßig gesperrt.</div>
+
+        <div class="agent-instructions-grid">
+          <div>
+            <div class="virtual-agent-field-head">
+              <label>Kurze Beschreibung der Aufgabe</label>
+              <button type="button" class="description-edit-toggle ${isDescriptionEditing(def.id) ? 'active' : ''}" data-agent-action="toggle-agent-text-edit" data-agent-edit-field="description" data-agent-id="${def.id}" aria-label="${isDescriptionEditing(def.id) ? 'Beschreibung sperren' : 'Beschreibung bearbeiten'}">${isDescriptionEditing(def.id) ? '🔓' : '✎'}</button>
+            </div>
+            <textarea data-agent-id="${def.id}" data-agent-field="description" placeholder="${escapeHtml(def.description || def.task)}" ${isDescriptionEditing(def.id) ? '' : 'readonly'}>${escapeHtml(descriptionValue)}</textarea>
+          </div>
+
+          <div>
+            <div class="virtual-agent-field-head">
+              <label>Prompt</label>
+              <div style="display:flex;gap:8px;align-items:center">
+                <button type="button" class="secondary" data-agent-action="generate-agent-prompt" data-agent-id="${def.id}">Generieren</button>
+                <button type="button" class="description-edit-toggle ${isPromptEditing(def.id) ? 'active' : ''}" data-agent-action="toggle-agent-text-edit" data-agent-edit-field="prompt" data-agent-id="${def.id}" aria-label="${isPromptEditing(def.id) ? 'Prompt sperren' : 'Prompt bearbeiten'}">${isPromptEditing(def.id) ? '🔓' : '✎'}</button>
+              </div>
+            </div>
+            <textarea data-agent-id="${def.id}" data-agent-field="prompt" placeholder="${escapeHtml(def.description || def.task)}" ${isPromptEditing(def.id) ? '' : 'readonly'}>${escapeHtml(promptValue)}</textarea>
+          </div>
+        </div>
+
+        <div style="margin-top:14px">
+          <div class="virtual-agent-field-head">
+            <label title="Guardrails sind Sicherheitsregeln und Grenzen für den Agenten. Sie legen fest, was er nicht tun darf und worauf er achten muss.">Guardrails</label>
+            <button type="button" class="description-edit-toggle ${isGuardrailsEditing(def.id) ? 'active' : ''}" data-agent-action="toggle-agent-text-edit" data-agent-edit-field="guardrails" data-agent-id="${def.id}" aria-label="${isGuardrailsEditing(def.id) ? 'Guardrails sperren' : 'Guardrails bearbeiten'}">${isGuardrailsEditing(def.id) ? '🔓' : '✎'}</button>
+          </div>
+          <textarea data-agent-id="${def.id}" data-agent-field="guardrails" placeholder="Nur Vorschläge, Entwürfe und lokale Analysen. Keine autonomen Live-Aktionen." ${isGuardrailsEditing(def.id) ? '' : 'readonly'}>${escapeHtml(guardrailsValue)}</textarea>
+        </div>
+
+        <div class="agent-instructions-actions">
+          <button type="button" class="secondary" data-agent-action="close-agent-instructions">Schließen</button>
+        </div>
+      </div>
+    `;
+  };
+  const syncAgentInstructionsModal = () => {
+    const modal = getEl('agentInstructionsModal');
+    const body = getEl('agentInstructionsModalBody');
+    if (!modal || !body) return;
+    if (!agentInstructionsTargetId) {
+      body.innerHTML = '';
+      return;
+    }
+    body.innerHTML = buildAgentInstructionsModalContent(agentInstructionsTargetId);
+  };
+  const openAgentInstructionsModal = (agentId) => {
+    if (!agentId) return;
+    agentInstructionsTargetId = agentId;
+    syncAgentInstructionsModal();
+    const modal = getEl('agentInstructionsModal');
+    if (modal) {
+      modal.classList.remove('hidden');
+      modal.setAttribute('aria-hidden', 'false');
+    }
+  };
+  const closeAgentInstructionsModal = () => {
+    agentInstructionsTargetId = '';
+    const modal = getEl('agentInstructionsModal');
+    const body = getEl('agentInstructionsModalBody');
+    if (body) body.innerHTML = '';
+    if (modal) {
+      modal.classList.add('hidden');
+      modal.setAttribute('aria-hidden', 'true');
+    }
+  };
+  const runAgentWorkflow = (agentId) => {
+    const def = getDefinition(agentId);
+    const agent = getAgent(agentId);
+    if (!def || !agent) return null;
+
+    const insights = getProductList().map(getProductInsight);
+    const openReturns = getReturnList().filter((item) => !isReturnClosed(item && item.status));
+    const createdAt = new Date().toISOString();
+    const timestamp = new Date(createdAt).toLocaleString('de-DE');
+    const workflowId = `agent-workflow-${agentId}`;
+    let taskRecord = null;
+    let approvalRecord = null;
+    let highlights = [];
+
+    if (agentId === 'soul-scout') {
+      const candidates = insights.filter((item) => item.score >= 65 && item.salesStats.count === 0).sort((a, b) => b.score - a.score || a.delivery - b.delivery).slice(0, 3);
+      highlights = candidates.map((item) => item.title);
+      taskRecord = {
+        id: workflowId,
+        title: 'Produktchancen identifiziert',
+        description: buildWorkflowSummaryText('Scout-Analyse', [
+          candidates.length ? `${candidates.length} Kandidat(en)` : '',
+          highlights.length ? `Beispiele: ${highlights.join(', ')}` : '',
+        ]),
+        agent: def.name,
+        category: 'Recherche',
+        priority: candidates.length ? 'high' : 'medium',
+        status: 'open',
+        createdAt,
+        source: 'agent-workflow',
+        actionLabel: 'Chancen prüfen',
+      };
+    } else if (agentId === 'soul-seo') {
+      const candidates = insights.filter((item) => item.titleLength < 50 || item.titleLength > 80 || normalizeProductStatus(item.product && (item.product.productStatus || item.product.status || 'Draft'), 'Draft') !== 'SEO prüfen').sort((a, b) => a.titleLength - b.titleLength).slice(0, 3);
+      highlights = candidates.map((item) => `${item.title} (${item.titleLength} Zeichen)`);
+      taskRecord = {
+        id: workflowId,
+        title: 'SEO-Optimierung vorbereitet',
+        description: buildWorkflowSummaryText('SEO-Analyse', [
+          candidates.length ? `${candidates.length} Titel geprüft` : '',
+          highlights.length ? `Titel: ${highlights.join(', ')}` : '',
+        ]),
+        agent: def.name,
+        category: 'SEO',
+        priority: candidates.length ? 'high' : 'medium',
+        status: 'open',
+        createdAt,
+        source: 'agent-workflow',
+        actionLabel: 'SEO prüfen',
+      };
+    } else if (agentId === 'soul-guard') {
+      const candidates = insights.filter((item) => item.score < 60 || item.delivery > item.maxDelivery || !item.supplierName || item.returnStats.count > 0).sort((a, b) => a.score - b.score || b.delivery - a.delivery).slice(0, 3);
+      highlights = candidates.map((item) => `${item.title}${item.riskFlags.length ? ` (${item.riskFlags.join(', ')})` : ''}`);
+      const critical = candidates.some((item) => item.score < 50 || item.delivery > item.maxDelivery);
+      taskRecord = {
+        id: workflowId,
+        title: 'Risikoprüfung vorbereitet',
+        description: buildWorkflowSummaryText('Guard-Analyse', [
+          candidates.length ? `${candidates.length} Risiko-Fall/Fälle` : '',
+          highlights.length ? `Beispiele: ${highlights.join(', ')}` : '',
+          critical ? 'kritische Auffälligkeiten' : '',
+        ]),
+        agent: def.name,
+        category: 'Risiko',
+        priority: critical ? 'critical' : 'high',
+        status: 'open',
+        createdAt,
+        source: 'agent-workflow',
+        actionLabel: 'Risiken ansehen',
+      };
+      if (candidates.length) {
+        approvalRecord = {
+          id: `${workflowId}-approval`,
+          title: 'Risikofälle manuell prüfen',
+          description: 'Gefundene Risiko-Hinweise wurden lokal gesammelt. Keine Live-Aktion wurde ausgeführt.',
+          agent: def.name,
+          type: 'risk_action',
+          status: 'pending',
+          riskLevel: critical ? 'critical' : 'high',
+          createdAt,
+          payload: { source: 'agent-workflow', agentId, items: candidates.map((item) => ({ title: item.title, score: item.score, delivery: item.delivery, supplierName: item.supplierName, riskFlags: item.riskFlags })) },
+          previewText: `Risiko-Check lokal vorbereitet. ${candidates.map((item) => item.title).join(', ')}`,
+          requiresConfirmation: true,
+        };
+      }
+    } else if (agentId === 'soul-finance') {
+      const lowMargin = insights.filter((item) => item.profit <= 0 || item.margin < 15).sort((a, b) => a.profit - b.profit).slice(0, 3);
+      const totalProfit = insights.reduce((sum, item) => sum + item.profit, 0);
+      const avgProfit = insights.length ? totalProfit / insights.length : 0;
+      highlights = lowMargin.map((item) => `${item.title} (${item.profit.toFixed(2)} €)`);
+      taskRecord = {
+        id: workflowId,
+        title: 'Finanzanalyse vorbereitet',
+        description: buildWorkflowSummaryText('Finance-Analyse', [
+          `Gesamtprofit ${totalProfit.toFixed(2)} €`,
+          `Ø Profit ${avgProfit.toFixed(2)} €`,
+          lowMargin.length ? `${lowMargin.length} kritische Marge(n)` : '',
+          highlights.length ? `Beispiele: ${highlights.join(', ')}` : '',
+        ]),
+        agent: def.name,
+        category: 'Finanzen',
+        priority: lowMargin.length ? 'high' : 'medium',
+        status: 'open',
+        createdAt,
+        source: 'agent-workflow',
+        actionLabel: 'Finanzcheck ansehen',
+      };
+    } else if (agentId === 'soul-support') {
+      const cases = openReturns.slice(0, 4);
+      highlights = cases.map((item) => `${item.platform || 'eBay'} · ${item.status || 'Offen'}`);
+      taskRecord = {
+        id: workflowId,
+        title: 'Supportfälle analysiert',
+        description: buildWorkflowSummaryText('Support-Analyse', [
+          openReturns.length ? `${openReturns.length} offene Fall/Fälle` : '',
+          highlights.length ? `Beispiele: ${highlights.join(', ')}` : '',
+        ]),
+        agent: def.name,
+        category: 'Support',
+        priority: openReturns.length ? 'high' : 'medium',
+        status: 'open',
+        createdAt,
+        source: 'agent-workflow',
+        actionLabel: 'Antwort vorbereiten',
+      };
+      if (openReturns.length) {
+        approvalRecord = {
+          id: `${workflowId}-approval`,
+          title: 'Supportantwort vorbereiten',
+          description: 'Eine lokale Antwortvorlage wurde vorbereitet. Versand bleibt gesperrt.',
+          agent: def.name,
+          type: 'support_reply',
+          status: 'pending',
+          riskLevel: 'medium',
+          createdAt,
+          payload: { source: 'agent-workflow', agentId, openCount: openReturns.length, examples: highlights },
+          previewText: 'Hallo, danke für deine Nachricht. Ich prüfe den Fall und melde mich zeitnah.',
+          requiresConfirmation: true,
+        };
+      }
+    } else if (agentId === 'soul-operations') {
+      const restockCandidates = insights.filter((item) => item.stock > 0 && item.stock <= 3).sort((a, b) => a.stock - b.stock).slice(0, 3);
+      const operationalAlerts = [
+        openReturns.length ? `${openReturns.length} offene Retouren` : '',
+        ...restockCandidates.map((item) => `${item.title} Bestand ${item.stock}`),
+        ...insights.filter((item) => item.score >= 65 && item.salesStats.count === 0).slice(0, 2).map((item) => `${item.title} ohne Verkäufe`),
+      ].filter(Boolean);
+      highlights = operationalAlerts;
+      taskRecord = {
+        id: workflowId,
+        title: 'Operative Tageslage vorbereitet',
+        description: buildWorkflowSummaryText('Operations-Analyse', operationalAlerts),
+        agent: def.name,
+        category: 'Operations',
+        priority: operationalAlerts.length ? 'high' : 'medium',
+        status: 'open',
+        createdAt,
+        source: 'agent-workflow',
+        actionLabel: 'Tagesfokus ansehen',
+      };
+      if (restockCandidates.length) {
+        approvalRecord = {
+          id: `${workflowId}-approval`,
+          title: 'Nachschub vorbereiten',
+          description: 'Ein lokaler Restock-Hinweis wurde erstellt. Es wurde keine Bestellung ausgelöst.',
+          agent: def.name,
+          type: 'order_prepare',
+          status: 'pending',
+          riskLevel: 'high',
+          createdAt,
+          payload: { source: 'agent-workflow', agentId, items: restockCandidates.map((item) => ({ title: item.title, stock: item.stock, delivery: item.delivery, supplierName: item.supplierName })) },
+          previewText: `Nachschub lokal vorbereitet für: ${restockCandidates.map((item) => item.title).join(', ')}`,
+          requiresConfirmation: true,
+        };
+      }
+    }
+
+    if (!taskRecord) {
+      taskRecord = {
+        id: workflowId,
+        title: `${def.name} vorbereitet`,
+        description: buildWorkflowSummaryText('Lokale Analyse', ['Keine klaren Auffälligkeiten gefunden']),
+        agent: def.name,
+        category: 'Allgemein',
+        priority: 'medium',
+        status: 'open',
+        createdAt,
+        source: 'agent-workflow',
+        actionLabel: 'Ergebnis ansehen',
+      };
+    }
+
+    const normalizedTask = upsertAiTaskRecord(taskRecord);
+    if (approvalRecord) upsertApprovalQueueRecord(approvalRecord);
+
+    agent.lastActivity = `Lokale Analyse abgeschlossen (${timestamp})`;
+    agent.lastTestResponse = `${def.name}: ${normalizedTask.description}`;
+    agent.lastTestedAt = timestamp;
+    agent.statusState = 'Analysiert';
+    saveState();
+    render();
+    return { agentId, summary: normalizedTask.description, highlights, approvalCreated: !!approvalRecord };
+  };
+  const runFutureCapabilityWorkflow = (kind, id) => {
+    const collection = kind === 'lockedRoles' ? FUTURE_CAPABILITY_DEFS.lockedRoles : FUTURE_CAPABILITY_DEFS.lockedFunctions;
+    const def = collection.find((item) => item.id === id);
+    if (!def) return null;
+
+    const createdAt = new Date().toISOString();
+    const timestamp = new Date(createdAt).toLocaleString('de-DE');
+    const label = kind === 'lockedRoles' ? 'Rolle' : 'Funktion';
+    const stateRecord = getFutureCapabilityRecord(kind, id);
+    const summaryParts = [];
+    const taskId = `future-${kind}-${id}`;
+    let approvalRecord = null;
+
+    if (kind === 'lockedFunctions') {
+      summaryParts.push('Nur lokale Vorarbeit');
+      summaryParts.push(isSecurityLocked() ? 'Live blockiert' : 'Live getrennt');
+      if (id === 'full-automation') summaryParts.push('Ausführungs-Haken vorgeplant');
+      if (id === 'auto-orders') summaryParts.push('Bestellfreigabe vorbereitet');
+      if (id === 'auto-messages') summaryParts.push('Nachrichten-Entwurf vorbereitet');
+      if (id === 'auto-ebay-posting') summaryParts.push('Posting-Workflow strukturiert');
+      approvalRecord = {
+        id: `${taskId}-approval`,
+        title: `${def.title} Vorbereitung`,
+        description: `${def.title} wurde lokal als gesperrte Zukunftsfunktion vorbereitet. Es wurde nichts live ausgeführt.`,
+        agent: 'Future Lock',
+        type: 'risk_action',
+        status: 'pending',
+        riskLevel: 'critical',
+        createdAt,
+        payload: {
+          source: 'future-workflow',
+          kind,
+          id,
+          title: def.title,
+        },
+        previewText: `${def.title} bleibt gesperrt und nur lokal vorbereitet.`,
+        requiresConfirmation: true,
+      };
+    } else {
+      const insights = getProductList().map(getProductInsight);
+      const openReturns = getReturnList().filter((item) => !isReturnClosed(item && item.status));
+      if (id === 'soul-listing') {
+        const candidates = insights.filter((item) => item.score >= 65 && item.salesStats.count === 0).sort((a, b) => b.score - a.score || a.delivery - b.delivery).slice(0, 3);
+        summaryParts.push(candidates.length ? `${candidates.length} Listing-Kandidat(en)` : 'Keine starken Listing-Kandidaten');
+        summaryParts.push(candidates.slice(0, 3).map((item) => item.title).join(', '));
+      } else if (id === 'soul-pricing') {
+        const lowMargin = insights.filter((item) => item.profit <= 0 || item.margin < 15).sort((a, b) => a.profit - b.profit).slice(0, 3);
+        summaryParts.push(lowMargin.length ? `${lowMargin.length} Preissignal(e)` : 'Keine kritische Preisabweichung');
+        summaryParts.push(lowMargin.map((item) => `${item.title} (${item.profit.toFixed(2)} €)`).join(', '));
+      } else if (id === 'soul-supplier') {
+        const candidates = insights.filter((item) => !item.supplierName || item.delivery > item.maxDelivery).slice(0, 3);
+        summaryParts.push(candidates.length ? `${candidates.length} Lieferantenhinweis(e)` : 'Lieferantensignale sauber');
+        summaryParts.push(candidates.map((item) => item.title).join(', '));
+      } else if (id === 'soul-compliance') {
+        const candidates = insights.filter((item) => item.riskFlags.length > 0).slice(0, 3);
+        summaryParts.push(candidates.length ? `${candidates.length} Compliance-Hinweis(e)` : 'Keine Compliance-Hinweise');
+        summaryParts.push(candidates.map((item) => `${item.title}: ${item.riskFlags.join(', ')}`).join(' | '));
+      } else if (id === 'soul-returns') {
+        summaryParts.push(openReturns.length ? `${openReturns.length} offene Retouren` : 'Keine offenen Retouren');
+        summaryParts.push(openReturns.slice(0, 3).map((item) => `${item.platform || 'eBay'} · ${item.status || 'Offen'}`).join(', '));
+      } else if (id === 'soul-dispatch') {
+        const alerts = [
+          ...openReturns.slice(0, 2).map((item) => `${item.platform || 'eBay'} · ${item.status || 'Offen'}`),
+          ...insights.filter((item) => item.stock > 0 && item.stock <= 3).slice(0, 2).map((item) => `${item.title} Bestand ${item.stock}`),
+        ].filter(Boolean);
+        summaryParts.push(alerts.length ? `${alerts.length} operative Hinweise` : 'Keine operativen Hinweise');
+        summaryParts.push(alerts.join(', '));
+      } else if (id === 'soul-inventory') {
+        const candidates = insights.filter((item) => item.stock > 0 && item.stock <= 3).sort((a, b) => a.stock - b.stock).slice(0, 3);
+        summaryParts.push(candidates.length ? `${candidates.length} Bestandshinweis(e)` : 'Bestand unkritisch');
+        summaryParts.push(candidates.map((item) => `${item.title} (${item.stock})`).join(', '));
+      } else if (id === 'soul-review') {
+        const candidates = insights.filter((item) => item.returnStats.count > 0 || item.salesStats.count === 0).slice(0, 3);
+        summaryParts.push(candidates.length ? `${candidates.length} Feedback-Signal(e)` : 'Keine Feedback-Signale');
+        summaryParts.push(candidates.map((item) => item.title).join(', '));
+      }
+      approvalRecord = {
+        id: `${taskId}-approval`,
+        title: `${def.title} lokale Freigabe`,
+        description: `${def.title} wurde lokal vorbereitet. Live-Aktionen bleiben gesperrt.`,
+        agent: 'Future Planner',
+        type: 'listing_update',
+        status: 'pending',
+        riskLevel: 'medium',
+        createdAt,
+        payload: {
+          source: 'future-workflow',
+          kind,
+          id,
+          title: def.title,
+        },
+        previewText: `${def.title} wurde nur vorbereitet, nicht live geschaltet.`,
+        requiresConfirmation: true,
+      };
+    }
+
+    const note = buildWorkflowSummaryText(`${label} ${def.title}`, summaryParts);
+    state.futureCapabilities = state.futureCapabilities && typeof state.futureCapabilities === 'object' ? state.futureCapabilities : createFutureCapabilityState();
+    state.futureCapabilities[kind] = state.futureCapabilities[kind] && typeof state.futureCapabilities[kind] === 'object' ? state.futureCapabilities[kind] : {};
+    state.futureCapabilities[kind][id] = {
+      prepared: true,
+      enabled: false,
+      lastPreparedAt: createdAt,
+      notes: note,
+    };
+
+    upsertAiTaskRecord({
+      id: taskId,
+      title: `${def.title} vorbereiten`,
+      description: note,
+      agent: 'Future Planner',
+      category: kind === 'lockedRoles' ? 'Zukunftsrolle' : 'Zukunftsfunktion',
+      priority: 'medium',
+      status: 'open',
+      createdAt,
+      source: 'future-workflow',
+      actionLabel: 'Vorbereitung ansehen',
+    });
+    if (approvalRecord) upsertApprovalQueueRecord(approvalRecord);
+
+    const statusLabel = kind === 'lockedRoles' ? 'Rolle' : 'Funktion';
+    setTaskCenterNotice(`${statusLabel} ${def.title} vorbereitet.`);
+    render();
+    return { kind, id, title: def.title, note, timestamp };
+  };
   const getBadgeMeta = (agent) => {
     const mode = normalizeMode(agent && agent.mode);
     const enabled = !!(agent && agent.active);
@@ -9486,9 +10220,20 @@ document.addEventListener('DOMContentLoaded',()=>{
             <p class="hint">Automatische Aktionen bleiben bestätigtspflichtig. Sandbox und Autonomie bleiben lokal abgesichert.</p>
           </div>
           <label class="agent-switch" style="margin:0">
-            <input type="checkbox" data-agent-field="safetyMode" ${state.safetyMode !== false ? 'checked' : ''}>
+            <input type="checkbox" data-agent-field="securityMode" ${state.securityMode !== false ? 'checked' : ''}>
             <span class="agent-switch-track"></span>
             <span>Sicherheitsmodus</span>
+          </label>
+        </div>
+        <div class="security-switch-row" style="margin-top:10px">
+          <div>
+            <strong>Sandbox-Modus</strong>
+            <p class="hint">Wenn aktiv, werden Aktionen nur simuliert und nicht live ausgeführt.</p>
+          </div>
+          <label class="agent-switch" style="margin:0">
+            <input type="checkbox" data-agent-field="sandboxMode" ${state.sandboxMode !== false ? 'checked' : ''}>
+            <span class="agent-switch-track"></span>
+            <span>Sandbox-Modus</span>
           </label>
         </div>
         <div class="virtual-agents-note" style="margin-top:14px">${isSecurityLocked() ? 'Sandbox aktiv – Aufgaben werden nur vorbereitet.' : 'Automatische Aktionen werden vorbereitet, aber nicht ohne Bestätigung ausgeführt.'}</div>
@@ -9578,7 +10323,7 @@ document.addEventListener('DOMContentLoaded',()=>{
         <div class="virtual-agent-body">
           <div class="virtual-agent-mini" style="margin-top:12px">
             <span class="pill">Status: ${escapeHtml(badge.label)}</span>
-            <span class="pill">Sicherheitsmodus: ${state.safetyMode !== false ? 'Aktiv' : 'Aus'}</span>
+            <span class="pill">Sicherheitsmodus: ${state.securityMode !== false ? 'Aktiv' : 'Aus'}</span>
             <span class="pill">Modell: ${escapeHtml(normalizeModel(agent.model))}</span>
             <span class="pill">Heute: ${escapeHtml(formatEuro(agent.usageToday || 0))} / ${escapeHtml(formatEuro(agent.dailyLimit || 0))}</span>
           </div>
@@ -9633,8 +10378,11 @@ document.addEventListener('DOMContentLoaded',()=>{
           </div>
 
           <div style="margin-top:14px">
-            <label>Kurze Beschreibung der Aufgabe</label>
-            <textarea data-agent-id="${def.id}" data-agent-field="description" placeholder="${escapeHtml(def.description || def.task)}">${escapeHtml(agent.description || def.description || def.task)}</textarea>
+            <div class="virtual-agent-field-head">
+              <label>Kurze Beschreibung der Aufgabe</label>
+              <button type="button" class="description-edit-toggle ${isDescriptionEditing(def.id) ? 'active' : ''}" data-agent-action="toggle-description-edit" data-agent-id="${def.id}" aria-label="${isDescriptionEditing(def.id) ? 'Beschreibung sperren' : 'Beschreibung bearbeiten'}">${isDescriptionEditing(def.id) ? '🔓' : '✎'}</button>
+            </div>
+            <textarea data-agent-id="${def.id}" data-agent-field="description" placeholder="${escapeHtml(def.description || def.task)}" ${isDescriptionEditing(def.id) ? '' : 'readonly'}>${escapeHtml(agent.description || def.description || def.task)}</textarea>
           </div>
 
           <div class="virtual-agent-log">
@@ -9653,7 +10401,9 @@ document.addEventListener('DOMContentLoaded',()=>{
           </div>
 
           <div class="virtual-agent-footer">
+            <button type="button" class="secondary" data-agent-action="run-agent-workflow" data-agent-id="${def.id}">Lokale Analyse</button>
             <button type="button" class="secondary" data-agent-action="test-agent" data-agent-id="${def.id}">Agent testen</button>
+            <button type="button" class="secondary" data-agent-action="open-agent-instructions" data-agent-id="${def.id}">Erweiterte KI-Anweisungen öffnen</button>
           </div>
 
           <div class="output-box" style="margin-top:12px">
@@ -9690,28 +10440,7 @@ document.addEventListener('DOMContentLoaded',()=>{
 
   const buildFutureFunctionsSection = () => {
     const lockedMessage = 'Noch nicht aktivierbar – Sicherheitsfreigabe erforderlich.';
-    const items = [
-      {
-        icon: '🔒',
-        title: 'Vollautomatische Aktionen',
-        description: 'Agenten könnten später Aufgaben ohne manuelle Auslösung vorbereiten oder ausführen.',
-      },
-      {
-        icon: '🔒',
-        title: 'Automatische Bestellungen',
-        description: 'Bestellungen beim Supplier automatisch vorbereiten oder auslösen.',
-      },
-      {
-        icon: '🔒',
-        title: 'Automatische Kundennachrichten',
-        description: 'Kundenantworten automatisch senden.',
-      },
-      {
-        icon: '🔒',
-        title: 'Autonomes eBay-Posting',
-        description: 'Produkte automatisch bei eBay veröffentlichen.',
-      },
-    ];
+    const items = FUTURE_CAPABILITY_DEFS.lockedFunctions;
     return `
       <details class="virtual-agent-card virtual-future-section">
         <summary class="virtual-agent-summary">
@@ -9735,12 +10464,20 @@ document.addEventListener('DOMContentLoaded',()=>{
           <div class="virtual-future-warning">Diese Funktionen sind vorbereitet, aber aus Sicherheitsgründen deaktiviert. ${isSecurityLocked() ? 'Live-Aktionen bleiben durch Sicherheitsmodus oder Sandbox blockiert.' : 'Live-Aktionen bleiben in dieser Version bewusst getrennt.'} ${lockedMessage}</div>
           <div class="virtual-future-grid" style="margin-top:14px">
             ${items.map((item) => `
+              ${(() => {
+                const record = getFutureCapabilityRecord('lockedFunctions', item.id);
+                const statusLabel = record.prepared ? 'Vorbereitet' : 'Noch offen';
+                return `
               <div class="virtual-future-card">
                 <div class="virtual-agent-ident">
                   <div class="virtual-agent-icon">${item.icon}</div>
                   <div>
                     <h4>${escapeHtml(item.title)}</h4>
                     <p>${escapeHtml(item.description)}</p>
+                    <div style="margin-top:8px" class="virtual-agent-summary-meta">
+                      <span class="pill">${escapeHtml(statusLabel)}</span>
+                      <span class="pill">Gesperrt</span>
+                    </div>
                   </div>
                 </div>
                 <div class="settings-agents-overview" style="grid-template-columns:1fr auto;gap:10px;align-items:center">
@@ -9750,7 +10487,77 @@ document.addEventListener('DOMContentLoaded',()=>{
                     <span>${lockedMessage}</span>
                   </div>
                 </div>
+                ${record.lastPreparedAt ? `<p class="hint" style="margin-top:10px">Zuletzt vorbereitet: ${escapeHtml(formatTaskDate(record.lastPreparedAt))}</p>` : ''}
+              </div>`; 
+              })()}
+            `).join('')}
+          </div>
+        </div>
+      </details>
+    `;
+  };
+
+  const buildFutureRolesSection = () => {
+    const lockedMessage = 'Noch nicht aktivierbar – Sicherheitsfreigabe erforderlich.';
+    const items = [
+      { icon: '🤖', title: 'Soul Listing', description: 'Erstellt Listing-Entwürfe, Produktblöcke und Strukturvorschläge für neue eBay-Angebote.' },
+      { icon: '💹', title: 'Soul Pricing', description: 'Prüft Preisstrategie, Untergrenzen, Wettbewerbsdruck und mögliche Anpassungen.' },
+      { icon: '📦', title: 'Soul Supplier', description: 'Hilft bei Lieferantenprüfung, Nachfass-Hinweisen und Beschaffungs-Checks.' },
+      { icon: '🧾', title: 'Soul Compliance', description: 'Prüft EPR, WEEE, Impressum und andere rechtliche Warnsignale vor einem Live-Schritt.' },
+      { icon: '↩️', title: 'Soul Returns', description: 'Bereitet Retouren-Triage, Antwortentwürfe und Eskalationshinweise vor.' },
+      { icon: '📮', title: 'Soul Dispatch', description: 'Priorisiert operative Tagesaufgaben, Versandthemen und To-dos mit Auswirkung auf den Ablauf.' },
+      { icon: '📊', title: 'Soul Inventory', description: 'Zeigt Bestandswarnungen, Nachschubbedarf und mögliche Engpässe frühzeitig an.' },
+      { icon: '⭐', title: 'Soul Review', description: 'Analysiert Bewertungen, Kundenfeedback und wiederkehrende Muster aus Rückmeldungen.' },
+    ];
+    return `
+      <details class="virtual-agent-card virtual-future-section">
+        <summary class="virtual-agent-summary">
+          <div class="virtual-agent-summary-top">
+            <div class="virtual-agent-ident">
+              <div class="virtual-agent-icon">🧑‍💼</div>
+              <div>
+                <h3>Vorschau gesperrter Rollen</h3>
+                <p>Neue KI-Agenten und virtuelle MA, die später erweitert werden könnten. Aktuell nur als sichere Vorschau sichtbar.</p>
               </div>
+            </div>
+            <span class="virtual-agent-summary-chevron">⌄</span>
+          </div>
+          <div class="virtual-agent-summary-meta">
+            <span class="pill">8 gesperrte Rollen</span>
+            <span class="pill">${isSecurityLocked() ? 'Live blockiert' : 'Live getrennt'}</span>
+            <span class="pill">Sicherheitsfreigabe erforderlich</span>
+          </div>
+        </summary>
+        <div class="virtual-agent-body">
+          <div class="virtual-future-warning">Diese Rollen sind nur als Planungsvorschau angelegt. ${isSecurityLocked() ? 'Live-Aktionen bleiben durch Sicherheitsmodus oder Sandbox blockiert.' : 'Live-Aktionen bleiben in dieser Version bewusst getrennt.'} ${lockedMessage}</div>
+          <div class="virtual-future-grid" style="margin-top:14px">
+            ${items.map((item) => `
+              ${(() => {
+                const record = getFutureCapabilityRecord('lockedRoles', item.id);
+                const statusLabel = record.prepared ? 'Vorbereitet' : 'Noch offen';
+                return `
+              <div class="virtual-future-card">
+                <div class="virtual-agent-ident">
+                  <div class="virtual-agent-icon">${item.icon}</div>
+                  <div>
+                    <h4>${escapeHtml(item.title)}</h4>
+                    <p>${escapeHtml(item.description)}</p>
+                    <div style="margin-top:8px" class="virtual-agent-summary-meta">
+                      <span class="pill">${escapeHtml(statusLabel)}</span>
+                      <span class="pill">Gesperrt</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="settings-agents-overview" style="grid-template-columns:1fr auto;gap:10px;align-items:center">
+                  <span class="virtual-agent-badge warn">Gesperrt</span>
+                  <div class="agent-switch agent-switch-locked" aria-disabled="true">
+                    <span class="agent-switch-track"></span>
+                    <span>${lockedMessage}</span>
+                  </div>
+                </div>
+                ${record.lastPreparedAt ? `<p class="hint" style="margin-top:10px">Zuletzt vorbereitet: ${escapeHtml(formatTaskDate(record.lastPreparedAt))}</p>` : ''}
+              </div>`; 
+              })()}
             `).join('')}
           </div>
         </div>
@@ -9780,6 +10587,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       buildCategoryPanel('ki-agents', 'KI-Agenten', 'Strategische Analyse- und Optimierungsrollen für Recherche und Content.', 'ki-agents', 'info'),
       buildCategoryPanel('virtual-ma', 'Virtuelle Mitarbeiter', 'Operative Helfer für Support, Finance und Tagesorganisation.', 'virtual-ma', 'good'),
       buildFutureFunctionsSection(),
+      buildFutureRolesSection(),
     ].join('');
     root.innerHTML = `
       <div class="virtual-agents-shell">
@@ -9788,6 +10596,7 @@ document.addEventListener('DOMContentLoaded',()=>{
         <div class="virtual-agents-panels">${panels}</div>
       </div>
     `;
+    syncAgentInstructionsModal();
   };
 
   const updateAdvancedAutonomyHoldUI = () => {
@@ -9930,7 +10739,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     state.pauseAllAgents = defaults.pauseAllAgents;
     state.masterAgentsDisabled = defaults.masterAgentsDisabled;
     state.masterAgentsSnapshot = defaults.masterAgentsSnapshot;
-    state.safetyMode = defaults.safetyMode;
+    state.safetyMode = defaults.securityMode;
     activePanel = 'overview';
     state.activePanel = activePanel;
     saveState();
@@ -9981,9 +10790,11 @@ document.addEventListener('DOMContentLoaded',()=>{
 
     if (field === 'active' || field === 'notifications') {
       agent[field] = !!target.checked;
-    } else if (field === 'safetyMode') {
-      state.safetyMode = !!target.checked;
-      state.securityMode = state.safetyMode;
+    } else if (field === 'securityMode' || field === 'safetyMode') {
+      state.securityMode = !!target.checked;
+      state.safetyMode = state.securityMode;
+    } else if (field === 'sandboxMode') {
+      state.sandboxMode = !!target.checked;
     } else if (field === 'mode') {
       agent.mode = normalizeMode(target.value);
     } else if (field === 'model') {
@@ -9993,6 +10804,10 @@ document.addEventListener('DOMContentLoaded',()=>{
       target.value = Number(agent.dailyLimit || 0).toFixed(2);
     } else if (field === 'description') {
       agent.description = sanitizeDescription(target.value, def.task);
+    } else if (field === 'prompt') {
+      agent.prompt = sanitizeDescription(target.value, def.description || def.task);
+    } else if (field === 'guardrails') {
+      agent.guardrails = sanitizeDescription(target.value, 'Nur Vorschläge, Entwürfe und lokale Analysen. Keine autonomen Live-Aktionen.');
     } else if (field === 'statusState') {
       agent.statusState = normalizeStatusState(target.value);
     } else if (field === 'taskStatus') {
@@ -10109,6 +10924,43 @@ document.addEventListener('DOMContentLoaded',()=>{
         lockAdvancedAutonomy();
         return;
       }
+      const descriptionToggleButton = event.target.closest('[data-agent-action="toggle-description-edit"]');
+      if (descriptionToggleButton) {
+        setDescriptionEditing(descriptionToggleButton.dataset.agentId, !isDescriptionEditing(descriptionToggleButton.dataset.agentId));
+        return;
+      }
+      const textEditToggleButton = event.target.closest('[data-agent-action="toggle-agent-text-edit"]');
+      if (textEditToggleButton) {
+        const editField = textEditToggleButton.dataset.agentEditField;
+        if (editField) {
+          setAgentTextEditing(editField, textEditToggleButton.dataset.agentId, !isAgentTextEditing(editField, textEditToggleButton.dataset.agentId));
+        }
+        return;
+      }
+      const generatePromptButton = event.target.closest('[data-agent-action="generate-agent-prompt"]');
+      if (generatePromptButton) {
+        generateAgentPrompt(generatePromptButton.dataset.agentId);
+        return;
+      }
+      const openInstructionsButton = event.target.closest('[data-agent-action="open-agent-instructions"]');
+      if (openInstructionsButton) {
+        openAgentInstructionsModal(openInstructionsButton.dataset.agentId);
+        return;
+      }
+      const closeInstructionsButton = event.target.closest('[data-agent-action="close-agent-instructions"]');
+      if (closeInstructionsButton) {
+        closeAgentInstructionsModal();
+        return;
+      }
+      const workflowButton = event.target.closest('[data-agent-action="run-agent-workflow"]');
+      if (workflowButton) {
+        const result = runAgentWorkflow(workflowButton.dataset.agentId);
+        if (result) {
+          setTaskCenterNotice(`Lokale Analyse für ${getDefinition(workflowButton.dataset.agentId)?.name || 'Agent'} vorbereitet.`);
+          render();
+        }
+        return;
+      }
       const taskFilterButton = event.target.closest('[data-task-filter-group][data-task-filter-value]');
       if (taskFilterButton) {
         const filterGroup = taskFilterButton.dataset.taskFilterGroup;
@@ -10172,6 +11024,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       if (event.key === 'Escape') {
         closeTaskRemoveModal();
         closeApprovalDetailsModal();
+        closeAgentInstructionsModal();
         closeToolPopup();
       }
     });
@@ -10189,6 +11042,48 @@ document.addEventListener('DOMContentLoaded',()=>{
       modal.addEventListener('click', (event) => {
         if (event.target === modal) {
           closeApprovalDetailsModal();
+        }
+      });
+    }
+  };
+
+  const bindAgentInstructionsModal = () => {
+    const modal = getEl('agentInstructionsModal');
+    const body = getEl('agentInstructionsModalBody');
+    if (body && !body.dataset.bound) {
+      body.dataset.bound = 'yes';
+      body.addEventListener('click', (event) => {
+        const textEditToggleButton = event.target.closest('[data-agent-action="toggle-agent-text-edit"]');
+        if (textEditToggleButton) {
+          const editField = textEditToggleButton.dataset.agentEditField;
+          if (editField) {
+            setAgentTextEditing(editField, textEditToggleButton.dataset.agentId, !isAgentTextEditing(editField, textEditToggleButton.dataset.agentId));
+          }
+          return;
+        }
+        const closeAction = event.target.closest('[data-agent-action="close-agent-instructions"]');
+        if (closeAction) {
+          closeAgentInstructionsModal();
+        }
+      });
+      body.addEventListener('input', (event) => {
+        const target = event.target;
+        if (target && target.dataset && target.dataset.agentField) {
+          handleFieldChange(target);
+        }
+      });
+      body.addEventListener('change', (event) => {
+        const target = event.target;
+        if (target && target.dataset && target.dataset.agentField) {
+          handleFieldChange(target);
+        }
+      });
+    }
+    if (modal && !modal.dataset.bound) {
+      modal.dataset.bound = 'yes';
+      modal.addEventListener('click', (event) => {
+        if (event.target === modal) {
+          closeAgentInstructionsModal();
         }
       });
     }
@@ -10232,7 +11127,9 @@ document.addEventListener('DOMContentLoaded',()=>{
     bind();
     bindTaskRemoveModal();
     bindApprovalDetailsModal();
+    bindAgentInstructionsModal();
     bindToolPopupModal();
+    syncGeneralAiSettingsToAgentSecurity();
     render();
     const advancedAutonomyCheckbox = getEl('advancedAutonomyRiskCheckbox');
     const advancedAutonomyHoldBtn = getEl('advancedAutonomyHoldBtn');
