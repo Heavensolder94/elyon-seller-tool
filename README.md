@@ -34,6 +34,12 @@ Was dabei passiert:
 
 Das Repo ist fuer Vercel vorbereitet. Lokal kannst du das Frontend einfach ueber einen HTTP-Server oder ueber Vercel testen.
 
+Im Workspace-Root gibt es jetzt auch ein zentrales Startkommando:
+
+```powershell
+npm start
+```
+
 Wichtig:
 
 - OAuth-Flows funktionieren nicht sauber ueber `file://`

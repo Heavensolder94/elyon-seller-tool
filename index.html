@@ -430,7 +430,7 @@
       <option value="invoiceTab">7. 🧾 Rechnungen</option>
       <option value="automationTab">8. 🚚 Versandzentrale</option>
       <option value="settingsTab">9. ⚙️ Einstellungen / API Status</option>
-      <option value="virtualAgentsTab">10. 🧑‍💼 Virtuelle Mitarbeiter / KI-Agenten</option>
+      <option value="virtualAgentsTab">10. 🧑‍💼 Virtuelle Mitarbeiter / Agenten</option>
       <option value="marketCheckTab">11. Konkurrenz / Marktcheck</option>
       <option value="financeTab">12. Kalkulation</option>
       <option value="listingCheckTab">13. Listing-Check</option>
@@ -1094,7 +1094,7 @@ Land"></textarea>
   <section id="settingsTab" class="tab">
     <div class="card">
       <h2>⚙️ Einstellungen / API Status</h2>
-      <p class="hint">Arbeitsbereich für Backend-Setup, Google Sheets Sync und API-Status. CJ- und eBay-Recherche-Werkzeuge findest du in der Produktsuche.</p>
+      <p class="hint">Arbeitsbereich für Backend-Setup, Google Sheets Sync und API-Status. CJ-, eBay-, Google-Drive- und Sheets-Flows brauchen echte Keys oder OAuth-Callbacks, alles andere bleibt Vorschau.</p>
       <div class="dashboard">
         <div class="metric"><small>Backend</small><strong id="intBackendStatus">Nicht geprüft</strong></div>
         <div class="metric"><small>CJ</small><strong id="intCjStatus">Nicht geprüft</strong></div>
@@ -1110,7 +1110,7 @@ Land"></textarea>
 
     <div class="card" style="margin-top:20px">
       <h2>Google Sheets Sync</h2>
-      <p class="hint">Synchronisiert deine Elyon-Daten mit einem Google Apps Script Web-App Endpoint. Die bestehenden CSV-Import/Export-Funktionen bleiben unverändert.</p>
+      <p class="hint">Synchronisiert deine Elyon-Daten mit einem Google Apps Script Web-App Endpoint. Dafür brauchst du eine bereitgestellte Apps-Script-URL plus Sync-Token. Die bestehenden CSV-Import/Export-Funktionen bleiben unverändert.</p>
       <label>Google Apps Script Web-App URL</label>
       <div style="display:flex;gap:8px;align-items:center">
         <input id="googleSheetsSyncUrl" type="password" placeholder="https://script.google.com/macros/s/....../exec" style="flex:1;min-width:0">
@@ -1155,8 +1155,8 @@ Land"></textarea>
     <div class="card">
       <div class="settings-agents-header">
         <div>
-          <h2>Virtuelle Mitarbeiter / KI-Agenten</h2>
-          <p class="hint">Eigene Verwaltungs- und Steuerungsebene für die vorhandenen KI-Funktionen. Automatische Aktionen bleiben vorerst bestätigungspflichtig.</p>
+          <h2>Virtuelle Mitarbeiter / Agenten</h2>
+          <p class="hint">Eigene Verwaltungs- und Steuerungsebene für die vorhandenen KI-Funktionen. Das bleibt eine lokale Vorschau, keine autonomen Live-Bots; automatische Aktionen bleiben bestätigungspflichtig.</p>
         </div>
         <button id="openVirtualAgentsSettingsBtn" class="secondary" type="button">Agentenbereich fokussieren</button>
       </div>
@@ -1412,8 +1412,8 @@ Land"></textarea>
 
       <div class="settings-section">
         <h3>🧑‍💼 Virtuelle Mitarbeiter</h3>
-        <p class="hint">Die Agentensteuerung liegt im Einstellungsbereich unten und bleibt lokal gespeichert.</p>
-        <button id="openVirtualAgentsSettingsBtnModal" class="secondary full" type="button">Virtuelle Mitarbeiter / KI-Agenten öffnen</button>
+        <p class="hint">Die Agentensteuerung liegt im Einstellungsbereich unten und bleibt lokal gespeichert. Sie steuert nur Vorschläge und vorbereitete Workflows.</p>
+        <button id="openVirtualAgentsSettingsBtnModal" class="secondary full" type="button">Virtuelle Mitarbeiter / Agenten öffnen</button>
       </div>
 
       <div class="settings-section">
@@ -1456,11 +1456,11 @@ Land"></textarea>
             <button id="setCjConnectPlanBtn" class="secondary full">CJ API prüfen</button>
           </div>
           <button id="resetIntegrationSettingsBtn" class="danger full" style="margin-top:10px">Integrationen zurücksetzen</button>
-          <div id="settingsIntegrationResult" class="output-box"><p>Hier prüfst du, ob dein Vercel-Backend, eBay und CJ technisch erreichbar sind. API-Keys und Secrets bleiben ausschließlich in Vercel Environment Variables, nicht in dieser HTML-Datei.</p></div>
+          <div id="settingsIntegrationResult" class="output-box"><p>Hier prüfst du, ob dein Vercel-Backend, eBay und CJ technisch erreichbar sind. API-Keys und Secrets bleiben ausschließlich in Vercel Environment Variables, und OAuth-Flows brauchen gültige Callback-URLs statt Browser-Tricks.</p></div>
 
           <div class="settings-section" style="margin-top:14px">
             <h3>🛡️ Sicherheitsregeln</h3>
-            <p class="hint">Diese Regeln schützen dich davor, zu früh zu automatisieren oder Zugangsdaten unsicher zu speichern.</p>
+            <p class="hint">Diese Regeln schützen dich davor, zu früh zu automatisieren oder Zugangsdaten unsicher zu speichern. OAuth- und Upload-Flows bleiben erst aktiv, wenn die passenden Umgebungsvariablen oder Callback-URLs gesetzt sind.</p>
             <div class="checkrow"><input type="checkbox" checked disabled><label>Keine API-Keys im Browser speichern</label></div>
             <div class="checkrow"><input type="checkbox" checked disabled><label>Erst lesen/importieren, nicht automatisch veröffentlichen</label></div>
             <div class="checkrow"><input type="checkbox" checked disabled><label>Keine automatische CJ-Bestellung ohne manuelle Prüfung</label></div>
@@ -1540,21 +1540,21 @@ PLZ Ort"></textarea>
         <div class="virtual-agent-ident" style="align-items:flex-start">
           <div class="virtual-agent-icon">🧭</div>
           <div>
-            <h2 style="margin-bottom:0">Erweiterte Autonomie freischalten?</h2>
-            <p class="hint" style="margin-top:6px">Diese Funktionen sind experimentell.</p>
+            <h2 style="margin-bottom:0">Lokale Autonomie-Vorschau freischalten?</h2>
+            <p class="hint" style="margin-top:6px">Diese Funktionen sind experimentell und bleiben lokal simuliert.</p>
           </div>
         </div>
         <span class="virtual-agent-badge warn">Sandbox bleibt aktiv</span>
       </div>
       <div class="output-box" style="margin-top:0">
-        <p>Später könnten virtuelle Mitarbeiter:</p>
+        <p>Die Vorschau zeigt, was virtuelle Mitarbeiter später vorbereiten könnten:</p>
         <ul>
           <li>automatische Aktionen vorbereiten</li>
           <li>Kundennachrichten vorbereiten</li>
           <li>Listings vorbereiten</li>
           <li>Workflows automatisieren</li>
         </ul>
-        <p>Aktuell bleiben Live-Aktionen weiterhin durch Sicherheitsmodus und Sandbox blockiert.</p>
+        <p>Aktuell bleiben Live-Aktionen weiterhin durch Sicherheitsmodus und Sandbox blockiert. Es gibt hier keine autonomen Live-Bots.</p>
       </div>
       <div class="checkrow" style="margin-top:14px">
         <input id="advancedAutonomyRiskCheckbox" type="checkbox">
@@ -1662,6 +1662,79 @@ PLZ Ort"></textarea>
         </div>
         <div class="task-remove-modal-actions">
           <button type="button" id="approvalDetailCloseBtn" class="secondary">Schließen</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="futureSettingsModal" class="hidden modal-backdrop" aria-hidden="true">
+    <div class="card modal-panel task-remove-modal-panel">
+      <div class="task-remove-modal">
+        <div class="task-remove-modal-head">
+          <div>
+            <h3 id="futureSettingsTitle">Zukunfts-Einstellungen</h3>
+            <p id="futureSettingsSubtitle">Feineinstellungen pro gesperrter Funktion oder Rolle.</p>
+          </div>
+          <span class="virtual-agent-badge info">Nur Vorschau</span>
+        </div>
+        <div class="task-remove-summary">
+          <div>
+            <small>Bereich</small>
+            <strong id="futureSettingsKind">-</strong>
+          </div>
+          <div>
+            <small>Status</small>
+            <strong id="futureSettingsStatus">-</strong>
+          </div>
+          <div>
+            <small>Connector</small>
+            <strong id="futureSettingsConnector">-</strong>
+          </div>
+        </div>
+        <div class="output-box" style="margin-top:12px">
+          <h4>Funktionshinweise</h4>
+          <ul id="futureSettingsHints" style="margin:0;padding-left:18px"></ul>
+        </div>
+        <div class="task-remove-summary" style="margin-top:12px">
+          <div>
+            <label>Planungsmodus</label>
+            <select id="futureSettingsMode">
+              <option value="manual">Manuell</option>
+              <option value="semi">Halbautomatisch</option>
+            </select>
+          </div>
+          <div>
+            <label>Priorität</label>
+            <select id="futureSettingsPriority">
+              <option value="low">Niedrig</option>
+              <option value="medium">Mittel</option>
+              <option value="high">Hoch</option>
+            </select>
+          </div>
+        </div>
+        <div class="task-remove-summary" style="margin-top:12px">
+          <div style="grid-column:1 / -1">
+            <label>Live-Pipeline-Typ</label>
+            <select id="futureSettingsPipelineType">
+              <option value="risk_action">Risikobehandlung</option>
+              <option value="support_reply">Support-Antwort</option>
+              <option value="seo_update">SEO-Optimierung</option>
+              <option value="order_prepare">Bestellvorbereitung</option>
+              <option value="listing_update">Listing-Update</option>
+            </select>
+          </div>
+        </div>
+        <div class="output-box" style="margin-top:12px">
+          <h4>Live-Pipeline</h4>
+          <p id="futureSettingsPipelineText">-</p>
+        </div>
+        <div class="output-box" style="margin-top:12px">
+          <h4>Eigene Notiz</h4>
+          <textarea id="futureSettingsNotes" style="width:100%;min-height:90px" placeholder="Eigene Notiz zur Funktion oder Rolle"></textarea>
+        </div>
+        <div class="task-remove-modal-actions">
+          <button type="button" id="futureSettingsCloseBtn" class="secondary">Schließen</button>
+          <button type="button" id="futureSettingsSaveBtn">Speichern</button>
         </div>
       </div>
     </div>
@@ -2321,9 +2394,27 @@ function testBackendConnection(){
     integrationSettings.backendCheck = 'ok';
     localStorage.setItem('elyonIntegrations', JSON.stringify(integrationSettings));
     renderIntegrationStatus();
-    const html = '<h3>Backend-Test</h3><p>Ping: <strong>Backend erreichbar</strong></p><p class="hint">Route geprüft: /api/ping</p>';
-    setHTML('backendTestResult',html);
-    setHTML('settingsIntegrationResult',html);
+    fetchBackendJSON('/api/env-check').then(function(statusData){
+      const readiness = statusData && statusData.readiness ? statusData.readiness : null;
+      const summaryParts = [];
+      if(readiness){
+        if(readiness.localBackup) summaryParts.push('Lokale Backups: bereit');
+        if(readiness.cj) summaryParts.push('CJ: ' + (readiness.cj.ready ? 'bereit' : 'Setup fehlt'));
+        if(readiness.ebay) summaryParts.push('eBay: ' + (readiness.ebay.ready ? 'bereit' : 'Setup fehlt'));
+        if(readiness.googleDrive) summaryParts.push('Google Drive: ' + (readiness.googleDrive.ready ? 'bereit' : 'Setup fehlt'));
+        if(readiness.googleSheets) summaryParts.push('Google Sheets: ' + (readiness.googleSheets.ready ? 'bereit' : 'Vorschau'));
+        if(readiness.openai) summaryParts.push('OpenAI: ' + (readiness.openai.ready ? 'bereit' : 'Setup fehlt'));
+        if(readiness.deepseek) summaryParts.push('DeepSeek: ' + (readiness.deepseek.ready ? 'bereit' : 'Setup fehlt'));
+      }
+      const readinessHtml = summaryParts.length ? '<p class="hint">Readiness: ' + summaryParts.join(' · ') + '</p>' : '';
+      const html = '<h3>Backend-Test</h3><p>Ping: <strong>Backend erreichbar</strong></p><p class="hint">Route geprüft: /api/ping</p>' + readinessHtml;
+      setHTML('backendTestResult',html);
+      setHTML('settingsIntegrationResult',html);
+    }).catch(function(){
+      const html = '<h3>Backend-Test</h3><p>Ping: <strong>Backend erreichbar</strong></p><p class="hint">Route geprüft: /api/ping</p>';
+      setHTML('backendTestResult',html);
+      setHTML('settingsIntegrationResult',html);
+    });
   }).catch(function(err){
     integrationSettings.backendCheck = 'error';
     localStorage.setItem('elyonIntegrations', JSON.stringify(integrationSettings));
@@ -8423,6 +8514,45 @@ document.addEventListener('DOMContentLoaded',()=>{
     },
   };
   const getLiveActionBlueprint = (type) => LIVE_ACTION_BLUEPRINTS[normalizeApprovalQueueType(type)] || LIVE_ACTION_BLUEPRINTS.listing_update;
+  const FUTURE_PIPELINE_DEFAULTS = {
+    lockedFunctions: {
+      'full-automation': 'risk_action',
+      'auto-orders': 'order_prepare',
+      'auto-messages': 'support_reply',
+      'auto-ebay-posting': 'listing_update',
+    },
+    lockedRoles: {
+      'soul-listing': 'listing_update',
+      'soul-pricing': 'risk_action',
+      'soul-supplier': 'order_prepare',
+      'soul-compliance': 'risk_action',
+      'soul-returns': 'support_reply',
+      'soul-dispatch': 'order_prepare',
+      'soul-inventory': 'order_prepare',
+      'soul-review': 'risk_action',
+    },
+  };
+  const getDefaultFuturePipelineType = (kind, id) => {
+    const bucket = FUTURE_PIPELINE_DEFAULTS[kind] || {};
+    return bucket[id] || 'risk_action';
+  };
+  const getDefaultFuturePipelineBlueprint = (kind, id) => getLiveActionBlueprint(getDefaultFuturePipelineType(kind, id));
+  const FUTURE_PIPELINE_OPTIONS = [
+    { value: 'risk_action', label: 'Risikobehandlung' },
+    { value: 'support_reply', label: 'Support-Antwort' },
+    { value: 'seo_update', label: 'SEO-Optimierung' },
+    { value: 'order_prepare', label: 'Bestellvorbereitung' },
+    { value: 'listing_update', label: 'Listing-Update' },
+  ];
+  const guessFuturePipelineType = (kind, id, title) => {
+    const text = `${kind || ''} ${id || ''} ${title || ''}`.toLowerCase();
+    if (text.includes('support')) return 'support_reply';
+    if (text.includes('seo')) return 'seo_update';
+    if (text.includes('order') || text.includes('supplier') || text.includes('dispatch')) return 'order_prepare';
+    if (text.includes('listing') || text.includes('ebay') || text.includes('post')) return 'listing_update';
+    return 'risk_action';
+  };
+  const getFuturePipelineBlueprint = (kind, id, title) => getLiveActionBlueprint(guessFuturePipelineType(kind, id, title));
   const buildLiveActionPipeline = (type, context) => {
     const blueprint = getLiveActionBlueprint(type);
     return {
@@ -8448,7 +8578,186 @@ document.addEventListener('DOMContentLoaded',()=>{
     const liveState = pipeline.liveEnabled ? 'Live später aktivierbar' : 'Nur vorbereitet, keine Live-Ausführung';
     return [pipeline.label || 'Live-Pipeline', liveState, stages, connector].filter(Boolean).join(' | ');
   };
-  const executeLiveAction = (approvalEntry) => {
+  const LIVE_CONNECTORS = {
+    'support-mail': {
+      id: 'support-mail',
+      label: 'Support-Mail',
+      prepare: (approvalEntry, pipeline) => {
+        const preview = String(approvalEntry && approvalEntry.previewText ? approvalEntry.previewText : '').trim();
+        const title = String(approvalEntry && approvalEntry.title ? approvalEntry.title : 'Supportanfrage').trim();
+        const recipient = String(approvalEntry && approvalEntry.payload && approvalEntry.payload.recipient ? approvalEntry.payload.recipient : '').trim() || 'support@lokal.placeholder';
+        const subject = String(approvalEntry && approvalEntry.payload && approvalEntry.payload.subject ? approvalEntry.payload.subject : title).trim();
+        const body = preview || 'Hallo, danke für deine Nachricht. Ich prüfe den Fall und melde mich zeitnah.';
+        return {
+          ok: true,
+          status: 'prepared',
+          connectorId: 'support-mail',
+          connectorLabel: 'Support-Mail',
+          message: 'Support-Antwort vorbereitet. Versand bleibt manuell.',
+          draft: {
+            recipient,
+            subject,
+            body,
+            pipeline: pipeline || null,
+          },
+        };
+      },
+    },
+    'listing-seo': {
+      id: 'listing-seo',
+      label: 'Listing-SEO',
+      prepare: (approvalEntry, pipeline) => {
+        const preview = String(approvalEntry && approvalEntry.previewText ? approvalEntry.previewText : '').trim();
+        const payload = approvalEntry && approvalEntry.payload && typeof approvalEntry.payload === 'object' ? approvalEntry.payload : {};
+        const sourceTitle = String(payload.sourceTaskTitle || approvalEntry && approvalEntry.title || 'Listing').trim();
+        const titleCandidates = [
+          payload.suggestedTitle,
+          payload.optimizedTitle,
+          payload.titleIdea,
+          preview,
+          `${sourceTitle} - Premium, kompakt, praktisch`,
+        ].map((item) => String(item || '').trim()).filter(Boolean);
+        const keywordCandidates = [
+          payload.mainKeyword,
+          payload.seoKeywords,
+          payload.keywords,
+          payload.titleIdeas,
+        ].flatMap((item) => String(item || '').split(',').map((part) => part.trim()).filter(Boolean));
+        const uniqueKeywords = Array.from(new Set(keywordCandidates.filter(Boolean)));
+        const description = String(
+          payload.optimizedDescription
+          || payload.description
+          || preview
+          || 'SEO-Optimierung vorbereitet. Die Änderungen werden erst nach manueller Freigabe angewendet.'
+        ).trim();
+        return {
+          ok: true,
+          status: 'prepared',
+          connectorId: 'listing-seo',
+          connectorLabel: 'Listing-SEO',
+          message: 'SEO-Entwurf vorbereitet. Veröffentlichung bleibt manuell.',
+          draft: {
+            title: titleCandidates[0] || sourceTitle,
+            altTitles: titleCandidates.slice(1, 4),
+            keywords: uniqueKeywords.slice(0, 12),
+            description,
+            pipeline: pipeline || null,
+          },
+        };
+      },
+    },
+    'supplier-order': {
+      id: 'supplier-order',
+      label: 'Supplier-Order',
+      prepare: (approvalEntry, pipeline) => {
+        const payload = approvalEntry && approvalEntry.payload && typeof approvalEntry.payload === 'object' ? approvalEntry.payload : {};
+        const sourceTitle = String(payload.sourceTaskTitle || approvalEntry && approvalEntry.title || 'Bestellung').trim();
+        const supplierName = String(payload.supplierName || payload.vendor || 'Supplier').trim();
+        const orderReference = String(payload.orderReference || approvalEntry && approvalEntry.id || `SO-${Date.now()}`).trim();
+        const items = Array.isArray(payload.items) ? payload.items.map((item) => String(item || '').trim()).filter(Boolean) : [];
+        const notes = String(payload.notes || payload.orderNotes || 'Bestellung lokal vorbereitet. Versand bleibt manuell.').trim();
+        return {
+          ok: true,
+          status: 'prepared',
+          connectorId: 'supplier-order',
+          connectorLabel: 'Supplier-Order',
+          message: 'Bestellvorbereitung erstellt. Keine Bestellung wurde ausgeführt.',
+          draft: {
+            supplier: supplierName,
+            reference: orderReference,
+            title: sourceTitle,
+            items,
+            notes,
+            pipeline: pipeline || null,
+          },
+        };
+      },
+    },
+    'listing-publish': {
+      id: 'listing-publish',
+      label: 'Listing-Publish',
+      prepare: (approvalEntry, pipeline) => {
+        const payload = approvalEntry && approvalEntry.payload && typeof approvalEntry.payload === 'object' ? approvalEntry.payload : {};
+        const title = String(payload.sourceTaskTitle || approvalEntry && approvalEntry.title || 'Listing').trim();
+        const targetStatus = String(payload.targetStatus || 'eBay Ready').trim();
+        const checklist = Array.isArray(payload.checklist) ? payload.checklist.map((item) => String(item || '').trim()).filter(Boolean) : [];
+        return {
+          ok: true,
+          status: 'prepared',
+          connectorId: 'listing-publish',
+          connectorLabel: 'Listing-Publish',
+          message: 'Listing-Update vorbereitet. Veröffentlichung bleibt manuell.',
+          draft: {
+            title,
+            targetStatus,
+            checklist,
+            pipeline: pipeline || null,
+          },
+        };
+      },
+    },
+    'risk-review': {
+      id: 'risk-review',
+      label: 'Risk-Review',
+      prepare: (approvalEntry, pipeline) => {
+        const payload = approvalEntry && approvalEntry.payload && typeof approvalEntry.payload === 'object' ? approvalEntry.payload : {};
+        const summary = String(payload.summary || approvalEntry && approvalEntry.description || 'Risikoprüfung vorbereitet.').trim();
+        const riskNotes = Array.isArray(payload.riskNotes) ? payload.riskNotes.map((item) => String(item || '').trim()).filter(Boolean) : [];
+        return {
+          ok: true,
+          status: 'prepared',
+          connectorId: 'risk-review',
+          connectorLabel: 'Risk-Review',
+          message: 'Risikoprüfung vorbereitet. Keine Live-Aktion wurde ausgeführt.',
+          draft: {
+            summary,
+            riskNotes,
+            pipeline: pipeline || null,
+          },
+        };
+      },
+    },
+  };
+  const getLiveConnector = (connectorId) => LIVE_CONNECTORS[connectorId] || null;
+  const LIVE_ACTION_HANDLERS = {
+    support_reply: async (approvalEntry, pipeline) => {
+      const connector = getLiveConnector(pipeline && pipeline.connector ? pipeline.connector : 'support-mail');
+      if (connector && typeof connector.prepare === 'function') {
+        return connector.prepare(approvalEntry, pipeline);
+      }
+      return { ok: false, status: 'prepared', message: 'Support-Nachrichten sind nur vorbereitet.', entryId: approvalEntry && approvalEntry.id ? approvalEntry.id : '' };
+    },
+    seo_update: async (approvalEntry, pipeline) => {
+      const connector = getLiveConnector(pipeline && pipeline.connector ? pipeline.connector : 'listing-seo');
+      if (connector && typeof connector.prepare === 'function') {
+        return connector.prepare(approvalEntry, pipeline);
+      }
+      return { ok: false, status: 'prepared', message: 'SEO-Updates sind nur vorbereitet.', entryId: approvalEntry && approvalEntry.id ? approvalEntry.id : '' };
+    },
+    order_prepare: async (approvalEntry, pipeline) => {
+      const connector = getLiveConnector(pipeline && pipeline.connector ? pipeline.connector : 'supplier-order');
+      if (connector && typeof connector.prepare === 'function') {
+        return connector.prepare(approvalEntry, pipeline);
+      }
+      return { ok: false, status: 'prepared', message: 'Bestellschritte sind nur vorbereitet.', entryId: approvalEntry && approvalEntry.id ? approvalEntry.id : '' };
+    },
+    listing_update: async (approvalEntry, pipeline) => {
+      const connector = getLiveConnector(pipeline && pipeline.connector ? pipeline.connector : 'listing-publish');
+      if (connector && typeof connector.prepare === 'function') {
+        return connector.prepare(approvalEntry, pipeline);
+      }
+      return { ok: false, status: 'prepared', message: 'Listing-Änderungen sind nur vorbereitet.', entryId: approvalEntry && approvalEntry.id ? approvalEntry.id : '' };
+    },
+    risk_action: async (approvalEntry, pipeline) => {
+      const connector = getLiveConnector(pipeline && pipeline.connector ? pipeline.connector : 'risk-review');
+      if (connector && typeof connector.prepare === 'function') {
+        return connector.prepare(approvalEntry, pipeline);
+      }
+      return { ok: false, status: 'prepared', message: 'Risikoprüfungen bleiben im Vorschau-Modus.', entryId: approvalEntry && approvalEntry.id ? approvalEntry.id : '' };
+    },
+  };
+  const getLiveActionHandler = (type) => LIVE_ACTION_HANDLERS[normalizeApprovalQueueType(type)] || LIVE_ACTION_HANDLERS.listing_update;
+  const executeLiveAction = async (approvalEntry) => {
     const pipeline = approvalEntry && approvalEntry.payload && approvalEntry.payload.livePipeline;
     if (!pipeline) {
       return { ok: false, status: 'missing_pipeline', message: 'Keine Live-Pipeline vorhanden.' };
@@ -8456,7 +8765,9 @@ document.addEventListener('DOMContentLoaded',()=>{
     if (isSecurityLocked() || isAiActionBlocked()) {
       return { ok: false, status: 'blocked', message: 'Live-Ausführung ist derzeit gesperrt.' };
     }
-    return {
+    const handler = getLiveActionHandler(pipeline.actionType);
+    const result = await handler(approvalEntry, pipeline);
+    return result || {
       ok: false,
       status: 'prepared',
       message: 'Live-Ausführung ist noch nicht aktiviert. Die Pipeline bleibt nur vorbereitet.',
@@ -8693,6 +9004,172 @@ document.addEventListener('DOMContentLoaded',()=>{
     return text.slice(0, 220);
   };
 
+  const normalizeRuntimeText = (value, fallback = '') => {
+    if (typeof value === 'string') return value.trim();
+    if (value === null || value === undefined) return fallback;
+    return String(value);
+  };
+
+  const normalizeRuntimeStringList = (value, fallback = []) => {
+    const items = Array.isArray(value) ? value : [];
+    const next = items.map((item) => normalizeRuntimeText(item, '')).filter(Boolean);
+    return next.length ? next : fallback.slice();
+  };
+
+  const normalizeRuntimeMode = (value) => {
+    const next = normalizeRuntimeText(value, 'sandboxed').toLowerCase();
+    return ['sandboxed', 'blocked', 'local', 'server', 'simulated', 'live'].includes(next) ? next : 'sandboxed';
+  };
+
+  const normalizeRuntimeLevel = (value) => {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return 1;
+    return Math.max(0, Math.min(4, Math.floor(parsed)));
+  };
+
+  const normalizeRuntimeQueueItem = (item, index = 0) => {
+    const source = item && typeof item === 'object' ? item : {};
+    const createdAt = normalizeRuntimeText(source.createdAt, new Date().toISOString());
+    return {
+      id: normalizeRuntimeText(source.id, `runtime-task-${index}`),
+      agentId: normalizeRuntimeText(source.agentId, ''),
+      type: normalizeRuntimeText(source.type, 'analysis'),
+      title: normalizeRuntimeText(source.title, 'Lokale Aufgabe'),
+      status: normalizeRuntimeText(source.status, 'queued'),
+      executionMode: normalizeRuntimeText(source.executionMode, 'sandboxed'),
+      createdAt,
+      updatedAt: normalizeRuntimeText(source.updatedAt, createdAt),
+      result: normalizeRuntimeText(source.result, ''),
+      warnings: normalizeRuntimeStringList(source.warnings, []),
+      priority: normalizeRuntimeText(source.priority, 'medium'),
+    };
+  };
+
+  const normalizeRuntimeQueue = (value, fallback = []) => {
+    const items = Array.isArray(value) ? value : [];
+    const next = items.map((item, index) => normalizeRuntimeQueueItem(item, index));
+    return next.length ? next.slice(0, 50) : fallback.slice();
+  };
+
+  const normalizeRuntimeLogItem = (item, index = 0) => {
+    const source = item && typeof item === 'object' ? item : {};
+    return {
+      id: normalizeRuntimeText(source.id, `runtime-log-${index}`),
+      agentId: normalizeRuntimeText(source.agentId, ''),
+      level: ['info', 'warn', 'error', 'success'].includes(normalizeRuntimeText(source.level, 'info'))
+        ? normalizeRuntimeText(source.level, 'info')
+        : 'info',
+      message: normalizeRuntimeText(source.message || source.text || item, ''),
+      createdAt: normalizeRuntimeText(source.createdAt, new Date().toISOString()),
+    };
+  };
+
+  const normalizeRuntimeLogs = (value, fallback = []) => {
+    const items = Array.isArray(value) ? value : [];
+    const next = items.map((item, index) => normalizeRuntimeLogItem(item, index));
+    return next.length ? next.slice(0, 120) : fallback.slice();
+  };
+
+  const createDefaultAgentRuntime = () => ({
+    version: 1,
+    worker: {
+      status: 'sandboxed',
+      mode: 'sandboxed',
+      lastTick: '',
+      lastRun: '',
+      nextTickAt: '',
+      intervalMs: 45000,
+      processedToday: 0,
+      failuresToday: 0,
+      queueLength: 0,
+      notes: 'Sandbox aktiv',
+    },
+    queue: [],
+    logs: [],
+    communications: [],
+    agentStates: AGENT_DEFS.reduce((acc, def) => {
+      acc[def.id] = {
+        id: def.id,
+        name: def.name,
+        role: def.task,
+        enabled: true,
+        paused: false,
+        autonomyLevel: 1,
+        model: 'deepseek',
+        dailyLimit: 0.25,
+        todayUsage: 0,
+        prompt: def.description || def.task,
+        description: def.description || def.task,
+        guardrails: 'Nur Vorschlaege, Entwuerfe und lokale Analysen. Keine autonomen Live-Aktionen.',
+        capabilities: normalizeRuntimeStringList([
+          def.task,
+          'Lokale Analyse',
+          'Queue-Verarbeitung',
+        ]),
+        lastRun: '',
+        lastResult: '',
+        lastExecutionMode: 'sandboxed',
+        logs: [],
+        queue: [],
+        warnings: [],
+      };
+      return acc;
+    }, {}),
+  });
+
+  const normalizeAgentRuntime = (value) => {
+    const defaults = createDefaultAgentRuntime();
+    const source = value && typeof value === 'object' ? value : {};
+    const workerSource = source.worker && typeof source.worker === 'object' ? source.worker : {};
+    const next = {
+      version: Number.isFinite(Number(source.version)) ? Math.max(1, Number(source.version) || 1) : defaults.version,
+      worker: {
+        status: normalizeRuntimeMode(workerSource.status || defaults.worker.status),
+        mode: normalizeRuntimeMode(workerSource.mode || defaults.worker.mode),
+        lastTick: normalizeRuntimeText(workerSource.lastTick, defaults.worker.lastTick),
+        lastRun: normalizeRuntimeText(workerSource.lastRun, defaults.worker.lastRun),
+        nextTickAt: normalizeRuntimeText(workerSource.nextTickAt, defaults.worker.nextTickAt),
+        intervalMs: Number.isFinite(Number(workerSource.intervalMs)) ? Math.max(15000, Math.floor(Number(workerSource.intervalMs))) : defaults.worker.intervalMs,
+        processedToday: Number.isFinite(Number(workerSource.processedToday)) ? Math.max(0, Math.floor(Number(workerSource.processedToday))) : defaults.worker.processedToday,
+        failuresToday: Number.isFinite(Number(workerSource.failuresToday)) ? Math.max(0, Math.floor(Number(workerSource.failuresToday))) : defaults.worker.failuresToday,
+        queueLength: Number.isFinite(Number(workerSource.queueLength)) ? Math.max(0, Math.floor(Number(workerSource.queueLength))) : defaults.worker.queueLength,
+        notes: normalizeRuntimeText(workerSource.notes, defaults.worker.notes),
+      },
+      queue: normalizeRuntimeQueue(source.queue, defaults.queue),
+      logs: normalizeRuntimeLogs(source.logs, defaults.logs),
+      communications: normalizeRuntimeLogs(source.communications || source.comms, defaults.communications),
+      agentStates: {},
+    };
+
+    AGENT_DEFS.forEach((def) => {
+      const incoming = source.agentStates && typeof source.agentStates === 'object' ? source.agentStates[def.id] : null;
+      const fallback = defaults.agentStates[def.id];
+      next.agentStates[def.id] = {
+        id: def.id,
+        name: def.name,
+        role: def.task,
+        enabled: incoming && typeof incoming.enabled === 'boolean' ? incoming.enabled : fallback.enabled,
+        paused: incoming && typeof incoming.paused === 'boolean' ? incoming.paused : fallback.paused,
+        autonomyLevel: normalizeRuntimeLevel(incoming && incoming.autonomyLevel !== undefined ? incoming.autonomyLevel : fallback.autonomyLevel),
+        model: normalizeModel(incoming && incoming.model !== undefined ? incoming.model : fallback.model),
+        dailyLimit: normalizeLimit(incoming && incoming.dailyLimit !== undefined ? incoming.dailyLimit : fallback.dailyLimit),
+        todayUsage: normalizeUsage(incoming && incoming.todayUsage !== undefined ? incoming.todayUsage : fallback.todayUsage),
+        prompt: sanitizeDescription(incoming && incoming.prompt !== undefined ? incoming.prompt : fallback.prompt, def.description || def.task),
+        description: sanitizeDescription(incoming && incoming.description !== undefined ? incoming.description : fallback.description, def.description || def.task),
+        guardrails: sanitizeDescription(incoming && incoming.guardrails !== undefined ? incoming.guardrails : fallback.guardrails, 'Nur Vorschlaege, Entwuerfe und lokale Analysen. Keine autonomen Live-Aktionen.'),
+        capabilities: normalizeRuntimeStringList(incoming && incoming.capabilities !== undefined ? incoming.capabilities : fallback.capabilities, fallback.capabilities),
+        lastRun: normalizeRuntimeText(incoming && incoming.lastRun !== undefined ? incoming.lastRun : fallback.lastRun, ''),
+        lastResult: normalizeRuntimeText(incoming && incoming.lastResult !== undefined ? incoming.lastResult : fallback.lastResult, ''),
+        lastExecutionMode: normalizeRuntimeMode(incoming && incoming.lastExecutionMode !== undefined ? incoming.lastExecutionMode : fallback.lastExecutionMode),
+        logs: normalizeRuntimeLogs(incoming && incoming.logs !== undefined ? incoming.logs : fallback.logs, []),
+        queue: normalizeRuntimeQueue(incoming && incoming.queue !== undefined ? incoming.queue : fallback.queue, []),
+        warnings: normalizeRuntimeStringList(incoming && incoming.warnings !== undefined ? incoming.warnings : fallback.warnings, []),
+      };
+    });
+
+    return next;
+  };
+
   const sanitizeTaskText = (value, fallback, maxLength) => {
     const text = String(value ?? '').replace(/\s+/g, ' ').trim();
     if (!text) return fallback;
@@ -8789,26 +9266,44 @@ document.addEventListener('DOMContentLoaded',()=>{
 
   const createFutureCapabilityState = () => ({
     lockedFunctions: FUTURE_CAPABILITY_DEFS.lockedFunctions.reduce((acc, item) => {
+      const pipelineType = getDefaultFuturePipelineType('lockedFunctions', item.id);
+      const blueprint = getLiveActionBlueprint(pipelineType);
       acc[item.id] = {
         prepared: true,
         enabled: false,
         lastPreparedAt: '',
         notes: '',
+        settings: {
+          priority: 'medium',
+          mode: 'manual',
+          customLabel: '',
+          pipelineType,
+          connector: blueprint.connector,
+        },
       };
       return acc;
     }, {}),
     lockedRoles: FUTURE_CAPABILITY_DEFS.lockedRoles.reduce((acc, item) => {
+      const pipelineType = getDefaultFuturePipelineType('lockedRoles', item.id);
+      const blueprint = getLiveActionBlueprint(pipelineType);
       acc[item.id] = {
         prepared: true,
         enabled: false,
         lastPreparedAt: '',
         notes: '',
+        settings: {
+          priority: 'medium',
+          mode: 'manual',
+          customLabel: '',
+          pipelineType,
+          connector: blueprint.connector,
+        },
       };
       return acc;
     }, {}),
   });
 
-  const mergeFutureCapabilityState = (defaults, saved) => {
+  const mergeFutureCapabilityState = (kind, defaults, saved) => {
     const source = saved && typeof saved === 'object' ? saved : {};
     return Object.keys(defaults || {}).reduce((acc, key) => {
       const fallback = defaults[key] && typeof defaults[key] === 'object' ? defaults[key] : {};
@@ -8818,6 +9313,23 @@ document.addEventListener('DOMContentLoaded',()=>{
         enabled: typeof incoming.enabled === 'boolean' ? incoming.enabled : fallback.enabled === true,
         lastPreparedAt: typeof incoming.lastPreparedAt === 'string' ? incoming.lastPreparedAt : (typeof fallback.lastPreparedAt === 'string' ? fallback.lastPreparedAt : ''),
         notes: typeof incoming.notes === 'string' ? incoming.notes : (typeof fallback.notes === 'string' ? fallback.notes : ''),
+        settings: {
+          priority: typeof incoming.settings === 'object' && incoming.settings && typeof incoming.settings.priority === 'string'
+            ? incoming.settings.priority
+            : (fallback.settings && typeof fallback.settings.priority === 'string' ? fallback.settings.priority : 'medium'),
+          mode: typeof incoming.settings === 'object' && incoming.settings && typeof incoming.settings.mode === 'string'
+            ? incoming.settings.mode
+            : (fallback.settings && typeof fallback.settings.mode === 'string' ? fallback.settings.mode : 'manual'),
+          customLabel: typeof incoming.settings === 'object' && incoming.settings && typeof incoming.settings.customLabel === 'string'
+            ? incoming.settings.customLabel
+            : (fallback.settings && typeof fallback.settings.customLabel === 'string' ? fallback.settings.customLabel : ''),
+          pipelineType: typeof incoming.settings === 'object' && incoming.settings && typeof incoming.settings.pipelineType === 'string'
+            ? incoming.settings.pipelineType
+            : (fallback.settings && typeof fallback.settings.pipelineType === 'string' ? fallback.settings.pipelineType : getDefaultFuturePipelineType(kind, key)),
+          connector: typeof incoming.settings === 'object' && incoming.settings && typeof incoming.settings.connector === 'string'
+            ? incoming.settings.connector
+            : (fallback.settings && typeof fallback.settings.connector === 'string' ? fallback.settings.connector : getLiveActionBlueprint(getDefaultFuturePipelineType(kind, key)).connector),
+        },
       };
       return acc;
     }, {});
@@ -8839,6 +9351,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     futureSectionsOpen: { lockedFunctions: true, lockedRoles: true },
     activePanel: 'overview',
     openCards: {},
+    agentRuntime: createDefaultAgentRuntime(),
     futureDetailsOpen: {},
     descriptionEditing: {},
     promptEditing: {},
@@ -8894,6 +9407,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       },
       activePanel: normalizePanel(source.activePanel || defaults.activePanel),
       openCards: source.openCards && typeof source.openCards === 'object' ? {...source.openCards} : {},
+      agentRuntime: normalizeAgentRuntime(source.agentRuntime),
       futureDetailsOpen: source.futureDetailsOpen && typeof source.futureDetailsOpen === 'object' ? {
         lockedFunctions: source.futureDetailsOpen.lockedFunctions && typeof source.futureDetailsOpen.lockedFunctions === 'object' ? {...source.futureDetailsOpen.lockedFunctions} : {},
         lockedRoles: source.futureDetailsOpen.lockedRoles && typeof source.futureDetailsOpen.lockedRoles === 'object' ? {...source.futureDetailsOpen.lockedRoles} : {},
@@ -8914,6 +9428,9 @@ document.addEventListener('DOMContentLoaded',()=>{
       const fallback = defaults.agents[def.id];
       next.agents[def.id] = {
         active: incoming && typeof incoming.active === 'boolean' ? incoming.active : fallback.active,
+        enabled: incoming && typeof incoming.enabled === 'boolean' ? incoming.enabled : fallback.enabled,
+        paused: incoming && typeof incoming.paused === 'boolean' ? incoming.paused : fallback.paused,
+        autonomyLevel: normalizeRuntimeLevel(incoming && incoming.autonomyLevel !== undefined ? incoming.autonomyLevel : fallback.autonomyLevel),
         mode: normalizeMode(incoming && incoming.mode !== undefined ? incoming.mode : fallback.mode),
         notifications: incoming && typeof incoming.notifications === 'boolean' ? incoming.notifications : fallback.notifications,
         model: normalizeModel(incoming && incoming.model !== undefined ? incoming.model : fallback.model),
@@ -8921,11 +9438,18 @@ document.addEventListener('DOMContentLoaded',()=>{
         description: sanitizeDescription(incoming && incoming.description !== undefined ? incoming.description : fallback.description, def.description || def.task),
         prompt: sanitizeDescription(incoming && incoming.prompt !== undefined ? incoming.prompt : fallback.prompt, def.description || def.task),
         guardrails: sanitizeDescription(incoming && incoming.guardrails !== undefined ? incoming.guardrails : fallback.guardrails, 'Nur Vorschläge, Entwürfe und lokale Analysen. Keine autonomen Live-Aktionen.'),
+        capabilities: normalizeRuntimeStringList(incoming && incoming.capabilities !== undefined ? incoming.capabilities : fallback.capabilities, fallback.capabilities),
         statusState: normalizeStatusState(incoming && incoming.statusState !== undefined ? incoming.statusState : fallback.statusState),
         usageToday: normalizeUsage(incoming && incoming.usageToday !== undefined ? incoming.usageToday : fallback.usageToday),
         lastActivity: sanitizeActivity(incoming && incoming.lastActivity !== undefined ? incoming.lastActivity : fallback.lastActivity, DEFAULT_ACTIVITY),
         lastTestResponse: sanitizeActivity(incoming && incoming.lastTestResponse !== undefined ? incoming.lastTestResponse : fallback.lastTestResponse, DEFAULT_TEST_RESPONSE),
         lastTestedAt: sanitizeActivity(incoming && incoming.lastTestedAt !== undefined ? incoming.lastTestedAt : fallback.lastTestedAt, ''),
+        lastRun: normalizeRuntimeText(incoming && incoming.lastRun !== undefined ? incoming.lastRun : fallback.lastRun, ''),
+        lastResult: normalizeRuntimeText(incoming && incoming.lastResult !== undefined ? incoming.lastResult : fallback.lastResult, ''),
+        lastExecutionMode: normalizeRuntimeMode(incoming && incoming.lastExecutionMode !== undefined ? incoming.lastExecutionMode : fallback.lastExecutionMode),
+        logs: normalizeRuntimeLogs(incoming && incoming.logs !== undefined ? incoming.logs : fallback.logs, []),
+        queue: normalizeRuntimeQueue(incoming && incoming.queue !== undefined ? incoming.queue : fallback.queue, []),
+        warnings: normalizeRuntimeStringList(incoming && incoming.warnings !== undefined ? incoming.warnings : fallback.warnings, []),
       };
     });
 
@@ -8935,8 +9459,8 @@ document.addEventListener('DOMContentLoaded',()=>{
     next.masterAgentsDisabled = next.masterAgentsDisabled === true;
     next.masterAgentsSnapshot = next.masterAgentsSnapshot && typeof next.masterAgentsSnapshot === 'object' ? next.masterAgentsSnapshot : {};
     next.futureCapabilities = {
-      lockedFunctions: mergeFutureCapabilityState(defaults.futureCapabilities.lockedFunctions, source.futureCapabilities && source.futureCapabilities.lockedFunctions),
-      lockedRoles: mergeFutureCapabilityState(defaults.futureCapabilities.lockedRoles, source.futureCapabilities && source.futureCapabilities.lockedRoles),
+      lockedFunctions: mergeFutureCapabilityState('lockedFunctions', defaults.futureCapabilities.lockedFunctions, source.futureCapabilities && source.futureCapabilities.lockedFunctions),
+      lockedRoles: mergeFutureCapabilityState('lockedRoles', defaults.futureCapabilities.lockedRoles, source.futureCapabilities && source.futureCapabilities.lockedRoles),
     };
     next.futureDetailsOpen = next.futureDetailsOpen && typeof next.futureDetailsOpen === 'object' ? next.futureDetailsOpen : { lockedFunctions: {}, lockedRoles: {} };
     next.futureDetailsOpen.lockedFunctions = next.futureDetailsOpen.lockedFunctions && typeof next.futureDetailsOpen.lockedFunctions === 'object' ? next.futureDetailsOpen.lockedFunctions : {};
@@ -8969,6 +9493,8 @@ document.addEventListener('DOMContentLoaded',()=>{
   let taskRemovalTargetId = '';
   let approvalDetailTargetId = '';
   let agentInstructionsTargetId = '';
+  let futureSettingsTargetKind = '';
+  let futureSettingsTargetId = '';
   let toolPopupCloseTimeout = null;
   let advancedAutonomyHoldTimer = null;
   let advancedAutonomyHoldFrame = null;
@@ -8998,7 +9524,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   const isAutonomyLocked = () => state.autonomyLocked !== false;
   const isAllAgentsPaused = () => state.pauseAllAgents === true || state.pausedAll === true;
   const isAdvancedAutonomyUnlocked = () => state.advancedMode === true && state.autonomyLocked === false;
-  const isFutureCapabilityUnlocked = () => isAdvancedAutonomyUnlocked();
+  const isFutureCapabilityUnlocked = () => state.advancedMode === true || state.autonomyLocked === false;
   const isMasterAgentsDisabled = () => state.masterAgentsDisabled === true;
   const getFutureCapabilityRecord = (kind, id) => {
     const bucket = state.futureCapabilities && state.futureCapabilities[kind] && typeof state.futureCapabilities[kind] === 'object'
@@ -9006,7 +9532,70 @@ document.addEventListener('DOMContentLoaded',()=>{
       : {};
     return bucket[id] && typeof bucket[id] === 'object'
       ? bucket[id]
-      : { prepared: true, enabled: false, lastPreparedAt: '', notes: '' };
+      : {
+          prepared: true,
+          enabled: false,
+          lastPreparedAt: '',
+          notes: '',
+          settings: {
+            priority: 'medium',
+            mode: 'manual',
+            customLabel: '',
+            pipelineType: 'risk_action',
+            connector: 'risk-review',
+          },
+        };
+  };
+  const getFutureCapabilitySettings = (kind, id) => {
+    const record = getFutureCapabilityRecord(kind, id);
+    return {
+      priority: record.settings && typeof record.settings.priority === 'string' ? record.settings.priority : 'medium',
+      mode: record.settings && typeof record.settings.mode === 'string' ? record.settings.mode : 'manual',
+      customLabel: record.settings && typeof record.settings.customLabel === 'string' ? record.settings.customLabel : '',
+      pipelineType: record.settings && typeof record.settings.pipelineType === 'string' ? record.settings.pipelineType : getDefaultFuturePipelineType(kind, id),
+      connector: record.settings && typeof record.settings.connector === 'string' ? record.settings.connector : getDefaultFuturePipelineBlueprint(kind, id).connector,
+    };
+  };
+  const getFutureSettingsLabel = (kind, id) => {
+    const settings = getFutureCapabilitySettings(kind, id);
+    const modeLabel = settings.mode === 'semi' ? 'Halbautomatisch' : 'Manuell';
+    const priorityLabel = settings.priority === 'high' ? 'Hoch' : settings.priority === 'low' ? 'Niedrig' : 'Mittel';
+    return `${modeLabel} · ${priorityLabel}`;
+  };
+  const getFutureSettingsHints = (kind, id) => {
+    const base = kind === 'lockedRoles'
+      ? [
+          'Die Rolle bleibt eine Vorschau und führt keine Live-Aktionen aus.',
+          'Halbautomatische Vorbereitung landet später nur in der Freigabe-Warteschlange.',
+          'Die Rolle kann mit einer eigenen Bezeichnung und Priorität markiert werden.',
+        ]
+      : [
+          'Die Funktion bleibt eine Vorschau und wird nicht automatisch ausgeführt.',
+          'Zusätzliche Vorbereitung bleibt lokal und ändert keine API- oder Live-Logik.',
+          'Der Modus beeinflusst nur die lokale Planung und Darstellung.',
+        ];
+    const settings = getFutureCapabilitySettings(kind, id);
+    if (settings.customLabel) {
+      base.unshift(`Eigene Bezeichnung: ${settings.customLabel}`);
+    }
+    base.push('Die Live-Pipeline wird an die passende spätere Route gekoppelt.');
+    return base;
+  };
+  const formatFuturePipelinePreview = (kind, id, title) => {
+    const record = getFutureCapabilityRecord(kind, id);
+    const settings = getFutureCapabilitySettings(kind, id);
+    const pipelineType = FUTURE_PIPELINE_OPTIONS.some((item) => item.value === settings.pipelineType)
+      ? settings.pipelineType
+      : (getDefaultFuturePipelineType(kind, id) || guessFuturePipelineType(kind, id, title));
+    const blueprint = getLiveActionBlueprint(pipelineType);
+    const label = record.enabled ? 'Verknüpft' : 'Vorbereitet';
+    return {
+      label,
+      connector: settings.connector || blueprint.connector,
+      stages: blueprint.stages.join(' → '),
+      title: blueprint.label,
+      pipelineType,
+    };
   };
   const isFutureDetailsOpen = (kind, id) => !!(state.futureDetailsOpen && state.futureDetailsOpen[kind] && state.futureDetailsOpen[kind][id]);
   const setFutureDetailsOpen = (kind, id, open) => {
@@ -9027,11 +9616,109 @@ document.addEventListener('DOMContentLoaded',()=>{
     state.futureSectionsOpen[kind] = !!open;
     saveState();
   };
-  const toggleFutureCapability = (kind, id) => {
-    if (!isFutureCapabilityUnlocked()) {
-      showSecurityBlockedNotice('Das Entsperren der Zukunftsfunktionen');
-      return;
+  const openFutureSettingsModal = (kind, id) => {
+    const collection = kind === 'lockedRoles' ? FUTURE_CAPABILITY_DEFS.lockedRoles : FUTURE_CAPABILITY_DEFS.lockedFunctions;
+    const def = Array.isArray(collection) ? collection.find((item) => item.id === id) : null;
+    if (!def) return;
+    futureSettingsTargetKind = kind;
+    futureSettingsTargetId = id;
+    const modal = getEl('futureSettingsModal');
+    const title = getEl('futureSettingsTitle');
+    const subtitle = getEl('futureSettingsSubtitle');
+    const kindEl = getEl('futureSettingsKind');
+    const statusEl = getEl('futureSettingsStatus');
+    const connectorEl = getEl('futureSettingsConnector');
+    const hintsEl = getEl('futureSettingsHints');
+    const modeEl = getEl('futureSettingsMode');
+    const priorityEl = getEl('futureSettingsPriority');
+    const pipelineTypeEl = getEl('futureSettingsPipelineType');
+    const pipelineTextEl = getEl('futureSettingsPipelineText');
+    const notesEl = getEl('futureSettingsNotes');
+    const settings = getFutureCapabilitySettings(kind, id);
+    const record = getFutureCapabilityRecord(kind, id);
+    const statusLabel = record.enabled ? 'Bereit' : (record.prepared ? 'Vorbereitet' : 'Neu');
+    const blueprint = formatFuturePipelinePreview(kind, id, def.title);
+    if (title) title.textContent = `${def.icon || '⚙'} ${def.title}`;
+    if (subtitle) subtitle.textContent = kind === 'lockedRoles'
+      ? 'Tiefe Einstellungen für eine gesperrte Rolle. Nur lokale Vorschau und sichere Vorbereitung.'
+      : 'Tiefe Einstellungen für eine gesperrte Funktion. Nur lokale Vorschau und sichere Vorbereitung.';
+    if (kindEl) kindEl.textContent = kind === 'lockedRoles' ? 'Gesperrte Rolle' : 'Gesperrte Funktion';
+    if (statusEl) statusEl.textContent = statusLabel;
+    if (connectorEl) connectorEl.textContent = blueprint.connector;
+    if (hintsEl) hintsEl.innerHTML = [
+      ...getFutureSettingsHints(kind, id),
+      `Pipeline-Typ: ${getLiveActionBlueprint(blueprint.pipelineType).label}`,
+    ].map((hint) => `<li>${escapeHtml(hint)}</li>`).join('');
+    if (modeEl) modeEl.value = settings.mode === 'semi' ? 'semi' : 'manual';
+    if (priorityEl) priorityEl.value = ['low', 'medium', 'high'].includes(settings.priority) ? settings.priority : 'medium';
+    if (pipelineTypeEl) pipelineTypeEl.value = FUTURE_PIPELINE_OPTIONS.some((item) => item.value === settings.pipelineType) ? settings.pipelineType : blueprint.pipelineType;
+    if (pipelineTextEl) {
+      pipelineTextEl.textContent = `${blueprint.title} | ${blueprint.stages} | Connector: ${blueprint.connector}`;
     }
+    if (notesEl) notesEl.value = settings.customLabel || '';
+    if (modal) {
+      modal.classList.remove('hidden');
+      modal.setAttribute('aria-hidden', 'false');
+    }
+  };
+  const closeFutureSettingsModal = () => {
+    futureSettingsTargetKind = '';
+    futureSettingsTargetId = '';
+    const modal = getEl('futureSettingsModal');
+    if (!modal) return;
+    modal.classList.add('hidden');
+    modal.setAttribute('aria-hidden', 'true');
+  };
+  const saveFutureSettings = () => {
+    if (!futureSettingsTargetKind || !futureSettingsTargetId) return;
+    const modeEl = getEl('futureSettingsMode');
+    const priorityEl = getEl('futureSettingsPriority');
+    const pipelineTypeEl = getEl('futureSettingsPipelineType');
+    const notesEl = getEl('futureSettingsNotes');
+    const mode = modeEl && modeEl.value === 'semi' ? 'semi' : 'manual';
+    const priority = priorityEl && ['low', 'medium', 'high'].includes(priorityEl.value) ? priorityEl.value : 'medium';
+    const pipelineType = pipelineTypeEl && FUTURE_PIPELINE_OPTIONS.some((item) => item.value === pipelineTypeEl.value) ? pipelineTypeEl.value : getDefaultFuturePipelineType(futureSettingsTargetKind, futureSettingsTargetId);
+    const blueprint = getLiveActionBlueprint(pipelineType);
+    const customLabel = notesEl ? String(notesEl.value || '').trim() : '';
+    state.futureCapabilities = state.futureCapabilities && typeof state.futureCapabilities === 'object' ? state.futureCapabilities : createFutureCapabilityState();
+    state.futureCapabilities[futureSettingsTargetKind] = state.futureCapabilities[futureSettingsTargetKind] && typeof state.futureCapabilities[futureSettingsTargetKind] === 'object'
+      ? state.futureCapabilities[futureSettingsTargetKind]
+      : {};
+    const current = getFutureCapabilityRecord(futureSettingsTargetKind, futureSettingsTargetId);
+    state.futureCapabilities[futureSettingsTargetKind][futureSettingsTargetId] = {
+      prepared: true,
+      enabled: !!current.enabled,
+      lastPreparedAt: new Date().toISOString(),
+      notes: customLabel || current.notes || 'Zukunfts-Details aktualisiert.',
+      settings: {
+        priority,
+        mode,
+        customLabel,
+        pipelineType,
+        connector: blueprint.connector,
+      },
+    };
+    setTaskCenterNotice('Zukunfts-Einstellungen gespeichert.');
+    saveState();
+    render();
+    closeFutureSettingsModal();
+    showToolPopup('Zukunfts-Einstellungen', 'Die tiefen Einstellungen wurden lokal gespeichert. Keine Live-Aktion wurde ausgeführt.', 'good');
+  };
+   const handleFutureButtonAction = (event, kind, id, action) => {
+     if (event && typeof event.preventDefault === 'function') event.preventDefault();
+     if (event && typeof event.stopPropagation === 'function') event.stopPropagation();
+     if (action === 'settings') {
+       openFutureSettingsModal(kind, id);
+     } else {
+       toggleFutureCapability(kind, id);
+     }
+     return false;
+   };
+   const toggleFutureCapability = (kind, id) => {
+     if (!isFutureCapabilityUnlocked()) {
+       showSecurityBlockedNotice('Das Entsperren der Zukunftsfunktionen');
+       return;
+     }
     const collection = kind === 'lockedRoles' ? FUTURE_CAPABILITY_DEFS.lockedRoles : FUTURE_CAPABILITY_DEFS.lockedFunctions;
     const def = Array.isArray(collection) ? collection.find((item) => item.id === id) : null;
     if (!def) return;
@@ -9044,11 +9731,27 @@ document.addEventListener('DOMContentLoaded',()=>{
       enabled: nextEnabled,
       lastPreparedAt: new Date().toISOString(),
       notes: nextEnabled ? `${def.title} entsperrt.` : `${def.title} gesperrt.`,
+      settings: current.settings && typeof current.settings === 'object'
+        ? {
+            priority: typeof current.settings.priority === 'string' ? current.settings.priority : 'medium',
+            mode: typeof current.settings.mode === 'string' ? current.settings.mode : 'manual',
+            customLabel: typeof current.settings.customLabel === 'string' ? current.settings.customLabel : '',
+            pipelineType: typeof current.settings.pipelineType === 'string' ? current.settings.pipelineType : getDefaultFuturePipelineType(kind, id),
+            connector: typeof current.settings.connector === 'string' ? current.settings.connector : getDefaultFuturePipelineBlueprint(kind, id).connector,
+          }
+        : {
+            priority: 'medium',
+            mode: 'manual',
+            customLabel: '',
+            pipelineType: getDefaultFuturePipelineType(kind, id),
+            connector: getDefaultFuturePipelineBlueprint(kind, id).connector,
+          },
     };
-    setTaskCenterNotice(nextEnabled ? `${def.title} entsperrt.` : `${def.title} gesperrt.`);
-    saveState();
-    render();
-  };
+     setTaskCenterNotice(nextEnabled ? `${def.title} entsperrt.` : `${def.title} gesperrt.`);
+     saveState();
+     render();
+     showToolPopup('Zukunftsfreigabe', `${def.title} wurde ${nextEnabled ? 'freigegeben' : 'gesperrt'}. Keine Live-Aktion wurde ausgeführt.`, 'good');
+   };
 
   const getProductList = () => (Array.isArray(products) ? products : []);
   const getReturnList = () => [
@@ -9505,6 +10208,10 @@ document.addEventListener('DOMContentLoaded',()=>{
     let approvalRecord = null;
 
     if (kind === 'lockedFunctions') {
+      const pipelineSettings = getFutureCapabilitySettings(kind, id);
+      const pipelineType = FUTURE_PIPELINE_OPTIONS.some((item) => item.value === pipelineSettings.pipelineType)
+        ? pipelineSettings.pipelineType
+        : guessFuturePipelineType(kind, id, def.title);
       summaryParts.push('Nur lokale Vorarbeit');
       summaryParts.push(isSecurityLocked() ? 'Live blockiert' : 'Live getrennt');
       if (id === 'full-automation') summaryParts.push('Ausführungs-Haken vorgeplant');
@@ -9520,7 +10227,7 @@ document.addEventListener('DOMContentLoaded',()=>{
         status: 'pending',
         riskLevel: 'critical',
         createdAt,
-        payload: decorateApprovalPayload(kind === 'lockedRoles' ? 'listing_update' : 'risk_action', {
+        payload: decorateApprovalPayload(pipelineType, {
           source: 'future-workflow',
           kind,
           id,
@@ -9529,11 +10236,16 @@ document.addEventListener('DOMContentLoaded',()=>{
           futureKind: kind,
           futureId: id,
           futureTitle: def.title,
+          pipelineType,
         }),
         previewText: `${def.title} bleibt gesperrt und nur lokal vorbereitet.`,
         requiresConfirmation: true,
       };
     } else {
+      const pipelineSettings = getFutureCapabilitySettings(kind, id);
+      const pipelineType = FUTURE_PIPELINE_OPTIONS.some((item) => item.value === pipelineSettings.pipelineType)
+        ? pipelineSettings.pipelineType
+        : guessFuturePipelineType(kind, id, def.title);
       const insights = getProductList().map(getProductInsight);
       const openReturns = getReturnList().filter((item) => !isReturnClosed(item && item.status));
       if (id === 'soul-listing') {
@@ -9580,7 +10292,7 @@ document.addEventListener('DOMContentLoaded',()=>{
         status: 'pending',
         riskLevel: 'medium',
         createdAt,
-        payload: decorateApprovalPayload(kind === 'lockedRoles' ? 'listing_update' : 'risk_action', {
+        payload: decorateApprovalPayload(pipelineType, {
           source: 'future-workflow',
           kind,
           id,
@@ -9589,6 +10301,7 @@ document.addEventListener('DOMContentLoaded',()=>{
           futureKind: kind,
           futureId: id,
           futureTitle: def.title,
+          pipelineType,
         }),
         previewText: `${def.title} wurde nur vorbereitet, nicht live geschaltet.`,
         requiresConfirmation: true,
@@ -9723,6 +10436,41 @@ document.addEventListener('DOMContentLoaded',()=>{
     };
     return map[agentId] || 0.02;
   };
+  const getAgentRuntimeState = () => {
+    const runtime = state.agentRuntime && typeof state.agentRuntime === 'object' ? state.agentRuntime : createDefaultAgentRuntime();
+    runtime.worker = runtime.worker && typeof runtime.worker === 'object' ? runtime.worker : createDefaultAgentRuntime().worker;
+    runtime.queue = Array.isArray(runtime.queue) ? runtime.queue : [];
+    runtime.logs = Array.isArray(runtime.logs) ? runtime.logs : [];
+    runtime.communications = Array.isArray(runtime.communications) ? runtime.communications : [];
+    runtime.agentStates = runtime.agentStates && typeof runtime.agentStates === 'object' ? runtime.agentStates : {};
+    return runtime;
+  };
+  const syncAgentRuntimeState = (agentId, patch) => {
+    if (!agentId) return;
+    const runtime = getAgentRuntimeState();
+    const current = runtime.agentStates && runtime.agentStates[agentId] && typeof runtime.agentStates[agentId] === 'object' ? runtime.agentStates[agentId] : {};
+    runtime.agentStates[agentId] = {
+      ...current,
+      ...patch,
+    };
+  };
+  const refreshRuntimeWorkerState = () => {
+    const runtime = getAgentRuntimeState();
+    const paused = isAllAgentsPaused();
+    const securityLocked = isSecurityLocked();
+    const mode = paused ? 'paused' : (securityLocked ? 'sandboxed' : (state.advancedMode === true && state.autonomyLocked === false ? 'local' : 'sandboxed'));
+    runtime.worker = {
+      ...(runtime.worker || {}),
+      status: mode === 'local' ? 'running' : mode,
+      mode,
+      queueLength: Array.isArray(runtime.queue) ? runtime.queue.length : 0,
+      notes: paused
+        ? 'Alle Agenten pausiert'
+        : securityLocked
+          ? 'Sandbox aktiv - nur Vorschlaege und lokale Vorbereitung'
+          : 'Lokale Automationen aktiv',
+    };
+  };
   const buildGlobalStatusBar = () => {
     const onlineCount = getOnlineCount();
     const pausedLabel = isAllAgentsPaused() ? 'pausiert' : 'aktiv';
@@ -9732,6 +10480,8 @@ document.addEventListener('DOMContentLoaded',()=>{
     const autonomyLocked = isAutonomyLocked();
     const masterDisabled = isMasterAgentsDisabled();
     const modeStats = getAgentModeStats();
+    const runtime = getAgentRuntimeState();
+    const worker = runtime.worker || {};
     return `
       <div class="virtual-agent-system-bar">
         <div class="virtual-agent-system-top">
@@ -9744,9 +10494,11 @@ document.addEventListener('DOMContentLoaded',()=>{
               <span class="pill">Sandbox ${sandboxMode ? 'aktiv' : 'aus'}</span>
               <span class="pill">Vorschlagsmodus: ${modeStats.suggestions}</span>
               <span class="pill">Halbautomatisch: ${modeStats.semi}</span>
+              <span class="pill">Worker: ${escapeHtml(normalizeRuntimeText(worker.status, 'sandboxed'))}</span>
+              <span class="pill">Queue: ${Array.isArray(runtime.queue) ? runtime.queue.length : 0}</span>
               ${masterDisabled ? '<span class="pill bad">Alle Agenten & MA deaktiviert</span>' : ''}
             </div>
-            <p class="virtual-agent-system-statusline" style="margin-top:8px">🟢 KI-System ${pausedLabel} - ${onlineCount} von ${AGENT_DEFS.length} Agenten online - Sicherheitsmodus ${securityMode ? 'aktiv' : 'aus'} - Sandbox ${sandboxMode ? 'aktiv' : 'aus'} - Autonomie ${autonomyLocked ? 'gesperrt' : 'frei'}</p>
+            <p class="virtual-agent-system-statusline" style="margin-top:8px">🟢 KI-System ${pausedLabel} - ${onlineCount} von ${AGENT_DEFS.length} Agenten online - Sicherheitsmodus ${securityMode ? 'aktiv' : 'aus'} - Sandbox ${sandboxMode ? 'aktiv' : 'aus'} - Autonomie ${autonomyLocked ? 'gesperrt' : 'frei'} - Worker ${escapeHtml(normalizeRuntimeText(worker.status, 'sandboxed'))}</p>
           </div>
           <div class="virtual-agent-system-actions">
             <button type="button" class="secondary" data-agent-action="pause-all" data-tooltip="${isAllAgentsPaused() ? 'Hebt die globale Pause auf und schaltet alle Agenten wieder an.' : 'Pausiert alle Agenten global und setzt alle Schalter auf Aus.'}">${isAllAgentsPaused() ? 'Alle Agenten fortsetzen' : 'Alle Agenten pausieren'}</button>
@@ -9762,6 +10514,8 @@ document.addEventListener('DOMContentLoaded',()=>{
           <div class="metric"><small>Autonomie</small><strong>${autonomyLocked ? 'Gesperrt' : 'Frei'}</strong></div>
           <div class="metric"><small>Geschätztes Tageslimit gesamt</small><strong>${formatEuro(getDailyLimitTotal())}</strong></div>
           <div class="metric"><small>Heutige KI-Nutzung</small><strong>${formatEuro(getUsageTotal())} <span class="hint" style="display:block;margin-top:4px">Mock</span></strong></div>
+          <div class="metric"><small>Worker-Status</small><strong>${escapeHtml(normalizeRuntimeText(worker.status, 'sandboxed'))}</strong></div>
+          <div class="metric"><small>Warteschlange</small><strong>${Array.isArray(runtime.queue) ? runtime.queue.length : 0}</strong></div>
         </div>
         <div class="virtual-agents-note">${isSecurityLocked() ? 'Sandbox aktiv – Aufgaben werden nur vorbereitet.' : 'Automatische Aktionen werden vorbereitet, aber nicht ohne Bestätigung ausgeführt.'}</div>
       </div>
@@ -10163,14 +10917,37 @@ document.addEventListener('DOMContentLoaded',()=>{
       closeToolPopup();
     }, 4500);
   };
+  const formatConnectorDraftText = (result) => {
+    if (!result || !result.draft || typeof result.draft !== 'object') return '';
+    const draft = result.draft;
+    if (draft.recipient || draft.subject || draft.body) {
+      return `\nEmpfänger: ${draft.recipient || '-'}\nBetreff: ${draft.subject || '-'}\nText: ${draft.body || '-'}`;
+    }
+    if (draft.title || (Array.isArray(draft.keywords) && draft.keywords.length) || draft.description) {
+      const keywordText = Array.isArray(draft.keywords) && draft.keywords.length ? draft.keywords.join(', ') : '-';
+      const titleText = draft.title || '-';
+      const descText = draft.description || '-';
+      return `\nTitel: ${titleText}\nKeywords: ${keywordText}\nBeschreibung: ${descText}`;
+    }
+    return '';
+  };
 
-  const handleApprovalAction = (entryId, action) => {
+  const handleApprovalAction = async (entryId, action) => {
     if (!entryId) return;
     const entry = getApprovalQueueById(entryId);
     if (action === 'approve') {
       updateApprovalQueueEntry(entryId, (entry) => ({ ...entry, status: 'approved' }));
       if (entry) {
-        showToolPopup('Freigabe vorbereitet', formatLivePipelineText(entry.payload && entry.payload.livePipeline), 'good');
+        const executionResult = await executeLiveAction({ ...entry, status: 'approved' });
+        if (executionResult && executionResult.ok && executionResult.status === 'executed') {
+          updateApprovalQueueEntry(entryId, (current) => ({ ...current, status: 'executed' }));
+        }
+        const connectorDraft = formatConnectorDraftText(executionResult);
+        showToolPopup(
+          'Freigabe vorbereitet',
+          `${executionResult && executionResult.message ? executionResult.message : formatLivePipelineText(entry.payload && entry.payload.livePipeline)}${connectorDraft}`,
+          executionResult && executionResult.status === 'blocked' ? 'bad' : 'warn'
+        );
       }
       return;
     }
@@ -10459,6 +11236,11 @@ document.addEventListener('DOMContentLoaded',()=>{
   const buildOverviewPanel = () => {
     const modeStats = getAgentModeStats();
     const sharedDailyLimit = getSharedAgentDailyLimit();
+    const runtime = getAgentRuntimeState();
+    const worker = runtime.worker || {};
+    const runtimeQueue = Array.isArray(runtime.queue) ? runtime.queue : [];
+    const runtimeLogs = Array.isArray(runtime.logs) ? runtime.logs : [];
+    const runtimeLogPreview = runtimeLogs.slice(-3).map((entry) => `${formatTaskDate(entry.createdAt)} · ${entry.level || 'info'} · ${entry.message || 'Ohne Text'}`);
     return `
       <div class="virtual-agent-card virtual-agents-panel ${activePanel === 'overview' ? 'active' : ''}" data-panel="overview">
         <div class="virtual-agent-head">
@@ -10494,13 +11276,25 @@ document.addEventListener('DOMContentLoaded',()=>{
           </label>
         </div>
         <div class="virtual-agents-note" style="margin-top:14px">${isSecurityLocked() ? 'Sandbox aktiv – Aufgaben werden nur vorbereitet.' : 'Automatische Aktionen werden vorbereitet, aber nicht ohne Bestätigung ausgeführt.'}</div>
-        <div class="settings-agents-overview" style="margin-top:14px">
-          <div class="metric"><small>Agenten im Vorschlagsmodus</small><strong>${modeStats.suggestions}</strong></div>
-          <div class="metric"><small>Agenten im halbautomatischen Modus</small><strong>${modeStats.semi}</strong></div>
-        </div>
-        <div class="settings-section" style="margin-top:14px;padding:16px;border-radius:18px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08)">
-          <h4 style="margin-bottom:8px">Gesamte KI-Kosten auf alle übernehmen</h4>
-          <p class="hint">Setzt das Tageslimit für alle Agenten auf denselben Wert. Bestehende Einzelwerte werden erst mit deinem Klick überschrieben.</p>
+          <div class="settings-agents-overview" style="margin-top:14px">
+            <div class="metric"><small>Agenten im Vorschlagsmodus</small><strong>${modeStats.suggestions}</strong></div>
+            <div class="metric"><small>Agenten im halbautomatischen Modus</small><strong>${modeStats.semi}</strong></div>
+          </div>
+          <div class="settings-agents-overview" style="margin-top:12px">
+            <div class="metric"><small>Worker</small><strong>${escapeHtml(normalizeRuntimeText(worker.status, 'sandboxed'))}</strong></div>
+            <div class="metric"><small>Warteschlange</small><strong>${runtimeQueue.length}</strong></div>
+            <div class="metric"><small>Logs</small><strong>${runtimeLogs.length}</strong></div>
+            <div class="metric"><small>Letzter Lauf</small><strong>${worker.lastRun ? escapeHtml(formatTaskDate(worker.lastRun)) : 'Noch nicht'}</strong></div>
+          </div>
+          <div class="output-box" style="margin-top:12px">
+            <p><strong>Lokaler Worker-Status:</strong> ${escapeHtml(worker.notes || (isSecurityLocked() ? 'Sandbox aktiv' : 'Bereit zur lokalen Auswertung'))}</p>
+            <p><strong>Nächster Tick:</strong> ${worker.nextTickAt ? escapeHtml(formatTaskDate(worker.nextTickAt)) : 'nicht geplant'}</p>
+            <p><strong>Queue-Verarbeitung:</strong> ${runtimeQueue.length ? `${runtimeQueue.length} Tasks in Vorbereitung` : 'keine offene Warteschlange'}</p>
+            ${runtimeLogPreview.length ? `<ul>${runtimeLogPreview.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>` : '<p class="muted">Noch keine Runtime-Logs vorhanden.</p>'}
+          </div>
+          <div class="settings-section" style="margin-top:14px;padding:16px;border-radius:18px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08)">
+            <h4 style="margin-bottom:8px">Gesamte KI-Kosten auf alle übernehmen</h4>
+            <p class="hint">Setzt das Tageslimit für alle Agenten auf denselben Wert. Bestehende Einzelwerte werden erst mit deinem Klick überschrieben.</p>
           <div class="row" style="margin-top:10px">
             <div style="flex:1;min-width:220px">
               <label>Wert für alle Agenten (€)</label>
@@ -10540,7 +11334,6 @@ document.addEventListener('DOMContentLoaded',()=>{
               : `<button type="button" class="secondary" data-agent-action="open-advanced-autonomy" ${isAiActionBlocked() ? 'disabled aria-disabled="true"' : ''} title="${isAiActionBlocked() ? getAiActionBlockReason() : 'Erweiterte Autonomie freischalten'}">Erweiterte Autonomie freischalten</button>`}
           </div>
         </div>
-        ${buildLivePipelineRoadmapCard()}
         <div class="virtual-agent-footer">
           <button type="button" class="secondary" data-agent-action="reset-all">Alle Agenten auf Standardwerte zurücksetzen</button>
         </div>
@@ -10553,6 +11346,10 @@ document.addEventListener('DOMContentLoaded',()=>{
     const badge = getBadgeMeta(agent);
     const usagePercent = getUsagePercent(agent);
     const activityItems = getActivityLogItems(agent, def);
+    const runtime = getAgentRuntimeState();
+    const runtimeAgent = runtime.agentStates && runtime.agentStates[def.id] ? runtime.agentStates[def.id] : null;
+    const runtimeLogs = runtimeAgent && Array.isArray(runtimeAgent.logs) ? runtimeAgent.logs : [];
+    const runtimeQueue = runtimeAgent && Array.isArray(runtimeAgent.queue) ? runtimeAgent.queue : [];
     return `
       <details class="virtual-agent-card virtual-agent-disclosure virtual-agent-accent-${escapeHtml(def.accent || 'scout')}" data-agent-id="${def.id}" ${state.openCards && state.openCards[def.id] ? 'open' : ''}>
         <summary class="virtual-agent-summary">
@@ -10587,6 +11384,16 @@ document.addEventListener('DOMContentLoaded',()=>{
             <span class="pill">Modell: ${escapeHtml(normalizeModel(agent.model))}</span>
             <span class="pill">Heute: ${escapeHtml(formatEuro(agent.usageToday || 0))} / ${escapeHtml(formatEuro(agent.dailyLimit || 0))}</span>
           </div>
+          <div class="virtual-agent-mini" style="margin-top:10px">
+            <span class="pill">Aktiv: ${runtimeAgent ? (runtimeAgent.enabled !== false ? 'Ja' : 'Nein') : (agent.active ? 'Ja' : 'Nein')}</span>
+            <span class="pill">Pausiert: ${runtimeAgent ? (runtimeAgent.paused === true ? 'Ja' : 'Nein') : (isAllAgentsPaused() || agent.active === false ? 'Ja' : 'Nein')}</span>
+            <span class="pill">Autonomie: Stufe ${runtimeAgent ? runtimeAgent.autonomyLevel : 1}</span>
+            <span class="pill">Queue: ${runtimeQueue.length}</span>
+            <span class="pill">Logs: ${runtimeLogs.length}</span>
+            <span class="pill">Letzter Lauf: ${runtimeAgent && runtimeAgent.lastRun ? escapeHtml(formatTaskDate(runtimeAgent.lastRun)) : 'Noch nicht'}</span>
+          </div>
+          ${runtimeAgent && runtimeAgent.lastResult ? `<div class="output-box" style="margin-top:12px"><p><strong>Letztes Runtime-Ergebnis:</strong> ${escapeHtml(runtimeAgent.lastResult)}</p></div>` : ''}
+          ${runtimeLogs.length ? `<div class="output-box" style="margin-top:12px"><p><strong>Runtime-Logs:</strong></p><ul>${runtimeLogs.slice(-3).map((item) => `<li>${escapeHtml(formatTaskDate(item.createdAt))} · ${escapeHtml(item.level || 'info')} · ${escapeHtml(item.message || 'Ohne Text')}</li>`).join('')}</ul></div>` : ''}
 
           <div class="virtual-agent-grid" style="margin-top:14px">
             <div>
@@ -10731,6 +11538,8 @@ document.addEventListener('DOMContentLoaded',()=>{
                 const record = getFutureCapabilityRecord('lockedFunctions', item.id);
                 const statusLabel = futureUnlocked ? (record.enabled ? 'Entsperrt' : 'Gesperrt') : (record.prepared ? 'Vorbereitet' : 'Noch offen');
                 const detailsOpen = isFutureDetailsOpen('lockedFunctions', item.id);
+                const settings = getFutureCapabilitySettings('lockedFunctions', item.id);
+                const pipeline = formatFuturePipelinePreview('lockedFunctions', item.id, item.title);
                 return `
               <div class="virtual-future-card">
                 <div class="virtual-agent-ident">
@@ -10751,14 +11560,16 @@ document.addEventListener('DOMContentLoaded',()=>{
                     <p><strong>Status:</strong> ${escapeHtml(statusLabel)}. ${futureUnlocked ? 'Die Funktion ist vorbereitet, aber weiterhin ohne Live-Ausführung.' : 'Die Funktion bleibt gesperrt, bis die Sicherheitsfreigabe aktiv ist.'}</p>
                     <p><strong>Voraussetzung:</strong> ${escapeHtml(lockedMessage)}</p>
                     <p><strong>Sicherheitsregel:</strong> Keine echte Aktion wird automatisch ausgeführt.</p>
+                    <p><strong>Live-Pipeline:</strong> ${escapeHtml(pipeline.title)} · ${escapeHtml(pipeline.stages)} · Connector: ${escapeHtml(pipeline.connector)}</p>
                   </div>
                 </details>
-                <div class="settings-agents-overview" style="grid-template-columns:1fr auto;gap:10px;align-items:center">
+                <div class="settings-agents-overview" style="display:flex;align-items:center;gap:8px;width:100%;flex-wrap:nowrap">
                   <span class="virtual-agent-badge ${futureUnlocked ? (record.enabled ? 'good' : 'info') : 'warn'}">${futureUnlocked ? (record.enabled ? 'Aktiv' : 'Bereit') : 'Gesperrt'}</span>
-                  <button type="button" class="agent-switch ${futureUnlocked ? (record.enabled ? 'agent-switch-unlocked' : '') : 'agent-switch-locked'}" data-future-action="toggle-future-capability" data-future-kind="lockedFunctions" data-future-id="${item.id}" ${futureUnlocked ? '' : 'disabled aria-disabled="true"'} title="${futureUnlocked ? (record.enabled ? 'Sperren' : 'Freigeben') : lockedMessage}">
+                  <button type="button" class="agent-switch ${futureUnlocked ? (record.enabled ? 'agent-switch-unlocked' : '') : 'agent-switch-locked'}" data-future-action="toggle-future-capability" data-future-kind="lockedFunctions" data-future-id="${item.id}" onclick="return handleFutureButtonAction(event,'lockedFunctions','${item.id}','toggle');" ${futureUnlocked ? '' : 'disabled aria-disabled="true"'} title="${futureUnlocked ? (record.enabled ? 'Sperren' : 'Freigeben') : lockedMessage}">
                     <span class="agent-switch-track"></span>
                     <span>${futureUnlocked ? (record.enabled ? 'Entsperrt' : 'Freigeben') : lockedMessage}</span>
                   </button>
+                  <button type="button" class="secondary" data-future-action="open-future-settings" data-future-kind="lockedFunctions" data-future-id="${item.id}" onclick="return handleFutureButtonAction(event,'lockedFunctions','${item.id}','settings');" title="Erweiterte Einstellungen" aria-label="Erweiterte Einstellungen" style="margin-left:auto;flex:0 0 auto;min-width:40px;padding:0 10px">⚙</button>
                 </div>
                 ${record.lastPreparedAt ? `<p class="hint" style="margin-top:10px">Zuletzt vorbereitet: ${escapeHtml(formatTaskDate(record.lastPreparedAt))}</p>` : ''}
               </div>`; 
@@ -10776,14 +11587,14 @@ document.addEventListener('DOMContentLoaded',()=>{
       ? 'Freigegeben – für spätere Aktivierung vorbereitet.'
       : 'Noch nicht aktivierbar – Sicherheitsfreigabe erforderlich.';
     const items = [
-      { icon: '🤖', title: 'Soul Listing', description: 'Erstellt Listing-Entwürfe, Produktblöcke und Strukturvorschläge für neue eBay-Angebote.' },
-      { icon: '💹', title: 'Soul Pricing', description: 'Prüft Preisstrategie, Untergrenzen, Wettbewerbsdruck und mögliche Anpassungen.' },
-      { icon: '📦', title: 'Soul Supplier', description: 'Hilft bei Lieferantenprüfung, Nachfass-Hinweisen und Beschaffungs-Checks.' },
-      { icon: '🧾', title: 'Soul Compliance', description: 'Prüft EPR, WEEE, Impressum und andere rechtliche Warnsignale vor einem Live-Schritt.' },
-      { icon: '↩️', title: 'Soul Returns', description: 'Bereitet Retouren-Triage, Antwortentwürfe und Eskalationshinweise vor.' },
-      { icon: '📮', title: 'Soul Dispatch', description: 'Priorisiert operative Tagesaufgaben, Versandthemen und To-dos mit Auswirkung auf den Ablauf.' },
-      { icon: '📊', title: 'Soul Inventory', description: 'Zeigt Bestandswarnungen, Nachschubbedarf und mögliche Engpässe frühzeitig an.' },
-      { icon: '⭐', title: 'Soul Review', description: 'Analysiert Bewertungen, Kundenfeedback und wiederkehrende Muster aus Rückmeldungen.' },
+      { id: 'soul-listing', icon: '🤖', title: 'Soul Listing', description: 'Erstellt Listing-Entwürfe, Produktblöcke und Strukturvorschläge für neue eBay-Angebote.' },
+      { id: 'soul-pricing', icon: '💹', title: 'Soul Pricing', description: 'Prüft Preisstrategie, Untergrenzen, Wettbewerbsdruck und mögliche Anpassungen.' },
+      { id: 'soul-supplier', icon: '📦', title: 'Soul Supplier', description: 'Hilft bei Lieferantenprüfung, Nachfass-Hinweisen und Beschaffungs-Checks.' },
+      { id: 'soul-compliance', icon: '🧾', title: 'Soul Compliance', description: 'Prüft EPR, WEEE, Impressum und andere rechtliche Warnsignale vor einem Live-Schritt.' },
+      { id: 'soul-returns', icon: '↩️', title: 'Soul Returns', description: 'Bereitet Retouren-Triage, Antwortentwürfe und Eskalationshinweise vor.' },
+      { id: 'soul-dispatch', icon: '📮', title: 'Soul Dispatch', description: 'Priorisiert operative Tagesaufgaben, Versandthemen und To-dos mit Auswirkung auf den Ablauf.' },
+      { id: 'soul-inventory', icon: '📊', title: 'Soul Inventory', description: 'Zeigt Bestandswarnungen, Nachschubbedarf und mögliche Engpässe frühzeitig an.' },
+      { id: 'soul-review', icon: '⭐', title: 'Soul Review', description: 'Analysiert Bewertungen, Kundenfeedback und wiederkehrende Muster aus Rückmeldungen.' },
     ];
     return `
       <details class="virtual-agent-card virtual-future-section" data-future-section-kind="lockedRoles" ${isFutureSectionOpen('lockedRoles') ? 'open' : ''}>
@@ -10812,6 +11623,8 @@ document.addEventListener('DOMContentLoaded',()=>{
                 const record = getFutureCapabilityRecord('lockedRoles', item.id);
                 const statusLabel = futureUnlocked ? (record.enabled ? 'Entsperrt' : 'Gesperrt') : (record.prepared ? 'Vorbereitet' : 'Noch offen');
                 const detailsOpen = isFutureDetailsOpen('lockedRoles', item.id);
+                const settings = getFutureCapabilitySettings('lockedRoles', item.id);
+                const pipeline = formatFuturePipelinePreview('lockedRoles', item.id, item.title);
                 return `
               <div class="virtual-future-card">
                 <div class="virtual-agent-ident">
@@ -10832,14 +11645,16 @@ document.addEventListener('DOMContentLoaded',()=>{
                     <p><strong>Status:</strong> ${escapeHtml(statusLabel)}. ${futureUnlocked ? 'Die Rolle kann jetzt einzeln freigegeben oder gesperrt werden. Weiterhin keine Live-Ausführung.' : 'Die Rolle bleibt gesperrt, bis die Sicherheitsfreigabe aktiv ist.'}</p>
                     <p><strong>Voraussetzung:</strong> ${escapeHtml(lockedMessage)}</p>
                     <p><strong>Sicherheitsregel:</strong> Keine echte Aktion wird automatisch ausgeführt.</p>
+                    <p><strong>Live-Pipeline:</strong> ${escapeHtml(pipeline.title)} · ${escapeHtml(pipeline.stages)} · Connector: ${escapeHtml(pipeline.connector)}</p>
                   </div>
                 </details>
-                <div class="settings-agents-overview" style="grid-template-columns:1fr auto;gap:10px;align-items:center">
-                  <span class="virtual-agent-badge ${futureUnlocked ? (record.enabled ? 'good' : 'info') : 'warn'}">${futureUnlocked ? (record.enabled ? 'Entsperrt' : 'Bereit') : 'Gesperrt'}</span>
-                  <button type="button" class="agent-switch ${futureUnlocked ? (record.enabled ? 'agent-switch-unlocked' : '') : 'agent-switch-locked'}" data-future-action="toggle-future-capability" data-future-kind="lockedRoles" data-future-id="${item.id}" ${futureUnlocked ? '' : 'disabled aria-disabled="true"'} title="${futureUnlocked ? (record.enabled ? 'Sperren' : 'Freigeben') : lockedMessage}">
+                <div class="settings-agents-overview" style="display:flex;align-items:center;gap:8px;width:100%;flex-wrap:nowrap">
+                  <span class="virtual-agent-badge ${futureUnlocked ? (record.enabled ? 'good' : 'info') : 'warn'}">${futureUnlocked ? (record.enabled ? 'Aktiv' : 'Bereit') : 'Gesperrt'}</span>
+                  <button type="button" class="agent-switch ${futureUnlocked ? (record.enabled ? 'agent-switch-unlocked' : '') : 'agent-switch-locked'}" data-future-action="toggle-future-capability" data-future-kind="lockedRoles" data-future-id="${item.id}" onclick="return handleFutureButtonAction(event,'lockedRoles','${item.id}','toggle');" ${futureUnlocked ? '' : 'disabled aria-disabled="true"'} title="${futureUnlocked ? (record.enabled ? 'Sperren' : 'Freigeben') : lockedMessage}">
                     <span class="agent-switch-track"></span>
                     <span>${futureUnlocked ? (record.enabled ? 'Entsperrt' : 'Freigeben') : lockedMessage}</span>
                   </button>
+                  <button type="button" class="secondary" data-future-action="open-future-settings" data-future-kind="lockedRoles" data-future-id="${item.id}" onclick="return handleFutureButtonAction(event,'lockedRoles','${item.id}','settings');" title="Erweiterte Einstellungen" aria-label="Erweiterte Einstellungen" style="margin-left:auto;flex:0 0 auto;min-width:40px;padding:0 10px">⚙</button>
                 </div>
                 ${record.lastPreparedAt ? `<p class="hint" style="margin-top:10px">Zuletzt vorbereitet: ${escapeHtml(formatTaskDate(record.lastPreparedAt))}</p>` : ''}
               </div>`; 
@@ -10968,6 +11783,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     }
     state.advancedMode = true;
     state.autonomyLocked = false;
+    refreshRuntimeWorkerState();
     saveState();
     render();
     closeAdvancedAutonomyModal();
@@ -10980,6 +11796,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     }
     state.advancedMode = false;
     state.autonomyLocked = true;
+    refreshRuntimeWorkerState();
     saveState();
     render();
   };
@@ -11034,16 +11851,18 @@ document.addEventListener('DOMContentLoaded',()=>{
     const defaults = createDefaultState();
     state.agents = defaults.agents;
     state.approvalQueue = defaults.approvalQueue;
+    state.agentRuntime = defaults.agentRuntime;
     state.securityMode = defaults.securityMode;
     state.sandboxMode = defaults.sandboxMode;
     state.advancedMode = defaults.advancedMode;
     state.autonomyLocked = defaults.autonomyLocked;
     state.pausedAll = defaults.pausedAll;
     state.pauseAllAgents = defaults.pauseAllAgents;
-    state.masterAgentsDisabled = defaults.masterAgentsDisabled;
-    state.masterAgentsSnapshot = defaults.masterAgentsSnapshot;
-    state.safetyMode = defaults.securityMode;
-    activePanel = 'overview';
+      state.masterAgentsDisabled = defaults.masterAgentsDisabled;
+      state.masterAgentsSnapshot = defaults.masterAgentsSnapshot;
+      state.safetyMode = defaults.securityMode;
+      refreshRuntimeWorkerState();
+      activePanel = 'overview';
     state.activePanel = activePanel;
     saveState();
     render();
@@ -11057,31 +11876,38 @@ document.addEventListener('DOMContentLoaded',()=>{
         pauseAllAgents: state.pauseAllAgents === true,
         pausedAll: state.pausedAll === true,
       };
-      AGENT_DEFS.forEach((def) => {
-        const agent = getAgent(def.id);
-        snapshot.agents[def.id] = !!(agent && agent.active);
-        if (agent) agent.active = false;
-      });
+        AGENT_DEFS.forEach((def) => {
+          const agent = getAgent(def.id);
+          snapshot.agents[def.id] = !!(agent && agent.active);
+          if (agent) {
+            agent.active = false;
+            agent.enabled = false;
+            agent.paused = true;
+          }
+        });
       state.masterAgentsSnapshot = snapshot;
       state.masterAgentsDisabled = true;
       state.pauseAllAgents = true;
       state.pausedAll = true;
-    } else {
-      const snapshot = state.masterAgentsSnapshot && typeof state.masterAgentsSnapshot === 'object' ? state.masterAgentsSnapshot : {};
-      const agentSnapshot = snapshot.agents && typeof snapshot.agents === 'object' ? snapshot.agents : {};
-      AGENT_DEFS.forEach((def) => {
-        const agent = getAgent(def.id);
-        if (!agent) return;
-        agent.active = typeof agentSnapshot[def.id] === 'boolean' ? agentSnapshot[def.id] : true;
-      });
-      state.pauseAllAgents = typeof snapshot.pauseAllAgents === 'boolean' ? snapshot.pauseAllAgents : false;
-      state.pausedAll = typeof snapshot.pausedAll === 'boolean' ? snapshot.pausedAll : state.pauseAllAgents;
-      state.masterAgentsDisabled = false;
-      state.masterAgentsSnapshot = {};
-    }
-    saveState();
-    render();
-  };
+      } else {
+        const snapshot = state.masterAgentsSnapshot && typeof state.masterAgentsSnapshot === 'object' ? state.masterAgentsSnapshot : {};
+        const agentSnapshot = snapshot.agents && typeof snapshot.agents === 'object' ? snapshot.agents : {};
+        AGENT_DEFS.forEach((def) => {
+          const agent = getAgent(def.id);
+          if (!agent) return;
+          agent.active = typeof agentSnapshot[def.id] === 'boolean' ? agentSnapshot[def.id] : true;
+          agent.enabled = agent.active;
+          agent.paused = !agent.active;
+        });
+        state.pauseAllAgents = typeof snapshot.pauseAllAgents === 'boolean' ? snapshot.pauseAllAgents : false;
+        state.pausedAll = typeof snapshot.pausedAll === 'boolean' ? snapshot.pausedAll : state.pauseAllAgents;
+        state.masterAgentsDisabled = false;
+        state.masterAgentsSnapshot = {};
+      }
+      refreshRuntimeWorkerState();
+      saveState();
+      render();
+    };
 
   const handleFieldChange = (target) => {
     const agentId = target.dataset.agentId;
@@ -11091,15 +11917,27 @@ document.addEventListener('DOMContentLoaded',()=>{
     const def = getDefinition(agentId);
     if (!agent || !def) return;
 
-    if (field === 'active' || field === 'notifications') {
-      agent[field] = !!target.checked;
-    } else if (field === 'securityMode' || field === 'safetyMode') {
-      state.securityMode = !!target.checked;
-      state.safetyMode = state.securityMode;
-    } else if (field === 'sandboxMode') {
-      state.sandboxMode = !!target.checked;
-    } else if (field === 'mode') {
-      agent.mode = normalizeMode(target.value);
+      if (field === 'active' || field === 'notifications') {
+        agent[field] = !!target.checked;
+        if (field === 'active') {
+          agent.enabled = !!target.checked;
+          agent.paused = !target.checked || isAllAgentsPaused();
+          syncAgentRuntimeState(agentId, {
+            enabled: agent.enabled,
+            paused: agent.paused,
+            statusState: agent.enabled ? 'Idle' : 'Paused',
+            lastActivity: agent.enabled ? 'Aktiviert im UI' : 'Deaktiviert im UI',
+          });
+        }
+      } else if (field === 'securityMode' || field === 'safetyMode') {
+        state.securityMode = !!target.checked;
+        state.safetyMode = state.securityMode;
+        refreshRuntimeWorkerState();
+      } else if (field === 'sandboxMode') {
+        state.sandboxMode = !!target.checked;
+        refreshRuntimeWorkerState();
+      } else if (field === 'mode') {
+        agent.mode = normalizeMode(target.value);
     } else if (field === 'model') {
       agent.model = normalizeModel(target.value);
     } else if (field === 'dailyLimit') {
@@ -11124,26 +11962,44 @@ document.addEventListener('DOMContentLoaded',()=>{
   const pauseAllAgents = () => {
     const next = !isAllAgentsPaused();
     if (next) {
-      AGENT_DEFS.forEach((def) => {
-        const agent = getAgent(def.id);
-        if (agent) agent.active = false;
-      });
+        AGENT_DEFS.forEach((def) => {
+          const agent = getAgent(def.id);
+          if (!agent) return;
+          agent.active = false;
+          agent.enabled = false;
+          agent.paused = true;
+          syncAgentRuntimeState(def.id, {
+            enabled: false,
+            paused: true,
+            statusState: 'Paused',
+            lastActivity: 'Global pausiert',
+          });
+        });
       state.pauseAllSnapshot = {};
       state.pausedAll = true;
       state.pauseAllAgents = true;
-    } else {
-      AGENT_DEFS.forEach((def) => {
-        const agent = getAgent(def.id);
-        if (!agent) return;
-        agent.active = isMasterAgentsDisabled() ? false : true;
-      });
-      state.pauseAllSnapshot = {};
-      state.pausedAll = false;
-      state.pauseAllAgents = false;
-    }
-    saveState();
-    render();
-  };
+      } else {
+          AGENT_DEFS.forEach((def) => {
+            const agent = getAgent(def.id);
+            if (!agent) return;
+            agent.active = isMasterAgentsDisabled() ? false : true;
+          agent.enabled = agent.active;
+          agent.paused = !agent.active;
+          syncAgentRuntimeState(def.id, {
+            enabled: agent.enabled,
+            paused: agent.paused,
+            statusState: agent.enabled ? 'Idle' : 'Paused',
+            lastActivity: agent.enabled ? 'Wiederhergestellt' : 'Global deaktiviert',
+          });
+            });
+          state.pauseAllSnapshot = {};
+          state.pausedAll = false;
+          state.pauseAllAgents = false;
+      }
+      refreshRuntimeWorkerState();
+      saveState();
+      render();
+    };
 
   const runAgentTest = (agentId) => {
     const agent = getAgent(agentId);
@@ -11254,6 +12110,13 @@ document.addEventListener('DOMContentLoaded',()=>{
         openAgentInstructionsModal(openInstructionsButton.dataset.agentId);
         return;
       }
+      const openFutureSettingsButton = event.target.closest('[data-future-action="open-future-settings"]');
+      if (openFutureSettingsButton) {
+        event.preventDefault();
+        event.stopPropagation();
+        openFutureSettingsModal(openFutureSettingsButton.dataset.futureKind, openFutureSettingsButton.dataset.futureId);
+        return;
+      }
       const closeInstructionsButton = event.target.closest('[data-agent-action="close-agent-instructions"]');
       if (closeInstructionsButton) {
         closeAgentInstructionsModal();
@@ -11261,6 +12124,8 @@ document.addEventListener('DOMContentLoaded',()=>{
       }
       const futureCapabilityButton = event.target.closest('[data-future-action="toggle-future-capability"]');
       if (futureCapabilityButton) {
+        event.preventDefault();
+        event.stopPropagation();
         toggleFutureCapability(futureCapabilityButton.dataset.futureKind, futureCapabilityButton.dataset.futureId);
         return;
       }
@@ -11332,12 +12197,32 @@ document.addEventListener('DOMContentLoaded',()=>{
         }
       });
     }
+    const futureSettingsModal = getEl('futureSettingsModal');
+    const futureSettingsCloseBtn = getEl('futureSettingsCloseBtn');
+    const futureSettingsSaveBtn = getEl('futureSettingsSaveBtn');
+    if (futureSettingsCloseBtn && !futureSettingsCloseBtn.dataset.bound) {
+      futureSettingsCloseBtn.dataset.bound = 'yes';
+      futureSettingsCloseBtn.addEventListener('click', closeFutureSettingsModal);
+    }
+    if (futureSettingsSaveBtn && !futureSettingsSaveBtn.dataset.bound) {
+      futureSettingsSaveBtn.dataset.bound = 'yes';
+      futureSettingsSaveBtn.addEventListener('click', saveFutureSettings);
+    }
+    if (futureSettingsModal && !futureSettingsModal.dataset.bound) {
+      futureSettingsModal.dataset.bound = 'yes';
+      futureSettingsModal.addEventListener('click', (event) => {
+        if (event.target === futureSettingsModal) {
+          closeFutureSettingsModal();
+        }
+      });
+    }
     document.addEventListener('keydown', (event) => {
       if (event.key === 'Escape') {
         closeTaskRemoveModal();
         closeApprovalDetailsModal();
         closeAgentInstructionsModal();
         closeToolPopup();
+        closeFutureSettingsModal();
       }
     });
   };
@@ -11452,6 +12337,12 @@ document.addEventListener('DOMContentLoaded',()=>{
 
   window.openVirtualAgentsSettings = openAgentSettings;
   window.renderVirtualAgentsSettings = render;
+  window.openFutureSettingsModal = openFutureSettingsModal;
+  window.closeFutureSettingsModal = closeFutureSettingsModal;
+  window.toggleFutureCapability = toggleFutureCapability;
+  window.futureToggleFutureCapability = toggleFutureCapability;
+  window.futureOpenSettingsModal = openFutureSettingsModal;
+  window.executeLiveAction = executeLiveAction;
   window.reloadVirtualAgentsSettings = () => {
     const next = loadState();
     Object.assign(state, next);
@@ -11501,6 +12392,7 @@ document.addEventListener('DOMContentLoaded',()=>{
 })();
 </script>
 <script defer src="elyon-soul.js"></script>
+<script src="ai-agent-engine.js"></script>
 </body>
 </html>
 
