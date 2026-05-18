@@ -1659,6 +1659,11 @@ PLZ Ort"></textarea>
           <p id="approvalDetailPreview">-</p>
         </div>
         <div class="output-box" style="margin-top:12px">
+          <h4>Bestellplan</h4>
+          <p id="approvalDetailOrderPlanSummary">-</p>
+          <ul id="approvalDetailOrderPlanSteps" style="margin-top:8px;padding-left:18px"></ul>
+        </div>
+        <div class="output-box" style="margin-top:12px">
           <h4>Payload</h4>
           <pre id="approvalDetailPayload" style="white-space:pre-wrap;word-break:break-word;margin:0">-</pre>
         </div>
@@ -10045,6 +10050,40 @@ document.addEventListener('DOMContentLoaded',()=>{
       requiresConfirmation: true,
     });
   };
+  const upsertOrderWorkflowPlanApproval = (sale, plan, workflow, origin) => {
+    if (!sale || !sale.id || !plan) return null;
+    const planSteps = Array.isArray(plan.steps) ? plan.steps : [];
+    const id = getOrderWorkflowApprovalEntryId(sale.id);
+    const stepSummary = formatOrderWorkflowPlanSteps(plan);
+    return upsertApprovalQueueRecord({
+      id,
+      title: `Bestellplan freigeben${sale.orderNo ? ` · ${sale.orderNo}` : ''}`,
+      description: 'Der gespeicherte Bestellplan wird für spätere Live-Ausführung vorbereitet. Erst nach Freigabe kann ein echter Ausführungs-Haken greifen.',
+      agent: 'Order Workflow',
+      type: 'order_prepare',
+      status: workflow && workflow.mode === 'manual' ? 'pending' : 'pending',
+      riskLevel: 'high',
+      createdAt: plan.lastPreparedAt || new Date().toISOString(),
+      payload: decorateApprovalPayload('order_prepare', {
+        source: 'order-workflow',
+        saleId: sale.id,
+        orderNo: sale.orderNo || '',
+        product: sale.product || '',
+        platform: sale.platform || 'eBay',
+        origin: origin || 'manuell',
+        orderWorkflowPlan: plan,
+        orderWorkflowStepSummary: stepSummary,
+        orderWorkflowStepCount: planSteps.length,
+      }, {
+        saleId: sale.id,
+        saleOrderNo: sale.orderNo || '',
+        workflow: 'order',
+        orderWorkflowPlanId: id,
+      }),
+      previewText: `${sale.orderNo || sale.product || 'Bestellung'} · ${stepSummary}`,
+      requiresConfirmation: true,
+    });
+  };
   const upsertOrderWorkflowTask = (sale, title, description, actionLabel, category) => {
     if (!sale || !sale.id) return null;
     const id = `order-workflow-task-${sale.id}-${category}`;
@@ -10113,13 +10152,14 @@ document.addEventListener('DOMContentLoaded',()=>{
         preparedPlan.stepCount = plan.steps.length;
         preparedPlan.status = workflow.mode === 'manual' ? 'prepared' : 'pending';
         preparedPlan.steps = plan.steps.map((step) => ({ ...step }));
+        upsertOrderWorkflowPlanApproval(sale, preparedPlan, workflow, origin);
       }
     }
     state.orderWorkflow = {
       ...state.orderWorkflow,
       ...workflow,
       lastRunAt: createdAt,
-      preparedPlans: Array.isArray(state.orderWorkflow && state.orderWorkflow.preparedPlans) ? state.orderWorkflow.preparedPlans : Array.isArray(workflow.preparedPlans) ? workflow.preparedPlans : [],
+      preparedPlans: Array.isArray(state.orderWorkflow && state.orderWorkflow.preparedPlans) ? state.orderWorkflow.preparedPlans.map((item) => normalizeOrderWorkflowPlan(item)) : Array.isArray(workflow.preparedPlans) ? workflow.preparedPlans.map((item) => normalizeOrderWorkflowPlan(item)) : [],
     };
     saveState();
     render();
@@ -10941,6 +10981,11 @@ document.addEventListener('DOMContentLoaded',()=>{
 
   const getApprovalQueue = () => (Array.isArray(state.approvalQueue) ? state.approvalQueue : []);
   const getApprovalQueueById = (entryId) => getApprovalQueue().find((entry) => entry && entry.id === entryId) || null;
+  const getOrderWorkflowApprovalEntryId = (saleId) => saleId ? `order-workflow-plan-${saleId}` : '';
+  const getOrderWorkflowApprovalEntryForSale = (saleId) => {
+    const entryId = getOrderWorkflowApprovalEntryId(saleId);
+    return entryId ? getApprovalQueueById(entryId) : null;
+  };
   const getApprovalTypeLabel = (type) => APPROVAL_QUEUE_TYPE_LABELS[normalizeApprovalQueueType(type)] || 'Listing-Update';
   const getApprovalStatusMeta = (status) => {
     const normalized = normalizeApprovalQueueStatus(status);
@@ -10982,6 +11027,54 @@ document.addEventListener('DOMContentLoaded',()=>{
     if (riskA !== riskB) return riskB - riskA;
     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   });
+  const formatOrderWorkflowPlanSteps = (plan) => {
+    const steps = plan && Array.isArray(plan.steps) ? plan.steps : [];
+    return steps.length ? steps.map((step) => step && step.title ? step.title : '').filter(Boolean).join(' · ') : 'Keine Schritte hinterlegt';
+  };
+  const buildOrderWorkflowPlanCard = (plan) => {
+    if (!plan) return '';
+    const approvalEntry = getOrderWorkflowApprovalEntryForSale(plan.saleId);
+    const stepCount = Number.isFinite(Number(plan.stepCount)) ? Number(plan.stepCount) : (Array.isArray(plan.steps) ? plan.steps.length : 0);
+    const statusLabel = plan.status === 'executed' ? 'Bereit zur Ausführung' : (plan.status === 'pending' ? 'In Warteschlange' : 'Vorbereitet');
+    const statusTone = plan.status === 'executed' ? 'good' : (plan.status === 'pending' ? 'warn' : 'info');
+    const stepItems = Array.isArray(plan.steps) ? plan.steps : [];
+    return `
+      <article class="virtual-agent-card task-center-card">
+        <div class="task-center-card-top">
+          <div class="task-center-card-heading">
+            <div class="task-center-triage-title">
+              <h4>${escapeHtml(plan.orderNo || plan.product || plan.saleId || 'Bestellplan')}</h4>
+              <span class="pill">${escapeHtml(plan.workflowMode === 'manual' ? 'Nur Vorbereitung' : 'Halbautomatisch')}</span>
+            </div>
+            <p>${escapeHtml(formatOrderWorkflowPlanSteps(plan))}</p>
+          </div>
+          <div class="task-center-badge-stack">
+            <span class="virtual-agent-badge ${statusTone}">${escapeHtml(statusLabel)}</span>
+            <span class="virtual-agent-badge info">${escapeHtml(plan.platform || 'eBay')}</span>
+          </div>
+        </div>
+        <div class="task-center-meta-grid">
+          <div><small>Bestellung</small><strong>${escapeHtml(plan.orderNo || plan.saleId || '-')}</strong></div>
+          <div><small>Schritte</small><strong>${escapeHtml(String(stepCount))}</strong></div>
+          <div><small>Erstellt</small><strong>${escapeHtml(plan.createdAt ? formatTaskDate(plan.createdAt) : '-')}</strong></div>
+          <div><small>Freigabe</small><strong>${approvalEntry ? 'Vorhanden' : 'Noch nicht angelegt'}</strong></div>
+        </div>
+        <div class="output-box" style="margin-top:12px">
+          <p>${escapeHtml(plan.origin ? `Quelle: ${plan.origin}` : 'Quelle: manuell')}</p>
+          ${stepItems.length ? `<ul>${stepItems.map((step) => `<li><strong>${escapeHtml(step.title || 'Schritt')}</strong> - ${escapeHtml(step.status || 'prepared')}${step.note ? ` · ${escapeHtml(step.note)}` : ''}</li>`).join('')}</ul>` : '<p>Keine einzelnen Schritte gespeichert.</p>'}
+        </div>
+        <div class="task-center-control-row">
+          <div class="task-center-status-field">
+            <label>Live-Blueprint</label>
+            <div class="virtual-agent-badge ${statusTone}" style="justify-content:center;width:100%">${escapeHtml(formatLivePipelineText(approvalEntry && approvalEntry.payload && approvalEntry.payload.livePipeline))}</div>
+          </div>
+          <div class="task-center-action-row">
+            ${approvalEntry ? `<button type="button" class="secondary" data-approval-action="details" data-approval-id="${escapeHtml(approvalEntry.id)}">Freigabe ansehen</button>` : ''}
+          </div>
+        </div>
+      </article>
+    `;
+  };
 
   const openTaskRemoveModal = (taskId) => {
     const task = getTaskById(taskId);
@@ -11163,6 +11256,8 @@ document.addEventListener('DOMContentLoaded',()=>{
     const createdAt = getEl('approvalDetailCreatedAt');
     const description = getEl('approvalDetailDescription');
     const preview = getEl('approvalDetailPreview');
+    const orderPlanSummary = getEl('approvalDetailOrderPlanSummary');
+    const orderPlanSteps = getEl('approvalDetailOrderPlanSteps');
     const payload = getEl('approvalDetailPayload');
     const pipeline = getEl('approvalDetailPipeline');
     if (title) title.textContent = entry.title || '-';
@@ -11173,6 +11268,17 @@ document.addEventListener('DOMContentLoaded',()=>{
     if (createdAt) createdAt.textContent = formatTaskDate(entry.createdAt);
     if (description) description.textContent = entry.description || 'Keine Beschreibung vorhanden.';
     if (preview) preview.textContent = entry.previewText || 'Keine Vorschau vorhanden.';
+    const orderPlan = entry.payload && entry.payload.orderWorkflowPlan ? entry.payload.orderWorkflowPlan : null;
+    if (orderPlanSummary) {
+      orderPlanSummary.textContent = orderPlan
+        ? `${orderPlan.orderNo || orderPlan.product || orderPlan.saleId || 'Bestellung'} · ${formatOrderWorkflowPlanSteps(orderPlan)}`
+        : 'Kein Bestellplan hinterlegt.';
+    }
+    if (orderPlanSteps) {
+      orderPlanSteps.innerHTML = orderPlan && Array.isArray(orderPlan.steps) && orderPlan.steps.length
+        ? orderPlan.steps.map((step) => `<li><strong>${escapeHtml(step.title || 'Schritt')}</strong> - ${escapeHtml(step.status || 'prepared')}${step.note ? ` · ${escapeHtml(step.note)}` : ''}</li>`).join('')
+        : '<li>Keine einzelnen Schritte hinterlegt.</li>';
+    }
     if (payload) payload.textContent = JSON.stringify(entry.payload || {}, null, 2);
     if (pipeline) pipeline.textContent = formatLivePipelineText(entry.payload && entry.payload.livePipeline);
     if (modal) {
@@ -11458,6 +11564,8 @@ document.addEventListener('DOMContentLoaded',()=>{
     const riskMeta = getApprovalRiskMeta(entry.riskLevel);
     const statusMeta = getApprovalStatusMeta(entry.status);
     const createdAt = formatTaskDate(entry.createdAt);
+    const orderPlan = entry && entry.payload && entry.payload.orderWorkflowPlan ? entry.payload.orderWorkflowPlan : null;
+    const orderPlanSteps = orderPlan && Array.isArray(orderPlan.steps) ? orderPlan.steps : [];
     return `
       <article class="virtual-agent-card task-center-card approval-queue-card approval-queue-risk-${escapeHtml(normalizeApprovalQueueRisk(entry.riskLevel))}">
         <div class="task-center-card-top">
@@ -11481,6 +11589,14 @@ document.addEventListener('DOMContentLoaded',()=>{
           <div><small>Bestätigung</small><strong>${entry.requiresConfirmation ? 'Erforderlich' : 'Nicht nötig'}</strong></div>
         </div>
 
+        ${orderPlan ? `
+          <div class="output-box" style="margin-top:12px">
+            <h4>Bestellplan</h4>
+            <p>${escapeHtml(orderPlan.orderNo || orderPlan.product || orderPlan.saleId || 'Bestellung')} · ${escapeHtml(String(orderPlanSteps.length || orderPlan.stepCount || 0))} vorbereitete Schritte</p>
+            <p>${escapeHtml(formatOrderWorkflowPlanSteps(orderPlan))}</p>
+          </div>
+        ` : ''}
+
         <div class="output-box" style="margin-top:12px">
           <p>${escapeHtml(entry.previewText || 'Keine Vorschau vorhanden.')}</p>
         </div>
@@ -11491,11 +11607,11 @@ document.addEventListener('DOMContentLoaded',()=>{
             <div class="virtual-agent-badge ${riskMeta.tone}" style="justify-content:center;width:100%">${escapeHtml(riskMeta.label)}</div>
           </div>
           <div class="task-center-action-row">
-            <button type="button" class="secondary" data-approval-action="approve" data-approval-id="${escapeHtml(entry.id)}">Genehmigen</button>
-            <button type="button" class="secondary" data-approval-action="reject" data-approval-id="${escapeHtml(entry.id)}">Ablehnen</button>
-            <button type="button" class="secondary" data-approval-action="details" data-approval-id="${escapeHtml(entry.id)}">Details ansehen</button>
-          </div>
+          <button type="button" class="secondary" data-approval-action="approve" data-approval-id="${escapeHtml(entry.id)}">Genehmigen</button>
+          <button type="button" class="secondary" data-approval-action="reject" data-approval-id="${escapeHtml(entry.id)}">Ablehnen</button>
+          <button type="button" class="secondary" data-approval-action="details" data-approval-id="${escapeHtml(entry.id)}">Details ansehen</button>
         </div>
+      </div>
       </article>
     `;
   };
@@ -11745,12 +11861,9 @@ document.addEventListener('DOMContentLoaded',()=>{
         <div class="output-box" style="margin-top:14px">
           <h3>Gespeicherte Vorbereitungen</h3>
           ${preparedPlans.length ? `
-            <ul>
-              ${preparedPlans.slice(0, 5).map((plan) => {
-                const stepNames = Array.isArray(plan.steps) ? plan.steps.map((step) => step && step.title ? step.title : '').filter(Boolean) : [];
-                return `<li><strong>${escapeHtml(plan.orderNo || plan.product || plan.saleId || 'Bestellung')}</strong> - ${escapeHtml(stepNames.join(' · ') || 'Keine Schritte vorbereitet')}</li>`;
-              }).join('')}
-            </ul>
+            <div class="task-center-list">
+              ${preparedPlans.slice(0, 5).map((plan) => buildOrderWorkflowPlanCard(plan)).join('')}
+            </div>
           ` : '<p>Noch keine gespeicherte Vorbereitung vorhanden.</p>'}
         </div>
 
