@@ -8382,6 +8382,42 @@ document.addEventListener('DOMContentLoaded',()=>{
     return text.slice(0, 1200);
   };
 
+  const sanitizePromptTemplateList = (value) => {
+    const list = Array.isArray(value) ? value : [];
+    return list
+      .map((item) => sanitizePromptText(item, ''))
+      .filter(Boolean)
+      .slice(0, 8);
+  };
+
+  const tryParseJson = (text) => {
+    const raw = String(text ?? '').trim();
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw);
+    } catch (error) {
+      const start = raw.indexOf('{');
+      const end = raw.lastIndexOf('}');
+      if (start >= 0 && end > start) {
+        try {
+          return JSON.parse(raw.slice(start, end + 1));
+        } catch (innerError) {
+          return null;
+        }
+      }
+      const arrayStart = raw.indexOf('[');
+      const arrayEnd = raw.lastIndexOf(']');
+      if (arrayStart >= 0 && arrayEnd > arrayStart) {
+        try {
+          return JSON.parse(raw.slice(arrayStart, arrayEnd + 1));
+        } catch (innerArrayError) {
+          return null;
+        }
+      }
+      return null;
+    }
+  };
+
   const sanitizeTaskText = (value, fallback, maxLength) => {
     const text = String(value ?? '').replace(/\s+/g, ' ').trim();
     if (!text) return fallback;
@@ -8429,7 +8465,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   };
 
   const createDefaultState = () => ({
-    version: 6,
+      version: 7,
     securityMode: true,
     sandboxMode: true,
     advancedMode: false,
@@ -8503,6 +8539,7 @@ document.addEventListener('DOMContentLoaded',()=>{
         workflowScope: ['orders', 'messages', 'posting', 'all'].includes(source.workflowScope) ? source.workflowScope : (fallback.workflowScope || 'all'),
         supportScope: ['messages', 'returns', 'both'].includes(source.supportScope) ? source.supportScope : (fallback.supportScope || 'both'),
         prompt: sanitizePromptText(source.prompt !== undefined ? source.prompt : fallback.prompt || '', fallback.prompt || ''),
+        generatedPromptTemplates: sanitizePromptTemplateList(source.generatedPromptTemplates !== undefined ? source.generatedPromptTemplates : fallback.generatedPromptTemplates || []),
         note: sanitizeActivity(source.note !== undefined ? source.note : fallback.note || '', ''),
       };
     }
@@ -8525,6 +8562,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       publishGate: ['manual', 'score_80', 'score_90'].includes(source.publishGate) ? source.publishGate : (fallback.publishGate || 'manual'),
       imageCheck: typeof source.imageCheck === 'boolean' ? source.imageCheck : (typeof fallback.imageCheck === 'boolean' ? fallback.imageCheck : false),
       prompt: sanitizePromptText(source.prompt !== undefined ? source.prompt : fallback.prompt || '', fallback.prompt || ''),
+      generatedPromptTemplates: sanitizePromptTemplateList(source.generatedPromptTemplates !== undefined ? source.generatedPromptTemplates : fallback.generatedPromptTemplates || []),
       note: sanitizeActivity(source.note !== undefined ? source.note : fallback.note || '', ''),
     };
   };
@@ -9735,35 +9773,159 @@ document.addEventListener('DOMContentLoaded',()=>{
     const def = getExtendedAutonomySettingDefinition(type, itemId);
     const defaults = getExtendedAutonomyDefaults(type);
     const fallback = Array.isArray(defaults) ? defaults.find((entry) => entry.id === itemId) : null;
+    const currentItem = findExtendedPermissionItem(type, itemId);
+    const aiReady = isAiFeatureEnabled();
     const templates = [
       ...(def && Array.isArray(def.promptTemplates) ? def.promptTemplates : []),
       ...(fallback && Array.isArray(fallback.promptTemplates) ? fallback.promptTemplates : []),
+      ...sanitizePromptTemplateList(currentItem && currentItem.config ? currentItem.config.generatedPromptTemplates : []),
     ];
     const uniqueTemplates = templates.filter((template, index, arr) => template && arr.indexOf(template) === index);
     if (!uniqueTemplates.length) return '';
     return `
       <div class="prompt-template-box" style="margin-top:8px">
-        <details class="prompt-template-details">
-          <summary style="display:flex;justify-content:flex-end;list-style:none;cursor:pointer">
-            <span class="secondary" style="padding:6px 10px;font-size:12px;border-radius:999px">Promtvorlage</span>
-          </summary>
-          <div style="margin-top:8px;padding:10px;border:1px solid rgba(148,163,184,.18);border-radius:12px;background:rgba(15,23,42,.32)">
-            <p class="hint" style="margin:0 0 10px 0">Wähle eine passende Vorlage oder schreibe den Prompt frei weiter.</p>
-            <div class="virtual-agent-connections" style="display:flex;flex-direction:column;align-items:stretch">
-              ${uniqueTemplates.map((template, index) => `
-                <button
-                  type="button"
-                  class="secondary prompt-template-chip"
-                  style="width:100%;justify-content:flex-start;text-align:left;white-space:normal"
-                  data-prompt-template="${escapeHtml(template)}"
-                  data-prompt-target="${escapeHtml(`extendedPermissionModal_${itemId}_${field.key}`)}"
-                >${index + 1}. ${escapeHtml(template)}</button>
-              `).join('')}
-            </div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap">
+          <button
+            type="button"
+            class="secondary"
+            style="padding:6px 10px;font-size:12px;border-radius:999px"
+            data-prompt-toggle="${escapeHtml(`extendedPermissionModal_${itemId}_${field.key}`)}"
+          >Promtvorlage</button>
+          <button
+            type="button"
+            class="secondary"
+            style="padding:6px 10px;font-size:12px;border-radius:999px"
+            id="promptTemplatesGenerate_${escapeHtml(type)}_${escapeHtml(itemId)}"
+            data-prompt-generate="${escapeHtml(type)}"
+            data-prompt-id="${escapeHtml(itemId)}"
+            ${aiReady ? '' : 'disabled'}
+          >${aiReady ? 'Mit DeepSeek' : 'KI aus'}</button>
+        </div>
+        <div class="prompt-template-panel hidden" data-prompt-panel="${escapeHtml(`extendedPermissionModal_${itemId}_${field.key}`)}" style="margin-top:8px;padding:10px;border:1px solid rgba(148,163,184,.18);border-radius:12px;background:rgba(15,23,42,.32)">
+          <p class="hint" style="margin:0 0 10px 0">Wähle eine passende Vorlage oder schreibe den Prompt frei weiter.</p>
+          <div class="virtual-agent-connections" style="display:flex;flex-direction:column;align-items:stretch">
+            ${uniqueTemplates.map((template, index) => `
+              <button
+                type="button"
+                class="secondary prompt-template-chip"
+                style="width:100%;justify-content:flex-start;text-align:left;white-space:normal"
+                data-prompt-template="${escapeHtml(template)}"
+                data-prompt-target="${escapeHtml(`extendedPermissionModal_${itemId}_${field.key}`)}"
+              >${index + 1}. ${escapeHtml(template)}</button>
+            `).join('')}
           </div>
-        </details>
+        </div>
       </div>
     `;
+  };
+
+  const buildPromptTemplateGenerationPrompt = (type, item) => {
+    const def = getExtendedAutonomySettingDefinition(type, item.id) || {};
+    const config = item.config || {};
+    const areaLabel = type === 'role'
+      ? getAutonomyAreaLabel(config.responsibleArea)
+      : getAutonomyAreaLabel(config.targetArea);
+    const modeLabel = type === 'role'
+      ? getExtendedAutonomyModeLabel(type, config.scope, item.id)
+      : getExtendedAutonomyModeLabel(type, config.mode, item.id);
+    const extraLines = type === 'role'
+      ? [
+          `Freigabelevel: ${modeLabel}`,
+          `Rechte: ${config.canApprove ? 'darf freigeben' : 'darf nicht freigeben'}; ${config.canLock ? 'darf sperren' : 'darf nicht sperren'}`,
+          `Priorität: ${getExtendedAutonomyFieldLabel(type, item.id, 'priority', config.priority, 'Mittel')}`,
+        ]
+      : [
+          `Ausführungsmodus: ${modeLabel}`,
+          `Schwelle: ${getExtendedAutonomyFieldLabel(type, item.id, 'threshold', config.threshold, 'Mittel')}`,
+          `Autostart: ${config.autoStart ? 'Ja' : 'Nein'}`,
+        ];
+    return [
+      'Du bist ein Prompt-Designer fuer eine deutsche eCommerce-Automation.',
+      'Erzeuge exakt 5 kurze, unterschiedliche und praxisnahe Prompt-Vorlagen als JSON-Array.',
+      'Jede Vorlage soll klar, direkt und passend zu der angegebenen Funktion oder Rolle sein.',
+      'Kein Markdown, keine Nummerierung, keine Erklaerung, nur JSON mit Strings.',
+      'Jede Vorlage maximal 140 Zeichen.',
+      '',
+      `Typ: ${getExtendedAutonomyTypeLabel(type)}`,
+      `Titel: ${item.title}`,
+      `Beschreibung: ${item.description}`,
+      `Zuständig/Verknüpft: ${areaLabel}`,
+      `Konfiguration: ${JSON.stringify({ ...config, prompt: undefined, generatedPromptTemplates: undefined }, null, 2)}`,
+      `Voreinstellung: ${def.subtitle || ''}`,
+      ...extraLines,
+      '',
+      'Ziel: Formuliere Vorlagen, die man direkt als Prompt in diesem Bereich verwenden kann.',
+    ].join('\n');
+  };
+
+  const extractPromptTemplateList = (data) => {
+    const payload = data && data.result ? data.result : data;
+    const candidates = [];
+    if (Array.isArray(payload)) candidates.push(payload);
+    if (payload && Array.isArray(payload.templates)) candidates.push(payload.templates);
+    if (payload && Array.isArray(payload.prompts)) candidates.push(payload.prompts);
+    if (payload && Array.isArray(payload.items)) candidates.push(payload.items);
+    const textCandidates = [];
+    if (payload && typeof payload === 'object') {
+      ['text', 'output', 'content', 'message', 'result'].forEach((key) => {
+        if (typeof payload[key] === 'string') textCandidates.push(payload[key]);
+      });
+    } else if (typeof payload === 'string') {
+      textCandidates.push(payload);
+    }
+    for (const candidate of candidates) {
+      const list = sanitizePromptTemplateList(candidate);
+      if (list.length) return list;
+    }
+    for (const text of textCandidates) {
+      const directJson = tryParseJson(text);
+      if (Array.isArray(directJson)) {
+        const list = sanitizePromptTemplateList(directJson);
+        if (list.length) return list;
+      }
+      if (directJson && Array.isArray(directJson.templates)) {
+        const list = sanitizePromptTemplateList(directJson.templates);
+        if (list.length) return list;
+      }
+      const fromLines = sanitizePromptTemplateList(text.split(/\r?\n/).map((line) => line.replace(/^\s*[-*0-9.)]+\s*/, '').trim()));
+      if (fromLines.length) return fromLines;
+    }
+    return [];
+  };
+
+  const generatePromptTemplatesForItem = async (type, itemId) => {
+    if (!isAiFeatureEnabled()) {
+      toast('KI-Funktionen sind deaktiviert. Bitte erst aktivieren.', 'Prompt');
+      return;
+    }
+    const item = findExtendedPermissionItem(type, itemId);
+    if (!item) return;
+    const button = getEl(`promptTemplatesGenerate_${type}_${itemId}`);
+    if (button) {
+      button.disabled = true;
+      button.textContent = 'DeepSeek läuft...';
+    }
+    try {
+      const prompt = buildPromptTemplateGenerationPrompt(type, item);
+      const data = await requestCentralAi('prompt_templates', prompt, { model: 'deepseek' });
+      const list = extractPromptTemplateList(data);
+      if (!list.length) {
+        throw new Error('DeepSeek hat keine nutzbaren Vorlagen geliefert.');
+      }
+      updateExtendedAutonomyItem(type, itemId, {
+        config: { generatedPromptTemplates: list },
+      });
+      toast(`DeepSeek hat ${list.length} passende Vorlagen erstellt.`, 'Prompt');
+      openExtendedPermissionModal(type, itemId);
+    } catch (error) {
+      const message = error && error.message ? error.message : 'Vorlagen konnten nicht erzeugt werden.';
+      toast(message, 'Prompt');
+    } finally {
+      if (button) {
+        button.disabled = false;
+        button.textContent = 'Mit DeepSeek';
+      }
+    }
   };
 
   const renderExtendedPermissionField = (type, itemId, field, value) => {
@@ -10216,6 +10378,24 @@ document.addEventListener('DOMContentLoaded',()=>{
     if (!target) return;
     target.value = templateButton.dataset.promptTemplate || '';
     target.focus();
+  });
+
+  document.addEventListener('click', (event) => {
+    const toggleButton = event.target.closest('[data-prompt-toggle]');
+    if (!toggleButton) return;
+    const panelId = toggleButton.dataset.promptToggle;
+    const panel = panelId ? document.querySelector(`[data-prompt-panel="${panelId}"]`) : null;
+    if (!panel) return;
+    panel.classList.toggle('hidden');
+  });
+
+  document.addEventListener('click', (event) => {
+    const generateButton = event.target.closest('[data-prompt-generate]');
+    if (!generateButton) return;
+    const type = generateButton.dataset.promptGenerate === 'role' ? 'role' : 'feature';
+    const itemId = generateButton.dataset.promptId;
+    if (!itemId) return;
+    generatePromptTemplatesForItem(type, itemId);
   });
 
   window.openVirtualAgentsSettings = openAgentSettings;
