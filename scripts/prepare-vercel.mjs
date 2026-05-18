@@ -1,5 +1,10 @@
 import { copyFile, mkdir } from "node:fs/promises";
-import { dirname } from "node:path";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+const appRoot = path.resolve(scriptDir, "..");
+const publicRoot = path.join(appRoot, "public");
 
 const filesToMirror = [
   ["index.html", "public/index.html"],
@@ -11,8 +16,10 @@ const filesToMirror = [
 ];
 
 for (const [source, destination] of filesToMirror) {
-  await mkdir(dirname(destination), { recursive: true });
-  await copyFile(source, destination);
+  const sourcePath = path.join(appRoot, source);
+  const destinationPath = path.join(publicRoot, path.relative("public", destination));
+  await mkdir(path.dirname(destinationPath), { recursive: true });
+  await copyFile(sourcePath, destinationPath);
 }
 
 const envStatus = {
