@@ -7805,8 +7805,14 @@ document.addEventListener('DOMContentLoaded',()=>{
         mode: 'manual',
         threshold: 'medium',
         autoStart: false,
+        prompt: 'Prüfe die passende KI-Aufgabe auf Risiken, Zielbereich und sinnvolle nächste Schritte.',
         note: 'Mit Bestätigung freigeben',
       },
+      promptTemplates: [
+        'Prüfe die passende KI-Aufgabe auf Risiken, Zielbereich und sinnvolle nächste Schritte.',
+        'Erstelle eine klare Vorprüfung für diese Funktion mit Fokus auf Freigabe und Sicherheit.',
+        'Formuliere die nächsten Schritte für den passenden Agenten kurz und umsetzbar.',
+      ],
     },
     {
       id: 'auto-orders',
@@ -7819,8 +7825,14 @@ document.addEventListener('DOMContentLoaded',()=>{
         mode: 'assist',
         threshold: 'high',
         autoStart: false,
+        prompt: 'Erstelle eine prüfbare Bestellvorlage mit Lieferant, Risiko und Freigabepunkt.',
         note: 'Bestellfluss vorher prüfen',
       },
+      promptTemplates: [
+        'Erstelle eine prüfbare Bestellvorlage mit Lieferant, Risiko und Freigabepunkt.',
+        'Markiere Lieferantenrisiken und liste offene Rückfragen vor einer Bestellung auf.',
+        'Fasse die Bestellung so zusammen, dass ein Virtueller MA sie sicher vorbereiten kann.',
+      ],
     },
     {
       id: 'auto-messages',
@@ -7833,8 +7845,14 @@ document.addEventListener('DOMContentLoaded',()=>{
         mode: 'manual',
         threshold: 'medium',
         autoStart: false,
+        prompt: 'Entwirf eine freundliche Kundenantwort mit klarer Eskalationsregel und Freigabehinweis.',
         note: 'Tonfall vor Versand prüfen',
       },
+      promptTemplates: [
+        'Entwirf eine freundliche Kundenantwort mit klarer Eskalationsregel und Freigabehinweis.',
+        'Formuliere diese Nachricht so, dass ein Virtueller MA sie vor dem Versand prüfen kann.',
+        'Erstelle eine Antwortvorlage mit Tonfall, Prüfschritt und kurzer Freigabeanweisung.',
+      ],
     },
     {
       id: 'auto-posting',
@@ -7847,8 +7865,14 @@ document.addEventListener('DOMContentLoaded',()=>{
         mode: 'auto',
         threshold: 'high',
         autoStart: true,
+        prompt: 'Prüfe das Listing auf Freigabe, Sichtbarkeit und sichere Veröffentlichung.',
         note: 'Nur für geprüfte Listings',
       },
+      promptTemplates: [
+        'Prüfe das Listing auf Freigabe, Sichtbarkeit und sichere Veröffentlichung.',
+        'Bereite die eBay-Veröffentlichung nur vor, wenn alle relevanten Prüfpunkte erfüllt sind.',
+        'Erstelle eine kompakte Freigabeanweisung für das AI Task Center.',
+      ],
     },
   ];
   const EXTENDED_AUTONOMY_ROLE_DEFS = [
@@ -7864,8 +7888,14 @@ document.addEventListener('DOMContentLoaded',()=>{
         canApprove: true,
         canLock: false,
         priority: 'high',
+        prompt: 'Gib nur Schritte frei, die vollständig geprüft und für das Task Center vorbereitet sind.',
         note: 'Für manuelle Freigaben',
       },
+      promptTemplates: [
+        'Gib nur Schritte frei, die vollständig geprüft und für das Task Center vorbereitet sind.',
+        'Prüfe die vorgeschlagene Aufgabe und entscheide, ob sie aktiv werden darf.',
+        'Erstelle eine knappe Freigabeentscheidung mit Begründung und nächstem Schritt.',
+      ],
     },
     {
       id: 'risk-analyst',
@@ -7879,8 +7909,14 @@ document.addEventListener('DOMContentLoaded',()=>{
         canApprove: false,
         canLock: true,
         priority: 'high',
+        prompt: 'Prüfe Risiken, Konflikte und unklare Freigaben, bevor ein KI-Agent aktiv wird.',
         note: 'Vor Aktivierung prüfen',
       },
+      promptTemplates: [
+        'Prüfe Risiken, Konflikte und unklare Freigaben, bevor ein KI-Agent aktiv wird.',
+        'Markiere alle Stellen, an denen ein KI-Agent noch nicht sicher arbeiten sollte.',
+        'Erstelle eine kurze Risikoübersicht für die aktuelle Agentenaufgabe.',
+      ],
     },
     {
       id: 'workflow-orchestrator',
@@ -7894,8 +7930,14 @@ document.addEventListener('DOMContentLoaded',()=>{
         canApprove: true,
         canLock: true,
         priority: 'medium',
+        prompt: 'Koordiniere die Reihenfolge der freigegebenen Schritte und halte die Übergaben sauber.',
         note: 'Abläufe koordinieren',
       },
+      promptTemplates: [
+        'Koordiniere die Reihenfolge der freigegebenen Schritte und halte die Übergaben sauber.',
+        'Erstelle einen kompakten Ablaufplan für mehrere verbundene Autonomie-Schritte.',
+        'Formuliere eine Orchestrierungsanweisung mit klarer Reihenfolge und Kontrollpunkten.',
+      ],
     },
     {
       id: 'support-supervisor',
@@ -7909,8 +7951,14 @@ document.addEventListener('DOMContentLoaded',()=>{
         canApprove: false,
         canLock: true,
         priority: 'medium',
+        prompt: 'Bereite eine sichere Support-Antwort vor und markiere, was noch geprüft werden muss.',
         note: 'Support-Freigaben bündeln',
       },
+      promptTemplates: [
+        'Bereite eine sichere Support-Antwort vor und markiere, was noch geprüft werden muss.',
+        'Erstelle eine Support-Vorlage mit klarer Freigabe- und Sperrlogik.',
+        'Fasse die Support-Aufgabe so zusammen, dass ein Virtueller MA sie direkt nutzen kann.',
+      ],
     },
   ];
   const EXTENDED_AUTONOMY_SETTING_DEFS = {
@@ -7941,6 +7989,7 @@ document.addEventListener('DOMContentLoaded',()=>{
           ] },
           { key: 'autoStart', kind: 'checkbox', label: 'Autostart erlauben' },
           { key: 'requireSafetyCheck', kind: 'checkbox', label: 'Sicherheitscheck erzwingen' },
+          { key: 'prompt', kind: 'textarea', label: 'Prompt', placeholder: 'Beschreibe, was diese Funktion prüfen oder vorbereiten soll.' },
           { key: 'note', kind: 'textarea', label: 'Notiz' },
         ],
       },
@@ -7970,6 +8019,7 @@ document.addEventListener('DOMContentLoaded',()=>{
           ]},
           { key: 'requireStockCheck', kind: 'checkbox', label: 'Lagercheck erzwingen' },
           { key: 'autoStart', kind: 'checkbox', label: 'Bestellung automatisch vorbereiten' },
+          { key: 'prompt', kind: 'textarea', label: 'Prompt', placeholder: 'Beschreibe, welche Bestellprüfung oder Vorbereitung gebraucht wird.' },
           { key: 'note', kind: 'textarea', label: 'Notiz' },
         ],
       },
@@ -7999,6 +8049,7 @@ document.addEventListener('DOMContentLoaded',()=>{
           ]},
           { key: 'allowAutoReply', kind: 'checkbox', label: 'Auto-Antwort erlauben' },
           { key: 'requireReview', kind: 'checkbox', label: 'Vor Versand prüfen' },
+          { key: 'prompt', kind: 'textarea', label: 'Prompt', placeholder: 'Beschreibe, wie die Antwort klingen und geprüft werden soll.' },
           { key: 'note', kind: 'textarea', label: 'Notiz' },
         ],
       },
@@ -8023,6 +8074,7 @@ document.addEventListener('DOMContentLoaded',()=>{
           ]},
           { key: 'imageCheck', kind: 'checkbox', label: 'Bildcheck erzwingen' },
           { key: 'autoStart', kind: 'checkbox', label: 'Direkt veröffentlichen' },
+          { key: 'prompt', kind: 'textarea', label: 'Prompt', placeholder: 'Beschreibe, wann das Listing veröffentlicht werden darf.' },
           { key: 'note', kind: 'textarea', label: 'Notiz' },
         ],
       },
@@ -8049,6 +8101,7 @@ document.addEventListener('DOMContentLoaded',()=>{
             { value: 'medium', label: 'Mittel' },
             { value: 'high', label: 'Hoch' },
           ] },
+          { key: 'prompt', kind: 'textarea', label: 'Prompt', placeholder: 'Beschreibe, nach welchen Regeln freigegeben werden soll.' },
           { key: 'note', kind: 'textarea', label: 'Notiz' },
         ],
       },
@@ -8078,6 +8131,7 @@ document.addEventListener('DOMContentLoaded',()=>{
             { value: 'medium', label: 'Mittel' },
             { value: 'high', label: 'Hoch' },
           ] },
+          { key: 'prompt', kind: 'textarea', label: 'Prompt', placeholder: 'Beschreibe, welche Risiken oder Konflikte geprüft werden sollen.' },
           { key: 'note', kind: 'textarea', label: 'Notiz' },
         ],
       },
@@ -8108,6 +8162,7 @@ document.addEventListener('DOMContentLoaded',()=>{
             { value: 'medium', label: 'Mittel' },
             { value: 'high', label: 'Hoch' },
           ] },
+          { key: 'prompt', kind: 'textarea', label: 'Prompt', placeholder: 'Beschreibe die gewünschte Reihenfolge und Übergabe.' },
           { key: 'note', kind: 'textarea', label: 'Notiz' },
         ],
       },
@@ -8137,6 +8192,7 @@ document.addEventListener('DOMContentLoaded',()=>{
             { value: 'medium', label: 'Mittel' },
             { value: 'high', label: 'Hoch' },
           ] },
+          { key: 'prompt', kind: 'textarea', label: 'Prompt', placeholder: 'Beschreibe die gewünschte Support-Antwort oder Prüfung.' },
           { key: 'note', kind: 'textarea', label: 'Notiz' },
         ],
       },
@@ -8320,6 +8376,12 @@ document.addEventListener('DOMContentLoaded',()=>{
     return text.slice(0, 220);
   };
 
+  const sanitizePromptText = (value, fallback) => {
+    const text = String(value ?? '').replace(/\r\n/g, '\n').trim();
+    if (!text) return fallback;
+    return text.slice(0, 1200);
+  };
+
   const sanitizeTaskText = (value, fallback, maxLength) => {
     const text = String(value ?? '').replace(/\s+/g, ' ').trim();
     if (!text) return fallback;
@@ -8367,7 +8429,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   };
 
   const createDefaultState = () => ({
-    version: 5,
+    version: 6,
     securityMode: true,
     sandboxMode: true,
     advancedMode: false,
@@ -8440,6 +8502,7 @@ document.addEventListener('DOMContentLoaded',()=>{
         riskFocus: ['compliance', 'margin', 'delivery'].includes(source.riskFocus) ? source.riskFocus : (fallback.riskFocus || 'compliance'),
         workflowScope: ['orders', 'messages', 'posting', 'all'].includes(source.workflowScope) ? source.workflowScope : (fallback.workflowScope || 'all'),
         supportScope: ['messages', 'returns', 'both'].includes(source.supportScope) ? source.supportScope : (fallback.supportScope || 'both'),
+        prompt: sanitizePromptText(source.prompt !== undefined ? source.prompt : fallback.prompt || '', fallback.prompt || ''),
         note: sanitizeActivity(source.note !== undefined ? source.note : fallback.note || '', ''),
       };
     }
@@ -8461,6 +8524,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       requireReview: typeof source.requireReview === 'boolean' ? source.requireReview : (typeof fallback.requireReview === 'boolean' ? fallback.requireReview : true),
       publishGate: ['manual', 'score_80', 'score_90'].includes(source.publishGate) ? source.publishGate : (fallback.publishGate || 'manual'),
       imageCheck: typeof source.imageCheck === 'boolean' ? source.imageCheck : (typeof fallback.imageCheck === 'boolean' ? fallback.imageCheck : false),
+      prompt: sanitizePromptText(source.prompt !== undefined ? source.prompt : fallback.prompt || '', fallback.prompt || ''),
       note: sanitizeActivity(source.note !== undefined ? source.note : fallback.note || '', ''),
     };
   };
@@ -8601,6 +8665,11 @@ document.addEventListener('DOMContentLoaded',()=>{
     return optionLabelFor(field && field.options, value, fallback);
   };
   const getAutonomyAreaLabel = (value) => optionLabelFor(AUTONOMY_AREA_OPTIONS, value, 'Alle Bereiche');
+  const previewPromptText = (value, max = 58) => {
+    const text = String(value || '').replace(/\s+/g, ' ').trim();
+    if (!text) return '';
+    return text.length > max ? `${text.slice(0, max).trimEnd()}…` : text;
+  };
   const getAutonomyLinksForArea = (area) => {
     const featureLinks = (state.extendedAutonomyFeatures || [])
       .filter((item) => {
@@ -8625,6 +8694,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       const scope = getExtendedAutonomyModeLabel(type, config.scope, item.id);
       const priority = getExtendedAutonomyFieldLabel(type, item.id, 'priority', config.priority, 'Mittel');
       const area = getAutonomyAreaLabel(config.responsibleArea);
+      const prompt = previewPromptText(config.prompt);
       const rightLabel = config.canApprove ? 'Freigeben' : 'Nur prüfen';
       const lockLabel = config.canLock ? 'Sperren' : 'Nur freigeben';
       return [
@@ -8632,10 +8702,12 @@ document.addEventListener('DOMContentLoaded',()=>{
         `Freigabelevel: ${scope}`,
         `Rechte: ${rightLabel} · ${lockLabel}`,
         `Priorität: ${priority}`,
+        prompt ? `Prompt: ${prompt}` : 'Prompt: Keine Vorlage',
       ];
     }
     const area = getAutonomyAreaLabel(config.targetArea);
     const mode = getExtendedAutonomyModeLabel(type, config.mode, item.id);
+    const prompt = previewPromptText(config.prompt);
     const gate = getExtendedAutonomyFieldLabel(type, item.id, 'approvalRule', config.approvalRule, 'Manuell prüfen');
     const threshold = getExtendedAutonomyFieldLabel(type, item.id, 'threshold', config.threshold, 'Mittel');
     const secondLine = item.id === 'auto-posting'
@@ -8650,6 +8722,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       `Modus: ${mode}`,
       secondLine,
       `Autostart: ${config.autoStart ? 'Ja' : 'Nein'}`,
+      prompt ? `Prompt: ${prompt}` : 'Prompt: Keine Vorlage',
     ];
   };
   const isExtendedAutonomyCollectionOpen = (type) => state.extendedAutonomyPanels && state.extendedAutonomyPanels[type] !== false;
@@ -9651,10 +9724,32 @@ document.addEventListener('DOMContentLoaded',()=>{
   const getExtendedPermissionFieldValue = (item, field) => {
     const config = item.config || {};
     if (field.key === 'note') return config.note || '';
+    if (field.key === 'prompt') return config.prompt || '';
     if (field.kind === 'checkbox') return config[field.key] === true;
     return config[field.key] !== undefined && config[field.key] !== null
       ? String(config[field.key])
       : (field.defaultValue !== undefined ? field.defaultValue : (field.options && field.options[0] ? field.options[0].value : ''));
+  };
+
+  const renderPromptTemplates = (type, itemId, field) => {
+    const def = getExtendedAutonomySettingDefinition(type, itemId);
+    const templates = def && Array.isArray(def.promptTemplates) ? def.promptTemplates : [];
+    if (!templates.length) return '';
+    return `
+      <div class="prompt-template-box" style="margin-top:10px">
+        <label class="hint" style="display:block;margin-bottom:8px">Passende Prompt-Vorschläge</label>
+        <div class="virtual-agent-connections">
+          ${templates.map((template, index) => `
+            <button
+              type="button"
+              class="secondary prompt-template-chip"
+              data-prompt-template="${escapeHtml(template)}"
+              data-prompt-target="${escapeHtml(`extendedPermissionModal_${itemId}_${field.key}`)}"
+            >${index + 1}. ${escapeHtml(template)}</button>
+          `).join('')}
+        </div>
+      </div>
+    `;
   };
 
   const renderExtendedPermissionField = (type, itemId, field, value) => {
@@ -9676,6 +9771,7 @@ document.addEventListener('DOMContentLoaded',()=>{
         <div class="permission-setting-card">
           <label for="${fieldId}">${escapeHtml(field.label)}</label>
           <textarea id="${fieldId}" data-extended-field="${field.key}" placeholder="${escapeHtml(field.placeholder || '')}">${escapeHtml(value || '')}</textarea>
+          ${field.key === 'prompt' ? renderPromptTemplates(type, itemId, field) : ''}
           ${field.help ? `<p class="hint">${escapeHtml(field.help)}</p>` : ''}
         </div>
       `;
@@ -9759,7 +9855,9 @@ document.addEventListener('DOMContentLoaded',()=>{
         nextConfig[field.key] = !!input.checked;
         return;
       }
-      nextConfig[field.key] = sanitizeActivity(input.value, '');
+      nextConfig[field.key] = field.key === 'prompt'
+        ? sanitizePromptText(input.value, '')
+        : sanitizeActivity(input.value, '');
     });
     updateExtendedAutonomyItem(type, id, {
       status: status && status.value === 'active' ? 'active' : 'locked',
@@ -10094,6 +10192,16 @@ document.addEventListener('DOMContentLoaded',()=>{
     if (event.target === modal) {
       closeExtendedPermissionModal();
     }
+  });
+
+  document.addEventListener('click', (event) => {
+    const templateButton = event.target.closest('[data-prompt-template]');
+    if (!templateButton) return;
+    const targetId = templateButton.dataset.promptTarget;
+    const target = targetId ? getEl(targetId) : null;
+    if (!target) return;
+    target.value = templateButton.dataset.promptTemplate || '';
+    target.focus();
   });
 
   window.openVirtualAgentsSettings = openAgentSettings;
