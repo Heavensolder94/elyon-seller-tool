@@ -8477,27 +8477,32 @@ document.addEventListener('DOMContentLoaded',()=>{
   const DEFAULT_TEST_RESPONSE = 'Bereit für lokalen Testlauf';
   const AI_TASK_STATUS_OPTIONS = [
     { value: 'all', label: 'Alle' },
-    { value: 'open', label: 'Offen' },
-    { value: 'in_progress', label: 'In Bearbeitung' },
+    { value: 'queued', label: 'In Warteschlange' },
+    { value: 'running', label: 'In Bearbeitung' },
     { value: 'done', label: 'Erledigt' },
-    { value: 'dismissed', label: 'Ausgeblendet' },
+    { value: 'blocked', label: 'Blockiert' },
+    { value: 'failed', label: 'Fehlgeschlagen' },
+    { value: 'waiting_approval', label: 'Wartet auf Freigabe' },
   ];
   const AI_TASK_PRIORITY_OPTIONS = [
     { value: 'all', label: 'Alle Prioritäten' },
     { value: 'low', label: 'Niedrig' },
-    { value: 'medium', label: 'Mittel' },
+    { value: 'normal', label: 'Normal' },
     { value: 'high', label: 'Hoch' },
     { value: 'critical', label: 'Kritisch' },
   ];
-  const AI_TASK_PRIORITY_ORDER = { low: 1, medium: 2, high: 3, critical: 4 };
+  const AI_TASK_PRIORITY_ORDER = { low: 1, normal: 2, high: 3, critical: 4, medium: 2 };
   const AI_TASK_STATUS_LABELS = {
-    open: 'Offen',
-    in_progress: 'In Bearbeitung',
+    queued: 'In Warteschlange',
+    running: 'In Bearbeitung',
     done: 'Erledigt',
-    dismissed: 'Ausgeblendet',
+    failed: 'Fehlgeschlagen',
+    blocked: 'Blockiert',
+    waiting_approval: 'Wartet auf Freigabe',
   };
   const AI_TASK_PRIORITY_LABELS = {
     low: 'Niedrig',
+    normal: 'Normal',
     medium: 'Mittel',
     high: 'Hoch',
     critical: 'Kritisch',
@@ -9248,12 +9253,16 @@ document.addEventListener('DOMContentLoaded',()=>{
 
   const normalizeTaskPriority = (value) => {
     const input = String(value || '').trim();
-    return Object.prototype.hasOwnProperty.call(AI_TASK_PRIORITY_LABELS, input) ? input : 'medium';
+    if (input === 'medium') return 'normal';
+    return Object.prototype.hasOwnProperty.call(AI_TASK_PRIORITY_LABELS, input) ? input : 'normal';
   };
 
   const normalizeTaskStatus = (value) => {
     const input = String(value || '').trim();
-    return Object.prototype.hasOwnProperty.call(AI_TASK_STATUS_LABELS, input) ? input : 'open';
+    if (input === 'open') return 'queued';
+    if (input === 'in_progress') return 'running';
+    if (input === 'dismissed') return 'blocked';
+    return Object.prototype.hasOwnProperty.call(AI_TASK_STATUS_LABELS, input) ? input : 'queued';
   };
 
   const normalizeTaskSource = (value) => {
@@ -9326,6 +9335,226 @@ document.addEventListener('DOMContentLoaded',()=>{
       .map((task, index) => normalizeAiTask(task, index))
       .filter(Boolean);
     return next.length ? next : buildDemoAiTasks();
+  };
+
+  const AI_TASKS_STORE_KEY = 'elyon_ai_tasks';
+  const AI_EVENTS_STORE_KEY = 'elyon_ai_events';
+  const AI_LOGS_STORE_KEY = 'elyon_ai_logs';
+  const AI_TASK_LIVE_HINT = 'Live-Aktionen bleiben durch Sicherheitsmodus oder Sandbox blockiert.';
+  const AI_TASK_SAFE_TYPES = ['product_analysis', 'listing_review', 'margin_check', 'customer_reply_draft', 'supplier_check'];
+  const AI_TASK_TYPES = [
+    { value: 'product_analysis', label: 'product_analysis' },
+    { value: 'listing_review', label: 'listing_review' },
+    { value: 'margin_check', label: 'margin_check' },
+    { value: 'customer_reply_draft', label: 'customer_reply_draft' },
+    { value: 'supplier_check', label: 'supplier_check' },
+    { value: 'research', label: 'research' },
+    { value: 'seo_audit', label: 'seo_audit' },
+    { value: 'risk_audit', label: 'risk_audit' },
+    { value: 'support_summary', label: 'support_summary' },
+    { value: 'operations_check', label: 'operations_check' },
+  ];
+  const AI_TASK_PRIORITIES = ['low', 'normal', 'high', 'critical'];
+  const AI_TASK_STATUSES = ['queued', 'running', 'done', 'failed', 'blocked', 'waiting_approval'];
+
+  const normalizeAiTaskRecord = (task, index = 0) => {
+    if (!task || typeof task !== 'object' || Array.isArray(task)) return null;
+    const createdAt = Date.parse(task.createdAt || '');
+    const updatedAt = Date.parse(task.updatedAt || task.createdAt || '');
+    const startedAt = Date.parse(task.startedAt || '');
+    const finishedAt = Date.parse(task.finishedAt || '');
+    const safeType = AI_TASK_TYPES.some((item) => item.value === task.type) ? task.type : 'product_analysis';
+    const safePriority = AI_TASK_PRIORITIES.includes(task.priority) ? task.priority : 'normal';
+    const safeStatus = AI_TASK_STATUSES.includes(task.status) ? task.status : 'queued';
+    return {
+      id: sanitizeTaskText(task.id || `ai-task-${index + 1}`, `ai-task-${index + 1}`, 80),
+      title: sanitizeTaskText(task.title, 'Unbenannte Aufgabe', 120),
+      description: sanitizeTaskText(task.description, '', 500),
+      agentId: sanitizeTaskText(task.agentId || '', '', 80),
+      agentType: sanitizeTaskText(task.agentType || '', '', 80),
+      type: safeType,
+      status: safeStatus,
+      priority: safePriority,
+      input: task.input && typeof task.input === 'object' ? { ...task.input } : {},
+      result: sanitizeTaskText(task.result, '', 1200),
+      error: sanitizeTaskText(task.error, '', 1200),
+      logs: Array.isArray(task.logs) ? task.logs.slice(0, 50) : [],
+      createdAt: Number.isFinite(createdAt) ? new Date(createdAt).toISOString() : new Date().toISOString(),
+      updatedAt: Number.isFinite(updatedAt) ? new Date(updatedAt).toISOString() : new Date().toISOString(),
+      startedAt: Number.isFinite(startedAt) ? new Date(startedAt).toISOString() : '',
+      finishedAt: Number.isFinite(finishedAt) ? new Date(finishedAt).toISOString() : '',
+    };
+  };
+
+  const normalizeAiEventRecord = (event, index = 0) => {
+    if (!event || typeof event !== 'object' || Array.isArray(event)) return null;
+    const createdAt = Date.parse(event.createdAt || '');
+    return {
+      id: sanitizeTaskText(event.id || `ai-event-${index + 1}`, `ai-event-${index + 1}`, 80),
+      type: sanitizeTaskText(event.type, 'task.created', 80),
+      source: sanitizeTaskText(event.source, 'task', 80),
+      payload: event.payload && typeof event.payload === 'object' ? { ...event.payload } : {},
+      relatedTaskId: sanitizeTaskText(event.relatedTaskId || '', '', 80),
+      createdAt: Number.isFinite(createdAt) ? new Date(createdAt).toISOString() : new Date().toISOString(),
+      handled: event.handled === true,
+    };
+  };
+
+  const normalizeAiLogRecord = (log, index = 0) => {
+    if (!log || typeof log !== 'object' || Array.isArray(log)) return null;
+    const createdAt = Date.parse(log.createdAt || '');
+    return {
+      id: sanitizeTaskText(log.id || `ai-log-${index + 1}`, `ai-log-${index + 1}`, 80),
+      level: ['info', 'warning', 'error', 'security'].includes(log.level) ? log.level : 'info',
+      message: sanitizeTaskText(log.message, '', 1200),
+      context: log.context && typeof log.context === 'object' ? { ...log.context } : {},
+      taskId: sanitizeTaskText(log.taskId || '', '', 80),
+      agentId: sanitizeTaskText(log.agentId || '', '', 80),
+      createdAt: Number.isFinite(createdAt) ? new Date(createdAt).toISOString() : new Date().toISOString(),
+    };
+  };
+
+  const readStoredCollection = (key, normalizer, fallback = []) => {
+    const list = Array.isArray(readJson(key, [])) ? readJson(key, []) : [];
+    const next = list.map((item, index) => normalizer(item, index)).filter(Boolean);
+    return next.length ? next : fallback.slice();
+  };
+
+  const writeStoredCollection = (key, value) => writeJson(key, Array.isArray(value) ? value : []);
+
+  const getAiTasks = () => readStoredCollection(AI_TASKS_STORE_KEY, normalizeAiTaskRecord, normalizeAiTasks(state.aiTasks || []));
+  const getAiEvents = () => readStoredCollection(AI_EVENTS_STORE_KEY, normalizeAiEventRecord, []);
+  const getAiLogs = () => readStoredCollection(AI_LOGS_STORE_KEY, normalizeAiLogRecord, []);
+
+  const persistAiCollections = () => {
+    writeStoredCollection(AI_TASKS_STORE_KEY, state.aiTasks);
+    writeStoredCollection(AI_EVENTS_STORE_KEY, getAiEvents());
+    writeStoredCollection(AI_LOGS_STORE_KEY, getAiLogs());
+  };
+
+  const createAiEvent = (eventData) => {
+    const event = normalizeAiEventRecord({
+      id: `ai-event-${Math.random().toString(36).slice(2, 10)}-${Date.now().toString(36)}`,
+      type: eventData && eventData.type ? eventData.type : 'task.created',
+      source: eventData && eventData.source ? eventData.source : 'system',
+      payload: eventData && eventData.payload && typeof eventData.payload === 'object' ? eventData.payload : {},
+      relatedTaskId: eventData && eventData.relatedTaskId ? eventData.relatedTaskId : '',
+      createdAt: nowIso(),
+      handled: eventData && eventData.handled === true,
+    });
+    const events = getAiEvents();
+    events.unshift(event);
+    writeStoredCollection(AI_EVENTS_STORE_KEY, events.slice(0, 200));
+    return event;
+  };
+
+  const createAiLog = (logData) => {
+    const log = normalizeAiLogRecord({
+      id: `ai-log-${Math.random().toString(36).slice(2, 10)}-${Date.now().toString(36)}`,
+      level: logData && logData.level ? logData.level : 'info',
+      message: logData && logData.message ? logData.message : '',
+      context: logData && logData.context && typeof logData.context === 'object' ? logData.context : {},
+      taskId: logData && logData.taskId ? logData.taskId : '',
+      agentId: logData && logData.agentId ? logData.agentId : '',
+      createdAt: nowIso(),
+    });
+    const logs = getAiLogs();
+    logs.unshift(log);
+    writeStoredCollection(AI_LOGS_STORE_KEY, logs.slice(0, 250));
+    return log;
+  };
+
+  const createAiTask = (taskData) => {
+    const task = normalizeAiTaskRecord({
+      id: `ai-task-${Math.random().toString(36).slice(2, 10)}-${Date.now().toString(36)}`,
+      title: taskData && taskData.title ? taskData.title : 'Neue Aufgabe',
+      description: taskData && taskData.description ? taskData.description : '',
+      agentId: taskData && taskData.agentId ? taskData.agentId : '',
+      agentType: taskData && taskData.agentType ? taskData.agentType : '',
+      type: taskData && taskData.type ? taskData.type : 'product_analysis',
+      status: 'queued',
+      priority: taskData && taskData.priority ? taskData.priority : 'normal',
+      input: taskData && taskData.input && typeof taskData.input === 'object' ? taskData.input : {},
+      result: '',
+      error: '',
+      logs: [],
+      createdAt: nowIso(),
+      updatedAt: nowIso(),
+      startedAt: '',
+      finishedAt: '',
+    });
+    const tasks = getAiTasks();
+    tasks.unshift(task);
+    state.aiTasks = tasks;
+    persistAiCollections();
+    createAiEvent({ type: 'task.created', source: 'ui', payload: task, relatedTaskId: task.id });
+    createAiLog({ level: 'info', message: `Task erstellt: ${task.title}`, taskId: task.id, agentId: task.agentId, context: { type: task.type, priority: task.priority } });
+    saveState();
+    render();
+    return task;
+  };
+
+  const updateAiTask = (taskId, patch) => {
+    const tasks = getAiTasks();
+    const index = tasks.findIndex((task) => task && task.id === taskId);
+    if (index < 0) return null;
+    tasks[index] = normalizeAiTaskRecord({ ...tasks[index], ...(patch && typeof patch === 'object' ? patch : {}), id: tasks[index].id }, index);
+    state.aiTasks = tasks;
+    persistAiCollections();
+    saveState();
+    render();
+    return tasks[index];
+  };
+
+  const blockAiTask = (taskId, reason) => updateAiTask(taskId, { status: 'blocked', error: sanitizeTaskText(reason, 'Blockiert', 240), finishedAt: nowIso(), updatedAt: nowIso() });
+  const completeAiTask = (taskId, result) => updateAiTask(taskId, { status: 'done', result: sanitizeTaskText(result, '', 1200), finishedAt: nowIso(), updatedAt: nowIso() });
+  const failAiTask = (taskId, error) => updateAiTask(taskId, { status: 'failed', error: sanitizeTaskText(error, 'Fehler', 1200), finishedAt: nowIso(), updatedAt: nowIso() });
+
+  const buildEffectiveAgentPrompt = (agentId, task) => {
+    const agent = getAgent(agentId);
+    const areaPrompt = sanitizeDescription(agent && agent.description ? agent.description : '', '');
+    const individualPrompt = sanitizeDescription(agent && agent.prompt ? agent.prompt : '', '');
+    const guardrails = sanitizeDescription(agent && agent.guardrails ? agent.guardrails : 'Nur Vorschläge, Entwürfe und lokale Analysen. Keine autonomen Live-Aktionen.', '');
+    const taskContext = task && typeof task === 'object'
+      ? [
+          `Task-Titel: ${sanitizeTaskText(task.title, '', 120)}`,
+          `Task-Typ: ${sanitizeTaskText(task.type, '', 80)}`,
+          `Task-Prio: ${sanitizeTaskText(task.priority, '', 20)}`,
+          `Task-Beschreibung: ${sanitizeTaskText(task.description, '', 500)}`,
+        ].join('\n')
+      : 'Task-Kontext: unbekannt';
+    return [areaPrompt, individualPrompt, `Guardrails: ${guardrails}`, taskContext].filter(Boolean).join('\n\n');
+  };
+
+  const runAiTask = (taskId) => {
+    const task = getAiTasks().find((item) => item && item.id === taskId);
+    if (!task) return null;
+    const lockedByPause = isAllAgentsPaused();
+    const lockedBySecurity = state.securityMode !== false || state.sandboxMode !== false || state.autonomyLocked !== false;
+    createAiLog({ level: lockedByPause ? 'security' : 'info', message: `Task gestartet: ${task.title}`, taskId: task.id, agentId: task.agentId, context: { lockedByPause, lockedBySecurity } });
+    createAiEvent({ type: 'task.started', source: 'runner', payload: { taskId: task.id }, relatedTaskId: task.id });
+    if (lockedByPause) {
+      createAiEvent({ type: 'agent.paused', source: 'runner', payload: { reason: 'pauseAllAgents' }, relatedTaskId: task.id });
+      const blocked = blockAiTask(task.id, 'Alle Agenten sind pausiert.');
+      createAiEvent({ type: 'task.blocked', source: 'runner', payload: { reason: 'pauseAllAgents' }, relatedTaskId: task.id });
+      return blocked;
+    }
+    updateAiTask(task.id, { status: 'running', startedAt: nowIso(), updatedAt: nowIso() });
+    const effectivePrompt = buildEffectiveAgentPrompt(task.agentId, task);
+    createAiLog({ level: lockedBySecurity ? 'security' : 'info', message: lockedBySecurity ? AI_TASK_LIVE_HINT : 'Lokale Ausführung vorbereitet.', taskId: task.id, agentId: task.agentId, context: { effectivePrompt } });
+    if (lockedBySecurity) {
+      const result = `Simulation abgeschlossen für ${task.title}. ${AI_TASK_LIVE_HINT}`;
+      createAiEvent({ type: 'approval.required', source: 'runner', payload: { reason: 'security_mode', taskId: task.id }, relatedTaskId: task.id });
+      updateAiTask(task.id, { status: 'waiting_approval', result, finishedAt: nowIso(), updatedAt: nowIso() });
+      createAiEvent({ type: 'task.blocked', source: 'runner', payload: { reason: 'security_mode', result }, relatedTaskId: task.id });
+      createAiLog({ level: 'security', message: result, taskId: task.id, agentId: task.agentId, context: { effectivePrompt } });
+      return getAiTasks().find((item) => item && item.id === task.id) || task;
+    }
+    const result = `Task ${task.title} wurde simuliert ausgeführt. Struktur ist für spätere API-Calls vorbereitet.`;
+    completeAiTask(task.id, result);
+    createAiEvent({ type: 'task.completed', source: 'runner', payload: { result }, relatedTaskId: task.id });
+    createAiLog({ level: 'info', message: result, taskId: task.id, agentId: task.agentId, context: { effectivePrompt } });
+    return getAiTasks().find((item) => item && item.id === task.id) || task;
   };
 
   const normalizeSecurityMode = (source) => {
@@ -10889,10 +11118,10 @@ document.addEventListener('DOMContentLoaded',()=>{
   const getTaskStatCounts = () => {
     const tasks = Array.isArray(state.aiTasks) ? state.aiTasks : [];
     return {
-      active: tasks.filter((task) => task.status === 'open' || task.status === 'in_progress').length,
+      active: tasks.filter((task) => task.status === 'queued' || task.status === 'running' || task.status === 'waiting_approval').length,
       highPriority: tasks.filter((task) => task.priority === 'high' || task.priority === 'critical').length,
       done: tasks.filter((task) => task.status === 'done').length,
-      dismissed: tasks.filter((task) => task.status === 'dismissed').length,
+      dismissed: tasks.filter((task) => task.status === 'blocked' || task.status === 'failed').length,
     };
   };
 
@@ -10916,9 +11145,10 @@ document.addEventListener('DOMContentLoaded',()=>{
   }).slice(0, 3);
 
   const getBoardLabel = (task) => {
-    if (task.status === 'in_progress') return 'In Bearbeitung';
+    if (task.status === 'running') return 'In Bearbeitung';
     if (task.status === 'done') return 'Erledigt';
-    if (task.status === 'dismissed') return 'Ausgeblendet';
+    if (task.status === 'blocked') return 'Blockiert';
+    if (task.status === 'waiting_approval') return 'Wartet auf Freigabe';
     return 'Offen';
   };
 
@@ -10966,10 +11196,12 @@ document.addEventListener('DOMContentLoaded',()=>{
   const getTaskStatusMeta = (status) => {
     const normalized = normalizeTaskStatus(status);
     const map = {
-      open: 'info',
-      in_progress: 'warn',
+      queued: 'info',
+      running: 'warn',
       done: 'good',
-      dismissed: 'bad',
+      blocked: 'bad',
+      failed: 'bad',
+      waiting_approval: 'warn',
     };
     return { label: AI_TASK_STATUS_LABELS[normalized], tone: map[normalized] || 'info' };
   };
@@ -10978,7 +11210,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     const normalized = normalizeTaskPriority(priority);
     const map = {
       low: 'info',
-      medium: 'warn',
+      normal: 'warn',
       high: 'bad',
       critical: 'bad',
     };
@@ -11119,6 +11351,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     }
     state.aiTasks = (Array.isArray(state.aiTasks) ? state.aiTasks : []).filter((item) => item && item.id !== taskRemovalTargetId);
     taskRemovalTargetId = '';
+    persistAiCollections();
     saveState();
     closeTaskRemoveModal();
     render();
@@ -11213,13 +11446,14 @@ document.addEventListener('DOMContentLoaded',()=>{
       description: task.description || 'Eine Empfehlung wurde lokal vorbereitet. Es wird keine Live-Aktion ausgeführt.',
       agent: task.agent || 'Soul Operations',
       category: task.category || 'Allgemein',
-      priority: normalizeTaskPriority(task.priority || 'medium'),
-      status: 'open',
+      priority: normalizeTaskPriority(task.priority || 'normal'),
+      status: 'queued',
       createdAt: new Date().toISOString(),
       source: 'agent',
       actionLabel: 'Empfehlung ansehen',
     }, tasks.length);
     state.aiTasks = [normalized, ...tasks];
+    persistAiCollections();
     saveState();
     render();
     return normalized;
@@ -11393,14 +11627,18 @@ document.addEventListener('DOMContentLoaded',()=>{
       return;
     }
     if (action === 'dismiss') {
-      updateAiTask(taskId, (task) => ({ ...task, status: 'dismissed' }));
+      updateAiTask(taskId, (task) => ({ ...task, status: 'blocked' }));
       return;
     }
     if (action === 'remove') {
       openTaskRemoveModal(taskId);
       return;
     }
-    if (action === 'in_progress' || action === 'open' || action === 'dismissed' || action === 'done') {
+    if (action === 'run') {
+      runAiTask(taskId);
+      return;
+    }
+    if (action === 'queued' || action === 'running' || action === 'blocked' || action === 'done' || action === 'failed' || action === 'waiting_approval') {
       updateAiTask(taskId, (task) => ({ ...task, status: action }));
       return;
     }
@@ -11470,6 +11708,7 @@ document.addEventListener('DOMContentLoaded',()=>{
           </div>
           <div class="task-center-action-row">
             <button type="button" class="secondary" data-task-action="prepare" data-task-id="${escapeHtml(task.id)}">${escapeHtml(task.actionLabel)}</button>
+            <button type="button" class="secondary" data-task-action="run" data-task-id="${escapeHtml(task.id)}">Ausführen</button>
             <button type="button" class="secondary" data-task-action="done" data-task-id="${escapeHtml(task.id)}">Erledigt</button>
             <button type="button" class="secondary" data-task-action="dismiss" data-task-id="${escapeHtml(task.id)}">Ausblenden</button>
             <button type="button" class="secondary" data-task-action="remove" data-task-id="${escapeHtml(task.id)}">Entfernen</button>
@@ -11487,6 +11726,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     const tasks = getFilteredAiTasks();
     const triageTasks = getTriageAiTasks();
     const totalTasks = Array.isArray(state.aiTasks) ? state.aiTasks.length : 0;
+    const selectedTask = tasks[0] || null;
     const emptyMessage = totalTasks
       ? 'Keine KI-Aufgaben passen zu den aktiven Filtern.'
       : 'Keine KI-Aufgaben vorhanden. Sobald Agenten aktiv werden, erscheinen hier Empfehlungen und Warnungen.';
@@ -11513,7 +11753,46 @@ document.addEventListener('DOMContentLoaded',()=>{
 
           ${pauseHint ? '<div class="task-center-alert">Alle Agenten sind pausiert. Es werden keine neuen Aufgaben erzeugt.</div>' : ''}
           ${hasSandboxHint ? `<div class="task-center-alert task-center-alert-warn">${AI_TASK_NOTICE_SANDBOX}</div>` : ''}
+          <div class="task-center-alert">${AI_TASK_LIVE_HINT}</div>
           ${taskCenterNotice ? `<div class="output-box task-center-notice"><p>${escapeHtml(taskCenterNotice)}</p></div>` : ''}
+
+          <section class="settings-section" style="margin-top:14px;padding:16px;border-radius:18px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08)">
+            <h4 style="margin-bottom:8px">Neue Aufgabe</h4>
+            <div class="row">
+              <div style="flex:1;min-width:180px">
+                <label>Titel</label>
+                <input id="aiTaskTitleInput" type="text" placeholder="Produktanalyse">
+              </div>
+              <div style="flex:2;min-width:240px">
+                <label>Beschreibung</label>
+                <input id="aiTaskDescriptionInput" type="text" placeholder="Was soll geprüft werden?">
+              </div>
+            </div>
+            <div class="row" style="margin-top:10px">
+              <div style="flex:1;min-width:180px">
+                <label>Agent</label>
+                <select id="aiTaskAgentSelect">
+                  <option value="">Ohne Agent</option>
+                  ${Object.keys(state.agents || {}).map((agentId) => `<option value="${escapeHtml(agentId)}">${escapeHtml(getAgent(agentId)?.name || agentId)}</option>`).join('')}
+                </select>
+              </div>
+              <div style="flex:1;min-width:180px">
+                <label>Typ</label>
+                <select id="aiTaskTypeSelect">
+                  ${AI_TASK_TYPES.map((item) => `<option value="${escapeHtml(item.value)}">${escapeHtml(item.label)}</option>`).join('')}
+                </select>
+              </div>
+              <div style="flex:1;min-width:180px">
+                <label>Priorität</label>
+                <select id="aiTaskPrioritySelect">
+                  ${AI_TASK_PRIORITIES.map((item) => `<option value="${escapeHtml(item)}">${escapeHtml(item)}</option>`).join('')}
+                </select>
+              </div>
+              <div style="display:flex;align-items:end">
+                <button type="button" class="secondary" data-task-action="create-task">Aufgabe erstellen</button>
+              </div>
+            </div>
+          </section>
 
           <section class="task-center-triage">
             <div class="task-center-triage-head">
@@ -11564,6 +11843,21 @@ document.addEventListener('DOMContentLoaded',()=>{
 
           <div class="task-center-list">
             ${tasks.length ? tasks.map((task) => buildTaskCard(task)).join('') : `<div class="empty task-center-empty">${escapeHtml(emptyMessage)}</div>`}
+          </div>
+
+          <div class="task-center-card output-box" style="margin-top:14px">
+            <h4>Aufgabendetails</h4>
+            ${selectedTask ? `
+              <p><strong>${escapeHtml(selectedTask.title)}</strong> · ${escapeHtml(selectedTask.type)} · ${escapeHtml(selectedTask.status)}</p>
+              <p>${escapeHtml(selectedTask.description)}</p>
+              <p><strong>Ergebnis:</strong> ${escapeHtml(selectedTask.result || 'Noch kein Ergebnis')}</p>
+              <p><strong>Fehler:</strong> ${escapeHtml(selectedTask.error || 'Kein Fehler')}</p>
+              <div class="hint" style="margin-top:8px"><strong>Prompt:</strong><br>${escapeHtml(buildEffectiveAgentPrompt(selectedTask.agentId, selectedTask)).replace(/\n/g, '<br>')}</div>
+              <div class="output-box" style="margin-top:10px">
+                <h4>Logs</h4>
+                ${(Array.isArray(selectedTask.logs) && selectedTask.logs.length ? selectedTask.logs : ['Noch keine Logs']).map((item) => `<p>${escapeHtml(typeof item === 'string' ? item : JSON.stringify(item))}</p>`).join('')}
+              </div>
+            ` : '<p>Noch keine Aufgabe ausgewählt.</p>'}
           </div>
         </div>
       </div>
@@ -12716,6 +13010,27 @@ document.addEventListener('DOMContentLoaded',()=>{
       }
       const taskActionButton = event.target.closest('[data-task-action]');
       if (taskActionButton) {
+        if (taskActionButton.dataset.taskAction === 'create-task') {
+          const titleInput = getEl('aiTaskTitleInput');
+          const descInput = getEl('aiTaskDescriptionInput');
+          const agentSelect = getEl('aiTaskAgentSelect');
+          const typeSelect = getEl('aiTaskTypeSelect');
+          const prioritySelect = getEl('aiTaskPrioritySelect');
+          createAiTask({
+            title: titleInput ? titleInput.value : 'Neue Aufgabe',
+            description: descInput ? descInput.value : '',
+            agentId: agentSelect ? agentSelect.value : '',
+            agentType: agentSelect && agentSelect.value ? (getAgent(agentSelect.value)?.mode || '') : '',
+            type: typeSelect ? typeSelect.value : 'product_analysis',
+            priority: prioritySelect ? normalizeTaskPriority(prioritySelect.value) : 'normal',
+            input: {
+              source: 'task-center-form',
+              safeTask: AI_TASK_SAFE_TYPES.includes(typeSelect ? typeSelect.value : 'product_analysis'),
+            },
+          });
+          setTaskCenterNotice('Neue Aufgabe wurde lokal gespeichert.');
+          return;
+        }
         handleTaskAction(taskActionButton.dataset.taskId, taskActionButton.dataset.taskAction);
         return;
       }
