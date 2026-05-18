@@ -436,6 +436,7 @@
     <button id="dashboardBtn" class="secondary">🏠 Dashboard</button>
     <button id="ordersBtn" class="secondary">📦 Bestellungen</button>
     <button id="returnsBtn" class="secondary">↩️ Retouren</button>
+    <button id="virtualAgentsBtn" class="secondary">🤖 KI-Agenten & Virtuelle MA</button>
     <select id="mainMenu" class="menu-select" aria-label="eBay Lab auswählen">
       <option value="" disabled selected>🧭 Produkt-Pipeline</option>
       <option value="dashboardTab">1. 🏠 Dashboard</option>
@@ -7585,6 +7586,7 @@ function bindEvents(){
   bind('fullBackupImport','change',importFullBackup);
   bind('dashboardBtn','click',showDashboard);
   bind('ordersBtn','click',openOrders);
+  bind('virtualAgentsBtn','click',()=>showTab('virtualAgentsTab'));
   bind('launcherNewProduct','click',scrollToProductForm);
   bind('launcherBoard','click',openProductBoard);
   bind('launcherGenerator','click',openGenerator);
