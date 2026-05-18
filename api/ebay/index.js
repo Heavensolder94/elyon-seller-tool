@@ -29,6 +29,12 @@ function getEbayTokenEndpoint(environment) {
     : "https://api.ebay.com/identity/v1/oauth2/token";
 }
 
+function getEbayFulfillmentEndpoint(environment) {
+  return environment === "sandbox"
+    ? "https://api.sandbox.ebay.com/sell/fulfillment/v1/order"
+    : "https://api.ebay.com/sell/fulfillment/v1/order";
+}
+
 function getRequestedAction(req) {
   const raw = String(req.query.action || req.query.endpoint || req.query.path || "");
   if (raw) return raw.replace(/^\/+/, "");
@@ -302,6 +308,71 @@ async function handleToken(req, res) {
   });
 }
 
+function daysAgoIso(days) {
+  const date = new Date();
+  date.setDate(date.getDate() - Number(days || 7));
+  return date.toISOString();
+}
+
+async function handleOrders(req, res) {
+  const days = Number(req.query.days || 7);
+  const status = req.query.status || "all";
+  const environment = normalizeEnvironment(req.query.environment || req.query.env || process.env.EBAY_ENV || "production");
+
+  const stored = await readToken(environment);
+  const refreshToken = stored?.refresh_token || process.env.EBAY_REFRESH_TOKEN;
+  if (!refreshToken) {
+    return res.status(404).json({
+      ok: false,
+      error: "Kein gespeicherter refresh_token gefunden.",
+      environment,
+    });
+  }
+
+  const refreshed = await getAccessTokenFromRefreshToken(environment, refreshToken);
+  const accessToken = refreshed?.access_token;
+  if (!accessToken) {
+    return res.status(500).json({
+      ok: false,
+      error: "eBay Access Token konnte nicht aus dem Refresh Token erzeugt werden.",
+    });
+  }
+
+  const filters = [];
+  filters.push(`creationdate:[${daysAgoIso(days)}..${new Date().toISOString()}]`);
+  if (status !== "all") {
+    filters.push(`orderfulfillmentstatus:{${status}}`);
+  }
+
+  const endpoint = `${getEbayFulfillmentEndpoint(environment)}?limit=50&filter=${encodeURIComponent(filters.join(","))}`;
+  const response = await fetch(endpoint, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+      "X-EBAY-C-MARKETPLACE-ID": "EBAY_DE",
+    },
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    return res.status(response.status).json({
+      ok: false,
+      error: data.errors?.[0]?.message || data.message || "eBay Orders Fehler",
+      details: data,
+    });
+  }
+
+  return res.status(200).json({
+    ok: true,
+    environment,
+    days,
+    status,
+    count: data.orders?.length || 0,
+    orders: data.orders || [],
+    raw: data,
+  });
+}
+
 export default async function handler(req, res) {
   try {
     const action = getRequestedAction(req);
@@ -311,6 +382,7 @@ export default async function handler(req, res) {
     if (action === "competition") return handleCompetition(req, res);
     if (action === "exchange-token") return handleExchangeToken(req, res);
     if (action === "token") return handleToken(req, res);
+    if (action === "orders") return handleOrders(req, res);
 
     return res.status(404).json({ ok: false, error: `Unbekannte eBay API Route: ${action}` });
   } catch (error) {
