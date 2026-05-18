@@ -1,0 +1,2 @@
+Triggering Vercel build from codex/autonomy-ui-admin after index markers confirmed true.
+Timestamp: 2026-05-18T19:52:00Z
