@@ -8631,6 +8631,16 @@ document.addEventListener('DOMContentLoaded',()=>{
     basePayload.livePipeline = buildLiveActionPipeline(type, context);
     return basePayload;
   };
+  const resolveApprovalLivePipeline = (approvalEntry) => {
+    const livePipeline = approvalEntry && approvalEntry.payload && approvalEntry.payload.livePipeline;
+    if (livePipeline && typeof livePipeline === 'object') {
+      return livePipeline;
+    }
+    return buildLiveActionPipeline(
+      approvalEntry && approvalEntry.type ? approvalEntry.type : 'listing_update',
+      approvalEntry && approvalEntry.payload && typeof approvalEntry.payload === 'object' ? approvalEntry.payload : {}
+    );
+  };
   const formatLivePipelineText = (pipeline) => {
     if (!pipeline || typeof pipeline !== 'object') return 'Keine Live-Pipeline hinterlegt.';
     const stages = Array.isArray(pipeline.stages) ? pipeline.stages.join(' → ') : '';
@@ -8818,7 +8828,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   };
   const getLiveActionHandler = (type) => LIVE_ACTION_HANDLERS[normalizeApprovalQueueType(type)] || LIVE_ACTION_HANDLERS.listing_update;
   const executeLiveAction = async (approvalEntry) => {
-    const pipeline = approvalEntry && approvalEntry.payload && approvalEntry.payload.livePipeline;
+    const pipeline = resolveApprovalLivePipeline(approvalEntry);
     if (!pipeline) {
       return { ok: false, status: 'missing_pipeline', message: 'Keine Live-Pipeline vorhanden.' };
     }
@@ -11280,7 +11290,7 @@ document.addEventListener('DOMContentLoaded',()=>{
         : '<li>Keine einzelnen Schritte hinterlegt.</li>';
     }
     if (payload) payload.textContent = JSON.stringify(entry.payload || {}, null, 2);
-    if (pipeline) pipeline.textContent = formatLivePipelineText(entry.payload && entry.payload.livePipeline);
+    if (pipeline) pipeline.textContent = formatLivePipelineText(resolveApprovalLivePipeline(entry));
     if (modal) {
       modal.classList.remove('hidden');
       modal.setAttribute('aria-hidden', 'false');
