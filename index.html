@@ -9431,9 +9431,18 @@ document.addEventListener('DOMContentLoaded',()=>{
     logs: getAiLogs(),
   });
 
+  const getAiWorkflowApiBase = () => {
+    const backendUrl = typeof getBackendUrl === 'function' ? getBackendUrl() : '';
+    if (backendUrl) return backendUrl;
+    const storedBackend = localStorage.getItem('backendUrl') || '';
+    return normalizeBackendUrl(storedBackend) || '';
+  };
+
   const syncAiWorkflowToServer = async () => {
     try {
-      const response = await fetch('/api/ai-workflow', {
+      const apiBase = getAiWorkflowApiBase();
+      const endpoint = apiBase ? `${apiBase}/api/ai-workflow` : '/api/ai-workflow';
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(getAiWorkflowSnapshot()),
@@ -9447,7 +9456,9 @@ document.addEventListener('DOMContentLoaded',()=>{
 
   const loadAiWorkflowFromServer = async () => {
     try {
-      const response = await fetch('/api/ai-workflow', { method: 'GET' });
+      const apiBase = getAiWorkflowApiBase();
+      const endpoint = apiBase ? `${apiBase}/api/ai-workflow` : '/api/ai-workflow';
+      const response = await fetch(endpoint, { method: 'GET' });
       const data = await response.json().catch(() => null);
       const serverData = data && data.data && typeof data.data === 'object' ? data.data : null;
       if (!response.ok || !serverData) return false;
