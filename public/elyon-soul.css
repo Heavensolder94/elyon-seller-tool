@@ -179,6 +179,40 @@
   color: #fde68a;
 }
 
+.elyon-soul-chatmode {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-end;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  background: rgba(15, 23, 42, 0.56);
+  color: #cbd5e1;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+.elyon-soul-chatmode[data-tone="good"] {
+  border-color: rgba(34, 197, 94, 0.28);
+  background: rgba(20, 83, 45, 0.3);
+  color: #bbf7d0;
+}
+
+.elyon-soul-chatmode[data-tone="warn"] {
+  border-color: rgba(250, 204, 21, 0.28);
+  background: rgba(69, 52, 10, 0.3);
+  color: #fde68a;
+}
+
+.elyon-soul-chatmode[data-tone="bad"] {
+  border-color: rgba(239, 68, 68, 0.28);
+  background: rgba(69, 10, 10, 0.3);
+  color: #fecaca;
+}
+
 .elyon-soul-close {
   border: 1px solid rgba(148, 163, 184, 0.14);
   background: rgba(15, 23, 42, 0.7);

@@ -227,8 +227,19 @@
       const params = new URLSearchParams(window.location.search);
       const queryCode = params.get('code') || params.get('auth_code') || params.get('authorization_code');
       const queryState = params.get('state') || '';
+      const queryError = params.get('error') || '';
+      const queryErrorDescription = params.get('error_description') || params.get('errorDescription') || '';
+      const queryErrorUri = params.get('error_uri') || params.get('errorUri') || '';
+
       if (queryCode) {
-        return { code: queryCode, source: 'query', state: queryState };
+        return {
+          code: queryCode,
+          source: 'query',
+          state: queryState,
+          error: queryError,
+          errorDescription: queryErrorDescription,
+          errorUri: queryErrorUri
+        };
       }
 
       const hash = window.location.hash ? window.location.hash.replace(/^#/, '') : '';
@@ -236,12 +247,41 @@
         const hashParams = new URLSearchParams(hash);
         const hashCode = hashParams.get('code') || hashParams.get('auth_code') || hashParams.get('authorization_code');
         const hashState = hashParams.get('state') || '';
+        const hashError = hashParams.get('error') || '';
+        const hashErrorDescription = hashParams.get('error_description') || hashParams.get('errorDescription') || '';
+        const hashErrorUri = hashParams.get('error_uri') || hashParams.get('errorUri') || '';
+
         if (hashCode) {
-          return { code: hashCode, source: 'fragment', state: hashState };
+          return {
+            code: hashCode,
+            source: 'fragment',
+            state: hashState,
+            error: hashError,
+            errorDescription: hashErrorDescription,
+            errorUri: hashErrorUri
+          };
+        }
+
+        if (hashError) {
+          return {
+            code: '',
+            source: 'fragment',
+            state: hashState,
+            error: hashError,
+            errorDescription: hashErrorDescription,
+            errorUri: hashErrorUri
+          };
         }
       }
 
-      return { code: '', source: 'none', state: queryState };
+      return {
+        code: '',
+        source: 'none',
+        state: queryState,
+        error: queryError,
+        errorDescription: queryErrorDescription,
+        errorUri: queryErrorUri
+      };
     }
 
     function setStatus(message, kind) {
@@ -389,12 +429,29 @@
       codeSourceEl.textContent = info.source;
       stateLabelEl.textContent = info.state || 'Nicht gesetzt';
 
+      if (info.error) {
+        const errorSummary = info.errorDescription ? `${info.error}: ${info.errorDescription}` : info.error;
+        setStatus(`eBay hat einen OAuth-Fehler zurückgegeben: ${errorSummary}`, 'warn');
+        setResult({
+          ok: false,
+          error: info.error,
+          error_description: info.errorDescription || null,
+          error_uri: info.errorUri || null,
+          state: info.state || null,
+          callback_url: window.location.href,
+          expected_redirect: `${window.location.origin}/ebay-callback`
+        });
+        return;
+      }
+
       if (!info.code) {
-        setStatus('Kein Code in der URL gefunden. Starte den eBay-Login erneut, damit der Callback einen frischen Autorisierungscode erhält.', 'warn');
+        setStatus('Kein Code in der URL gefunden. Starte den eBay-Login erneut und prüfe die Redirect-URI.', 'warn');
         setResult({
           ok: false,
           error: 'Kein Code in der URL gefunden.',
-          hint: 'Öffne den eBay-Consent-Flow erneut und prüfe die Redirect-URI.'
+          hint: 'Öffne den eBay-Consent-Flow erneut und prüfe die Redirect-URI.',
+          callback_url: window.location.href,
+          expected_redirect: `${window.location.origin}/ebay-callback`
         });
         return;
       }

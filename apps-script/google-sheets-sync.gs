@@ -8,12 +8,13 @@ const SHEET_CONFIG = {
     keyColumn: "Supplier-ID"
   },
   sales: {
-    sheetName: "Sales & Klarna",
-    keyColumn: "Sale-ID"
+    sheetName: "Inventar",
+    legacySheetNames: ["InventarTracker", "Bestellungen", "Sales & Klarna"],
+    keyColumn: "Artikel-ID"
   },
   costs: {
     sheetName: "Laufende Kosten",
-    keyColumn: "Kosten-ID"
+    keyColumn: "Name"
   }
 };
 
@@ -53,39 +54,34 @@ const HEADERS_BY_TYPE = {
     "Notizen"
   ],
   sales: [
-    "Sale-ID",
-    "Datum",
-    "eBay Bestellnummer",
     "Artikel-ID",
-    "Produkt",
-    "Verkaufspreis",
-    "eBay Gebühren",
-    "Einkaufspreis",
-    "Versandkosten",
+    "Bezeichnung",
+    "Typ",
+    "Preis EK",
+    "Versand mind.",
+    "PreisGesamt EK",
+    "Preis VK (ebay)",
+    "Ebay gebühren",
     "Gewinn",
-    "Auszahlung erhalten",
-    "Klarna genutzt",
-    "Klarna Betrag",
-    "Klarna Fällig am",
-    "Supplier bestellt",
-    "Trackingnummer",
+    "Zielgewinn",
+    "Emph. Zielpreis",
+    "Versand ab",
+    "Stock",
     "Status",
-    "Notizen"
+    "Lieferant",
+    "Versandzeit",
+    "Ebay Link",
+    "Hinweise"
   ],
   costs: [
-    "Kosten-ID",
-    "Datum",
-    "Kategorie",
-    "Beschreibung",
+    "Name",
+    "Interval",
     "Betrag",
-    "Zahlungsart",
-    "Wiederkehrend",
-    "Intervall",
-    "Nächste Fälligkeit",
-    "Status",
-    "Notizen"
+    "Notiz"
   ]
 };
+
+const SCRIPT_BUILD = "2026-05-15-inventartracker-schema-v3";
 
 function doPost(e) {
   const lock = LockService.getScriptLock();
@@ -99,6 +95,7 @@ function doPost(e) {
 
     return jsonResponse_({
       ok: true,
+      build: SCRIPT_BUILD,
       action: payload.action,
       type: payload.type,
       sheetName: result.sheetName,
@@ -117,6 +114,32 @@ function doPost(e) {
     });
   } finally {
     lock.releaseLock();
+  }
+}
+
+function doGet(e) {
+  try {
+    validateQuery_(e);
+    const type = String((e && e.parameter && e.parameter.type) || "").trim();
+    const ss = getSpreadsheet_();
+    const records = readRecords_(ss, type);
+
+    return jsonResponse_({
+      ok: true,
+      build: SCRIPT_BUILD,
+      action: "getRecords",
+      type: type,
+      count: records.length,
+      records: records,
+      syncedAt: new Date().toISOString()
+    });
+  } catch (error) {
+    return jsonResponse_({
+      ok: false,
+      error: error && error.message ? error.message : "Unerwarteter Fehler",
+      details: error && error.stack ? String(error.stack) : "",
+      status: 500
+    });
   }
 }
 
@@ -155,24 +178,47 @@ function validatePayload_(payload) {
   }
 }
 
+function validateQuery_(e) {
+  const expectedToken = getExpectedToken_();
+  if (!expectedToken) {
+    throw new Error("SYNC_TOKEN fehlt in den Script Properties.");
+  }
+
+  const token = String((e && e.parameter && e.parameter.token) || "").trim();
+  const action = String((e && e.parameter && e.parameter.action) || "getRecords").trim();
+  const type = String((e && e.parameter && e.parameter.type) || "").trim();
+
+  if (token !== expectedToken) {
+    throw new Error("Ungultiger Sync Token.");
+  }
+
+  if (action !== "getRecords") {
+    throw new Error("Unbekannte action: " + String(action || ""));
+  }
+
+  if (!SHEET_CONFIG[type]) {
+    throw new Error("Unbekannter type: " + String(type || ""));
+  }
+}
+
 function getExpectedToken_() {
   const props = PropertiesService.getScriptProperties();
   return props.getProperty("SYNC_TOKEN") || props.getProperty("ELYON_SYNC_TOKEN") || props.getProperty("GOOGLE_SYNC_TOKEN") || "";
 }
 
 function getSpreadsheet_() {
-  const props = PropertiesService.getScriptProperties();
-  const spreadsheetId = props.getProperty("SPREADSHEET_ID") || props.getProperty("GOOGLE_SPREADSHEET_ID") || "";
-  if (spreadsheetId) {
-    return SpreadsheetApp.openById(spreadsheetId);
-  }
-
   const active = SpreadsheetApp.getActiveSpreadsheet();
   if (active) {
     return active;
   }
 
-  throw new Error("Kein Spreadsheet gefunden. Bitte SPREADSHEET_ID setzen oder das Script an ein Spreadsheet binden.");
+  const props = PropertiesService.getScriptProperties();
+  const spreadsheetId = String(props.getProperty("SPREADSHEET_ID") || props.getProperty("GOOGLE_SPREADSHEET_ID") || "").trim();
+  if (spreadsheetId) {
+    return SpreadsheetApp.openById(spreadsheetId);
+  }
+
+  throw new Error("Kein Spreadsheet gefunden. Bitte das Script direkt an der Google-Tabelle ausführen oder SPREADSHEET_ID setzen.");
 }
 
 function upsertRecords_(ss, type, records) {
@@ -218,8 +264,57 @@ function upsertRecords_(ss, type, records) {
   };
 }
 
+function readRecords_(ss, type) {
+  const config = SHEET_CONFIG[type];
+  const headers = HEADERS_BY_TYPE[type];
+  let sheet = ss.getSheetByName(config.sheetName);
+  if (!sheet && Array.isArray(config.legacySheetNames)) {
+    for (let i = 0; i < config.legacySheetNames.length; i += 1) {
+      sheet = ss.getSheetByName(config.legacySheetNames[i]);
+      if (sheet) {
+        break;
+      }
+    }
+  }
+  if (!sheet || sheet.getLastRow() < 2) {
+    return [];
+  }
+
+  const effectiveHeaders = ensureHeaderRow_(sheet, headers);
+  const lastRow = sheet.getLastRow();
+  const lastColumn = Math.max(sheet.getLastColumn(), effectiveHeaders.length);
+  const values = sheet.getRange(2, 1, lastRow - 1, lastColumn).getValues();
+
+  return values.map(function (row) {
+    const record = {};
+    effectiveHeaders.forEach(function (header, index) {
+      if (!header) {
+        return;
+      }
+      record[header] = row[index];
+    });
+    return record;
+  });
+}
+
 function ensureSheet_(ss, sheetName, headers) {
   let sheet = ss.getSheetByName(sheetName);
+  if (!sheet) {
+    for (const configKey of Object.keys(SHEET_CONFIG)) {
+      const config = SHEET_CONFIG[configKey];
+      if (config.sheetName === sheetName && Array.isArray(config.legacySheetNames)) {
+        for (let i = 0; i < config.legacySheetNames.length; i += 1) {
+          sheet = ss.getSheetByName(config.legacySheetNames[i]);
+          if (sheet) {
+            break;
+          }
+        }
+      }
+      if (sheet) {
+        break;
+      }
+    }
+  }
   if (!sheet) {
     sheet = ss.insertSheet(sheetName);
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);

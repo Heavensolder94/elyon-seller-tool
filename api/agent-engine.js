@@ -1,0 +1,102 @@
+const STORE_URL = process.env.ELYON_AGENT_RUNTIME_STORE_URL || "";
+const STORE_TOKEN = process.env.ELYON_AGENT_RUNTIME_STORE_TOKEN || "";
+const STORE_KEY = process.env.ELYON_AGENT_RUNTIME_KEY || "elyon:agent-runtime";
+
+function safeJsonParse(text) {
+  try {
+    return text ? JSON.parse(text) : null;
+  } catch {
+    return null;
+  }
+}
+
+function normalizeMode(runtime) {
+  const securityLocked = runtime?.settings?.securityMode !== false || runtime?.settings?.sandboxMode !== false;
+  if (runtime?.settings?.pauseAllAgents === true || runtime?.settings?.pausedAll === true) return "paused";
+  if (securityLocked) return "sandboxed";
+  if (runtime?.settings?.advancedMode === true && runtime?.settings?.autonomyLocked === false) return "local";
+  return "sandboxed";
+}
+
+async function readStore() {
+  if (!STORE_URL || !STORE_TOKEN) return null;
+  const response = await fetch(`${STORE_URL.replace(/\/+$/, "")}/get/${encodeURIComponent(STORE_KEY)}`, {
+    headers: {
+      Authorization: `Bearer ${STORE_TOKEN}`,
+    },
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok) return null;
+  return data?.result ? safeJsonParse(data.result) || data.result : null;
+}
+
+async function writeStore(payload) {
+  if (!STORE_URL || !STORE_TOKEN) return false;
+  const response = await fetch(`${STORE_URL.replace(/\/+$/, "")}/set/${encodeURIComponent(STORE_KEY)}/${encodeURIComponent(JSON.stringify(payload))}`, {
+    headers: {
+      Authorization: `Bearer ${STORE_TOKEN}`,
+    },
+  });
+  return response.ok;
+}
+
+function summarizeRuntime(runtime) {
+  const worker = runtime?.worker && typeof runtime.worker === "object" ? runtime.worker : {};
+  const queue = Array.isArray(runtime?.queue) ? runtime.queue : [];
+  const logs = Array.isArray(runtime?.logs) ? runtime.logs : [];
+  return {
+    workerStatus: worker.status || normalizeMode(runtime),
+    mode: worker.mode || normalizeMode(runtime),
+    queueLength: queue.length,
+    logCount: logs.length,
+    lastTick: worker.lastTick || "",
+    lastRun: worker.lastRun || "",
+    queuePreview: queue.slice(0, 5).map((item) => ({
+      id: item?.id || "",
+      agentId: item?.agentId || "",
+      title: item?.title || "",
+      status: item?.status || "queued",
+    })),
+  };
+}
+
+function buildNextRuntime(runtime, req) {
+  const now = new Date().toISOString();
+  const next = runtime && typeof runtime === "object" ? { ...runtime } : {};
+  next.settings = next.settings && typeof next.settings === "object" ? { ...next.settings } : {};
+  next.worker = next.worker && typeof next.worker === "object" ? { ...next.worker } : {};
+  next.worker.lastTick = now;
+  next.worker.lastRun = now;
+  next.worker.status = normalizeMode(next);
+  next.worker.mode = next.worker.status;
+  next.worker.notes = next.worker.notes || "Serverseitiger Status-Worker";
+  next.worker.queueLength = Array.isArray(next.queue) ? next.queue.length : 0;
+  next.source = req?.query?.tick ? "cron" : "manual";
+  return next;
+}
+
+export default async function handler(req, res) {
+  try {
+    const runtimeFromBody = req.body && typeof req.body === "object" ? req.body.runtime : null;
+    const requestSettings = req.body && typeof req.body === "object" && req.body.settings && typeof req.body.settings === "object" ? req.body.settings : null;
+    const storedRuntime = runtimeFromBody || (await readStore());
+    const nextRuntime = buildNextRuntime(requestSettings ? { ...storedRuntime, settings: requestSettings } : storedRuntime, req);
+
+    if ((runtimeFromBody || storedRuntime) && STORE_URL && STORE_TOKEN) {
+      await writeStore(nextRuntime);
+    }
+
+    return res.status(200).json({
+      ok: true,
+      stored: Boolean(storedRuntime),
+      runtime: summarizeRuntime(nextRuntime),
+      storeConfigured: Boolean(STORE_URL && STORE_TOKEN),
+      tick: Boolean(req?.query?.tick || req?.body?.action === "tick"),
+    });
+  } catch (error) {
+    return res.status(500).json({
+      ok: false,
+      error: error && error.message ? error.message : "Agent engine error",
+    });
+  }
+}
