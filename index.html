@@ -8382,7 +8382,7 @@ document.addEventListener('DOMContentLoaded',()=>{
         id: 'auto-orders',
         icon: '🔒',
         title: 'Automatische Bestellungen',
-        description: 'Bestellungen beim Supplier automatisch vorbereiten oder auslösen.',
+        description: 'Bestellungen werden später aus gespeicherten Bestellplänen vorbereitet und erst nach Freigabe ausgelöst.',
       },
       {
         id: 'auto-messages',
@@ -8516,6 +8516,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     autoQueueReview: true,
     note: '',
     lastRunAt: '',
+    preparedPlans: [],
   };
   const AI_TASK_DEMO_BASE_TIME = Date.now();
   const createTaskId = () => `ai-task-${Math.random().toString(36).slice(2, 10)}-${Date.now().toString(36)}`;
@@ -9472,6 +9473,9 @@ document.addEventListener('DOMContentLoaded',()=>{
         autoQueueReview: typeof source.orderWorkflow === 'object' && source.orderWorkflow ? source.orderWorkflow.autoQueueReview !== false : defaults.orderWorkflow.autoQueueReview,
         note: typeof source.orderWorkflow === 'object' && source.orderWorkflow && typeof source.orderWorkflow.note === 'string' ? source.orderWorkflow.note : defaults.orderWorkflow.note,
         lastRunAt: typeof source.orderWorkflow === 'object' && source.orderWorkflow && typeof source.orderWorkflow.lastRunAt === 'string' ? source.orderWorkflow.lastRunAt : defaults.orderWorkflow.lastRunAt,
+        preparedPlans: typeof source.orderWorkflow === 'object' && source.orderWorkflow && Array.isArray(source.orderWorkflow.preparedPlans)
+          ? source.orderWorkflow.preparedPlans
+          : defaults.orderWorkflow.preparedPlans,
       },
       futureDetailsOpen: source.futureDetailsOpen && typeof source.futureDetailsOpen === 'object' ? {
         lockedFunctions: source.futureDetailsOpen.lockedFunctions && typeof source.futureDetailsOpen.lockedFunctions === 'object' ? {...source.futureDetailsOpen.lockedFunctions} : {},
@@ -9894,6 +9898,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   };
   const getOrderWorkflowSettings = () => {
     const workflow = state.orderWorkflow && typeof state.orderWorkflow === 'object' ? state.orderWorkflow : {};
+    const preparedPlans = Array.isArray(workflow.preparedPlans) ? workflow.preparedPlans : [];
     return {
       enabled: workflow.enabled === true,
       mode: workflow.mode === 'manual' ? 'manual' : 'semi',
@@ -9903,6 +9908,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       autoQueueReview: workflow.autoQueueReview !== false,
       note: sanitizeActivity(workflow.note || '', ''),
       lastRunAt: sanitizeActivity(workflow.lastRunAt || '', ''),
+      preparedPlans: preparedPlans.map((plan) => normalizeOrderWorkflowPlan(plan)),
     };
   };
   const saveOrderWorkflowSettings = (next) => {
@@ -9918,9 +9924,97 @@ document.addEventListener('DOMContentLoaded',()=>{
       autoQueueReview: next && typeof next.autoQueueReview === 'boolean' ? next.autoQueueReview : current.autoQueueReview,
       note: sanitizeActivity(next && next.note !== undefined ? next.note : current.note, ''),
       lastRunAt: sanitizeActivity(next && next.lastRunAt !== undefined ? next.lastRunAt : current.lastRunAt, ''),
+      preparedPlans: Array.isArray(current.preparedPlans) ? current.preparedPlans.map((plan) => normalizeOrderWorkflowPlan(plan)) : [],
     };
     saveState();
     render();
+  };
+  const normalizeOrderWorkflowPlan = (plan) => {
+    const source = plan && typeof plan === 'object' ? plan : {};
+    const steps = Array.isArray(source.steps) ? source.steps : [];
+    return {
+      id: sanitizeActivity(source.id || '', ''),
+      saleId: sanitizeActivity(source.saleId || '', ''),
+      orderNo: sanitizeActivity(source.orderNo || '', ''),
+      product: sanitizeActivity(source.product || '', ''),
+      platform: sanitizeActivity(source.platform || '', ''),
+      origin: sanitizeActivity(source.origin || '', ''),
+      workflowMode: source.workflowMode === 'manual' ? 'manual' : 'semi',
+      status: source.status === 'executed' ? 'executed' : (source.status === 'pending' ? 'pending' : 'prepared'),
+      createdAt: sanitizeActivity(source.createdAt || '', ''),
+      lastPreparedAt: sanitizeActivity(source.lastPreparedAt || '', ''),
+      stepCount: Number.isFinite(Number(source.stepCount)) ? Number(source.stepCount) : steps.length,
+      steps: steps.map((step, index) => {
+        const normalizedStep = step && typeof step === 'object' ? step : {};
+        return {
+          id: sanitizeActivity(normalizedStep.id || `step-${index + 1}`, ''),
+          title: sanitizeActivity(normalizedStep.title || '', ''),
+          status: normalizedStep.status === 'executed' ? 'executed' : (normalizedStep.status === 'pending' ? 'pending' : 'prepared'),
+          actionType: sanitizeActivity(normalizedStep.actionType || '', ''),
+          connector: sanitizeActivity(normalizedStep.connector || '', ''),
+          note: sanitizeActivity(normalizedStep.note || '', ''),
+        };
+      }),
+    };
+  };
+  const buildOrderAutomationPlan = (sale, workflow, origin) => {
+    if (!sale || !sale.id) return null;
+    const createdAt = new Date().toISOString();
+    const selectedWorkflow = workflow && typeof workflow === 'object' ? workflow : getOrderWorkflowSettings();
+    const steps = [];
+    const addStep = (id, title, actionType, connector, note) => {
+      steps.push({
+        id,
+        title,
+        status: 'prepared',
+        actionType,
+        connector,
+        note,
+      });
+    };
+    if (selectedWorkflow.autoInvoice) {
+      addStep('invoice', 'Rechnung vorbereiten', 'listing_update', 'invoice-draft', 'Rechnung als Entwurf vorbereiten.');
+    }
+    if (selectedWorkflow.autoShippingTask) {
+      addStep('shipping', 'Versand vorbereiten', 'order_prepare', 'supplier-order', 'Versandbearbeitung später freigeben.');
+    }
+    if (selectedWorkflow.autoQueueReview) {
+      addStep('review', 'Bestellprüfung anstoßen', 'risk_action', 'risk-review', 'Offene Prüfung vorbereiten.');
+    }
+    if (selectedWorkflow.autoSyncGoogleSheets) {
+      addStep('sync', 'Google Sheets Abgleich', 'risk_action', 'google-sheets-sync', 'Google Sheets Sync später ausführen.');
+    }
+    return normalizeOrderWorkflowPlan({
+      id: `order-workflow-plan-${sale.id}`,
+      saleId: sale.id,
+      orderNo: sale.orderNo || '',
+      product: sale.product || '',
+      platform: sale.platform || 'eBay',
+      origin: origin || 'manuell',
+      workflowMode: selectedWorkflow.mode === 'manual' ? 'manual' : 'semi',
+      status: 'prepared',
+      createdAt,
+      lastPreparedAt: createdAt,
+      stepCount: steps.length,
+      steps,
+    });
+  };
+  const upsertOrderWorkflowPlan = (plan) => {
+    const normalized = normalizeOrderWorkflowPlan(plan);
+    if (!normalized.saleId) return null;
+    const current = getOrderWorkflowSettings();
+    const plans = Array.isArray(current.preparedPlans) ? current.preparedPlans.slice() : [];
+    const index = plans.findIndex((item) => item && item.saleId === normalized.saleId);
+    if (index >= 0) {
+      plans[index] = normalized;
+    } else {
+      plans.unshift(normalized);
+    }
+    state.orderWorkflow = {
+      ...current,
+      preparedPlans: plans.slice(0, 25),
+    };
+    return normalized;
   };
   const orderWorkflowModeLabel = (mode) => (mode === 'manual' ? 'Manuell' : 'Halbautomatisch');
   const getOpenWorkflowSales = () => sales.filter((sale) => !['Abgeschlossen', 'Storniert'].includes(sale.status || 'Bezahlt'));
@@ -9974,11 +10068,12 @@ document.addEventListener('DOMContentLoaded',()=>{
     const stamp = new Date(createdAt).toLocaleString('de-DE');
     const note = workflow.note ? ` · ${workflow.note}` : '';
     const summary = [`${sale.orderNo || sale.product || 'Bestellung'}${origin ? ` · ${origin}` : ''}${note}`];
+    const plan = buildOrderAutomationPlan(sale, workflow, origin);
     if (workflow.autoInvoice) {
       upsertOrderWorkflowTask(
         sale,
         'Rechnung vorbereiten',
-        buildWorkflowSummaryText('Rechnung', summary),
+        buildWorkflowSummaryText('Rechnung', [...summary, 'Entwurf als nächste Live-Stufe vorbereitet']),
         'Rechnung öffnen',
         'Rechnung'
       );
@@ -10011,9 +10106,20 @@ document.addEventListener('DOMContentLoaded',()=>{
         'Sync'
       );
     }
+    if (plan) {
+      const preparedPlan = upsertOrderWorkflowPlan(plan);
+      if (preparedPlan && plan.steps.length) {
+        preparedPlan.lastPreparedAt = createdAt;
+        preparedPlan.stepCount = plan.steps.length;
+        preparedPlan.status = workflow.mode === 'manual' ? 'prepared' : 'pending';
+        preparedPlan.steps = plan.steps.map((step) => ({ ...step }));
+      }
+    }
     state.orderWorkflow = {
+      ...state.orderWorkflow,
       ...workflow,
       lastRunAt: createdAt,
+      preparedPlans: Array.isArray(state.orderWorkflow && state.orderWorkflow.preparedPlans) ? state.orderWorkflow.preparedPlans : Array.isArray(workflow.preparedPlans) ? workflow.preparedPlans : [],
     };
     saveState();
     render();
@@ -11545,6 +11651,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   const buildOrderWorkflowPanel = () => {
     const workflow = getOrderWorkflowSettings();
     const openSales = getOpenWorkflowSales().slice(0, 5);
+    const preparedPlans = Array.isArray(workflow.preparedPlans) ? workflow.preparedPlans : [];
     const workflowModeLabel = orderWorkflowModeLabel(workflow.mode);
     return `
       <div class="virtual-agent-card virtual-agents-panel ${activePanel === 'order-workflow' ? 'active' : ''}" data-panel="order-workflow">
@@ -11564,6 +11671,7 @@ document.addEventListener('DOMContentLoaded',()=>{
           <div class="metric"><small>Modus</small><strong>${workflowModeLabel}</strong></div>
           <div class="metric"><small>Letzter Lauf</small><strong>${workflow.lastRunAt ? escapeHtml(formatTaskDate(workflow.lastRunAt)) : 'Noch nie'}</strong></div>
           <div class="metric"><small>Offene Bestellungen</small><strong>${openSales.length}</strong></div>
+          <div class="metric"><small>Vorbereitete Pläne</small><strong>${preparedPlans.length}</strong></div>
         </div>
 
         <div class="virtual-agents-note" style="margin-top:14px">
@@ -11632,6 +11740,18 @@ document.addEventListener('DOMContentLoaded',()=>{
             <li>${workflow.autoQueueReview ? 'Prüfung/Warteschlange vorbereiten' : 'Keine automatische Prüfaufgabe'}</li>
             <li>${workflow.autoSyncGoogleSheets ? 'Google Sheets Abgleich vorbereiten' : 'Google Sheets nur manuell synchronisieren'}</li>
           </ul>
+        </div>
+
+        <div class="output-box" style="margin-top:14px">
+          <h3>Gespeicherte Vorbereitungen</h3>
+          ${preparedPlans.length ? `
+            <ul>
+              ${preparedPlans.slice(0, 5).map((plan) => {
+                const stepNames = Array.isArray(plan.steps) ? plan.steps.map((step) => step && step.title ? step.title : '').filter(Boolean) : [];
+                return `<li><strong>${escapeHtml(plan.orderNo || plan.product || plan.saleId || 'Bestellung')}</strong> - ${escapeHtml(stepNames.join(' · ') || 'Keine Schritte vorbereitet')}</li>`;
+              }).join('')}
+            </ul>
+          ` : '<p>Noch keine gespeicherte Vorbereitung vorhanden.</p>'}
         </div>
 
         <div class="output-box" style="margin-top:14px">
