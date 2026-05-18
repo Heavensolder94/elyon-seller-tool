@@ -265,7 +265,42 @@
   .virtual-future-card .virtual-agent-ident{align-items:flex-start}
   .virtual-future-card h4{margin:0;font-size:17px;letter-spacing:-.02em}
   .virtual-future-card p{margin:4px 0 0;color:#cbd5e1;font-size:13px;line-height:1.5}
-  .virtual-future-warning{padding:14px 16px;border-radius:18px;background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.24);color:#fde68a;font-size:13px;line-height:1.55}
+  .autonomy-registry{display:grid;gap:16px}
+  .autonomy-registry-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+  .autonomy-collection-card{padding:20px;border-radius:18px;background:rgba(2,6,23,.28);border:1px solid rgba(148,163,184,.12);display:grid;gap:14px;box-shadow:none}
+  .autonomy-collection-head{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;flex-wrap:wrap}
+  .autonomy-collection-head h4{margin:0;font-size:17px;letter-spacing:-.02em}
+  .autonomy-collection-head p{margin-top:4px;color:#cbd5e1;font-size:13px;line-height:1.5}
+  .autonomy-collection-head .pill{white-space:nowrap}
+  .autonomy-collection-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+  .autonomy-collection-toggle{padding:10px 13px;border-radius:12px;font-size:13px}
+  .autonomy-collection-body{display:grid;gap:16px}
+  .autonomy-lane{display:grid;gap:10px}
+  .autonomy-lane-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap}
+  .autonomy-lane-head h5{margin:0;font-size:15px;letter-spacing:-.02em}
+  .autonomy-lane-head p{margin-top:4px;color:#94a3b8;font-size:12px;line-height:1.45}
+  .autonomy-permission-list{display:grid;gap:12px}
+  .autonomy-permission-card{padding:14px;border-radius:16px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08)}
+  .autonomy-permission-card.active{border-color:rgba(34,197,94,.2);background:rgba(34,197,94,.08)}
+  .autonomy-permission-actions{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+  .autonomy-permission-actions button{padding:9px 12px;border-radius:12px;font-size:13px}
+  .autonomy-empty-state{padding:14px 15px;border-radius:16px;background:rgba(255,255,255,.03);border:1px dashed rgba(148,163,184,.24);color:#94a3b8;font-size:13px;line-height:1.5}
+  .autonomy-lock-note{padding:13px 15px;border-radius:16px;background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.18);color:#dbeafe;font-size:13px;line-height:1.5}
+  .virtual-future-warning{padding:14px 16px;border-radius:16px;background:rgba(2,6,23,.3);border:1px solid rgba(96,165,250,.18);border-left:4px solid #3b82f6;color:#dbeafe;font-size:13px;line-height:1.55}
+  .autonomy-permission-meta{display:flex;gap:8px;flex-wrap:wrap}
+  .autonomy-permission-meta .pill{font-size:11px;padding:5px 8px}
+  .autonomy-permission-tools{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+  .autonomy-permission-tools .secondary{padding:9px 11px;border-radius:12px;font-size:13px}
+  .autonomy-permission-tools .gear-button{min-width:42px;padding-inline:11px}
+  .permission-settings-panel{max-width:720px;width:min(96vw,720px)}
+  .permission-settings-grid{display:grid;gap:12px}
+  .permission-settings-head{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;flex-wrap:wrap;margin-bottom:12px}
+  .permission-settings-head h2{margin-bottom:0}
+  .permission-settings-head p{margin-top:6px}
+  .permission-settings-preview{padding:14px 15px;border-radius:16px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);display:grid;gap:6px}
+  .permission-settings-preview small{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:#94a3b8}
+  .permission-settings-preview strong{font-size:18px;letter-spacing:-.02em}
+  .permission-settings-preview p{color:#cbd5e1;font-size:13px;line-height:1.5}
   .extended-autonomy-card{position:relative;overflow:hidden;display:grid;gap:14px;padding:18px;border-radius:22px;background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.04));border:1px solid rgba(96,165,250,.14);box-shadow:0 18px 50px rgba(0,0,0,.18)}
   .extended-autonomy-card:before{content:'';position:absolute;inset:-2px auto auto -2px;width:180px;height:180px;background:radial-gradient(circle,rgba(59,130,246,.18),transparent 72%);pointer-events:none;filter:blur(8px)}
   .extended-autonomy-card.active{border-color:rgba(250,204,21,.22);box-shadow:0 20px 60px rgba(245,158,11,.12)}
@@ -352,6 +387,7 @@
     .settings-agents-overview,.virtual-agent-grid{grid-template-columns:1fr}
     .virtual-agent-system-metrics{grid-template-columns:1fr 1fr}
     .virtual-future-grid{grid-template-columns:1fr}
+    .autonomy-registry-grid{grid-template-columns:1fr}
     .task-center-stats,.task-center-meta-grid,.task-center-filters{grid-template-columns:1fr}
     .settings-agents-header{display:block}
     .virtual-agent-badge{margin-top:10px}
@@ -1100,12 +1136,8 @@ Land"></textarea>
         <button id="syncSuppliersGoogleSheetsBtn" class="secondary full" type="button">Supplier Liste synchronisieren</button>
       </div>
       <div class="row" style="margin-top:10px">
-        <button id="syncSalesGoogleSheetsBtn" class="secondary full" type="button">InventarTracker synchronisieren</button>
+ <button id="syncSalesGoogleSheetsBtn" class="secondary full" type="button">InventarTracker synchronisieren</button>
         <button id="syncCostsGoogleSheetsBtn" class="secondary full" type="button">Laufende Kosten synchronisieren</button>
-      </div>
-      <div class="row" style="margin-top:10px">
-        <button id="loadSalesGoogleSheetsBtn" class="secondary full" type="button">InventarTracker laden</button>
-        <button class="secondary full" type="button" onclick="showTab('ordersTab')">Bestellungen öffnen</button>
       </div>
       <div id="googleSheetsSyncStatus" class="output-box" style="margin-top:14px"><p>Nicht verbunden</p></div>
       <div id="googleSheetsSyncResult" class="output-box" style="margin-top:14px"><p>Noch keine Synchronisierung ausgeführt.</p></div>
@@ -1512,18 +1544,18 @@ PLZ Ort"></textarea>
           <div class="virtual-agent-icon">🧭</div>
           <div>
             <h2 style="margin-bottom:0">Erweiterte Autonomie freischalten?</h2>
-            <p class="hint" style="margin-top:6px">Diese Funktionen sind experimentell.</p>
+            <p class="hint" style="margin-top:6px">Diese Freigabe aktiviert die Verwaltung der geschützten Funktionen und Rollen.</p>
           </div>
         </div>
         <span class="virtual-agent-badge warn">Sandbox bleibt aktiv</span>
       </div>
       <div class="output-box" style="margin-top:0">
-        <p>Später könnten virtuelle Mitarbeiter:</p>
+        <p>Nach der Freischaltung kannst du geschützte Funktionen und Rollen einzeln zwischen „gesperrt“ und „aktiv“ verschieben.</p>
         <ul>
-          <li>automatische Aktionen vorbereiten</li>
-          <li>Kundennachrichten vorbereiten</li>
-          <li>Listings vorbereiten</li>
-          <li>Workflows automatisieren</li>
+          <li>Funktionen aktivieren oder wieder sperren</li>
+          <li>Rollen in die aktive Liste verschieben</li>
+          <li>Freigaben sauber nachvollziehen</li>
+          <li>die Vorschau als Sicherheitsübersicht behalten</li>
         </ul>
         <p>Aktuell bleiben Live-Aktionen weiterhin durch Sicherheitsmodus und Sandbox blockiert.</p>
       </div>
@@ -1540,6 +1572,49 @@ PLZ Ort"></textarea>
       </div>
       <div class="row" style="margin-top:14px">
         <button type="button" id="advancedAutonomyCloseBtn" class="secondary full">Abbrechen</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="extendedPermissionModal" class="hidden modal-backdrop">
+    <div class="card modal-panel permission-settings-panel">
+      <div class="permission-settings-head">
+        <div class="virtual-agent-ident" style="align-items:flex-start">
+          <div class="virtual-agent-icon">⚙️</div>
+          <div>
+            <h2 style="margin-bottom:0" id="extendedPermissionModalTitle">Einstellung</h2>
+            <p class="hint" style="margin-top:6px" id="extendedPermissionModalSubtitle">Konfiguration für die ausgewählte Funktion oder Rolle.</p>
+          </div>
+        </div>
+        <span class="virtual-agent-badge info" id="extendedPermissionModalKind">Funktion</span>
+      </div>
+      <div class="permission-settings-preview">
+        <small id="extendedPermissionModalStatusLabel">Status</small>
+        <strong id="extendedPermissionModalItemTitle">-</strong>
+        <p id="extendedPermissionModalItemDescription">-</p>
+      </div>
+      <div class="permission-settings-grid" style="margin-top:14px">
+        <div class="row">
+          <div>
+            <label for="extendedPermissionModalStatus">Freigabe</label>
+            <select id="extendedPermissionModalStatus">
+              <option value="locked">Gesperrt</option>
+              <option value="active">Aktiv</option>
+            </select>
+          </div>
+          <div>
+            <label id="extendedPermissionModalModeLabel" for="extendedPermissionModalMode">Modus</label>
+            <select id="extendedPermissionModalMode"></select>
+          </div>
+        </div>
+        <div>
+          <label for="extendedPermissionModalNote">Notiz</label>
+          <textarea id="extendedPermissionModalNote" placeholder="Kurze Einstellungsnotiz"></textarea>
+        </div>
+      </div>
+      <div class="row" style="margin-top:14px">
+        <button type="button" id="extendedPermissionModalSaveBtn" class="full">Speichern</button>
+        <button type="button" id="extendedPermissionModalCloseBtn" class="secondary full">Abbrechen</button>
       </div>
     </div>
   </div>
@@ -2305,7 +2380,6 @@ const GOOGLE_SHEETS_SYNC_KEYS = {
   supplierAt: 'elyon_last_supplier_sync_at',
   salesAt: 'elyon_last_sales_sync_at',
   costsAt: 'elyon_last_costs_sync_at',
-  salesLoadAt: 'elyon_last_sales_load_at',
 };
 const GOOGLE_SHEETS_SYNC_TYPES = {
   inventory: 'inventory',
@@ -2372,7 +2446,6 @@ function renderGoogleSheetsSyncStatus(){
   const lastSupplier = formatSyncTimestamp(localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.supplierAt));
   const lastSales = formatSyncTimestamp(localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.salesAt));
   const lastCosts = formatSyncTimestamp(localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.costsAt));
-  const lastSalesLoad = formatSyncTimestamp(localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.salesLoadAt));
   safe('googleSheetsSyncUrl', el => el.value = config.url || '');
   safe('googleSheetsSyncToken', el => el.value = config.token || '');
   setHTML('googleSheetsSyncStatus',
@@ -2380,10 +2453,9 @@ function renderGoogleSheetsSyncStatus(){
     '<div class="dashboard" style="margin-top:16px">' +
       '<div class="metric"><small>Inventar</small><strong>' + lastInventory + '</strong></div>' +
       '<div class="metric"><small>Supplier</small><strong>' + lastSupplier + '</strong></div>' +
-      '<div class="metric"><small>InventarTracker</small><strong>' + lastSales + '</strong></div>' +
+ '<div class="metric"><small>InventarTracker</small><strong>' + lastSales + '</strong></div>' +
       '<div class="metric"><small>Laufende Kosten</small><strong>' + lastCosts + '</strong></div>' +
     '</div>' +
-    '<div class="output-box" style="margin-top:14px"><p>Letztes Laden von Sales: <strong>' + lastSalesLoad + '</strong></p></div>' +
     '<div class="output-box" style="margin-top:14px"><p>' + (connected ? 'Sync bereit. Beim Start werden URL und Token aus localStorage geladen.' : 'Trage URL und Token ein, um die Google Sheets Sync zu aktivieren.') + '</p></div>'
   );
 }
@@ -2539,83 +2611,6 @@ function mapCostToSheetRow(cost){
     sheetText(c.notes || ''),
   ];
 }
-function sheetRecordField(record, names){
-  const source = record && typeof record === 'object' ? record : {};
-  const lookup = {};
-  Object.keys(source).forEach(function(key){
-    lookup[sheetText(key).toLowerCase().replace(/[^a-z0-9]+/g, '')] = source[key];
-  });
-  const list = Array.isArray(names) ? names : [names];
-  for(let i = 0; i < list.length; i += 1){
-    const target = sheetText(list[i]).toLowerCase().replace(/[^a-z0-9]+/g, '');
-    if(Object.prototype.hasOwnProperty.call(lookup, target)){
-      return lookup[target];
-    }
-  }
-  return '';
-}
-function sheetRecordDate(value){
-  if(!value) return '';
-  if(value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString();
-  const parsed = Date.parse(String(value).trim());
-  return Number.isFinite(parsed) ? new Date(parsed).toISOString() : '';
-}
-function sheetRecordDateLabel(value){
-  const iso = sheetRecordDate(value);
-  if(!iso) return '';
-  const date = new Date(iso);
-  return Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString('de-DE');
-}
-function mapGoogleSheetSaleRecord(record, index){
-  const saleIdRaw = sheetRecordField(record, ['Sale-ID', 'SaleId', 'id']);
-  const orderNo = sheetRecordField(record, ['eBay Bestellnummer', 'eBay Ordernummer', 'Bestellnummer', 'Order-ID']);
-  const product = sheetRecordField(record, ['Produkt', 'Product', 'Bezeichnung']) || 'eBay Bestellung';
-  const price = sheetNumber(sheetRecordField(record, ['Verkaufspreis', 'VK', 'Preis', 'Umsatz']));
-  const fees = sheetNumber(sheetRecordField(record, ['eBay Gebühren', 'Ebay gebühren', 'Gebühren']));
-  const cost = sheetNumber(sheetRecordField(record, ['Einkaufspreis', 'Kosten', 'EK']));
-  const shipping = sheetNumber(sheetRecordField(record, ['Versandkosten', 'Shipping']));
-  const profitRaw = sheetRecordField(record, ['Gewinn', 'Profit']);
-  const status = sheetRecordField(record, ['Status']) || 'Bezahlt';
-  const shippingStatus = sheetRecordField(record, ['Versandstatus', 'ShippingStatus']) || (String(status).toLowerCase() === 'versendet' ? 'Versendet' : 'Noch nicht versendet');
-  const trackingNo = sheetRecordField(record, ['Trackingnummer', 'Tracking', 'Tracking No']);
-  const createdAt = sheetRecordField(record, ['Datum', 'createdAt', 'Erstellt am']);
-  const saleId = Number(saleIdRaw);
-  const profit = Number.isFinite(Number(profitRaw)) ? Number(profitRaw) : ((price || 0) - (fees || 0) - (cost || 0) - (shipping || 0));
-  return {
-    id: Number.isFinite(saleId) ? saleId : Date.now() + index,
-    productId: sheetRecordField(record, ['Artikel-ID', 'ArtikelId', 'SKU']) || '',
-    product: product,
-    price: Number.isFinite(price) ? price : 0,
-    cost: Number.isFinite(cost) ? cost : 0,
-    fees: Number.isFinite(fees) ? fees : 0,
-    qty: Number(sheetRecordField(record, ['Stückzahl', 'Menge', 'qty']) || 1) || 1,
-    profit: Number.isFinite(profit) ? profit : 0,
-    platform: sheetRecordField(record, ['Plattform', 'Platform']) || 'eBay',
-    status: status,
-    orderNo: orderNo,
-    buyerRef: sheetRecordField(record, ['Käufer-Referenz', 'buyerRef', 'Käuferref']) || '',
-    customerName: sheetRecordField(record, ['Kundenname', 'customerName']) || '',
-    customerEmail: sheetRecordField(record, ['E-Mail', 'Email', 'customerEmail']) || '',
-    customerPhone: sheetRecordField(record, ['Telefon', 'phone', 'customerPhone']) || '',
-    customerAddressHint: '',
-    shipToRecipientName: '',
-    shipToAddressHint: '',
-    shipToStreet: '',
-    shipToPostalCode: '',
-    shipToCity: '',
-    shipToCountry: '',
-    shipToAddress: '',
-    returnFlag: String(sheetRecordField(record, ['Retoure', 'returnFlag']) || 'no').toLowerCase(),
-    carrier: sheetRecordField(record, ['Versanddienstleister', 'carrier']) || 'DHL',
-    shippingStatus: shippingStatus,
-    trackingNo: trackingNo,
-    shipDate: sheetRecordField(record, ['Versanddatum', 'shipDate']) || '',
-    note: sheetRecordField(record, ['Notizen', 'Notiz', 'notes']) || '',
-    created: sheetRecordDateLabel(createdAt) || sheetText(createdAt || new Date().toISOString()),
-    createdAt: sheetRecordDate(createdAt) || new Date().toISOString(),
-    updatedAt: sheetRecordDate(createdAt) || new Date().toISOString(),
-  };
-}
 function buildSyncRows(type, records){
   const list = Array.isArray(records) ? records : [];
   if(type === 'inventory') return list.map(mapProductToSheetRow);
@@ -2653,46 +2648,6 @@ async function syncToGoogleSheet(type, records){
   setGoogleSheetsSyncTimestamp(type, data.syncedAt || new Date().toISOString());
   renderGoogleSheetsSyncStatus();
   return data;
-}
-async function loadFromGoogleSheet(type){
-  const config = getGoogleSheetsSyncConfig();
-  if(!config.url) throw new Error('Google Apps Script Web-App URL fehlt.');
-  if(!config.token) throw new Error('Sync Token fehlt.');
-  const data = await postJsonWithTimeout('/api/google-sheets-sync', {
-    method: 'GET',
-    url: config.url,
-    action: 'getRecords',
-    type: type,
-    token: config.token
-  }, 30000);
-  if(!data || data.ok === false){
-    throw new Error((data && (data.error || data.message)) ? (data.error || data.message) : 'Google Sheets Laden fehlgeschlagen.');
-  }
-  return data;
-}
-function replaceSalesFromSheetRecords(records){
-  const next = Array.isArray(records) ? records.map(mapGoogleSheetSaleRecord).filter(function(item){
-    return !!String(item.orderNo || '').trim() || !!String(item.product || '').trim();
-  }) : [];
-  sales = next;
-  saveSales();
-  localStorage.setItem(GOOGLE_SHEETS_SYNC_KEYS.salesLoadAt, new Date().toISOString());
-  renderGoogleSheetsSyncStatus();
-  return next;
-}
-async function loadSalesFromGoogleSheet(){
-  setHTML('googleSheetsSyncResult', '<p>InventarTracker wird aus Google Sheets geladen...</p>');
-  try{
-    const data = await loadFromGoogleSheet('sales');
-    const records = Array.isArray(data.records) ? data.records : [];
-    const next = replaceSalesFromSheetRecords(records);
-    setHTML('googleSheetsSyncResult', '<p>✅ <strong>InventarTracker</strong>: ' + next.length + ' Datensätze aus Google Sheets geladen.</p>');
-    return next;
-  }catch(error){
-    const message = error && error.message ? error.message : 'Unbekannter Ladefehler';
-    setHTML('googleSheetsSyncResult', '<p>⚠️ <strong>InventarTracker</strong>: ' + escapeHtml(message) + '</p>');
-    throw error;
-  }
 }
 const GOOGLE_SHEETS_SYNC_BUTTONS = [
   { id: 'syncInventoryGoogleSheetsBtn', label: 'Inventar synchronisieren' },
@@ -5534,10 +5489,6 @@ async function postJsonWithTimeout(url, payload, timeoutMs){
     if(!rawText || !rawText.trim()){
       throw new Error('Leere Antwort vom Server.');
     }
-    const trimmed = rawText.trim().toLowerCase();
-    if(trimmed.startsWith('<!doctype html') || trimmed.startsWith('<html')){
-      throw new Error('Die Sync-URL liefert HTML statt JSON. Bitte die Google Apps Script Web-App-URL (/exec) eintragen, nicht die Spreadsheet-, Datei- oder Browser-URL.');
-    }
     let data = null;
     try{
       data = JSON.parse(rawText);
@@ -7218,7 +7169,6 @@ function bindEvents(){
   bind('syncInventoryGoogleSheetsBtn','click',syncInventoryToGoogleSheet);
   bind('syncSuppliersGoogleSheetsBtn','click',syncSuppliersToGoogleSheet);
   bind('syncSalesGoogleSheetsBtn','click',syncSalesToGoogleSheet);
-  bind('loadSalesGoogleSheetsBtn','click',loadSalesFromGoogleSheet);
   bind('syncCostsGoogleSheetsBtn','click',syncCostsToGoogleSheet);
   bind('syncAllGoogleSheetsBtn','click',syncAllToGoogleSheet);
   bind('backupSettings','click',exportSettings);
@@ -7465,7 +7415,6 @@ function runSelfTests(){
   console.assert(typeof syncInventoryToGoogleSheet === 'function', 'Inventar Sync Funktion sollte existieren');
   console.assert(typeof syncSuppliersToGoogleSheet === 'function', 'Supplier Sync Funktion sollte existieren');
   console.assert(typeof syncSalesToGoogleSheet === 'function', 'Sales Sync Funktion sollte existieren');
-  console.assert(typeof loadSalesFromGoogleSheet === 'function', 'Sales Ladefunktion sollte existieren');
   console.assert(typeof syncCostsToGoogleSheet === 'function', 'Kosten Sync Funktion sollte existieren');
   console.assert(typeof syncAllToGoogleSheet === 'function', 'Alles-Sync Funktion sollte existieren');
   console.assert(!!$('sku'), 'SKU Feld sollte existieren');
@@ -7857,6 +7806,108 @@ document.addEventListener('DOMContentLoaded',()=>{
       description: 'Erstellt Tagesfokus, offene Aufgaben und Warnungen aus den laufenden Vorgängen. Priorisiert die wichtigsten To-dos und zeigt, wo du heute hinschauen solltest.'
     },
   ];
+  const EXTENDED_AUTONOMY_FEATURE_DEFS = [
+    {
+      id: 'auto-actions',
+      kind: 'feature',
+      icon: '⚙️',
+      title: 'Vollautomatische Aktionen',
+      description: 'Agenten können künftig Abläufe selbst vorbereiten und mit Freigabe ausführen, statt nur Hinweise zu geben.',
+      config: {
+        mode: 'manual',
+        note: 'Mit Bestätigung freigeben',
+      },
+    },
+    {
+      id: 'auto-orders',
+      kind: 'feature',
+      icon: '📦',
+      title: 'Automatische Bestellungen',
+      description: 'Bestellungen beim Supplier werden vorbereitet oder ausgelöst, wenn der Ablauf dafür freigegeben ist.',
+      config: {
+        mode: 'assist',
+        note: 'Bestellfluss vorher prüfen',
+      },
+    },
+    {
+      id: 'auto-messages',
+      kind: 'feature',
+      icon: '💬',
+      title: 'Automatische Kundennachrichten',
+      description: 'Antworten an Kunden können vorbereitet und später automatisch versendet werden.',
+      config: {
+        mode: 'manual',
+        note: 'Tonfall vor Versand prüfen',
+      },
+    },
+    {
+      id: 'auto-posting',
+      kind: 'feature',
+      icon: '🛍️',
+      title: 'Autonomes eBay-Posting',
+      description: 'Produktdaten werden automatisch für eBay vorbereitet und in den Veröffentlichungsfluss übergeben.',
+      config: {
+        mode: 'auto',
+        note: 'Nur für geprüfte Listings',
+      },
+    },
+  ];
+  const EXTENDED_AUTONOMY_ROLE_DEFS = [
+    {
+      id: 'release-operator',
+      kind: 'role',
+      icon: '🧑‍💼',
+      title: 'Freigabe-Operator',
+      description: 'Entscheidet, welche geschützten Schritte in die aktive Freigabe wechseln.',
+      config: {
+        scope: 'release',
+        note: 'Für manuelle Freigaben',
+      },
+    },
+    {
+      id: 'risk-analyst',
+      kind: 'role',
+      icon: '🛡️',
+      title: 'Risiko-Analyst',
+      description: 'Prüft Grenzfälle, Sicherheitsregeln und Rückfallpfade bevor etwas aktiv wird.',
+      config: {
+        scope: 'review',
+        note: 'Vor Aktivierung prüfen',
+      },
+    },
+    {
+      id: 'workflow-orchestrator',
+      kind: 'role',
+      icon: '🧭',
+      title: 'Workflow-Orchestrator',
+      description: 'Koordiniert freigegebene Autonomie-Schritte und hält die Reihenfolge sauber.',
+      config: {
+        scope: 'manage',
+        note: 'Abläufe koordinieren',
+      },
+    },
+    {
+      id: 'support-supervisor',
+      kind: 'role',
+      icon: '🤝',
+      title: 'Support-Supervisor',
+      description: 'Steuert wieder freigeschaltete Kommunikations- und Eskalationsrollen.',
+      config: {
+        scope: 'review',
+        note: 'Support-Freigaben bündeln',
+      },
+    },
+  ];
+  const FEATURE_MODE_OPTIONS = [
+    { value: 'manual', label: 'Mit Bestätigung' },
+    { value: 'assist', label: 'Unterstützend' },
+    { value: 'auto', label: 'Automatisch' },
+  ];
+  const ROLE_SCOPE_OPTIONS = [
+    { value: 'review', label: 'Nur prüfen' },
+    { value: 'manage', label: 'Verwalten' },
+    { value: 'release', label: 'Freigeben' },
+  ];
   const MODE_OPTIONS = [
     { value: 'off', label: 'aus' },
     { value: 'suggestions', label: 'nur Vorschläge' },
@@ -8056,7 +8107,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   };
 
   const createDefaultState = () => ({
-    version: 2,
+    version: 4,
     securityMode: true,
     sandboxMode: true,
     advancedMode: false,
@@ -8069,6 +8120,25 @@ document.addEventListener('DOMContentLoaded',()=>{
     pausedAll: false,
     activePanel: 'overview',
     openCards: {},
+    extendedAutonomyPanels: { feature: true, role: true },
+    extendedAutonomyFeatures: EXTENDED_AUTONOMY_FEATURE_DEFS.map((item) => ({
+      id: item.id,
+      kind: item.kind,
+      icon: item.icon,
+      title: item.title,
+      description: item.description,
+      status: 'locked',
+      config: { ...(item.config || {}) },
+    })),
+    extendedAutonomyRoles: EXTENDED_AUTONOMY_ROLE_DEFS.map((item) => ({
+      id: item.id,
+      kind: item.kind,
+      icon: item.icon,
+      title: item.title,
+      description: item.description,
+      status: 'locked',
+      config: { ...(item.config || {}) },
+    })),
     aiTasks: [],
     agents: AGENT_DEFS.reduce((acc, def) => {
       acc[def.id] = {
@@ -8088,6 +8158,45 @@ document.addEventListener('DOMContentLoaded',()=>{
     }, {}),
   });
 
+  const getExtendedAutonomyDefaults = (type) => (type === 'role' ? EXTENDED_AUTONOMY_ROLE_DEFS : EXTENDED_AUTONOMY_FEATURE_DEFS);
+
+  const normalizeExtendedAutonomyConfig = (rawConfig, type) => {
+    const defaults = getExtendedAutonomyDefaults(type);
+    const fallback = defaults[0] && defaults[0].config ? defaults[0].config : {};
+    const source = rawConfig && typeof rawConfig === 'object' ? rawConfig : {};
+    if (type === 'role') {
+      return {
+        scope: ROLE_SCOPE_OPTIONS.some((item) => item.value === source.scope) ? source.scope : (fallback.scope || 'review'),
+        note: sanitizeActivity(source.note !== undefined ? source.note : fallback.note || '', ''),
+      };
+    }
+    return {
+      mode: FEATURE_MODE_OPTIONS.some((item) => item.value === source.mode) ? source.mode : (fallback.mode || 'manual'),
+      note: sanitizeActivity(source.note !== undefined ? source.note : fallback.note || '', ''),
+    };
+  };
+
+  const normalizeExtendedAutonomyItems = (rawItems, defs, type) => {
+    const list = Array.isArray(rawItems) ? rawItems : [];
+    const byId = new Map();
+    list.forEach((item) => {
+      if (!item || typeof item !== 'object' || Array.isArray(item) || !item.id) return;
+      byId.set(String(item.id), item);
+    });
+    return defs.map((def) => {
+      const incoming = byId.get(def.id) || {};
+      return {
+        id: def.id,
+        kind: def.kind || type,
+        icon: def.icon,
+        title: def.title,
+        description: def.description,
+        status: incoming.status === 'active' ? 'active' : 'locked',
+        config: normalizeExtendedAutonomyConfig(incoming.config, def.kind || type),
+      };
+    });
+  };
+
   const normalizeState = (raw) => {
     const defaults = createDefaultState();
     const source = raw && typeof raw === 'object' ? raw : {};
@@ -8105,6 +8214,14 @@ document.addEventListener('DOMContentLoaded',()=>{
       pausedAll: typeof source.pausedAll === 'boolean' ? source.pausedAll : (typeof source.pauseAllAgents === 'boolean' ? source.pauseAllAgents : source.pausedAll === true),
       activePanel: normalizePanel(source.activePanel || defaults.activePanel),
       openCards: source.openCards && typeof source.openCards === 'object' ? {...source.openCards} : {},
+      extendedAutonomyPanels: source.extendedAutonomyPanels && typeof source.extendedAutonomyPanels === 'object'
+        ? {
+            feature: source.extendedAutonomyPanels.feature !== false,
+            role: source.extendedAutonomyPanels.role !== false,
+          }
+        : {...defaults.extendedAutonomyPanels},
+      extendedAutonomyFeatures: normalizeExtendedAutonomyItems(source.extendedAutonomyFeatures, EXTENDED_AUTONOMY_FEATURE_DEFS, 'feature'),
+      extendedAutonomyRoles: normalizeExtendedAutonomyItems(source.extendedAutonomyRoles, EXTENDED_AUTONOMY_ROLE_DEFS, 'role'),
       aiTasks: normalizeAiTasks(source.aiTasks),
       agents: {},
     };
@@ -8159,6 +8276,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   let advancedAutonomyHoldFrame = null;
   let advancedAutonomyHoldStart = 0;
   let advancedAutonomyHoldActive = false;
+  let activeExtendedAutonomySetting = { type: 'feature', id: '' };
 
   const saveState = () => {
     state.activePanel = activePanel;
@@ -8170,6 +8288,56 @@ document.addEventListener('DOMContentLoaded',()=>{
   const isAllAgentsPaused = () => state.pauseAllAgents === true || state.pausedAll === true;
   const isAdvancedAutonomyUnlocked = () => state.advancedMode === true && state.autonomyLocked === false;
   const isMasterAgentsDisabled = () => state.masterAgentsDisabled === true;
+  const isExtendedAutonomyEnabled = () => isAdvancedAutonomyUnlocked();
+  const getExtendedAutonomyCollection = (type) => (type === 'role' ? state.extendedAutonomyRoles : state.extendedAutonomyFeatures) || [];
+  const getExtendedAutonomyTypeLabel = (type) => (type === 'role' ? 'Rolle' : 'Funktion');
+  const getExtendedAutonomyPluralLabel = (type) => (type === 'role' ? 'Rollen' : 'Funktionen');
+  const getExtendedAutonomyModeLabel = (type, value) => {
+    if (type === 'role') {
+      const option = ROLE_SCOPE_OPTIONS.find((item) => item.value === value);
+      return option ? option.label : 'Nur prüfen';
+    }
+    const option = FEATURE_MODE_OPTIONS.find((item) => item.value === value);
+    return option ? option.label : 'Mit Bestätigung';
+  };
+  const isExtendedAutonomyCollectionOpen = (type) => state.extendedAutonomyPanels && state.extendedAutonomyPanels[type] !== false;
+  const setExtendedAutonomyCollectionOpen = (type, isOpen) => {
+    state.extendedAutonomyPanels = state.extendedAutonomyPanels && typeof state.extendedAutonomyPanels === 'object'
+      ? {...state.extendedAutonomyPanels}
+      : { feature: true, role: true };
+    state.extendedAutonomyPanels[type] = !!isOpen;
+  };
+  const setExtendedAutonomyCollection = (type, items) => {
+    if (type === 'role') {
+      state.extendedAutonomyRoles = items;
+      return;
+    }
+    state.extendedAutonomyFeatures = items;
+  };
+  const updateExtendedAutonomyItem = (type, itemId, patch) => {
+    const collection = getExtendedAutonomyCollection(type);
+    let changed = false;
+    const next = collection.map((item) => {
+      if (item.id !== itemId) return item;
+      changed = true;
+      return {
+        ...item,
+        ...patch,
+        config: patch && patch.config ? { ...(item.config || {}), ...patch.config } : (item.config || {}),
+      };
+    });
+    if (!changed) return false;
+    setExtendedAutonomyCollection(type, next);
+    saveState();
+    render();
+    return true;
+  };
+  const toggleExtendedAutonomyItem = (type, itemId) => {
+    if (!isExtendedAutonomyEnabled()) return false;
+    const current = getExtendedAutonomyCollection(type).find((item) => item.id === itemId);
+    if (!current) return false;
+    return updateExtendedAutonomyItem(type, itemId, { status: current.status === 'active' ? 'locked' : 'active' });
+  };
 
   const getAgent = (agentId) => state.agents[agentId] || null;
   const getDefinition = (agentId) => AGENT_DEFS.find((item) => item.id === agentId) || null;
@@ -8799,73 +8967,130 @@ document.addEventListener('DOMContentLoaded',()=>{
     `;
   };
 
-  const buildFutureFunctionsSection = () => {
-    const lockedMessage = 'Noch nicht aktivierbar – Sicherheitsfreigabe erforderlich.';
-    const items = [
-      {
-        icon: '🔒',
-        title: 'Vollautomatische Aktionen',
-        description: 'Agenten könnten später Aufgaben ohne manuelle Auslösung vorbereiten oder ausführen.',
-      },
-      {
-        icon: '🔒',
-        title: 'Automatische Bestellungen',
-        description: 'Bestellungen beim Supplier automatisch vorbereiten oder auslösen.',
-      },
-      {
-        icon: '🔒',
-        title: 'Automatische Kundennachrichten',
-        description: 'Kundenantworten automatisch senden.',
-      },
-      {
-        icon: '🔒',
-        title: 'Autonomes eBay-Posting',
-        description: 'Produkte automatisch bei eBay veröffentlichen.',
-      },
-    ];
+  const buildExtendedAutonomyItem = (item, type) => {
+    const active = item.status === 'active';
+    const canEdit = isExtendedAutonomyEnabled();
+    const actionLabel = active ? 'Sperren' : 'Aktivieren';
+    const configValue = type === 'role' ? (item.config && item.config.scope) : (item.config && item.config.mode);
+    const configLabel = getExtendedAutonomyModeLabel(type, configValue);
+    const noteText = item.config && item.config.note ? item.config.note : 'Keine Notiz';
     return `
-      <details class="virtual-agent-card virtual-future-section">
-        <summary class="virtual-agent-summary">
-          <div class="virtual-agent-summary-top">
-            <div class="virtual-agent-ident">
-              <div class="virtual-agent-icon">🔒</div>
-              <div>
-                <h3>Vorschau gesperrter Funktionen</h3>
-                <p>Vorbereitet, aber aus Sicherheitsgründen deaktiviert. Erst mit manueller Freigabe aktivierbar.</p>
-              </div>
-            </div>
-            <span class="virtual-agent-summary-chevron">⌄</span>
-          </div>
-          <div class="virtual-agent-summary-meta">
-            <span class="pill">4 gesperrte Funktionen</span>
-            <span class="pill">${isSecurityLocked() ? 'Live blockiert' : 'Live getrennt'}</span>
-            <span class="pill">Sicherheitsfreigabe erforderlich</span>
-          </div>
-        </summary>
-        <div class="virtual-agent-body">
-          <div class="virtual-future-warning">Diese Funktionen sind vorbereitet, aber aus Sicherheitsgründen deaktiviert. ${isSecurityLocked() ? 'Live-Aktionen bleiben durch Sicherheitsmodus oder Sandbox blockiert.' : 'Live-Aktionen bleiben in dieser Version bewusst getrennt.'} ${lockedMessage}</div>
-          <div class="virtual-future-grid" style="margin-top:14px">
-            ${items.map((item) => `
-              <div class="virtual-future-card">
-                <div class="virtual-agent-ident">
-                  <div class="virtual-agent-icon">${item.icon}</div>
-                  <div>
-                    <h4>${escapeHtml(item.title)}</h4>
-                    <p>${escapeHtml(item.description)}</p>
-                  </div>
-                </div>
-                <div class="settings-agents-overview" style="grid-template-columns:1fr auto;gap:10px;align-items:center">
-                  <span class="virtual-agent-badge warn">Gesperrt</span>
-                  <div class="agent-switch agent-switch-locked" aria-disabled="true">
-                    <span class="agent-switch-track"></span>
-                    <span>${lockedMessage}</span>
-                  </div>
-                </div>
-              </div>
-            `).join('')}
+      <div class="virtual-future-card autonomy-permission-card ${active ? 'active' : ''}">
+        <div class="virtual-agent-ident">
+          <div class="virtual-agent-icon">${escapeHtml(item.icon)}</div>
+          <div>
+            <h4>${escapeHtml(item.title)}</h4>
+            <p>${escapeHtml(item.description)}</p>
           </div>
         </div>
-      </details>
+        <div class="autonomy-permission-meta">
+          <span class="pill">${escapeHtml(type === 'role' ? 'Rollenmodus' : 'Funktionsmodus')}: ${escapeHtml(configLabel)}</span>
+          <span class="pill">Notiz: ${escapeHtml(noteText)}</span>
+        </div>
+        <div class="autonomy-permission-actions">
+          <span class="virtual-agent-badge ${active ? 'good' : 'warn'}">${active ? 'Aktiv' : 'Gesperrt'}</span>
+          <div class="autonomy-permission-tools">
+            <button
+              type="button"
+              class="secondary gear-button"
+              data-agent-action="open-extended-permission-settings"
+              data-permission-type="${type}"
+              data-permission-id="${escapeHtml(item.id)}"
+              ${canEdit ? '' : 'disabled'}
+              aria-label="${escapeHtml(item.title)} Einstellungen"
+            >⚙️</button>
+            <button
+              type="button"
+              class="${canEdit && active ? 'danger' : 'secondary'}"
+              data-agent-action="toggle-extended-permission"
+              data-permission-type="${type}"
+              data-permission-id="${escapeHtml(item.id)}"
+              ${canEdit ? '' : 'disabled'}
+            >${actionLabel}</button>
+          </div>
+        </div>
+      </div>
+    `;
+  };
+
+  const buildExtendedAutonomyCollection = (type, title, description, lockedTitle, activeTitle) => {
+    const collection = getExtendedAutonomyCollection(type);
+    const lockedItems = collection.filter((item) => item.status !== 'active');
+    const activeItems = collection.filter((item) => item.status === 'active');
+    const canEdit = isExtendedAutonomyEnabled();
+    const isOpen = isExtendedAutonomyCollectionOpen(type);
+    return `
+      <section class="autonomy-collection-card">
+        <div class="autonomy-collection-head">
+          <div>
+            <h4>${escapeHtml(title)}</h4>
+            <p>${escapeHtml(description)}</p>
+          </div>
+          <div class="autonomy-collection-actions">
+            <span class="pill">${activeItems.length} aktiv / ${lockedItems.length} gesperrt</span>
+            <button
+              type="button"
+              class="secondary autonomy-collection-toggle"
+              data-agent-action="toggle-extended-collection"
+              data-permission-type="${type}"
+            >${isOpen ? 'Zuklappen' : 'Aufklappen'}</button>
+          </div>
+        </div>
+        ${isOpen ? `
+          ${canEdit ? '' : '<div class="autonomy-lock-note">Erst wenn die erweiterte Autonomie freigeschaltet ist, kannst du Einträge zwischen gesperrt und aktiv verschieben.</div>'}
+          <div class="autonomy-registry-grid">
+            <div class="autonomy-lane">
+              <div class="autonomy-lane-head">
+                <div>
+                  <h5>${escapeHtml(lockedTitle)}</h5>
+                  <p>${canEdit ? 'Einträge sind vorbereitet und können jetzt aktiviert werden.' : 'Aktivieren ist gesperrt, bis die globale Freigabe aktiv ist.'}</p>
+                </div>
+                <span class="pill">${lockedItems.length} Einträge</span>
+              </div>
+              <div class="autonomy-permission-list">
+                ${lockedItems.length ? lockedItems.map((item) => buildExtendedAutonomyItem(item, type)).join('') : '<div class="autonomy-empty-state">Hier liegen gerade keine gesperrten Einträge.</div>'}
+              </div>
+            </div>
+            <div class="autonomy-lane">
+              <div class="autonomy-lane-head">
+                <div>
+                  <h5>${escapeHtml(activeTitle)}</h5>
+                  <p>${canEdit ? 'Aktive Einträge können wieder gesperrt und in die Vorschau zurückgeschoben werden.' : 'Aktive Einträge bleiben sichtbar, aber nicht bearbeitbar.'}</p>
+                </div>
+                <span class="pill">${activeItems.length} Einträge</span>
+              </div>
+              <div class="autonomy-permission-list">
+                ${activeItems.length ? activeItems.map((item) => buildExtendedAutonomyItem(item, type)).join('') : '<div class="autonomy-empty-state">Hier liegen gerade keine aktiven Einträge.</div>'}
+              </div>
+            </div>
+          </div>
+        ` : `<div class="autonomy-empty-state">Der Bereich ist zugeklappt. Mit „${isOpen ? 'Zuklappen' : 'Aufklappen'}“ kannst du ihn wieder anzeigen.</div>`}
+      </section>
+    `;
+  };
+
+  const buildFutureFunctionsSection = () => {
+    const securityHint = isSecurityLocked()
+      ? 'Live-Aktionen bleiben durch Sicherheitsmodus oder Sandbox blockiert.'
+      : 'Live-Aktionen bleiben in dieser Version bewusst getrennt.';
+    return `
+      <section class="virtual-agent-card virtual-future-section autonomy-registry">
+        <div class="virtual-future-warning">Erweiterte Autonomie ist der globale Schalter. Mit den Auf-/Zu-Knöpfen klappt jeder Bereich auf oder zu, und das Einstellungsrad passt die einzelnen Einträge an. ${securityHint}</div>
+        ${buildExtendedAutonomyCollection(
+          'feature',
+          'Funktionen',
+          'Hier verwaltest du geschützte Funktionsfreigaben. Aktivierte Einträge wandern aus der Vorschau in die aktive Liste und lassen sich später wieder sperren.',
+          'Vorschau gesperrter Funktionen',
+          'Aktive Funktionen',
+        )}
+        ${buildExtendedAutonomyCollection(
+          'role',
+          'Rollen',
+          'Hier verwaltest du geschützte Rollenfreigaben. So bleibt sichtbar, was vorbereitet, aktiv oder wieder gesperrt ist.',
+          'Vorschau gesperrter Rollen',
+          'Aktive Rollen',
+        )}
+      </section>
     `;
   };
 
@@ -8985,6 +9210,77 @@ document.addEventListener('DOMContentLoaded',()=>{
     render();
   };
 
+  const buildExtendedPermissionModeOptions = (type, currentValue) => {
+    const options = type === 'role' ? ROLE_SCOPE_OPTIONS : FEATURE_MODE_OPTIONS;
+    return options.map((item) => `<option value="${escapeHtml(item.value)}" ${item.value === currentValue ? 'selected' : ''}>${escapeHtml(item.label)}</option>`).join('');
+  };
+
+  const findExtendedPermissionItem = (type, itemId) => getExtendedAutonomyCollection(type).find((item) => item.id === itemId) || null;
+
+  const openExtendedPermissionModal = (type, itemId) => {
+    const modal = getEl('extendedPermissionModal');
+    const item = findExtendedPermissionItem(type, itemId);
+    if (!modal || !item) return;
+    activeExtendedAutonomySetting = { type, id: itemId };
+    const title = getEl('extendedPermissionModalTitle');
+    const subtitle = getEl('extendedPermissionModalSubtitle');
+    const kind = getEl('extendedPermissionModalKind');
+    const statusLabel = getEl('extendedPermissionModalStatusLabel');
+    const itemTitle = getEl('extendedPermissionModalItemTitle');
+    const itemDescription = getEl('extendedPermissionModalItemDescription');
+    const status = getEl('extendedPermissionModalStatus');
+    const mode = getEl('extendedPermissionModalMode');
+    const modeLabel = getEl('extendedPermissionModalModeLabel');
+    const note = getEl('extendedPermissionModalNote');
+    if (title) title.textContent = `${getExtendedAutonomyTypeLabel(type)} einstellen`;
+    if (subtitle) subtitle.textContent = 'Hier passt du die Freigabe und den Arbeitsmodus des Eintrags an.';
+    if (kind) kind.textContent = getExtendedAutonomyTypeLabel(type);
+    if (statusLabel) statusLabel.textContent = `Aktuelle ${getExtendedAutonomyTypeLabel(type)}-Konfiguration`;
+    if (itemTitle) itemTitle.textContent = item.title;
+    if (itemDescription) itemDescription.textContent = item.description;
+    if (status) status.value = item.status;
+    if (mode) {
+      const currentModeValue = item.config && (type === 'role' ? item.config.scope : item.config.mode)
+        ? (type === 'role' ? item.config.scope : item.config.mode)
+        : (type === 'role' ? 'review' : 'manual');
+      mode.innerHTML = buildExtendedPermissionModeOptions(type, currentModeValue);
+    }
+    if (modeLabel) modeLabel.textContent = type === 'role' ? 'Rollenmodus' : 'Funktionsmodus';
+    if (note) note.value = item.config && item.config.note ? item.config.note : '';
+    modal.classList.remove('hidden');
+  };
+
+  const closeExtendedPermissionModal = () => {
+    const modal = getEl('extendedPermissionModal');
+    if (modal) modal.classList.add('hidden');
+    activeExtendedAutonomySetting = { type: 'feature', id: '' };
+  };
+
+  const saveExtendedPermissionModal = () => {
+    const { type, id } = activeExtendedAutonomySetting;
+    if (!type || !id) return;
+    const status = getEl('extendedPermissionModalStatus');
+    const mode = getEl('extendedPermissionModalMode');
+    const note = getEl('extendedPermissionModalNote');
+    const current = findExtendedPermissionItem(type, id);
+    if (!current) return;
+    const nextConfig = type === 'role'
+      ? {
+          scope: mode ? mode.value : (current.config && current.config.scope) || 'review',
+          note: note ? sanitizeActivity(note.value, '') : (current.config && current.config.note) || '',
+        }
+      : {
+          mode: mode ? mode.value : (current.config && current.config.mode) || 'manual',
+          note: note ? sanitizeActivity(note.value, '') : (current.config && current.config.note) || '',
+        };
+    updateExtendedAutonomyItem(type, id, {
+      status: status && status.value === 'active' ? 'active' : 'locked',
+      config: nextConfig,
+    });
+    toast(`${current.title} wurde gespeichert.`, 'Konfiguration');
+    closeExtendedPermissionModal();
+  };
+
   const startAdvancedAutonomyHold = (event) => {
     const checkbox = getEl('advancedAutonomyRiskCheckbox');
     const button = getEl('advancedAutonomyHoldBtn');
@@ -9039,6 +9335,9 @@ document.addEventListener('DOMContentLoaded',()=>{
     state.masterAgentsDisabled = defaults.masterAgentsDisabled;
     state.masterAgentsSnapshot = defaults.masterAgentsSnapshot;
     state.safetyMode = defaults.safetyMode;
+    state.extendedAutonomyPanels = defaults.extendedAutonomyPanels;
+    state.extendedAutonomyFeatures = defaults.extendedAutonomyFeatures;
+    state.extendedAutonomyRoles = defaults.extendedAutonomyRoles;
     activePanel = 'overview';
     state.activePanel = activePanel;
     saveState();
@@ -9199,6 +9498,37 @@ document.addEventListener('DOMContentLoaded',()=>{
         lockAdvancedAutonomy();
         return;
       }
+      const extendedCollectionButton = event.target.closest('[data-agent-action="toggle-extended-collection"]');
+      if (extendedCollectionButton) {
+        const permissionType = extendedCollectionButton.dataset.permissionType === 'role' ? 'role' : 'feature';
+        const nextOpen = !isExtendedAutonomyCollectionOpen(permissionType);
+        setExtendedAutonomyCollectionOpen(permissionType, nextOpen);
+        saveState();
+        render();
+        return;
+      }
+      const extendedPermissionSettingsButton = event.target.closest('[data-agent-action="open-extended-permission-settings"]');
+      if (extendedPermissionSettingsButton) {
+        const permissionType = extendedPermissionSettingsButton.dataset.permissionType === 'role' ? 'role' : 'feature';
+        const permissionId = extendedPermissionSettingsButton.dataset.permissionId;
+        openExtendedPermissionModal(permissionType, permissionId);
+        return;
+      }
+      const extendedPermissionButton = event.target.closest('[data-agent-action="toggle-extended-permission"]');
+      if (extendedPermissionButton) {
+        const permissionType = extendedPermissionButton.dataset.permissionType === 'role' ? 'role' : 'feature';
+        const permissionId = extendedPermissionButton.dataset.permissionId;
+        const collection = getExtendedAutonomyCollection(permissionType);
+        const currentItem = collection.find((item) => item.id === permissionId);
+        const nextState = currentItem && currentItem.status === 'active' ? 'locked' : 'active';
+        if (toggleExtendedAutonomyItem(permissionType, permissionId) && currentItem) {
+          toast(
+            `${currentItem.title} wurde ${nextState === 'active' ? 'aktiviert' : 'wieder gesperrt'}.`,
+            nextState === 'active' ? 'Freigabe' : 'Sperre',
+          );
+        }
+        return;
+      }
       const taskFilterButton = event.target.closest('[data-task-filter-group][data-task-filter-value]');
       if (taskFilterButton) {
         const filterGroup = taskFilterButton.dataset.taskFilterGroup;
@@ -9255,6 +9585,8 @@ document.addEventListener('DOMContentLoaded',()=>{
     }
     document.addEventListener('keydown', (event) => {
       if (event.key === 'Escape') {
+        closeAdvancedAutonomyModal();
+        closeExtendedPermissionModal();
         closeTaskRemoveModal();
       }
     });
@@ -9265,6 +9597,14 @@ document.addEventListener('DOMContentLoaded',()=>{
     if (!modal || modal.classList.contains('hidden')) return;
     if (event.target === modal) {
       closeAdvancedAutonomyModal();
+    }
+  });
+
+  document.addEventListener('click', (event) => {
+    const modal = getEl('extendedPermissionModal');
+    if (!modal || modal.classList.contains('hidden')) return;
+    if (event.target === modal) {
+      closeExtendedPermissionModal();
     }
   });
 
@@ -9284,6 +9624,8 @@ document.addEventListener('DOMContentLoaded',()=>{
     const advancedAutonomyCheckbox = getEl('advancedAutonomyRiskCheckbox');
     const advancedAutonomyHoldBtn = getEl('advancedAutonomyHoldBtn');
     const advancedAutonomyCloseBtn = getEl('advancedAutonomyCloseBtn');
+    const extendedPermissionSaveBtn = getEl('extendedPermissionModalSaveBtn');
+    const extendedPermissionCloseBtn = getEl('extendedPermissionModalCloseBtn');
     if (advancedAutonomyCheckbox) {
       advancedAutonomyCheckbox.addEventListener('change', updateAdvancedAutonomyHoldUI);
     }
@@ -9296,6 +9638,14 @@ document.addEventListener('DOMContentLoaded',()=>{
     }
     if (advancedAutonomyCloseBtn) {
       advancedAutonomyCloseBtn.addEventListener('click', closeAdvancedAutonomyModal);
+    }
+    if (extendedPermissionSaveBtn && !extendedPermissionSaveBtn.dataset.bound) {
+      extendedPermissionSaveBtn.dataset.bound = 'yes';
+      extendedPermissionSaveBtn.addEventListener('click', saveExtendedPermissionModal);
+    }
+    if (extendedPermissionCloseBtn && !extendedPermissionCloseBtn.dataset.bound) {
+      extendedPermissionCloseBtn.dataset.bound = 'yes';
+      extendedPermissionCloseBtn.addEventListener('click', closeExtendedPermissionModal);
     }
     const openBtn = getEl('openVirtualAgentsSettingsBtn');
     if (openBtn && !openBtn.dataset.bound) {
