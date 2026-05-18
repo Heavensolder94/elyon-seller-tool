@@ -8331,6 +8331,13 @@ document.addEventListener('DOMContentLoaded',()=>{
     '"': '&quot;',
     "'": '&#39;',
   }[ch]));
+  const toast = (message, eyebrow = 'Elyon') => {
+    if (typeof window.toast === 'function') {
+      window.toast(message, eyebrow);
+      return;
+    }
+    console.warn(`[${eyebrow}] ${message}`);
+  };
 
   const normalizePanel = (panel) => {
     const valid = ['overview', 'ai-task-center', 'virtual-ma', 'ki-agents'];
