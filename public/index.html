@@ -9425,11 +9425,50 @@ document.addEventListener('DOMContentLoaded',()=>{
   const getAiTasks = () => readStoredCollection(AI_TASKS_STORE_KEY, normalizeAiTaskRecord, normalizeAiTasks(state.aiTasks || []));
   const getAiEvents = () => readStoredCollection(AI_EVENTS_STORE_KEY, normalizeAiEventRecord, []);
   const getAiLogs = () => readStoredCollection(AI_LOGS_STORE_KEY, normalizeAiLogRecord, []);
+  const getAiWorkflowSnapshot = () => ({
+    tasks: getAiTasks(),
+    events: getAiEvents(),
+    logs: getAiLogs(),
+  });
+
+  const syncAiWorkflowToServer = async () => {
+    try {
+      const response = await fetch('/api/ai-workflow', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(getAiWorkflowSnapshot()),
+      });
+      const data = await response.json().catch(() => null);
+      return response.ok ? data : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const loadAiWorkflowFromServer = async () => {
+    try {
+      const response = await fetch('/api/ai-workflow', { method: 'GET' });
+      const data = await response.json().catch(() => null);
+      const serverData = data && data.data && typeof data.data === 'object' ? data.data : null;
+      if (!response.ok || !serverData) return false;
+      const remoteTasks = Array.isArray(serverData.tasks) ? serverData.tasks.map((item, index) => normalizeAiTaskRecord(item, index)).filter(Boolean) : [];
+      const remoteEvents = Array.isArray(serverData.events) ? serverData.events.map((item, index) => normalizeAiEventRecord(item, index)).filter(Boolean) : [];
+      const remoteLogs = Array.isArray(serverData.logs) ? serverData.logs.map((item, index) => normalizeAiLogRecord(item, index)).filter(Boolean) : [];
+      if (remoteTasks.length) state.aiTasks = remoteTasks;
+      if (remoteEvents.length) localStorage.setItem(AI_EVENTS_STORE_KEY, JSON.stringify(remoteEvents));
+      if (remoteLogs.length) localStorage.setItem(AI_LOGS_STORE_KEY, JSON.stringify(remoteLogs));
+      persistAiCollections();
+      return true;
+    } catch {
+      return false;
+    }
+  };
 
   const persistAiCollections = () => {
     writeStoredCollection(AI_TASKS_STORE_KEY, state.aiTasks);
     writeStoredCollection(AI_EVENTS_STORE_KEY, getAiEvents());
     writeStoredCollection(AI_LOGS_STORE_KEY, getAiLogs());
+    syncAiWorkflowToServer();
   };
 
   const createAiEvent = (eventData) => {
@@ -9866,6 +9905,9 @@ document.addEventListener('DOMContentLoaded',()=>{
   };
 
   const state = loadState();
+  loadAiWorkflowFromServer().then(() => {
+    render();
+  });
   let activePanel = normalizePanel(state.activePanel);
   let taskStatusFilter = 'all';
   let taskPriorityFilter = 'all';
