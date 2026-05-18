@@ -1,866 +1,585 @@
-# ChatGPT / OpenAI KI-Funktionen
+# Elyon Seller Tool - ChatGPT Master Guide
 
-Diese Datei ist die zentrale Referenz fuer die ChatGPT-, OpenAI- und KI-Funktionen im **Elyon Seller Tool**.
+Diese Datei ist die zentrale, ausfuehrliche Referenz fuer ChatGPT, wenn am **Elyon Seller Tool** gearbeitet wird.
 
-Sie dient als technische Orientierung fuer Entwicklung, Codex-Aenderungen, Vercel-Konfiguration und spaetere KI-Erweiterungen.
-
----
-
-## Ziel dieser Datei
-
-Diese Datei erklaert:
-
-- welche KI-Funktionen im Tool existieren
-- welche API-Endpunkte dafuer genutzt werden
-- welche Modelle und API-Keys gebraucht werden
-- welche Einstellungen und Schalter relevant sind
-- welche KI-Daten gesendet werden duerfen
-- welche KI-Daten niemals gesendet werden duerfen
-- welche Regeln Codex bei Aenderungen beachten muss
-- welche neue KI-Funktion als naechstes geplant ist
+Ziel dieser Datei:
+- saubere Weiterentwicklung ohne Nebenwirkungen
+- klare Sicherheitsregeln
+- einheitliche Sprache fuer KI, Agenten und Einstellungen
+- moeglichst wenige Rueckfragen, moeglichst viel verwertbare Kontextarbeit
 
 ---
 
-## Was ChatGPT / OpenAI im Tool uebernimmt
+## 1. Projektueberblick
 
-OpenAI bzw. ChatGPT wird im Elyon Seller Tool fuer produkt- und listingbezogene Aufgaben genutzt.
+Das Elyon Seller Tool ist ein lokales Seller-Dashboard fuer:
 
-Aktuelle Hauptfunktionen:
+- Produktideen
+- eBay-Listings
+- Produktanalyse
+- Preis- und Margenpruefung
+- Bestellungen
+- Retouren
+- Versand
+- Rechnungen
+- Backups und Einstellungen
+- KI-gestuetzte Assistenz
+- Virtuelle Mitarbeiter / KI-Agenten
 
-- eBay-Titel generieren
-- Beschreibung generieren
-- Bulletpoints vorbereiten
-- SEO-Keywords und Tags erzeugen
-- Listing verbessern
-- Listing neu generieren
-- Listing pruefen
-- Produktanalyse mit Score und Risiko-Hinweisen
-- Produktpruefung fuer einzelne Produkte
-- Produktsuche mit KI verbessern
-- Nischenwinkel und Keyword-Ideen erzeugen
+Das Projekt arbeitet mit mehreren Bereichen gleichzeitig:
 
-OpenAI soll vor allem helfen bei:
+- klassische Verwaltungsfunktionen
+- KI-gestuetzte Hilfsfunktionen
+- ein separates Agenten- und Rollenmodell
+- Sicherheits- und Freischaltlogik
+- lokale Speicherung ueber `localStorage`
 
-- besseren Produktentscheidungen
-- besseren Listings
-- klareren Produkttexten
-- Risikoerkennung
-- Marge- und Verkaufseinschaetzung
-- strukturierten Handlungsempfehlungen
-
----
-
-## Was DeepSeek im Tool uebernimmt
-
-DeepSeek wird fuer **ELYON Soul** genutzt.
-
-ELYON Soul ist ein Coach-/Chat-Overlay im Tool und soll den Nutzer bei Analyse, Orientierung und Arbeitsschritten unterstuetzen.
-
-DeepSeek-Funktion:
-
-- kurzer Business-Coach-Chat
-- kompakte Produkt- oder Dashboard-Analyse
-- lokale Regelantworten als Fallback, falls DeepSeek deaktiviert ist
-- anonymisierte Produktdatenanalyse
+Wichtig:
+- Das System soll im Kern lokal, kontrollierbar und nachvollziehbar bleiben.
+- KI darf unterstuetzen, aber nicht ungeprueft autonom handeln.
 
 ---
 
-## Relevante KI-Endpunkte
+## 2. Grundprinzipien
 
-### OpenAI / ChatGPT
+Wenn du an diesem Projekt arbeitest, gelten diese Regeln als verbindlich:
 
-```txt
-api/ai.js
-api/ai/listing-optimizer.js
-api/ai/product-search.js
-```
+- Bestehende KI-Funktionen nicht loeschen
+- Bestehende KI-Buttons nicht entfernen
+- Bestehende API-Routen nicht aendern
+- Bestehende `localStorage`-Keys nicht ueberschreiben
+- Keine bestehenden Settings kaputtmachen
+- Keine grossen Refactors an bestehenden Seiten
+- Nur additiv erweitern
+- Defensive Programmierung bevorzugen
+- Rueckwaertskompatibilitaet erhalten
+- Sicherheitslogik immer respektieren
 
-### DeepSeek / ELYON Soul
-
-```txt
-api/elyon-soul.js
-```
-
----
-
-## Zentrale API-Routen
-
-### Allgemeiner OpenAI-Endpunkt
-
-```txt
-POST /api/ai
-```
-
-Dieser Endpunkt ist fuer einfache strukturierte KI-Aufgaben zustaendig.
-
-Beispiel-Body:
-
-```json
-{
-  "task": "title",
-  "prompt": "Erzeuge einen eBay-Titel",
-  "data": {}
-}
-```
-
-### Listing-Optimizer
-
-```txt
-POST /api/ai/listing-optimizer
-```
-
-Wichtige Modi:
-
-```txt
-regenerate
-improve
-check
-```
-
-### Product-Search
-
-```txt
-POST /api/ai/product-search
-```
-
-Wichtige Modi:
-
-```txt
-improve
-analyze
-```
-
-### Elyon Soul
-
-```txt
-POST /api/elyon-soul
-```
-
-Wichtige Aktionen:
-
-```txt
-action=chat
-action=analyze
-probe=true
-```
+Wenn Unsicherheit besteht:
+- lieber zusatzlich absichern als freizuschalten
+- lieber sichtbare Vorschau als echte Ausfuehrung
+- lieber bestehenden Zustand erhalten als zurücksetzen
 
 ---
 
-## Aktuelle Tasks in `/api/ai`
+## 3. Ton und Arbeitsweise
 
-Der zentrale OpenAI-Endpunkt unterstuetzt aktuell bzw. soll mindestens diese Tasks unterstuetzen:
+Antworten sollen:
 
-```txt
-title
-description
-tags
-product_score
-product_decision
-```
+- ruhig
+- klar
+- technisch sauber
+- freundlich
+- praezise
+- ohne ueberfluessige Schaerfe
 
-Bedeutung:
-
-| Task | Zweck |
-|---|---|
-| `title` | eBay-Titel generieren |
-| `description` | Produktbeschreibung generieren |
-| `tags` | SEO-Tags / Keywords erzeugen |
-| `product_score` | einfache Produktbewertung / Risikoanalyse |
-| `product_decision` | einzelne Produktentscheidung mit GO / TEST / NO |
+Wenn du dem Nutzer antwortest:
+- lieber konkret als abstrakt
+- lieber mit klaren Schritten als mit Allgemeinplaetzen
+- lieber Sicherheitsgrenzen offen benennen als Risiken zu verstecken
+- lieber bestehende Struktur erklaeren als alles neu zu erfinden
 
 ---
 
-## Geplante / zentrale Funktion: KI Produktpruefung
+## 4. Wichtige Projektdateien
 
-Die Produktpruefung soll ein einzelnes Produkt bewerten und eine klare Entscheidungshilfe geben.
+Die wichtigsten Dokumente und Einstiegspunkte sind:
 
-### Ziel
+- [index.html](./index.html)
+- [public/index.html](./public/index.html)
+- [CHATGPT.md](./CHATGPT.md)
+- [CHATGPT_PROMPT.md](./CHATGPT_PROMPT.md)
+- [CHATGPT_AI_AGENTEN.md](./CHATGPT_AI_AGENTEN.md)
+- [CHATGPT_SYNC_DEBUG.md](./CHATGPT_SYNC_DEBUG.md)
+- [README.md](./README.md)
 
-Auf jeder Produktkarte soll ein Button erscheinen:
-
-```txt
-KI pruefen
-```
-
-Nach Klick soll das aktuelle Produkt an `/api/ai` gesendet werden.
-
-Der Task lautet:
-
-```txt
-product_decision
-```
-
-Die KI soll kein langes Fliesstext-Ergebnis zurueckgeben, sondern eine strukturierte JSON-Antwort.
+Wenn du Aenderungen machst:
+- immer beide Hauptdateien im Blick behalten, falls das Projekt dort gespiegelt ist
+- keine Teilanpassung nur in einer Datei, wenn die andere dieselbe Logik traegt
 
 ---
 
-## Erwartete JSON-Antwort fuer `product_decision`
+## 5. Projektlogik in Kurzform
 
-```json
-{
-  "score": 0,
-  "decision": "GO | TEST | NO",
-  "riskLevel": "low | medium | high",
-  "compliance": "green | yellow | red",
-  "profitVerdict": "good | tight | bad",
-  "publishReady": false,
-  "shortSummary": "",
-  "warnings": [],
-  "nextSteps": []
-}
-```
+Das Tool enthaelt mehrere Schichten:
 
-### Feldbedeutung
+### A. Klassische Seller-Funktionen
 
-| Feld | Bedeutung |
-|---|---|
-| `score` | Bewertung von 0 bis 100 |
-| `decision` | klare Entscheidung: `GO`, `TEST` oder `NO` |
-| `riskLevel` | Gesamtrisiko: `low`, `medium`, `high` |
-| `compliance` | Compliance-Ampel: `green`, `yellow`, `red` |
-| `profitVerdict` | Margenbewertung: `good`, `tight`, `bad` |
-| `publishReady` | ob das Produkt grundsaetzlich listingbereit ist |
-| `shortSummary` | kurze deutsche Zusammenfassung |
-| `warnings` | konkrete Warnhinweise |
-| `nextSteps` | konkrete naechste Schritte |
+- Produktdaten
+- Listings
+- Kalkulation
+- Versand
+- Rechnungen
+- Retouren
+- Imports
+- Checks und Uebersichten
+
+### B. KI-Funktionen
+
+- generative Listing-Unterstuetzung
+- Beschreibungsgeneratoren
+- Titel- und SEO-Hilfen
+- Analyse- und Score-Funktionen
+- Coach-/Assistenz-Funktionen
+
+### C. Virtuelle Mitarbeiter / KI-Agenten
+
+- strategische Rollen
+- operative Rollen
+- Sicherheits- und Freigabelogik
+- lokale Vorbereitungs- und Analyse-Workflows
+- zukuenftig erweiterbare Rollensysteme
+
+### D. Sicherheitslayer
+
+- Sicherheitsmodus
+- Sandbox-Modus
+- Erweiterter Modus
+- Autonomie-Sperre
+- Alle Agenten pausieren
 
 ---
 
-## Was `product_decision` bewerten soll
+## 6. Allgemeine KI-Einstellungen
 
-Die KI soll folgende Produktdaten beruecksichtigen, sofern vorhanden:
+Im allgemeinen Einstellungsbereich gibt es unter **KI** den globalen Schalter:
 
-- Produktname
-- Einkaufspreis
-- Verkaufspreis
-- Versandkosten
-- berechnete Marge
-- Lieferzeit
-- Supplier
-- Kategorie
+- `KI-Funktionen aktivieren`
+
+Wenn aktiv:
+- KI-Funktionen sind grundsaetzlich nutzbar
+- die KI-Buttons bleiben funktional
+
+Wenn deaktiviert:
+- KI-Buttons bleiben sichtbar
+- die KI-Funktionen sollen nicht ausgefuehrt werden
+
+Wichtig:
+- `KI-Funktionen aktivieren` ist **nicht** gleichbedeutend mit voller Autonomie
+- zusaetzliche Sicherheitsmodi koennen Live-Aktionen weiterhin blockieren
+
+---
+
+## 7. Sicherheits- und Autonomie-Modell
+
+Die Sicherheitslogik fuer Virtuelle Mitarbeiter / KI-Agenten nutzt diesen zentralen Key:
+
+```txt
+elyon_ai_agents_settings
+```
+
+Dieser Key enthaelt alle relevanten Agenten- und Sicherheitsdaten.
+
+Globale Sicherheitsfelder:
+
+- `securityMode: true`
+- `sandboxMode: true`
+- `advancedMode: false`
+- `autonomyLocked: true`
+- `pauseAllAgents: false`
+
+### Bedeutung
+
+#### `securityMode`
+Wenn `true`, duerfen keine autonomen Aktionen ausgefuehrt werden.
+
+#### `sandboxMode`
+Wenn `true`, werden Aktionen nur simuliert und nicht live ausgefuehrt.
+
+#### `advancedMode`
+Wenn `false`, bleiben erweiterte Autonomie-Funktionen gesperrt.
+
+#### `autonomyLocked`
+Wenn `true`, bleiben diese Funktionen gesperrt:
+
+- vollautomatische Aktionen
+- automatische Bestellungen
+- automatische Kundennachrichten
+- autonomes eBay-Posting
+
+#### `pauseAllAgents`
+Wenn `true`, werden alle Agenten optisch als pausiert angezeigt.
+
+### Sicherheitsregeln
+
+- Wenn `securityMode` oder `sandboxMode` aktiv ist, bleiben alle Live-Aktionen blockiert.
+- Gesperrte Funktionen duerfen sichtbar bleiben, aber nicht wirklich ausfuehrbar sein.
+- Zukunftsfunktionen duerfen vorbereitet, angezeigt und markiert werden, aber nicht live laufen.
+
+---
+
+## 8. Agenten- und Rollenstruktur
+
+Es gibt bereits diese KI-Agenten:
+
+- Soul Scout
+- Soul SEO
+- Soul Guard
+- Soul Finance
+- Soul Support
+- Soul Operations
+
+Diese Rollen sind fuer Analyse, Struktur, Risikoerkennung und operative Hilfe gedacht.
+
+Zusatzlich gibt es gesperrte bzw. zukuenftige Rollen:
+
+- Soul Listing
+- Soul Pricing
+- Soul Supplier
+- Soul Compliance
+- Soul Returns
+- Soul Dispatch
+- Soul Inventory
+- Soul Review
+
+Diese sind bewusst nur als Vorschau sichtbar oder spaeter anschliessbar.
+
+---
+
+## 9. Virtuelle Mitarbeiter / KI-Agenten
+
+Der Bereich **Virtuelle Mitarbeiter / KI-Agenten** ist keine einfache Deko.
+
+Er ist eine eigene Steuerungsschicht fuer:
+
+- Rollenverwaltung
+- Sichtbarkeit
+- Sicherheit
+- Vorbereitung
+- Analyse
+- spaetere Aktivierung
+
+Wichtig:
+- Rollen sollen sichtbar sein
+- Rollen koennen lokal vorbereitet werden
+- Rollen duerfen aber erst dann live arbeiten, wenn die Sicherheitslogik das explizit erlaubt
+
+### Was im UI sichtbar sein kann
+
+- Status
+- Modus
+- Modell
+- Tageslimit
 - Beschreibung
-- Produktbilder-Hinweise, falls vorhanden
-- Wettbewerb / eBay-Konkurrenzdaten
-- Risiko-Status
-- Retourenrisiko
-- Lieferzeitrisiko
-- Qualitaetsrisiko
-- moegliche Compliance-Themen
-
-### Compliance-Themen
-
-Die KI soll besonders auf diese Risiken achten:
-
-- Elektronik
-- Akku
-- Batterie
-- CE-Relevanz
-- Markenrisiko
-- geschuetzte Begriffe / Trademark
-- LUCID
-- WEEE
-- BattG
-- Kinderprodukte
-- Kosmetik
-- Lebensmittel
-- Medizin-/Gesundheitsversprechen
-- gefaehrliche oder regulierte Produkte
+- Prompt
+- Guardrails
+- Aufgabenverlauf
+- KI-Verbindung
+- Vorbereitung / Sperrstatus
 
 ---
 
-## Wichtig bei `product_decision`
+## 10. Beschreibung, Prompt und Guardrails
 
-Die Funktion darf:
+Diese drei Felder sind bewusst getrennt:
 
-- beraten
-- warnen
-- strukturieren
-- Score und Entscheidung ausgeben
-- naechste Schritte empfehlen
+### `Beschreibung`
 
-Die Funktion darf nicht:
-
-- automatisch bei eBay veroeffentlichen
-- automatisch Bestellungen ausloesen
-- automatisch Kunden kontaktieren
-- Kundendaten an OpenAI senden
-- API-Keys ins Frontend schreiben
-- rechtliche Beratung vortaeuschen
-
----
-
-## Frontend-Anzeige fuer KI Produktpruefung
-
-Nach erfolgreicher Analyse soll auf der Produktkarte angezeigt werden:
-
-- Score
-- `GO` / `TEST` / `NO`
-- Compliance-Ampel
-- Marge-Einschaetzung
-- wichtigste Warnung
-- naechster Schritt
-- kurze Zusammenfassung
+Zweck:
+- menschlich lesbare Kurzbeschreibung
+- zeigt, was die Rolle macht
+- kurz, knapp, uebersichtlich
 
 Beispiel:
+- `Prueft Produktchancen und markiert gute Artikel.`
 
-```txt
-KI-Entscheidung: TEST
-Score: 74/100
-Compliance: GELB
-Marge: knapp
-Warnung: Moegliche WEEE/BATT-Relevanz pruefen.
-Naechster Schritt: Supplier-Daten und Preisgrenze kontrollieren.
-```
+### `Prompt`
 
----
-
-## Speicherung der KI-Produktpruefung
-
-Das Ergebnis soll am Produkt gespeichert werden.
-
-Bevorzugt:
-
-```js
-product.aiDecision
-```
-
-Alternativ, wenn es besser zur vorhandenen Struktur passt:
-
-```js
-product.ai
-```
+Zweck:
+- eigentliche Arbeitsanweisung fuer die KI
+- genauer, technischer, strukturierter
+- kann laenger und praeziser sein
 
 Beispiel:
+- `Analysiere Titel, Nachfrage, Marge, Risiko und Konkurrenz. Gib eine kurze Bewertung mit Empfehlung und Warnhinweisen zurueck.`
 
-```json
-{
-  "aiDecision": {
-    "score": 74,
-    "decision": "TEST",
-    "riskLevel": "medium",
-    "compliance": "yellow",
-    "profitVerdict": "tight",
-    "publishReady": false,
-    "shortSummary": "Interessantes Produkt, aber vor Veroeffentlichung muessen Marge und Compliance geprueft werden.",
-    "warnings": [
-      "Moegliche WEEE/BATT-Relevanz pruefen",
-      "Marge ist nur knapp tragfaehig"
-    ],
-    "nextSteps": [
-      "Supplier-Daten kontrollieren",
-      "Verkaufspreis mindestens auf Zielmarge pruefen",
-      "Compliance-Hinweis ergaenzen"
-    ],
-    "checkedAt": "2026-05-14"
-  }
-}
-```
+### `Guardrails`
+
+Zweck:
+- Sicherheitsgrenzen
+- Verbote
+- klare Leitplanken
+
+Beispiel:
+- nur Vorschlaege
+- keine autonomen Live-Aktionen
+- keine Bestellungen ohne Freigabe
+- keine Kundennachrichten ohne Sicherheitsfreigabe
+
+### Wichtige UI-Regel
+
+- Beschreibung, Prompt und Guardrails sind standardmaessig gesperrt
+- jedes Feld kann per Stift-Symbol freigeschaltet werden
+- die Felder werden lokal gespeichert
+- beim Generieren bleibt die Bearbeitbarkeit erhalten
 
 ---
 
-## Filter fuer KI Produktpruefung
+## 11. Generieren-Button fuer Prompts
 
-Im Produktbereich soll ein einfacher Filter ergaenzt werden:
+Im Modal fuer **Erweiterte KI-Anweisungen** gibt es beim Prompt einen Button:
 
-```txt
-Alle
-KI ungeprueft
-GO
-TEST
-NO
-Compliance gelb/rot
-```
+- `Generieren`
+
+Diese Funktion soll:
+
+- einen strukturierten Prompt-Entwurf erzeugen
+- sich an Rolle, Beschreibung und Guardrails orientieren
+- nur einen Entwurf anlegen
+- nichts live ausfuehren
 
 Wichtig:
+- Der Button darf kein autonomes Handeln ausloesen
+- Er ist nur ein Schreib-/Vorschlagswerkzeug
+- Der Nutzer soll den generierten Prompt anschliessend noch anpassen koennen
 
-- keine bestehenden Filter zerstoeren
-- vorhandene Filterlogik erweitern
-- keine parallele neue Produktliste bauen
-- bestehende Produktkarten weiterverwenden
+Empfohlene Logik:
 
----
-
-## Modelle
-
-Die Modellwahl soll zentral im Backend oder ueber Umgebungsvariablen gesteuert werden.
-
-Empfehlung:
-
-- Standardmodell fuer einfache Aufgaben
-- optional staerkeres Modell fuer komplexe Produktentscheidungen
-- Modellwahl nicht hart im Frontend kodieren
+- Prompt aus Rolle + Beschreibung + Guardrails aufbauen
+- danach Prompt-Feld zum Bearbeiten freischalten
+- lokale Speicherung aktualisieren
 
 ---
 
-## Benoetigte API-Keys
+## 12. Future / Locked Capabilities
 
-### OpenAI
+Es gibt einen eigenen Bereich fuer gesperrte Zukunftsfunktionen und Rollen.
 
-```txt
-OPENAI_API_KEY
-```
+Bereits vorbereitete gesperrte Funktionen:
 
-Aktiviert:
+- Vollautomatische Aktionen
+- Automatische Bestellungen
+- Automatische Kundennachrichten
+- Autonomes eBay-Posting
 
-- `/api/ai`
-- `/api/ai/listing-optimizer`
-- `/api/ai/product-search`
+Bereits vorbereitete gesperrte Rollen:
 
-Optional:
+- Soul Listing
+- Soul Pricing
+- Soul Supplier
+- Soul Compliance
+- Soul Returns
+- Soul Dispatch
+- Soul Inventory
+- Soul Review
 
-```txt
-OPENAI_MODEL
-```
+### Verhaltensregeln fuer diese Bereiche
 
-### DeepSeek
+- sichtbar lassen
+- gesperrt anzeigen
+- nicht live ausfuehren
+- bei Bedarf lokal markieren oder vorbereiten
+- Sicherheitsfreigabe notwendig machen
 
-```txt
-DEEPSEEK_API_KEY
-```
+### Wichtiger Grundsatz
 
-Aktiviert:
-
-- `/api/elyon-soul`
-
----
-
-## Vercel Environment Variables
-
-In Vercel sollten fuer KI mindestens gesetzt sein:
-
-```txt
-OPENAI_API_KEY
-OPENAI_MODEL
-DEEPSEEK_API_KEY
-```
-
-`OPENAI_MODEL` ist optional.
-
-Wichtig:
-
-- API-Keys niemals in `index.html`
-- API-Keys niemals in `elyon-ui.js`
-- API-Keys niemals in `elyon-soul.js`
-- API-Keys niemals in GitHub committen
-- API-Keys nur in Vercel Environment Variables speichern
+Nur weil eine Rolle oder Funktion vorbereitet ist, heisst das nicht, dass sie erlaubt ist.
 
 ---
 
-## KI-Schalter in den Einstellungen
+## 13. localStorage-Logik
 
-### Hauptschalter
+Das Projekt verwendet lokal gespeicherte Daten.
 
-```txt
-KI-Funktionen aktivieren
-```
+Wichtige Regeln:
 
-Wenn dieser Hauptschalter aus ist:
+- nichts ueber schreiben, was bereits von anderen Bereichen genutzt wird
+- keine bestehenden Keys zerstoeren
+- fehlende Felder defensiv ergaenzen
+- bestehende Userwerte behalten
 
-- werden KI-Unterfunktionen deaktiviert
-- werden KI-Buttons gesperrt oder zeigen einen Hinweis
-- werden keine OpenAI-Anfragen ausgefuehrt
-- werden keine DeepSeek-Anfragen ausgefuehrt
-- lokale Regelmodi duerfen weiter funktionieren
-
-### Wichtige Unter-Schalter
+Beispiel fuer das Agentensystem:
 
 ```txt
-OpenAI-Tools
-DeepSeek-Chat
-KI-Bestaetigung
-Auto-Check beim Start
+elyon_ai_agents_settings
 ```
 
-Weitere moegliche Funktionsschalter:
+Beim Laden:
+- Default-Werte setzen, wenn nichts vorhanden ist
+- bestehende Werte nicht verlieren
+- fehlende Felder ergaenzen
 
-```txt
-Listing verbessern
-Listing neu generieren
-Listing pruefen
-Produktsuche verbessern
-Produktidee pruefen
-Titel mit KI
-Beschreibung mit KI
-SEO / Tags mit KI
-Produktanalyse mit KI
-KI pruefen
-```
-
-Hinweis:
-
-Die konkrete Benennung der Schalter muss mit dem Frontend-Code abgeglichen werden. Falls ein Schalter im Frontend nicht existiert, darf Codex keinen neuen Pflichtschalter erzwingen, sondern soll vorhandene Einstellungen wiederverwenden.
+Beim Speichern:
+- nur die relevanten Werte schreiben
+- keine alten Einstellungen unnoetig zerstoeren
 
 ---
 
-## Verhalten der Schalter
+## 14. Defensive Programmierung
 
-### Hauptschalter aus
+Immer bevorzugen:
 
-Wenn `KI-Funktionen aktivieren` aus ist:
+- Pruefen, ob Daten existieren
+- auf `null` / `undefined` vorbereitet sein
+- Rueckfallebenen definieren
+- Eingaben bereinigen
+- keine hart an Annahmen gekoppelten Loesungen
 
-- alle KI-Unterfunktionen sind deaktiviert
-- KI-Buttons sollen nicht abstuerzen
-- Nutzer erhaelt eine verstaendliche Meldung
-- lokale Standardfunktionen bleiben nutzbar
+Gutes Verhalten:
 
-### Hauptschalter wieder an
-
-Wenn `KI-Funktionen aktivieren` wieder eingeschaltet wird:
-
-- Unter-Schalter bleiben zunaechst aus, falls das bestehende Tool so arbeitet
-- gewuenschte Unter-Schalter muessen einzeln aktiviert werden
-- keine versteckten automatischen KI-Kosten ausloesen
-
-### OpenAI-Tools aus
-
-Wenn `OpenAI-Tools` aus ist:
-
-- keine Anfrage an `/api/ai`
-- keine Anfrage an `/api/ai/listing-optimizer`
-- keine Anfrage an `/api/ai/product-search`
-
-### DeepSeek-Chat aus
-
-Wenn `DeepSeek-Chat` aus ist:
-
-- keine Anfrage an `/api/elyon-soul`
-- ELYON Soul darf lokal im Regelmodus antworten, falls implementiert
-
-### KI-Bestaetigung
-
-Wenn `KI-Bestaetigung` aktiv ist, soll vor kostenpflichtigen KI-Aktionen ein Hinweis erscheinen.
-
-Beispiel:
-
-```txt
-Diese Aktion nutzt KI und kann API-Kosten verursachen. Fortfahren?
-```
+- wenn eine Rolle fehlt, nicht die ganze Ansicht kaputtmachen
+- wenn ein Feld leer ist, mit Default arbeiten
+- wenn ein Zustand unbekannt ist, sichere Variante waehlen
 
 ---
 
-## Datenschutz bei KI-Anfragen
+## 15. Was du niemals tun solltest
 
-### Niemals an OpenAI oder DeepSeek senden
-
-```txt
-Kundennamen
-E-Mail-Adressen
-Telefonnummern
-vollstaendige Lieferadressen
-Bestellnummern
-Zahlungsdaten
-private Kundennotizen
-eBay Refresh Tokens
-CJ Tokens
-API-Keys
-interne Secrets
-```
-
-### Erlaubt fuer KI-Anfragen
-
-```txt
-anonymisierte Produktdaten
-Produktname
-Kategorie
-Einkaufspreis
-Verkaufspreis
-Versandkosten
-Marge
-Lieferzeit
-Supplier-Name
-oeffentliche Produktbeschreibung
-Listing-Entwurf
-SEO-Keywords
-Risiko-Status
-Wettbewerbsdaten
-```
-
-### Grundregel
-
-KI soll Produkt- und Listingdaten analysieren, aber keine personenbezogenen Kundendaten erhalten.
+- keine Live-Aktion heimlich freischalten
+- keine Sicherheitsmodi umgehen
+- keine Agenten automatisiert ohne Freigabe aktivieren
+- keine bestehenden Buttons entfernen
+- keine alten localStorage-Daten unbereinigt ueberschreiben
+- keine groben Refactors ohne Not
+- keine Funktionen loeschen, nur weil eine neuere Version existiert
 
 ---
 
-## Sicherheitsregeln
+## 16. Was du bevorzugt tun solltest
 
-KI-Funktionen duerfen nicht:
-
-- automatisch eBay-Angebote veroeffentlichen
-- automatisch Kunden anschreiben
-- automatisch Supplier-Bestellungen ausloesen
-- automatisch Geld bewegen
-- rechtlich verbindliche Aussagen treffen
-- API-Keys im Frontend sichtbar machen
-- geheime Tokens in Logs ausgeben
-
-KI-Funktionen duerfen:
-
-- Vorschlaege machen
-- Warnungen anzeigen
-- Texte vorbereiten
-- Listings bewerten
-- Produktentscheidungen empfehlen
-- To-dos erzeugen
-- strukturierte JSON-Ergebnisse liefern
+- kleine, additive Aenderungen
+- saubere Labels
+- klare Zustandsanzeigen
+- sichere Defaults
+- lokal nachvollziehbare Daten
+- UI, die den Sicherheitsstatus klar zeigt
+- gesperrte Funktionen sichtbar, aber deaktiviert
 
 ---
 
-## Codex-Regeln fuer KI-Aenderungen
+## 17. Empfohlene Antwortweise fuer ChatGPT
 
-Codex darf:
+Wenn ChatGPT fuer dieses Projekt antwortet, sollte es:
 
-- bestehende KI-Endpunkte erweitern
-- neue Tasks ergaenzen
-- UI-Buttons minimal-invasiv ergaenzen
-- bestehende Produktkarten erweitern
-- vorhandene Filterlogik ergaenzen
-- Fehlerhinweise verbessern
-- lokale Speicherung ergaenzen
-- JSON-Antworten strukturieren
+- zuerst den Status der vorhandenen Logik bestaetigen
+- dann die Aenderung mit Sicherheitskontext erklaeren
+- bei Code-Aenderungen beide Hauptdateien im Blick behalten
+- bei Unsicherheit lieber rueckfragen, wenn es echte Konsequenzen gibt
+- bei klaren Aufgaben sofort umsetzen statt nur zu beschreiben
 
-Codex darf nicht:
+Wenn der Nutzer fragt:
+- ob etwas aktiv ist
+- ob etwas funktionsfaehig ist
+- ob etwas gesperrt ist
+- ob etwas live laufen kann
 
-- bestehende Funktionen loeschen
-- bestehende Buttons entfernen
-- bestehende Datenstrukturen ohne Not umbauen
-- API-Keys hardcoden
-- Secrets ins Frontend schreiben
-- Kundendaten ungefiltert an KI senden
-- eBay-Veroeffentlichung automatisieren
-- Bestellungen automatisiert ausloesen
-- neue parallele Produktlisten bauen
-- das gesamte Tool neu schreiben
-- unnoetig grosse Layout-Aenderungen machen
+dann immer sehr klar trennen zwischen:
+
+- sichtbar
+- gespeichert
+- vorbereitet
+- gesperrt
+- live ausfuehrbar
 
 ---
 
-## Erwartete Antwortformate
+## 18. Sauberes UI-Modell fuer die Agenten
 
-### Erfolgreicher OpenAI-Request
+Empfohlene Struktur:
 
-```json
-{
-  "ok": true,
-  "source": "ai"
-}
-```
+### In der Kartenansicht
 
-### Erfolgreiche Produktentscheidung
+- Name
+- Status
+- Kurzbeschreibung
+- wichtige Toggle-Schalter
+- grundlegende Aktionen
 
-```json
-{
-  "ok": true,
-  "source": "ai",
-  "result": {
-    "score": 74,
-    "decision": "TEST",
-    "riskLevel": "medium",
-    "compliance": "yellow",
-    "profitVerdict": "tight",
-    "publishReady": false,
-    "shortSummary": "Das Produkt ist interessant, aber vor Veroeffentlichung muessen Marge und Compliance geprueft werden.",
-    "warnings": [
-      "Moegliche WEEE/BATT-Relevanz",
-      "Marge nur knapp tragfaehig"
-    ],
-    "nextSteps": [
-      "Supplier-Daten pruefen",
-      "Verkaufspreis erhoehen",
-      "Compliance pruefen"
-    ]
-  }
-}
-```
+### Im Modal / Detailfenster
 
-### Wenn KI deaktiviert ist
+- Beschreibung
+- Prompt
+- Guardrails
+- Generieren-Button
+- lokale Speicherung
+- Sicherheitsstatus
+
+### In der Vorschau gesperrter Bereiche
+
+- Karten sichtbar lassen
+- klare Sperrhinweise
+- keine echte Ausfuehrung
+- einheitliche Texte wie:
 
 ```txt
-KI ist in den Einstellungen deaktiviert.
-```
-
-oder:
-
-```txt
-OpenAI ist in den Einstellungen deaktiviert.
-```
-
-### Wenn API-Key fehlt
-
-```txt
-OPENAI_API_KEY ist nicht gesetzt.
-```
-
-oder:
-
-```txt
-DEEPSEEK_API_KEY ist nicht gesetzt.
+Noch nicht aktivierbar - Sicherheitsfreigabe erforderlich.
 ```
 
 ---
 
-## Praktische Testbefehle
+## 19. Empfohlene Standardtexte
 
-### Zentraler OpenAI-Endpunkt: Titel
-
-```powershell
-Invoke-RestMethod -Method Post -Uri "https://elyon-seller-tool.vercel.app/api/ai" `
-  -ContentType "application/json" `
-  -Body '{"task":"title","prompt":"Erzeuge einen eBay-Titel fuer ein USB-C Ladegeraet"}'
-```
-
-### Listing-Optimizer
-
-```powershell
-Invoke-RestMethod -Method Post -Uri "https://elyon-seller-tool.vercel.app/api/ai/listing-optimizer" `
-  -ContentType "application/json" `
-  -Body '{"mode":"regenerate","product":{"productName":"USB-C Ladegeraet","mainKeyword":"USB-C Ladegeraet","features":"schnellladen, kompakt"}}'
-```
-
-### Produktsuche
-
-```powershell
-Invoke-RestMethod -Method Post -Uri "https://elyon-seller-tool.vercel.app/api/ai/product-search" `
-  -ContentType "application/json" `
-  -Body '{"mode":"improve","query":"USB-C Ladegeraet","product":{"name":"USB-C Ladegeraet"}}'
-```
-
-### Neue Produktentscheidung testen
-
-```powershell
-Invoke-RestMethod -Method Post -Uri "https://elyon-seller-tool.vercel.app/api/ai" `
-  -ContentType "application/json" `
-  -Body '{
-    "task":"product_decision",
-    "prompt":"Pruefe dieses Produkt fuer eBay Dropshipping.",
-    "data":{
-      "productName":"USB-C Ladegeraet 20W",
-      "buyPrice":6.50,
-      "sellPrice":19.99,
-      "shippingCost":0,
-      "supplier":"CJdropshipping",
-      "deliveryTime":"7-12 Tage",
-      "category":"Elektronik Zubehoer",
-      "description":"Kompaktes USB-C Ladegeraet mit Schnellladefunktion"
-    }
-  }'
-```
-
-Erwartung:
-
-```json
-{
-  "ok": true,
-  "result": {
-    "score": 0,
-    "decision": "GO | TEST | NO",
-    "riskLevel": "low | medium | high",
-    "compliance": "green | yellow | red",
-    "profitVerdict": "good | tight | bad",
-    "publishReady": false,
-    "shortSummary": "",
-    "warnings": [],
-    "nextSteps": []
-  }
-}
-```
-
-### DeepSeek / Elyon Soul Probe
-
-```powershell
-Invoke-RestMethod -Method Post -Uri "https://elyon-seller-tool.vercel.app/api/elyon-soul" `
-  -ContentType "application/json" `
-  -Body '{"probe":true}'
-```
-
----
-
-## Wenn etwas nicht laeuft
-
-### OpenAI antwortet nicht
-
-1. Pruefen, ob `OPENAI_API_KEY` in Vercel gesetzt ist.
-2. Pruefen, ob `OPENAI_MODEL` korrekt ist oder leer bleiben darf.
-3. Pruefen, ob die App nach Aenderungen neu deployed wurde.
-4. Pruefen, ob `KI-Funktionen aktivieren` eingeschaltet ist.
-5. Pruefen, ob `OpenAI-Tools` eingeschaltet ist.
-6. Vercel Function Logs pruefen.
-
-### DeepSeek / Elyon Soul antwortet nicht
-
-1. Pruefen, ob `DEEPSEEK_API_KEY` in Vercel gesetzt ist.
-2. Pruefen, ob `DeepSeek-Chat` aktiviert ist.
-3. Pruefen, ob der Regelmodus greift.
-4. Vercel Function Logs pruefen.
-
-### 405 Fehler
-
-Wenn der Endpoint antwortet:
+### Fuer gesperrte Funktionen
 
 ```txt
-405 Nur POST erlaubt
+Noch nicht aktivierbar - Sicherheitsfreigabe erforderlich.
 ```
 
-Dann wurde der Endpoint wahrscheinlich per GET statt POST aufgerufen.
-
-Loesung:
-
-- PowerShell-Test mit `-Method Post` nutzen
-- Frontend-Fetch muss `method: "POST"` verwenden
-
-### FUNCTION_INVOCATION_FAILED
-
-Bei:
+### Fuer Sicherheitsblock
 
 ```txt
-FUNCTION_INVOCATION_FAILED
+Live-Aktionen bleiben durch Sicherheitsmodus oder Sandbox blockiert.
 ```
 
-Pruefen:
+### Fuer Guardrails-Hinweis
 
-- Vercel Function Logs
-- fehlende Environment Variables
-- Syntaxfehler im Endpoint
-- ungueltiges JSON
-- OpenAI/DeepSeek API-Fehler
-- Timeout
+```txt
+Guardrails sind Sicherheitsregeln und Grenzen fuer den Agenten.
+```
 
----
+### Fuer Vorbereitungsstatus
 
-## Testplan nach Codex-Aenderungen
-
-Nach Einbau von `product_decision`:
-
-1. Vercel Deploy abwarten.
-2. `/api/ai` mit PowerShell und Task `product_decision` testen.
-3. Pruefen, ob JSON zurueckkommt.
-4. Elyon Seller Tool oeffnen.
-5. Ein Produkt oeffnen oder erstellen.
-6. Button `KI pruefen` klicken.
-7. Pruefen, ob Score angezeigt wird.
-8. Pruefen, ob `GO`, `TEST` oder `NO` angezeigt wird.
-9. Pruefen, ob Compliance-Ampel angezeigt wird.
-10. Seite neu laden.
-11. Pruefen, ob Ergebnis gespeichert bleibt.
-12. Filter testen:
-    - Alle
-    - KI ungeprueft
-    - GO
-    - TEST
-    - NO
-    - Compliance gelb/rot
-13. KI-Schalter deaktivieren und pruefen, ob verstaendliche Fehlermeldung erscheint.
-14. Pruefen, dass keine eBay-Veroeffentlichung ausgeloest wird.
-15. Pruefen, dass keine Kundendaten an OpenAI gesendet werden.
+```txt
+Vorbereitet, aber gesperrt.
+```
 
 ---
 
-## Kurzfassung
+## 20. Wie Aenderungen ideal umgesetzt werden
 
-- ChatGPT/OpenAI = Listing, Suche, Titel, Beschreibung, SEO, Produktanalyse und `product_decision`
-- DeepSeek = ELYON Soul Chat / Coach
-- Hauptschalter `KI-Funktionen aktivieren` steuert KI global
-- `OpenAI-Tools` steuert OpenAI-Funktionen
-- `DeepSeek-Chat` steuert Elyon Soul
-- `product_decision` ist die zentrale Produktpruefung
-- KI darf beraten, aber nichts automatisch veroeffentlichen oder bestellen
-- Kundendaten und Secrets duerfen niemals an KI gesendet werden
+Wenn du am Projekt arbeitest:
+
+1. Erst die bestehende Struktur verstehen
+2. Dann nur die benoetigten Teile aendern
+3. Neue Funktionen defensiv einbauen
+4. Sicherheitsregeln intakt lassen
+5. Danach testen, ob bestehende KI-Funktionen weiter funktionieren
+6. Am Ende Rueckwaertskompatibilitaet prufen
+
+---
+
+## 21. Wenn du ChatGPT direkt fuettern willst
+
+Du kannst ChatGPT mit folgender Arbeitsanweisung starten:
+
+```txt
+Arbeite im Elyon Seller Tool streng additiv.
+Loesche keine bestehenden KI-Funktionen, Buttons, Routen oder localStorage-Keys.
+Halte Sicherheitsmodi, Sandbox und Autonomie-Sperre aktiv und wirksam.
+Neue Rollen und Zukunftsfunktionen duerfen sichtbar, gesperrt und lokal vorbereitet sein, aber nicht autonom live ausfuehren.
+Behalte die Trennung zwischen Beschreibung, Prompt und Guardrails sauber bei.
+```
+
+---
+
+## 22. Kurzfassung fuer schnellen Zugriff
+
+- Projekt = lokales Seller-Dashboard mit KI- und Agentenebene
+- Sicherheit = oberste Prioritaet
+- `elyon_ai_agents_settings` = zentrale Agenten- und Sicherheitsdaten
+- `securityMode` / `sandboxMode` blockieren Live-Aktionen
+- `autonomyLocked` blockiert futuristische Autonomie-Funktionen
+- Beschreibung = kurz und menschlich
+- Prompt = KI-Anweisung
+- Guardrails = Sicherheitsgrenzen
+- Generieren = nur Prompt-Entwurf, keine Live-Aktion
+- Zukunftsfunktionen und Rollen bleiben sichtbar, aber gesperrt
+
+---
+
+## 23. Abschluss
+
+Diese Datei ist die zentrale Referenz fuer ChatGPT, wenn im Elyon Seller Tool gearbeitet wird.
+
+Wenn du spaeter neue Rollen, neue Agenten oder neue Sicherheitsstufen hinzufuegst, soll diese Datei zuerst aktualisiert werden, damit der Kontext konsistent bleibt.
+
