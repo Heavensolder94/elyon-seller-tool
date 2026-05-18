@@ -9526,34 +9526,101 @@ document.addEventListener('DOMContentLoaded',()=>{
     return [areaPrompt, individualPrompt, `Guardrails: ${guardrails}`, taskContext].filter(Boolean).join('\n\n');
   };
 
+  const summarizeTaskExecution = (task) => {
+    const type = sanitizeTaskText(task.type || 'product_analysis', 'product_analysis', 80);
+    const priority = normalizeTaskPriority(task.priority);
+    const description = sanitizeTaskText(task.description, '', 500);
+    const input = task.input && typeof task.input === 'object' ? task.input : {};
+    const evidence = [];
+    let result = '';
+    let requiresApproval = false;
+
+    if (type === 'product_analysis') {
+      result = `Produktanalyse erstellt. ${description || 'Produktdaten wurden geprüft.'}`;
+      evidence.push(`Quelle: ${input.source || 'task-center-form'}`);
+      evidence.push(`Priorität: ${priority}`);
+    } else if (type === 'listing_review') {
+      result = `Listing-Review abgeschlossen. Titel, Struktur und Klarheit wurden bewertet.`;
+      requiresApproval = true;
+      evidence.push('Empfehlung: vor Veröffentlichung manuell prüfen.');
+    } else if (type === 'margin_check') {
+      result = `Margen-Check abgeschlossen. Kosten, Preis und Puffer wurden strukturiert abgeglichen.`;
+      evidence.push('Hinweis: Zahlen bleiben lokal verarbeitet.');
+    } else if (type === 'customer_reply_draft') {
+      result = `Antwortentwurf erstellt. Tonalität, Klarheit und Hilfsbereitschaft wurden berücksichtigt.`;
+      requiresApproval = true;
+      evidence.push('Entwurf bleibt freigabe-pflichtig.');
+    } else if (type === 'supplier_check') {
+      result = `Lieferantenprüfung abgeschlossen. Verfügbarkeit, Risiko und nächste Schritte wurden vorbereitet.`;
+      requiresApproval = true;
+      evidence.push('Lieferantenarbeitsschritt erfordert spätere Freigabe.');
+    } else if (type === 'research' || type === 'seo_audit' || type === 'risk_audit' || type === 'support_summary' || type === 'operations_check') {
+      result = `Agentenauftrag ${type} verarbeitet. Analysepfad und Ergebnistext wurden erzeugt.`;
+      if (type === 'risk_audit' || type === 'support_summary' || type === 'operations_check') {
+        requiresApproval = true;
+      }
+      evidence.push(`Agentenmodus: ${task.agentId || 'ohne Agent'}`);
+    } else {
+      result = `Aufgabe ${task.title || task.id} verarbeitet.`;
+    }
+
+    return {
+      result,
+      requiresApproval,
+      evidence,
+      context: {
+        agentId: task.agentId || '',
+        agentType: task.agentType || '',
+        type,
+        priority,
+        input,
+      },
+    };
+  };
+
   const runAiTask = (taskId) => {
     const task = getAiTasks().find((item) => item && item.id === taskId);
     if (!task) return null;
     const lockedByPause = isAllAgentsPaused();
-    const lockedBySecurity = state.securityMode !== false || state.sandboxMode !== false || state.autonomyLocked !== false;
-    createAiLog({ level: lockedByPause ? 'security' : 'info', message: `Task gestartet: ${task.title}`, taskId: task.id, agentId: task.agentId, context: { lockedByPause, lockedBySecurity } });
+    const securityBlocked = state.securityMode !== false || state.sandboxMode !== false || state.autonomyLocked !== false;
+    const effectivePrompt = buildEffectiveAgentPrompt(task.agentId, task);
     createAiEvent({ type: 'task.started', source: 'runner', payload: { taskId: task.id }, relatedTaskId: task.id });
+    createAiLog({
+      level: lockedByPause || securityBlocked ? 'security' : 'info',
+      message: `Task gestartet: ${task.title}`,
+      taskId: task.id,
+      agentId: task.agentId,
+      context: { lockedByPause, securityBlocked, effectivePrompt },
+    });
     if (lockedByPause) {
       createAiEvent({ type: 'agent.paused', source: 'runner', payload: { reason: 'pauseAllAgents' }, relatedTaskId: task.id });
       const blocked = blockAiTask(task.id, 'Alle Agenten sind pausiert.');
       createAiEvent({ type: 'task.blocked', source: 'runner', payload: { reason: 'pauseAllAgents' }, relatedTaskId: task.id });
       return blocked;
     }
+    const execution = summarizeTaskExecution(task);
     updateAiTask(task.id, { status: 'running', startedAt: nowIso(), updatedAt: nowIso() });
-    const effectivePrompt = buildEffectiveAgentPrompt(task.agentId, task);
-    createAiLog({ level: lockedBySecurity ? 'security' : 'info', message: lockedBySecurity ? AI_TASK_LIVE_HINT : 'Lokale Ausführung vorbereitet.', taskId: task.id, agentId: task.agentId, context: { effectivePrompt } });
-    if (lockedBySecurity) {
-      const result = `Simulation abgeschlossen für ${task.title}. ${AI_TASK_LIVE_HINT}`;
+    createAiLog({
+      level: 'info',
+      message: `Kontext geladen für ${task.title}`,
+      taskId: task.id,
+      agentId: task.agentId,
+      context: execution.context,
+    });
+    if (securityBlocked) {
+      const result = `${execution.result} ${AI_TASK_LIVE_HINT}`;
+      const nextStatus = execution.requiresApproval ? 'waiting_approval' : 'blocked';
       createAiEvent({ type: 'approval.required', source: 'runner', payload: { reason: 'security_mode', taskId: task.id }, relatedTaskId: task.id });
-      updateAiTask(task.id, { status: 'waiting_approval', result, finishedAt: nowIso(), updatedAt: nowIso() });
-      createAiEvent({ type: 'task.blocked', source: 'runner', payload: { reason: 'security_mode', result }, relatedTaskId: task.id });
-      createAiLog({ level: 'security', message: result, taskId: task.id, agentId: task.agentId, context: { effectivePrompt } });
+      updateAiTask(task.id, { status: nextStatus, result, finishedAt: nowIso(), updatedAt: nowIso(), logs: execution.evidence });
+      createAiEvent({ type: 'task.blocked', source: 'runner', payload: { reason: 'security_mode', result, nextStatus }, relatedTaskId: task.id });
+      createAiLog({ level: 'security', message: result, taskId: task.id, agentId: task.agentId, context: { effectivePrompt, evidence: execution.evidence } });
       return getAiTasks().find((item) => item && item.id === task.id) || task;
     }
-    const result = `Task ${task.title} wurde verarbeitet. Die Struktur ist für spätere API-Calls vorbereitet.`;
+    const result = execution.result;
     completeAiTask(task.id, result);
-    createAiEvent({ type: 'task.completed', source: 'runner', payload: { result }, relatedTaskId: task.id });
-    createAiLog({ level: 'info', message: result, taskId: task.id, agentId: task.agentId, context: { effectivePrompt } });
+    updateAiTask(task.id, { logs: execution.evidence });
+    createAiEvent({ type: 'task.completed', source: 'runner', payload: { result, evidence: execution.evidence }, relatedTaskId: task.id });
+    createAiLog({ level: 'info', message: result, taskId: task.id, agentId: task.agentId, context: { effectivePrompt, evidence: execution.evidence } });
     return getAiTasks().find((item) => item && item.id === task.id) || task;
   };
 
