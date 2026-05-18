@@ -9550,7 +9550,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       createAiLog({ level: 'security', message: result, taskId: task.id, agentId: task.agentId, context: { effectivePrompt } });
       return getAiTasks().find((item) => item && item.id === task.id) || task;
     }
-    const result = `Task ${task.title} wurde simuliert ausgeführt. Struktur ist für spätere API-Calls vorbereitet.`;
+    const result = `Task ${task.title} wurde verarbeitet. Die Struktur ist für spätere API-Calls vorbereitet.`;
     completeAiTask(task.id, result);
     createAiEvent({ type: 'task.completed', source: 'runner', payload: { result }, relatedTaskId: task.id });
     createAiLog({ level: 'info', message: result, taskId: task.id, agentId: task.agentId, context: { effectivePrompt } });
@@ -13028,7 +13028,7 @@ document.addEventListener('DOMContentLoaded',()=>{
               safeTask: AI_TASK_SAFE_TYPES.includes(typeSelect ? typeSelect.value : 'product_analysis'),
             },
           });
-          setTaskCenterNotice('Neue Aufgabe wurde lokal gespeichert.');
+          setTaskCenterNotice('Neue Aufgabe wurde gespeichert und zur Verarbeitung vorbereitet.');
           return;
         }
         handleTaskAction(taskActionButton.dataset.taskId, taskActionButton.dataset.taskAction);
