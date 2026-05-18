@@ -1,13 +1,6 @@
 {
-  "buildCommand": "VERCEL_FORCE_NO_BUILD_CACHE=1 node scripts/prepare-vercel.mjs",
+  "buildCommand": "node scripts/prepare-vercel.mjs",
   "outputDirectory": "public",
-  "regions": ["fra1"],
-  "crons": [
-    {
-      "path": "/api/agent-engine?tick=1",
-      "schedule": "0 4 * * *"
-    }
-  ],
   "rewrites": [
     {
       "source": "/ebay-callback",
@@ -34,10 +27,6 @@
       "destination": "/api/ebay?action=search"
     },
     {
-      "source": "/api/ebay/orders",
-      "destination": "/api/ebay?action=orders"
-    },
-    {
       "source": "/api/ebay/competition",
       "destination": "/api/ebay?action=competition"
     },
@@ -54,52 +43,12 @@
       "destination": "/api/health"
     },
     {
-      "source": "/api/ai-workflow",
-      "destination": "/api/agent-engine?action=ai-workflow"
-    },
-    {
-      "source": "/api/google-sheets-sync",
-      "destination": "/api/env-check"
-    },
-    {
-      "source": "/api/cj/status",
-      "destination": "/api/cj/search?action=status"
-    },
-    {
-      "source": "/api/google-drive/status",
-      "destination": "/api/google-drive?action=status"
-    },
-    {
-      "source": "/api/google-drive/auth-url",
-      "destination": "/api/google-drive?action=auth-url"
-    },
-    {
-      "source": "/api/google-drive/upload-backup",
-      "destination": "/api/google-drive?action=upload-backup"
-    },
-    {
-      "source": "/api/google-drive/oauth/start",
-      "destination": "/api/google-drive?action=start"
-    },
-    {
-      "source": "/api/google-drive/oauth/callback",
-      "destination": "/api/google-drive?action=callback"
-    },
-    {
       "source": "/ebay-token-exchange",
       "destination": "/ebay-token-exchange/index.html"
     },
     {
       "source": "/ebay-token-exchange/",
       "destination": "/ebay-token-exchange/index.html"
-    },
-    {
-      "source": "/api/ai/listing-optimizer",
-      "destination": "/api/ai?task=listing-optimizer"
-    },
-    {
-      "source": "/api/ai/product-search",
-      "destination": "/api/ai?task=product-search"
     }
   ]
 }
