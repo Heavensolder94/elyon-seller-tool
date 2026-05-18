@@ -9742,23 +9742,26 @@ document.addEventListener('DOMContentLoaded',()=>{
     const uniqueTemplates = templates.filter((template, index, arr) => template && arr.indexOf(template) === index);
     if (!uniqueTemplates.length) return '';
     return `
-      <div class="prompt-template-box" style="margin-top:12px;padding:12px;border:1px solid rgba(148,163,184,.18);border-radius:14px;background:rgba(15,23,42,.32)">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px">
-          <strong style="font-size:13px">Prompt-Vorlagen</strong>
-          <span class="pill">Klick zum Einfügen</span>
-        </div>
-        <p class="hint" style="margin:0 0 10px 0">Nimm eine fertige Vorlage oder passe den Prompt danach noch an.</p>
-        <div class="virtual-agent-connections" style="display:flex;flex-direction:column;align-items:stretch">
-          ${uniqueTemplates.map((template, index) => `
-            <button
-              type="button"
-              class="secondary prompt-template-chip"
-              style="width:100%;justify-content:flex-start;text-align:left;white-space:normal"
-              data-prompt-template="${escapeHtml(template)}"
-              data-prompt-target="${escapeHtml(`extendedPermissionModal_${itemId}_${field.key}`)}"
-            >${index + 1}. ${escapeHtml(template)}</button>
-          `).join('')}
-        </div>
+      <div class="prompt-template-box" style="margin-top:8px">
+        <details class="prompt-template-details">
+          <summary style="display:flex;justify-content:flex-end;list-style:none;cursor:pointer">
+            <span class="secondary" style="padding:6px 10px;font-size:12px;border-radius:999px">Promtvorlage</span>
+          </summary>
+          <div style="margin-top:8px;padding:10px;border:1px solid rgba(148,163,184,.18);border-radius:12px;background:rgba(15,23,42,.32)">
+            <p class="hint" style="margin:0 0 10px 0">Wähle eine passende Vorlage oder schreibe den Prompt frei weiter.</p>
+            <div class="virtual-agent-connections" style="display:flex;flex-direction:column;align-items:stretch">
+              ${uniqueTemplates.map((template, index) => `
+                <button
+                  type="button"
+                  class="secondary prompt-template-chip"
+                  style="width:100%;justify-content:flex-start;text-align:left;white-space:normal"
+                  data-prompt-template="${escapeHtml(template)}"
+                  data-prompt-target="${escapeHtml(`extendedPermissionModal_${itemId}_${field.key}`)}"
+                >${index + 1}. ${escapeHtml(template)}</button>
+              `).join('')}
+            </div>
+          </div>
+        </details>
       </div>
     `;
   };
@@ -9782,7 +9785,6 @@ document.addEventListener('DOMContentLoaded',()=>{
         <div class="permission-setting-card">
           <label for="${fieldId}">${escapeHtml(field.label)}</label>
           <textarea id="${fieldId}" data-extended-field="${field.key}" placeholder="${escapeHtml(field.placeholder || '')}">${escapeHtml(value || '')}</textarea>
-          ${field.key === 'prompt' ? '<p class="hint" style="margin-top:8px">Hier kannst du den Prompt direkt anpassen oder eine Vorlage übernehmen.</p>' : ''}
           ${field.key === 'prompt' ? renderPromptTemplates(type, itemId, field) : ''}
           ${field.help ? `<p class="hint">${escapeHtml(field.help)}</p>` : ''}
         </div>
