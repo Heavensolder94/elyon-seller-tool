@@ -1,0 +1,4 @@
+Live sync trigger for Vercel production.
+Date: 2026-05-18
+Branch: codex/autonomy-ui-admin
+Purpose: force fresh deployment for elyonsellertool.vercel.app
