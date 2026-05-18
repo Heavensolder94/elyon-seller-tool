@@ -259,7 +259,7 @@
   .virtual-agent-accent-finance{border-top:1px solid rgba(34,197,94,.18)}
   .virtual-agent-accent-support{border-top:1px solid rgba(236,72,153,.18)}
   .virtual-agent-accent-operations{border-top:1px solid rgba(34,211,238,.18)}
-  .virtual-future-section{display:block}
+  .virtual-future-section{}
   .virtual-future-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
   .virtual-future-card{padding:18px;border-radius:20px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);display:grid;gap:12px}
   .virtual-future-card .virtual-agent-ident{align-items:flex-start}
@@ -1608,6 +1608,68 @@ PLZ Ort"></textarea>
       <div class="row" style="margin-top:14px">
         <button type="button" id="extendedPermissionModalSaveBtn" class="full">Speichern</button>
         <button type="button" id="extendedPermissionModalCloseBtn" class="secondary full">Abbrechen</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="agentPromptModal" class="hidden modal-backdrop">
+    <div class="card modal-panel permission-settings-panel">
+      <div class="permission-settings-head">
+        <div class="virtual-agent-ident" style="align-items:flex-start">
+          <div class="virtual-agent-icon">✍️</div>
+          <div>
+            <h2 style="margin-bottom:0" id="agentPromptModalTitle">Prompt bearbeiten</h2>
+            <p class="hint" style="margin-top:6px" id="agentPromptModalSubtitle">Prompt nur für diesen Eintrag.</p>
+          </div>
+        </div>
+        <span class="virtual-agent-badge info" id="agentPromptModalKind">Agent</span>
+      </div>
+      <div style="margin-top:14px">
+        <label for="agentPromptModalInput">Prompt</label>
+        <textarea id="agentPromptModalInput" placeholder="Beschreibe hier den gewünschten Arbeitsstil."></textarea>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-top:8px">
+        <button type="button" class="secondary" style="padding:6px 10px;font-size:12px;border-radius:999px" id="agentPromptModalTemplatesBtn">Promt Vorlage</button>
+        <button type="button" class="secondary" style="padding:6px 10px;font-size:12px;border-radius:999px" id="agentPromptModalDeepSeekBtn">Deepseek</button>
+      </div>
+      <div id="agentPromptModalTemplatesPanel" class="prompt-template-panel hidden" style="margin-top:8px;padding:10px;border:1px solid rgba(148,163,184,.18);border-radius:12px;background:rgba(15,23,42,.32)">
+        <p class="hint" style="margin:0 0 10px 0">Wähle eine passende Vorlage für diesen Eintrag.</p>
+        <div id="agentPromptModalTemplatesList" class="virtual-agent-connections" style="display:flex;flex-direction:column;align-items:stretch"></div>
+      </div>
+      <div class="row" style="margin-top:14px">
+        <button type="button" id="agentPromptModalSaveBtn" class="full">Speichern</button>
+        <button type="button" id="agentPromptModalCloseBtn" class="secondary full">Abbrechen</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="groupPromptModal" class="hidden modal-backdrop">
+    <div class="card modal-panel permission-settings-panel">
+      <div class="permission-settings-head">
+        <div class="virtual-agent-ident" style="align-items:flex-start">
+          <div class="virtual-agent-icon">🧩</div>
+          <div>
+            <h2 style="margin-bottom:0" id="groupPromptModalTitle">Bereichs-Prompt bearbeiten</h2>
+            <p class="hint" style="margin-top:6px" id="groupPromptModalSubtitle">Gilt zusätzlich für alle Einträge in diesem Bereich.</p>
+          </div>
+        </div>
+        <span class="virtual-agent-badge info" id="groupPromptModalKind">Bereich</span>
+      </div>
+      <div style="margin-top:14px">
+        <label for="groupPromptModalInput">Übergeordnetes Prompt</label>
+        <textarea id="groupPromptModalInput" placeholder="Beschreibe Regeln und Stil, die für den ganzen Bereich gelten sollen."></textarea>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-top:8px">
+        <button type="button" class="secondary" style="padding:6px 10px;font-size:12px;border-radius:999px" id="groupPromptModalTemplatesBtn">Promt Vorlage</button>
+        <button type="button" class="secondary" style="padding:6px 10px;font-size:12px;border-radius:999px" id="groupPromptModalDeepSeekBtn">Deepseek</button>
+      </div>
+      <div id="groupPromptModalTemplatesPanel" class="prompt-template-panel hidden" style="margin-top:8px;padding:10px;border:1px solid rgba(148,163,184,.18);border-radius:12px;background:rgba(15,23,42,.32)">
+        <p class="hint" style="margin:0 0 10px 0">Vorlagen für den gesamten Bereich.</p>
+        <div id="groupPromptModalTemplatesList" class="virtual-agent-connections" style="display:flex;flex-direction:column;align-items:stretch"></div>
+      </div>
+      <div class="row" style="margin-top:14px">
+        <button type="button" id="groupPromptModalSaveBtn" class="full">Speichern</button>
+        <button type="button" id="groupPromptModalCloseBtn" class="secondary full">Abbrechen</button>
       </div>
     </div>
   </div>
@@ -8099,7 +8161,13 @@ document.addEventListener('DOMContentLoaded',()=>{
       task: 'Produktideen & Chancen erkennen',
       accent: 'scout',
       connections: ['Produktanalyse', 'Trend-Erkennung', 'Ideenprüfung'],
-      description: 'Analysiert neue Produktideen, erkennt Nachfrage, prüft Trend-Potenzial und markiert Chancen oder Nischen, die sich für einen Test eignen. Gibt nur Hinweise und sortiert Ideen nach Potenzial.'
+      description: 'Analysiert neue Produktideen, erkennt Nachfrage, prüft Trend-Potenzial und markiert Chancen oder Nischen, die sich für einen Test eignen. Gibt nur Hinweise und sortiert Ideen nach Potenzial.',
+      prompt: 'Analysiere Produktideen datenbasiert, priorisiere nach Nachfrage, Wettbewerb und Marge und liefere eine klare Empfehlung mit den nächsten 3 Testschritten.',
+      promptTemplates: [
+        'Prüfe diese Produktidee auf Nachfrage, Wettbewerb, Risiko und Startmarge. Gib am Ende eine klare Entscheidung: Testen, Beobachten oder Verwerfen.',
+        'Erstelle eine Chancenanalyse mit Trend-Signal, Zielgruppe, Preisfenster und grobem Aufwand. Füge eine kurze To-do-Liste für den nächsten Schritt hinzu.',
+        'Bewerte das Produkt aus Seller-Sicht mit Fokus auf Potenzial, Risiken und Umsetzbarkeit und schreibe eine priorisierte Handlungsempfehlung.',
+      ],
     },
     {
       id: 'soul-seo',
@@ -8109,7 +8177,13 @@ document.addEventListener('DOMContentLoaded',()=>{
       task: 'Titel, Beschreibung, Keywords verbessern',
       accent: 'seo',
       connections: ['OpenAI Listing KI', 'Titelgenerator', 'Beschreibungsgenerator'],
-      description: 'Optimiert Titel, Beschreibung und Keywords für Sichtbarkeit, Klickrate und Conversion. Prüft Formulierungen auf Klarheit, Relevanz und eBay-Tauglichkeit.'
+      description: 'Optimiert Titel, Beschreibung und Keywords für Sichtbarkeit, Klickrate und Conversion. Prüft Formulierungen auf Klarheit, Relevanz und eBay-Tauglichkeit.',
+      prompt: 'Optimiere Listing-Titel, Keywords und Beschreibung für Sichtbarkeit und Conversion und beachte klare, regelkonforme Formulierungen für eBay.',
+      promptTemplates: [
+        'Erstelle einen SEO-optimierten Titel, 8 passende Keywords und eine strukturierte Kurzbeschreibung für eBay. Fokus: Relevanz, Klickrate, Lesbarkeit.',
+        'Überarbeite das bestehende Listing mit klaren Suchbegriffen, besserem Nutzenversprechen und sauberer Struktur ohne Keyword-Stuffing.',
+        'Liefere eine SEO-Analyse mit konkreten Verbesserungen für Titel, Bullet-Points und Beschreibung sowie einer priorisierten Umsetzungsreihenfolge.',
+      ],
     },
     {
       id: 'soul-guard',
@@ -8119,7 +8193,13 @@ document.addEventListener('DOMContentLoaded',()=>{
       task: 'Risiken, Marge, Lieferzeit und EPR-Hinweise prüfen',
       accent: 'guard',
       connections: ['Produktanalyse', 'Margenprüfung', 'EPR-Hinweise'],
-      description: 'Prüft Risiko, Marge, Lieferzeit, Compliance und EPR-/WEEE-Hinweise. Warnt vor problematischen Produkten und markiert Dinge, die vor einem Listing geprüft werden sollten.'
+      description: 'Prüft Risiko, Marge, Lieferzeit, Compliance und EPR-/WEEE-Hinweise. Warnt vor problematischen Produkten und markiert Dinge, die vor einem Listing geprüft werden sollten.',
+      prompt: 'Führe eine Risiko- und Compliance-Prüfung durch und markiere kritische Punkte mit klaren Gegenmaßnahmen vor einer Freigabe.',
+      promptTemplates: [
+        'Prüfe dieses Produkt auf Lieferzeit-Risiko, Marge, rechtliche Hinweise und potenzielle Sperrgründe. Markiere kritische Punkte eindeutig.',
+        'Erstelle einen Risiko-Report mit Ampellogik (grün/gelb/rot), Begründung und konkreten Maßnahmen, die vor dem Listing erledigt werden müssen.',
+        'Bewerte Compliance und Wirtschaftlichkeit gemeinsam und gib eine Freigabeempfehlung nur bei nachvollziehbar niedriger Risikolage.',
+      ],
     },
     {
       id: 'soul-finance',
@@ -8129,7 +8209,13 @@ document.addEventListener('DOMContentLoaded',()=>{
       task: 'Gewinn, Gebühren, Break-even und Cashflow bewerten',
       accent: 'finance',
       connections: ['Gewinnrechner', 'Gebühren-Check', 'Cashflow-Modul'],
-      description: 'Bewertet Gewinn, Gebühren, Break-even, Cashflow und Preisstabilität. Zeigt, ob ein Produkt wirtschaftlich sinnvoll ist und wo die Kosten schnell zu hoch werden.'
+      description: 'Bewertet Gewinn, Gebühren, Break-even, Cashflow und Preisstabilität. Zeigt, ob ein Produkt wirtschaftlich sinnvoll ist und wo die Kosten schnell zu hoch werden.',
+      prompt: 'Berechne die Wirtschaftlichkeit mit Gebühren, Marge, Break-even und Cashflow und gib eine klare Entscheidung mit Begründung.',
+      promptTemplates: [
+        'Analysiere Einkauf, Gebühren, Versand und Zielpreis. Berechne Marge und Break-even und gib eine klare Empfehlung zur Preisstrategie.',
+        'Erstelle eine Finanzbewertung mit Best-Case, Real-Case und Worst-Case inklusive Warnhinweisen bei knapper Marge.',
+        'Prüfe, ob das Produkt finanziell tragfähig ist, und nenne die wichtigsten Hebel zur Margenverbesserung in priorisierter Reihenfolge.',
+      ],
     },
     {
       id: 'soul-support',
@@ -8139,7 +8225,13 @@ document.addEventListener('DOMContentLoaded',()=>{
       task: 'Kundenantworten und Retouren-Kommunikation vorbereiten',
       accent: 'support',
       connections: ['Elyon Soul / Coach', 'Antwortvorlagen', 'Retouren-Workflow'],
-      description: 'Formuliert freundliche Kundenantworten, Retouren-Kommunikation und Eskalationshinweise. Hilft, schnell und professionell zu antworten, ohne unüberlegte Zusagen zu machen.'
+      description: 'Formuliert freundliche Kundenantworten, Retouren-Kommunikation und Eskalationshinweise. Hilft, schnell und professionell zu antworten, ohne unüberlegte Zusagen zu machen.',
+      prompt: 'Schreibe kundenfreundliche, klare und sichere Antworten mit passender Eskalation, ohne riskante Zusagen oder unklare Aussagen.',
+      promptTemplates: [
+        'Formuliere eine empathische Kundenantwort mit klarer Lösung, nächstem Schritt und professionellem Ton. Vermeide unklare Versprechen.',
+        'Erstelle eine Antwortvorlage für Reklamation oder Retoure mit kurzer Prüfung, sauberer Struktur und nachvollziehbarer Eskalationsoption.',
+        'Gib eine Support-Antwort mit Fokus auf Klarheit, Kulanzrahmen und Verbindlichkeit, damit der Kunde sofort weiß, was als Nächstes passiert.',
+      ],
     },
     {
       id: 'soul-operations',
@@ -8149,7 +8241,13 @@ document.addEventListener('DOMContentLoaded',()=>{
       task: 'Tagesfokus, offene Aufgaben und Warnungen erstellen',
       accent: 'operations',
       connections: ['Tagesfokus', 'Aufgabenboard', 'Warnlogik'],
-      description: 'Erstellt Tagesfokus, offene Aufgaben und Warnungen aus den laufenden Vorgängen. Priorisiert die wichtigsten To-dos und zeigt, wo du heute hinschauen solltest.'
+      description: 'Erstellt Tagesfokus, offene Aufgaben und Warnungen aus den laufenden Vorgängen. Priorisiert die wichtigsten To-dos und zeigt, wo du heute hinschauen solltest.',
+      prompt: 'Erzeuge einen klaren Tagesplan mit Prioritäten, Abhängigkeiten und Warnungen, damit operative Aufgaben strukturiert abgearbeitet werden.',
+      promptTemplates: [
+        'Erstelle einen Tagesfokus mit Top-3 Prioritäten, offenen Blockern und nächsten Schritten inklusive Zeitempfehlung.',
+        'Baue aus den aktuellen Vorgängen eine umsetzbare Aufgabenliste mit Reihenfolge, Verantwortlichkeit und Risikohinweisen.',
+        'Fasse operative Warnungen zusammen und formuliere einen klaren Ablaufplan, der heute realistisch abgearbeitet werden kann.',
+      ],
     },
   ];
   const EXTENDED_AUTONOMY_FEATURE_DEFS = [
@@ -8641,6 +8739,14 @@ document.addEventListener('DOMContentLoaded',()=>{
     note: '',
     lastRunAt: '',
     preparedPlans: [],
+  };
+  const GROUP_PROMPT_DEFAULTS = {
+    'ki-agents': 'Du arbeitest analytisch und strategisch für eCommerce-Entscheidungen. Nutze vorhandene Daten priorisiert nach Umsatzhebel, Marge, Risiko und Umsetzbarkeit. Antworte strukturiert mit: 1) Kurzfazit, 2) wichtigste Chancen, 3) wichtigste Risiken, 4) konkrete nächste Schritte (max. 5), 5) offene Annahmen. Keine Live-Ausführung, keine finalen Freigaben ohne explizite Bestätigung.',
+    'virtual-ma': 'Du arbeitest operativ, zuverlässig und kundenorientiert im Tagesgeschäft. Formuliere klar, knapp und umsetzbar. Prüfe vor jedem Vorschlag: Kosten, Risiken, Datenvollständigkeit und Abhängigkeiten. Gib Ergebnisse als Arbeitsanweisung mit Priorität, Verantwortlichkeit und nächstem Schritt aus. Bei Unsicherheit oder Konflikten eskalierst du statt automatisch zu handeln. Keine verbindlichen Zusagen ohne Freigabe.',
+  };
+  const GROUP_PROMPT_LEGACY_DEFAULTS = {
+    'ki-agents': 'Nutze diesen Bereichs-Prompt als gemeinsame Leitlinie für alle KI-Agenten in diesem Tab.',
+    'virtual-ma': 'Nutze diesen Bereichs-Prompt als gemeinsame Leitlinie für alle virtuellen MA in diesem Tab.',
   };
   const AI_TASK_DEMO_BASE_TIME = Date.now();
   const createTaskId = () => `ai-task-${Math.random().toString(36).slice(2, 10)}-${Date.now().toString(36)}`;
@@ -9662,6 +9768,26 @@ document.addEventListener('DOMContentLoaded',()=>{
     descriptionEditing: {},
     promptEditing: {},
     guardrailsEditing: {},
+    extendedAutonomyPanels: { feature: true, role: true },
+    extendedAutonomyFeatures: EXTENDED_AUTONOMY_FEATURE_DEFS.map((item) => ({
+      id: item.id,
+      kind: item.kind,
+      icon: item.icon,
+      title: item.title,
+      description: item.description,
+      status: 'locked',
+      config: { ...(item.config || {}) },
+    })),
+    extendedAutonomyRoles: EXTENDED_AUTONOMY_ROLE_DEFS.map((item) => ({
+      id: item.id,
+      kind: item.kind,
+      icon: item.icon,
+      title: item.title,
+      description: item.description,
+      status: 'locked',
+      config: { ...(item.config || {}) },
+    })),
+    groupPrompts: { ...GROUP_PROMPT_DEFAULTS },
     aiTasks: [],
     agents: AGENT_DEFS.reduce((acc, def) => {
       acc[def.id] = {
@@ -9671,6 +9797,8 @@ document.addEventListener('DOMContentLoaded',()=>{
         model: 'deepseek',
         dailyLimit: 0.25,
         description: def.description || def.task,
+        prompt: def.prompt || '',
+        generatedPromptTemplates: [],
         statusState: 'Idle',
         usageToday: 0,
         lastActivity: DEFAULT_ACTIVITY,
@@ -9794,6 +9922,34 @@ document.addEventListener('DOMContentLoaded',()=>{
       descriptionEditing: source.descriptionEditing && typeof source.descriptionEditing === 'object' ? {...source.descriptionEditing} : {},
       promptEditing: source.promptEditing && typeof source.promptEditing === 'object' ? {...source.promptEditing} : {},
       guardrailsEditing: source.guardrailsEditing && typeof source.guardrailsEditing === 'object' ? {...source.guardrailsEditing} : {},
+      extendedAutonomyPanels: source.extendedAutonomyPanels && typeof source.extendedAutonomyPanels === 'object'
+        ? {
+            feature: source.extendedAutonomyPanels.feature !== false,
+            role: source.extendedAutonomyPanels.role !== false,
+          }
+        : {...defaults.extendedAutonomyPanels},
+      extendedAutonomyFeatures: normalizeExtendedAutonomyItems(source.extendedAutonomyFeatures, EXTENDED_AUTONOMY_FEATURE_DEFS, 'feature'),
+      extendedAutonomyRoles: normalizeExtendedAutonomyItems(source.extendedAutonomyRoles, EXTENDED_AUTONOMY_ROLE_DEFS, 'role'),
+      groupPrompts: {
+        'ki-agents': (() => {
+          const rawValue = source.groupPrompts && source.groupPrompts['ki-agents'] !== undefined
+            ? source.groupPrompts['ki-agents']
+            : defaults.groupPrompts['ki-agents'];
+          const nextValue = sanitizePromptText(rawValue, GROUP_PROMPT_DEFAULTS['ki-agents']);
+          return !nextValue || nextValue === GROUP_PROMPT_LEGACY_DEFAULTS['ki-agents']
+            ? GROUP_PROMPT_DEFAULTS['ki-agents']
+            : nextValue;
+        })(),
+        'virtual-ma': (() => {
+          const rawValue = source.groupPrompts && source.groupPrompts['virtual-ma'] !== undefined
+            ? source.groupPrompts['virtual-ma']
+            : defaults.groupPrompts['virtual-ma'];
+          const nextValue = sanitizePromptText(rawValue, GROUP_PROMPT_DEFAULTS['virtual-ma']);
+          return !nextValue || nextValue === GROUP_PROMPT_LEGACY_DEFAULTS['virtual-ma']
+            ? GROUP_PROMPT_DEFAULTS['virtual-ma']
+            : nextValue;
+        })(),
+      },
       aiTasks: normalizeAiTasks(source.aiTasks),
       agents: {},
     };
@@ -9808,6 +9964,15 @@ document.addEventListener('DOMContentLoaded',()=>{
         model: normalizeModel(incoming && incoming.model !== undefined ? incoming.model : fallback.model),
         dailyLimit: normalizeLimit(incoming && incoming.dailyLimit !== undefined ? incoming.dailyLimit : fallback.dailyLimit),
         description: sanitizeDescription(incoming && incoming.description !== undefined ? incoming.description : fallback.description, def.description || def.task),
+        prompt: sanitizePromptText(
+          incoming && incoming.prompt !== undefined ? incoming.prompt : (fallback.prompt || def.prompt || ''),
+          def.prompt || '',
+        ),
+        generatedPromptTemplates: sanitizePromptTemplateList(
+          incoming && incoming.generatedPromptTemplates !== undefined
+            ? incoming.generatedPromptTemplates
+            : (fallback.generatedPromptTemplates || []),
+        ),
         statusState: normalizeStatusState(incoming && incoming.statusState !== undefined ? incoming.statusState : fallback.statusState),
         usageToday: normalizeUsage(incoming && incoming.usageToday !== undefined ? incoming.usageToday : fallback.usageToday),
         lastActivity: sanitizeActivity(incoming && incoming.lastActivity !== undefined ? incoming.lastActivity : fallback.lastActivity, DEFAULT_ACTIVITY),
@@ -9852,6 +10017,8 @@ document.addEventListener('DOMContentLoaded',()=>{
   let advancedAutonomyHoldStart = 0;
   let advancedAutonomyHoldActive = false;
   let activeExtendedAutonomySetting = { type: 'feature', id: '' };
+  let activeAgentPromptSetting = '';
+  let activeGroupPromptSetting = '';
 
   const saveState = () => {
     state.activePanel = activePanel;
@@ -10382,6 +10549,20 @@ document.addEventListener('DOMContentLoaded',()=>{
 
   const getAgent = (agentId) => state.agents[agentId] || null;
   const getDefinition = (agentId) => AGENT_DEFS.find((item) => item.id === agentId) || null;
+  const AGENT_GROUP_PROMPT_LABELS = {
+    'ki-agents': 'KI-Agenten',
+    'virtual-ma': 'Virtuelle MA',
+  };
+  const getGroupPromptValue = (groupKey) => {
+    const prompts = state.groupPrompts && typeof state.groupPrompts === 'object' ? state.groupPrompts : {};
+    return sanitizePromptText(prompts[groupKey] !== undefined ? prompts[groupKey] : '', '');
+  };
+  const getEffectiveAgentPrompt = (def, agent) => {
+    const shared = getGroupPromptValue(def.group);
+    const individual = sanitizePromptText(agent && agent.prompt !== undefined ? agent.prompt : (def.prompt || ''), def.prompt || '');
+    if (shared && individual) return `${shared}\n\n${individual}`;
+    return shared || individual || '';
+  };
   const getBadgeMeta = (agent) => {
     const mode = normalizeMode(agent && agent.mode);
     const enabled = !!(agent && agent.active);
@@ -11147,10 +11328,6 @@ document.addEventListener('DOMContentLoaded',()=>{
             </div>
             <span class="virtual-agent-badge info">Lokale Task-Queue</span>
           </div>
-          <div class="task-center-route-grid" style="margin-top:12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px">
-            ${routeCards}
-          </div>
-
           <div class="settings-agents-overview task-center-stats">
             <div class="metric"><small>Offene Aufgaben</small><strong>${stats.active}</strong></div>
             <div class="metric"><small>Hohe Priorität</small><strong>${stats.highPriority}</strong></div>
@@ -11544,7 +11721,6 @@ document.addEventListener('DOMContentLoaded',()=>{
     const badge = getBadgeMeta(agent);
     const usagePercent = getUsagePercent(agent);
     const activityItems = getActivityLogItems(agent, def);
-    const autonomyLinks = getAgentAutonomyLinks(def.id);
     return `
       <details class="virtual-agent-card virtual-agent-disclosure virtual-agent-accent-${escapeHtml(def.accent || 'scout')}" data-agent-id="${def.id}" ${state.openCards && state.openCards[def.id] ? 'open' : ''}>
         <summary class="virtual-agent-summary">
@@ -11631,6 +11807,21 @@ document.addEventListener('DOMContentLoaded',()=>{
             <label>Kurze Beschreibung der Aufgabe</label>
             <textarea data-agent-id="${def.id}" data-agent-field="description" placeholder="${escapeHtml(def.description || def.task)}">${escapeHtml(agent.description || def.description || def.task)}</textarea>
           </div>
+          <div style="margin-top:14px">
+            <label>Prompt für ${escapeHtml(def.name)}</label>
+            <div class="output-box" style="margin-top:8px">
+              <p>${escapeHtml(previewPromptText(getEffectiveAgentPrompt(def, agent)) || 'Kein Prompt hinterlegt.')}</p>
+            </div>
+            <div style="display:flex;justify-content:flex-end;margin-top:8px">
+              <button
+                type="button"
+                class="secondary"
+                data-agent-action="open-agent-prompt-modal"
+                data-agent-id="${escapeHtml(def.id)}"
+              >Prompt bearbeiten</button>
+            </div>
+            <p class="hint">Wirksam ist Bereichs-Prompt + individueller Prompt. Bearbeitung erfolgt im eigenen Fenster mit Promt Vorlage und Deepseek.</p>
+          </div>
 
           <div class="virtual-agent-log">
             <label>Letzte Aktivität</label>
@@ -11644,20 +11835,6 @@ document.addEventListener('DOMContentLoaded',()=>{
             <label>Verwendete KI-Bausteine</label>
             <div class="virtual-agent-connections" style="margin-top:8px">
               ${getConnectionItems(def).map((item) => `<span class="pill">${escapeHtml(item)}</span>`).join('')}
-            </div>
-          </div>
-
-          <div style="margin-top:14px">
-            <label>Passende Funktionen</label>
-            <div class="virtual-agent-connections" style="margin-top:8px">
-              ${autonomyLinks.features.length ? autonomyLinks.features.map((item) => `<span class="pill">${escapeHtml(item)}</span>`).join('') : '<span class="pill">Noch keine Zuordnung</span>'}
-            </div>
-          </div>
-
-          <div style="margin-top:14px">
-            <label>Passende Rollen</label>
-            <div class="virtual-agent-connections" style="margin-top:8px">
-              ${autonomyLinks.roles.length ? autonomyLinks.roles.map((item) => `<span class="pill">${escapeHtml(item)}</span>`).join('') : '<span class="pill">Noch keine Zuordnung</span>'}
             </div>
           </div>
 
@@ -11675,10 +11852,54 @@ document.addEventListener('DOMContentLoaded',()=>{
     `;
   };
 
+  const buildCategoryPromptCard = (type, item, contextKey) => {
+    const promptValue = item && item.config ? String(item.config.prompt || '') : '';
+    const inputId = contextKey
+      ? `extendedPermissionModal_${item.id}_prompt_${contextKey}`
+      : `extendedPermissionModal_${item.id}_prompt`;
+    const promptField = { key: 'prompt' };
+    const kindLabel = type === 'role' ? 'Rolle' : 'Funktion';
+    const placeholder = type === 'role'
+      ? 'Beschreibe, wie diese Rolle entscheiden und freigeben soll.'
+      : 'Beschreibe, was diese Funktion prüfen oder vorbereiten soll.';
+    return `
+      <div class="permission-setting-card" style="margin-top:12px">
+        <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+          <strong>${escapeHtml(item.title)}</strong>
+          <span class="pill">${kindLabel}</span>
+        </div>
+        <textarea
+          id="${escapeHtml(inputId)}"
+          data-inline-prompt-type="${type}"
+          data-inline-prompt-id="${escapeHtml(item.id)}"
+          placeholder="${escapeHtml(placeholder)}"
+        >${escapeHtml(promptValue)}</textarea>
+        ${renderPromptTemplates(type, item.id, promptField, { targetId: inputId, contextKey })}
+        <div style="display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-top:8px">
+          <button
+            type="button"
+            class="secondary"
+            data-agent-action="save-inline-prompt"
+            data-permission-type="${type}"
+            data-permission-id="${escapeHtml(item.id)}"
+            data-prompt-input-id="${escapeHtml(inputId)}"
+          >Prompt speichern</button>
+          <button
+            type="button"
+            class="secondary"
+            data-agent-action="open-extended-permission-settings"
+            data-permission-type="${type}"
+            data-permission-id="${escapeHtml(item.id)}"
+          >⚙️ Einstellungen</button>
+        </div>
+      </div>
+    `;
+  };
+
   const buildCategoryPanel = (panelId, title, description, groupKey, toneClass) => {
     const items = AGENT_DEFS.filter((def) => def.group === groupKey);
     const isActive = activePanel === panelId;
-    const areaLinks = getAutonomyLinksForArea(groupKey);
+    const areaPrompt = getGroupPromptValue(groupKey);
     return `
       <div class="virtual-agent-card virtual-agents-panel ${isActive ? 'active' : ''}" data-panel="${panelId}">
         <div class="virtual-agent-head">
@@ -11689,11 +11910,22 @@ document.addEventListener('DOMContentLoaded',()=>{
               <p>${escapeHtml(description)}</p>
             </div>
           </div>
-          <span class="virtual-agent-badge ${toneClass}">${items.length} Rollen</span>
+          <span class="virtual-agent-badge ${toneClass}">${items.length} Einträge</span>
         </div>
-        <div class="virtual-agent-connections" style="margin-top:10px">
-          <span class="pill">Funktionen: ${areaLinks.features.length ? areaLinks.features.map((text) => escapeHtml(text)).join(' · ') : 'Keine'}</span>
-          <span class="pill">Rollen: ${areaLinks.roles.length ? areaLinks.roles.map((text) => escapeHtml(text)).join(' · ') : 'Keine'}</span>
+        <div class="settings-section" style="margin-top:14px">
+          <h4>Übergeordnetes Promptfeld (${escapeHtml(AGENT_GROUP_PROMPT_LABELS[groupKey] || groupKey)})</h4>
+          <p class="hint">Dieses Prompt gilt zusätzlich für alle Einträge in diesem Bereich.</p>
+          <div class="output-box" style="margin-top:8px">
+            <p>${escapeHtml(previewPromptText(areaPrompt) || 'Kein Bereichs-Prompt hinterlegt.')}</p>
+          </div>
+          <div style="display:flex;justify-content:flex-end;margin-top:8px">
+            <button
+              type="button"
+              class="secondary"
+              data-agent-action="open-group-prompt-modal"
+              data-group-key="${escapeHtml(groupKey)}"
+            >Bereichs-Prompt bearbeiten</button>
+          </div>
         </div>
         <div class="virtual-agents-panels" style="margin-top:14px">
           ${items.map((def) => buildAgentCard(def)).join('')}
@@ -11804,11 +12036,12 @@ document.addEventListener('DOMContentLoaded',()=>{
   };
 
   const buildFutureFunctionsSection = () => {
+    const isOverviewActive = activePanel === 'overview';
     const securityHint = isSecurityLocked()
       ? 'Live-Aktionen bleiben durch Sicherheitsmodus oder Sandbox blockiert.'
       : 'Live-Aktionen bleiben in dieser Version bewusst getrennt.';
     return `
-      <section class="virtual-agent-card virtual-future-section autonomy-registry">
+      <section class="virtual-agent-card virtual-future-section autonomy-registry virtual-agents-panel ${isOverviewActive ? 'active' : ''}" data-panel="overview-autonomy">
         <div class="virtual-future-warning">Erweiterte Autonomie ist der globale Schalter. Mit den Auf-/Zu-Knöpfen klappt jeder Bereich auf oder zu, und das Einstellungsrad passt die einzelnen Einträge an. ${securityHint}</div>
         ${buildExtendedAutonomyCollection(
           'feature',
@@ -11849,7 +12082,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       buildTaskCenterPanel(),
       buildCategoryPanel('ki-agents', 'KI-Agenten', 'Strategische Analyse- und Optimierungsrollen für Recherche und Content.', 'ki-agents', 'info'),
       buildCategoryPanel('virtual-ma', 'Virtuelle Mitarbeiter', 'Operative Helfer für Support, Finance und Tagesorganisation.', 'virtual-ma', 'good'),
-      buildFutureFunctionsSection(),
+      activePanel === 'overview' ? buildFutureFunctionsSection() : '',
     ].join('');
     root.innerHTML = `
       <div class="virtual-agents-shell">
@@ -11960,12 +12193,19 @@ document.addEventListener('DOMContentLoaded',()=>{
       : (field.defaultValue !== undefined ? field.defaultValue : (field.options && field.options[0] ? field.options[0].value : ''));
   };
 
-  const renderPromptTemplates = (type, itemId, field) => {
+  const renderPromptTemplates = (type, itemId, field, options) => {
     const def = getExtendedAutonomySettingDefinition(type, itemId);
     const defaults = getExtendedAutonomyDefaults(type);
     const fallback = Array.isArray(defaults) ? defaults.find((entry) => entry.id === itemId) : null;
     const currentItem = findExtendedPermissionItem(type, itemId);
     const aiReady = isAiFeatureEnabled();
+    const targetId = options && options.targetId
+      ? String(options.targetId)
+      : `extendedPermissionModal_${itemId}_${field.key}`;
+    const rawContextKey = options && options.contextKey ? String(options.contextKey) : 'modal';
+    const safeContextKey = rawContextKey.replace(/[^a-zA-Z0-9_-]/g, '_');
+    const panelKey = `${targetId}__${safeContextKey}`;
+    const draftId = `promptDraft_${type}_${itemId}_${safeContextKey}`;
     const templates = [
       ...(def && Array.isArray(def.promptTemplates) ? def.promptTemplates : []),
       ...(fallback && Array.isArray(fallback.promptTemplates) ? fallback.promptTemplates : []),
@@ -11980,26 +12220,27 @@ document.addEventListener('DOMContentLoaded',()=>{
             type="button"
             class="secondary"
             style="padding:6px 10px;font-size:12px;border-radius:999px"
-            data-prompt-toggle="${escapeHtml(`extendedPermissionModal_${itemId}_${field.key}`)}"
+            data-prompt-toggle="${escapeHtml(panelKey)}"
           >Promtvorlage</button>
           <button
             type="button"
             class="secondary"
             style="padding:6px 10px;font-size:12px;border-radius:999px"
-            id="promptTemplatesGenerate_${escapeHtml(type)}_${escapeHtml(itemId)}"
             data-prompt-generate="${escapeHtml(type)}"
             data-prompt-id="${escapeHtml(itemId)}"
+            data-prompt-context="${escapeHtml(safeContextKey)}"
             ${aiReady ? '' : 'disabled'}
           >${aiReady ? 'Mit DeepSeek' : 'KI aus'}</button>
         </div>
-        <div class="prompt-template-panel hidden" data-prompt-panel="${escapeHtml(`extendedPermissionModal_${itemId}_${field.key}`)}" style="margin-top:8px;padding:10px;border:1px solid rgba(148,163,184,.18);border-radius:12px;background:rgba(15,23,42,.32)">
+        <div class="prompt-template-panel hidden" data-prompt-panel="${escapeHtml(panelKey)}" style="margin-top:8px;padding:10px;border:1px solid rgba(148,163,184,.18);border-radius:12px;background:rgba(15,23,42,.32)">
           <p class="hint" style="margin:0 0 10px 0">Wähle eine passende Vorlage oder gib einen eigenen deutschen Entwurf ein, den DeepSeek verfeinern kann.</p>
           <div style="margin-bottom:10px">
-            <label for="promptDraft_${escapeHtml(type)}_${escapeHtml(itemId)}" class="hint" style="display:block;margin-bottom:6px">Dein deutscher Entwurf</label>
+            <label for="${escapeHtml(draftId)}" class="hint" style="display:block;margin-bottom:6px">Dein deutscher Entwurf</label>
             <textarea
-              id="promptDraft_${escapeHtml(type)}_${escapeHtml(itemId)}"
+              id="${escapeHtml(draftId)}"
               data-prompt-draft="${escapeHtml(type)}"
               data-prompt-id="${escapeHtml(itemId)}"
+              data-prompt-context="${escapeHtml(safeContextKey)}"
               placeholder="Schreibe hier kurz, was die Funktion oder Rolle tun soll. DeepSeek macht daraus einen besseren, längeren Prompt."
               style="min-height:92px"
             >${escapeHtml((currentItem && currentItem.config && currentItem.config.prompt) || '')}</textarea>
@@ -12008,9 +12249,9 @@ document.addEventListener('DOMContentLoaded',()=>{
                 type="button"
                 class="secondary"
                 style="padding:6px 10px;font-size:12px;border-radius:999px"
-                id="promptRefine_${escapeHtml(type)}_${escapeHtml(itemId)}"
                 data-prompt-refine="${escapeHtml(type)}"
                 data-prompt-id="${escapeHtml(itemId)}"
+                data-prompt-context="${escapeHtml(safeContextKey)}"
                 ${aiReady ? '' : 'disabled'}
               >${aiReady ? 'Entwurf verfeinern' : 'KI aus'}</button>
             </div>
@@ -12022,7 +12263,7 @@ document.addEventListener('DOMContentLoaded',()=>{
                 class="secondary prompt-template-chip"
                 style="width:100%;justify-content:flex-start;text-align:left;white-space:normal"
                 data-prompt-template="${escapeHtml(template)}"
-                data-prompt-target="${escapeHtml(`extendedPermissionModal_${itemId}_${field.key}`)}"
+                data-prompt-target="${escapeHtml(targetId)}"
               >${index + 1}. ${escapeHtml(template)}</button>
             `).join('')}
           </div>
@@ -12137,14 +12378,14 @@ document.addEventListener('DOMContentLoaded',()=>{
     return [];
   };
 
-  const generatePromptTemplatesForItem = async (type, itemId) => {
+  const generatePromptTemplatesForItem = async (type, itemId, triggerButton) => {
     if (!isAiFeatureEnabled()) {
       toast('KI-Funktionen sind deaktiviert. Bitte erst aktivieren.', 'Prompt');
       return;
     }
     const item = findExtendedPermissionItem(type, itemId);
     if (!item) return;
-    const button = getEl(`promptTemplatesGenerate_${type}_${itemId}`);
+    const button = triggerButton || null;
     if (button) {
       button.disabled = true;
       button.textContent = 'DeepSeek läuft...';
@@ -12172,20 +12413,21 @@ document.addEventListener('DOMContentLoaded',()=>{
     }
   };
 
-  const refinePromptDraftForItem = async (type, itemId) => {
+  const refinePromptDraftForItem = async (type, itemId, triggerButton) => {
     if (!isAiFeatureEnabled()) {
       toast('KI-Funktionen sind deaktiviert. Bitte erst aktivieren.', 'Prompt');
       return;
     }
     const item = findExtendedPermissionItem(type, itemId);
     if (!item) return;
-    const draftField = getEl(`promptDraft_${type}_${itemId}`);
+    const contextKey = triggerButton && triggerButton.dataset ? (triggerButton.dataset.promptContext || 'modal') : 'modal';
+    const draftField = getEl(`promptDraft_${type}_${itemId}_${contextKey}`) || getEl(`promptDraft_${type}_${itemId}`);
     const draft = draftField ? String(draftField.value || '').trim() : '';
     if (!draft) {
       toast('Bitte zuerst einen deutschen Entwurf eingeben.', 'Prompt');
       return;
     }
-    const button = getEl(`promptRefine_${type}_${itemId}`);
+    const button = triggerButton || null;
     if (button) {
       button.disabled = true;
       button.textContent = 'DeepSeek verfeinert...';
@@ -12272,6 +12514,274 @@ document.addEventListener('DOMContentLoaded',()=>{
   };
 
   const findExtendedPermissionItem = (type, itemId) => getExtendedAutonomyCollection(type).find((item) => item.id === itemId) || null;
+
+  const getAgentPromptTemplates = (agentId) => {
+    const def = getDefinition(agentId);
+    const agent = getAgent(agentId);
+    if (!def || !agent) return [];
+    return [
+      ...(Array.isArray(def.promptTemplates) ? def.promptTemplates : []),
+      ...sanitizePromptTemplateList(agent.generatedPromptTemplates || []),
+    ].filter((template, index, arr) => template && arr.indexOf(template) === index);
+  };
+
+  const renderAgentPromptTemplateButtons = (agentId) => {
+    const templates = getAgentPromptTemplates(agentId);
+    if (!templates.length) return '<div class="hint">Keine Vorlagen vorhanden.</div>';
+    return templates.map((template, index) => `
+      <button
+        type="button"
+        class="secondary prompt-template-chip"
+        style="width:100%;justify-content:flex-start;text-align:left;white-space:normal"
+        data-agent-modal-template="${escapeHtml(template)}"
+      >${index + 1}. ${escapeHtml(template)}</button>
+    `).join('');
+  };
+
+  const refreshAgentPromptModalTemplates = () => {
+    const list = getEl('agentPromptModalTemplatesList');
+    if (!list || !activeAgentPromptSetting) return;
+    list.innerHTML = renderAgentPromptTemplateButtons(activeAgentPromptSetting);
+  };
+
+  const openAgentPromptModal = (agentId) => {
+    const modal = getEl('agentPromptModal');
+    const agent = getAgent(agentId);
+    const def = getDefinition(agentId);
+    if (!modal || !agent || !def) return;
+    activeAgentPromptSetting = agentId;
+    const title = getEl('agentPromptModalTitle');
+    const subtitle = getEl('agentPromptModalSubtitle');
+    const kind = getEl('agentPromptModalKind');
+    const input = getEl('agentPromptModalInput');
+    const panel = getEl('agentPromptModalTemplatesPanel');
+    if (title) title.textContent = `Prompt bearbeiten: ${def.name}`;
+    if (subtitle) subtitle.textContent = def.group === 'ki-agents'
+      ? 'Dieses Prompt gilt nur für diesen KI-Agenten und wird mit dem Bereichs-Prompt kombiniert.'
+      : 'Dieses Prompt gilt nur für diesen Virtuellen MA und wird mit dem Bereichs-Prompt kombiniert.';
+    if (kind) kind.textContent = def.group === 'ki-agents' ? 'KI-Agent' : 'Virtueller MA';
+    if (input) input.value = agent.prompt || def.prompt || '';
+    if (panel) panel.classList.add('hidden');
+    refreshAgentPromptModalTemplates();
+    modal.classList.remove('hidden');
+  };
+
+  const closeAgentPromptModal = () => {
+    const modal = getEl('agentPromptModal');
+    if (modal) modal.classList.add('hidden');
+    activeAgentPromptSetting = '';
+  };
+
+  const saveAgentPromptModal = () => {
+    if (!activeAgentPromptSetting) return;
+    const agent = getAgent(activeAgentPromptSetting);
+    const def = getDefinition(activeAgentPromptSetting);
+    const input = getEl('agentPromptModalInput');
+    if (!agent || !def || !input) return;
+    agent.prompt = sanitizePromptText(input.value, def.prompt || '');
+    saveState();
+    render();
+    toast(`${def.name}: Prompt gespeichert.`, 'Prompt');
+    closeAgentPromptModal();
+  };
+
+  const buildAgentPromptRefinementPrompt = (def, draft) => [
+    'Du bist Prompt-Optimierer für deutsche eCommerce-Automation.',
+    'Verbessere den folgenden Prompt deutlich: präziser, länger, klarer Ablauf, klare Regeln.',
+    'Antwort nur als JSON-Array mit genau 5 String-Vorschlägen.',
+    'Kein Markdown, keine Erklärung.',
+    `Agent/MA: ${def.name}`,
+    `Aufgabe: ${def.task}`,
+    `Beschreibung: ${def.description}`,
+    '',
+    'Aktueller Entwurf:',
+    draft,
+  ].join('\n');
+
+  const refineAgentPromptWithDeepseek = async () => {
+    if (!isAiFeatureEnabled()) {
+      toast('KI-Funktionen sind deaktiviert. Bitte erst aktivieren.', 'Prompt');
+      return;
+    }
+    if (!activeAgentPromptSetting) return;
+    const agentId = activeAgentPromptSetting;
+    const agent = getAgent(agentId);
+    const def = getDefinition(agentId);
+    const input = getEl('agentPromptModalInput');
+    const button = getEl('agentPromptModalDeepSeekBtn');
+    if (!agent || !def || !input) return;
+    const draft = sanitizePromptText(input.value, agent.prompt || def.prompt || '');
+    if (!draft) {
+      toast('Bitte zuerst einen Entwurf ins Promptfeld schreiben.', 'Prompt');
+      return;
+    }
+    if (button) {
+      button.disabled = true;
+      button.textContent = 'Deepseek läuft...';
+    }
+    try {
+      const requestPrompt = buildAgentPromptRefinementPrompt(def, draft);
+      const data = await requestCentralAi('prompt_refine', requestPrompt, { model: 'deepseek' });
+      const list = extractPromptTemplateList(data);
+      if (!list.length) {
+        throw new Error('Deepseek hat keinen nutzbaren Vorschlag geliefert.');
+      }
+      const refined = sanitizePromptText(list[0], draft);
+      agent.prompt = refined;
+      agent.generatedPromptTemplates = sanitizePromptTemplateList([
+        ...(agent.generatedPromptTemplates || []),
+        ...list,
+      ]);
+      input.value = refined;
+      saveState();
+      refreshAgentPromptModalTemplates();
+      toast(`${def.name}: Prompt mit Deepseek verfeinert.`, 'Prompt');
+    } catch (error) {
+      const message = error && error.message ? error.message : 'Deepseek konnte den Prompt nicht verfeinern.';
+      toast(message, 'Prompt');
+    } finally {
+      if (button) {
+        button.disabled = false;
+        button.textContent = 'Deepseek';
+      }
+    }
+  };
+
+  const getGroupPromptTemplates = (groupKey) => {
+    const defs = AGENT_DEFS.filter((def) => def.group === groupKey);
+    return defs
+      .flatMap((def) => Array.isArray(def.promptTemplates) ? def.promptTemplates : [])
+      .map((item) => sanitizePromptText(item, ''))
+      .filter((template, index, arr) => template && arr.indexOf(template) === index)
+      .slice(0, 10);
+  };
+
+  const renderGroupPromptTemplateButtons = (groupKey) => {
+    const templates = getGroupPromptTemplates(groupKey);
+    if (!templates.length) return '<div class="hint">Keine Vorlagen vorhanden.</div>';
+    return templates.map((template, index) => `
+      <button
+        type="button"
+        class="secondary prompt-template-chip"
+        style="width:100%;justify-content:flex-start;text-align:left;white-space:normal"
+        data-group-modal-template="${escapeHtml(template)}"
+      >${index + 1}. ${escapeHtml(template)}</button>
+    `).join('');
+  };
+
+  const refreshGroupPromptModalTemplates = () => {
+    const list = getEl('groupPromptModalTemplatesList');
+    if (!list || !activeGroupPromptSetting) return;
+    list.innerHTML = renderGroupPromptTemplateButtons(activeGroupPromptSetting);
+  };
+
+  const openGroupPromptModal = (groupKey) => {
+    if (!Object.prototype.hasOwnProperty.call(AGENT_GROUP_PROMPT_LABELS, groupKey)) return;
+    const modal = getEl('groupPromptModal');
+    const title = getEl('groupPromptModalTitle');
+    const subtitle = getEl('groupPromptModalSubtitle');
+    const kind = getEl('groupPromptModalKind');
+    const input = getEl('groupPromptModalInput');
+    const panel = getEl('groupPromptModalTemplatesPanel');
+    if (!modal || !input) return;
+    activeGroupPromptSetting = groupKey;
+    const groupLabel = AGENT_GROUP_PROMPT_LABELS[groupKey] || groupKey;
+    if (title) title.textContent = `Bereichs-Prompt: ${groupLabel}`;
+    if (subtitle) subtitle.textContent = `Dieser Prompt gilt zusätzlich für alle Einträge in ${groupLabel}.`;
+    if (kind) kind.textContent = groupLabel;
+    input.value = getGroupPromptValue(groupKey);
+    if (panel) panel.classList.add('hidden');
+    refreshGroupPromptModalTemplates();
+    modal.classList.remove('hidden');
+  };
+
+  const closeGroupPromptModal = () => {
+    const modal = getEl('groupPromptModal');
+    if (modal) modal.classList.add('hidden');
+    activeGroupPromptSetting = '';
+  };
+
+  const saveGroupPromptModal = () => {
+    if (!activeGroupPromptSetting) return;
+    const input = getEl('groupPromptModalInput');
+    if (!input) return;
+    const groupKey = activeGroupPromptSetting;
+    const groupLabel = AGENT_GROUP_PROMPT_LABELS[groupKey] || groupKey;
+    state.groupPrompts = state.groupPrompts && typeof state.groupPrompts === 'object'
+      ? { ...state.groupPrompts }
+      : {};
+    state.groupPrompts[groupKey] = sanitizePromptText(input.value, '');
+    saveState();
+    render();
+    toast(`${groupLabel}: Bereichs-Prompt gespeichert.`, 'Prompt');
+    closeGroupPromptModal();
+  };
+
+  const buildGroupPromptRefinementPrompt = (groupKey, draft) => {
+    const groupLabel = AGENT_GROUP_PROMPT_LABELS[groupKey] || groupKey;
+    const defs = AGENT_DEFS.filter((def) => def.group === groupKey);
+    const tasks = defs.map((def) => `- ${def.name}: ${def.task}`).join('\n');
+    return [
+      'Du bist Prompt-Optimierer für deutsche eCommerce-Automation.',
+      'Verbessere den folgenden Bereichs-Prompt deutlich: präziser, länger, klarer Ablauf, klare Regeln.',
+      'Antwort nur als JSON-Array mit genau 5 String-Vorschlägen.',
+      'Kein Markdown, keine Erklärung.',
+      `Bereich: ${groupLabel}`,
+      'Gilt für diese Einträge:',
+      tasks || '- Keine Einträge',
+      '',
+      'Aktueller Entwurf:',
+      draft,
+    ].join('\n');
+  };
+
+  const refineGroupPromptWithDeepseek = async () => {
+    if (!isAiFeatureEnabled()) {
+      toast('KI-Funktionen sind deaktiviert. Bitte erst aktivieren.', 'Prompt');
+      return;
+    }
+    if (!activeGroupPromptSetting) return;
+    const groupKey = activeGroupPromptSetting;
+    const groupLabel = AGENT_GROUP_PROMPT_LABELS[groupKey] || groupKey;
+    const input = getEl('groupPromptModalInput');
+    const button = getEl('groupPromptModalDeepSeekBtn');
+    if (!input) return;
+    const draft = sanitizePromptText(input.value, getGroupPromptValue(groupKey));
+    if (!draft) {
+      toast('Bitte zuerst einen Entwurf ins Promptfeld schreiben.', 'Prompt');
+      return;
+    }
+    if (button) {
+      button.disabled = true;
+      button.textContent = 'Deepseek läuft...';
+    }
+    try {
+      const requestPrompt = buildGroupPromptRefinementPrompt(groupKey, draft);
+      const data = await requestCentralAi('prompt_refine', requestPrompt, { model: 'deepseek' });
+      const list = extractPromptTemplateList(data);
+      if (!list.length) {
+        throw new Error('Deepseek hat keinen nutzbaren Vorschlag geliefert.');
+      }
+      const refined = sanitizePromptText(list[0], draft);
+      input.value = refined;
+      state.groupPrompts = state.groupPrompts && typeof state.groupPrompts === 'object'
+        ? { ...state.groupPrompts }
+        : {};
+      state.groupPrompts[groupKey] = refined;
+      saveState();
+      render();
+      refreshGroupPromptModalTemplates();
+      toast(`${groupLabel}: Bereichs-Prompt mit Deepseek verfeinert.`, 'Prompt');
+    } catch (error) {
+      const message = error && error.message ? error.message : 'Deepseek konnte den Bereichs-Prompt nicht verfeinern.';
+      toast(message, 'Prompt');
+    } finally {
+      if (button) {
+        button.disabled = false;
+        button.textContent = 'Deepseek';
+      }
+    }
+  };
 
   const openExtendedPermissionModal = (type, itemId) => {
     const modal = getEl('extendedPermissionModal');
@@ -12390,6 +12900,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     state.extendedAutonomyPanels = defaults.extendedAutonomyPanels;
     state.extendedAutonomyFeatures = defaults.extendedAutonomyFeatures;
     state.extendedAutonomyRoles = defaults.extendedAutonomyRoles;
+    state.groupPrompts = defaults.groupPrompts;
     activePanel = 'overview';
     state.activePanel = activePanel;
     saveState();
@@ -12452,6 +12963,8 @@ document.addEventListener('DOMContentLoaded',()=>{
       target.value = Number(agent.dailyLimit || 0).toFixed(2);
     } else if (field === 'description') {
       agent.description = sanitizeDescription(target.value, def.task);
+    } else if (field === 'prompt') {
+      agent.prompt = sanitizePromptText(target.value, def.prompt || '');
     } else if (field === 'statusState') {
       agent.statusState = normalizeStatusState(target.value);
     } else if (field === 'taskStatus') {
@@ -12621,6 +13134,38 @@ document.addEventListener('DOMContentLoaded',()=>{
         }
         return;
       }
+      const saveInlinePromptButton = event.target.closest('[data-agent-action="save-inline-prompt"]');
+      if (saveInlinePromptButton) {
+        const permissionType = saveInlinePromptButton.dataset.permissionType === 'role' ? 'role' : 'feature';
+        const permissionId = saveInlinePromptButton.dataset.permissionId;
+        const item = findExtendedPermissionItem(permissionType, permissionId);
+        if (!item) return;
+        const promptInputId = saveInlinePromptButton.dataset.promptInputId || `extendedPermissionModal_${permissionId}_prompt`;
+        const promptField = getEl(promptInputId);
+        const nextPrompt = sanitizePromptText(
+          promptField ? promptField.value : '',
+          (item.config && item.config.prompt) || '',
+        );
+        updateExtendedAutonomyItem(permissionType, permissionId, {
+          config: { prompt: nextPrompt },
+        });
+        toast(`${item.title}: Prompt gespeichert.`, 'Prompt');
+        return;
+      }
+      const openAgentPromptModalButton = event.target.closest('[data-agent-action="open-agent-prompt-modal"]');
+      if (openAgentPromptModalButton) {
+        const agentId = openAgentPromptModalButton.dataset.agentId;
+        if (!agentId) return;
+        openAgentPromptModal(agentId);
+        return;
+      }
+      const openGroupPromptModalButton = event.target.closest('[data-agent-action="open-group-prompt-modal"]');
+      if (openGroupPromptModalButton) {
+        const groupKey = openGroupPromptModalButton.dataset.groupKey;
+        if (!groupKey) return;
+        openGroupPromptModal(groupKey);
+        return;
+      }
       const taskFilterButton = event.target.closest('[data-task-filter-group][data-task-filter-value]');
       if (taskFilterButton) {
         const filterGroup = taskFilterButton.dataset.taskFilterGroup;
@@ -12714,6 +13259,8 @@ document.addEventListener('DOMContentLoaded',()=>{
       if (event.key === 'Escape') {
         closeAdvancedAutonomyModal();
         closeExtendedPermissionModal();
+        closeAgentPromptModal();
+        closeGroupPromptModal();
         closeTaskRemoveModal();
       }
     });
@@ -12733,6 +13280,40 @@ document.addEventListener('DOMContentLoaded',()=>{
     if (event.target === modal) {
       closeExtendedPermissionModal();
     }
+  });
+
+  document.addEventListener('click', (event) => {
+    const modal = getEl('agentPromptModal');
+    if (!modal || modal.classList.contains('hidden')) return;
+    if (event.target === modal) {
+      closeAgentPromptModal();
+    }
+  });
+
+  document.addEventListener('click', (event) => {
+    const modal = getEl('groupPromptModal');
+    if (!modal || modal.classList.contains('hidden')) return;
+    if (event.target === modal) {
+      closeGroupPromptModal();
+    }
+  });
+
+  document.addEventListener('click', (event) => {
+    const templateButton = event.target.closest('[data-agent-modal-template]');
+    if (!templateButton) return;
+    const input = getEl('agentPromptModalInput');
+    if (!input) return;
+    input.value = templateButton.dataset.agentModalTemplate || '';
+    input.focus();
+  });
+
+  document.addEventListener('click', (event) => {
+    const templateButton = event.target.closest('[data-group-modal-template]');
+    if (!templateButton) return;
+    const input = getEl('groupPromptModalInput');
+    if (!input) return;
+    input.value = templateButton.dataset.groupModalTemplate || '';
+    input.focus();
   });
 
   document.addEventListener('click', (event) => {
@@ -12760,7 +13341,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     const type = generateButton.dataset.promptGenerate === 'role' ? 'role' : 'feature';
     const itemId = generateButton.dataset.promptId;
     if (!itemId) return;
-    generatePromptTemplatesForItem(type, itemId);
+    generatePromptTemplatesForItem(type, itemId, generateButton);
   });
 
   document.addEventListener('click', (event) => {
@@ -12769,7 +13350,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     const type = refineButton.dataset.promptRefine === 'role' ? 'role' : 'feature';
     const itemId = refineButton.dataset.promptId;
     if (!itemId) return;
-    refinePromptDraftForItem(type, itemId);
+    refinePromptDraftForItem(type, itemId, refineButton);
   });
 
   window.openVirtualAgentsSettings = openAgentSettings;
@@ -12790,6 +13371,14 @@ document.addEventListener('DOMContentLoaded',()=>{
     const advancedAutonomyCloseBtn = getEl('advancedAutonomyCloseBtn');
     const extendedPermissionSaveBtn = getEl('extendedPermissionModalSaveBtn');
     const extendedPermissionCloseBtn = getEl('extendedPermissionModalCloseBtn');
+    const agentPromptTemplatesBtn = getEl('agentPromptModalTemplatesBtn');
+    const agentPromptDeepSeekBtn = getEl('agentPromptModalDeepSeekBtn');
+    const agentPromptSaveBtn = getEl('agentPromptModalSaveBtn');
+    const agentPromptCloseBtn = getEl('agentPromptModalCloseBtn');
+    const groupPromptTemplatesBtn = getEl('groupPromptModalTemplatesBtn');
+    const groupPromptDeepSeekBtn = getEl('groupPromptModalDeepSeekBtn');
+    const groupPromptSaveBtn = getEl('groupPromptModalSaveBtn');
+    const groupPromptCloseBtn = getEl('groupPromptModalCloseBtn');
     if (advancedAutonomyCheckbox) {
       advancedAutonomyCheckbox.addEventListener('change', updateAdvancedAutonomyHoldUI);
     }
@@ -12810,6 +13399,46 @@ document.addEventListener('DOMContentLoaded',()=>{
     if (extendedPermissionCloseBtn && !extendedPermissionCloseBtn.dataset.bound) {
       extendedPermissionCloseBtn.dataset.bound = 'yes';
       extendedPermissionCloseBtn.addEventListener('click', closeExtendedPermissionModal);
+    }
+    if (agentPromptTemplatesBtn && !agentPromptTemplatesBtn.dataset.bound) {
+      agentPromptTemplatesBtn.dataset.bound = 'yes';
+      agentPromptTemplatesBtn.addEventListener('click', () => {
+        const panel = getEl('agentPromptModalTemplatesPanel');
+        if (!panel) return;
+        panel.classList.toggle('hidden');
+      });
+    }
+    if (agentPromptDeepSeekBtn && !agentPromptDeepSeekBtn.dataset.bound) {
+      agentPromptDeepSeekBtn.dataset.bound = 'yes';
+      agentPromptDeepSeekBtn.addEventListener('click', refineAgentPromptWithDeepseek);
+    }
+    if (agentPromptSaveBtn && !agentPromptSaveBtn.dataset.bound) {
+      agentPromptSaveBtn.dataset.bound = 'yes';
+      agentPromptSaveBtn.addEventListener('click', saveAgentPromptModal);
+    }
+    if (agentPromptCloseBtn && !agentPromptCloseBtn.dataset.bound) {
+      agentPromptCloseBtn.dataset.bound = 'yes';
+      agentPromptCloseBtn.addEventListener('click', closeAgentPromptModal);
+    }
+    if (groupPromptTemplatesBtn && !groupPromptTemplatesBtn.dataset.bound) {
+      groupPromptTemplatesBtn.dataset.bound = 'yes';
+      groupPromptTemplatesBtn.addEventListener('click', () => {
+        const panel = getEl('groupPromptModalTemplatesPanel');
+        if (!panel) return;
+        panel.classList.toggle('hidden');
+      });
+    }
+    if (groupPromptDeepSeekBtn && !groupPromptDeepSeekBtn.dataset.bound) {
+      groupPromptDeepSeekBtn.dataset.bound = 'yes';
+      groupPromptDeepSeekBtn.addEventListener('click', refineGroupPromptWithDeepseek);
+    }
+    if (groupPromptSaveBtn && !groupPromptSaveBtn.dataset.bound) {
+      groupPromptSaveBtn.dataset.bound = 'yes';
+      groupPromptSaveBtn.addEventListener('click', saveGroupPromptModal);
+    }
+    if (groupPromptCloseBtn && !groupPromptCloseBtn.dataset.bound) {
+      groupPromptCloseBtn.dataset.bound = 'yes';
+      groupPromptCloseBtn.addEventListener('click', closeGroupPromptModal);
     }
     const openBtn = getEl('openVirtualAgentsSettingsBtn');
     if (openBtn && !openBtn.dataset.bound) {
