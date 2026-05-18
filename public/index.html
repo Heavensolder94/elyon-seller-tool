@@ -9332,7 +9332,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   const syncAiWorkflowToServer = async () => {
     try {
       const apiBase = getAiWorkflowApiBase();
-      const endpoint = apiBase ? `${apiBase}/api/ai-workflow` : '/api/ai-workflow';
+      const endpoint = apiBase ? `${apiBase}/api/agent-engine?action=ai-workflow` : '/api/agent-engine?action=ai-workflow';
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -9348,7 +9348,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   const loadAiWorkflowFromServer = async () => {
     try {
       const apiBase = getAiWorkflowApiBase();
-      const endpoint = apiBase ? `${apiBase}/api/ai-workflow` : '/api/ai-workflow';
+      const endpoint = apiBase ? `${apiBase}/api/agent-engine?action=ai-workflow` : '/api/agent-engine?action=ai-workflow';
       const response = await fetch(endpoint, { method: 'GET' });
       const data = await response.json().catch(() => null);
       const serverData = data && data.data && typeof data.data === 'object' ? data.data : null;

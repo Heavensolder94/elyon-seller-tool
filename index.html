@@ -242,10 +242,6 @@
   .agent-switch-locked .agent-switch-track{background:linear-gradient(180deg,rgba(71,85,105,.8),rgba(51,65,85,.8));border-color:rgba(148,163,184,.2)}
   .agent-switch-locked .agent-switch-track:before{background:linear-gradient(180deg,#f8fafc,#cbd5e1);transform:translateX(0)}
   .agent-switch-locked .agent-switch-track:after{content:'🔒';right:7px;color:#cbd5e1;font-size:11px}
-  .agent-switch-unlocked{cursor:pointer}
-  .agent-switch-unlocked .agent-switch-track{background:linear-gradient(135deg,#3b82f6,#8b5cf6);border-color:rgba(96,165,250,.44);box-shadow:0 0 0 4px rgba(59,130,246,.12),inset 0 1px 0 rgba(255,255,255,.08)}
-  .agent-switch-unlocked .agent-switch-track:before{transform:translateX(24px)}
-  .agent-switch-unlocked .agent-switch-track:after{content:'AN';color:#e0f2fe}
   .virtual-agent-card textarea{min-height:92px}
   .virtual-agent-footer{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
   .virtual-agent-footnote{font-size:12px;color:#94a3b8;line-height:1.45;margin-top:12px}
@@ -451,7 +447,7 @@
       <option value="invoiceTab">7. 🧾 Rechnungen</option>
       <option value="automationTab">8. 🚚 Versandzentrale</option>
       <option value="settingsTab">9. ⚙️ Einstellungen / API Status</option>
-      <option value="virtualAgentsTab">10. 🧑‍💼 Virtuelle Mitarbeiter / Agenten</option>
+      <option value="virtualAgentsTab">10. 🧑‍💼 Virtuelle Mitarbeiter / KI-Agenten</option>
       <option value="marketCheckTab">11. Konkurrenz / Marktcheck</option>
       <option value="financeTab">12. Kalkulation</option>
       <option value="listingCheckTab">13. Listing-Check</option>
@@ -1118,7 +1114,7 @@ Land"></textarea>
   <section id="settingsTab" class="tab">
     <div class="card">
       <h2>⚙️ Einstellungen / API Status</h2>
-      <p class="hint">Arbeitsbereich für Backend-Setup, Google Sheets Sync und API-Status. CJ-, eBay-, Google-Drive- und Sheets-Flows brauchen echte Keys oder OAuth-Callbacks, alles andere bleibt Vorschau.</p>
+      <p class="hint">Arbeitsbereich für Backend-Setup, Google Sheets Sync und API-Status. CJ- und eBay-Recherche-Werkzeuge findest du in der Produktsuche.</p>
       <div class="dashboard">
         <div class="metric"><small>Backend</small><strong id="intBackendStatus">Nicht geprüft</strong></div>
         <div class="metric"><small>CJ</small><strong id="intCjStatus">Nicht geprüft</strong></div>
@@ -1134,17 +1130,11 @@ Land"></textarea>
 
     <div class="card" style="margin-top:20px">
       <h2>Google Sheets Sync</h2>
-      <p class="hint">Synchronisiert deine Elyon-Daten mit einem Google Apps Script Web-App Endpoint. Dafür brauchst du eine bereitgestellte Apps-Script-URL plus Sync-Token. Die bestehenden CSV-Import/Export-Funktionen bleiben unverändert.</p>
+      <p class="hint">Synchronisiert deine Elyon-Daten mit einem Google Apps Script Web-App Endpoint. Die bestehenden CSV-Import/Export-Funktionen bleiben unverändert.</p>
       <label>Google Apps Script Web-App URL</label>
-      <div style="display:flex;gap:8px;align-items:center">
-        <input id="googleSheetsSyncUrl" type="password" placeholder="https://script.google.com/macros/s/....../exec" style="flex:1;min-width:0">
-        <button id="toggleGoogleSheetsSyncUrlVisibilityBtn" type="button" class="secondary" aria-label="Google Apps Script Web-App URL sichtbar machen" onclick="toggleGoogleSheetsSecretField('googleSheetsSyncUrl')">👁️</button>
-      </div>
+      <input id="googleSheetsSyncUrl" placeholder="https://script.google.com/macros/s/....../exec">
       <label>Sync Token</label>
-      <div style="display:flex;gap:8px;align-items:center">
-        <input id="googleSheetsSyncToken" type="password" placeholder="Dein Sync-Token" style="flex:1;min-width:0">
-        <button id="toggleGoogleSheetsSyncTokenVisibilityBtn" type="button" class="secondary" aria-label="Sync Token sichtbar machen" onclick="toggleGoogleSheetsSecretField('googleSheetsSyncToken')">👁️</button>
-      </div>
+      <input id="googleSheetsSyncToken" placeholder="Dein Sync-Token">
       <div class="row">
         <button id="saveGoogleSheetsSyncBtn" class="secondary full" type="button">Sync-Einstellungen speichern</button>
         <button id="syncAllGoogleSheetsBtn" class="full" type="button">Alles synchronisieren</button>
@@ -1183,8 +1173,8 @@ Land"></textarea>
     <div class="card">
       <div class="settings-agents-header">
         <div>
-          <h2>Virtuelle Mitarbeiter / Agenten</h2>
-          <p class="hint">Eigene Verwaltungs- und Steuerungsebene für die vorhandenen KI-Funktionen. Das bleibt eine lokale Vorschau, keine autonomen Live-Bots; automatische Aktionen bleiben bestätigungspflichtig.</p>
+          <h2>Virtuelle Mitarbeiter / KI-Agenten</h2>
+          <p class="hint">Eigene Verwaltungs- und Steuerungsebene für die vorhandenen KI-Funktionen. Automatische Aktionen bleiben vorerst bestätigungspflichtig.</p>
         </div>
         <button id="openVirtualAgentsSettingsBtn" class="secondary" type="button">Agentenbereich fokussieren</button>
       </div>
@@ -1432,16 +1422,12 @@ Land"></textarea>
         <h3>🤖 KI</h3>
         <div class="checkrow"><input type="checkbox" id="setAiEnabled" checked><label for="setAiEnabled">KI-Funktionen aktivieren</label></div>
         <p class="hint">Wenn diese Option aus ist, bleiben die KI-Buttons sichtbar, aber die Prüfung nutzt keine OpenAI-Funktionen.</p>
-        <div class="checkrow"><input type="checkbox" id="setAiConfirmLiveActions" checked><label for="setAiConfirmLiveActions">Live-Aktionen nur nach Bestätigung</label></div>
-        <div class="checkrow"><input type="checkbox" id="setAiSandboxMode" checked><label for="setAiSandboxMode">Sandbox-Modus aktiv</label></div>
-        <div class="checkrow"><input type="checkbox" id="setAiAdvancedMode"><label for="setAiAdvancedMode">Erweiterter Modus aktiv</label></div>
-        <p class="hint">Diese drei Schalter steuern die bestehende Sicherheitslogik der Agenten mit: Bestätigung blockiert Live-Aktionen, Sandbox simuliert nur, der erweiterte Modus bereitet spätere Freigaben vor.</p>
       </div>
 
       <div class="settings-section">
         <h3>🧑‍💼 Virtuelle Mitarbeiter</h3>
-        <p class="hint">Die Agentensteuerung liegt im Einstellungsbereich unten und bleibt lokal gespeichert. Sie steuert nur Vorschläge und vorbereitete Workflows.</p>
-        <button id="openVirtualAgentsSettingsBtnModal" class="secondary full" type="button">Virtuelle Mitarbeiter / Agenten öffnen</button>
+        <p class="hint">Die Agentensteuerung liegt im Einstellungsbereich unten und bleibt lokal gespeichert.</p>
+        <button id="openVirtualAgentsSettingsBtnModal" class="secondary full" type="button">Virtuelle Mitarbeiter / KI-Agenten öffnen</button>
       </div>
 
       <div class="settings-section">
@@ -1484,11 +1470,11 @@ Land"></textarea>
             <button id="setCjConnectPlanBtn" class="secondary full">CJ API prüfen</button>
           </div>
           <button id="resetIntegrationSettingsBtn" class="danger full" style="margin-top:10px">Integrationen zurücksetzen</button>
-          <div id="settingsIntegrationResult" class="output-box"><p>Hier prüfst du, ob dein Vercel-Backend, eBay und CJ technisch erreichbar sind. API-Keys und Secrets bleiben ausschließlich in Vercel Environment Variables, und OAuth-Flows brauchen gültige Callback-URLs statt Browser-Tricks.</p></div>
+          <div id="settingsIntegrationResult" class="output-box"><p>Hier prüfst du, ob dein Vercel-Backend, eBay und CJ technisch erreichbar sind. API-Keys und Secrets bleiben ausschließlich in Vercel Environment Variables, nicht in dieser HTML-Datei.</p></div>
 
           <div class="settings-section" style="margin-top:14px">
             <h3>🛡️ Sicherheitsregeln</h3>
-            <p class="hint">Diese Regeln schützen dich davor, zu früh zu automatisieren oder Zugangsdaten unsicher zu speichern. OAuth- und Upload-Flows bleiben erst aktiv, wenn die passenden Umgebungsvariablen oder Callback-URLs gesetzt sind.</p>
+            <p class="hint">Diese Regeln schützen dich davor, zu früh zu automatisieren oder Zugangsdaten unsicher zu speichern.</p>
             <div class="checkrow"><input type="checkbox" checked disabled><label>Keine API-Keys im Browser speichern</label></div>
             <div class="checkrow"><input type="checkbox" checked disabled><label>Erst lesen/importieren, nicht automatisch veröffentlichen</label></div>
             <div class="checkrow"><input type="checkbox" checked disabled><label>Keine automatische CJ-Bestellung ohne manuelle Prüfung</label></div>
@@ -1575,7 +1561,7 @@ PLZ Ort"></textarea>
         <span class="virtual-agent-badge warn">Sandbox bleibt aktiv</span>
       </div>
       <div class="output-box" style="margin-top:0">
-        <p>Die Vorschau zeigt, was virtuelle Mitarbeiter später vorbereiten könnten:</p>
+        <p>Nach der Freischaltung kannst du geschützte Funktionen und Rollen einzeln zwischen „gesperrt“ und „aktiv“ verschieben.</p>
         <ul>
           <li>Funktionen aktivieren oder wieder sperren</li>
           <li>Rollen in die aktive Liste verschieben</li>
@@ -2449,27 +2435,9 @@ function testBackendConnection(){
     integrationSettings.backendCheck = 'ok';
     localStorage.setItem('elyonIntegrations', JSON.stringify(integrationSettings));
     renderIntegrationStatus();
-    fetchBackendJSON('/api/env-check').then(function(statusData){
-      const readiness = statusData && statusData.readiness ? statusData.readiness : null;
-      const summaryParts = [];
-      if(readiness){
-        if(readiness.localBackup) summaryParts.push('Lokale Backups: bereit');
-        if(readiness.cj) summaryParts.push('CJ: ' + (readiness.cj.ready ? 'bereit' : 'Setup fehlt'));
-        if(readiness.ebay) summaryParts.push('eBay: ' + (readiness.ebay.ready ? 'bereit' : 'Setup fehlt'));
-        if(readiness.googleDrive) summaryParts.push('Google Drive: ' + (readiness.googleDrive.ready ? 'bereit' : 'Setup fehlt'));
-        if(readiness.googleSheets) summaryParts.push('Google Sheets: ' + (readiness.googleSheets.ready ? 'bereit' : 'Vorschau'));
-        if(readiness.openai) summaryParts.push('OpenAI: ' + (readiness.openai.ready ? 'bereit' : 'Setup fehlt'));
-        if(readiness.deepseek) summaryParts.push('DeepSeek: ' + (readiness.deepseek.ready ? 'bereit' : 'Setup fehlt'));
-      }
-      const readinessHtml = summaryParts.length ? '<p class="hint">Readiness: ' + summaryParts.join(' · ') + '</p>' : '';
-      const html = '<h3>Backend-Test</h3><p>Ping: <strong>Backend erreichbar</strong></p><p class="hint">Route geprüft: /api/ping</p>' + readinessHtml;
-      setHTML('backendTestResult',html);
-      setHTML('settingsIntegrationResult',html);
-    }).catch(function(){
-      const html = '<h3>Backend-Test</h3><p>Ping: <strong>Backend erreichbar</strong></p><p class="hint">Route geprüft: /api/ping</p>';
-      setHTML('backendTestResult',html);
-      setHTML('settingsIntegrationResult',html);
-    });
+    const html = '<h3>Backend-Test</h3><p>Ping: <strong>Backend erreichbar</strong></p><p class="hint">Route geprüft: /api/ping</p>';
+    setHTML('backendTestResult',html);
+    setHTML('settingsIntegrationResult',html);
   }).catch(function(err){
     integrationSettings.backendCheck = 'error';
     localStorage.setItem('elyonIntegrations', JSON.stringify(integrationSettings));
@@ -2613,136 +2581,6 @@ function getGoogleSheetsSyncConfig(){
     token: formToken || storedToken,
   };
 }
-function setGoogleSheetsSecretFieldVisibility(fieldId, visible){
-  const input = $(fieldId);
-  const buttonId = fieldId === 'googleSheetsSyncUrl' ? 'toggleGoogleSheetsSyncUrlVisibilityBtn' : fieldId === 'googleSheetsSyncToken' ? 'toggleGoogleSheetsSyncTokenVisibilityBtn' : '';
-  const button = buttonId ? $(buttonId) : null;
-  if(input){
-    input.type = visible ? 'text' : 'password';
-  }
-  if(button){
-    button.textContent = visible ? '🙈' : '👁️';
-    button.setAttribute('aria-label', visible ? 'Feld verbergen' : 'Feld sichtbar machen');
-  }
-}
-function toggleGoogleSheetsSecretField(fieldId){
-  const input = $(fieldId);
-  setGoogleSheetsSecretFieldVisibility(fieldId, !(input && input.type === 'text'));
-}
-function refreshGoogleSheetsSecretFieldVisibility(){
-  setGoogleSheetsSecretFieldVisibility('googleSheetsSyncUrl', !!($('googleSheetsSyncUrl') && $('googleSheetsSyncUrl').type === 'text'));
-  setGoogleSheetsSecretFieldVisibility('googleSheetsSyncToken', !!($('googleSheetsSyncToken') && $('googleSheetsSyncToken').type === 'text'));
-}
-function getGoogleSheetsSyncSnapshot(){
-  return {
-    url: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.url) || '',
-    token: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.token) || '',
-    lastInventorySyncAt: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.inventoryAt) || '',
-    lastSupplierSyncAt: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.supplierAt) || '',
-    lastSalesSyncAt: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.salesAt) || '',
-    lastCostsSyncAt: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.costsAt) || '',
-    lastSalesLoadAt: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.salesLoadAt) || '',
-  };
-}
-function applyGoogleSheetsSyncSnapshot(snapshot){
-  const data = snapshot && typeof snapshot === 'object' ? snapshot : {};
-  const entries = [
-    [GOOGLE_SHEETS_SYNC_KEYS.url, data.url],
-    [GOOGLE_SHEETS_SYNC_KEYS.token, data.token],
-    [GOOGLE_SHEETS_SYNC_KEYS.inventoryAt, data.lastInventorySyncAt],
-    [GOOGLE_SHEETS_SYNC_KEYS.supplierAt, data.lastSupplierSyncAt],
-    [GOOGLE_SHEETS_SYNC_KEYS.salesAt, data.lastSalesSyncAt],
-    [GOOGLE_SHEETS_SYNC_KEYS.costsAt, data.lastCostsSyncAt],
-    [GOOGLE_SHEETS_SYNC_KEYS.salesLoadAt, data.lastSalesLoadAt],
-  ];
-  entries.forEach(function(pair){
-    const key = pair[0];
-    const value = pair[1];
-    if(key && value !== undefined && value !== null){
-      localStorage.setItem(key, String(value || ''));
-    }
-  });
-  safe('googleSheetsSyncUrl', el => el.value = data.url || localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.url) || '');
-  safe('googleSheetsSyncToken', el => el.value = data.token || localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.token) || '');
-}
-function getGoogleSheetsSyncCloudEndpoint(){
-  if(typeof window === 'undefined' || !window.location || !/^https?:$/i.test(window.location.protocol || '')){
-    return '';
-  }
-  return '/api/google-sheets-sync-settings';
-}
-async function loadGoogleSheetsSyncSettingsFromCloud(){
-  const endpoint = getGoogleSheetsSyncCloudEndpoint();
-  if(!endpoint) return null;
-  try{
-    const response = await fetch(endpoint, {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-      },
-    });
-    const rawText = await response.text();
-    if(!rawText || !rawText.trim()) return null;
-    const data = JSON.parse(rawText);
-    if(!response.ok || !data || data.ok === false || !data.settings || typeof data.settings !== 'object'){
-      return null;
-    }
-    applyGoogleSheetsSyncSnapshot(data.settings);
-    renderGoogleSheetsSyncStatus();
-    return data.settings;
-  }catch(error){
-    console.warn('Google Sheets Sync settings cloud load failed:', error);
-    return null;
-  }
-}
-let googleSheetsSyncSettingsCloudSaveTimer = null;
-function queueGoogleSheetsSyncSettingsCloudSave(){
-  const endpoint = getGoogleSheetsSyncCloudEndpoint();
-  if(!endpoint) return;
-  if(googleSheetsSyncSettingsCloudSaveTimer){
-    clearTimeout(googleSheetsSyncSettingsCloudSaveTimer);
-  }
-  googleSheetsSyncSettingsCloudSaveTimer = setTimeout(function(){
-    googleSheetsSyncSettingsCloudSaveTimer = null;
-    void saveGoogleSheetsSyncSettingsToCloud();
-  }, 350);
-}
-async function saveGoogleSheetsSyncSettingsToCloud(){
-  const endpoint = getGoogleSheetsSyncCloudEndpoint();
-  if(!endpoint) return { ok: false, skipped: true, reason: 'offline' };
-  const snapshot = getGoogleSheetsSyncSnapshot();
-  try{
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-      body: JSON.stringify({ settings: snapshot }),
-    });
-    const rawText = await response.text();
-    if(!rawText || !rawText.trim()){
-      throw new Error('Leere Antwort vom Server.');
-    }
-    const data = JSON.parse(rawText);
-    if(!response.ok || !data || data.ok === false){
-      throw new Error((data && (data.error || data.message)) ? (data.error || data.message) : ('Request fehlgeschlagen: HTTP ' + response.status));
-    }
-    return data;
-  }catch(error){
-    console.warn('Google Sheets Sync settings cloud save failed:', error);
-    throw error;
-  }
-}
-function getGoogleSheetsSyncErrorKey(type){
-  const map = {
-    inventory: GOOGLE_SHEETS_SYNC_KEYS.inventoryError,
-    suppliers: GOOGLE_SHEETS_SYNC_KEYS.supplierError,
-    sales: GOOGLE_SHEETS_SYNC_KEYS.salesError,
-    costs: GOOGLE_SHEETS_SYNC_KEYS.costsError,
-  };
-  return map[type] || '';
-}
 function setGoogleSheetsSyncTimestamp(type, iso){
   const map = {
     inventory: GOOGLE_SHEETS_SYNC_KEYS.inventoryAt,
@@ -2788,18 +2626,7 @@ function saveGoogleSheetsSyncSettings(){
   localStorage.setItem(GOOGLE_SHEETS_SYNC_KEYS.url, url);
   localStorage.setItem(GOOGLE_SHEETS_SYNC_KEYS.token, token);
   renderGoogleSheetsSyncStatus();
-  try{
-    const cloudResult = await saveGoogleSheetsSyncSettingsToCloud();
-    if(cloudResult && cloudResult.ok){
-      setHTML('googleSheetsSyncResult', '<p>Sync-Einstellungen gespeichert und cloud-synchronisiert.</p>');
-    }else if(cloudResult && cloudResult.skipped){
-      setHTML('googleSheetsSyncResult', '<p>Sync-Einstellungen lokal gespeichert. Cloud-Sync ist in der Datei-Ansicht nicht aktiv.</p>');
-    }else{
-      setHTML('googleSheetsSyncResult', '<p>Sync-Einstellungen lokal gespeichert.</p>');
-    }
-  }catch(error){
-    setHTML('googleSheetsSyncResult', '<p>Sync-Einstellungen lokal gespeichert. Cloud-Sync nicht verfügbar: ' + escapeHtml(error && error.message ? error.message : 'Unbekannter Fehler') + '</p>');
-  }
+  setHTML('googleSheetsSyncResult', '<p>Sync-Einstellungen gespeichert.</p>');
   alert('Google Sheets Sync-Einstellungen gespeichert.');
 }
 function calcProductSafe(product){
@@ -8325,13 +8152,20 @@ document.addEventListener('DOMContentLoaded',()=>{
       description: 'Erstellt Tagesfokus, offene Aufgaben und Warnungen aus den laufenden Vorgängen. Priorisiert die wichtigsten To-dos und zeigt, wo du heute hinschauen solltest.'
     },
   ];
-  const FUTURE_CAPABILITY_DEFS = {
-    lockedFunctions: [
-      {
-        id: 'full-automation',
-        icon: '🔒',
-        title: 'Vollautomatische Aktionen',
-        description: 'Agenten könnten später Aufgaben ohne manuelle Auslösung vorbereiten oder ausführen.',
+  const EXTENDED_AUTONOMY_FEATURE_DEFS = [
+    {
+      id: 'auto-actions',
+      kind: 'feature',
+      icon: '⚙️',
+      title: 'Vollautomatische Aktionen',
+      description: 'Agenten können künftig Abläufe selbst vorbereiten und mit Freigabe ausführen, statt nur Hinweise zu geben.',
+      config: {
+        targetArea: 'ki-agents',
+        mode: 'manual',
+        threshold: 'medium',
+        autoStart: false,
+        prompt: 'Prüfe die passende KI-Aufgabe auf Risiken, Zielbereich und sinnvolle nächste Schritte.',
+        note: 'Mit Bestätigung freigeben',
       },
       {
         id: 'auto-orders',
@@ -8339,67 +8173,255 @@ document.addEventListener('DOMContentLoaded',()=>{
         title: 'Automatische Bestellungen',
         description: 'Bestellungen werden später aus gespeicherten Bestellplänen vorbereitet und erst nach Freigabe ausgelöst.',
       },
-      {
-        id: 'auto-messages',
-        icon: '🔒',
-        title: 'Automatische Kundennachrichten',
-        description: 'Kundenantworten automatisch senden.',
+      promptTemplates: [
+        'Erstelle eine prüfbare Bestellvorlage mit Lieferant, Risiko und Freigabepunkt.',
+        'Markiere Lieferantenrisiken und liste offene Rückfragen vor einer Bestellung auf.',
+        'Fasse die Bestellung so zusammen, dass ein Virtueller MA sie sicher vorbereiten kann.',
+      ],
+    },
+    {
+      id: 'auto-messages',
+      kind: 'feature',
+      icon: '💬',
+      title: 'Automatische Kundennachrichten',
+      description: 'Antworten an Kunden können vorbereitet und später automatisch versendet werden.',
+      config: {
+        targetArea: 'virtual-ma',
+        mode: 'manual',
+        threshold: 'medium',
+        autoStart: false,
+        prompt: 'Entwirf eine freundliche Kundenantwort mit klarer Eskalationsregel und Freigabehinweis.',
+        note: 'Tonfall vor Versand prüfen',
       },
-      {
-        id: 'auto-ebay-posting',
-        icon: '🔒',
-        title: 'Autonomes eBay-Posting',
-        description: 'Produkte automatisch bei eBay veröffentlichen.',
+      promptTemplates: [
+        'Entwirf eine freundliche Kundenantwort mit klarer Eskalationsregel und Freigabehinweis.',
+        'Formuliere diese Nachricht so, dass ein Virtueller MA sie vor dem Versand prüfen kann.',
+        'Erstelle eine Antwortvorlage mit Tonfall, Prüfschritt und kurzer Freigabeanweisung.',
+      ],
+    },
+    {
+      id: 'auto-posting',
+      kind: 'feature',
+      icon: '🛍️',
+      title: 'Autonomes eBay-Posting',
+      description: 'Produktdaten werden automatisch für eBay vorbereitet und in den Veröffentlichungsfluss übergeben.',
+      config: {
+        targetArea: 'ai-task-center',
+        mode: 'auto',
+        threshold: 'high',
+        autoStart: true,
+        prompt: 'Prüfe das Listing auf Freigabe, Sichtbarkeit und sichere Veröffentlichung.',
+        note: 'Nur für geprüfte Listings',
       },
-    ],
-    lockedRoles: [
-      {
-        id: 'soul-listing',
-        icon: '🤖',
-        title: 'Soul Listing',
-        description: 'Erstellt Listing-Entwürfe, Produktblöcke und Strukturvorschläge für neue eBay-Angebote.',
+      promptTemplates: [
+        'Prüfe das Listing auf Freigabe, Sichtbarkeit und sichere Veröffentlichung.',
+        'Bereite die eBay-Veröffentlichung nur vor, wenn alle relevanten Prüfpunkte erfüllt sind.',
+        'Erstelle eine kompakte Freigabeanweisung für das AI Task Center.',
+      ],
+    },
+  ];
+  const EXTENDED_AUTONOMY_ROLE_DEFS = [
+    {
+      id: 'release-operator',
+      kind: 'role',
+      icon: '🧑‍💼',
+      title: 'Freigabe-Operator',
+      description: 'Entscheidet, welche geschützten Schritte in die aktive Freigabe wechseln.',
+      config: {
+        responsibleArea: 'ai-task-center',
+        scope: 'release',
+        canApprove: true,
+        canLock: false,
+        priority: 'high',
+        prompt: 'Gib nur Schritte frei, die vollständig geprüft und für das Task Center vorbereitet sind.',
+        note: 'Für manuelle Freigaben',
       },
-      {
-        id: 'soul-pricing',
-        icon: '💹',
-        title: 'Soul Pricing',
-        description: 'Prüft Preisstrategie, Untergrenzen, Wettbewerbsdruck und mögliche Anpassungen.',
+      promptTemplates: [
+        'Gib nur Schritte frei, die vollständig geprüft und für das Task Center vorbereitet sind.',
+        'Prüfe die vorgeschlagene Aufgabe und entscheide, ob sie aktiv werden darf.',
+        'Erstelle eine knappe Freigabeentscheidung mit Begründung und nächstem Schritt.',
+      ],
+    },
+    {
+      id: 'risk-analyst',
+      kind: 'role',
+      icon: '🛡️',
+      title: 'Risiko-Analyst',
+      description: 'Prüft Grenzfälle, Sicherheitsregeln und Rückfallpfade bevor etwas aktiv wird.',
+      config: {
+        responsibleArea: 'ki-agents',
+        scope: 'review',
+        canApprove: false,
+        canLock: true,
+        priority: 'high',
+        prompt: 'Prüfe Risiken, Konflikte und unklare Freigaben, bevor ein KI-Agent aktiv wird.',
+        note: 'Vor Aktivierung prüfen',
       },
-      {
-        id: 'soul-supplier',
-        icon: '📦',
-        title: 'Soul Supplier',
-        description: 'Hilft bei Lieferantenprüfung, Nachfass-Hinweisen und Beschaffungs-Checks.',
+      promptTemplates: [
+        'Prüfe Risiken, Konflikte und unklare Freigaben, bevor ein KI-Agent aktiv wird.',
+        'Markiere alle Stellen, an denen ein KI-Agent noch nicht sicher arbeiten sollte.',
+        'Erstelle eine kurze Risikoübersicht für die aktuelle Agentenaufgabe.',
+      ],
+    },
+    {
+      id: 'workflow-orchestrator',
+      kind: 'role',
+      icon: '🧭',
+      title: 'Workflow-Orchestrator',
+      description: 'Koordiniert freigegebene Autonomie-Schritte und hält die Reihenfolge sauber.',
+      config: {
+        responsibleArea: 'all',
+        scope: 'manage',
+        canApprove: true,
+        canLock: true,
+        priority: 'medium',
+        prompt: 'Koordiniere die Reihenfolge der freigegebenen Schritte und halte die Übergaben sauber.',
+        note: 'Abläufe koordinieren',
       },
-      {
-        id: 'soul-compliance',
-        icon: '🧾',
-        title: 'Soul Compliance',
-        description: 'Prüft EPR, WEEE, Impressum und andere rechtliche Warnsignale vor einem Live-Schritt.',
+      promptTemplates: [
+        'Koordiniere die Reihenfolge der freigegebenen Schritte und halte die Übergaben sauber.',
+        'Erstelle einen kompakten Ablaufplan für mehrere verbundene Autonomie-Schritte.',
+        'Formuliere eine Orchestrierungsanweisung mit klarer Reihenfolge und Kontrollpunkten.',
+      ],
+    },
+    {
+      id: 'support-supervisor',
+      kind: 'role',
+      icon: '🤝',
+      title: 'Support-Supervisor',
+      description: 'Steuert wieder freigeschaltete Kommunikations- und Eskalationsrollen.',
+      config: {
+        responsibleArea: 'virtual-ma',
+        scope: 'review',
+        canApprove: false,
+        canLock: true,
+        priority: 'medium',
+        prompt: 'Bereite eine sichere Support-Antwort vor und markiere, was noch geprüft werden muss.',
+        note: 'Support-Freigaben bündeln',
       },
-      {
-        id: 'soul-returns',
-        icon: '↩️',
-        title: 'Soul Returns',
-        description: 'Bereitet Retouren-Triage, Antwortentwürfe und Eskalationshinweise vor.',
+      promptTemplates: [
+        'Bereite eine sichere Support-Antwort vor und markiere, was noch geprüft werden muss.',
+        'Erstelle eine Support-Vorlage mit klarer Freigabe- und Sperrlogik.',
+        'Fasse die Support-Aufgabe so zusammen, dass ein Virtueller MA sie direkt nutzen kann.',
+      ],
+    },
+  ];
+  const EXTENDED_AUTONOMY_SETTING_DEFS = {
+    feature: {
+      'auto-actions': {
+        subtitle: 'Steuert, wie aggressiv diese Automatisierung arbeiten darf.',
+        fields: [
+          { key: 'targetArea', kind: 'select', label: 'Verknüpft mit', options: [
+            { value: 'ai-task-center', label: 'AI Task Center' },
+            { value: 'ki-agents', label: 'KI-Agenten' },
+            { value: 'virtual-ma', label: 'Virtuelle MA' },
+            { value: 'all', label: 'Alle Bereiche' },
+          ] },
+          { key: 'mode', kind: 'select', label: 'Ausführungsmodus', options: [
+            { value: 'manual', label: 'Mit Bestätigung' },
+            { value: 'assist', label: 'Unterstützend' },
+            { value: 'auto', label: 'Automatisch' },
+          ] },
+          { key: 'approvalRule', kind: 'select', label: 'Freigabe-Policy', options: [
+            { value: 'manual_review', label: 'Manuell prüfen' },
+            { value: 'guided', label: 'Geführt freigeben' },
+            { value: 'automatic', label: 'Automatisch' },
+          ]},
+          { key: 'threshold', kind: 'select', label: 'Auslöser-Schwelle', options: [
+            { value: 'low', label: 'Niedrig' },
+            { value: 'medium', label: 'Mittel' },
+            { value: 'high', label: 'Hoch' },
+          ] },
+          { key: 'autoStart', kind: 'checkbox', label: 'Autostart erlauben' },
+          { key: 'requireSafetyCheck', kind: 'checkbox', label: 'Sicherheitscheck erzwingen' },
+          { key: 'prompt', kind: 'textarea', label: 'Prompt', placeholder: 'Beschreibe, was diese Funktion prüfen oder vorbereiten soll.' },
+          { key: 'note', kind: 'textarea', label: 'Notiz' },
+        ],
       },
-      {
-        id: 'soul-dispatch',
-        icon: '📮',
-        title: 'Soul Dispatch',
-        description: 'Priorisiert operative Tagesaufgaben, Versandthemen und To-dos mit Auswirkung auf den Ablauf.',
+      'auto-orders': {
+        subtitle: 'Bestellfluss und Risikogrenzen für Supplier-Aktionen.',
+        fields: [
+          { key: 'targetArea', kind: 'select', label: 'Verknüpft mit', options: [
+            { value: 'ai-task-center', label: 'AI Task Center' },
+            { value: 'ki-agents', label: 'KI-Agenten' },
+            { value: 'virtual-ma', label: 'Virtuelle MA' },
+            { value: 'all', label: 'Alle Bereiche' },
+          ] },
+          { key: 'mode', kind: 'select', label: 'Ausführungsmodus', options: [
+            { value: 'manual', label: 'Mit Bestätigung' },
+            { value: 'assist', label: 'Unterstützend' },
+            { value: 'auto', label: 'Automatisch' },
+          ] },
+          { key: 'supplierGuard', kind: 'select', label: 'Supplier-Prüfung', options: [
+            { value: 'strict', label: 'Streng' },
+            { value: 'normal', label: 'Normal' },
+            { value: 'relaxed', label: 'Locker' },
+          ]},
+          { key: 'maxOrderValue', kind: 'select', label: 'Max. Bestellwert', options: [
+            { value: '50', label: '50 €' },
+            { value: '100', label: '100 €' },
+            { value: '250', label: '250 €' },
+          ]},
+          { key: 'requireStockCheck', kind: 'checkbox', label: 'Lagercheck erzwingen' },
+          { key: 'autoStart', kind: 'checkbox', label: 'Bestellung automatisch vorbereiten' },
+          { key: 'prompt', kind: 'textarea', label: 'Prompt', placeholder: 'Beschreibe, welche Bestellprüfung oder Vorbereitung gebraucht wird.' },
+          { key: 'note', kind: 'textarea', label: 'Notiz' },
+        ],
       },
-      {
-        id: 'soul-inventory',
-        icon: '📊',
-        title: 'Soul Inventory',
-        description: 'Zeigt Bestandswarnungen, Nachschubbedarf und mögliche Engpässe frühzeitig an.',
+      'auto-messages': {
+        subtitle: 'Ton und Eskalation für automatische Kundenkommunikation.',
+        fields: [
+          { key: 'targetArea', kind: 'select', label: 'Verknüpft mit', options: [
+            { value: 'ai-task-center', label: 'AI Task Center' },
+            { value: 'ki-agents', label: 'KI-Agenten' },
+            { value: 'virtual-ma', label: 'Virtuelle MA' },
+            { value: 'all', label: 'Alle Bereiche' },
+          ] },
+          { key: 'mode', kind: 'select', label: 'Ausführungsmodus', options: [
+            { value: 'manual', label: 'Mit Bestätigung' },
+            { value: 'assist', label: 'Unterstützend' },
+            { value: 'auto', label: 'Automatisch' },
+          ] },
+          { key: 'tone', kind: 'select', label: 'Tonfall', options: [
+            { value: 'friendly', label: 'Freundlich' },
+            { value: 'neutral', label: 'Neutral' },
+            { value: 'direct', label: 'Direkt' },
+          ]},
+          { key: 'escalation', kind: 'select', label: 'Eskalationsstufe', options: [
+            { value: 'low', label: 'Niedrig' },
+            { value: 'medium', label: 'Mittel' },
+            { value: 'high', label: 'Hoch' },
+          ]},
+          { key: 'allowAutoReply', kind: 'checkbox', label: 'Auto-Antwort erlauben' },
+          { key: 'requireReview', kind: 'checkbox', label: 'Vor Versand prüfen' },
+          { key: 'prompt', kind: 'textarea', label: 'Prompt', placeholder: 'Beschreibe, wie die Antwort klingen und geprüft werden soll.' },
+          { key: 'note', kind: 'textarea', label: 'Notiz' },
+        ],
       },
-      {
-        id: 'soul-review',
-        icon: '⭐',
-        title: 'Soul Review',
-        description: 'Analysiert Bewertungen, Kundenfeedback und wiederkehrende Muster aus Rückmeldungen.',
+      'auto-posting': {
+        subtitle: 'Kontrolliert, wann Listings automatisch veröffentlicht werden dürfen.',
+        fields: [
+          { key: 'targetArea', kind: 'select', label: 'Verknüpft mit', options: [
+            { value: 'ai-task-center', label: 'AI Task Center' },
+            { value: 'ki-agents', label: 'KI-Agenten' },
+            { value: 'virtual-ma', label: 'Virtuelle MA' },
+            { value: 'all', label: 'Alle Bereiche' },
+          ] },
+          { key: 'mode', kind: 'select', label: 'Ausführungsmodus', options: [
+            { value: 'manual', label: 'Mit Bestätigung' },
+            { value: 'assist', label: 'Unterstützend' },
+            { value: 'auto', label: 'Automatisch' },
+          ] },
+          { key: 'publishGate', kind: 'select', label: 'Veröffentlichungs-Gate', options: [
+            { value: 'manual', label: 'Nur manuell' },
+            { value: 'score_80', label: 'Ab Score 80' },
+            { value: 'score_90', label: 'Ab Score 90' },
+          ]},
+          { key: 'imageCheck', kind: 'checkbox', label: 'Bildcheck erzwingen' },
+          { key: 'autoStart', kind: 'checkbox', label: 'Direkt veröffentlichen' },
+          { key: 'prompt', kind: 'textarea', label: 'Prompt', placeholder: 'Beschreibe, wann das Listing veröffentlicht werden darf.' },
+          { key: 'note', kind: 'textarea', label: 'Notiz' },
+        ],
       },
     },
     role: {
@@ -8602,8 +8624,6 @@ document.addEventListener('DOMContentLoaded',()=>{
     critical: 'Kritisch',
   };
   const AI_TASK_NOTICE_DEFAULT = 'Aktion vorbereitet: Diese Funktion wird später mit dem passenden Agenten verbunden.';
-  const AI_TASK_NOTICE_SUGGESTION = 'Nur Vorschläge: Eine neue Empfehlung wurde im AI Task Center erstellt.';
-  const AI_TASK_NOTICE_APPROVAL = 'Halbautomatisch: Die vorbereitete Aktion liegt in der Freigabe-Warteschlange.';
   const AI_TASK_NOTICE_SANDBOX = 'Sandbox aktiv – Aufgaben werden nur vorbereitet.';
   const AI_TASK_NOTICE_PAUSED = 'Alle Agenten sind pausiert. Es werden keine neuen Aufgaben erzeugt.';
   const AI_TASK_SOURCE_LABELS = {
@@ -9056,60 +9076,6 @@ document.addEventListener('DOMContentLoaded',()=>{
     },
   ];
 
-  const buildDemoApprovalQueue = () => [
-    {
-      id: 'demo-approval-support',
-      title: 'Supportantwort vorbereiten',
-      description: 'Eine Antwortvorlage für eine Kundenanfrage wird vorbereitet. Es wird nichts automatisch versendet.',
-      agent: 'Soul Support',
-      type: 'support_reply',
-      status: 'pending',
-      riskLevel: 'medium',
-      createdAt: new Date(APPROVAL_QUEUE_DEMO_BASE_TIME - 3 * 60000).toISOString(),
-      payload: {
-        source: 'demo',
-        context: 'support',
-        livePipeline: buildLiveActionPipeline('support_reply', { source: 'demo' }),
-      },
-      previewText: 'Hallo, danke für deine Nachricht. Ich prüfe den Versandstatus und melde mich zeitnah.',
-      requiresConfirmation: true,
-    },
-    {
-      id: 'demo-approval-seo',
-      title: 'SEO-Optimierung übernehmen',
-      description: 'Ein SEO-Entwurf wird lokal vorbereitet. Es werden keine Live-Änderungen veröffentlicht.',
-      agent: 'Soul SEO',
-      type: 'seo_update',
-      status: 'pending',
-      riskLevel: 'low',
-      createdAt: new Date(APPROVAL_QUEUE_DEMO_BASE_TIME - 2 * 60000).toISOString(),
-      payload: {
-        source: 'demo',
-        context: 'seo',
-        livePipeline: buildLiveActionPipeline('seo_update', { source: 'demo' }),
-      },
-      previewText: 'Neuer Titelvorschlag: Premium Organizer für Schreibtisch & Büro – kompakt, modern, praktisch',
-      requiresConfirmation: true,
-    },
-    {
-      id: 'demo-approval-order',
-      title: 'Bestellung vorbereiten',
-      description: 'Eine Supplier-Bestellung ist vorbereitet. Die Freigabe setzt nur den Status, aber keine Ausführung.',
-      agent: 'Soul Operations',
-      type: 'order_prepare',
-      status: 'pending',
-      riskLevel: 'high',
-      createdAt: new Date(APPROVAL_QUEUE_DEMO_BASE_TIME - 1 * 60000).toISOString(),
-      payload: {
-        source: 'demo',
-        context: 'operations',
-        livePipeline: buildLiveActionPipeline('order_prepare', { source: 'demo' }),
-      },
-      previewText: 'Supplier-Bestellung vorbereitet. Keine Bestellung wurde ausgeführt.',
-      requiresConfirmation: true,
-    },
-  ];
-
   const getEl = (id) => document.getElementById(id);
   const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (ch) => ({
     '&': '&amp;',
@@ -9134,16 +9100,6 @@ document.addEventListener('DOMContentLoaded',()=>{
   const normalizeMode = (value) => {
     const input = String(value || '').trim();
     return MODE_OPTIONS.some((item) => item.value === input) ? input : 'suggestions';
-  };
-
-  const getAgentModeDisplayValue = (value) => {
-    const mode = normalizeMode(value);
-    return mode === 'semi' || mode === 'auto' ? 'semi' : 'suggestions';
-  };
-
-  const getAgentModeLabel = (value) => {
-    const mode = normalizeMode(value);
-    return mode === 'semi' || mode === 'auto' ? 'Halbautomatisch' : 'Nur Vorschläge';
   };
 
   const normalizeModel = (value) => {
@@ -9376,7 +9332,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   const syncAiWorkflowToServer = async () => {
     try {
       const apiBase = getAiWorkflowApiBase();
-      const endpoint = apiBase ? `${apiBase}/api/ai-workflow` : '/api/ai-workflow';
+      const endpoint = apiBase ? `${apiBase}/api/agent-engine?action=ai-workflow` : '/api/agent-engine?action=ai-workflow';
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -9392,7 +9348,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   const loadAiWorkflowFromServer = async () => {
     try {
       const apiBase = getAiWorkflowApiBase();
-      const endpoint = apiBase ? `${apiBase}/api/ai-workflow` : '/api/ai-workflow';
+      const endpoint = apiBase ? `${apiBase}/api/agent-engine?action=ai-workflow` : '/api/agent-engine?action=ai-workflow';
       const response = await fetch(endpoint, { method: 'GET' });
       const data = await response.json().catch(() => null);
       const serverData = data && data.data && typeof data.data === 'object' ? data.data : null;
@@ -9715,8 +9671,6 @@ document.addEventListener('DOMContentLoaded',()=>{
         model: 'deepseek',
         dailyLimit: 0.25,
         description: def.description || def.task,
-        prompt: def.description || def.task,
-        guardrails: 'Nur Vorschläge, Entwürfe und lokale Analysen. Keine autonomen Live-Aktionen.',
         statusState: 'Idle',
         usageToday: 0,
         lastActivity: DEFAULT_ACTIVITY,
@@ -9854,9 +9808,6 @@ document.addEventListener('DOMContentLoaded',()=>{
         model: normalizeModel(incoming && incoming.model !== undefined ? incoming.model : fallback.model),
         dailyLimit: normalizeLimit(incoming && incoming.dailyLimit !== undefined ? incoming.dailyLimit : fallback.dailyLimit),
         description: sanitizeDescription(incoming && incoming.description !== undefined ? incoming.description : fallback.description, def.description || def.task),
-        prompt: sanitizeDescription(incoming && incoming.prompt !== undefined ? incoming.prompt : fallback.prompt, def.description || def.task),
-        guardrails: sanitizeDescription(incoming && incoming.guardrails !== undefined ? incoming.guardrails : fallback.guardrails, 'Nur Vorschläge, Entwürfe und lokale Analysen. Keine autonomen Live-Aktionen.'),
-        capabilities: normalizeRuntimeStringList(incoming && incoming.capabilities !== undefined ? incoming.capabilities : fallback.capabilities, fallback.capabilities),
         statusState: normalizeStatusState(incoming && incoming.statusState !== undefined ? incoming.statusState : fallback.statusState),
         usageToday: normalizeUsage(incoming && incoming.usageToday !== undefined ? incoming.usageToday : fallback.usageToday),
         lastActivity: sanitizeActivity(incoming && incoming.lastActivity !== undefined ? incoming.lastActivity : fallback.lastActivity, DEFAULT_ACTIVITY),
@@ -9959,109 +9910,54 @@ document.addEventListener('DOMContentLoaded',()=>{
       roles: roleLinks,
     };
   };
-  const getFutureSettingsLabel = (kind, id) => {
-    const settings = getFutureCapabilitySettings(kind, id);
-    const modeLabel = settings.mode === 'semi' ? 'Halbautomatisch' : 'Manuell';
-    const priorityLabel = settings.priority === 'high' ? 'Hoch' : settings.priority === 'low' ? 'Niedrig' : 'Mittel';
-    return `${modeLabel} · ${priorityLabel}`;
-  };
-  const getFutureSettingsHints = (kind, id) => {
-    const base = kind === 'lockedRoles'
-      ? [
-          'Die Rolle bleibt eine Vorschau und führt keine Live-Aktionen aus.',
-          'Halbautomatische Vorbereitung landet später nur in der Freigabe-Warteschlange.',
-          'Die Rolle kann mit einer eigenen Bezeichnung und Priorität markiert werden.',
-        ]
-      : [
-          'Die Funktion bleibt eine Vorschau und wird nicht automatisch ausgeführt.',
-          'Zusätzliche Vorbereitung bleibt lokal und ändert keine API- oder Live-Logik.',
-          'Der Modus beeinflusst nur die lokale Planung und Darstellung.',
-        ];
-    const settings = getFutureCapabilitySettings(kind, id);
-    if (settings.customLabel) {
-      base.unshift(`Eigene Bezeichnung: ${settings.customLabel}`);
+  const getExtendedAutonomyCardSummary = (type, item) => {
+    const config = item.config || {};
+    if (type === 'role') {
+      const scope = getExtendedAutonomyModeLabel(type, config.scope, item.id);
+      const priority = getExtendedAutonomyFieldLabel(type, item.id, 'priority', config.priority, 'Mittel');
+      const area = getAutonomyAreaLabel(config.responsibleArea);
+      const prompt = previewPromptText(config.prompt);
+      const rightLabel = config.canApprove ? 'Freigeben' : 'Nur prüfen';
+      const lockLabel = config.canLock ? 'Sperren' : 'Nur freigeben';
+      return [
+        `Zuständig: ${area}`,
+        `Freigabelevel: ${scope}`,
+        `Rechte: ${rightLabel} · ${lockLabel}`,
+        `Priorität: ${priority}`,
+        prompt ? `Prompt: ${prompt}` : 'Prompt: Keine Vorlage',
+      ];
     }
-    base.push('Die Live-Pipeline wird an die passende spätere Route gekoppelt.');
-    return base;
+    const area = getAutonomyAreaLabel(config.targetArea);
+    const mode = getExtendedAutonomyModeLabel(type, config.mode, item.id);
+    const prompt = previewPromptText(config.prompt);
+    const gate = getExtendedAutonomyFieldLabel(type, item.id, 'approvalRule', config.approvalRule, 'Manuell prüfen');
+    const threshold = getExtendedAutonomyFieldLabel(type, item.id, 'threshold', config.threshold, 'Mittel');
+    const secondLine = item.id === 'auto-posting'
+      ? `Gate: ${getExtendedAutonomyFieldLabel(type, item.id, 'publishGate', config.publishGate, 'Nur manuell')}`
+      : item.id === 'auto-orders'
+        ? `Supplier: ${getExtendedAutonomyFieldLabel(type, item.id, 'supplierGuard', config.supplierGuard, 'Normal')}`
+        : item.id === 'auto-messages'
+          ? `Ton: ${getExtendedAutonomyFieldLabel(type, item.id, 'tone', config.tone, 'Freundlich')}`
+          : `Policy: ${gate}`;
+    return [
+      `Verknüpft: ${area}`,
+      `Modus: ${mode}`,
+      secondLine,
+      `Autostart: ${config.autoStart ? 'Ja' : 'Nein'}`,
+      prompt ? `Prompt: ${prompt}` : 'Prompt: Keine Vorlage',
+    ];
   };
-  const formatFuturePipelinePreview = (kind, id, title) => {
-    const record = getFutureCapabilityRecord(kind, id);
-    const settings = getFutureCapabilitySettings(kind, id);
-    const pipelineType = FUTURE_PIPELINE_OPTIONS.some((item) => item.value === settings.pipelineType)
-      ? settings.pipelineType
-      : (getDefaultFuturePipelineType(kind, id) || guessFuturePipelineType(kind, id, title));
-    const blueprint = getLiveActionBlueprint(pipelineType);
-    const label = record.enabled ? 'Verknüpft' : 'Vorbereitet';
-    return {
-      label,
-      connector: settings.connector || blueprint.connector,
-      stages: blueprint.stages.join(' → '),
-      title: blueprint.label,
-      pipelineType,
-    };
+  const isExtendedAutonomyCollectionOpen = (type) => state.extendedAutonomyPanels && state.extendedAutonomyPanels[type] !== false;
+  const setExtendedAutonomyCollectionOpen = (type, isOpen) => {
+    state.extendedAutonomyPanels = state.extendedAutonomyPanels && typeof state.extendedAutonomyPanels === 'object'
+      ? {...state.extendedAutonomyPanels}
+      : { feature: true, role: true };
+    state.extendedAutonomyPanels[type] = !!isOpen;
   };
-  const isFutureDetailsOpen = (kind, id) => !!(state.futureDetailsOpen && state.futureDetailsOpen[kind] && state.futureDetailsOpen[kind][id]);
-  const setFutureDetailsOpen = (kind, id, open) => {
-    state.futureDetailsOpen = state.futureDetailsOpen && typeof state.futureDetailsOpen === 'object'
-      ? state.futureDetailsOpen
-      : { lockedFunctions: {}, lockedRoles: {} };
-    state.futureDetailsOpen[kind] = state.futureDetailsOpen[kind] && typeof state.futureDetailsOpen[kind] === 'object'
-      ? state.futureDetailsOpen[kind]
-      : {};
-    state.futureDetailsOpen[kind][id] = !!open;
-    saveState();
-  };
-  const isFutureSectionOpen = (kind) => !!(state.futureSectionsOpen && state.futureSectionsOpen[kind]);
-  const setFutureSectionOpen = (kind, open) => {
-    state.futureSectionsOpen = state.futureSectionsOpen && typeof state.futureSectionsOpen === 'object'
-      ? state.futureSectionsOpen
-      : { lockedFunctions: true, lockedRoles: true };
-    state.futureSectionsOpen[kind] = !!open;
-    saveState();
-  };
-  const openFutureSettingsModal = (kind, id) => {
-    const collection = kind === 'lockedRoles' ? FUTURE_CAPABILITY_DEFS.lockedRoles : FUTURE_CAPABILITY_DEFS.lockedFunctions;
-    const def = Array.isArray(collection) ? collection.find((item) => item.id === id) : null;
-    if (!def) return;
-    futureSettingsTargetKind = kind;
-    futureSettingsTargetId = id;
-    const modal = getEl('futureSettingsModal');
-    const title = getEl('futureSettingsTitle');
-    const subtitle = getEl('futureSettingsSubtitle');
-    const kindEl = getEl('futureSettingsKind');
-    const statusEl = getEl('futureSettingsStatus');
-    const connectorEl = getEl('futureSettingsConnector');
-    const hintsEl = getEl('futureSettingsHints');
-    const modeEl = getEl('futureSettingsMode');
-    const priorityEl = getEl('futureSettingsPriority');
-    const pipelineTypeEl = getEl('futureSettingsPipelineType');
-    const pipelineTextEl = getEl('futureSettingsPipelineText');
-    const notesEl = getEl('futureSettingsNotes');
-    const settings = getFutureCapabilitySettings(kind, id);
-    const record = getFutureCapabilityRecord(kind, id);
-    const statusLabel = record.enabled ? 'Bereit' : (record.prepared ? 'Vorbereitet' : 'Neu');
-    const blueprint = formatFuturePipelinePreview(kind, id, def.title);
-    if (title) title.textContent = `${def.icon || '⚙'} ${def.title}`;
-    if (subtitle) subtitle.textContent = kind === 'lockedRoles'
-      ? 'Tiefe Einstellungen für eine gesperrte Rolle. Nur lokale Vorschau und sichere Vorbereitung.'
-      : 'Tiefe Einstellungen für eine gesperrte Funktion. Nur lokale Vorschau und sichere Vorbereitung.';
-    if (kindEl) kindEl.textContent = kind === 'lockedRoles' ? 'Gesperrte Rolle' : 'Gesperrte Funktion';
-    if (statusEl) statusEl.textContent = statusLabel;
-    if (connectorEl) connectorEl.textContent = blueprint.connector;
-    if (hintsEl) hintsEl.innerHTML = [
-      ...getFutureSettingsHints(kind, id),
-      `Pipeline-Typ: ${getLiveActionBlueprint(blueprint.pipelineType).label}`,
-    ].map((hint) => `<li>${escapeHtml(hint)}</li>`).join('');
-    if (modeEl) modeEl.value = settings.mode === 'semi' ? 'semi' : 'manual';
-    if (priorityEl) priorityEl.value = ['low', 'medium', 'high'].includes(settings.priority) ? settings.priority : 'medium';
-    if (pipelineTypeEl) pipelineTypeEl.value = FUTURE_PIPELINE_OPTIONS.some((item) => item.value === settings.pipelineType) ? settings.pipelineType : blueprint.pipelineType;
-    if (pipelineTextEl) {
-      pipelineTextEl.textContent = `${blueprint.title} | ${blueprint.stages} | Connector: ${blueprint.connector}`;
-    }
-    if (notesEl) notesEl.value = settings.customLabel || '';
-    if (modal) {
-      modal.classList.remove('hidden');
-      modal.setAttribute('aria-hidden', 'false');
+  const setExtendedAutonomyCollection = (type, items) => {
+    if (type === 'role') {
+      state.extendedAutonomyRoles = items;
+      return;
     }
     state.extendedAutonomyFeatures = items;
   };
@@ -10081,8 +9977,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     setExtendedAutonomyCollection(type, next);
     saveState();
     render();
-    closeFutureSettingsModal();
-    showToolPopup('Zukunfts-Einstellungen', 'Die tiefen Einstellungen wurden lokal gespeichert. Keine Live-Aktion wurde ausgeführt.', 'good');
+    return true;
   };
    const handleFutureButtonAction = (event, kind, id, action) => {
      if (event && typeof event.preventDefault === 'function') event.preventDefault();
@@ -10487,491 +10382,6 @@ document.addEventListener('DOMContentLoaded',()=>{
 
   const getAgent = (agentId) => state.agents[agentId] || null;
   const getDefinition = (agentId) => AGENT_DEFS.find((item) => item.id === agentId) || null;
-  const isAgentTextEditing = (fieldKey, agentId) => !!(state[`${fieldKey}Editing`] && state[`${fieldKey}Editing`][agentId]);
-  const setAgentTextEditing = (fieldKey, agentId, next) => {
-    if (!agentId) return;
-    const stateKey = `${fieldKey}Editing`;
-    state[stateKey] = {
-      ...(state[stateKey] && typeof state[stateKey] === 'object' ? state[stateKey] : {}),
-      [agentId]: !!next,
-    };
-    saveState();
-    render();
-    if (next) {
-      setTimeout(() => {
-        const textarea = document.querySelector(`[data-agent-id="${agentId}"][data-agent-field="${fieldKey}"]`);
-        if (textarea) {
-          textarea.focus();
-          textarea.select?.();
-        }
-      }, 0);
-    }
-  };
-  const isDescriptionEditing = (agentId) => isAgentTextEditing('description', agentId);
-  const setDescriptionEditing = (agentId, next) => setAgentTextEditing('description', agentId, next);
-  const isPromptEditing = (agentId) => isAgentTextEditing('prompt', agentId);
-  const setPromptEditing = (agentId, next) => setAgentTextEditing('prompt', agentId, next);
-  const isGuardrailsEditing = (agentId) => isAgentTextEditing('guardrails', agentId);
-  const setGuardrailsEditing = (agentId, next) => setAgentTextEditing('guardrails', agentId, next);
-  const buildSuggestedAgentPrompt = (def, descriptionValue, guardrailsValue) => {
-    const descriptionText = sanitizeDescription(descriptionValue || def.description || def.task, def.description || def.task);
-    const guardrailsText = sanitizeDescription(guardrailsValue || 'Nur Vorschläge, Entwürfe und lokale Analysen. Keine autonomen Live-Aktionen.', 'Nur Vorschläge, Entwürfe und lokale Analysen. Keine autonomen Live-Aktionen.');
-    return [
-      `Du bist ${def.name}.`,
-      `Aufgabe: ${descriptionText}.`,
-      'Arbeite lokal, strukturiert und mit klaren Empfehlungen.',
-      'Antworte knapp, hilfreich und im Elyon-Stil.',
-      `Beachte diese Guardrails: ${guardrailsText}.`,
-    ].join(' ');
-  };
-  const generateAgentPrompt = (agentId) => {
-    const def = getDefinition(agentId);
-    const agent = getAgent(agentId);
-    if (!def || !agent) return;
-    if (isAiActionBlocked()) {
-      showAiBlockedNotice('Das Generieren eines KI-Prompts');
-      return;
-    }
-    const descriptionValue = agent.description || def.description || def.task;
-    const guardrailsValue = agent.guardrails || 'Nur Vorschläge, Entwürfe und lokale Analysen. Keine autonomen Live-Aktionen.';
-    agent.prompt = buildSuggestedAgentPrompt(def, descriptionValue, guardrailsValue);
-    setPromptEditing(agentId, true);
-  };
-  const buildAgentInstructionsModalContent = (agentId) => {
-    const def = getDefinition(agentId);
-    const agent = getAgent(agentId);
-    if (!def || !agent) return '';
-    const descriptionValue = agent.description || def.description || def.task;
-    const promptValue = agent.prompt || def.description || def.task;
-    const guardrailsValue = agent.guardrails || 'Nur Vorschläge, Entwürfe und lokale Analysen. Keine autonomen Live-Aktionen.';
-    return `
-      <div class="agent-instructions-modal">
-        <div class="agent-instructions-modal-head">
-          <div>
-            <div class="badge">🪄 Erweiterte KI-Anweisungen</div>
-            <h2>${escapeHtml(def.name)}</h2>
-            <p>${escapeHtml(def.task)}</p>
-          </div>
-          <button type="button" class="secondary" data-agent-action="close-agent-instructions">Schließen</button>
-        </div>
-
-        <div class="agent-instructions-note">Die Felder werden lokal gespeichert. Beschreibung, Prompt und Guardrails bleiben getrennt und sind standardmäßig gesperrt.</div>
-
-        <div class="agent-instructions-grid">
-          <div>
-            <div class="virtual-agent-field-head">
-              <label>Kurze Beschreibung der Aufgabe</label>
-              <button type="button" class="description-edit-toggle ${isDescriptionEditing(def.id) ? 'active' : ''}" data-agent-action="toggle-agent-text-edit" data-agent-edit-field="description" data-agent-id="${def.id}" aria-label="${isDescriptionEditing(def.id) ? 'Beschreibung sperren' : 'Beschreibung bearbeiten'}">${isDescriptionEditing(def.id) ? '🔓' : '✎'}</button>
-            </div>
-            <textarea data-agent-id="${def.id}" data-agent-field="description" placeholder="${escapeHtml(def.description || def.task)}" ${isDescriptionEditing(def.id) ? '' : 'readonly'}>${escapeHtml(descriptionValue)}</textarea>
-          </div>
-
-          <div>
-            <div class="virtual-agent-field-head">
-              <label>Prompt</label>
-              <div style="display:flex;gap:8px;align-items:center">
-                <button type="button" class="secondary" data-agent-action="generate-agent-prompt" data-agent-id="${def.id}" ${isAiActionBlocked() ? 'disabled aria-disabled="true"' : ''} title="${isAiActionBlocked() ? getAiActionBlockReason() : 'Prompt generieren'}">Generieren</button>
-                <button type="button" class="description-edit-toggle ${isPromptEditing(def.id) ? 'active' : ''}" data-agent-action="toggle-agent-text-edit" data-agent-edit-field="prompt" data-agent-id="${def.id}" aria-label="${isPromptEditing(def.id) ? 'Prompt sperren' : 'Prompt bearbeiten'}">${isPromptEditing(def.id) ? '🔓' : '✎'}</button>
-              </div>
-            </div>
-            <textarea data-agent-id="${def.id}" data-agent-field="prompt" placeholder="${escapeHtml(def.description || def.task)}" ${isPromptEditing(def.id) ? '' : 'readonly'}>${escapeHtml(promptValue)}</textarea>
-          </div>
-        </div>
-
-        <div style="margin-top:14px">
-          <div class="virtual-agent-field-head">
-            <label title="Guardrails sind Sicherheitsregeln und Grenzen für den Agenten. Sie legen fest, was er nicht tun darf und worauf er achten muss.">Guardrails</label>
-            <button type="button" class="description-edit-toggle ${isGuardrailsEditing(def.id) ? 'active' : ''}" data-agent-action="toggle-agent-text-edit" data-agent-edit-field="guardrails" data-agent-id="${def.id}" aria-label="${isGuardrailsEditing(def.id) ? 'Guardrails sperren' : 'Guardrails bearbeiten'}">${isGuardrailsEditing(def.id) ? '🔓' : '✎'}</button>
-          </div>
-          <textarea data-agent-id="${def.id}" data-agent-field="guardrails" placeholder="Nur Vorschläge, Entwürfe und lokale Analysen. Keine autonomen Live-Aktionen." ${isGuardrailsEditing(def.id) ? '' : 'readonly'}>${escapeHtml(guardrailsValue)}</textarea>
-        </div>
-
-        <div class="agent-instructions-actions">
-          <button type="button" class="secondary" data-agent-action="close-agent-instructions">Schließen</button>
-        </div>
-      </div>
-    `;
-  };
-  const syncAgentInstructionsModal = () => {
-    const modal = getEl('agentInstructionsModal');
-    const body = getEl('agentInstructionsModalBody');
-    if (!modal || !body) return;
-    if (!agentInstructionsTargetId) {
-      body.innerHTML = '';
-      return;
-    }
-    body.innerHTML = buildAgentInstructionsModalContent(agentInstructionsTargetId);
-  };
-  const openAgentInstructionsModal = (agentId) => {
-    if (!agentId) return;
-    agentInstructionsTargetId = agentId;
-    syncAgentInstructionsModal();
-    const modal = getEl('agentInstructionsModal');
-    if (modal) {
-      modal.classList.remove('hidden');
-      modal.setAttribute('aria-hidden', 'false');
-    }
-  };
-  const closeAgentInstructionsModal = () => {
-    agentInstructionsTargetId = '';
-    const modal = getEl('agentInstructionsModal');
-    const body = getEl('agentInstructionsModalBody');
-    if (body) body.innerHTML = '';
-    if (modal) {
-      modal.classList.add('hidden');
-      modal.setAttribute('aria-hidden', 'true');
-    }
-  };
-  const runAgentWorkflow = (agentId) => {
-    const def = getDefinition(agentId);
-    const agent = getAgent(agentId);
-    if (!def || !agent) return null;
-    if (isAiActionBlocked()) {
-      showAiBlockedNotice('Die lokale Analyse');
-      return null;
-    }
-
-    const insights = getProductList().map(getProductInsight);
-    const openReturns = getReturnList().filter((item) => !isReturnClosed(item && item.status));
-    const createdAt = new Date().toISOString();
-    const timestamp = new Date(createdAt).toLocaleString('de-DE');
-    const workflowId = `agent-workflow-${agentId}`;
-    let taskRecord = null;
-    let approvalRecord = null;
-    let highlights = [];
-
-    if (agentId === 'soul-scout') {
-      const candidates = insights.filter((item) => item.score >= 65 && item.salesStats.count === 0).sort((a, b) => b.score - a.score || a.delivery - b.delivery).slice(0, 3);
-      highlights = candidates.map((item) => item.title);
-      taskRecord = {
-        id: workflowId,
-        title: 'Produktchancen identifiziert',
-        description: buildWorkflowSummaryText('Scout-Analyse', [
-          candidates.length ? `${candidates.length} Kandidat(en)` : '',
-          highlights.length ? `Beispiele: ${highlights.join(', ')}` : '',
-        ]),
-        agent: def.name,
-        category: 'Recherche',
-        priority: candidates.length ? 'high' : 'medium',
-        status: 'open',
-        createdAt,
-        source: 'agent-workflow',
-        actionLabel: 'Chancen prüfen',
-      };
-    } else if (agentId === 'soul-seo') {
-      const candidates = insights.filter((item) => item.titleLength < 50 || item.titleLength > 80 || normalizeProductStatus(item.product && (item.product.productStatus || item.product.status || 'Draft'), 'Draft') !== 'SEO prüfen').sort((a, b) => a.titleLength - b.titleLength).slice(0, 3);
-      highlights = candidates.map((item) => `${item.title} (${item.titleLength} Zeichen)`);
-      taskRecord = {
-        id: workflowId,
-        title: 'SEO-Optimierung vorbereitet',
-        description: buildWorkflowSummaryText('SEO-Analyse', [
-          candidates.length ? `${candidates.length} Titel geprüft` : '',
-          highlights.length ? `Titel: ${highlights.join(', ')}` : '',
-        ]),
-        agent: def.name,
-        category: 'SEO',
-        priority: candidates.length ? 'high' : 'medium',
-        status: 'open',
-        createdAt,
-        source: 'agent-workflow',
-        actionLabel: 'SEO prüfen',
-      };
-    } else if (agentId === 'soul-guard') {
-      const candidates = insights.filter((item) => item.score < 60 || item.delivery > item.maxDelivery || !item.supplierName || item.returnStats.count > 0).sort((a, b) => a.score - b.score || b.delivery - a.delivery).slice(0, 3);
-      highlights = candidates.map((item) => `${item.title}${item.riskFlags.length ? ` (${item.riskFlags.join(', ')})` : ''}`);
-      const critical = candidates.some((item) => item.score < 50 || item.delivery > item.maxDelivery);
-      taskRecord = {
-        id: workflowId,
-        title: 'Risikoprüfung vorbereitet',
-        description: buildWorkflowSummaryText('Guard-Analyse', [
-          candidates.length ? `${candidates.length} Risiko-Fall/Fälle` : '',
-          highlights.length ? `Beispiele: ${highlights.join(', ')}` : '',
-          critical ? 'kritische Auffälligkeiten' : '',
-        ]),
-        agent: def.name,
-        category: 'Risiko',
-        priority: critical ? 'critical' : 'high',
-        status: 'open',
-        createdAt,
-        source: 'agent-workflow',
-        actionLabel: 'Risiken ansehen',
-      };
-      if (candidates.length) {
-        approvalRecord = {
-          id: `${workflowId}-approval`,
-          title: 'Risikofälle manuell prüfen',
-          description: 'Gefundene Risiko-Hinweise wurden lokal gesammelt. Keine Live-Aktion wurde ausgeführt.',
-          agent: def.name,
-          type: 'risk_action',
-          status: 'pending',
-          riskLevel: critical ? 'critical' : 'high',
-          createdAt,
-          payload: decorateApprovalPayload('risk_action', { source: 'agent-workflow', agentId, items: candidates.map((item) => ({ title: item.title, score: item.score, delivery: item.delivery, supplierName: item.supplierName, riskFlags: item.riskFlags })) }, { agentId, agentName: def.name, workflow: 'guard' }),
-          previewText: `Risiko-Check lokal vorbereitet. ${candidates.map((item) => item.title).join(', ')}`,
-          requiresConfirmation: true,
-        };
-      }
-    } else if (agentId === 'soul-finance') {
-      const lowMargin = insights.filter((item) => item.profit <= 0 || item.margin < 15).sort((a, b) => a.profit - b.profit).slice(0, 3);
-      const totalProfit = insights.reduce((sum, item) => sum + item.profit, 0);
-      const avgProfit = insights.length ? totalProfit / insights.length : 0;
-      highlights = lowMargin.map((item) => `${item.title} (${item.profit.toFixed(2)} €)`);
-      taskRecord = {
-        id: workflowId,
-        title: 'Finanzanalyse vorbereitet',
-        description: buildWorkflowSummaryText('Finance-Analyse', [
-          `Gesamtprofit ${totalProfit.toFixed(2)} €`,
-          `Ø Profit ${avgProfit.toFixed(2)} €`,
-          lowMargin.length ? `${lowMargin.length} kritische Marge(n)` : '',
-          highlights.length ? `Beispiele: ${highlights.join(', ')}` : '',
-        ]),
-        agent: def.name,
-        category: 'Finanzen',
-        priority: lowMargin.length ? 'high' : 'medium',
-        status: 'open',
-        createdAt,
-        source: 'agent-workflow',
-        actionLabel: 'Finanzcheck ansehen',
-      };
-    } else if (agentId === 'soul-support') {
-      const cases = openReturns.slice(0, 4);
-      highlights = cases.map((item) => `${item.platform || 'eBay'} · ${item.status || 'Offen'}`);
-      taskRecord = {
-        id: workflowId,
-        title: 'Supportfälle analysiert',
-        description: buildWorkflowSummaryText('Support-Analyse', [
-          openReturns.length ? `${openReturns.length} offene Fall/Fälle` : '',
-          highlights.length ? `Beispiele: ${highlights.join(', ')}` : '',
-        ]),
-        agent: def.name,
-        category: 'Support',
-        priority: openReturns.length ? 'high' : 'medium',
-        status: 'open',
-        createdAt,
-        source: 'agent-workflow',
-        actionLabel: 'Antwort vorbereiten',
-      };
-      if (openReturns.length) {
-        approvalRecord = {
-          id: `${workflowId}-approval`,
-          title: 'Supportantwort vorbereiten',
-          description: 'Eine lokale Antwortvorlage wurde vorbereitet. Versand bleibt gesperrt.',
-          agent: def.name,
-          type: 'support_reply',
-          status: 'pending',
-          riskLevel: 'medium',
-          createdAt,
-          payload: decorateApprovalPayload('support_reply', { source: 'agent-workflow', agentId, openCount: openReturns.length, examples: highlights }, { agentId, agentName: def.name, workflow: 'support' }),
-          previewText: 'Hallo, danke für deine Nachricht. Ich prüfe den Fall und melde mich zeitnah.',
-          requiresConfirmation: true,
-        };
-      }
-    } else if (agentId === 'soul-operations') {
-      const restockCandidates = insights.filter((item) => item.stock > 0 && item.stock <= 3).sort((a, b) => a.stock - b.stock).slice(0, 3);
-      const operationalAlerts = [
-        openReturns.length ? `${openReturns.length} offene Retouren` : '',
-        ...restockCandidates.map((item) => `${item.title} Bestand ${item.stock}`),
-        ...insights.filter((item) => item.score >= 65 && item.salesStats.count === 0).slice(0, 2).map((item) => `${item.title} ohne Verkäufe`),
-      ].filter(Boolean);
-      highlights = operationalAlerts;
-      taskRecord = {
-        id: workflowId,
-        title: 'Operative Tageslage vorbereitet',
-        description: buildWorkflowSummaryText('Operations-Analyse', operationalAlerts),
-        agent: def.name,
-        category: 'Operations',
-        priority: operationalAlerts.length ? 'high' : 'medium',
-        status: 'open',
-        createdAt,
-        source: 'agent-workflow',
-        actionLabel: 'Tagesfokus ansehen',
-      };
-      if (restockCandidates.length) {
-        approvalRecord = {
-          id: `${workflowId}-approval`,
-          title: 'Nachschub vorbereiten',
-          description: 'Ein lokaler Restock-Hinweis wurde erstellt. Es wurde keine Bestellung ausgelöst.',
-          agent: def.name,
-          type: 'order_prepare',
-          status: 'pending',
-          riskLevel: 'high',
-          createdAt,
-          payload: decorateApprovalPayload('order_prepare', { source: 'agent-workflow', agentId, items: restockCandidates.map((item) => ({ title: item.title, stock: item.stock, delivery: item.delivery, supplierName: item.supplierName })) }, { agentId, agentName: def.name, workflow: 'operations' }),
-          previewText: `Nachschub lokal vorbereitet für: ${restockCandidates.map((item) => item.title).join(', ')}`,
-          requiresConfirmation: true,
-        };
-      }
-    }
-
-    if (!taskRecord) {
-      taskRecord = {
-        id: workflowId,
-        title: `${def.name} vorbereitet`,
-        description: buildWorkflowSummaryText('Lokale Analyse', ['Keine klaren Auffälligkeiten gefunden']),
-        agent: def.name,
-        category: 'Allgemein',
-        priority: 'medium',
-        status: 'open',
-        createdAt,
-        source: 'agent-workflow',
-        actionLabel: 'Ergebnis ansehen',
-      };
-    }
-
-    const normalizedTask = upsertAiTaskRecord(taskRecord);
-    if (approvalRecord) upsertApprovalQueueRecord(approvalRecord);
-
-    agent.lastActivity = `Lokale Analyse abgeschlossen (${timestamp})`;
-    agent.lastTestResponse = `${def.name}: ${normalizedTask.description}`;
-    agent.lastTestedAt = timestamp;
-    agent.statusState = 'Analysiert';
-    saveState();
-    render();
-    return { agentId, summary: normalizedTask.description, highlights, approvalCreated: !!approvalRecord };
-  };
-  const runFutureCapabilityWorkflow = (kind, id) => {
-    const collection = kind === 'lockedRoles' ? FUTURE_CAPABILITY_DEFS.lockedRoles : FUTURE_CAPABILITY_DEFS.lockedFunctions;
-    const def = collection.find((item) => item.id === id);
-    if (!def) return null;
-
-    const createdAt = new Date().toISOString();
-    const timestamp = new Date(createdAt).toLocaleString('de-DE');
-    const label = kind === 'lockedRoles' ? 'Rolle' : 'Funktion';
-    const stateRecord = getFutureCapabilityRecord(kind, id);
-    const summaryParts = [];
-    const taskId = `future-${kind}-${id}`;
-    let approvalRecord = null;
-
-    if (kind === 'lockedFunctions') {
-      const pipelineSettings = getFutureCapabilitySettings(kind, id);
-      const pipelineType = FUTURE_PIPELINE_OPTIONS.some((item) => item.value === pipelineSettings.pipelineType)
-        ? pipelineSettings.pipelineType
-        : guessFuturePipelineType(kind, id, def.title);
-      summaryParts.push('Nur lokale Vorarbeit');
-      summaryParts.push(isSecurityLocked() ? 'Live blockiert' : 'Live getrennt');
-      if (id === 'full-automation') summaryParts.push('Ausführungs-Haken vorgeplant');
-      if (id === 'auto-orders') summaryParts.push('Bestellfreigabe vorbereitet');
-      if (id === 'auto-messages') summaryParts.push('Nachrichten-Entwurf vorbereitet');
-      if (id === 'auto-ebay-posting') summaryParts.push('Posting-Workflow strukturiert');
-      approvalRecord = {
-        id: `${taskId}-approval`,
-        title: `${def.title} Vorbereitung`,
-        description: `${def.title} wurde lokal als gesperrte Zukunftsfunktion vorbereitet. Es wurde nichts live ausgeführt.`,
-        agent: 'Future Lock',
-        type: 'risk_action',
-        status: 'pending',
-        riskLevel: 'critical',
-        createdAt,
-        payload: decorateApprovalPayload(pipelineType, {
-          source: 'future-workflow',
-          kind,
-          id,
-          title: def.title,
-        }, {
-          futureKind: kind,
-          futureId: id,
-          futureTitle: def.title,
-          pipelineType,
-        }),
-        previewText: `${def.title} bleibt gesperrt und nur lokal vorbereitet.`,
-        requiresConfirmation: true,
-      };
-    } else {
-      const pipelineSettings = getFutureCapabilitySettings(kind, id);
-      const pipelineType = FUTURE_PIPELINE_OPTIONS.some((item) => item.value === pipelineSettings.pipelineType)
-        ? pipelineSettings.pipelineType
-        : guessFuturePipelineType(kind, id, def.title);
-      const insights = getProductList().map(getProductInsight);
-      const openReturns = getReturnList().filter((item) => !isReturnClosed(item && item.status));
-      if (id === 'soul-listing') {
-        const candidates = insights.filter((item) => item.score >= 65 && item.salesStats.count === 0).sort((a, b) => b.score - a.score || a.delivery - b.delivery).slice(0, 3);
-        summaryParts.push(candidates.length ? `${candidates.length} Listing-Kandidat(en)` : 'Keine starken Listing-Kandidaten');
-        summaryParts.push(candidates.slice(0, 3).map((item) => item.title).join(', '));
-      } else if (id === 'soul-pricing') {
-        const lowMargin = insights.filter((item) => item.profit <= 0 || item.margin < 15).sort((a, b) => a.profit - b.profit).slice(0, 3);
-        summaryParts.push(lowMargin.length ? `${lowMargin.length} Preissignal(e)` : 'Keine kritische Preisabweichung');
-        summaryParts.push(lowMargin.map((item) => `${item.title} (${item.profit.toFixed(2)} €)`).join(', '));
-      } else if (id === 'soul-supplier') {
-        const candidates = insights.filter((item) => !item.supplierName || item.delivery > item.maxDelivery).slice(0, 3);
-        summaryParts.push(candidates.length ? `${candidates.length} Lieferantenhinweis(e)` : 'Lieferantensignale sauber');
-        summaryParts.push(candidates.map((item) => item.title).join(', '));
-      } else if (id === 'soul-compliance') {
-        const candidates = insights.filter((item) => item.riskFlags.length > 0).slice(0, 3);
-        summaryParts.push(candidates.length ? `${candidates.length} Compliance-Hinweis(e)` : 'Keine Compliance-Hinweise');
-        summaryParts.push(candidates.map((item) => `${item.title}: ${item.riskFlags.join(', ')}`).join(' | '));
-      } else if (id === 'soul-returns') {
-        summaryParts.push(openReturns.length ? `${openReturns.length} offene Retouren` : 'Keine offenen Retouren');
-        summaryParts.push(openReturns.slice(0, 3).map((item) => `${item.platform || 'eBay'} · ${item.status || 'Offen'}`).join(', '));
-      } else if (id === 'soul-dispatch') {
-        const alerts = [
-          ...openReturns.slice(0, 2).map((item) => `${item.platform || 'eBay'} · ${item.status || 'Offen'}`),
-          ...insights.filter((item) => item.stock > 0 && item.stock <= 3).slice(0, 2).map((item) => `${item.title} Bestand ${item.stock}`),
-        ].filter(Boolean);
-        summaryParts.push(alerts.length ? `${alerts.length} operative Hinweise` : 'Keine operativen Hinweise');
-        summaryParts.push(alerts.join(', '));
-      } else if (id === 'soul-inventory') {
-        const candidates = insights.filter((item) => item.stock > 0 && item.stock <= 3).sort((a, b) => a.stock - b.stock).slice(0, 3);
-        summaryParts.push(candidates.length ? `${candidates.length} Bestandshinweis(e)` : 'Bestand unkritisch');
-        summaryParts.push(candidates.map((item) => `${item.title} (${item.stock})`).join(', '));
-      } else if (id === 'soul-review') {
-        const candidates = insights.filter((item) => item.returnStats.count > 0 || item.salesStats.count === 0).slice(0, 3);
-        summaryParts.push(candidates.length ? `${candidates.length} Feedback-Signal(e)` : 'Keine Feedback-Signale');
-        summaryParts.push(candidates.map((item) => item.title).join(', '));
-      }
-      approvalRecord = {
-        id: `${taskId}-approval`,
-        title: `${def.title} lokale Freigabe`,
-        description: `${def.title} wurde lokal vorbereitet. Live-Aktionen bleiben gesperrt.`,
-        agent: 'Future Planner',
-        type: 'listing_update',
-        status: 'pending',
-        riskLevel: 'medium',
-        createdAt,
-        payload: decorateApprovalPayload(pipelineType, {
-          source: 'future-workflow',
-          kind,
-          id,
-          title: def.title,
-        }, {
-          futureKind: kind,
-          futureId: id,
-          futureTitle: def.title,
-          pipelineType,
-        }),
-        previewText: `${def.title} wurde nur vorbereitet, nicht live geschaltet.`,
-        requiresConfirmation: true,
-      };
-    }
-
-    const note = buildWorkflowSummaryText(`${label} ${def.title}`, summaryParts);
-    state.futureCapabilities = state.futureCapabilities && typeof state.futureCapabilities === 'object' ? state.futureCapabilities : createFutureCapabilityState();
-    state.futureCapabilities[kind] = state.futureCapabilities[kind] && typeof state.futureCapabilities[kind] === 'object' ? state.futureCapabilities[kind] : {};
-    state.futureCapabilities[kind][id] = {
-      prepared: true,
-      enabled: false,
-      lastPreparedAt: createdAt,
-      notes: note,
-    };
-
-    upsertAiTaskRecord({
-      id: taskId,
-      title: `${def.title} vorbereiten`,
-      description: note,
-      agent: 'Future Planner',
-      category: kind === 'lockedRoles' ? 'Zukunftsrolle' : 'Zukunftsfunktion',
-      priority: 'medium',
-      status: 'open',
-      createdAt,
-      source: 'future-workflow',
-      actionLabel: 'Vorbereitung ansehen',
-    });
-    if (approvalRecord) upsertApprovalQueueRecord(approvalRecord);
-
-    const statusLabel = kind === 'lockedRoles' ? 'Rolle' : 'Funktion';
-    setTaskCenterNotice(`${statusLabel} ${def.title} vorbereitet.`);
-    render();
-    return { kind, id, title: def.title, note, timestamp };
-  };
   const getBadgeMeta = (agent) => {
     const mode = normalizeMode(agent && agent.mode);
     const enabled = !!(agent && agent.active);
@@ -11008,37 +10418,6 @@ document.addEventListener('DOMContentLoaded',()=>{
     const usage = Number(agent && agent.usageToday) || 0;
     if (!limit) return 0;
     return Math.max(0, Math.min(100, (usage / limit) * 100));
-  };
-  const getAgentModeStats = () => AGENT_DEFS.reduce((acc, def) => {
-    const agent = getAgent(def.id);
-    if (getAgentModeDisplayValue(agent && agent.mode) === 'semi') {
-      acc.semi += 1;
-    } else {
-      acc.suggestions += 1;
-    }
-    return acc;
-  }, { suggestions: 0, semi: 0 });
-  const getSharedAgentDailyLimit = () => {
-    const values = AGENT_DEFS.map((def) => {
-      const agent = getAgent(def.id);
-      return Number(agent && agent.dailyLimit) || 0;
-    });
-    if (!values.length) return '';
-    const first = values[0];
-    return values.every((value) => Math.abs(value - first) < 0.0001) ? Number(first).toFixed(2) : '';
-  };
-  const applyGlobalAgentDailyLimit = (value) => {
-    const limit = normalizeLimit(value);
-    AGENT_DEFS.forEach((def) => {
-      const agent = getAgent(def.id);
-      if (agent) {
-        agent.dailyLimit = limit;
-      }
-    });
-    saveState();
-    render();
-    showToolPopup('KI-Kosten übernommen', `Das KI-Tageslimit wurde für alle Agenten auf ${formatEuro(limit)} gesetzt.`, 'good');
-    return limit;
   };
   const getConnectionItems = (def) => Array.isArray(def && def.connections) ? def.connections : [];
   const AUTONOMY_AREA_NAMES = {
@@ -11129,7 +10508,7 @@ document.addEventListener('DOMContentLoaded',()=>{
               <span class="pill">Sandbox ${sandboxMode ? 'aktiv' : 'aus'}</span>
               ${masterDisabled ? '<span class="pill bad">Alle Agenten & MA deaktiviert</span>' : ''}
             </div>
-            <p class="virtual-agent-system-statusline" style="margin-top:8px">🟢 KI-System ${pausedLabel} - ${onlineCount} von ${AGENT_DEFS.length} Agenten online - Sicherheitsmodus ${securityMode ? 'aktiv' : 'aus'} - Sandbox ${sandboxMode ? 'aktiv' : 'aus'} - Autonomie ${autonomyLocked ? 'gesperrt' : 'frei'} - Worker ${escapeHtml(normalizeRuntimeText(worker.status, 'sandboxed'))}</p>
+            <p class="virtual-agent-system-statusline" style="margin-top:8px">🟢 KI-System ${pausedLabel} - ${onlineCount} von ${AGENT_DEFS.length} Agenten online - Sicherheitsmodus ${securityMode ? 'aktiv' : 'aus'} - Sandbox ${sandboxMode ? 'aktiv' : 'aus'} - Autonomie ${autonomyLocked ? 'gesperrt' : 'frei'}</p>
           </div>
           <div class="virtual-agent-system-actions">
             <button type="button" class="secondary" data-agent-action="pause-all" data-tooltip="${isAllAgentsPaused() ? 'Hebt die globale Pause auf und schaltet alle Agenten wieder an.' : 'Pausiert alle Agenten global und setzt alle Schalter auf Aus.'}">${isAllAgentsPaused() ? 'Alle Agenten fortsetzen' : 'Alle Agenten pausieren'}</button>
@@ -11740,7 +11119,6 @@ document.addEventListener('DOMContentLoaded',()=>{
             <button type="button" class="secondary" data-task-action="remove" data-task-id="${escapeHtml(task.id)}">Entfernen</button>
           </div>
         </div>
-        <div class="hint" style="margin-top:10px">${agentModeLabel === 'Halbautomatisch' ? 'Halbautomatisch: der Button legt einen Eintrag in die Freigabe-Warteschlange.' : 'Nur Vorschläge: der Button erzeugt eine Empfehlung im AI Task Center.'}</div>
       </article>
     `;
   };
@@ -11839,7 +11217,7 @@ document.addEventListener('DOMContentLoaded',()=>{
                     <article class="task-center-triage-item" data-task-priority="${escapeHtml(normalizeTaskPriority(task.priority))}">
                       <div class="task-center-triage-title">
                         <strong>${escapeHtml(task.title)}</strong>
-                        <span>${escapeHtml(task.agent)} · ${escapeHtml(priorityMeta.label)} · ${escapeHtml(getAgentModeLabel(getAgentModeByName(task.agent)))}</span>
+                        <span>${escapeHtml(task.agent)} · ${escapeHtml(priorityMeta.label)}</span>
                       </div>
                       <p>${escapeHtml(task.description)}</p>
                       <div class="task-center-triage-actions">
@@ -11990,20 +11368,13 @@ document.addEventListener('DOMContentLoaded',()=>{
   };
 
   const buildOverviewPanel = () => {
-    const modeStats = getAgentModeStats();
-    const sharedDailyLimit = getSharedAgentDailyLimit();
-    const runtime = getAgentRuntimeState();
-    const worker = runtime.worker || {};
-    const runtimeQueue = Array.isArray(runtime.queue) ? runtime.queue : [];
-    const runtimeLogs = Array.isArray(runtime.logs) ? runtime.logs : [];
-    const runtimeLogPreview = runtimeLogs.slice(-3).map((entry) => `${formatTaskDate(entry.createdAt)} · ${entry.level || 'info'} · ${entry.message || 'Ohne Text'}`);
     return `
       <div class="virtual-agent-card virtual-agents-panel ${activePanel === 'overview' ? 'active' : ''}" data-panel="overview">
         <div class="virtual-agent-head">
           <div class="virtual-agent-ident">
             <div class="virtual-agent-icon">🧭</div>
             <div>
-              <h3>Sicherheits- & Autonomie-Steuerung</h3>
+              <h3>Sicherheits- & Steuerzentrale</h3>
               <p>Hier werden Sicherheitsrahmen und Autonomiegrenzen für die virtuellen Mitarbeiter verwaltet. Live-Aktionen bleiben blockiert, solange Sicherheitsmodus oder Sandbox aktiv ist.</p>
             </div>
           </div>
@@ -12020,47 +11391,7 @@ document.addEventListener('DOMContentLoaded',()=>{
             <span>Sicherheitsmodus</span>
           </label>
         </div>
-        <div class="security-switch-row" style="margin-top:10px">
-          <div>
-            <strong>Sandbox-Modus</strong>
-            <p class="hint">Wenn aktiv, werden Aktionen nur simuliert und nicht live ausgeführt.</p>
-          </div>
-          <label class="agent-switch" style="margin:0">
-            <input type="checkbox" data-agent-field="sandboxMode" ${state.sandboxMode !== false ? 'checked' : ''}>
-            <span class="agent-switch-track"></span>
-            <span>Sandbox-Modus</span>
-          </label>
-        </div>
         <div class="virtual-agents-note" style="margin-top:14px">${isSecurityLocked() ? 'Sandbox aktiv – Aufgaben werden nur vorbereitet.' : 'Automatische Aktionen werden vorbereitet, aber nicht ohne Bestätigung ausgeführt.'}</div>
-          <div class="settings-agents-overview" style="margin-top:14px">
-            <div class="metric"><small>Agenten im Vorschlagsmodus</small><strong>${modeStats.suggestions}</strong></div>
-            <div class="metric"><small>Agenten im halbautomatischen Modus</small><strong>${modeStats.semi}</strong></div>
-          </div>
-          <div class="settings-agents-overview" style="margin-top:12px">
-            <div class="metric"><small>Worker</small><strong>${escapeHtml(normalizeRuntimeText(worker.status, 'sandboxed'))}</strong></div>
-            <div class="metric"><small>Warteschlange</small><strong>${runtimeQueue.length}</strong></div>
-            <div class="metric"><small>Logs</small><strong>${runtimeLogs.length}</strong></div>
-            <div class="metric"><small>Letzter Lauf</small><strong>${worker.lastRun ? escapeHtml(formatTaskDate(worker.lastRun)) : 'Noch nicht'}</strong></div>
-          </div>
-          <div class="output-box" style="margin-top:12px">
-            <p><strong>Lokaler Worker-Status:</strong> ${escapeHtml(worker.notes || (isSecurityLocked() ? 'Sandbox aktiv' : 'Bereit zur lokalen Auswertung'))}</p>
-            <p><strong>Nächster Tick:</strong> ${worker.nextTickAt ? escapeHtml(formatTaskDate(worker.nextTickAt)) : 'nicht geplant'}</p>
-            <p><strong>Queue-Verarbeitung:</strong> ${runtimeQueue.length ? `${runtimeQueue.length} Tasks in Vorbereitung` : 'keine offene Warteschlange'}</p>
-            ${runtimeLogPreview.length ? `<ul>${runtimeLogPreview.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>` : '<p class="muted">Noch keine Runtime-Logs vorhanden.</p>'}
-          </div>
-          <div class="settings-section" style="margin-top:14px;padding:16px;border-radius:18px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08)">
-            <h4 style="margin-bottom:8px">Gesamte KI-Kosten auf alle übernehmen</h4>
-            <p class="hint">Setzt das Tageslimit für alle Agenten auf denselben Wert. Bestehende Einzelwerte werden erst mit deinem Klick überschrieben.</p>
-          <div class="row" style="margin-top:10px">
-            <div style="flex:1;min-width:220px">
-              <label>Wert für alle Agenten (€)</label>
-              <input id="globalAgentDailyLimitInput" type="number" min="0" step="0.01" value="${sharedDailyLimit}">
-            </div>
-            <div style="display:flex;align-items:end">
-              <button type="button" class="secondary" data-agent-action="apply-global-daily-limit">Für alle übernehmen</button>
-            </div>
-          </div>
-        </div>
         <div class="extended-autonomy-card ${state.advancedMode === true && state.autonomyLocked === false ? 'active' : ''}" style="margin-top:14px">
           <div class="extended-autonomy-head">
             <div class="virtual-agent-ident" style="align-items:flex-start">
@@ -12248,16 +11579,6 @@ document.addEventListener('DOMContentLoaded',()=>{
             <span class="pill">Modell: ${escapeHtml(normalizeModel(agent.model))}</span>
             <span class="pill">Heute: ${escapeHtml(formatEuro(agent.usageToday || 0))} / ${escapeHtml(formatEuro(agent.dailyLimit || 0))}</span>
           </div>
-          <div class="virtual-agent-mini" style="margin-top:10px">
-            <span class="pill">Aktiv: ${runtimeAgent ? (runtimeAgent.enabled !== false ? 'Ja' : 'Nein') : (agent.active ? 'Ja' : 'Nein')}</span>
-            <span class="pill">Pausiert: ${runtimeAgent ? (runtimeAgent.paused === true ? 'Ja' : 'Nein') : (isAllAgentsPaused() || agent.active === false ? 'Ja' : 'Nein')}</span>
-            <span class="pill">Autonomie: Stufe ${runtimeAgent ? runtimeAgent.autonomyLevel : 1}</span>
-            <span class="pill">Queue: ${runtimeQueue.length}</span>
-            <span class="pill">Logs: ${runtimeLogs.length}</span>
-            <span class="pill">Letzter Lauf: ${runtimeAgent && runtimeAgent.lastRun ? escapeHtml(formatTaskDate(runtimeAgent.lastRun)) : 'Noch nicht'}</span>
-          </div>
-          ${runtimeAgent && runtimeAgent.lastResult ? `<div class="output-box" style="margin-top:12px"><p><strong>Letztes Runtime-Ergebnis:</strong> ${escapeHtml(runtimeAgent.lastResult)}</p></div>` : ''}
-          ${runtimeLogs.length ? `<div class="output-box" style="margin-top:12px"><p><strong>Runtime-Logs:</strong></p><ul>${runtimeLogs.slice(-3).map((item) => `<li>${escapeHtml(formatTaskDate(item.createdAt))} · ${escapeHtml(item.level || 'info')} · ${escapeHtml(item.message || 'Ohne Text')}</li>`).join('')}</ul></div>` : ''}
 
           <div class="virtual-agent-grid" style="margin-top:14px">
             <div>
@@ -12274,11 +11595,9 @@ document.addEventListener('DOMContentLoaded',()=>{
 
             <div>
               <label>Modus</label>
-              <div class="agent-mode-segment" role="group" aria-label="Modus für ${escapeHtml(def.name)}">
-                <button type="button" class="secondary ${getAgentModeDisplayValue(agent.mode) === 'suggestions' ? 'active' : ''}" data-agent-mode="${def.id}" data-agent-mode-value="suggestions">Nur Vorschläge</button>
-                <button type="button" class="secondary ${getAgentModeDisplayValue(agent.mode) === 'semi' ? 'active' : ''}" data-agent-mode="${def.id}" data-agent-mode-value="semi">Halbautomatisch</button>
-              </div>
-              <div class="hint" style="margin-top:6px">Bestehende Modi bleiben erhalten, bis du sie änderst.</div>
+              <select data-agent-id="${def.id}" data-agent-field="mode">
+                ${MODE_OPTIONS.map((item) => `<option value="${item.value}" ${normalizeMode(agent.mode) === item.value ? 'selected' : ''}>${item.label}</option>`).join('')}
+              </select>
             </div>
 
             <div>
@@ -12309,11 +11628,8 @@ document.addEventListener('DOMContentLoaded',()=>{
           </div>
 
           <div style="margin-top:14px">
-            <div class="virtual-agent-field-head">
-              <label>Kurze Beschreibung der Aufgabe</label>
-              <button type="button" class="description-edit-toggle ${isDescriptionEditing(def.id) ? 'active' : ''}" data-agent-action="toggle-description-edit" data-agent-id="${def.id}" aria-label="${isDescriptionEditing(def.id) ? 'Beschreibung sperren' : 'Beschreibung bearbeiten'}">${isDescriptionEditing(def.id) ? '🔓' : '✎'}</button>
-            </div>
-            <textarea data-agent-id="${def.id}" data-agent-field="description" placeholder="${escapeHtml(def.description || def.task)}" ${isDescriptionEditing(def.id) ? '' : 'readonly'}>${escapeHtml(agent.description || def.description || def.task)}</textarea>
+            <label>Kurze Beschreibung der Aufgabe</label>
+            <textarea data-agent-id="${def.id}" data-agent-field="description" placeholder="${escapeHtml(def.description || def.task)}">${escapeHtml(agent.description || def.description || def.task)}</textarea>
           </div>
 
           <div class="virtual-agent-log">
@@ -12346,9 +11662,7 @@ document.addEventListener('DOMContentLoaded',()=>{
           </div>
 
           <div class="virtual-agent-footer">
-            <button type="button" class="secondary" data-agent-action="run-agent-workflow" data-agent-id="${def.id}" ${isAiActionBlocked() ? 'disabled aria-disabled="true"' : ''} title="${isAiActionBlocked() ? getAiActionBlockReason() : 'Lokale Analyse'}">Lokale Analyse</button>
-            <button type="button" class="secondary" data-agent-action="test-agent" data-agent-id="${def.id}" ${isAiActionBlocked() ? 'disabled aria-disabled="true"' : ''} title="${isAiActionBlocked() ? getAiActionBlockReason() : 'Agent testen'}">Agent testen</button>
-            <button type="button" class="secondary" data-agent-action="open-agent-instructions" data-agent-id="${def.id}">Erweiterte KI-Anweisungen öffnen</button>
+            <button type="button" class="secondary" data-agent-action="test-agent" data-agent-id="${def.id}">Agent testen</button>
           </div>
 
           <div class="output-box" style="margin-top:12px">
@@ -12388,76 +11702,19 @@ document.addEventListener('DOMContentLoaded',()=>{
     `;
   };
 
-  const buildFutureFunctionsSection = () => {
-    const futureUnlocked = isFutureCapabilityUnlocked();
-    const lockedMessage = futureUnlocked
-      ? 'Freigegeben – für spätere Aktivierung vorbereitet.'
-      : 'Noch nicht aktivierbar – Sicherheitsfreigabe erforderlich.';
-    const items = FUTURE_CAPABILITY_DEFS.lockedFunctions;
+  const buildExtendedAutonomyItem = (item, type) => {
+    const active = item.status === 'active';
+    const canEdit = isExtendedAutonomyEnabled();
+    const actionLabel = active ? 'Sperren' : 'Aktivieren';
+    const noteText = item.config && item.config.note ? item.config.note : 'Keine Notiz';
+    const summaryPills = getExtendedAutonomyCardSummary(type, item);
     return `
-      <details class="virtual-agent-card virtual-future-section" data-future-section-kind="lockedFunctions" ${isFutureSectionOpen('lockedFunctions') ? 'open' : ''}>
-        <summary class="virtual-agent-summary">
-          <div class="virtual-agent-summary-top">
-            <div class="virtual-agent-ident">
-              <div class="virtual-agent-icon">🔒</div>
-              <div>
-                <h3>Vorschau gesperrter Funktionen</h3>
-                <p>${futureUnlocked ? 'Erweiterte Autonomie ist aktiv. Die Vorschau unten ist jetzt freigegeben.' : 'Vorbereitet, aber aus Sicherheitsgründen deaktiviert. Erst mit manueller Freigabe aktivierbar.'}</p>
-              </div>
-            </div>
-            <span class="virtual-agent-summary-chevron">⌄</span>
-          </div>
-          <div class="virtual-agent-summary-meta">
-            <span class="pill">4 gesperrte Funktionen</span>
-            <span class="pill">${futureUnlocked ? 'Freigegeben' : (isSecurityLocked() ? 'Live blockiert' : 'Live getrennt')}</span>
-            <span class="pill">${futureUnlocked ? 'Erweiterte Autonomie aktiv' : 'Sicherheitsfreigabe erforderlich'}</span>
-          </div>
-        </summary>
-        <div class="virtual-agent-body">
-          <div class="virtual-future-warning">${futureUnlocked ? 'Erweiterte Autonomie ist aktiv. Die unteren Zukunftsfunktionen sind freigegeben und können weiter vorbereitet werden.' : `Diese Funktionen sind vorbereitet, aber aus Sicherheitsgründen deaktiviert. ${isSecurityLocked() ? 'Live-Aktionen bleiben durch Sicherheitsmodus oder Sandbox blockiert.' : 'Live-Aktionen bleiben in dieser Version bewusst getrennt.'} ${lockedMessage}`}</div>
-          <div class="virtual-future-grid" style="margin-top:14px">
-            ${items.map((item) => `
-              ${(() => {
-                const record = getFutureCapabilityRecord('lockedFunctions', item.id);
-                const statusLabel = futureUnlocked ? (record.enabled ? 'Entsperrt' : 'Gesperrt') : (record.prepared ? 'Vorbereitet' : 'Noch offen');
-                const detailsOpen = isFutureDetailsOpen('lockedFunctions', item.id);
-                const settings = getFutureCapabilitySettings('lockedFunctions', item.id);
-                const pipeline = formatFuturePipelinePreview('lockedFunctions', item.id, item.title);
-                return `
-              <div class="virtual-future-card">
-                <div class="virtual-agent-ident">
-                  <div class="virtual-agent-icon">${item.icon}</div>
-                  <div>
-                    <h4>${escapeHtml(item.title)}</h4>
-                    <p>${escapeHtml(item.description)}</p>
-                    <div style="margin-top:8px" class="virtual-agent-summary-meta">
-                      <span class="pill">${escapeHtml(statusLabel)}</span>
-                      <span class="pill">${futureUnlocked ? (record.enabled ? 'Aktiv' : 'Bereit') : 'Gesperrt'}</span>
-                    </div>
-                  </div>
-                </div>
-                <details class="virtual-future-inner-details" data-future-detail-kind="lockedFunctions" data-future-detail-id="${item.id}" ${detailsOpen ? 'open' : ''} style="margin-top:12px">
-                  <summary class="pill" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px">Details ansehen <span aria-hidden="true">⌄</span></summary>
-                  <div class="virtual-future-inner-content" style="margin-top:10px">
-                    <p><strong>Zweck:</strong> ${escapeHtml(item.description)}</p>
-                    <p><strong>Status:</strong> ${escapeHtml(statusLabel)}. ${futureUnlocked ? 'Die Funktion ist vorbereitet, aber weiterhin ohne Live-Ausführung.' : 'Die Funktion bleibt gesperrt, bis die Sicherheitsfreigabe aktiv ist.'}</p>
-                    <p><strong>Voraussetzung:</strong> ${escapeHtml(lockedMessage)}</p>
-                    <p><strong>Sicherheitsregel:</strong> Keine echte Aktion wird automatisch ausgeführt.</p>
-                    <p><strong>Live-Pipeline:</strong> ${escapeHtml(pipeline.title)} · ${escapeHtml(pipeline.stages)} · Connector: ${escapeHtml(pipeline.connector)}</p>
-                  </div>
-                </details>
-                <div class="settings-agents-overview" style="display:flex;align-items:center;gap:8px;width:100%;flex-wrap:nowrap">
-                  <span class="virtual-agent-badge ${futureUnlocked ? (record.enabled ? 'good' : 'info') : 'warn'}">${futureUnlocked ? (record.enabled ? 'Aktiv' : 'Bereit') : 'Gesperrt'}</span>
-                  <button type="button" class="agent-switch ${futureUnlocked ? (record.enabled ? 'agent-switch-unlocked' : '') : 'agent-switch-locked'}" data-future-action="toggle-future-capability" data-future-kind="lockedFunctions" data-future-id="${item.id}" onclick="return handleFutureButtonAction(event,'lockedFunctions','${item.id}','toggle');" ${futureUnlocked ? '' : 'disabled aria-disabled="true"'} title="${futureUnlocked ? (record.enabled ? 'Sperren' : 'Freigeben') : lockedMessage}">
-                    <span class="agent-switch-track"></span>
-                    <span>${futureUnlocked ? (record.enabled ? 'Entsperrt' : 'Freigeben') : lockedMessage}</span>
-                  </button>
-                  <button type="button" class="secondary" data-future-action="open-future-settings" data-future-kind="lockedFunctions" data-future-id="${item.id}" onclick="return handleFutureButtonAction(event,'lockedFunctions','${item.id}','settings');" title="Erweiterte Einstellungen" aria-label="Erweiterte Einstellungen" style="margin-left:auto;flex:0 0 auto;min-width:40px;padding:0 10px">⚙</button>
-                </div>
-                ${record.lastPreparedAt ? `<p class="hint" style="margin-top:10px">Zuletzt vorbereitet: ${escapeHtml(formatTaskDate(record.lastPreparedAt))}</p>` : ''}
-              </div>`; 
-              })()}
-            `).join('')}
+      <div class="virtual-future-card autonomy-permission-card ${active ? 'active' : ''}">
+        <div class="virtual-agent-ident">
+          <div class="virtual-agent-icon">${escapeHtml(item.icon)}</div>
+          <div>
+            <h4>${escapeHtml(item.title)}</h4>
+            <p>${escapeHtml(item.description)}</p>
           </div>
         </div>
         <div class="autonomy-permission-meta">
@@ -12490,85 +11747,27 @@ document.addEventListener('DOMContentLoaded',()=>{
     `;
   };
 
-  const buildFutureRolesSection = () => {
-    const futureUnlocked = isFutureCapabilityUnlocked();
-    const lockedMessage = futureUnlocked
-      ? 'Freigegeben – für spätere Aktivierung vorbereitet.'
-      : 'Noch nicht aktivierbar – Sicherheitsfreigabe erforderlich.';
-    const items = [
-      { id: 'soul-listing', icon: '🤖', title: 'Soul Listing', description: 'Erstellt Listing-Entwürfe, Produktblöcke und Strukturvorschläge für neue eBay-Angebote.' },
-      { id: 'soul-pricing', icon: '💹', title: 'Soul Pricing', description: 'Prüft Preisstrategie, Untergrenzen, Wettbewerbsdruck und mögliche Anpassungen.' },
-      { id: 'soul-supplier', icon: '📦', title: 'Soul Supplier', description: 'Hilft bei Lieferantenprüfung, Nachfass-Hinweisen und Beschaffungs-Checks.' },
-      { id: 'soul-compliance', icon: '🧾', title: 'Soul Compliance', description: 'Prüft EPR, WEEE, Impressum und andere rechtliche Warnsignale vor einem Live-Schritt.' },
-      { id: 'soul-returns', icon: '↩️', title: 'Soul Returns', description: 'Bereitet Retouren-Triage, Antwortentwürfe und Eskalationshinweise vor.' },
-      { id: 'soul-dispatch', icon: '📮', title: 'Soul Dispatch', description: 'Priorisiert operative Tagesaufgaben, Versandthemen und To-dos mit Auswirkung auf den Ablauf.' },
-      { id: 'soul-inventory', icon: '📊', title: 'Soul Inventory', description: 'Zeigt Bestandswarnungen, Nachschubbedarf und mögliche Engpässe frühzeitig an.' },
-      { id: 'soul-review', icon: '⭐', title: 'Soul Review', description: 'Analysiert Bewertungen, Kundenfeedback und wiederkehrende Muster aus Rückmeldungen.' },
-    ];
+  const buildExtendedAutonomyCollection = (type, title, description, lockedTitle, activeTitle) => {
+    const collection = getExtendedAutonomyCollection(type);
+    const lockedItems = collection.filter((item) => item.status !== 'active');
+    const activeItems = collection.filter((item) => item.status === 'active');
+    const canEdit = isExtendedAutonomyEnabled();
+    const isOpen = isExtendedAutonomyCollectionOpen(type);
     return `
-      <details class="virtual-agent-card virtual-future-section" data-future-section-kind="lockedRoles" ${isFutureSectionOpen('lockedRoles') ? 'open' : ''}>
-        <summary class="virtual-agent-summary">
-          <div class="virtual-agent-summary-top">
-            <div class="virtual-agent-ident">
-              <div class="virtual-agent-icon">🧑‍💼</div>
-              <div>
-                <h3>Vorschau gesperrter Rollen</h3>
-                <p>${futureUnlocked ? 'Erweiterte Autonomie ist aktiv. Neue Rollen sind jetzt freigegeben.' : 'Neue KI-Agenten und virtuelle MA, die später erweitert werden könnten. Aktuell nur als sichere Vorschau sichtbar.'}</p>
-              </div>
-            </div>
-            <span class="virtual-agent-summary-chevron">⌄</span>
+      <section class="autonomy-collection-card">
+        <div class="autonomy-collection-head">
+          <div>
+            <h4>${escapeHtml(title)}</h4>
+            <p>${escapeHtml(description)}</p>
           </div>
-          <div class="virtual-agent-summary-meta">
-            <span class="pill">8 gesperrte Rollen</span>
-            <span class="pill">${futureUnlocked ? 'Freigegeben' : (isSecurityLocked() ? 'Live blockiert' : 'Live getrennt')}</span>
-            <span class="pill">${futureUnlocked ? 'Erweiterte Autonomie aktiv' : 'Sicherheitsfreigabe erforderlich'}</span>
-          </div>
-        </summary>
-        <div class="virtual-agent-body">
-          <div class="virtual-future-warning">${futureUnlocked ? 'Erweiterte Autonomie ist aktiv. Die unteren Rollen sind freigegeben und können weiter vorbereitet werden.' : `Diese Rollen sind nur als Planungsvorschau angelegt. ${isSecurityLocked() ? 'Live-Aktionen bleiben durch Sicherheitsmodus oder Sandbox blockiert.' : 'Live-Aktionen bleiben in dieser Version bewusst getrennt.'} ${lockedMessage}`}</div>
-          <div class="virtual-future-grid" style="margin-top:14px">
-            ${items.map((item) => `
-              ${(() => {
-                const record = getFutureCapabilityRecord('lockedRoles', item.id);
-                const statusLabel = futureUnlocked ? (record.enabled ? 'Entsperrt' : 'Gesperrt') : (record.prepared ? 'Vorbereitet' : 'Noch offen');
-                const detailsOpen = isFutureDetailsOpen('lockedRoles', item.id);
-                const settings = getFutureCapabilitySettings('lockedRoles', item.id);
-                const pipeline = formatFuturePipelinePreview('lockedRoles', item.id, item.title);
-                return `
-              <div class="virtual-future-card">
-                <div class="virtual-agent-ident">
-                  <div class="virtual-agent-icon">${item.icon}</div>
-                  <div>
-                    <h4>${escapeHtml(item.title)}</h4>
-                    <p>${escapeHtml(item.description)}</p>
-                    <div style="margin-top:8px" class="virtual-agent-summary-meta">
-                      <span class="pill">${escapeHtml(statusLabel)}</span>
-                      <span class="pill">${futureUnlocked ? (record.enabled ? 'Aktiv' : 'Bereit') : 'Gesperrt'}</span>
-                    </div>
-                  </div>
-                </div>
-                <details class="virtual-future-inner-details" data-future-detail-kind="lockedRoles" data-future-detail-id="${item.id}" ${detailsOpen ? 'open' : ''} style="margin-top:12px">
-                  <summary class="pill" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px">Details ansehen <span aria-hidden="true">⌄</span></summary>
-                  <div class="virtual-future-inner-content" style="margin-top:10px">
-                    <p><strong>Zweck:</strong> ${escapeHtml(item.description)}</p>
-                    <p><strong>Status:</strong> ${escapeHtml(statusLabel)}. ${futureUnlocked ? 'Die Rolle kann jetzt einzeln freigegeben oder gesperrt werden. Weiterhin keine Live-Ausführung.' : 'Die Rolle bleibt gesperrt, bis die Sicherheitsfreigabe aktiv ist.'}</p>
-                    <p><strong>Voraussetzung:</strong> ${escapeHtml(lockedMessage)}</p>
-                    <p><strong>Sicherheitsregel:</strong> Keine echte Aktion wird automatisch ausgeführt.</p>
-                    <p><strong>Live-Pipeline:</strong> ${escapeHtml(pipeline.title)} · ${escapeHtml(pipeline.stages)} · Connector: ${escapeHtml(pipeline.connector)}</p>
-                  </div>
-                </details>
-                <div class="settings-agents-overview" style="display:flex;align-items:center;gap:8px;width:100%;flex-wrap:nowrap">
-                  <span class="virtual-agent-badge ${futureUnlocked ? (record.enabled ? 'good' : 'info') : 'warn'}">${futureUnlocked ? (record.enabled ? 'Aktiv' : 'Bereit') : 'Gesperrt'}</span>
-                  <button type="button" class="agent-switch ${futureUnlocked ? (record.enabled ? 'agent-switch-unlocked' : '') : 'agent-switch-locked'}" data-future-action="toggle-future-capability" data-future-kind="lockedRoles" data-future-id="${item.id}" onclick="return handleFutureButtonAction(event,'lockedRoles','${item.id}','toggle');" ${futureUnlocked ? '' : 'disabled aria-disabled="true"'} title="${futureUnlocked ? (record.enabled ? 'Sperren' : 'Freigeben') : lockedMessage}">
-                    <span class="agent-switch-track"></span>
-                    <span>${futureUnlocked ? (record.enabled ? 'Entsperrt' : 'Freigeben') : lockedMessage}</span>
-                  </button>
-                  <button type="button" class="secondary" data-future-action="open-future-settings" data-future-kind="lockedRoles" data-future-id="${item.id}" onclick="return handleFutureButtonAction(event,'lockedRoles','${item.id}','settings');" title="Erweiterte Einstellungen" aria-label="Erweiterte Einstellungen" style="margin-left:auto;flex:0 0 auto;min-width:40px;padding:0 10px">⚙</button>
-                </div>
-                ${record.lastPreparedAt ? `<p class="hint" style="margin-top:10px">Zuletzt vorbereitet: ${escapeHtml(formatTaskDate(record.lastPreparedAt))}</p>` : ''}
-              </div>`; 
-              })()}
-            `).join('')}
+          <div class="autonomy-collection-actions">
+            <span class="pill">${activeItems.length} aktiv / ${lockedItems.length} gesperrt</span>
+            <button
+              type="button"
+              class="secondary autonomy-collection-toggle"
+              data-agent-action="toggle-extended-collection"
+              data-permission-type="${type}"
+            >${isOpen ? 'Zuklappen' : 'Aufklappen'}</button>
           </div>
         </div>
         ${isOpen ? `
@@ -12648,7 +11847,6 @@ document.addEventListener('DOMContentLoaded',()=>{
       buildOverviewPanel(),
       buildOrderWorkflowPanel(),
       buildTaskCenterPanel(),
-      buildApprovalQueuePanel(),
       buildCategoryPanel('ki-agents', 'KI-Agenten', 'Strategische Analyse- und Optimierungsrollen für Recherche und Content.', 'ki-agents', 'info'),
       buildCategoryPanel('virtual-ma', 'Virtuelle Mitarbeiter', 'Operative Helfer für Support, Finance und Tagesorganisation.', 'virtual-ma', 'good'),
       buildFutureFunctionsSection(),
@@ -13254,10 +12452,6 @@ document.addEventListener('DOMContentLoaded',()=>{
       target.value = Number(agent.dailyLimit || 0).toFixed(2);
     } else if (field === 'description') {
       agent.description = sanitizeDescription(target.value, def.task);
-    } else if (field === 'prompt') {
-      agent.prompt = sanitizeDescription(target.value, def.description || def.task);
-    } else if (field === 'guardrails') {
-      agent.guardrails = sanitizeDescription(target.value, 'Nur Vorschläge, Entwürfe und lokale Analysen. Keine autonomen Live-Aktionen.');
     } else if (field === 'statusState') {
       agent.statusState = normalizeStatusState(target.value);
     } else if (field === 'taskStatus') {
@@ -13634,7 +12828,6 @@ document.addEventListener('DOMContentLoaded',()=>{
 })();
 </script>
 <script defer src="elyon-soul.js"></script>
-<script src="ai-agent-engine.js"></script>
 </body>
 </html>
 

@@ -1,6 +1,7 @@
 const STORE_URL = process.env.ELYON_AGENT_RUNTIME_STORE_URL || "";
 const STORE_TOKEN = process.env.ELYON_AGENT_RUNTIME_STORE_TOKEN || "";
 const STORE_KEY = process.env.ELYON_AGENT_RUNTIME_KEY || "elyon:agent-runtime";
+const AI_WORKFLOW_STORE_KEY = process.env.ELYON_AI_WORKFLOW_STORE_KEY || "elyon:ai-workflow";
 
 function safeJsonParse(text) {
   try {
@@ -33,6 +34,28 @@ async function readStore() {
 async function writeStore(payload) {
   if (!STORE_URL || !STORE_TOKEN) return false;
   const response = await fetch(`${STORE_URL.replace(/\/+$/, "")}/set/${encodeURIComponent(STORE_KEY)}/${encodeURIComponent(JSON.stringify(payload))}`, {
+    headers: {
+      Authorization: `Bearer ${STORE_TOKEN}`,
+    },
+  });
+  return response.ok;
+}
+
+async function readAiWorkflowStore() {
+  if (!STORE_URL || !STORE_TOKEN) return null;
+  const response = await fetch(`${STORE_URL.replace(/\/+$/, "")}/get/${encodeURIComponent(AI_WORKFLOW_STORE_KEY)}`, {
+    headers: {
+      Authorization: `Bearer ${STORE_TOKEN}`,
+    },
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok) return null;
+  return data?.result ? safeJsonParse(data.result) || data.result : null;
+}
+
+async function writeAiWorkflowStore(payload) {
+  if (!STORE_URL || !STORE_TOKEN) return false;
+  const response = await fetch(`${STORE_URL.replace(/\/+$/, "")}/set/${encodeURIComponent(AI_WORKFLOW_STORE_KEY)}/${encodeURIComponent(JSON.stringify(payload))}`, {
     headers: {
       Authorization: `Bearer ${STORE_TOKEN}`,
     },
@@ -77,6 +100,34 @@ function buildNextRuntime(runtime, req) {
 
 export default async function handler(req, res) {
   try {
+    if (req?.query?.action === "ai-workflow") {
+      if (req.method === "GET") {
+        const stored = await readAiWorkflowStore();
+        return res.status(200).json({
+          ok: true,
+          storeConfigured: Boolean(STORE_URL && STORE_TOKEN),
+          data: stored && typeof stored === "object" ? stored : { tasks: [], events: [], logs: [], updatedAt: "" },
+        });
+      }
+
+      if (req.method === "POST") {
+        const body = req.body && typeof req.body === "object" ? req.body : {};
+        const payload = {
+          tasks: Array.isArray(body.tasks) ? body.tasks : [],
+          events: Array.isArray(body.events) ? body.events : [],
+          logs: Array.isArray(body.logs) ? body.logs : [],
+          updatedAt: new Date().toISOString(),
+        };
+        const saved = await writeAiWorkflowStore(payload);
+        return res.status(200).json({
+          ok: true,
+          saved,
+          storeConfigured: Boolean(STORE_URL && STORE_TOKEN),
+          data: payload,
+        });
+      }
+    }
+
     const runtimeFromBody = req.body && typeof req.body === "object" ? req.body.runtime : null;
     const requestSettings = req.body && typeof req.body === "object" && req.body.settings && typeof req.body.settings === "object" ? req.body.settings : null;
     const storedRuntime = runtimeFromBody || (await readStore());

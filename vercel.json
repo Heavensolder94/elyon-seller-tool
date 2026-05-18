@@ -54,6 +54,10 @@
       "destination": "/api/health"
     },
     {
+      "source": "/api/ai-workflow",
+      "destination": "/api/agent-engine?action=ai-workflow"
+    },
+    {
       "source": "/api/google-sheets-sync",
       "destination": "/api/env-check"
     },
