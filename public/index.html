@@ -8731,6 +8731,44 @@ document.addEventListener('DOMContentLoaded',()=>{
     return Math.max(0, Math.min(100, (usage / limit) * 100));
   };
   const getConnectionItems = (def) => Array.isArray(def && def.connections) ? def.connections : [];
+  const AUTONOMY_AREA_NAMES = {
+    'ai-task-center': 'AI Task Center',
+    'ki-agents': 'KI-Agenten',
+    'virtual-ma': 'Virtuelle MA',
+    all: 'Alle Bereiche',
+  };
+  const AGENT_AUTONOMY_LINKS = {
+    'soul-scout': { features: ['auto-actions', 'auto-posting'], roles: ['risk-analyst', 'workflow-orchestrator'] },
+    'soul-seo': { features: ['auto-posting', 'auto-messages'], roles: ['workflow-orchestrator', 'release-operator'] },
+    'soul-guard': { features: ['auto-actions'], roles: ['risk-analyst', 'release-operator'] },
+    'soul-finance': { features: ['auto-actions', 'auto-orders'], roles: ['release-operator', 'workflow-orchestrator'] },
+    'soul-support': { features: ['auto-messages'], roles: ['support-supervisor', 'workflow-orchestrator'] },
+    'soul-operations': { features: ['auto-actions', 'auto-orders', 'auto-messages', 'auto-posting'], roles: ['workflow-orchestrator', 'release-operator'] },
+  };
+  const getAutonomyItemTitle = (type, id) => {
+    const source = type === 'role' ? state.extendedAutonomyRoles : state.extendedAutonomyFeatures;
+    const list = Array.isArray(source) ? source : [];
+    const item = list.find((entry) => entry.id === id);
+    return item ? item.title : id;
+  };
+  const getAgentAutonomyLinks = (agentId) => {
+    const linkDef = AGENT_AUTONOMY_LINKS[agentId] || { features: [], roles: [] };
+    return {
+      features: linkDef.features.map((id) => getAutonomyItemTitle('feature', id)),
+      roles: linkDef.roles.map((id) => getAutonomyItemTitle('role', id)),
+    };
+  };
+  const getAreaAutonomyCounts = (area) => {
+    const features = (state.extendedAutonomyFeatures || []).filter((item) => {
+      const target = item.config && item.config.targetArea;
+      return target === area || target === 'all';
+    });
+    const roles = (state.extendedAutonomyRoles || []).filter((item) => {
+      const target = item.config && item.config.responsibleArea;
+      return target === area || target === 'all';
+    });
+    return { features, roles };
+  };
   const getActivityLogItems = (agent, def) => {
     const entries = [
       agent && agent.lastActivity ? agent.lastActivity : DEFAULT_ACTIVITY,
@@ -9034,7 +9072,28 @@ document.addEventListener('DOMContentLoaded',()=>{
     const tasks = getFilteredAiTasks();
     const triageTasks = getTriageAiTasks();
     const totalTasks = Array.isArray(state.aiTasks) ? state.aiTasks.length : 0;
-    const taskLinks = getAutonomyLinksForArea('ai-task-center');
+    const routeAreas = ['ai-task-center', 'ki-agents', 'virtual-ma'];
+    const routeCards = routeAreas.map((area) => {
+      const areaCounts = getAreaAutonomyCounts(area);
+      const topFeatures = areaCounts.features.slice(0, 2).map((item) => item.title);
+      const topRoles = areaCounts.roles.slice(0, 2).map((item) => item.title);
+      return `
+        <div class="task-route-card" style="border:1px solid rgba(148,163,184,.18);border-radius:16px;padding:14px;background:rgba(15,23,42,.35)">
+          <div class="task-route-title" style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+            <strong>${escapeHtml(AUTONOMY_AREA_NAMES[area] || area)}</strong>
+            <span class="pill">${areaCounts.features.length + areaCounts.roles.length} Verknüpfungen</span>
+          </div>
+          <div class="task-route-line" style="margin-top:10px">
+            <span class="pill">Funktionen: ${areaCounts.features.length}</span>
+            <span class="pill">Rollen: ${areaCounts.roles.length}</span>
+          </div>
+          <div class="task-route-links" style="margin-top:10px;display:flex;flex-wrap:wrap;gap:8px">
+            ${(topFeatures.length ? topFeatures : ['Keine Funktionen']).map((text) => `<span class="pill">${escapeHtml(text)}</span>`).join('')}
+            ${(topRoles.length ? topRoles : ['Keine Rollen']).map((text) => `<span class="pill">${escapeHtml(text)}</span>`).join('')}
+          </div>
+        </div>
+      `;
+    }).join('');
     const emptyMessage = totalTasks
       ? 'Keine KI-Aufgaben passen zu den aktiven Filtern.'
       : 'Keine KI-Aufgaben vorhanden. Sobald Agenten aktiv werden, erscheinen hier Empfehlungen und Warnungen.';
@@ -9051,9 +9110,8 @@ document.addEventListener('DOMContentLoaded',()=>{
             </div>
             <span class="virtual-agent-badge info">Lokale Task-Queue</span>
           </div>
-          <div class="virtual-agent-connections" style="margin-top:10px">
-            <span class="pill">Verknüpfte Funktionen: ${taskLinks.features.length ? taskLinks.features.map((text) => escapeHtml(text)).join(' · ') : 'Keine'}</span>
-            <span class="pill">Verknüpfte Rollen: ${taskLinks.roles.length ? taskLinks.roles.map((text) => escapeHtml(text)).join(' · ') : 'Keine'}</span>
+          <div class="task-center-route-grid" style="margin-top:12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px">
+            ${routeCards}
           </div>
 
           <div class="settings-agents-overview task-center-stats">
@@ -9186,6 +9244,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     const badge = getBadgeMeta(agent);
     const usagePercent = getUsagePercent(agent);
     const activityItems = getActivityLogItems(agent, def);
+    const autonomyLinks = getAgentAutonomyLinks(def.id);
     return `
       <details class="virtual-agent-card virtual-agent-disclosure virtual-agent-accent-${escapeHtml(def.accent || 'scout')}" data-agent-id="${def.id}" ${state.openCards && state.openCards[def.id] ? 'open' : ''}>
         <summary class="virtual-agent-summary">
@@ -9282,9 +9341,23 @@ document.addEventListener('DOMContentLoaded',()=>{
           </div>
 
           <div style="margin-top:14px">
-            <label>Verwendete KI-Verbindung</label>
+            <label>Verwendete KI-Bausteine</label>
             <div class="virtual-agent-connections" style="margin-top:8px">
               ${getConnectionItems(def).map((item) => `<span class="pill">${escapeHtml(item)}</span>`).join('')}
+            </div>
+          </div>
+
+          <div style="margin-top:14px">
+            <label>Passende Funktionen</label>
+            <div class="virtual-agent-connections" style="margin-top:8px">
+              ${autonomyLinks.features.length ? autonomyLinks.features.map((item) => `<span class="pill">${escapeHtml(item)}</span>`).join('') : '<span class="pill">Noch keine Zuordnung</span>'}
+            </div>
+          </div>
+
+          <div style="margin-top:14px">
+            <label>Passende Rollen</label>
+            <div class="virtual-agent-connections" style="margin-top:8px">
+              ${autonomyLinks.roles.length ? autonomyLinks.roles.map((item) => `<span class="pill">${escapeHtml(item)}</span>`).join('') : '<span class="pill">Noch keine Zuordnung</span>'}
             </div>
           </div>
 
