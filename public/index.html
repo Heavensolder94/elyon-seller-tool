@@ -7801,6 +7801,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       title: 'Vollautomatische Aktionen',
       description: 'Agenten können künftig Abläufe selbst vorbereiten und mit Freigabe ausführen, statt nur Hinweise zu geben.',
       config: {
+        targetArea: 'ki-agents',
         mode: 'manual',
         threshold: 'medium',
         autoStart: false,
@@ -7814,6 +7815,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       title: 'Automatische Bestellungen',
       description: 'Bestellungen beim Supplier werden vorbereitet oder ausgelöst, wenn der Ablauf dafür freigegeben ist.',
       config: {
+        targetArea: 'virtual-ma',
         mode: 'assist',
         threshold: 'high',
         autoStart: false,
@@ -7827,6 +7829,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       title: 'Automatische Kundennachrichten',
       description: 'Antworten an Kunden können vorbereitet und später automatisch versendet werden.',
       config: {
+        targetArea: 'virtual-ma',
         mode: 'manual',
         threshold: 'medium',
         autoStart: false,
@@ -7840,6 +7843,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       title: 'Autonomes eBay-Posting',
       description: 'Produktdaten werden automatisch für eBay vorbereitet und in den Veröffentlichungsfluss übergeben.',
       config: {
+        targetArea: 'ai-task-center',
         mode: 'auto',
         threshold: 'high',
         autoStart: true,
@@ -7855,6 +7859,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       title: 'Freigabe-Operator',
       description: 'Entscheidet, welche geschützten Schritte in die aktive Freigabe wechseln.',
       config: {
+        responsibleArea: 'ai-task-center',
         scope: 'release',
         canApprove: true,
         canLock: false,
@@ -7869,6 +7874,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       title: 'Risiko-Analyst',
       description: 'Prüft Grenzfälle, Sicherheitsregeln und Rückfallpfade bevor etwas aktiv wird.',
       config: {
+        responsibleArea: 'ki-agents',
         scope: 'review',
         canApprove: false,
         canLock: true,
@@ -7883,6 +7889,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       title: 'Workflow-Orchestrator',
       description: 'Koordiniert freigegebene Autonomie-Schritte und hält die Reihenfolge sauber.',
       config: {
+        responsibleArea: 'all',
         scope: 'manage',
         canApprove: true,
         canLock: true,
@@ -7897,6 +7904,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       title: 'Support-Supervisor',
       description: 'Steuert wieder freigeschaltete Kommunikations- und Eskalationsrollen.',
       config: {
+        responsibleArea: 'virtual-ma',
         scope: 'review',
         canApprove: false,
         canLock: true,
@@ -7910,6 +7918,12 @@ document.addEventListener('DOMContentLoaded',()=>{
       'auto-actions': {
         subtitle: 'Steuert, wie aggressiv diese Automatisierung arbeiten darf.',
         fields: [
+          { key: 'targetArea', kind: 'select', label: 'Verknüpft mit', options: [
+            { value: 'ai-task-center', label: 'AI Task Center' },
+            { value: 'ki-agents', label: 'KI-Agenten' },
+            { value: 'virtual-ma', label: 'Virtuelle MA' },
+            { value: 'all', label: 'Alle Bereiche' },
+          ] },
           { key: 'mode', kind: 'select', label: 'Ausführungsmodus', options: [
             { value: 'manual', label: 'Mit Bestätigung' },
             { value: 'assist', label: 'Unterstützend' },
@@ -7933,6 +7947,12 @@ document.addEventListener('DOMContentLoaded',()=>{
       'auto-orders': {
         subtitle: 'Bestellfluss und Risikogrenzen für Supplier-Aktionen.',
         fields: [
+          { key: 'targetArea', kind: 'select', label: 'Verknüpft mit', options: [
+            { value: 'ai-task-center', label: 'AI Task Center' },
+            { value: 'ki-agents', label: 'KI-Agenten' },
+            { value: 'virtual-ma', label: 'Virtuelle MA' },
+            { value: 'all', label: 'Alle Bereiche' },
+          ] },
           { key: 'mode', kind: 'select', label: 'Ausführungsmodus', options: [
             { value: 'manual', label: 'Mit Bestätigung' },
             { value: 'assist', label: 'Unterstützend' },
@@ -7956,6 +7976,12 @@ document.addEventListener('DOMContentLoaded',()=>{
       'auto-messages': {
         subtitle: 'Ton und Eskalation für automatische Kundenkommunikation.',
         fields: [
+          { key: 'targetArea', kind: 'select', label: 'Verknüpft mit', options: [
+            { value: 'ai-task-center', label: 'AI Task Center' },
+            { value: 'ki-agents', label: 'KI-Agenten' },
+            { value: 'virtual-ma', label: 'Virtuelle MA' },
+            { value: 'all', label: 'Alle Bereiche' },
+          ] },
           { key: 'mode', kind: 'select', label: 'Ausführungsmodus', options: [
             { value: 'manual', label: 'Mit Bestätigung' },
             { value: 'assist', label: 'Unterstützend' },
@@ -7979,6 +8005,12 @@ document.addEventListener('DOMContentLoaded',()=>{
       'auto-posting': {
         subtitle: 'Kontrolliert, wann Listings automatisch veröffentlicht werden dürfen.',
         fields: [
+          { key: 'targetArea', kind: 'select', label: 'Verknüpft mit', options: [
+            { value: 'ai-task-center', label: 'AI Task Center' },
+            { value: 'ki-agents', label: 'KI-Agenten' },
+            { value: 'virtual-ma', label: 'Virtuelle MA' },
+            { value: 'all', label: 'Alle Bereiche' },
+          ] },
           { key: 'mode', kind: 'select', label: 'Ausführungsmodus', options: [
             { value: 'manual', label: 'Mit Bestätigung' },
             { value: 'assist', label: 'Unterstützend' },
@@ -7999,6 +8031,12 @@ document.addEventListener('DOMContentLoaded',()=>{
       'release-operator': {
         subtitle: 'Steuert die Freigabe von geschützten Schritten.',
         fields: [
+          { key: 'responsibleArea', kind: 'select', label: 'Zuständig für', options: [
+            { value: 'ai-task-center', label: 'AI Task Center' },
+            { value: 'ki-agents', label: 'KI-Agenten' },
+            { value: 'virtual-ma', label: 'Virtuelle MA' },
+            { value: 'all', label: 'Alle Bereiche' },
+          ] },
           { key: 'scope', kind: 'select', label: 'Verantwortungsbereich', options: [
             { value: 'review', label: 'Nur prüfen' },
             { value: 'manage', label: 'Verwalten' },
@@ -8017,6 +8055,12 @@ document.addEventListener('DOMContentLoaded',()=>{
       'risk-analyst': {
         subtitle: 'Fokussiert auf Prüfen und Blockieren von Risiken.',
         fields: [
+          { key: 'responsibleArea', kind: 'select', label: 'Zuständig für', options: [
+            { value: 'ai-task-center', label: 'AI Task Center' },
+            { value: 'ki-agents', label: 'KI-Agenten' },
+            { value: 'virtual-ma', label: 'Virtuelle MA' },
+            { value: 'all', label: 'Alle Bereiche' },
+          ] },
           { key: 'scope', kind: 'select', label: 'Verantwortungsbereich', options: [
             { value: 'review', label: 'Nur prüfen' },
             { value: 'manage', label: 'Verwalten' },
@@ -8040,6 +8084,12 @@ document.addEventListener('DOMContentLoaded',()=>{
       'workflow-orchestrator': {
         subtitle: 'Koordiniert Abläufe und die Reihenfolge der Freigaben.',
         fields: [
+          { key: 'responsibleArea', kind: 'select', label: 'Zuständig für', options: [
+            { value: 'ai-task-center', label: 'AI Task Center' },
+            { value: 'ki-agents', label: 'KI-Agenten' },
+            { value: 'virtual-ma', label: 'Virtuelle MA' },
+            { value: 'all', label: 'Alle Bereiche' },
+          ] },
           { key: 'scope', kind: 'select', label: 'Verantwortungsbereich', options: [
             { value: 'review', label: 'Nur prüfen' },
             { value: 'manage', label: 'Verwalten' },
@@ -8064,6 +8114,12 @@ document.addEventListener('DOMContentLoaded',()=>{
       'support-supervisor': {
         subtitle: 'Legt fest, wie viel Support-Autonomie diese Rolle hat.',
         fields: [
+          { key: 'responsibleArea', kind: 'select', label: 'Zuständig für', options: [
+            { value: 'ai-task-center', label: 'AI Task Center' },
+            { value: 'ki-agents', label: 'KI-Agenten' },
+            { value: 'virtual-ma', label: 'Virtuelle MA' },
+            { value: 'all', label: 'Alle Bereiche' },
+          ] },
           { key: 'scope', kind: 'select', label: 'Verantwortungsbereich', options: [
             { value: 'review', label: 'Nur prüfen' },
             { value: 'manage', label: 'Verwalten' },
@@ -8105,6 +8161,12 @@ document.addEventListener('DOMContentLoaded',()=>{
     { value: 'low', label: 'Niedrig' },
     { value: 'medium', label: 'Mittel' },
     { value: 'high', label: 'Hoch' },
+  ];
+  const AUTONOMY_AREA_OPTIONS = [
+    { value: 'ai-task-center', label: 'AI Task Center' },
+    { value: 'ki-agents', label: 'KI-Agenten' },
+    { value: 'virtual-ma', label: 'Virtuelle MA' },
+    { value: 'all', label: 'Alle Bereiche' },
   ];
   const MODE_OPTIONS = [
     { value: 'off', label: 'aus' },
@@ -8368,6 +8430,9 @@ document.addEventListener('DOMContentLoaded',()=>{
     const source = rawConfig && typeof rawConfig === 'object' ? rawConfig : {};
     if (type === 'role') {
       return {
+        responsibleArea: AUTONOMY_AREA_OPTIONS.some((item) => item.value === source.responsibleArea)
+          ? source.responsibleArea
+          : (AUTONOMY_AREA_OPTIONS.some((item) => item.value === fallback.responsibleArea) ? fallback.responsibleArea : 'all'),
         scope: ROLE_SCOPE_OPTIONS.some((item) => item.value === source.scope) ? source.scope : (fallback.scope || 'review'),
         canApprove: typeof source.canApprove === 'boolean' ? source.canApprove : (typeof fallback.canApprove === 'boolean' ? fallback.canApprove : false),
         canLock: typeof source.canLock === 'boolean' ? source.canLock : (typeof fallback.canLock === 'boolean' ? fallback.canLock : true),
@@ -8379,6 +8444,9 @@ document.addEventListener('DOMContentLoaded',()=>{
       };
     }
     return {
+      targetArea: AUTONOMY_AREA_OPTIONS.some((item) => item.value === source.targetArea)
+        ? source.targetArea
+        : (AUTONOMY_AREA_OPTIONS.some((item) => item.value === fallback.targetArea) ? fallback.targetArea : 'all'),
       mode: FEATURE_MODE_OPTIONS.some((item) => item.value === source.mode) ? source.mode : (fallback.mode || 'manual'),
       approvalRule: ['manual_review', 'guided', 'automatic'].includes(source.approvalRule) ? source.approvalRule : (fallback.approvalRule || 'manual_review'),
       threshold: FEATURE_THRESHOLD_OPTIONS.some((item) => item.value === source.threshold) ? source.threshold : (fallback.threshold || 'medium'),
@@ -8532,19 +8600,41 @@ document.addEventListener('DOMContentLoaded',()=>{
     const field = def && def.fields ? def.fields.find((entry) => entry.key === key) : null;
     return optionLabelFor(field && field.options, value, fallback);
   };
+  const getAutonomyAreaLabel = (value) => optionLabelFor(AUTONOMY_AREA_OPTIONS, value, 'Alle Bereiche');
+  const getAutonomyLinksForArea = (area) => {
+    const featureLinks = (state.extendedAutonomyFeatures || [])
+      .filter((item) => {
+        const target = item.config && item.config.targetArea;
+        return target === area || target === 'all';
+      })
+      .map((item) => item.title);
+    const roleLinks = (state.extendedAutonomyRoles || [])
+      .filter((item) => {
+        const target = item.config && item.config.responsibleArea;
+        return target === area || target === 'all';
+      })
+      .map((item) => item.title);
+    return {
+      features: featureLinks,
+      roles: roleLinks,
+    };
+  };
   const getExtendedAutonomyCardSummary = (type, item) => {
     const config = item.config || {};
     if (type === 'role') {
       const scope = getExtendedAutonomyModeLabel(type, config.scope, item.id);
       const priority = getExtendedAutonomyFieldLabel(type, item.id, 'priority', config.priority, 'Mittel');
+      const area = getAutonomyAreaLabel(config.responsibleArea);
       const rightLabel = config.canApprove ? 'Freigeben' : 'Nur prüfen';
       const lockLabel = config.canLock ? 'Sperren' : 'Nur freigeben';
       return [
-        `Bereich: ${scope}`,
+        `Zuständig: ${area}`,
+        `Freigabelevel: ${scope}`,
         `Rechte: ${rightLabel} · ${lockLabel}`,
         `Priorität: ${priority}`,
       ];
     }
+    const area = getAutonomyAreaLabel(config.targetArea);
     const mode = getExtendedAutonomyModeLabel(type, config.mode, item.id);
     const gate = getExtendedAutonomyFieldLabel(type, item.id, 'approvalRule', config.approvalRule, 'Manuell prüfen');
     const threshold = getExtendedAutonomyFieldLabel(type, item.id, 'threshold', config.threshold, 'Mittel');
@@ -8556,6 +8646,7 @@ document.addEventListener('DOMContentLoaded',()=>{
           ? `Ton: ${getExtendedAutonomyFieldLabel(type, item.id, 'tone', config.tone, 'Freundlich')}`
           : `Policy: ${gate}`;
     return [
+      `Verknüpft: ${area}`,
       `Modus: ${mode}`,
       secondLine,
       `Autostart: ${config.autoStart ? 'Ja' : 'Nein'}`,
@@ -8943,6 +9034,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     const tasks = getFilteredAiTasks();
     const triageTasks = getTriageAiTasks();
     const totalTasks = Array.isArray(state.aiTasks) ? state.aiTasks.length : 0;
+    const taskLinks = getAutonomyLinksForArea('ai-task-center');
     const emptyMessage = totalTasks
       ? 'Keine KI-Aufgaben passen zu den aktiven Filtern.'
       : 'Keine KI-Aufgaben vorhanden. Sobald Agenten aktiv werden, erscheinen hier Empfehlungen und Warnungen.';
@@ -8958,6 +9050,10 @@ document.addEventListener('DOMContentLoaded',()=>{
               </div>
             </div>
             <span class="virtual-agent-badge info">Lokale Task-Queue</span>
+          </div>
+          <div class="virtual-agent-connections" style="margin-top:10px">
+            <span class="pill">Verknüpfte Funktionen: ${taskLinks.features.length ? taskLinks.features.map((text) => escapeHtml(text)).join(' · ') : 'Keine'}</span>
+            <span class="pill">Verknüpfte Rollen: ${taskLinks.roles.length ? taskLinks.roles.map((text) => escapeHtml(text)).join(' · ') : 'Keine'}</span>
           </div>
 
           <div class="settings-agents-overview task-center-stats">
@@ -9209,6 +9305,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   const buildCategoryPanel = (panelId, title, description, groupKey, toneClass) => {
     const items = AGENT_DEFS.filter((def) => def.group === groupKey);
     const isActive = activePanel === panelId;
+    const areaLinks = getAutonomyLinksForArea(groupKey);
     return `
       <div class="virtual-agent-card virtual-agents-panel ${isActive ? 'active' : ''}" data-panel="${panelId}">
         <div class="virtual-agent-head">
@@ -9220,6 +9317,10 @@ document.addEventListener('DOMContentLoaded',()=>{
             </div>
           </div>
           <span class="virtual-agent-badge ${toneClass}">${items.length} Rollen</span>
+        </div>
+        <div class="virtual-agent-connections" style="margin-top:10px">
+          <span class="pill">Funktionen: ${areaLinks.features.length ? areaLinks.features.map((text) => escapeHtml(text)).join(' · ') : 'Keine'}</span>
+          <span class="pill">Rollen: ${areaLinks.roles.length ? areaLinks.roles.map((text) => escapeHtml(text)).join(' · ') : 'Keine'}</span>
         </div>
         <div class="virtual-agents-panels" style="margin-top:14px">
           ${items.map((def) => buildAgentCard(def)).join('')}
