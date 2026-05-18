@@ -1,4 +1,4 @@
-const SHEET_CONFIG = {
+﻿const SHEET_CONFIG = {
   inventory: {
     sheetName: "Inventar",
     keyColumn: "Artikel-ID"
@@ -8,9 +8,9 @@ const SHEET_CONFIG = {
     keyColumn: "Supplier-ID"
   },
   sales: {
-    sheetName: "Inventar",
+    sheetName: "Sales",
     legacySheetNames: ["InventarTracker", "Bestellungen", "Sales & Klarna"],
-    keyColumn: "Artikel-ID"
+    keyColumn: "Order-ID"
   },
   costs: {
     sheetName: "Laufende Kosten",
@@ -27,7 +27,7 @@ const HEADERS_BY_TYPE = {
     "Versand mind.",
     "PreisGesamt EK",
     "Preis VK (ebay)",
-    "Ebay gebühren",
+    "Ebay gebÃ¼hren",
     "Gewinn",
     "Zielgewinn",
     "Emph. Zielpreis",
@@ -45,43 +45,53 @@ const HEADERS_BY_TYPE = {
     "Plattform",
     "Website",
     "Kontakt",
-    "Versandländer",
+    "VersandlÃ¤nder",
     "Versandzeit",
-    "Rückgabe möglich",
+    "RÃ¼ckgabe mÃ¶glich",
     "Zahlungsart",
     "Bewertung",
     "Status",
     "Notizen"
   ],
   sales: [
+    "Order-ID",
     "Artikel-ID",
-    "Bezeichnung",
+    "Datum",
+    "Produkt",
     "Typ",
+    "Menge",
+    "Plattform",
+    "Verkaufspreis",
     "Preis EK",
-    "Versand mind.",
-    "PreisGesamt EK",
-    "Preis VK (ebay)",
-    "Ebay gebühren",
+    "Versandkosten",
+    "Gebühren",
+    "Gesamt EK",
     "Gewinn",
     "Zielgewinn",
-    "Emph. Zielpreis",
-    "Versand ab",
-    "Stock",
+    "Empf. Zielpreis",
     "Status",
+    "Versandstatus",
+    "Trackingnummer",
+    "Käufer-Referenz",
+    "Kundenname",
+    "E-Mail",
+    "Telefon",
     "Lieferant",
     "Versandzeit",
-    "Ebay Link",
+    "Versand ab",
+    "Versanddienstleister",
+    "Retoure",
+    "Versanddatum",
+    "eBay Link",
     "Hinweise"
-  ],
-  costs: [
+  ],  costs: [
     "Name",
     "Interval",
     "Betrag",
     "Notiz"
   ]
 };
-
-const SCRIPT_BUILD = "2026-05-15-inventartracker-schema-v3";
+const SCRIPT_BUILD = "2026-05-18-sales-ssot-v1";
 
 function doPost(e) {
   const lock = LockService.getScriptLock();
@@ -300,34 +310,11 @@ function readRecords_(ss, type) {
 function ensureSheet_(ss, sheetName, headers) {
   let sheet = ss.getSheetByName(sheetName);
   if (!sheet) {
-    for (const configKey of Object.keys(SHEET_CONFIG)) {
-      const config = SHEET_CONFIG[configKey];
-      if (config.sheetName === sheetName && Array.isArray(config.legacySheetNames)) {
-        for (let i = 0; i < config.legacySheetNames.length; i += 1) {
-          sheet = ss.getSheetByName(config.legacySheetNames[i]);
-          if (sheet) {
-            break;
-          }
-        }
-      }
-      if (sheet) {
-        break;
-      }
-    }
-  }
-  if (!sheet) {
     sheet = ss.insertSheet(sheetName);
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
     return sheet;
   }
-
-  if (sheet.getLastRow() === 0) {
-    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-  }
-
-  return sheet;
 }
-
 function ensureHeaderRow_(sheet, fallbackHeaders) {
   const lastColumn = Math.max(sheet.getLastColumn(), fallbackHeaders.length);
   const row = sheet.getRange(1, 1, 1, lastColumn).getValues()[0].map(function (value) {
@@ -407,3 +394,6 @@ function jsonResponse_(payload) {
     .createTextOutput(JSON.stringify(payload, null, 2))
     .setMimeType(ContentService.MimeType.JSON);
 }
+
+
+

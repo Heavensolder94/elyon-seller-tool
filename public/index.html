@@ -931,10 +931,50 @@
   <section id="checklistTab" class="tab"><div class="grid-2"><div class="card"><h2>eBay Listing-Checkliste</h2><p class="hint">Eine kurze Qualitätskontrolle vor dem Veröffentlichen: Titel, Bilder, Beschreibung, Versand, Rechtliches und Gewinn.</p><div id="listingChecks"></div><button class="full" id="listingBtn">Listing prüfen</button><button class="secondary full" id="resetListingBtn" style="margin-top:10px">Checkliste zurücksetzen</button></div><div class="card"><h2>Listing-Ergebnis</h2><p class="hint">Zeigt dir, ob dein Listing bereit ist oder ob du vor dem Veröffentlichen noch Punkte offen hast.</p><div id="listingResult" class="empty">Noch nicht geprüft.</div></div></div></section>
 
   <section id="ordersTab" class="tab">
-    <div class="grid-2">
+    <div class="card">
+      <h2>1. Import</h2>
+      <p class="hint">Neue eBay-Bestellungen abrufen und in den Elyon-Workflow übernehmen.</p>
+      <div class="row">
+        <div><label>Zeitraum</label><select id="ebayOrdersRangeOrders"><option value="1">letzte 1 Tag</option><option value="3" selected>letzte 3 Tage</option><option value="7">letzte 7 Tage</option><option value="14">letzte 14 Tage</option><option value="30">letzte 30 Tage</option><option value="90">letzte 90 Tage</option></select></div>
+        <div><label>Status</label><select id="ebayOrdersStatusOrders"><option value="all">Alle</option><option value="NOT_STARTED">Nicht versendet</option><option value="IN_PROGRESS">In Bearbeitung</option><option value="FULFILLED">Versendet/erfüllt</option></select></div>
+      </div>
+      <div class="row">
+        <button id="ebayOrdersPreviewBtnOrders" class="secondary full" type="button">eBay Bestellungen abrufen</button>
+        <button id="ebayOrdersImportBtnOrders" class="secondary full" type="button">Vorschau importieren</button>
+      </div>
+      <div id="ebayOrdersImportResultOrders" class="output-box"><p>Noch keine Bestellungen abgerufen.</p></div>
+    </div>
+    <div class="grid-2" style="margin-top:20px">
       <div class="card">
-        <h2>Verkaufsassistent</h2>
-        <p class="hint">Übernimm Bestellungen sauber: Order-ID, Plattform, Status, Retoure, Gewinn und die wichtigsten Kundendaten. Die Versanddaten bleiben weiterhin optional.</p>
+        <h2>2. Bestellübersicht</h2>
+        <p class="hint">Bestellungen prüfen, filtern und den aktuellen Arbeitsstand schnell erfassen.</p>
+        <div class="toolbar">
+          <input id="orderSearch" placeholder="Order-ID, Produkt oder Käufer-Ref suchen...">
+          <select id="orderStatusFilter">
+            <option value="all">Alle Status</option>
+            <option value="Bezahlt">Bezahlt</option>
+            <option value="In Bearbeitung">In Bearbeitung</option>
+            <option value="Versendet">Versendet</option>
+            <option value="Abgeschlossen">Abgeschlossen</option>
+            <option value="Problemfall">Problemfall</option>
+            <option value="Storniert">Storniert</option>
+          </select>
+          <select id="orderReturnFilter">
+            <option value="all">Alle Retouren</option>
+            <option value="no">Keine Retoure</option>
+            <option value="open">Retoure offen</option>
+            <option value="done">Retoure abgeschlossen</option>
+          </select>
+        </div>
+        <div id="salesSummary" class="empty">Noch kein Verkauf erfasst.</div>
+        <div class="row" style="margin-top:10px">
+          <button id="syncSalesGoogleSheetsShortcutBtn" class="secondary full" type="button">Verkäufe synchronisieren</button>
+        </div>
+        <div id="salesList" class="products" style="margin-top:14px"></div>
+      </div>
+      <div class="card">
+        <h2>3. Verkaufsdaten bearbeiten</h2>
+        <p class="hint">Bestelldetails, Marge, Kunde und optionale Versanddaten sauber pflegen.</p>
         <label>Produkt aus Liste verknüpfen</label>
         <select id="saleProductId"><option value="">Kein Produkt ausgewählt</option></select>
         <div class="row"><div><label>Verkaufspreis €</label><input id="salePrice" type="number" step="0.01"></div><div><label>EK + Versand €</label><input id="saleCost" type="number" step="0.01"></div></div>
@@ -964,43 +1004,6 @@
         <div id="salePreview" class="output-box"><h3>Gewinn-Vorschau</h3><p>Fülle Verkaufspreis, Kosten, Gebühren und Stückzahl aus.</p></div>
         <button class="full" id="addSaleBtn">Verkauf speichern</button>
       </div>
-      <div class="card">
-        <h2>Bestell- & Verkaufsübersicht</h2>
-        <p class="hint">Suche Bestellungen, filtere nach Status oder Retoure und ändere den Status direkt per Schnellbutton.</p>
-        <div class="toolbar">
-          <input id="orderSearch" placeholder="Order-ID, Produkt oder Käufer-Ref suchen...">
-          <select id="orderStatusFilter">
-            <option value="all">Alle Status</option>
-            <option value="Bezahlt">Bezahlt</option>
-            <option value="In Bearbeitung">In Bearbeitung</option>
-            <option value="Versendet">Versendet</option>
-            <option value="Abgeschlossen">Abgeschlossen</option>
-            <option value="Problemfall">Problemfall</option>
-            <option value="Storniert">Storniert</option>
-          </select>
-          <select id="orderReturnFilter">
-            <option value="all">Alle Retouren</option>
-            <option value="no">Keine Retoure</option>
-            <option value="open">Retoure offen</option>
-            <option value="done">Retoure abgeschlossen</option>
-          </select>
-        </div>
-        <div id="salesSummary" class="empty">Noch kein Verkauf erfasst.</div>
-        <div id="salesList" class="products" style="margin-top:14px"></div>
-      </div>
-    </div>
-    <div class="card" style="margin-top:20px">
-      <h2>📦 eBay Bestellungen importieren</h2>
-      <p class="hint">Schnellzugriff für den Alltags-Flow: Bestellungen abrufen und direkt in den Verkaufsassistenten übernehmen, ohne den Einstellungsbereich zu öffnen.</p>
-      <div class="row">
-        <div><label>Zeitraum</label><select id="ebayOrdersRangeOrders"><option value="1">letzte 1 Tag</option><option value="3" selected>letzte 3 Tage</option><option value="7">letzte 7 Tage</option><option value="14">letzte 14 Tage</option><option value="30">letzte 30 Tage</option><option value="90">letzte 90 Tage</option></select></div>
-        <div><label>Status</label><select id="ebayOrdersStatusOrders"><option value="all">Alle</option><option value="NOT_STARTED">Nicht versendet</option><option value="IN_PROGRESS">In Bearbeitung</option><option value="FULFILLED">Versendet/erfüllt</option></select></div>
-      </div>
-      <div class="row">
-        <button id="ebayOrdersPreviewBtnOrders" class="secondary full" type="button">eBay Bestellungen abrufen</button>
-        <button id="ebayOrdersImportBtnOrders" class="secondary full" type="button">Vorschau importieren</button>
-      </div>
-      <div id="ebayOrdersImportResultOrders" class="output-box"><p>Noch keine Bestellungen abgerufen.</p></div>
     </div>
   </section>
 
@@ -1124,6 +1127,9 @@ Land"></textarea>
       <div class="row">
         <button id="saveGoogleSheetsSyncBtn" class="secondary full" type="button">Sync-Einstellungen speichern</button>
         <button id="syncAllGoogleSheetsBtn" class="full" type="button">Alles synchronisieren</button>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <button id="syncSalesGoogleSheetsBtn" class="secondary full" type="button">Verkäufe synchronisieren</button>
       </div>
       <div class="row" style="margin-top:10px">
         <button id="syncInventoryGoogleSheetsBtn" class="secondary full" type="button">Inventar synchronisieren</button>
@@ -2787,7 +2793,7 @@ function renderGoogleSheetsSyncStatus(){
     '<div class="dashboard" style="margin-top:16px">' +
       renderGoogleSheetsMetric('Inventar', inventoryAt, inventoryError) +
       renderGoogleSheetsMetric('Supplier', supplierAt, supplierError) +
-      renderGoogleSheetsMetric('Google Sheets', salesAt, salesError) +
+      renderGoogleSheetsMetric('Verkäufe', salesAt, salesError) +
       renderGoogleSheetsMetric('Laufende Kosten', costsAt, costsError) +
     '</div>' +
     '<div class="output-box" style="margin-top:14px"><p>Letztes Laden von Google Sheets: <strong>' + escapeHtml(formatSyncTimestamp(salesLoadAt)) + '</strong>' + (salesLoadError ? '<br><span style="color:#ffb4b4">Letzter Fehler beim Laden: ' + escapeHtml(salesLoadError) + '</span>' : '') + '</p></div>' +
@@ -2860,7 +2866,7 @@ function getSupplierSyncRecords(){
   return deriveSuppliersFromProducts();
 }
 function getSalesSyncRecords(){
-  return Array.isArray(products) ? products : [];
+  return Array.isArray(sales) ? sales : [];
 }
 function getCostSyncRecords(){
   return loadStoredArray('elyonCosts');
@@ -2886,6 +2892,10 @@ function mapProductToSheetRow(product){
     sheetText(normalizeProductStatus(p.productStatus || p.status || 'Draft', 'Draft')),
     sheetText(p.supplierName || p.supplier || p.supplierId || ''),
     sheetText(p.delivery || p.deliveryTime || ''),
+    sheetText(p.shipFrom || p.shippingFrom || ''),
+    sheetText(p.carrier || ''),
+    sheetText(p.returnFlag || 'no'),
+    sheetText(p.shipDate || ''),
     sheetText(p.ebayLink || p.ebayUrl || p.ebayItemId || ''),
     sheetText(p.notes || ''),
     sheetText(p.productStatus || p.status || 'Draft'),
@@ -2915,27 +2925,46 @@ function mapSupplierToSheetRow(supplier){
 }
 function mapSaleToSheetRow(sale){
   const p = sale || {};
-  const calc = calcProductSafe(p) || {};
-  const totalCost = (sheetNumber(p.buy) || 0) + (sheetNumber(p.ship) || 0);
+  const quantity = sheetNumber(p.qty || p.quantity || 1) || 1;
+  const price = sheetNumber(p.price ?? p.sell ?? p.salePrice ?? 0);
+  const cost = sheetNumber(p.cost ?? p.buy ?? p.purchasePrice ?? 0);
+  const shipping = sheetNumber(p.ship ?? p.shipping ?? p.shippingCost ?? 0);
+  const fees = sheetNumber(p.fees ?? p.fee ?? 0);
+  const totalCost = sheetNumber(p.totalCost ?? (cost + shipping));
+  const profit = sheetNumber(p.profit ?? (price - totalCost - fees));
+  const targetProfit = sheetNumber(p.targetProfit ?? appSettings.profit);
+  const recommendedPrice = sheetNumber(p.recommendedPrice ?? 0);
   return [
-    sheetText(p.id || p.articleId || p.sku || ''),
-    sheetText(p.name || p.title || 'Unbenanntes Produkt'),
+    sheetText(p.orderNo || p.orderId || p.id || p.articleId || p.sku || ''),
+    sheetText(p.articleId || p.productId || p.sku || ''),
+    sheetText(p.createdAt || p.created || ''),
+    sheetText(p.product || p.name || p.title || 'Unbenanntes Produkt'),
     sheetText(p.type || p.category || 'Produkt'),
-    sheetNumber(p.buy),
-    sheetNumber(p.ship),
+    quantity,
+    sheetText(p.platform || 'eBay'),
+    price,
+    cost,
+    shipping,
+    fees,
     totalCost,
-    sheetNumber(p.sell),
-    sheetNumber(p.fee ?? appSettings.fees),
-    sheetNumber(calc.profit),
-    sheetNumber(p.targetProfit ?? appSettings.profit),
-    sheetNumber(calc.recommendedPrice),
-    sheetText(p.shipFrom || p.shippingFrom || ''),
-    sheetText(p.stock || p.qty || ''),
-    sheetText(normalizeProductStatus(p.productStatus || p.status || 'Draft', 'Draft')),
-    sheetText(p.supplierName || p.supplier || p.supplierId || ''),
+    profit,
+    targetProfit,
+    recommendedPrice,
+    sheetText(p.status || 'Bezahlt'),
+    sheetText(p.shippingStatus || ''),
+    sheetText(p.trackingNo || ''),
+    sheetText(p.buyerRef || ''),
+    sheetText(p.customerName || ''),
+    sheetText(p.customerEmail || ''),
+    sheetText(p.customerPhone || ''),
+    sheetText(p.supplierName || p.supplier || ''),
     sheetText(p.delivery || p.deliveryTime || ''),
+    sheetText(p.shipFrom || p.shippingFrom || ''),
+    sheetText(p.carrier || ''),
+    sheetText(p.returnFlag || 'no'),
+    sheetText(p.shipDate || ''),
     sheetText(p.ebayLink || p.ebayUrl || p.ebayItemId || ''),
-    sheetText(p.notes || ''),
+    sheetText(p.note || p.notes || ''),
   ];
 }
 function mapCostToSheetRow(cost){
@@ -2975,29 +3004,44 @@ function sheetRecordDateLabel(value){
   return Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString('de-DE');
 }
 function mapGoogleSheetSaleRecord(record, index){
-  const articleId = sheetRecordField(record, ['Artikel-ID', 'ArtikelId', 'SKU', 'id']);
-  const name = sheetRecordField(record, ['Bezeichnung', 'Produkt', 'Product', 'name', 'title']) || 'Unbenanntes Produkt';
+  const orderId = sheetRecordField(record, ['Order-ID', 'OrderId', 'orderNo', 'orderId', 'id']);
+  const articleId = sheetRecordField(record, ['Artikel-ID', 'ArtikelId', 'SKU', 'productId', 'sku']);
+  const createdAtValue = sheetRecordField(record, ['Datum', 'Date', 'createdAt', 'created']);
+  const name = sheetRecordField(record, ['Produkt', 'Bezeichnung', 'Product', 'name', 'title']) || 'Unbenanntes Produkt';
   const type = sheetRecordField(record, ['Typ', 'Kategorie', 'Category']) || 'Produkt';
-  const buy = sheetNumber(sheetRecordField(record, ['Preis EK', 'EK', 'Cost', 'Einkaufspreis']));
-  const ship = sheetNumber(sheetRecordField(record, ['Versand mind.', 'Versand', 'Shipping']));
-  const totalCost = sheetNumber(sheetRecordField(record, ['PreisGesamt EK', 'Gesamt EK'])) || (buy + ship);
-  const sell = sheetNumber(sheetRecordField(record, ['Preis VK (ebay)', 'Preis VK', 'VK', 'Preis', 'Umsatz']));
-  const fee = sheetNumber(sheetRecordField(record, ['Ebay gebühren', 'Ebay Gebühren', 'eBay Gebühren', 'Gebühren']));
+  const quantity = sheetNumber(sheetRecordField(record, ['Menge', 'Stückzahl', 'qty', 'quantity']) || 1) || 1;
+  const platform = sheetRecordField(record, ['Plattform', 'Platform']) || 'eBay';
+  const price = sheetNumber(sheetRecordField(record, ['Verkaufspreis', 'Preis VK (ebay)', 'Preis VK', 'VK', 'Preis', 'Umsatz']));
+  const cost = sheetNumber(sheetRecordField(record, ['Preis EK', 'EK', 'Cost', 'Einkaufspreis']));
+  const shipping = sheetNumber(sheetRecordField(record, ['Versandkosten', 'Versand mind.', 'Versand', 'Shipping']));
+  const totalCost = sheetNumber(sheetRecordField(record, ['Gesamt EK', 'PreisGesamt EK', 'Gesamt EK']));
+  const fees = sheetNumber(sheetRecordField(record, ['Gebühren', 'Ebay Gebühren', 'Ebay gebühren', 'eBay Gebühren', 'fee']));
   const profitRaw = sheetRecordField(record, ['Gewinn', 'Profit']);
   const targetProfit = sheetNumber(sheetRecordField(record, ['Zielgewinn', 'Target Profit']));
-  const recommendedPrice = sheetNumber(sheetRecordField(record, ['Emph. Zielpreis', 'Empf. Zielpreis', 'Empfohlener Preis']));
-  const shipFrom = sheetRecordField(record, ['Versand ab', 'Ship From', 'Versandort']);
-  const stock = sheetRecordField(record, ['Stock', 'Lager', 'Menge', 'qty']);
-  const status = sheetRecordField(record, ['Status']) || 'Draft';
+  const recommendedPrice = sheetNumber(sheetRecordField(record, ['Empf. Zielpreis', 'Emph. Zielpreis', 'Empfohlener Preis']));
+  const status = sheetRecordField(record, ['Status']) || 'Bezahlt';
+  const shippingStatus = sheetRecordField(record, ['Versandstatus', 'Shipping Status']) || (String(status).toLowerCase() === 'versendet' ? 'Versendet' : 'Noch nicht versendet');
+  const trackingNo = sheetRecordField(record, ['Trackingnummer', 'Tracking', 'Tracking No']);
+  const buyerRef = sheetRecordField(record, ['Käufer-Referenz', 'Buyer-Referenz', 'buyerRef']);
+  const customerName = sheetRecordField(record, ['Kundenname', 'Customer', 'customerName']);
+  const customerEmail = sheetRecordField(record, ['E-Mail', 'Email', 'customerEmail']);
+  const customerPhone = sheetRecordField(record, ['Telefon', 'Phone', 'customerPhone']);
   const supplier = sheetRecordField(record, ['Lieferant', 'Supplier', 'supplierName']);
   const delivery = sheetRecordField(record, ['Versandzeit', 'Delivery', 'Lieferzeit']);
-  const ebayLink = sheetRecordField(record, ['Ebay Link', 'eBay Link', 'Ebay URL', 'Link']);
+  const shipFrom = sheetRecordField(record, ['Versand ab', 'Ship From', 'Versandort']);
+  const carrier = sheetRecordField(record, ['Versanddienstleister', 'Carrier', 'carrier']) || 'DHL';
+  const returnFlag = String(sheetRecordField(record, ['Retoure', 'returnFlag']) || 'no').toLowerCase();
+  const shipDate = sheetRecordField(record, ['Versanddatum', 'shipDate', 'Ship Date']);
+  const ebayLink = sheetRecordField(record, ['eBay Link', 'Ebay Link', 'Ebay URL', 'Link']);
   const note = sheetRecordField(record, ['Hinweise', 'Notizen', 'Notiz', 'note']);
-  const trackingNo = sheetRecordField(record, ['Trackingnummer', 'Tracking', 'Tracking No']);
-  const createdAt = sheetRecordField(record, ['Datum', 'createdAt', 'Erstellt am']);
-  const profit = Number.isFinite(Number(profitRaw)) ? Number(profitRaw) : (Number.isFinite(sell) ? (sell - buy - ship - fee) : 0);
+  const createdAt = sheetRecordDate(createdAtValue) || new Date().toISOString();
+  const resolvedTotalCost = Number.isFinite(totalCost) && totalCost > 0 ? totalCost : (cost + shipping);
+  const profit = Number.isFinite(Number(profitRaw)) ? Number(profitRaw) : (Number.isFinite(price) ? (price - resolvedTotalCost - fees) : 0);
+  const resolvedOrderId = orderId || articleId || (Date.now() + index);
   return {
-    id: articleId || (Date.now() + index),
+    id: resolvedOrderId,
+    orderNo: orderId || String(resolvedOrderId),
+    orderId: orderId || String(resolvedOrderId),
     articleId: articleId || '',
     productId: articleId || '',
     sku: articleId || '',
@@ -3006,52 +3050,43 @@ function mapGoogleSheetSaleRecord(record, index){
     title: name,
     type: type,
     category: type,
-    price: Number.isFinite(sell) ? sell : 0,
-    sell: Number.isFinite(sell) ? sell : 0,
-    cost: Number.isFinite(buy) ? buy : 0,
-    buy: Number.isFinite(buy) ? buy : 0,
-    ship: Number.isFinite(ship) ? ship : 0,
-    shipping: Number.isFinite(ship) ? ship : 0,
-    totalCost: Number.isFinite(totalCost) ? totalCost : (buy + ship),
-    fees: Number.isFinite(fee) ? fee : 0,
-    fee: Number.isFinite(fee) ? fee : 0,
-    qty: Number(sheetRecordField(record, ['Stückzahl', 'Menge', 'qty']) || 1) || 1,
+    platform: platform,
+    price: Number.isFinite(price) ? price : 0,
+    sell: Number.isFinite(price) ? price : 0,
+    cost: Number.isFinite(cost) ? cost : 0,
+    buy: Number.isFinite(cost) ? cost : 0,
+    ship: Number.isFinite(shipping) ? shipping : 0,
+    shipping: Number.isFinite(shipping) ? shipping : 0,
+    totalCost: Number.isFinite(resolvedTotalCost) ? resolvedTotalCost : 0,
+    fees: Number.isFinite(fees) ? fees : 0,
+    fee: Number.isFinite(fees) ? fees : 0,
+    qty: quantity,
     profit: Number.isFinite(profit) ? profit : 0,
     targetProfit: Number.isFinite(targetProfit) ? targetProfit : 0,
     recommendedPrice: Number.isFinite(recommendedPrice) ? recommendedPrice : 0,
-    platform: sheetRecordField(record, ['Plattform', 'Platform']) || 'eBay',
     status: status,
-    orderNo: articleId || '',
-    buyerRef: sheetRecordField(record, ['Käufer-Referenz', 'buyerRef', 'Käuferref']) || '',
-    customerName: sheetRecordField(record, ['Kundenname', 'customerName']) || '',
-    customerEmail: sheetRecordField(record, ['E-Mail', 'Email', 'customerEmail']) || '',
-    customerPhone: sheetRecordField(record, ['Telefon', 'phone', 'customerPhone']) || '',
-    customerAddressHint: '',
-    shipToRecipientName: '',
-    shipToAddressHint: '',
-    shipToStreet: '',
-    shipToPostalCode: '',
-    shipToCity: '',
-    shipToCountry: '',
-    shipToAddress: '',
-    returnFlag: String(sheetRecordField(record, ['Retoure', 'returnFlag']) || 'no').toLowerCase(),
-    carrier: sheetRecordField(record, ['Versanddienstleister', 'carrier']) || 'DHL',
-    shippingStatus: String(status).toLowerCase() === 'versendet' ? 'Versendet' : 'Noch nicht versendet',
+    shippingStatus: shippingStatus,
     trackingNo: trackingNo,
-    shipDate: sheetRecordField(record, ['Versanddatum', 'shipDate']) || '',
-    note: note,
-    notes: note,
+    buyerRef: buyerRef,
+    customerName: customerName,
+    customerEmail: customerEmail,
+    customerPhone: customerPhone,
     supplierName: supplier,
     supplier: supplier,
     delivery: delivery,
     deliveryTime: delivery,
     shipFrom: shipFrom,
     shippingFrom: shipFrom,
+    carrier: carrier,
+    returnFlag: returnFlag,
+    shipDate: shipDate,
     ebayLink: ebayLink,
     ebayUrl: ebayLink,
-    created: sheetRecordDateLabel(createdAt) || sheetText(createdAt || new Date().toISOString()),
-    createdAt: sheetRecordDate(createdAt) || new Date().toISOString(),
-    updatedAt: sheetRecordDate(createdAt) || new Date().toISOString(),
+    note: note,
+    notes: note,
+    created: sheetRecordDateLabel(createdAt) || sheetText(createdAt),
+    createdAt: createdAt,
+    updatedAt: createdAt,
   };
 }
 async function loadFromGoogleSheet(type){
@@ -3095,12 +3130,12 @@ async function loadSalesFromGoogleSheet(){
     const next = replaceSalesFromSheetRecords(records);
     clearGoogleSheetsSyncLoadError();
     queueGoogleSheetsSyncSettingsCloudSave();
-    setHTML('googleSheetsSyncResult', '<p>✅ <strong>Google Sheets</strong>: ' + next.length + ' Datensätze aus Google Sheets geladen.</p>');
+    setHTML('googleSheetsSyncResult', '<p>✅ <strong>Verkäufe</strong>: ' + next.length + ' Datensätze aus Google Sheets geladen.</p>');
     return next;
   }catch(error){
     const message = error && error.message ? error.message : 'Unbekannter Ladefehler';
     setGoogleSheetsSyncLoadError(message);
-    setHTML('googleSheetsSyncResult', '<p>⚠️ <strong>Google Sheets</strong>: ' + escapeHtml(message) + '</p>');
+    setHTML('googleSheetsSyncResult', '<p>⚠️ <strong>Verkäufe</strong>: ' + escapeHtml(message) + '</p>');
     throw error;
   }
 }
@@ -3115,7 +3150,7 @@ function buildSyncRows(type, records){
 function getSyncTypeLabel(type){
   if(type === 'inventory') return 'Inventar';
   if(type === 'suppliers') return 'Supplier Liste';
-  if(type === 'sales') return 'Google Sheets';
+  if(type === 'sales') return 'Verkäufe';
   if(type === 'costs') return 'Laufende Kosten';
   return type;
 }
@@ -3153,6 +3188,8 @@ async function syncToGoogleSheet(type, records){
 const GOOGLE_SHEETS_SYNC_BUTTONS = [
   { id: 'syncInventoryGoogleSheetsBtn', label: 'Inventar synchronisieren' },
   { id: 'syncSuppliersGoogleSheetsBtn', label: 'Supplier Liste synchronisieren' },
+  { id: 'syncSalesGoogleSheetsBtn', label: 'Verkäufe synchronisieren' },
+  { id: 'syncSalesGoogleSheetsShortcutBtn', label: 'Verkäufe synchronisieren' },
   { id: 'syncCostsGoogleSheetsBtn', label: 'Laufende Kosten synchronisieren' },
   { id: 'syncAllGoogleSheetsBtn', label: 'Alles synchronisieren' },
 ];
@@ -3198,7 +3235,10 @@ function syncSuppliersToGoogleSheet(){
 function syncSalesToGoogleSheet(){
   return runGoogleSheetsSyncTask('sales', function(){
     return syncToGoogleSheet('sales', getSalesSyncRecords());
-  });
+  }, 'syncSalesGoogleSheetsBtn');
+}
+function syncSalesToGoogleSheetShortcut(){
+  return syncSalesToGoogleSheet();
 }
 function syncCostsToGoogleSheet(){
   return runGoogleSheetsSyncTask('costs', function(){
@@ -3521,6 +3561,7 @@ function importPreviewedEbayOrders(){
   if(!pendingEbayOrdersImport.length){ alert('Keine Bestellvorschau zum Importieren vorhanden.'); return; }
   sales = sales.concat(pendingEbayOrdersImport);
   const count = pendingEbayOrdersImport.length;
+  runOrderWorkflowForSales(pendingEbayOrdersImport, 'eBay import');
   pendingEbayOrdersImport = [];
   saveSales();
   render();
@@ -7196,6 +7237,7 @@ function addSale(){
   };
   sales.push(item);
   saveSales();
+  runOrderWorkflowForSale(item, 'verkauf gespeichert');
    ['salePrice','saleCost','saleFees','saleOrderNo','saleBuyerRef','saleCustomerName','saleCustomerEmail','saleCustomerPhone','saleCustomerAddressHint','saleShipStreet','saleShipPostalCode','saleShipCity','saleShipCountry','saleNote'].forEach(id=>safe(id,el=>el.value=''));
   safe('saleQty',el=>el.value=1);
   safe('salePlatform',el=>el.value='eBay');
@@ -7687,6 +7729,8 @@ function bindEvents(){
   bind('saveGoogleSheetsSyncBtn','click',saveGoogleSheetsSyncSettings);
   bind('syncInventoryGoogleSheetsBtn','click',syncInventoryToGoogleSheet);
   bind('syncSuppliersGoogleSheetsBtn','click',syncSuppliersToGoogleSheet);
+  bind('syncSalesGoogleSheetsBtn','click',syncSalesToGoogleSheet);
+  bind('syncSalesGoogleSheetsShortcutBtn','click',syncSalesToGoogleSheetShortcut);
   bind('syncCostsGoogleSheetsBtn','click',syncCostsToGoogleSheet);
   bind('syncAllGoogleSheetsBtn','click',syncAllToGoogleSheet);
   bind('backupSettings','click',exportSettings);
@@ -8463,6 +8507,16 @@ document.addEventListener('DOMContentLoaded',()=>{
     agent: 'Agent',
     demo: 'Demo',
   };
+  const ORDER_WORKFLOW_DEFAULTS = {
+    enabled: false,
+    mode: 'semi',
+    autoInvoice: true,
+    autoShippingTask: true,
+    autoSyncGoogleSheets: false,
+    autoQueueReview: true,
+    note: '',
+    lastRunAt: '',
+  };
   const AI_TASK_DEMO_BASE_TIME = Date.now();
   const createTaskId = () => `ai-task-${Math.random().toString(36).slice(2, 10)}-${Date.now().toString(36)}`;
   const APPROVAL_QUEUE_TYPE_LABELS = {
@@ -8951,7 +9005,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   }[ch]));
 
   const normalizePanel = (panel) => {
-    const valid = ['overview', 'ai-task-center', 'approval-queue', 'virtual-ma', 'ki-agents'];
+  const valid = ['overview', 'order-workflow', 'ai-task-center', 'approval-queue', 'virtual-ma', 'ki-agents'];
     return valid.includes(panel) ? panel : 'overview';
   };
 
@@ -9336,7 +9390,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   };
 
   const createDefaultState = () => ({
-    version: 3,
+    version: 4,
     securityMode: true,
     sandboxMode: true,
     advancedMode: false,
@@ -9352,6 +9406,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     activePanel: 'overview',
     openCards: {},
     agentRuntime: createDefaultAgentRuntime(),
+    orderWorkflow: {...ORDER_WORKFLOW_DEFAULTS},
     futureDetailsOpen: {},
     descriptionEditing: {},
     promptEditing: {},
@@ -9408,6 +9463,16 @@ document.addEventListener('DOMContentLoaded',()=>{
       activePanel: normalizePanel(source.activePanel || defaults.activePanel),
       openCards: source.openCards && typeof source.openCards === 'object' ? {...source.openCards} : {},
       agentRuntime: normalizeAgentRuntime(source.agentRuntime),
+      orderWorkflow: {
+        enabled: typeof source.orderWorkflow === 'object' && source.orderWorkflow ? source.orderWorkflow.enabled === true : defaults.orderWorkflow.enabled,
+        mode: typeof source.orderWorkflow === 'object' && source.orderWorkflow && typeof source.orderWorkflow.mode === 'string' && source.orderWorkflow.mode === 'manual' ? 'manual' : 'semi',
+        autoInvoice: typeof source.orderWorkflow === 'object' && source.orderWorkflow ? source.orderWorkflow.autoInvoice !== false : defaults.orderWorkflow.autoInvoice,
+        autoShippingTask: typeof source.orderWorkflow === 'object' && source.orderWorkflow ? source.orderWorkflow.autoShippingTask !== false : defaults.orderWorkflow.autoShippingTask,
+        autoSyncGoogleSheets: typeof source.orderWorkflow === 'object' && source.orderWorkflow ? source.orderWorkflow.autoSyncGoogleSheets === true : defaults.orderWorkflow.autoSyncGoogleSheets,
+        autoQueueReview: typeof source.orderWorkflow === 'object' && source.orderWorkflow ? source.orderWorkflow.autoQueueReview !== false : defaults.orderWorkflow.autoQueueReview,
+        note: typeof source.orderWorkflow === 'object' && source.orderWorkflow && typeof source.orderWorkflow.note === 'string' ? source.orderWorkflow.note : defaults.orderWorkflow.note,
+        lastRunAt: typeof source.orderWorkflow === 'object' && source.orderWorkflow && typeof source.orderWorkflow.lastRunAt === 'string' ? source.orderWorkflow.lastRunAt : defaults.orderWorkflow.lastRunAt,
+      },
       futureDetailsOpen: source.futureDetailsOpen && typeof source.futureDetailsOpen === 'object' ? {
         lockedFunctions: source.futureDetailsOpen.lockedFunctions && typeof source.futureDetailsOpen.lockedFunctions === 'object' ? {...source.futureDetailsOpen.lockedFunctions} : {},
         lockedRoles: source.futureDetailsOpen.lockedRoles && typeof source.futureDetailsOpen.lockedRoles === 'object' ? {...source.futureDetailsOpen.lockedRoles} : {},
@@ -9826,6 +9891,142 @@ document.addEventListener('DOMContentLoaded',()=>{
     }
     state.approvalQueue = items;
     return normalized;
+  };
+  const getOrderWorkflowSettings = () => {
+    const workflow = state.orderWorkflow && typeof state.orderWorkflow === 'object' ? state.orderWorkflow : {};
+    return {
+      enabled: workflow.enabled === true,
+      mode: workflow.mode === 'manual' ? 'manual' : 'semi',
+      autoInvoice: workflow.autoInvoice !== false,
+      autoShippingTask: workflow.autoShippingTask !== false,
+      autoSyncGoogleSheets: workflow.autoSyncGoogleSheets === true,
+      autoQueueReview: workflow.autoQueueReview !== false,
+      note: sanitizeActivity(workflow.note || '', ''),
+      lastRunAt: sanitizeActivity(workflow.lastRunAt || '', ''),
+    };
+  };
+  const saveOrderWorkflowSettings = (next) => {
+    const current = getOrderWorkflowSettings();
+    state.orderWorkflow = {
+      ...current,
+      ...(next && typeof next === 'object' ? next : {}),
+      mode: next && next.mode === 'manual' ? 'manual' : (next && next.mode === 'semi' ? 'semi' : current.mode),
+      enabled: next && typeof next.enabled === 'boolean' ? next.enabled : current.enabled,
+      autoInvoice: next && typeof next.autoInvoice === 'boolean' ? next.autoInvoice : current.autoInvoice,
+      autoShippingTask: next && typeof next.autoShippingTask === 'boolean' ? next.autoShippingTask : current.autoShippingTask,
+      autoSyncGoogleSheets: next && typeof next.autoSyncGoogleSheets === 'boolean' ? next.autoSyncGoogleSheets : current.autoSyncGoogleSheets,
+      autoQueueReview: next && typeof next.autoQueueReview === 'boolean' ? next.autoQueueReview : current.autoQueueReview,
+      note: sanitizeActivity(next && next.note !== undefined ? next.note : current.note, ''),
+      lastRunAt: sanitizeActivity(next && next.lastRunAt !== undefined ? next.lastRunAt : current.lastRunAt, ''),
+    };
+    saveState();
+    render();
+  };
+  const orderWorkflowModeLabel = (mode) => (mode === 'manual' ? 'Manuell' : 'Halbautomatisch');
+  const getOpenWorkflowSales = () => sales.filter((sale) => !['Abgeschlossen', 'Storniert'].includes(sale.status || 'Bezahlt'));
+  const upsertOrderWorkflowApproval = (sale, stepType, title, description, previewText, riskLevel) => {
+    if (!sale || !sale.id) return null;
+    const id = `order-workflow-${sale.id}-${stepType}`;
+    return upsertApprovalQueueRecord({
+      id,
+      title,
+      description,
+      agent: 'Order Workflow',
+      type: stepType,
+      status: 'pending',
+      riskLevel: riskLevel || 'medium',
+      createdAt: new Date().toISOString(),
+      payload: decorateApprovalPayload(stepType, {
+        source: 'order-workflow',
+        saleId: sale.id,
+        orderNo: sale.orderNo || '',
+        product: sale.product || '',
+        platform: sale.platform || 'eBay',
+      }, {
+        saleId: sale.id,
+        saleOrderNo: sale.orderNo || '',
+        workflow: 'order',
+      }),
+      previewText,
+      requiresConfirmation: true,
+    });
+  };
+  const upsertOrderWorkflowTask = (sale, title, description, actionLabel, category) => {
+    if (!sale || !sale.id) return null;
+    const id = `order-workflow-task-${sale.id}-${category}`;
+    return upsertAiTaskRecord({
+      id,
+      title,
+      description,
+      agent: 'Order Workflow',
+      category: category || 'Bestellungen',
+      priority: 'high',
+      status: 'open',
+      createdAt: new Date().toISOString(),
+      source: 'order-workflow',
+      actionLabel: actionLabel || 'Aufgabe öffnen',
+    });
+  };
+  const runOrderWorkflowForSale = (sale, origin) => {
+    const workflow = getOrderWorkflowSettings();
+    if (!workflow.enabled || !sale) return null;
+    const createdAt = new Date().toISOString();
+    const stamp = new Date(createdAt).toLocaleString('de-DE');
+    const note = workflow.note ? ` · ${workflow.note}` : '';
+    const summary = [`${sale.orderNo || sale.product || 'Bestellung'}${origin ? ` · ${origin}` : ''}${note}`];
+    if (workflow.autoInvoice) {
+      upsertOrderWorkflowTask(
+        sale,
+        'Rechnung vorbereiten',
+        buildWorkflowSummaryText('Rechnung', summary),
+        'Rechnung öffnen',
+        'Rechnung'
+      );
+    }
+    if (workflow.autoShippingTask) {
+      upsertOrderWorkflowApproval(
+        sale,
+        'order_prepare',
+        'Versand vorbereiten',
+        'Die Bestellung wurde für die Versandbearbeitung vorgemerkt. Der Versand bleibt in der Versandzentrale und wird manuell oder halbautomatisch abgeschlossen.',
+        `Versand für ${sale.orderNo || sale.product || 'Bestellung'} vorbereiten`,
+        'medium'
+      );
+    }
+    if (workflow.autoQueueReview) {
+      upsertOrderWorkflowTask(
+        sale,
+        'Bestellprüfung anstoßen',
+        buildWorkflowSummaryText('Bestellprüfung', ['Status prüfen', sale.shippingStatus || 'Noch nicht versendet', sale.returnFlag === 'open' ? 'Retoure offen' : '']),
+        'Bestellprüfung öffnen',
+        'Prüfung'
+      );
+    }
+    if (workflow.autoSyncGoogleSheets) {
+      upsertOrderWorkflowTask(
+        sale,
+        'Google Sheets Abgleich',
+        buildWorkflowSummaryText('Sync', ['Verkäufe später mit Google Sheets abgleichen', sale.platform || 'eBay', stamp]),
+        'Sync öffnen',
+        'Sync'
+      );
+    }
+    state.orderWorkflow = {
+      ...workflow,
+      lastRunAt: createdAt,
+    };
+    saveState();
+    render();
+    return {
+      saleId: sale.id,
+      orderNo: sale.orderNo || '',
+      createdAt,
+    };
+  };
+  const runOrderWorkflowForSales = (items, origin) => {
+    const list = Array.isArray(items) ? items : [];
+    const results = list.map((sale) => runOrderWorkflowForSale(sale, origin)).filter(Boolean);
+    return results;
   };
   const buildWorkflowSummaryText = (title, points) => {
     const filtered = Array.isArray(points) ? points.filter(Boolean) : [];
@@ -11341,6 +11542,108 @@ document.addEventListener('DOMContentLoaded',()=>{
     `;
   };
 
+  const buildOrderWorkflowPanel = () => {
+    const workflow = getOrderWorkflowSettings();
+    const openSales = getOpenWorkflowSales().slice(0, 5);
+    const workflowModeLabel = orderWorkflowModeLabel(workflow.mode);
+    return `
+      <div class="virtual-agent-card virtual-agents-panel ${activePanel === 'order-workflow' ? 'active' : ''}" data-panel="order-workflow">
+        <div class="virtual-agent-head">
+          <div class="virtual-agent-ident">
+            <div class="virtual-agent-icon">📦</div>
+            <div>
+              <h3>Bestellworkflow</h3>
+              <p>Hier speicherst du, wie neue Bestellungen halbautomatisch vorbereitet werden sollen.</p>
+            </div>
+          </div>
+          <span class="virtual-agent-badge info">${workflow.enabled ? workflowModeLabel : 'Deaktiviert'}</span>
+        </div>
+
+        <div class="settings-agents-overview" style="margin-top:14px">
+          <div class="metric"><small>Status</small><strong>${workflow.enabled ? 'Aktiv' : 'Aus'}</strong></div>
+          <div class="metric"><small>Modus</small><strong>${workflowModeLabel}</strong></div>
+          <div class="metric"><small>Letzter Lauf</small><strong>${workflow.lastRunAt ? escapeHtml(formatTaskDate(workflow.lastRunAt)) : 'Noch nie'}</strong></div>
+          <div class="metric"><small>Offene Bestellungen</small><strong>${openSales.length}</strong></div>
+        </div>
+
+        <div class="virtual-agents-note" style="margin-top:14px">
+          Der Workflow bleibt lokal gespeichert. Er legt keine echte Bestellung oder Rechnung an, sondern bereitet die nächsten Schritte für die Freigabe vor.
+        </div>
+
+        <div class="virtual-agent-grid" style="margin-top:14px">
+          <label class="agent-switch">
+            <input type="checkbox" data-order-workflow-field="enabled" ${workflow.enabled ? 'checked' : ''}>
+            <span class="agent-switch-track"></span>
+            <span>Workflow aktivieren</span>
+          </label>
+
+          <div>
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+              <label style="margin:0">Ausführungsmodus</label>
+              <span title="Halbautomatisch legt vorbereitete Schritte in die Freigabe-Warteschlange. Nur Vorbereitung speichert den Ablauf ohne Freigabe-Einträge." style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:999px;border:1px solid rgba(191,219,254,.35);color:#bfdbfe;font-size:11px;cursor:help;background:rgba(59,130,246,.12)">i</span>
+            </div>
+            <select data-order-workflow-field="mode">
+              <option value="semi" ${workflow.mode === 'semi' ? 'selected' : ''}>Halbautomatisch</option>
+              <option value="manual" ${workflow.mode === 'manual' ? 'selected' : ''}>Nur Vorbereitung</option>
+            </select>
+          </div>
+
+          <label class="agent-switch">
+            <input type="checkbox" data-order-workflow-field="autoInvoice" ${workflow.autoInvoice ? 'checked' : ''}>
+            <span class="agent-switch-track"></span>
+            <span>Rechnung vorbereiten</span>
+          </label>
+
+          <label class="agent-switch">
+            <input type="checkbox" data-order-workflow-field="autoShippingTask" ${workflow.autoShippingTask ? 'checked' : ''}>
+            <span class="agent-switch-track"></span>
+            <span>Versand vorbereiten</span>
+          </label>
+
+          <label class="agent-switch">
+            <input type="checkbox" data-order-workflow-field="autoQueueReview" ${workflow.autoQueueReview ? 'checked' : ''}>
+            <span class="agent-switch-track"></span>
+            <span>Prüfung anstoßen</span>
+          </label>
+
+          <label class="agent-switch">
+            <input type="checkbox" data-order-workflow-field="autoSyncGoogleSheets" ${workflow.autoSyncGoogleSheets ? 'checked' : ''}>
+            <span class="agent-switch-track"></span>
+            <span>Google Sheets vorbereiten</span>
+          </label>
+
+          <div style="grid-column:1 / -1">
+            <label>Workflow-Notiz</label>
+            <textarea data-order-workflow-field="note" placeholder="z. B. erst Rechnung, dann Versand, dann Sync">${escapeHtml(workflow.note || '')}</textarea>
+          </div>
+        </div>
+
+        <div class="row" style="margin-top:14px">
+          <button type="button" class="secondary full" data-order-workflow-action="save">Workflow speichern</button>
+          <button type="button" class="secondary full" data-order-workflow-action="apply-open">Offene Bestellungen vorbereiten</button>
+        </div>
+
+        <div class="output-box" style="margin-top:14px">
+          <h3>Nächste vorbereitete Schritte</h3>
+          <p>${workflow.enabled ? `Neue Bestellungen werden nach dem Speichern in diesen Ablauf eingespeist. Modus: ${workflowModeLabel}.` : 'Workflow ist noch deaktiviert. Erst aktivieren, dann werden neue Bestellungen halbautomatisch vorbereitet.'}</p>
+          <ul>
+            <li>${workflow.autoInvoice ? 'Rechnung vorbereiten' : 'Rechnung nicht automatisch vorbereiten'}</li>
+            <li>${workflow.autoShippingTask ? 'Versand vorbereiten' : 'Versand nicht automatisch vorbereiten'}</li>
+            <li>${workflow.autoQueueReview ? 'Prüfung/Warteschlange vorbereiten' : 'Keine automatische Prüfaufgabe'}</li>
+            <li>${workflow.autoSyncGoogleSheets ? 'Google Sheets Abgleich vorbereiten' : 'Google Sheets nur manuell synchronisieren'}</li>
+          </ul>
+        </div>
+
+        <div class="output-box" style="margin-top:14px">
+          <h3>Offene Bestellungen</h3>
+          ${openSales.length
+            ? `<ul>${openSales.map((sale) => `<li>${escapeHtml(sale.orderNo || 'ohne Order-ID')} · ${escapeHtml(sale.product || 'Unbekanntes Produkt')} · ${escapeHtml(sale.status || 'Bezahlt')}</li>`).join('')}</ul>`
+            : '<p class="muted">Keine offenen Bestellungen gefunden.</p>'}
+        </div>
+      </div>
+    `;
+  };
+
   const buildAgentCard = (def) => {
     const agent = getAgent(def.id) || createDefaultState().agents[def.id];
     const badge = getBadgeMeta(agent);
@@ -11676,6 +11979,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     state.openCards = openCards;
     const nav = [
       `<button type="button" class="${activePanel === 'overview' ? 'active' : ''}" data-agent-panel="overview">Übersicht</button>`,
+      `<button type="button" class="${activePanel === 'order-workflow' ? 'active' : ''}" data-agent-panel="order-workflow">Bestellworkflow</button>`,
       `<button type="button" class="${activePanel === 'ai-task-center' ? 'active' : ''}" data-agent-panel="ai-task-center">AI Task Center</button>`,
       `<button type="button" class="${activePanel === 'approval-queue' ? 'active' : ''}" data-agent-panel="approval-queue">Freigabe-Warteschlange</button>`,
       `<button type="button" class="${activePanel === 'ki-agents' ? 'active' : ''}" data-agent-panel="ki-agents">KI-Agenten</button>`,
@@ -11683,6 +11987,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     ].join('');
     const panels = [
       buildOverviewPanel(),
+      buildOrderWorkflowPanel(),
       buildTaskCenterPanel(),
       buildApprovalQueuePanel(),
       buildCategoryPanel('ki-agents', 'KI-Agenten', 'Strategische Analyse- und Optimierungsrollen für Recherche und Content.', 'ki-agents', 'info'),
@@ -12129,6 +12434,23 @@ document.addEventListener('DOMContentLoaded',()=>{
         toggleFutureCapability(futureCapabilityButton.dataset.futureKind, futureCapabilityButton.dataset.futureId);
         return;
       }
+      const workflowActionButton = event.target.closest('[data-order-workflow-action]');
+      if (workflowActionButton) {
+        const action = workflowActionButton.dataset.orderWorkflowAction;
+        if (action === 'save') {
+          saveOrderWorkflowSettings(getOrderWorkflowSettings());
+          setTaskCenterNotice('Bestellworkflow gespeichert.');
+        } else if (action === 'apply-open') {
+          const items = getOpenWorkflowSales();
+          if (!items.length) {
+            setTaskCenterNotice('Keine offenen Bestellungen für den Workflow gefunden.');
+          } else {
+            const results = runOrderWorkflowForSales(items, 'manuell');
+            setTaskCenterNotice(`${results.length} offene Bestellung(en) in den Workflow übernommen.`);
+          }
+        }
+        return;
+      }
       const workflowButton = event.target.closest('[data-agent-action="run-agent-workflow"]');
       if (workflowButton) {
         const result = runAgentWorkflow(workflowButton.dataset.agentId);
@@ -12167,6 +12489,20 @@ document.addEventListener('DOMContentLoaded',()=>{
 
     root.addEventListener('change', (event) => {
       const target = event.target;
+      if (target && target.dataset && target.dataset.orderWorkflowField) {
+        const field = target.dataset.orderWorkflowField;
+        const current = getOrderWorkflowSettings();
+        const next = { ...current };
+        if (field === 'enabled' || field === 'autoInvoice' || field === 'autoShippingTask' || field === 'autoSyncGoogleSheets' || field === 'autoQueueReview') {
+          next[field] = !!target.checked;
+        } else if (field === 'mode') {
+          next.mode = target.value === 'manual' ? 'manual' : 'semi';
+        } else if (field === 'note') {
+          next.note = target.value || '';
+        }
+        saveOrderWorkflowSettings(next);
+        return;
+      }
       if (target && target.dataset && target.dataset.agentField) {
         handleFieldChange(target);
         return;
@@ -12395,6 +12731,14 @@ document.addEventListener('DOMContentLoaded',()=>{
 <script src="ai-agent-engine.js"></script>
 </body>
 </html>
+
+
+
+
+
+
+
+
 
 
 
