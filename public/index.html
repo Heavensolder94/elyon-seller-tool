@@ -1594,17 +1594,61 @@ PLZ Ort"></textarea>
         <p id="extendedPermissionModalItemDescription">-</p>
       </div>
       <div class="permission-settings-grid" style="margin-top:14px">
-        <div class="row">
-          <div>
-            <label for="extendedPermissionModalStatus">Freigabe</label>
-            <select id="extendedPermissionModalStatus">
-              <option value="locked">Gesperrt</option>
-              <option value="active">Aktiv</option>
-            </select>
+        <div id="extendedPermissionModalFunctionFields">
+          <div class="row">
+            <div>
+              <label for="extendedPermissionModalStatus">Freigabe</label>
+              <select id="extendedPermissionModalStatus">
+                <option value="locked">Gesperrt</option>
+                <option value="active">Aktiv</option>
+              </select>
+            </div>
+            <div>
+              <label id="extendedPermissionModalModeLabel" for="extendedPermissionModalMode">Ausführungsmodus</label>
+              <select id="extendedPermissionModalMode"></select>
+            </div>
+          </div>
+          <div class="row">
+            <div>
+              <label id="extendedPermissionModalThresholdLabel" for="extendedPermissionModalThreshold">Schwelle</label>
+              <select id="extendedPermissionModalThreshold"></select>
+            </div>
+            <label class="agent-switch" style="margin-top:24px">
+              <input type="checkbox" id="extendedPermissionModalAutoStart">
+              <span class="agent-switch-track"></span>
+              <span>Autostart erlauben</span>
+            </label>
+          </div>
+        </div>
+        <div id="extendedPermissionModalRoleFields">
+          <div class="row">
+            <div>
+              <label for="extendedPermissionModalStatusRole">Freigabe</label>
+              <select id="extendedPermissionModalStatusRole">
+                <option value="locked">Gesperrt</option>
+                <option value="active">Aktiv</option>
+              </select>
+            </div>
+            <div>
+              <label id="extendedPermissionModalScopeLabel" for="extendedPermissionModalScope">Verantwortungsbereich</label>
+              <select id="extendedPermissionModalScope"></select>
+            </div>
+          </div>
+          <div class="row">
+            <label class="agent-switch" style="margin-top:24px">
+              <input type="checkbox" id="extendedPermissionModalCanApprove">
+              <span class="agent-switch-track"></span>
+              <span>Darf freigeben</span>
+            </label>
+            <label class="agent-switch" style="margin-top:24px">
+              <input type="checkbox" id="extendedPermissionModalCanLock">
+              <span class="agent-switch-track"></span>
+              <span>Darf sperren</span>
+            </label>
           </div>
           <div>
-            <label id="extendedPermissionModalModeLabel" for="extendedPermissionModalMode">Modus</label>
-            <select id="extendedPermissionModalMode"></select>
+            <label id="extendedPermissionModalPriorityLabel" for="extendedPermissionModalPriority">Priorität</label>
+            <select id="extendedPermissionModalPriority"></select>
           </div>
         </div>
         <div>
@@ -7815,6 +7859,8 @@ document.addEventListener('DOMContentLoaded',()=>{
       description: 'Agenten können künftig Abläufe selbst vorbereiten und mit Freigabe ausführen, statt nur Hinweise zu geben.',
       config: {
         mode: 'manual',
+        threshold: 'medium',
+        autoStart: false,
         note: 'Mit Bestätigung freigeben',
       },
     },
@@ -7826,6 +7872,8 @@ document.addEventListener('DOMContentLoaded',()=>{
       description: 'Bestellungen beim Supplier werden vorbereitet oder ausgelöst, wenn der Ablauf dafür freigegeben ist.',
       config: {
         mode: 'assist',
+        threshold: 'high',
+        autoStart: false,
         note: 'Bestellfluss vorher prüfen',
       },
     },
@@ -7837,6 +7885,8 @@ document.addEventListener('DOMContentLoaded',()=>{
       description: 'Antworten an Kunden können vorbereitet und später automatisch versendet werden.',
       config: {
         mode: 'manual',
+        threshold: 'medium',
+        autoStart: false,
         note: 'Tonfall vor Versand prüfen',
       },
     },
@@ -7848,6 +7898,8 @@ document.addEventListener('DOMContentLoaded',()=>{
       description: 'Produktdaten werden automatisch für eBay vorbereitet und in den Veröffentlichungsfluss übergeben.',
       config: {
         mode: 'auto',
+        threshold: 'high',
+        autoStart: true,
         note: 'Nur für geprüfte Listings',
       },
     },
@@ -7861,6 +7913,9 @@ document.addEventListener('DOMContentLoaded',()=>{
       description: 'Entscheidet, welche geschützten Schritte in die aktive Freigabe wechseln.',
       config: {
         scope: 'release',
+        canApprove: true,
+        canLock: false,
+        priority: 'high',
         note: 'Für manuelle Freigaben',
       },
     },
@@ -7872,6 +7927,9 @@ document.addEventListener('DOMContentLoaded',()=>{
       description: 'Prüft Grenzfälle, Sicherheitsregeln und Rückfallpfade bevor etwas aktiv wird.',
       config: {
         scope: 'review',
+        canApprove: false,
+        canLock: true,
+        priority: 'high',
         note: 'Vor Aktivierung prüfen',
       },
     },
@@ -7883,6 +7941,9 @@ document.addEventListener('DOMContentLoaded',()=>{
       description: 'Koordiniert freigegebene Autonomie-Schritte und hält die Reihenfolge sauber.',
       config: {
         scope: 'manage',
+        canApprove: true,
+        canLock: true,
+        priority: 'medium',
         note: 'Abläufe koordinieren',
       },
     },
@@ -7894,6 +7955,9 @@ document.addEventListener('DOMContentLoaded',()=>{
       description: 'Steuert wieder freigeschaltete Kommunikations- und Eskalationsrollen.',
       config: {
         scope: 'review',
+        canApprove: false,
+        canLock: true,
+        priority: 'medium',
         note: 'Support-Freigaben bündeln',
       },
     },
@@ -7903,10 +7967,20 @@ document.addEventListener('DOMContentLoaded',()=>{
     { value: 'assist', label: 'Unterstützend' },
     { value: 'auto', label: 'Automatisch' },
   ];
+  const FEATURE_THRESHOLD_OPTIONS = [
+    { value: 'low', label: 'Niedrig' },
+    { value: 'medium', label: 'Mittel' },
+    { value: 'high', label: 'Hoch' },
+  ];
   const ROLE_SCOPE_OPTIONS = [
     { value: 'review', label: 'Nur prüfen' },
     { value: 'manage', label: 'Verwalten' },
     { value: 'release', label: 'Freigeben' },
+  ];
+  const ROLE_PRIORITY_OPTIONS = [
+    { value: 'low', label: 'Niedrig' },
+    { value: 'medium', label: 'Mittel' },
+    { value: 'high', label: 'Hoch' },
   ];
   const MODE_OPTIONS = [
     { value: 'off', label: 'aus' },
@@ -8167,11 +8241,16 @@ document.addEventListener('DOMContentLoaded',()=>{
     if (type === 'role') {
       return {
         scope: ROLE_SCOPE_OPTIONS.some((item) => item.value === source.scope) ? source.scope : (fallback.scope || 'review'),
+        canApprove: typeof source.canApprove === 'boolean' ? source.canApprove : (typeof fallback.canApprove === 'boolean' ? fallback.canApprove : false),
+        canLock: typeof source.canLock === 'boolean' ? source.canLock : (typeof fallback.canLock === 'boolean' ? fallback.canLock : true),
+        priority: ROLE_PRIORITY_OPTIONS.some((item) => item.value === source.priority) ? source.priority : (fallback.priority || 'medium'),
         note: sanitizeActivity(source.note !== undefined ? source.note : fallback.note || '', ''),
       };
     }
     return {
       mode: FEATURE_MODE_OPTIONS.some((item) => item.value === source.mode) ? source.mode : (fallback.mode || 'manual'),
+      threshold: FEATURE_THRESHOLD_OPTIONS.some((item) => item.value === source.threshold) ? source.threshold : (fallback.threshold || 'medium'),
+      autoStart: typeof source.autoStart === 'boolean' ? source.autoStart : (typeof fallback.autoStart === 'boolean' ? fallback.autoStart : false),
       note: sanitizeActivity(source.note !== undefined ? source.note : fallback.note || '', ''),
     };
   };
@@ -8299,6 +8378,30 @@ document.addEventListener('DOMContentLoaded',()=>{
     }
     const option = FEATURE_MODE_OPTIONS.find((item) => item.value === value);
     return option ? option.label : 'Mit Bestätigung';
+  };
+  const getExtendedAutonomyThresholdLabel = (value) => {
+    const option = FEATURE_THRESHOLD_OPTIONS.find((item) => item.value === value);
+    return option ? option.label : 'Mittel';
+  };
+  const getExtendedAutonomyPriorityLabel = (value) => {
+    const option = ROLE_PRIORITY_OPTIONS.find((item) => item.value === value);
+    return option ? option.label : 'Mittel';
+  };
+  const getExtendedAutonomyCardSummary = (type, item) => {
+    if (type === 'role') {
+      const config = item.config || {};
+      return [
+        `Bereich: ${getExtendedAutonomyModeLabel(type, config.scope)}`,
+        `Rechte: ${config.canApprove ? 'Freigeben' : 'Nur prüfen'}${config.canLock ? ' / Sperren' : ''}`,
+        `Priorität: ${getExtendedAutonomyPriorityLabel(config.priority)}`,
+      ];
+    }
+    const config = item.config || {};
+    return [
+      `Modus: ${getExtendedAutonomyModeLabel(type, config.mode)}`,
+      `Schwelle: ${getExtendedAutonomyThresholdLabel(config.threshold)}`,
+      `Autostart: ${config.autoStart ? 'Ja' : 'Nein'}`,
+    ];
   };
   const isExtendedAutonomyCollectionOpen = (type) => state.extendedAutonomyPanels && state.extendedAutonomyPanels[type] !== false;
   const setExtendedAutonomyCollectionOpen = (type, isOpen) => {
@@ -8971,9 +9074,8 @@ document.addEventListener('DOMContentLoaded',()=>{
     const active = item.status === 'active';
     const canEdit = isExtendedAutonomyEnabled();
     const actionLabel = active ? 'Sperren' : 'Aktivieren';
-    const configValue = type === 'role' ? (item.config && item.config.scope) : (item.config && item.config.mode);
-    const configLabel = getExtendedAutonomyModeLabel(type, configValue);
     const noteText = item.config && item.config.note ? item.config.note : 'Keine Notiz';
+    const summaryPills = getExtendedAutonomyCardSummary(type, item);
     return `
       <div class="virtual-future-card autonomy-permission-card ${active ? 'active' : ''}">
         <div class="virtual-agent-ident">
@@ -8984,7 +9086,7 @@ document.addEventListener('DOMContentLoaded',()=>{
           </div>
         </div>
         <div class="autonomy-permission-meta">
-          <span class="pill">${escapeHtml(type === 'role' ? 'Rollenmodus' : 'Funktionsmodus')}: ${escapeHtml(configLabel)}</span>
+          ${summaryPills.map((text) => `<span class="pill">${escapeHtml(text)}</span>`).join('')}
           <span class="pill">Notiz: ${escapeHtml(noteText)}</span>
         </div>
         <div class="autonomy-permission-actions">
@@ -9214,6 +9316,12 @@ document.addEventListener('DOMContentLoaded',()=>{
     const options = type === 'role' ? ROLE_SCOPE_OPTIONS : FEATURE_MODE_OPTIONS;
     return options.map((item) => `<option value="${escapeHtml(item.value)}" ${item.value === currentValue ? 'selected' : ''}>${escapeHtml(item.label)}</option>`).join('');
   };
+  const buildExtendedPermissionThresholdOptions = (currentValue) => FEATURE_THRESHOLD_OPTIONS
+    .map((item) => `<option value="${escapeHtml(item.value)}" ${item.value === currentValue ? 'selected' : ''}>${escapeHtml(item.label)}</option>`)
+    .join('');
+  const buildExtendedPermissionPriorityOptions = (currentValue) => ROLE_PRIORITY_OPTIONS
+    .map((item) => `<option value="${escapeHtml(item.value)}" ${item.value === currentValue ? 'selected' : ''}>${escapeHtml(item.label)}</option>`)
+    .join('');
 
   const findExtendedPermissionItem = (type, itemId) => getExtendedAutonomyCollection(type).find((item) => item.id === itemId) || null;
 
@@ -9228,24 +9336,51 @@ document.addEventListener('DOMContentLoaded',()=>{
     const statusLabel = getEl('extendedPermissionModalStatusLabel');
     const itemTitle = getEl('extendedPermissionModalItemTitle');
     const itemDescription = getEl('extendedPermissionModalItemDescription');
-    const status = getEl('extendedPermissionModalStatus');
-    const mode = getEl('extendedPermissionModalMode');
-    const modeLabel = getEl('extendedPermissionModalModeLabel');
+    const functionFields = getEl('extendedPermissionModalFunctionFields');
+    const roleFields = getEl('extendedPermissionModalRoleFields');
+    const status = type === 'role' ? getEl('extendedPermissionModalStatusRole') : getEl('extendedPermissionModalStatus');
+    const mode = type === 'role' ? getEl('extendedPermissionModalScope') : getEl('extendedPermissionModalMode');
+    const modeLabel = type === 'role' ? getEl('extendedPermissionModalScopeLabel') : getEl('extendedPermissionModalModeLabel');
+    const threshold = getEl('extendedPermissionModalThreshold');
+    const autoStart = getEl('extendedPermissionModalAutoStart');
+    const canApprove = getEl('extendedPermissionModalCanApprove');
+    const canLock = getEl('extendedPermissionModalCanLock');
+    const priority = getEl('extendedPermissionModalPriority');
+    const thresholdLabel = getEl('extendedPermissionModalThresholdLabel');
+    const priorityLabel = getEl('extendedPermissionModalPriorityLabel');
     const note = getEl('extendedPermissionModalNote');
     if (title) title.textContent = `${getExtendedAutonomyTypeLabel(type)} einstellen`;
-    if (subtitle) subtitle.textContent = 'Hier passt du die Freigabe und den Arbeitsmodus des Eintrags an.';
+    if (subtitle) subtitle.textContent = type === 'role'
+      ? 'Hier passt du Verantwortung, Rechte und Priorität dieser Rolle an.'
+      : 'Hier passt du Verhalten, Schwelle und Startlogik dieser Funktion an.';
     if (kind) kind.textContent = getExtendedAutonomyTypeLabel(type);
     if (statusLabel) statusLabel.textContent = `Aktuelle ${getExtendedAutonomyTypeLabel(type)}-Konfiguration`;
     if (itemTitle) itemTitle.textContent = item.title;
     if (itemDescription) itemDescription.textContent = item.description;
     if (status) status.value = item.status;
-    if (mode) {
-      const currentModeValue = item.config && (type === 'role' ? item.config.scope : item.config.mode)
-        ? (type === 'role' ? item.config.scope : item.config.mode)
-        : (type === 'role' ? 'review' : 'manual');
-      mode.innerHTML = buildExtendedPermissionModeOptions(type, currentModeValue);
+    if (functionFields) functionFields.style.display = type === 'role' ? 'none' : 'grid';
+    if (roleFields) roleFields.style.display = type === 'role' ? 'grid' : 'none';
+    if (type === 'role') {
+      if (mode) {
+        const currentScopeValue = item.config && item.config.scope ? item.config.scope : 'review';
+        mode.innerHTML = buildExtendedPermissionModeOptions(type, currentScopeValue);
+      }
+      if (priority) priority.innerHTML = buildExtendedPermissionPriorityOptions(item.config && item.config.priority ? item.config.priority : 'medium');
+      if (canApprove) canApprove.checked = item.config ? item.config.canApprove !== false : false;
+      if (canLock) canLock.checked = item.config ? item.config.canLock !== false : true;
+      if (thresholdLabel) thresholdLabel.textContent = 'Priorität';
+      if (priorityLabel) priorityLabel.textContent = 'Priorität';
+    } else {
+      if (mode) {
+        const currentModeValue = item.config && item.config.mode ? item.config.mode : 'manual';
+        mode.innerHTML = buildExtendedPermissionModeOptions(type, currentModeValue);
+      }
+      if (threshold) threshold.innerHTML = buildExtendedPermissionThresholdOptions(item.config && item.config.threshold ? item.config.threshold : 'medium');
+      if (autoStart) autoStart.checked = item.config ? item.config.autoStart === true : false;
+      if (thresholdLabel) thresholdLabel.textContent = 'Schwelle';
+      if (priorityLabel) priorityLabel.textContent = 'Nicht verwendet';
     }
-    if (modeLabel) modeLabel.textContent = type === 'role' ? 'Rollenmodus' : 'Funktionsmodus';
+    if (modeLabel) modeLabel.textContent = type === 'role' ? 'Verantwortungsbereich' : 'Ausführungsmodus';
     if (note) note.value = item.config && item.config.note ? item.config.note : '';
     modal.classList.remove('hidden');
   };
@@ -9259,18 +9394,28 @@ document.addEventListener('DOMContentLoaded',()=>{
   const saveExtendedPermissionModal = () => {
     const { type, id } = activeExtendedAutonomySetting;
     if (!type || !id) return;
-    const status = getEl('extendedPermissionModalStatus');
-    const mode = getEl('extendedPermissionModalMode');
+    const status = type === 'role' ? getEl('extendedPermissionModalStatusRole') : getEl('extendedPermissionModalStatus');
+    const mode = type === 'role' ? getEl('extendedPermissionModalScope') : getEl('extendedPermissionModalMode');
+    const threshold = getEl('extendedPermissionModalThreshold');
+    const autoStart = getEl('extendedPermissionModalAutoStart');
+    const canApprove = getEl('extendedPermissionModalCanApprove');
+    const canLock = getEl('extendedPermissionModalCanLock');
+    const priority = getEl('extendedPermissionModalPriority');
     const note = getEl('extendedPermissionModalNote');
     const current = findExtendedPermissionItem(type, id);
     if (!current) return;
     const nextConfig = type === 'role'
       ? {
           scope: mode ? mode.value : (current.config && current.config.scope) || 'review',
+          canApprove: canApprove ? canApprove.checked : false,
+          canLock: canLock ? canLock.checked : true,
+          priority: priority ? priority.value : (current.config && current.config.priority) || 'medium',
           note: note ? sanitizeActivity(note.value, '') : (current.config && current.config.note) || '',
         }
       : {
           mode: mode ? mode.value : (current.config && current.config.mode) || 'manual',
+          threshold: threshold ? threshold.value : (current.config && current.config.threshold) || 'medium',
+          autoStart: autoStart ? autoStart.checked : false,
           note: note ? sanitizeActivity(note.value, '') : (current.config && current.config.note) || '',
         };
     updateExtendedAutonomyItem(type, id, {
