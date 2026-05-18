@@ -436,7 +436,6 @@
     <button id="dashboardBtn" class="secondary">🏠 Dashboard</button>
     <button id="ordersBtn" class="secondary">📦 Bestellungen</button>
     <button id="returnsBtn" class="secondary">↩️ Retouren</button>
-    <button id="virtualAgentsBtn" class="secondary">🤖 KI-Agenten & Virtuelle MA</button>
     <select id="mainMenu" class="menu-select" aria-label="eBay Lab auswählen">
       <option value="" disabled selected>🧭 Produkt-Pipeline</option>
       <option value="dashboardTab">1. 🏠 Dashboard</option>
@@ -2656,6 +2655,11 @@ function setGoogleSheetsSyncTimestamp(type, iso){
     localStorage.setItem(key, iso || new Date().toISOString());
   }
 }
+function renderGoogleSheetsMetric(label, timestamp, errorText){
+  const metricClass = errorText ? 'bad' : (timestamp && timestamp !== 'Noch nie' ? 'good' : 'warn');
+  const detail = errorText ? ('Fehler: ' + String(errorText)) : ('Letzter Sync: ' + (timestamp || 'Noch nie'));
+  return '<div class="metric"><small>' + String(label || 'Sync') + '</small><strong class="' + metricClass + '">' + (timestamp || 'Noch nie') + '</strong><p class="hint" style="margin-top:8px">' + detail + '</p></div>';
+}
 function renderGoogleSheetsSyncStatus(){
   const config = getGoogleSheetsSyncConfig();
   const connected = !!(config.url && config.token);
@@ -2670,10 +2674,10 @@ function renderGoogleSheetsSyncStatus(){
   setHTML('googleSheetsSyncStatus',
     '<div class="score-top"><span class="status ' + statusClass + '">' + statusText + '</span><span class="score-number">' + (connected ? 'SYNC' : 'OFF') + '</span></div>' +
     '<div class="dashboard" style="margin-top:16px">' +
-      renderGoogleSheetsMetric('Inventar', inventoryAt, inventoryError) +
-      renderGoogleSheetsMetric('Supplier', supplierAt, supplierError) +
-      renderGoogleSheetsMetric('Verkäufe', salesAt, salesError) +
-      renderGoogleSheetsMetric('Laufende Kosten', costsAt, costsError) +
+      renderGoogleSheetsMetric('Inventar', lastInventory, '') +
+      renderGoogleSheetsMetric('Supplier', lastSupplier, '') +
+      renderGoogleSheetsMetric('Verkäufe', lastSales, '') +
+      renderGoogleSheetsMetric('Laufende Kosten', lastCosts, '') +
     '</div>' +
     '<div class="output-box" style="margin-top:14px"><p>' + (connected ? 'Sync bereit. Beim Start werden URL und Token aus localStorage geladen.' : 'Trage URL und Token ein, um die Google Sheets Sync zu aktivieren.') + '</p></div>'
   );
@@ -5671,14 +5675,6 @@ function getGeneratedDescription(){
   const el = $('generatedDescriptionValue');
   return el ? el.textContent : '';
 }
-function escapeHtml(value){
-  return String(value ?? '')
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;');
-}
 function clampScore(value){
   const number = Number(value);
   if(!Number.isFinite(number)) return 0;
@@ -7586,7 +7582,6 @@ function bindEvents(){
   bind('fullBackupImport','change',importFullBackup);
   bind('dashboardBtn','click',showDashboard);
   bind('ordersBtn','click',openOrders);
-  bind('virtualAgentsBtn','click',()=>showTab('virtualAgentsTab'));
   bind('launcherNewProduct','click',scrollToProductForm);
   bind('launcherBoard','click',openProductBoard);
   bind('launcherGenerator','click',openGenerator);
@@ -7928,7 +7923,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   if(localStorage.getItem('elyonShowStartLauncher') !== 'no') openStartLauncher();
   runSelfTests();
 });
-  async function searchEbayCompetition(){
+  async function searchEbayCompetitionLegacyA(){
   const input = document.getElementById('ebayCompetitionKeyword');
   const keyword = input && input.value.trim() ? input.value.trim() : '';
 
@@ -8052,7 +8047,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       '<p class="hint">Diese Funktion nutzt /api/ebay/search?q=...&limit=20</p>';
   }
 }
-  async function searchEbayCompetition(){
+  async function searchEbayCompetitionLegacyB(){
   const input = document.getElementById('ebayCompetitionKeyword');
   const keyword = input && input.value.trim() ? input.value.trim() : '';
 
@@ -8267,11 +8262,25 @@ document.addEventListener('DOMContentLoaded',()=>{
         prompt: 'Prüfe die passende KI-Aufgabe auf Risiken, Zielbereich und sinnvolle nächste Schritte.',
         note: 'Mit Bestätigung freigeben',
       },
-      {
-        id: 'auto-orders',
-        icon: '🔒',
-        title: 'Automatische Bestellungen',
-        description: 'Bestellungen werden später aus gespeicherten Bestellplänen vorbereitet und erst nach Freigabe ausgelöst.',
+      promptTemplates: [
+        'Prüfe die passende KI-Aufgabe auf Risiken, Zielbereich und sinnvolle nächste Schritte.',
+        'Formuliere eine sichere Ausführungsvorlage mit Prüfschritten und Freigabepunkt.',
+        'Erstelle eine kompakte Ablaufempfehlung für den nächsten autonomen Schritt.',
+      ],
+    },
+    {
+      id: 'auto-orders',
+      kind: 'feature',
+      icon: '🔒',
+      title: 'Automatische Bestellungen',
+      description: 'Bestellungen werden später aus gespeicherten Bestellplänen vorbereitet und erst nach Freigabe ausgelöst.',
+      config: {
+        targetArea: 'virtual-ma',
+        mode: 'manual',
+        threshold: 'high',
+        autoStart: false,
+        prompt: 'Erstelle eine prüfbare Bestellvorlage mit Lieferant, Risiko und Freigabepunkt.',
+        note: 'Vor Auslösung immer Supplier prüfen',
       },
       promptTemplates: [
         'Erstelle eine prüfbare Bestellvorlage mit Lieferant, Risiko und Freigabepunkt.',
@@ -9547,7 +9556,10 @@ document.addEventListener('DOMContentLoaded',()=>{
     const tasks = getAiTasks();
     const index = tasks.findIndex((task) => task && task.id === taskId);
     if (index < 0) return null;
-    tasks[index] = normalizeAiTaskRecord({ ...tasks[index], ...(patch && typeof patch === 'object' ? patch : {}), id: tasks[index].id }, index);
+    const current = tasks[index];
+    const nextPatch = typeof patch === 'function' ? patch(current) : patch;
+    if (!nextPatch || typeof nextPatch !== 'object') return current;
+    tasks[index] = normalizeAiTaskRecord({ ...current, ...nextPatch, id: current.id }, index);
     state.aiTasks = tasks;
     persistAiCollections();
     saveState();
@@ -9748,6 +9760,14 @@ document.addEventListener('DOMContentLoaded',()=>{
       };
       return acc;
     }, {});
+  };
+
+  const createDefaultAgentRuntime = () => ({});
+  const normalizeAgentRuntime = (rawRuntime) => {
+    if (!rawRuntime || typeof rawRuntime !== 'object' || Array.isArray(rawRuntime)) {
+      return createDefaultAgentRuntime();
+    }
+    return { ...rawRuntime };
   };
 
   const createDefaultState = () => ({
@@ -10753,33 +10773,6 @@ document.addEventListener('DOMContentLoaded',()=>{
     if (task.status === 'blocked') return 'Blockiert';
     if (task.status === 'waiting_approval') return 'Wartet auf Freigabe';
     return 'Offen';
-  };
-
-  const updateAiTask = (taskId, updater) => {
-    const tasks = Array.isArray(state.aiTasks) ? state.aiTasks.slice() : [];
-    const index = tasks.findIndex((task) => task && task.id === taskId);
-    if (index < 0) return null;
-    const current = tasks[index];
-    const next = typeof updater === 'function' ? updater(current) : current;
-    if (!next || typeof next !== 'object') return null;
-    tasks[index] = {
-      ...current,
-      ...next,
-      id: current.id,
-      title: sanitizeTaskText(next.title !== undefined ? next.title : current.title, current.title, 120),
-      description: sanitizeTaskText(next.description !== undefined ? next.description : current.description, current.description, 260),
-      agent: sanitizeTaskText(next.agent !== undefined ? next.agent : current.agent, current.agent, 80),
-      category: sanitizeTaskText(next.category !== undefined ? next.category : current.category, current.category, 60),
-      priority: normalizeTaskPriority(next.priority !== undefined ? next.priority : current.priority),
-      status: normalizeTaskStatus(next.status !== undefined ? next.status : current.status),
-      createdAt: current.createdAt,
-      source: normalizeTaskSource(next.source !== undefined ? next.source : current.source),
-      actionLabel: sanitizeTaskText(next.actionLabel !== undefined ? next.actionLabel : current.actionLabel, current.actionLabel, 40),
-    };
-    state.aiTasks = tasks;
-    saveState();
-    render();
-    return tasks[index];
   };
 
   const setTaskStatusFilter = (value) => {
