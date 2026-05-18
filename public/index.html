@@ -1178,7 +1178,64 @@ Land"></textarea>
         </div>
         <button id="openVirtualAgentsSettingsBtn" class="secondary" type="button">Agentenbereich fokussieren</button>
       </div>
-      <div id="virtualAgentsSettingsRoot" class="virtual-agents-shell"></div>
+      <div id="virtualAgentsSettingsRoot" class="virtual-agents-shell">
+        <div class="virtual-agents-shell">
+          <div class="ai-usage-status">
+            <div class="ai-usage-main">
+              <strong>AI Task Center</strong>
+              <span>Fallback-Ansicht aktiv, bis der dynamische Renderpfad übernimmt.</span>
+            </div>
+            <span class="ai-usage-meta">Live- und Sicherheitslogik bleiben aktiv</span>
+          </div>
+          <div class="task-center-alert">Live-Aktionen bleiben durch Sicherheitsmodus oder Sandbox blockiert.</div>
+          <section class="settings-section" style="margin-top:14px;padding:16px;border-radius:18px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08)">
+            <h4 style="margin-bottom:8px">Neue Aufgabe</h4>
+            <div class="row">
+              <div style="flex:1;min-width:180px">
+                <label>Titel</label>
+                <input id="aiTaskTitleInput" type="text" placeholder="Produktanalyse">
+              </div>
+              <div style="flex:2;min-width:240px">
+                <label>Beschreibung</label>
+                <input id="aiTaskDescriptionInput" type="text" placeholder="Was soll geprüft werden?">
+              </div>
+            </div>
+            <div class="row" style="margin-top:10px">
+              <div style="flex:1;min-width:180px">
+                <label>Agent</label>
+                <select id="aiTaskAgentSelect">
+                  <option value="">Ohne Agent</option>
+                </select>
+              </div>
+              <div style="flex:1;min-width:180px">
+                <label>Typ</label>
+                <select id="aiTaskTypeSelect">
+                  <option value="product_analysis">product_analysis</option>
+                  <option value="listing_review">listing_review</option>
+                  <option value="margin_check">margin_check</option>
+                  <option value="customer_reply_draft">customer_reply_draft</option>
+                  <option value="supplier_check">supplier_check</option>
+                </select>
+              </div>
+              <div style="flex:1;min-width:180px">
+                <label>Priorität</label>
+                <select id="aiTaskPrioritySelect">
+                  <option value="low">low</option>
+                  <option value="normal" selected>normal</option>
+                  <option value="high">high</option>
+                  <option value="critical">critical</option>
+                </select>
+              </div>
+              <div style="display:flex;align-items:end">
+                <button type="button" class="secondary" data-task-action="create-task">Aufgabe erstellen</button>
+              </div>
+            </div>
+          </section>
+          <div class="empty task-center-empty" style="margin-top:14px">
+            Der dynamische Aufgabenbereich wird geladen. Sobald der Renderpfad greift, erscheinen Aufgabenliste, Details und Logs automatisch.
+          </div>
+        </div>
+      </div>
     </div>
   </section>
 
