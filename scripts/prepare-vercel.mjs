@@ -2,7 +2,6 @@ import { copyFile, mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
 
 const filesToMirror = [
-  ["index.html", "public/index.html"],
   ["elyon-clean.css", "public/elyon-clean.css"],
   ["elyon-ui.js", "public/elyon-ui.js"],
   ["ai-agent-engine.js", "public/ai-agent-engine.js"],
