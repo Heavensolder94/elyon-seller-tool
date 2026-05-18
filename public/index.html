@@ -9802,7 +9802,28 @@ document.addEventListener('DOMContentLoaded',()=>{
           >${aiReady ? 'Mit DeepSeek' : 'KI aus'}</button>
         </div>
         <div class="prompt-template-panel hidden" data-prompt-panel="${escapeHtml(`extendedPermissionModal_${itemId}_${field.key}`)}" style="margin-top:8px;padding:10px;border:1px solid rgba(148,163,184,.18);border-radius:12px;background:rgba(15,23,42,.32)">
-          <p class="hint" style="margin:0 0 10px 0">Wähle eine passende Vorlage oder schreibe den Prompt frei weiter.</p>
+          <p class="hint" style="margin:0 0 10px 0">Wähle eine passende Vorlage oder gib einen eigenen deutschen Entwurf ein, den DeepSeek verfeinern kann.</p>
+          <div style="margin-bottom:10px">
+            <label for="promptDraft_${escapeHtml(type)}_${escapeHtml(itemId)}" class="hint" style="display:block;margin-bottom:6px">Dein deutscher Entwurf</label>
+            <textarea
+              id="promptDraft_${escapeHtml(type)}_${escapeHtml(itemId)}"
+              data-prompt-draft="${escapeHtml(type)}"
+              data-prompt-id="${escapeHtml(itemId)}"
+              placeholder="Schreibe hier kurz, was die Funktion oder Rolle tun soll. DeepSeek macht daraus einen besseren, längeren Prompt."
+              style="min-height:92px"
+            >${escapeHtml((currentItem && currentItem.config && currentItem.config.prompt) || '')}</textarea>
+          <div style="display:flex;justify-content:flex-end;margin-top:8px">
+              <button
+                type="button"
+                class="secondary"
+                style="padding:6px 10px;font-size:12px;border-radius:999px"
+                id="promptRefine_${escapeHtml(type)}_${escapeHtml(itemId)}"
+                data-prompt-refine="${escapeHtml(type)}"
+                data-prompt-id="${escapeHtml(itemId)}"
+                ${aiReady ? '' : 'disabled'}
+              >${aiReady ? 'Entwurf verfeinern' : 'KI aus'}</button>
+            </div>
+          </div>
           <div class="virtual-agent-connections" style="display:flex;flex-direction:column;align-items:stretch">
             ${uniqueTemplates.map((template, index) => `
               <button
@@ -9841,10 +9862,10 @@ document.addEventListener('DOMContentLoaded',()=>{
         ];
     return [
       'Du bist ein Prompt-Designer fuer eine deutsche eCommerce-Automation.',
-      'Erzeuge exakt 5 kurze, unterschiedliche und praxisnahe Prompt-Vorlagen als JSON-Array.',
-      'Jede Vorlage soll klar, direkt und passend zu der angegebenen Funktion oder Rolle sein.',
+      'Erzeuge exakt 5 unterschiedliche, praxisnahe und deutlich ausformulierte Prompt-Vorlagen als JSON-Array.',
+      'Jede Vorlage soll laenger, konkreter und besser auf den Ablauf zugeschnitten sein als ein kurzer Stichpunkt.',
       'Kein Markdown, keine Nummerierung, keine Erklaerung, nur JSON mit Strings.',
-      'Jede Vorlage maximal 140 Zeichen.',
+      'Jede Vorlage idealerweise 180 bis 320 Zeichen lang.',
       '',
       `Typ: ${getExtendedAutonomyTypeLabel(type)}`,
       `Titel: ${item.title}`,
@@ -9854,7 +9875,39 @@ document.addEventListener('DOMContentLoaded',()=>{
       `Voreinstellung: ${def.subtitle || ''}`,
       ...extraLines,
       '',
-      'Ziel: Formuliere Vorlagen, die man direkt als Prompt in diesem Bereich verwenden kann.',
+      'Ziel: Formuliere Vorlagen, die man direkt als detaillierte Arbeitsanweisung in diesem Bereich verwenden kann.',
+    ].join('\n');
+  };
+
+  const buildPromptTemplateRefinementPrompt = (type, item, draft) => {
+    const def = getExtendedAutonomySettingDefinition(type, item.id) || {};
+    const config = item.config || {};
+    const areaLabel = type === 'role'
+      ? getAutonomyAreaLabel(config.responsibleArea)
+      : getAutonomyAreaLabel(config.targetArea);
+    const modeLabel = type === 'role'
+      ? getExtendedAutonomyModeLabel(type, config.scope, item.id)
+      : getExtendedAutonomyModeLabel(type, config.mode, item.id);
+    return [
+      'Du bist ein deutscher Prompt-Redakteur fuer Elyon.',
+      'Verfeinere den folgenden Entwurf zu genau 3 deutlich besseren Prompt-Vorlagen.',
+      'Die Vorlagen sollen laenger, konkreter und hilfreicher sein als der Entwurf.',
+      'Antworte nur als JSON-Array mit Strings. Kein Markdown, keine Erklaerung.',
+      'Jeder String maximal 240 Zeichen.',
+      'Nutze die Elyon-Begriffe natuerlich: AI Task Center, KI-Agenten, Virtuelle MA, Freigabe, Sperren, Aktivieren, Vorschau, Autonomie.',
+      '',
+      `Typ: ${getExtendedAutonomyTypeLabel(type)}`,
+      `Titel: ${item.title}`,
+      `Beschreibung: ${item.description}`,
+      `Bereich: ${areaLabel}`,
+      `Modus: ${modeLabel}`,
+      `Konfiguration: ${JSON.stringify({ ...config, prompt: undefined, generatedPromptTemplates: undefined }, null, 2)}`,
+      `Voreinstellung: ${def.subtitle || ''}`,
+      '',
+      'Entwurf:',
+      draft,
+      '',
+      'Aufgabe: Formuliere die Vorlagen präziser, vollständiger und mehr auf den konkreten Ablauf bezogen.',
     ].join('\n');
   };
 
@@ -9924,6 +9977,52 @@ document.addEventListener('DOMContentLoaded',()=>{
       if (button) {
         button.disabled = false;
         button.textContent = 'Mit DeepSeek';
+      }
+    }
+  };
+
+  const refinePromptDraftForItem = async (type, itemId) => {
+    if (!isAiFeatureEnabled()) {
+      toast('KI-Funktionen sind deaktiviert. Bitte erst aktivieren.', 'Prompt');
+      return;
+    }
+    const item = findExtendedPermissionItem(type, itemId);
+    if (!item) return;
+    const draftField = getEl(`promptDraft_${type}_${itemId}`);
+    const draft = draftField ? String(draftField.value || '').trim() : '';
+    if (!draft) {
+      toast('Bitte zuerst einen deutschen Entwurf eingeben.', 'Prompt');
+      return;
+    }
+    const button = getEl(`promptRefine_${type}_${itemId}`);
+    if (button) {
+      button.disabled = true;
+      button.textContent = 'DeepSeek verfeinert...';
+    }
+    try {
+      const prompt = buildPromptTemplateRefinementPrompt(type, item, draft);
+      const data = await requestCentralAi('prompt_refine', prompt, { model: 'deepseek' });
+      const list = extractPromptTemplateList(data);
+      if (!list.length) {
+        throw new Error('DeepSeek hat keinen nutzbaren Vorschlag geliefert.');
+      }
+      const refined = sanitizePromptText(list[0], draft);
+      updateExtendedAutonomyItem(type, itemId, {
+        config: {
+          prompt: refined,
+          generatedPromptTemplates: list,
+        },
+      });
+      if (draftField) draftField.value = refined;
+      toast('Dein Entwurf wurde verfeinert.', 'Prompt');
+      openExtendedPermissionModal(type, itemId);
+    } catch (error) {
+      const message = error && error.message ? error.message : 'Entwurf konnte nicht verfeinert werden.';
+      toast(message, 'Prompt');
+    } finally {
+      if (button) {
+        button.disabled = false;
+        button.textContent = 'Entwurf verfeinern';
       }
     }
   };
@@ -10396,6 +10495,15 @@ document.addEventListener('DOMContentLoaded',()=>{
     const itemId = generateButton.dataset.promptId;
     if (!itemId) return;
     generatePromptTemplatesForItem(type, itemId);
+  });
+
+  document.addEventListener('click', (event) => {
+    const refineButton = event.target.closest('[data-prompt-refine]');
+    if (!refineButton) return;
+    const type = refineButton.dataset.promptRefine === 'role' ? 'role' : 'feature';
+    const itemId = refineButton.dataset.promptId;
+    if (!itemId) return;
+    refinePromptDraftForItem(type, itemId);
   });
 
   window.openVirtualAgentsSettings = openAgentSettings;
