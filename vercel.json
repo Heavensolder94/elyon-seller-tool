@@ -5,7 +5,7 @@
   "crons": [
     {
       "path": "/api/agent-engine?tick=1",
-      "schedule": "*/15 * * * *"
+      "schedule": "0 4 * * *"
     }
   ],
   "rewrites": [
