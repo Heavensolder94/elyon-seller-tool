@@ -1,0 +1,2 @@
+Force rebuild to sync live domain with main markers on 2026-05-18T19:31:00Z
+Expected markers: Prompt-Vorlagen, Mit DeepSeek, Entwurf verfeinern.

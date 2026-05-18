@@ -7,7 +7,6 @@ const appRoot = path.resolve(scriptDir, "..");
 const publicRoot = path.join(appRoot, "public");
 
 const filesToMirror = [
-  ["index.html", "public/index.html"],
   ["elyon-clean.css", "public/elyon-clean.css"],
   ["elyon-ui.js", "public/elyon-ui.js"],
   ["ai-agent-engine.js", "public/ai-agent-engine.js"],

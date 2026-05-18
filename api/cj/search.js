@@ -147,6 +147,14 @@ export default async function handler(req, res) {
     return jsonError(res, 405, "Nur GET erlaubt.", "METHOD_NOT_ALLOWED");
   }
 
+  const action = readText(req.query.action || req.query.endpoint || "");
+  if (action === "status") {
+    return res.status(200).json({
+      ok: true,
+      service: "CJ",
+    });
+  }
+
   const keyword = readText(req.query.keyword || req.query.q || "");
   const page = Math.max(Number(req.query.page || 1), 1);
   const size = Math.min(Math.max(Number(req.query.size || req.query.limit || 10), 1), 50);

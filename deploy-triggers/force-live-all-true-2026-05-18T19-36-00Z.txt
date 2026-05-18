@@ -1,0 +1,2 @@
+Force Vercel production deploy to pick up marker-ready index files.
+Timestamp: 2026-05-18T19:36:00Z
