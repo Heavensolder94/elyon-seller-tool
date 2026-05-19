@@ -6,6 +6,8 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const appRoot = path.resolve(scriptDir, "..");
 const publicRoot = path.join(appRoot, "public");
 
+await import("./check-layout.mjs");
+
 const filesToMirror = [
   ["elyon-clean.css", "public/elyon-clean.css"],
   ["elyon-ui.js", "public/elyon-ui.js"],
