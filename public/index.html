@@ -288,6 +288,8 @@
   .autonomy-empty-state{padding:14px 15px;border-radius:16px;background:rgba(255,255,255,.03);border:1px dashed rgba(148,163,184,.24);color:#94a3b8;font-size:13px;line-height:1.5}
   .autonomy-lock-note{padding:13px 15px;border-radius:16px;background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.18);color:#dbeafe;font-size:13px;line-height:1.5}
   .virtual-future-warning{padding:14px 16px;border-radius:16px;background:rgba(2,6,23,.3);border:1px solid rgba(96,165,250,.18);border-left:4px solid #3b82f6;color:#dbeafe;font-size:13px;line-height:1.55}
+  .autonomy-info-button{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:999px;border:1px solid rgba(148,163,184,.28);background:rgba(255,255,255,.06);color:#dbeafe;font-size:12px;font-weight:900;line-height:1;cursor:help;padding:0;flex:0 0 auto}
+  .autonomy-info-button:hover{border-color:rgba(96,165,250,.38);background:rgba(59,130,246,.14)}
   .autonomy-permission-meta{display:flex;gap:8px;flex-wrap:wrap}
   .autonomy-permission-meta .pill{font-size:11px;padding:5px 8px}
   .autonomy-permission-tools{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
@@ -304,6 +306,7 @@
   .permission-settings-preview p{color:#cbd5e1;font-size:13px;line-height:1.5}
   .permission-settings-fields{display:grid;gap:12px}
   .permission-setting-card{padding:14px;border-radius:16px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);display:grid;gap:10px}
+  .permission-setting-card.is-disabled{opacity:.55;filter:saturate(.7)}
   .permission-setting-card h4{margin:0;font-size:15px;letter-spacing:-.02em}
   .permission-setting-card .hint{margin:0}
   .permission-setting-card .agent-switch{margin-top:6px}
@@ -8254,26 +8257,6 @@ document.addEventListener('DOMContentLoaded',()=>{
   ];
   const EXTENDED_AUTONOMY_FEATURE_DEFS = [
     {
-      id: 'auto-actions',
-      kind: 'feature',
-      icon: '⚙️',
-      title: 'Vollautomatische Aktionen',
-      description: 'Agenten können künftig Abläufe selbst vorbereiten und mit Freigabe ausführen, statt nur Hinweise zu geben.',
-      config: {
-        targetArea: 'ki-agents',
-        mode: 'manual',
-        threshold: 'medium',
-        autoStart: false,
-        prompt: 'Prüfe die passende KI-Aufgabe auf Risiken, Zielbereich und sinnvolle nächste Schritte.',
-        note: 'Mit Bestätigung freigeben',
-      },
-      promptTemplates: [
-        'Prüfe die passende KI-Aufgabe auf Risiken, Zielbereich und sinnvolle nächste Schritte.',
-        'Formuliere eine sichere Ausführungsvorlage mit Prüfschritten und Freigabepunkt.',
-        'Erstelle eine kompakte Ablaufempfehlung für den nächsten autonomen Schritt.',
-      ],
-    },
-    {
       id: 'auto-orders',
       kind: 'feature',
       icon: '🔒',
@@ -8422,41 +8405,6 @@ document.addEventListener('DOMContentLoaded',()=>{
   ];
   const EXTENDED_AUTONOMY_SETTING_DEFS = {
     feature: {
-      'auto-actions': {
-        subtitle: 'Steuert, wie aggressiv diese Automatisierung arbeiten darf.',
-        fields: [
-          { key: 'targetArea', kind: 'select', label: 'Verknüpft mit', options: [
-            { value: 'ai-task-center', label: 'AI Task Center' },
-            { value: 'ki-agents', label: 'KI-Agenten' },
-            { value: 'virtual-ma', label: 'Virtuelle MA' },
-            { value: 'all', label: 'Alle Bereiche' },
-          ] },
-          { key: 'mode', kind: 'select', label: 'Ausführungsmodus', options: [
-            { value: 'manual', label: 'Mit Bestätigung' },
-            { value: 'assist', label: 'Unterstützend' },
-            { value: 'auto', label: 'Automatisch' },
-          ] },
-          { key: 'approvalRule', kind: 'select', label: 'Freigabe-Policy', options: [
-            { value: 'manual_review', label: 'Manuell prüfen' },
-            { value: 'guided', label: 'Geführt freigeben' },
-            { value: 'automatic', label: 'Automatisch' },
-          ]},
-          { key: 'automationTier', kind: 'select', label: 'Automationsstufe', options: [
-            { value: 'preview', label: 'Nur vorbereitend' },
-            { value: 'semi', label: 'Halbautomatisch' },
-            { value: 'full', label: 'Vollautomatisch' },
-          ]},
-          { key: 'threshold', kind: 'select', label: 'Auslöser-Schwelle', options: [
-            { value: 'low', label: 'Niedrig' },
-            { value: 'medium', label: 'Mittel' },
-            { value: 'high', label: 'Hoch' },
-          ] },
-          { key: 'autoStart', kind: 'checkbox', label: 'Autostart erlauben' },
-          { key: 'requireSafetyCheck', kind: 'checkbox', label: 'Sicherheitscheck erzwingen' },
-          { key: 'prompt', kind: 'textarea', label: 'Prompt', placeholder: 'Beschreibe, was diese Funktion prüfen oder vorbereiten soll.' },
-          { key: 'note', kind: 'textarea', label: 'Notiz' },
-        ],
-      },
       'auto-orders': {
         subtitle: 'Bestellfluss und Risikogrenzen für Supplier-Aktionen.',
         fields: [
@@ -9881,7 +9829,6 @@ document.addEventListener('DOMContentLoaded',()=>{
           ? source.responsibleArea
           : (AUTONOMY_AREA_OPTIONS.some((item) => item.value === fallback.responsibleArea) ? fallback.responsibleArea : 'all'),
         scope: ROLE_SCOPE_OPTIONS.some((item) => item.value === source.scope) ? source.scope : (fallback.scope || 'review'),
-        automationTier: ['preview', 'semi', 'full'].includes(source.automationTier) ? source.automationTier : (fallback.automationTier || 'preview'),
         canApprove: typeof source.canApprove === 'boolean' ? source.canApprove : (typeof fallback.canApprove === 'boolean' ? fallback.canApprove : false),
         canLock: typeof source.canLock === 'boolean' ? source.canLock : (typeof fallback.canLock === 'boolean' ? fallback.canLock : true),
         priority: ROLE_PRIORITY_OPTIONS.some((item) => item.value === source.priority) ? source.priority : (fallback.priority || 'medium'),
@@ -9898,7 +9845,6 @@ document.addEventListener('DOMContentLoaded',()=>{
         ? source.targetArea
         : (AUTONOMY_AREA_OPTIONS.some((item) => item.value === fallback.targetArea) ? fallback.targetArea : 'all'),
       mode: FEATURE_MODE_OPTIONS.some((item) => item.value === source.mode) ? source.mode : (fallback.mode || 'manual'),
-      automationTier: ['preview', 'semi', 'full'].includes(source.automationTier) ? source.automationTier : (fallback.automationTier || 'preview'),
       approvalRule: ['manual_review', 'guided', 'automatic'].includes(source.approvalRule) ? source.approvalRule : (fallback.approvalRule || 'manual_review'),
       threshold: FEATURE_THRESHOLD_OPTIONS.some((item) => item.value === source.threshold) ? source.threshold : (fallback.threshold || 'medium'),
       autoStart: typeof source.autoStart === 'boolean' ? source.autoStart : (typeof fallback.autoStart === 'boolean' ? fallback.autoStart : false),
@@ -10140,7 +10086,6 @@ document.addEventListener('DOMContentLoaded',()=>{
     const config = item.config || {};
     if (type === 'role') {
       const scope = getExtendedAutonomyModeLabel(type, config.scope, item.id);
-      const automationTier = getExtendedAutonomyFieldLabel(type, item.id, 'automationTier', config.automationTier, 'Nur vorbereitend');
       const priority = getExtendedAutonomyFieldLabel(type, item.id, 'priority', config.priority, 'Mittel');
       const area = getAutonomyAreaLabel(config.responsibleArea);
       const prompt = previewPromptText(config.prompt);
@@ -10149,7 +10094,6 @@ document.addEventListener('DOMContentLoaded',()=>{
       return [
         `Zuständig: ${area}`,
         `Freigabelevel: ${scope}`,
-        `Automationsstufe: ${automationTier}`,
         `Rechte: ${rightLabel} · ${lockLabel}`,
         `Priorität: ${priority}`,
         prompt ? `Prompt: ${prompt}` : 'Prompt: Keine Vorlage',
@@ -10157,7 +10101,6 @@ document.addEventListener('DOMContentLoaded',()=>{
     }
     const area = getAutonomyAreaLabel(config.targetArea);
     const mode = getExtendedAutonomyModeLabel(type, config.mode, item.id);
-    const automationTier = getExtendedAutonomyFieldLabel(type, item.id, 'automationTier', config.automationTier, 'Nur vorbereitend');
     const prompt = previewPromptText(config.prompt);
     const gate = getExtendedAutonomyFieldLabel(type, item.id, 'approvalRule', config.approvalRule, 'Manuell prüfen');
     const threshold = getExtendedAutonomyFieldLabel(type, item.id, 'threshold', config.threshold, 'Mittel');
@@ -10171,7 +10114,6 @@ document.addEventListener('DOMContentLoaded',()=>{
     return [
       `Verknüpft: ${area}`,
       `Modus: ${mode}`,
-      `Automationsstufe: ${automationTier}`,
       secondLine,
       `Autostart: ${config.autoStart ? 'Ja' : 'Nein'}`,
       prompt ? `Prompt: ${prompt}` : 'Prompt: Keine Vorlage',
@@ -10217,17 +10159,10 @@ document.addEventListener('DOMContentLoaded',()=>{
       return 'risk_audit';
     }
     const id = item && item.id ? item.id : '';
-    if (id === 'auto-actions') return 'operations_check';
     if (id === 'auto-orders') return 'supplier_check';
     if (id === 'auto-messages') return 'customer_reply_draft';
     if (id === 'auto-posting') return 'listing_review';
     return 'operations_check';
-  };
-  const getExtendedAutonomyAutomationTier = (type, item) => {
-    const config = item && item.config ? item.config : {};
-    if (config.automationTier === 'full') return 'full';
-    if (config.automationTier === 'semi') return 'semi';
-    return 'preview';
   };
   const syncExtendedAutonomyTask = (type, item) => {
     if (!item || item.status !== 'active') return null;
@@ -10263,36 +10198,23 @@ document.addEventListener('DOMContentLoaded',()=>{
       startedAt: '',
       finishedAt: '',
     });
-    const automationTier = getExtendedAutonomyAutomationTier(type, item);
-    const isFullAutomation = automationTier === 'full';
-    const isSemiAutomation = automationTier === 'semi';
     if (type === 'feature' && item.id === 'auto-orders') {
       const orders = getOpenWorkflowSales();
       if (Array.isArray(orders) && orders.length) {
-        runOrderWorkflowForSales(orders, isFullAutomation ? 'vollautomatisch' : 'erweiterte-autonomie');
+        runOrderWorkflowForSales(orders, 'erweiterte-autonomie');
       }
-      if (isSemiAutomation || isFullAutomation) {
-        createApprovalQueueEntryFromTask(taskId);
-      }
-    }
-    if (type === 'feature' && item.id === 'auto-actions') {
-      createTaskCenterSuggestionFromTask(taskId);
-      if (isSemiAutomation || isFullAutomation) createApprovalQueueEntryFromTask(taskId);
+      createApprovalQueueEntryFromTask(taskId);
     }
     if (type === 'feature' && item.id === 'auto-messages') {
-      if (isFullAutomation) {
-        createTaskCenterSuggestionFromTask(taskId);
-      } else {
-        createApprovalQueueEntryFromTask(taskId);
-      }
+      createApprovalQueueEntryFromTask(taskId);
     }
     if (type === 'feature' && item.id === 'auto-posting') {
       createTaskCenterSuggestionFromTask(taskId);
-      if (isSemiAutomation || isFullAutomation) createApprovalQueueEntryFromTask(taskId);
+      createApprovalQueueEntryFromTask(taskId);
     }
     if (type === 'role' && item.id === 'release-operator') {
       createApprovalQueueEntryFromTask(taskId);
-      if (isFullAutomation) createTaskCenterSuggestionFromTask(taskId);
+      createTaskCenterSuggestionFromTask(taskId);
     }
     return record;
   };
@@ -10778,12 +10700,12 @@ document.addEventListener('DOMContentLoaded',()=>{
     all: 'Alle Bereiche',
   };
   const AGENT_AUTONOMY_LINKS = {
-    'soul-scout': { features: ['auto-actions', 'auto-posting'], roles: ['risk-analyst', 'workflow-orchestrator'] },
+    'soul-scout': { features: ['auto-posting'], roles: ['risk-analyst', 'workflow-orchestrator'] },
     'soul-seo': { features: ['auto-posting', 'auto-messages'], roles: ['workflow-orchestrator', 'release-operator'] },
-    'soul-guard': { features: ['auto-actions'], roles: ['risk-analyst', 'release-operator'] },
-    'soul-finance': { features: ['auto-actions', 'auto-orders'], roles: ['release-operator', 'workflow-orchestrator'] },
+    'soul-guard': { features: [], roles: ['risk-analyst', 'release-operator'] },
+    'soul-finance': { features: ['auto-orders'], roles: ['release-operator', 'workflow-orchestrator'] },
     'soul-support': { features: ['auto-messages'], roles: ['support-supervisor', 'workflow-orchestrator'] },
-    'soul-operations': { features: ['auto-actions', 'auto-orders', 'auto-messages', 'auto-posting'], roles: ['workflow-orchestrator', 'release-operator'] },
+    'soul-operations': { features: ['auto-orders', 'auto-messages', 'auto-posting'], roles: ['workflow-orchestrator', 'release-operator'] },
   };
   const getAutonomyItemTitle = (type, id) => {
     const source = type === 'role' ? state.extendedAutonomyRoles : state.extendedAutonomyFeatures;
@@ -12656,13 +12578,41 @@ document.addEventListener('DOMContentLoaded',()=>{
 
   const renderExtendedPermissionField = (type, itemId, field, value) => {
     const fieldId = `extendedPermissionModal_${itemId}_${field.key}`;
+    const infoTextMap = {
+      targetArea: 'Hier wählst du, wo die Funktion sichtbar und nutzbar sein soll. So bestimmst du, ob sie nur im Task Center, bei den KI-Agenten, bei den Virtuellen Mitarbeitern oder überall auftaucht.',
+      mode: 'Der Ausführungsmodus beschreibt den Arbeitsstil der Funktion. Mit Bestätigung heißt: erst fragen, dann machen. Unterstützend heißt: vorbereiten und begleiten. Automatisch heißt: der Ablauf läuft so weit wie möglich ohne Zwischenfrage weiter.',
+      automationTier: 'Die Automationsstufe sagt, wie weit der Ablauf gehen darf. Nur vorbereitend bedeutet Entwurf oder Vorschlag. Halbautomatisch bedeutet Vorbereitung plus Freigabe oder Prüfschritt. Vollautomatisch bedeutet: der interne Ablauf geht direkt weiter, solange keine Sicherheitsgrenze greift.',
+      approvalRule: 'Mit dieser Regel legst du fest, bei welchen Fällen zuerst eine Freigabe nötig ist. So kannst du riskantere Schritte abbremsen und einfache Schritte schneller durchlassen.',
+      publishGate: 'Das Veröffentlichungs-Gate entscheidet, ob ein Ergebnis sofort veröffentlicht werden darf oder erst noch geprüft werden muss. Je höher die Hürde, desto vorsichtiger läuft der Schritt.',
+      autoStart: 'Wenn diese Option aktiv ist, wird die Funktion sofort vorbereitet, sobald sie freigeschaltet ist. Ohne diese Option bleibt der Start eher manuell oder schrittweise.',
+      threshold: 'Der Schwellenwert legt fest, ab welchem Wert der nächste Schritt ausgelöst wird. Das hilft dir dabei, Grenzen für Risiko, Menge oder Sicherheit sauber zu setzen.',
+      supplierGuard: 'Die Supplier-Prüfung bestimmt, wie streng neue Bestellungen oder Lieferanten-Schritte geprüft werden. Streng ist sicherer, locker ist schneller, aber riskanter.',
+      maxOrderValue: 'Hier definierst du die Obergrenze für automatische Schritte. So stellst du sicher, dass nur Bestellungen in einer erlaubten Größenordnung weiterlaufen.',
+      tone: 'Der Tonfall bestimmt, wie die Kommunikation klingen soll. Das ist wichtig, damit Antworten freundlich, neutral oder direkt wirken.',
+      escalation: 'Die Eskalationsstufe sagt, wie schnell ein Fall an eine menschliche Prüfung weitergereicht wird. Niedrig ist entspannt, hoch ist vorsichtiger.',
+      allowAutoReply: 'Wenn du das aktivierst, darf das System Vorschläge oder Antworten automatisch vorbereiten. Das ist nützlich, wenn einfache Fälle ohne lange Wartezeit bearbeitet werden sollen.',
+      requireReview: 'Diese Option sorgt dafür, dass vor dem Versand noch einmal geprüft wird. Das ist die sichere Variante, bevor etwas nach außen geht.',
+      publishGate: 'Das Veröffentlichungs-Gate entscheidet, ob ein Ergebnis sofort veröffentlicht werden darf oder erst noch geprüft werden muss. Je höher die Hürde, desto vorsichtiger läuft der Schritt.',
+      prompt: 'Hier legst du fest, wie die Funktion intern angestoßen oder beschrieben wird. Der Prompt hilft dem System, die Aufgabe in deinem gewünschten Stil auszuführen.',
+      note: 'Die Notiz ist für Zusatzinfos gedacht, zum Beispiel Kontext, Warnungen oder besondere Hinweise für spätere Bearbeitung.',
+      status: 'Aktiv schaltet die Funktion frei und zeigt sie an. Gesperrt nimmt sie wieder aus der aktiven Ansicht heraus und stoppt die Nutzung.',
+    };
+    const showInfo = type === 'feature' && Object.prototype.hasOwnProperty.call(infoTextMap, field.key);
+    const infoText = showInfo ? infoTextMap[field.key] : '';
+    const infoTitle = infoText || field.label;
+    const labelMarkup = `
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <span>${escapeHtml(field.label)}</span>
+        ${showInfo ? `<button type="button" class="autonomy-info-button" title="${escapeHtml(infoText)}" aria-label="${escapeHtml(field.label)} Info">i</button>` : ''}
+      </div>
+    `;
     if (field.kind === 'checkbox') {
       return `
         <div class="permission-setting-card">
           <label class="agent-switch" for="${fieldId}">
             <input type="checkbox" id="${fieldId}" data-extended-field="${field.key}" ${value ? 'checked' : ''}>
             <span class="agent-switch-track"></span>
-            <span>${escapeHtml(field.label)}</span>
+            <span>${escapeHtml(field.label)}${showInfo ? ` <button type="button" class="autonomy-info-button" title="${escapeHtml(infoTitle)}" aria-label="${escapeHtml(field.label)} Info">i</button>` : ''}</span>
           </label>
           ${field.help ? `<p class="hint">${escapeHtml(field.help)}</p>` : ''}
         </div>
@@ -12671,7 +12621,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     if (field.kind === 'textarea') {
       return `
         <div class="permission-setting-card">
-          <label for="${fieldId}">${escapeHtml(field.label)}</label>
+          <label for="${fieldId}">${labelMarkup}</label>
           <textarea id="${fieldId}" data-extended-field="${field.key}" placeholder="${escapeHtml(field.placeholder || '')}">${escapeHtml(value || '')}</textarea>
           ${field.key === 'prompt' ? renderPromptTemplates(type, itemId, field) : ''}
           ${field.help ? `<p class="hint">${escapeHtml(field.help)}</p>` : ''}
@@ -12680,7 +12630,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     }
     return `
       <div class="permission-setting-card">
-        <label for="${fieldId}">${escapeHtml(field.label)}</label>
+        <label for="${fieldId}">${labelMarkup}</label>
         <select id="${fieldId}" data-extended-field="${field.key}">
           ${buildExtendedPermissionOptions(field.options || [], value)}
         </select>
@@ -12698,7 +12648,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       <div class="permission-setting-card">
         <h4>Freigabe</h4>
         <label for="${statusId}">Status</label>
-        <select id="${statusId}" data-extended-field="status">
+        <select id="${statusId}" data-extended-field="status" onchange="window.elyonSyncExtendedPermissionModalFieldStates && window.elyonSyncExtendedPermissionModalFieldStates()">
           <option value="locked" ${statusValue === 'locked' ? 'selected' : ''}>Gesperrt</option>
           <option value="active" ${statusValue === 'active' ? 'selected' : ''}>Aktiv</option>
         </select>
@@ -12706,6 +12656,26 @@ document.addEventListener('DOMContentLoaded',()=>{
       ${fields.map((field) => renderExtendedPermissionField(type, item.id, field, getExtendedPermissionFieldValue(item, field))).join('')}
     `;
   };
+
+  const syncExtendedPermissionModalFieldStates = () => {
+    const modal = getEl('extendedPermissionModal');
+    const fieldsRoot = getEl('extendedPermissionModalFields');
+    if (!modal || !fieldsRoot) return;
+    const status = fieldsRoot.querySelector('[data-extended-field="status"]');
+    const locked = !status || status.value !== 'active';
+    const modalPanel = modal.querySelector('.permission-settings-panel');
+    if (modalPanel) modalPanel.classList.toggle('is-locked', locked);
+    fieldsRoot.querySelectorAll('.permission-setting-card').forEach((card) => {
+      const isStatusCard = !!card.querySelector('[data-extended-field="status"]');
+      card.classList.toggle('is-disabled', locked && !isStatusCard);
+      card.querySelectorAll('input, select, textarea, button').forEach((control) => {
+        if (control.classList && control.classList.contains('autonomy-info-button')) return;
+        if (control.dataset && control.dataset.extendedField === 'status') return;
+        control.disabled = locked && !isStatusCard;
+      });
+    });
+  };
+  window.elyonSyncExtendedPermissionModalFieldStates = syncExtendedPermissionModalFieldStates;
 
   const findExtendedPermissionItem = (type, itemId) => getExtendedAutonomyCollection(type).find((item) => item.id === itemId) || null;
 
@@ -12999,6 +12969,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     if (itemTitle) itemTitle.textContent = item.title;
     if (itemDescription) itemDescription.textContent = item.description;
     if (fieldsRoot) fieldsRoot.innerHTML = buildExtendedPermissionFormMarkup(type, item);
+    syncExtendedPermissionModalFieldStates();
     modal.classList.remove('hidden');
   };
 
@@ -13482,6 +13453,16 @@ document.addEventListener('DOMContentLoaded',()=>{
       }
       if (target && target.dataset && target.dataset.taskField === 'status') {
         handleTaskAction(target.dataset.taskId, normalizeTaskStatus(target.value));
+        return;
+      }
+      if (target && target.dataset && target.dataset.extendedField) {
+        if (target.dataset.extendedField === 'status') {
+          syncExtendedPermissionModalFieldStates();
+          return;
+        }
+        if (target.closest && target.closest('#extendedPermissionModal')) {
+          syncExtendedPermissionModalFieldStates();
+        }
       }
     });
   };
