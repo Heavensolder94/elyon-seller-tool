@@ -963,6 +963,15 @@
         <div><label>Zeitraum</label><select id="ebayOrdersRangeOrders"><option value="1">letzte 1 Tag</option><option value="3" selected>letzte 3 Tage</option><option value="7">letzte 7 Tage</option><option value="14">letzte 14 Tage</option><option value="30">letzte 30 Tage</option><option value="90">letzte 90 Tage</option></select></div>
         <div><label>Status</label><select id="ebayOrdersStatusOrders"><option value="all">Alle</option><option value="NOT_STARTED">Nicht versendet</option><option value="IN_PROGRESS">In Bearbeitung</option><option value="FULFILLED">Versendet/erfüllt</option></select></div>
       </div>
+      <div class="permission-setting-card" style="margin-bottom:13px">
+        <h4>Auto-Import Voraussetzungen</h4>
+        <label class="agent-switch">
+          <input type="checkbox" id="ebayOrdersAutoImportOnce">
+          <span class="agent-switch-track"></span>
+          <span>Einmaligen Auto-Import vorbereiten</span>
+        </label>
+        <p class="hint" style="margin:0">Importiert nur nach Klick und nur, wenn der Bestellworkflow aktiv ist. Danach wird die Option wieder zurückgesetzt.</p>
+      </div>
       <div class="row">
         <button id="ebayOrdersPreviewBtnOrders" class="secondary full" type="button">eBay Bestellungen abrufen</button>
         <button id="ebayOrdersImportBtnOrders" class="secondary full" type="button">Vorschau importieren</button>
@@ -3435,17 +3444,26 @@ async function previewEbayOrders(){
     syncEbayOrdersImportPanels();
   }
 }
-function importPreviewedEbayOrders(){
-  if(!pendingEbayOrdersImport.length){ alert('Keine Bestellvorschau zum Importieren vorhanden.'); return; }
-  sales = sales.concat(pendingEbayOrdersImport);
-  const count = pendingEbayOrdersImport.length;
-  runOrderWorkflowForSales(pendingEbayOrdersImport, 'eBay import');
-  pendingEbayOrdersImport = [];
-  saveSales();
-  render();
-  setHTML('ebayOrdersImportResult','<p>✅ '+count+' eBay Bestellung(en) in den Verkaufsassistenten importiert. Bitte Kosten, Gebühren, Rechnung und Versand prüfen.</p>');
-  syncEbayOrdersImportPanels();
-}
+  function importPreviewedEbayOrders(){
+    if(!pendingEbayOrdersImport.length){ alert('Keine Bestellvorschau zum Importieren vorhanden.'); return; }
+    const autoImportOnce = !!(safe('ebayOrdersAutoImportOnce', el => el.checked));
+    const orderWorkflowActive = getOrderWorkflowSettings().enabled === true;
+    if (autoImportOnce && !orderWorkflowActive) {
+      alert('Einmaliger Auto-Import braucht einen aktiven Bestellworkflow.');
+      return;
+    }
+    sales = sales.concat(pendingEbayOrdersImport);
+    const count = pendingEbayOrdersImport.length;
+    runOrderWorkflowForSales(pendingEbayOrdersImport, 'eBay import');
+    pendingEbayOrdersImport = [];
+    saveSales();
+    render();
+    setHTML('ebayOrdersImportResult','<p>✅ '+count+' eBay Bestellung(en) in den Verkaufsassistenten importiert. Bitte Kosten, Gebühren, Rechnung und Versand prüfen.'+(autoImportOnce ? ' Der einmalige Auto-Import wurde danach wieder zurückgesetzt.' : '')+'</p>');
+    if (autoImportOnce) {
+      safe('ebayOrdersAutoImportOnce', el => { el.checked = false; });
+    }
+    syncEbayOrdersImportPanels();
+  }
 function calcProduct(p){
   const buy=+p.buy||0, ship=+p.ship||0, sell=+p.sell||0;
   const feePercent = +p.fee || appSettings.fees || 0;
