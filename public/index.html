@@ -272,7 +272,7 @@
   .autonomy-collection-head h4{margin:0;font-size:17px;letter-spacing:-.02em}
   .autonomy-collection-head p{margin-top:4px;color:#cbd5e1;font-size:13px;line-height:1.5}
   .autonomy-collection-head .pill{white-space:nowrap}
-  .autonomy-collection-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+  .autonomy-collection-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:flex-end;margin-left:auto;text-align:right}
   .autonomy-collection-toggle{padding:10px 13px;border-radius:12px;font-size:13px}
   .autonomy-collection-body{display:grid;gap:16px}
   .autonomy-lane{display:grid;gap:10px}
@@ -281,7 +281,8 @@
   .autonomy-lane-head p{margin-top:4px;color:#94a3b8;font-size:12px;line-height:1.45}
   .autonomy-permission-list{display:grid;gap:12px}
   .autonomy-permission-card{padding:14px;border-radius:16px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08)}
-  .autonomy-permission-card.active{border-color:rgba(34,197,94,.2);background:rgba(34,197,94,.08)}
+  .autonomy-permission-card.active{border-color:rgba(34,197,94,.34);background:linear-gradient(180deg,rgba(34,197,94,.14),rgba(34,197,94,.06));box-shadow:0 16px 38px rgba(34,197,94,.12)}
+  .autonomy-permission-card.active .virtual-agent-icon{box-shadow:0 0 0 1px rgba(34,197,94,.18),0 0 0 10px rgba(34,197,94,.06)}
   .autonomy-permission-actions{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
   .autonomy-permission-actions button{padding:9px 12px;border-radius:12px;font-size:13px}
   .autonomy-empty-state{padding:14px 15px;border-radius:16px;background:rgba(255,255,255,.03);border:1px dashed rgba(148,163,184,.24);color:#94a3b8;font-size:13px;line-height:1.5}
@@ -308,7 +309,8 @@
   .permission-setting-card .agent-switch{margin-top:6px}
   .extended-autonomy-card{position:relative;overflow:hidden;display:grid;gap:14px;padding:18px;border-radius:22px;background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.04));border:1px solid rgba(96,165,250,.14);box-shadow:0 18px 50px rgba(0,0,0,.18)}
   .extended-autonomy-card:before{content:'';position:absolute;inset:-2px auto auto -2px;width:180px;height:180px;background:radial-gradient(circle,rgba(59,130,246,.18),transparent 72%);pointer-events:none;filter:blur(8px)}
-  .extended-autonomy-card.active{border-color:rgba(250,204,21,.22);box-shadow:0 20px 60px rgba(245,158,11,.12)}
+  .extended-autonomy-card.active{border-color:rgba(250,204,21,.3);box-shadow:0 20px 60px rgba(245,158,11,.16),0 0 0 1px rgba(250,204,21,.08) inset}
+  .extended-autonomy-card.active .virtual-agent-icon{box-shadow:0 0 0 1px rgba(250,204,21,.2),0 0 0 10px rgba(250,204,21,.08)}
   .extended-autonomy-head{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;flex-wrap:wrap;position:relative;z-index:1}
   .extended-autonomy-head h4{margin:0;font-size:18px;letter-spacing:-.02em}
   .extended-autonomy-head p{margin-top:4px;color:#cbd5e1;font-size:13px;line-height:1.5}
@@ -316,6 +318,9 @@
   .extended-autonomy-copy{color:#dbeafe;font-size:13px;line-height:1.6}
   .extended-autonomy-actions{display:flex;gap:10px;flex-wrap:wrap}
   .extended-autonomy-note{padding:14px 16px;border-radius:18px;background:rgba(59,130,246,.11);border:1px solid rgba(96,165,250,.18);color:#dbeafe;font-size:13px;line-height:1.55}
+  .autonomy-live-tag{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase}
+  .autonomy-live-tag.active{color:#dcfce7;background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.24)}
+  .autonomy-live-tag.locked{color:#fde68a;background:rgba(250,204,21,.1);border:1px solid rgba(250,204,21,.22)}
   .extended-autonomy-modal-panel{max-width:820px;width:min(96vw,820px)}
   .autonomy-hold-control{display:grid;gap:10px;margin-top:14px}
   .autonomy-hold-button{position:relative;overflow:hidden;min-height:52px}
@@ -8272,8 +8277,8 @@ document.addEventListener('DOMContentLoaded',()=>{
       id: 'auto-orders',
       kind: 'feature',
       icon: '🔒',
-      title: 'Automatische Bestellungen',
-      description: 'Bestellungen werden später aus gespeicherten Bestellplänen vorbereitet und erst nach Freigabe ausgelöst.',
+      title: 'Bestellworkflow aktivieren',
+      description: 'Öffnet den Bestellworkflow für vorbereitete Bestellungen und schiebt sie in die Freigabe.',
       config: {
         targetArea: 'virtual-ma',
         mode: 'manual',
@@ -8292,8 +8297,8 @@ document.addEventListener('DOMContentLoaded',()=>{
       id: 'auto-messages',
       kind: 'feature',
       icon: '💬',
-      title: 'Automatische Kundennachrichten',
-      description: 'Antworten an Kunden können vorbereitet und später automatisch versendet werden.',
+      title: 'Kundennachrichten vorbereiten',
+      description: 'Erzeugt freigabepflichtige Antwortentwürfe für Kundenanfragen und Retouren.',
       config: {
         targetArea: 'virtual-ma',
         mode: 'manual',
@@ -8312,8 +8317,8 @@ document.addEventListener('DOMContentLoaded',()=>{
       id: 'auto-posting',
       kind: 'feature',
       icon: '🛍️',
-      title: 'Autonomes eBay-Posting',
-      description: 'Produktdaten werden automatisch für eBay vorbereitet und in den Veröffentlichungsfluss übergeben.',
+      title: 'eBay-Posting vorbereiten',
+      description: 'Bereitet Listings für den Veröffentlichungsfluss vor und übergibt sie an die Prüflogik.',
       config: {
         targetArea: 'ai-task-center',
         mode: 'auto',
@@ -8335,7 +8340,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       kind: 'role',
       icon: '🧑‍💼',
       title: 'Freigabe-Operator',
-      description: 'Entscheidet, welche geschützten Schritte in die aktive Freigabe wechseln.',
+      description: 'Entscheidet, welche vorbereiteten Schritte in die aktive Freigabe wechseln.',
       config: {
         responsibleArea: 'ai-task-center',
         scope: 'release',
@@ -8377,7 +8382,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       kind: 'role',
       icon: '🧭',
       title: 'Workflow-Orchestrator',
-      description: 'Koordiniert freigegebene Autonomie-Schritte und hält die Reihenfolge sauber.',
+      description: 'Koordiniert freigegebene Schritte und hält die Reihenfolge sauber.',
       config: {
         responsibleArea: 'all',
         scope: 'manage',
@@ -8398,7 +8403,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       kind: 'role',
       icon: '🤝',
       title: 'Support-Supervisor',
-      description: 'Steuert wieder freigeschaltete Kommunikations- und Eskalationsrollen.',
+      description: 'Steuert freigeschaltete Kommunikations- und Eskalationsrollen.',
       config: {
         responsibleArea: 'virtual-ma',
         scope: 'review',
@@ -10095,13 +10100,13 @@ document.addEventListener('DOMContentLoaded',()=>{
     const featureLinks = (state.extendedAutonomyFeatures || [])
       .filter((item) => {
         const target = item.config && item.config.targetArea;
-        return target === area || target === 'all';
+        return item.status === 'active' && (target === area || target === 'all');
       })
       .map((item) => item.title);
     const roleLinks = (state.extendedAutonomyRoles || [])
       .filter((item) => {
         const target = item.config && item.config.responsibleArea;
-        return target === area || target === 'all';
+        return item.status === 'active' && (target === area || target === 'all');
       })
       .map((item) => item.title);
     return {
@@ -10178,7 +10183,94 @@ document.addEventListener('DOMContentLoaded',()=>{
     render();
     return true;
   };
-   const handleFutureButtonAction = (event, kind, id, action) => {
+  const getExtendedAutonomyTaskType = (type, item) => {
+    if (type === 'role') {
+      const scope = item && item.config ? item.config.scope : '';
+      if (scope === 'manage') return 'operations_check';
+      if (scope === 'release') return 'risk_audit';
+      return 'risk_audit';
+    }
+    const id = item && item.id ? item.id : '';
+    if (id === 'auto-actions') return 'operations_check';
+    if (id === 'auto-orders') return 'supplier_check';
+    if (id === 'auto-messages') return 'customer_reply_draft';
+    if (id === 'auto-posting') return 'listing_review';
+    return 'operations_check';
+  };
+  const syncExtendedAutonomyTask = (type, item) => {
+    if (!item || item.status !== 'active') return null;
+    const taskId = `extended-autonomy-${type}-${item.id}`;
+    const config = item.config || {};
+    const title = `${item.title} vorbereiten`;
+    const description = sanitizeTaskText(
+      config.prompt || item.description || 'Erweiterte Autonomie wurde freigeschaltet und ist nun ausführbar vorbereitet.',
+      '',
+      500,
+    );
+    const record = upsertAiTaskRecord({
+      id: taskId,
+      title,
+      description,
+      agentId: type === 'role' ? 'soul-operations' : 'soul-seo',
+      agentType: 'extended-autonomy',
+      type: getExtendedAutonomyTaskType(type, item),
+      status: 'queued',
+      priority: config.priority || config.threshold || 'normal',
+      input: {
+        source: 'extended-autonomy',
+        autonomyType: type,
+        autonomyId: item.id,
+        title: item.title,
+        config,
+      },
+      result: '',
+      error: '',
+      logs: [],
+      createdAt: nowIso(),
+      updatedAt: nowIso(),
+      startedAt: '',
+      finishedAt: '',
+    });
+    if (type === 'feature' && item.id === 'auto-orders') {
+      const orders = getOpenWorkflowSales();
+      if (Array.isArray(orders) && orders.length) {
+        runOrderWorkflowForSales(orders, 'erweiterte-autonomie');
+      }
+    }
+    if (type === 'feature' && item.id === 'auto-actions') {
+      createTaskCenterSuggestionFromTask(taskId);
+      createApprovalQueueEntryFromTask(taskId);
+    }
+    if (type === 'feature' && item.id === 'auto-messages') {
+      createApprovalQueueEntryFromTask(taskId);
+    }
+    if (type === 'feature' && item.id === 'auto-posting') {
+      createTaskCenterSuggestionFromTask(taskId);
+    }
+    if (type === 'role' && item.id === 'release-operator') {
+      createApprovalQueueEntryFromTask(taskId);
+    }
+    return record;
+  };
+  const syncExtendedAutonomyTasks = () => {
+    const features = Array.isArray(state.extendedAutonomyFeatures) ? state.extendedAutonomyFeatures : [];
+    const roles = Array.isArray(state.extendedAutonomyRoles) ? state.extendedAutonomyRoles : [];
+    [...features.map((item) => ['feature', item]), ...roles.map((item) => ['role', item])].forEach(([type, item]) => {
+      syncExtendedAutonomyTask(type, item);
+    });
+  };
+  const removeExtendedAutonomyTask = (type, itemId) => {
+    const taskId = `extended-autonomy-${type}-${itemId}`;
+    const tasks = Array.isArray(state.aiTasks) ? state.aiTasks.slice() : [];
+    const nextTasks = tasks.filter((task) => task && task.id !== taskId);
+    if (nextTasks.length === tasks.length) return false;
+    state.aiTasks = nextTasks;
+    persistAiCollections();
+    saveState();
+    render();
+    return true;
+  };
+  const handleFutureButtonAction = (event, kind, id, action) => {
      if (event && typeof event.preventDefault === 'function') event.preventDefault();
      if (event && typeof event.stopPropagation === 'function') event.stopPropagation();
      if (action === 'settings') {
@@ -10658,8 +10750,14 @@ document.addEventListener('DOMContentLoaded',()=>{
   const getAgentAutonomyLinks = (agentId) => {
     const linkDef = AGENT_AUTONOMY_LINKS[agentId] || { features: [], roles: [] };
     return {
-      features: linkDef.features.map((id) => getAutonomyItemTitle('feature', id)),
-      roles: linkDef.roles.map((id) => getAutonomyItemTitle('role', id)),
+      features: linkDef.features
+        .map((id) => (state.extendedAutonomyFeatures || []).find((item) => item.id === id && item.status === 'active'))
+        .filter(Boolean)
+        .map((item) => item.title),
+      roles: linkDef.roles
+        .map((id) => (state.extendedAutonomyRoles || []).find((item) => item.id === id && item.status === 'active'))
+        .filter(Boolean)
+        .map((item) => item.title),
     };
   };
   const getAreaAutonomyCounts = (area) => {
@@ -10968,6 +11066,8 @@ document.addEventListener('DOMContentLoaded',()=>{
   const createApprovalQueueEntryFromTask = (taskId) => {
     const task = getTaskById(taskId);
     if (!task) return null;
+    const existingEntry = getApprovalQueue().find((entry) => entry && entry.payload && entry.payload.sourceTaskId === task.id);
+    if (existingEntry) return existingEntry;
     const label = String(task.actionLabel || task.title || '').toLowerCase();
     const text = [task.title, task.description, task.category, task.agent, task.actionLabel].join(' ').toLowerCase();
     let entry;
@@ -11047,6 +11147,10 @@ document.addEventListener('DOMContentLoaded',()=>{
   const createTaskCenterSuggestionFromTask = (taskId) => {
     const task = getTaskById(taskId);
     if (!task) return null;
+    const existingTask = Array.isArray(state.aiTasks)
+      ? state.aiTasks.find((item) => item && item.source === 'agent' && item.input && item.input.sourceTaskId === task.id)
+      : null;
+    if (existingTask) return existingTask;
     const tasks = Array.isArray(state.aiTasks) ? state.aiTasks.slice() : [];
     const normalized = normalizeAiTask({
       id: createTaskId(),
@@ -11736,6 +11840,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     const badge = getBadgeMeta(agent);
     const usagePercent = getUsagePercent(agent);
     const activityItems = getActivityLogItems(agent, def);
+    const autonomyLinks = getAgentAutonomyLinks(def.id);
     return `
       <details class="virtual-agent-card virtual-agent-disclosure virtual-agent-accent-${escapeHtml(def.accent || 'scout')}" data-agent-id="${def.id}" ${state.openCards && state.openCards[def.id] ? 'open' : ''}>
         <summary class="virtual-agent-summary">
@@ -11853,6 +11958,14 @@ document.addEventListener('DOMContentLoaded',()=>{
             </div>
           </div>
 
+          <div style="margin-top:14px">
+            <label>Aktive Autonomie-Verknüpfungen</label>
+            <div class="virtual-agent-connections" style="margin-top:8px">
+              ${autonomyLinks.features.length ? autonomyLinks.features.map((item) => `<span class="pill">${escapeHtml(item)}</span>`).join('') : '<span class="pill">Keine aktiven Funktionen</span>'}
+              ${autonomyLinks.roles.length ? autonomyLinks.roles.map((item) => `<span class="pill">${escapeHtml(item)}</span>`).join('') : ''}
+            </div>
+          </div>
+
           <div class="virtual-agent-footer">
             <button type="button" class="secondary" data-agent-action="test-agent" data-agent-id="${def.id}">Agent testen</button>
           </div>
@@ -11915,6 +12028,9 @@ document.addEventListener('DOMContentLoaded',()=>{
     const items = AGENT_DEFS.filter((def) => def.group === groupKey);
     const isActive = activePanel === panelId;
     const areaPrompt = getGroupPromptValue(groupKey);
+    const areaAutonomy = getAreaAutonomyCounts(groupKey);
+    const activeFeatureNames = areaAutonomy.features.filter((item) => item.status === 'active').map((item) => item.title);
+    const activeRoleNames = areaAutonomy.roles.filter((item) => item.status === 'active').map((item) => item.title);
     return `
       <div class="virtual-agent-card virtual-agents-panel ${isActive ? 'active' : ''}" data-panel="${panelId}">
         <div class="virtual-agent-head">
@@ -11940,6 +12056,14 @@ document.addEventListener('DOMContentLoaded',()=>{
               data-agent-action="open-group-prompt-modal"
               data-group-key="${escapeHtml(groupKey)}"
             >Bereichs-Prompt bearbeiten</button>
+          </div>
+        </div>
+        <div class="settings-section" style="margin-top:14px">
+          <h4>Aktive Autonomie im Menü</h4>
+          <p class="hint">Nur freigeschaltete Funktionen und Rollen werden hier angezeigt. Gesperrte Einträge verschwinden wieder aus den Menüs.</p>
+          <div class="virtual-agent-connections" style="margin-top:8px">
+            ${activeFeatureNames.length ? activeFeatureNames.map((item) => `<span class="pill">${escapeHtml(item)}</span>`).join('') : '<span class="pill">Keine aktiven Funktionen</span>'}
+            ${activeRoleNames.length ? activeRoleNames.map((item) => `<span class="pill">${escapeHtml(item)}</span>`).join('') : '<span class="pill">Keine aktiven Rollen</span>'}
           </div>
         </div>
         <div class="virtual-agents-panels" style="margin-top:14px">
@@ -11978,6 +12102,7 @@ document.addEventListener('DOMContentLoaded',()=>{
               data-permission-type="${type}"
               data-permission-id="${escapeHtml(item.id)}"
               ${canEdit ? '' : 'disabled'}
+              onclick="event.preventDefault(); event.stopPropagation(); if (window.elyonOpenExtendedPermissionModal) { window.elyonOpenExtendedPermissionModal('${type}', '${escapeHtml(item.id)}'); } return false;"
               aria-label="${escapeHtml(item.title)} Einstellungen"
             >⚙️</button>
             <button
@@ -11987,6 +12112,7 @@ document.addEventListener('DOMContentLoaded',()=>{
               data-permission-type="${type}"
               data-permission-id="${escapeHtml(item.id)}"
               ${canEdit ? '' : 'disabled'}
+              onclick="event.preventDefault(); event.stopPropagation(); if (window.elyonToggleExtendedPermission) { window.elyonToggleExtendedPermission('${type}', '${escapeHtml(item.id)}'); } return false;"
             >${actionLabel}</button>
           </div>
         </div>
@@ -12086,15 +12212,15 @@ document.addEventListener('DOMContentLoaded',()=>{
     state.openCards = openCards;
     const nav = [
       `<button type="button" class="${activePanel === 'overview' ? 'active' : ''}" data-agent-panel="overview">Übersicht</button>`,
-      `<button type="button" class="${activePanel === 'order-workflow' ? 'active' : ''}" data-agent-panel="order-workflow">Bestellworkflow</button>`,
-      `<button type="button" class="${activePanel === 'ai-task-center' ? 'active' : ''}" data-agent-panel="ai-task-center">AI Task Center</button>`,
+      `<button type="button" class="${activePanel === 'ai-task-center' ? 'active' : ''}" data-agent-panel="ai-task-center">Aufgaben</button>`,
+      `<button type="button" class="${activePanel === 'order-workflow' ? 'active' : ''}" data-agent-panel="order-workflow">Workflows</button>`,
       `<button type="button" class="${activePanel === 'ki-agents' ? 'active' : ''}" data-agent-panel="ki-agents">KI-Agenten</button>`,
       `<button type="button" class="${activePanel === 'virtual-ma' ? 'active' : ''}" data-agent-panel="virtual-ma">Virtuelle MA</button>`,
     ].join('');
     const panels = [
       buildOverviewPanel(),
-      buildOrderWorkflowPanel(),
       buildTaskCenterPanel(),
+      buildOrderWorkflowPanel(),
       buildCategoryPanel('ki-agents', 'KI-Agenten', 'Strategische Analyse- und Optimierungsrollen für Recherche und Content.', 'ki-agents', 'info'),
       buildCategoryPanel('virtual-ma', 'Virtuelle Mitarbeiter', 'Operative Helfer für Support, Finance und Tagesorganisation.', 'virtual-ma', 'good'),
       activePanel === 'overview' ? buildFutureFunctionsSection() : '',
@@ -12182,6 +12308,15 @@ document.addEventListener('DOMContentLoaded',()=>{
   const unlockAdvancedAutonomy = () => {
     state.advancedMode = true;
     state.autonomyLocked = false;
+    state.extendedAutonomyFeatures = (state.extendedAutonomyFeatures || []).map((item) => ({
+      ...item,
+      status: 'active',
+    }));
+    state.extendedAutonomyRoles = (state.extendedAutonomyRoles || []).map((item) => ({
+      ...item,
+      status: 'active',
+    }));
+    syncExtendedAutonomyTasks();
     saveState();
     render();
     closeAdvancedAutonomyModal();
@@ -12828,6 +12963,24 @@ document.addEventListener('DOMContentLoaded',()=>{
     if (modal) modal.classList.add('hidden');
     activeExtendedAutonomySetting = { type: 'feature', id: '' };
   };
+  window.elyonOpenExtendedPermissionModal = openExtendedPermissionModal;
+  window.elyonToggleExtendedPermission = (type, itemId) => {
+    const permissionType = type === 'role' ? 'role' : 'feature';
+    const item = findExtendedPermissionItem(permissionType, itemId);
+    if (!item) return;
+    const nextStatus = item.status === 'active' ? 'locked' : 'active';
+    updateExtendedAutonomyItem(permissionType, itemId, { status: nextStatus });
+    if (nextStatus === 'active') {
+      syncExtendedAutonomyTask(permissionType, {
+        ...item,
+        status: 'active',
+      });
+      setTaskCenterNotice(`${item.title} wurde aktiviert und im passenden Menü vorbereitet.`);
+    } else {
+      removeExtendedAutonomyTask(permissionType, itemId);
+      setTaskCenterNotice(`${item.title} wurde gesperrt und aus den aktiven Menüs entfernt.`);
+    }
+  };
 
   const saveExtendedPermissionModal = () => {
     const { type, id } = activeExtendedAutonomySetting;
@@ -12854,6 +13007,15 @@ document.addEventListener('DOMContentLoaded',()=>{
       status: status && status.value === 'active' ? 'active' : 'locked',
       config: nextConfig,
     });
+    if (status && status.value === 'active') {
+      syncExtendedAutonomyTask(type, {
+        ...current,
+        status: 'active',
+        config: nextConfig,
+      });
+      saveState();
+      render();
+    }
     toast(`${current.title} wurde gespeichert.`, 'Konfiguration');
     closeExtendedPermissionModal();
   };
@@ -13092,6 +13254,26 @@ document.addEventListener('DOMContentLoaded',()=>{
         const permissionType = extendedPermissionSettingsButton.dataset.permissionType === 'role' ? 'role' : 'feature';
         const permissionId = extendedPermissionSettingsButton.dataset.permissionId;
         openExtendedPermissionModal(permissionType, permissionId);
+        return;
+      }
+      const extendedPermissionToggleButton = event.target.closest('[data-agent-action="toggle-extended-permission"]');
+      if (extendedPermissionToggleButton) {
+        const permissionType = extendedPermissionToggleButton.dataset.permissionType === 'role' ? 'role' : 'feature';
+        const permissionId = extendedPermissionToggleButton.dataset.permissionId;
+        const item = findExtendedPermissionItem(permissionType, permissionId);
+        if (!item) return;
+        const nextStatus = item.status === 'active' ? 'locked' : 'active';
+        updateExtendedAutonomyItem(permissionType, permissionId, { status: nextStatus });
+        if (nextStatus === 'active') {
+          syncExtendedAutonomyTask(permissionType, {
+            ...item,
+            status: 'active',
+          });
+          setTaskCenterNotice(`${item.title} wurde aktiviert und im passenden Menü vorbereitet.`);
+        } else {
+          removeExtendedAutonomyTask(permissionType, permissionId);
+          setTaskCenterNotice(`${item.title} wurde gesperrt und aus den aktiven Menüs entfernt.`);
+        }
         return;
       }
       const generatePromptButton = event.target.closest('[data-agent-action="generate-agent-prompt"]');
