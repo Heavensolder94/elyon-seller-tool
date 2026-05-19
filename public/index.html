@@ -8747,7 +8747,8 @@ document.addEventListener('DOMContentLoaded',()=>{
     autoShippingTask: true,
     autoSyncGoogleSheets: false,
     autoQueueReview: true,
-    note: '',
+    note: 'Du steuerst den Bestell-Workflow fuer Elyon. Arbeite praezise, kurz und umsetzungsorientiert.\n\nZiel:\nJede offene Bestellung sauber vorbereiten (Rechnung, Versand, Pruefung, Sync), ohne doppelte oder riskante Schritte.\n\nRegeln:\n- Antworte auf Deutsch.\n- Nutze nur verifizierte Daten aus dem aktuellen Vorgang.\n- Wenn Infos fehlen: klare Rueckfrage statt Annahmen.\n- Markiere Risiken sofort (Zahlung, Bestand, Adresse, Fristen, Abweichungen).\n- Keine Ausfuehrung ausserhalb der definierten Freigabe-Policy.\n\nAblauf:\n1. Status pruefen\n2. Naechste 3 Schritte festlegen\n3. Blocker/Risiken nennen\n4. Freigabe-Bedarf kennzeichnen\n5. Kurzprotokoll erstellen\n\nAusgabeformat:\nStatus: [Offen/In Arbeit/Erledigt]\nPrioritaet: [Niedrig/Mittel/Hoch]\nNaechster Schritt: [1 konkreter Satz]\nTo-dos:\n- [Todo 1]\n- [Todo 2]\n- [Todo 3]\nRisiko: [Kein Risiko oder kurze Beschreibung]\nFreigabe noetig: [Ja/Nein + wer]\nKurzprotokoll: [max. 5 Saetze]',
+    noteLocked: true,
     lastRunAt: '',
     preparedPlans: [],
   };
@@ -9252,6 +9253,14 @@ document.addEventListener('DOMContentLoaded',()=>{
     if (!text) return fallback;
     return text.slice(0, 220);
   };
+
+  const sanitizeWorkflowNote = (value, fallback) => {
+    const text = String(value ?? '').replace(/\r\n/g, '\n').trim();
+    if (!text) return fallback;
+    return text.slice(0, 4000);
+  };
+
+  const resolveOrderWorkflowNote = (value) => sanitizeWorkflowNote(value, ORDER_WORKFLOW_DEFAULTS.note);
 
   const sanitizePromptText = (value, fallback) => {
     const text = String(value ?? '').replace(/\r\n/g, '\n').trim();
@@ -9928,7 +9937,8 @@ document.addEventListener('DOMContentLoaded',()=>{
         autoShippingTask: typeof source.orderWorkflow === 'object' && source.orderWorkflow ? source.orderWorkflow.autoShippingTask !== false : defaults.orderWorkflow.autoShippingTask,
         autoSyncGoogleSheets: typeof source.orderWorkflow === 'object' && source.orderWorkflow ? source.orderWorkflow.autoSyncGoogleSheets === true : defaults.orderWorkflow.autoSyncGoogleSheets,
         autoQueueReview: typeof source.orderWorkflow === 'object' && source.orderWorkflow ? source.orderWorkflow.autoQueueReview !== false : defaults.orderWorkflow.autoQueueReview,
-        note: typeof source.orderWorkflow === 'object' && source.orderWorkflow && typeof source.orderWorkflow.note === 'string' ? source.orderWorkflow.note : defaults.orderWorkflow.note,
+        note: resolveOrderWorkflowNote(typeof source.orderWorkflow === 'object' && source.orderWorkflow && typeof source.orderWorkflow.note === 'string' ? source.orderWorkflow.note : defaults.orderWorkflow.note),
+        noteLocked: typeof source.orderWorkflow === 'object' && source.orderWorkflow && typeof source.orderWorkflow.noteLocked === 'boolean' ? source.orderWorkflow.noteLocked : true,
         lastRunAt: typeof source.orderWorkflow === 'object' && source.orderWorkflow && typeof source.orderWorkflow.lastRunAt === 'string' ? source.orderWorkflow.lastRunAt : defaults.orderWorkflow.lastRunAt,
         preparedPlans: typeof source.orderWorkflow === 'object' && source.orderWorkflow && Array.isArray(source.orderWorkflow.preparedPlans)
           ? source.orderWorkflow.preparedPlans
@@ -10301,7 +10311,8 @@ document.addEventListener('DOMContentLoaded',()=>{
       autoShippingTask: workflow.autoShippingTask !== false,
       autoSyncGoogleSheets: workflow.autoSyncGoogleSheets === true,
       autoQueueReview: workflow.autoQueueReview !== false,
-      note: sanitizeActivity(workflow.note || '', ''),
+      note: resolveOrderWorkflowNote(workflow.note || ''),
+      noteLocked: workflow.noteLocked !== false,
       lastRunAt: sanitizeActivity(workflow.lastRunAt || '', ''),
       preparedPlans: preparedPlans.map((plan) => normalizeOrderWorkflowPlan(plan)),
     };
@@ -10317,7 +10328,8 @@ document.addEventListener('DOMContentLoaded',()=>{
       autoShippingTask: next && typeof next.autoShippingTask === 'boolean' ? next.autoShippingTask : current.autoShippingTask,
       autoSyncGoogleSheets: next && typeof next.autoSyncGoogleSheets === 'boolean' ? next.autoSyncGoogleSheets : current.autoSyncGoogleSheets,
       autoQueueReview: next && typeof next.autoQueueReview === 'boolean' ? next.autoQueueReview : current.autoQueueReview,
-      note: sanitizeActivity(next && next.note !== undefined ? next.note : current.note, ''),
+      note: resolveOrderWorkflowNote(next && next.note !== undefined ? next.note : current.note),
+      noteLocked: next && typeof next.noteLocked === 'boolean' ? next.noteLocked : current.noteLocked !== false,
       lastRunAt: sanitizeActivity(next && next.lastRunAt !== undefined ? next.lastRunAt : current.lastRunAt, ''),
       preparedPlans: Array.isArray(current.preparedPlans) ? current.preparedPlans.map((plan) => normalizeOrderWorkflowPlan(plan)) : [],
     };
@@ -11671,8 +11683,16 @@ document.addEventListener('DOMContentLoaded',()=>{
           </label>
 
           <div style="grid-column:1 / -1">
-            <label>Workflow-Notiz</label>
-            <textarea data-order-workflow-field="note" placeholder="z. B. erst Rechnung, dann Versand, dann Sync">${escapeHtml(workflow.note || '')}</textarea>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px">
+              <label style="margin:0">Workflow-Notiz</label>
+              <button type="button" class="secondary" data-order-workflow-action="toggle-note-lock" title="${workflow.noteLocked !== false ? 'Textfeld freischalten' : 'Textfeld sperren'}" style="padding:4px 8px;min-height:auto;line-height:1;font-size:12px">
+                ${workflow.noteLocked !== false ? '✏️ Freischalten' : '🔒 Sperren'}
+              </button>
+            </div>
+            <div style="display:flex;justify-content:flex-end;margin:-4px 0 8px 0;font-size:12px;color:${workflow.noteLocked !== false ? '#fda4af' : '#86efac'}">
+              ${workflow.noteLocked !== false ? 'Status: Gesperrt' : 'Status: Freigeschaltet'}
+            </div>
+            <textarea data-order-workflow-field="note" ${workflow.noteLocked !== false ? 'readonly aria-readonly="true"' : ''} placeholder="z. B. erst Rechnung, dann Versand, dann Sync" style="${workflow.noteLocked !== false ? 'opacity:.72;cursor:not-allowed;' : ''}">${escapeHtml(workflow.note || '')}</textarea>
           </div>
         </div>
 
@@ -13109,6 +13129,13 @@ document.addEventListener('DOMContentLoaded',()=>{
         if (action === 'save') {
           saveOrderWorkflowSettings(getOrderWorkflowSettings());
           setTaskCenterNotice('Bestellworkflow gespeichert.');
+        } else if (action === 'toggle-note-lock') {
+          event.preventDefault();
+          event.stopPropagation();
+          const current = getOrderWorkflowSettings();
+          const nextLocked = current.noteLocked === false;
+          saveOrderWorkflowSettings({ noteLocked: nextLocked });
+          setTaskCenterNotice(nextLocked ? 'Workflow-Notiz gesperrt.' : 'Workflow-Notiz freigeschaltet.');
         } else if (action === 'apply-open') {
           const items = getOpenWorkflowSales();
           if (!items.length) {
@@ -13215,6 +13242,9 @@ document.addEventListener('DOMContentLoaded',()=>{
         } else if (field === 'mode') {
           next.mode = target.value === 'manual' ? 'manual' : 'semi';
         } else if (field === 'note') {
+          if (current.noteLocked !== false) {
+            return;
+          }
           next.note = target.value || '';
         }
         saveOrderWorkflowSettings(next);
