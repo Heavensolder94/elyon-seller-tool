@@ -2,6 +2,13 @@
   "name": "elyon-seller-tool",
   "private": true,
   "type": "module",
+  "scripts": {
+    "check:layout": "node scripts/check-layout.mjs",
+    "prepare:web": "npm run check:layout && node scripts/prepare-vercel.mjs",
+    "start": "node scripts/dev-server.mjs",
+    "dev": "npm run start",
+    "build": "npm run prepare:web"
+  },
   "dependencies": {
     "openai": "^4.0.0"
   }
