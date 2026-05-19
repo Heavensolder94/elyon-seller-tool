@@ -7,7 +7,7 @@
   <style>
     :root{--bg1:#020617;--bg2:#0f172a;--text:#e5e7eb;--muted:#94a3b8;--card:rgba(15,23,42,.72);--field:rgba(2,6,23,.68)}
     body.light{--bg1:#f8fafc;--bg2:#e2e8f0;--text:#0f172a;--muted:#475569;--card:rgba(255,255,255,.82);--field:rgba(255,255,255,.9)}
-    *{box-sizing:border-box;margin:0;padding:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","Segoe UI Emoji","Segoe UI Symbol","Apple Color Emoji",sans-serif}
+    *{box-sizing:border-box;margin:0;padding:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
     body{min-height:100vh;background:radial-gradient(circle at top left,rgba(59,130,246,.35),transparent 32%),radial-gradient(circle at top right,rgba(139,92,246,.25),transparent 35%),linear-gradient(135deg,var(--bg1),var(--bg2) 50%,#111827);color:var(--text);padding:28px}
     .container{max-width:1240px;margin:0 auto}.hero{display:flex;justify-content:space-between;gap:24px;align-items:flex-end;margin-bottom:22px}.badge{display:inline-flex;gap:8px;align-items:center;padding:8px 13px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.07);border-radius:999px;color:#bfdbfe;font-size:14px;margin-bottom:14px;backdrop-filter:blur(14px)}
     h1{font-size:clamp(34px,5vw,58px);letter-spacing:-.055em;line-height:1.02;margin-bottom:12px}.subtitle{color:#cbd5e1;font-size:17px;line-height:1.6;max-width:760px}.top-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}.tabs{display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;position:sticky;top:0;z-index:1000;background:transparent;backdrop-filter:none;padding:10px 0;border-bottom:none}.tab{display:none}.tab.active{display:block}
@@ -15,7 +15,7 @@
  .grid{display:grid;grid-template-columns:420px 1fr;gap:20px;align-items:start}.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start}.sources-grid{display:grid;grid-template-columns:minmax(0,1.08fr) minmax(0,.92fr);gap:24px;align-items:start}.sources-grid .card{min-width:0;padding:24px;border-radius:28px}.sources-grid .output-box{margin-top:12px}.sources-grid .form-accordion{margin-top:16px}.card{background:var(--card);border:1px solid rgba(255,255,255,.12);border-radius:26px;padding:22px;box-shadow:0 24px 80px rgba(0,0,0,.35);backdrop-filter:blur(18px)}.card h2{font-size:21px;margin-bottom:10px;letter-spacing:-.02em}.card h3{font-size:16px;margin:12px 0 10px;color:#bfdbfe}
     label{display:block;font-size:13px;color:#cbd5e1;margin-bottom:7px}input,select,textarea{width:100%;padding:13px 14px;border-radius:15px;border:1px solid rgba(255,255,255,.14);background:var(--field);color:var(--text);outline:none;font-size:15px;margin-bottom:13px}input:focus,select:focus,textarea:focus{border-color:#60a5fa;box-shadow:0 0 0 4px rgba(96,165,250,.14)}textarea{min-height:86px;resize:vertical}.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
     button{border:0;border-radius:16px;padding:13px 16px;background:linear-gradient(135deg,#3b82f6,#8b5cf6);color:#fff;font-weight:800;font-size:15px;cursor:pointer;transition:transform .15s ease,filter .15s ease}button:hover{transform:translateY(-1px);filter:brightness(1.08)}.secondary{background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.12)}.danger{background:rgba(239,68,68,.16);border:1px solid rgba(239,68,68,.35);color:#fecaca}.full{width:100%}.hidden{display:none!important}
-    .sourcing-hero{padding:24px 24px 20px;border-radius:28px;background:linear-gradient(135deg,rgba(15,23,42,.97),rgba(30,41,59,.9) 48%,rgba(17,24,39,.94));border:1px solid rgba(148,163,184,.18);box-shadow:0 24px 70px rgba(0,0,0,.26);margin-bottom:18px;position:relative;overflow:hidden}.sourcing-hero:before{content:'';position:absolute;inset:-2px auto auto -2px;width:220px;height:220px;background:radial-gradient(circle,rgba(59,130,246,.16),transparent 68%);pointer-events:none;filter:blur(12px)}.sourcing-hero-top{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap}.sourcing-hero h2{font-size:28px;margin-bottom:6px;letter-spacing:-.04em}.sourcing-hero .hint{max-width:820px;margin-bottom:0;color:#cbd5e1}.status-badges{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}.status-badge{display:inline-flex;align-items:center;gap:7px;padding:9px 11px;border-radius:999px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.11);color:#e2e8f0;font-size:12px;font-weight:800;backdrop-filter:blur(10px)}.workflow-strip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:18px 0 22px}.workflow-step{padding:13px 14px;border-radius:18px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);color:#cbd5e1;font-size:13px;line-height:1.35;transition:transform .15s ease,border-color .15s ease,background .15s ease}.workflow-step strong{display:block;color:#e2e8f0;font-size:14px;margin-bottom:3px}.workflow-step.active{background:linear-gradient(135deg,rgba(59,130,246,.18),rgba(139,92,246,.12));border-color:rgba(96,165,250,.22);color:#e2e8f0}.workflow-step:hover{transform:translateY(-1px);border-color:rgba(96,165,250,.24)}.sourcing-layout{display:grid;grid-template-columns:minmax(0,1.02fr) minmax(0,.98fr);gap:18px;align-items:start}.sourcing-column{display:grid;gap:18px}.sourcing-card{padding:22px;border-radius:24px;background:rgba(15,23,42,.86);border:1px solid rgba(148,163,184,.16);box-shadow:0 18px 50px rgba(0,0,0,.2);transition:transform .15s ease,border-color .15s ease,box-shadow .15s ease}.sourcing-card:hover{transform:translateY(-1px);border-color:rgba(96,165,250,.22);box-shadow:0 22px 60px rgba(0,0,0,.24)}.sourcing-card h2{font-size:20px;margin-bottom:8px;letter-spacing:-.03em}.sourcing-card .hint{margin-bottom:12px}.sourcing-card .output-box,.sourcing-card .empty,.sourcing-card .briefing-section,.sourcing-card .form-accordion{border-radius:18px}.sourcing-card .row{align-items:stretch}.sourcing-card .row > *{min-width:0}.sourcing-card label{margin-top:2px}.sourcing-card input,.sourcing-card select,.sourcing-card textarea{margin-bottom:12px}.sourcing-card button{min-height:44px}.sourcing-card .secondary{background:rgba(255,255,255,.08)}.sourcing-card .full{width:100%}.sourcing-card .output-box p,.sourcing-card .empty p{margin-bottom:0}.supplier-grid{display:grid;gap:10px}.supplier-card{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;padding:14px;border-radius:18px;background:rgba(2,6,23,.38);border:1px solid rgba(255,255,255,.08)}.supplier-card.is-deactivated{opacity:.62;filter:saturate(.9)}.supplier-meta{display:flex;gap:7px;flex-wrap:wrap;margin-top:8px}.supplier-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start}.supplier-actions button{padding:9px 11px;font-size:13px;border-radius:12px}.analysis-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:10px}.analysis-metric{padding:12px 13px;border-radius:16px;background:rgba(2,6,23,.4);border:1px solid rgba(255,255,255,.08)}.analysis-metric small{display:block;margin-bottom:5px;color:#94a3b8;font-size:11px;letter-spacing:.05em;text-transform:uppercase}.analysis-metric strong{font-size:14px;color:#e2e8f0;line-height:1.4}.analysis-summary{display:grid;gap:10px}.analysis-summary .output-box{background:rgba(2,6,23,.46)}.analysis-chip-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}.analysis-chip{display:inline-flex;align-items:center;padding:7px 10px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.1);font-size:12px;font-weight:800;color:#e2e8f0}.analysis-chip.good{background:rgba(34,197,94,.12)}.analysis-chip.warn{background:rgba(250,204,21,.11)}.analysis-chip.bad{background:rgba(239,68,68,.12)}.analysis-chip.info{background:rgba(59,130,246,.12)}.micro-note{padding:11px 12px;border-radius:14px;background:rgba(59,130,246,.1);border:1px solid rgba(96,165,250,.16);color:#dbeafe;font-size:12px;line-height:1.45}.sourcing-lead{padding:14px 15px;border-radius:18px;background:rgba(2,6,23,.34);border:1px solid rgba(255,255,255,.08);margin:14px 0 16px;color:#cbd5e1;font-size:13px;line-height:1.5}.sourcing-lead strong{color:#e2e8f0}.sourcing-subtle{padding:12px 14px;border-radius:16px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);color:#cbd5e1;font-size:12px;line-height:1.5}.sourcing-divider{height:1px;background:linear-gradient(90deg,transparent,rgba(148,163,184,.22),transparent);margin:14px 0}@media(max-width:980px){.sourcing-layout{grid-template-columns:1fr}.workflow-strip{grid-template-columns:repeat(2,minmax(0,1fr))}.analysis-grid{grid-template-columns:1fr}.sourcing-card{padding:18px}.sourcing-hero{padding:20px}}
+    .dashboard{display:grid;grid-template-columns:repeat(4,1fr);gap:13px;margin-bottom:18px}.metric{background:rgba(255,255,255,.075);border:1px solid rgba(255,255,255,.1);border-radius:20px;padding:17px}.metric small{display:block;color:#94a3b8;margin-bottom:8px;font-size:12px}.metric strong{font-size:24px;letter-spacing:-.03em}.toolbar{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap}.toolbar input,.toolbar select{margin-bottom:0;width:auto;flex:1;min-width:180px}.products{display:grid;gap:14px}.product-card{display:grid;grid-template-columns:1.1fr .9fr auto;gap:14px;align-items:center;background:rgba(2,6,23,.52);border:1px solid rgba(255,255,255,.1);border-radius:22px;padding:17px}.product-title{font-size:18px;font-weight:850;margin-bottom:8px;letter-spacing:-.02em}.muted{color:var(--muted);font-size:13px;line-height:1.5}.pill-row{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}.pill{display:inline-flex;align-items:center;padding:6px 9px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.1);color:#cbd5e1;font-size:12px}.score-wrap{min-width:210px}.score-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}.score-number{font-size:28px;font-weight:900;letter-spacing:-.04em}.progress{height:11px;background:rgba(255,255,255,.12);border-radius:999px;overflow:hidden}.bar{height:100%;border-radius:999px;width:0%;background:linear-gradient(90deg,#ef4444,#facc15,#22c55e)}.status{font-weight:900;font-size:14px;padding:8px 10px;border-radius:999px;display:inline-flex;white-space:nowrap}.good{color:#86efac;background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.25)}.warn{color:#fde68a;background:rgba(250,204,21,.11);border:1px solid rgba(250,204,21,.25)}.bad{color:#fca5a5;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.25)}.info{color:#93c5fd;background:rgba(59,130,246,.12);border:1px solid rgba(59,130,246,.25)}.actions{display:flex;flex-direction:column;gap:8px}.ai-product-card{margin-top:12px;padding:14px;border-radius:18px;background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.09)}.ai-product-card .ai-mini-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:12px}.ai-product-card .ai-mini-item{padding:10px 11px;border-radius:14px;background:rgba(2,6,23,.34);border:1px solid rgba(255,255,255,.08)}.ai-product-card .ai-mini-label{display:block;margin-bottom:3px;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:#94a3b8}.ai-product-card .ai-mini-value{font-size:14px;font-weight:850;line-height:1.35;color:#e2e8f0}.ai-product-card .ai-mini-summary{margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,.08)}.ai-product-card .ai-mini-summary p{margin-bottom:8px}.ai-compliance-green{color:#86efac;background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.24)}.ai-compliance-yellow{color:#fde68a;background:rgba(250,204,21,.11);border-color:rgba(250,204,21,.24)}.ai-compliance-red{color:#fca5a5;background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.24)}.ai-status-ghost{color:#bfdbfe;background:rgba(59,130,246,.12);border-color:rgba(59,130,246,.24)}.ai-compact-note{margin-top:10px;color:#94a3b8;font-size:12px;line-height:1.45}.output-box{margin-top:14px;padding:16px;border-radius:18px;background:rgba(2,6,23,.55);border:1px solid rgba(255,255,255,.1)}.output-box p,.output-box li{color:#e2e8f0;line-height:1.55;white-space:pre-wrap;font-size:14px}.output-box ul{padding-left:20px}.empty{text-align:center;padding:42px 20px;color:#94a3b8;border:1px dashed rgba(255,255,255,.18);border-radius:22px;background:rgba(255,255,255,.04)}.hint{margin:0 0 14px;color:var(--muted);font-size:12px;line-height:1.5}.big-result{font-size:42px;font-weight:950;letter-spacing:-.05em;margin:8px 0}.checkrow{display:flex;gap:10px;align-items:center;margin:10px 0;padding:11px;border-radius:14px;background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.08)}.checkrow input{width:auto;margin:0}.checkrow label{margin:0;flex:1}.mini-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.generator-shell{display:grid;grid-template-columns:430px 1fr;gap:20px;align-items:start}.briefing-section{margin-top:14px;padding:14px;border-radius:20px;background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.09)}.briefing-section h3{margin-top:0}.copy-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}.copy-btn{padding:9px 11px;font-size:13px;border-radius:12px}.gen-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}.gen-tab-btn{padding:9px 11px;font-size:13px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12)}.gen-tab-btn.active{background:linear-gradient(135deg,#3b82f6,#8b5cf6)}.gen-panel{display:none}.gen-panel.active{display:block}.shopify-tool{display:none}.shopify-tool.active{display:grid}.returns-subnav{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 20px}.returns-tab-btn{padding:10px 13px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);font-size:13px}.returns-tab-btn.active{background:linear-gradient(135deg,#3b82f6,#8b5cf6)}.returns-panel{display:none}.returns-panel.active{display:block}.title-hero{font-size:20px;font-weight:900;line-height:1.35;letter-spacing:-.02em}.char-meter{height:9px;border-radius:999px;background:rgba(255,255,255,.12);overflow:hidden;margin-top:10px}.char-meter div{height:100%;border-radius:999px;background:linear-gradient(90deg,#22c55e,#facc15,#ef4444)}.form-accordion{margin-top:12px;border-radius:18px;background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.09);overflow:hidden}.form-accordion summary{cursor:pointer;padding:14px 15px;font-weight:900;color:#bfdbfe;list-style:none}.form-accordion summary::-webkit-details-marker{display:none}.form-accordion .accordion-body{padding:0 15px 15px}.quick-actions{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 16px}.quick-actions button{padding:10px 12px;font-size:13px}.details-box{margin-top:12px}.details-box summary{cursor:pointer;color:#bfdbfe;font-weight:800;margin-top:8px}.kanban-board{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.kanban-column{background:rgba(2,6,23,.42);border:1px solid rgba(255,255,255,.1);border-radius:22px;padding:12px;min-height:180px}.kanban-column h3{margin:0 0 10px;color:#bfdbfe;font-size:15px}.kanban-column .product-card{grid-template-columns:1fr;margin-bottom:12px}.small-card .score-wrap{min-width:unset}.small-card .actions{flex-direction:row;flex-wrap:wrap}.small-card .score-number{font-size:22px}.launcher-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px}.launcher-btn{display:flex;flex-direction:column;align-items:flex-start;gap:5px;text-align:left;min-height:78px}.launcher-btn strong{font-size:15px}.launcher-btn small{color:#cbd5e1;font-weight:600;line-height:1.35}.dashboard-more{margin-top:20px;border-radius:24px;background:var(--card);border:1px solid rgba(255,255,255,.12);box-shadow:0 18px 60px rgba(0,0,0,.22);overflow:hidden}.dashboard-more summary{cursor:pointer;padding:18px 22px;font-weight:950;color:#bfdbfe;list-style:none}.dashboard-more summary::-webkit-details-marker{display:none}.dashboard-more-content{padding:0 22px 22px}.dashboard-compact-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}.invoice-modal-panel{max-width:980px;width:min(96vw,980px);max-height:92vh;overflow:auto}.invoice-paper{width:100%;max-width:820px;margin:0 auto;background:#fff;color:#111827;padding:42px;box-sizing:border-box;border-radius:14px;box-shadow:0 14px 40px rgba(0,0,0,.28);font-size:14px;line-height:1.55}.invoice-paper *{box-sizing:border-box}.invoice-paper h1{font-size:34px;margin:0 0 8px;color:#111827;letter-spacing:-.03em}.invoice-paper h2,.invoice-paper h3{color:#111827;margin:0 0 8px}.invoice-paper p{color:#111827;margin:0 0 8px}.invoice-head{display:grid;grid-template-columns:1fr 1fr;gap:28px;border-bottom:2px solid #e5e7eb;padding-bottom:22px;margin-bottom:24px}.invoice-head>div:last-child{text-align:right}.invoice-box{border:1px solid #e5e7eb;border-radius:12px;padding:16px;margin-top:16px;background:#fff}.invoice-table{width:100%;border-collapse:collapse;margin-top:18px;font-size:14px}.invoice-table th,.invoice-table td{border-bottom:1px solid #e5e7eb;padding:12px 10px;text-align:left;vertical-align:top;color:#111827}.invoice-table th{background:#f8fafc;font-weight:800}.invoice-table th:last-child,.invoice-table td:last-child{text-align:right}.invoice-total{text-align:right;font-size:22px;font-weight:900;margin-top:20px;color:#111827}.invoice-paper .muted{color:#64748b!important;font-size:12px}@media(max-width:900px){.invoice-paper{padding:28px}.invoice-head{grid-template-columns:1fr}.invoice-head>div:last-child{text-align:left}}@media(max-width:760px){.launcher-grid{grid-template-columns:1fr}.dashboard-compact-grid{grid-template-columns:1fr}.invoice-paper{padding:20px;border-radius:10px}.invoice-table th,.invoice-table td{padding:9px 6px;font-size:12px}}.start-launcher-panel{max-width:980px;width:min(96vw,980px)}.start-launcher-head{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;margin-bottom:18px}.start-launcher-head h2{font-size:32px;margin-bottom:8px}.start-launcher-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.start-card{min-height:180px;text-align:left;display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;gap:16px;padding:22px;border-radius:24px;background:rgba(255,255,255,.075);border:1px solid rgba(255,255,255,.13)}.start-card strong{font-size:22px;letter-spacing:-.03em}.start-card span{color:#cbd5e1;line-height:1.5;font-weight:600}.start-launcher-footer{margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,.1)}.start-focus-box{margin:14px 0;padding:15px;border-radius:20px;background:rgba(59,130,246,.12);border:1px solid rgba(96,165,250,.22)}.start-quick-row{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:14px}.start-quick-row button{font-size:13px;padding:11px 10px;border-radius:14px}@media(max-width:860px){.start-launcher-grid{grid-template-columns:1fr}.start-card{min-height:auto}.start-launcher-head{display:block}.start-launcher-head button{margin-top:12px}.start-quick-row{grid-template-columns:1fr 1fr}}
 @media(max-width:980px){.hero{display:block}.top-actions{justify-content:flex-start;margin-top:16px}.grid,.grid-2,.sources-grid{grid-template-columns:1fr}.dashboard,.mini-grid{grid-template-columns:1fr 1fr}.product-card{grid-template-columns:1fr}.actions{flex-direction:row;flex-wrap:wrap}}@media(max-width:560px){body{padding:16px}.row,.dashboard,.mini-grid{grid-template-columns:1fr}.toolbar{flex-direction:column}.toolbar input,.toolbar select{width:100%}.sources-grid .card{padding:18px}}
 
     /* Design-Varianten: Classic Dark bleibt dein gespeichertes Standard-Design */
@@ -272,7 +272,7 @@
   .autonomy-collection-head h4{margin:0;font-size:17px;letter-spacing:-.02em}
   .autonomy-collection-head p{margin-top:4px;color:#cbd5e1;font-size:13px;line-height:1.5}
   .autonomy-collection-head .pill{white-space:nowrap}
-  .autonomy-collection-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:flex-end;margin-left:auto;text-align:right}
+  .autonomy-collection-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
   .autonomy-collection-toggle{padding:10px 13px;border-radius:12px;font-size:13px}
   .autonomy-collection-body{display:grid;gap:16px}
   .autonomy-lane{display:grid;gap:10px}
@@ -281,15 +281,12 @@
   .autonomy-lane-head p{margin-top:4px;color:#94a3b8;font-size:12px;line-height:1.45}
   .autonomy-permission-list{display:grid;gap:12px}
   .autonomy-permission-card{padding:14px;border-radius:16px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08)}
-  .autonomy-permission-card.active{border-color:rgba(34,197,94,.34);background:linear-gradient(180deg,rgba(34,197,94,.14),rgba(34,197,94,.06));box-shadow:0 16px 38px rgba(34,197,94,.12)}
-  .autonomy-permission-card.active .virtual-agent-icon{box-shadow:0 0 0 1px rgba(34,197,94,.18),0 0 0 10px rgba(34,197,94,.06)}
+  .autonomy-permission-card.active{border-color:rgba(34,197,94,.2);background:rgba(34,197,94,.08)}
   .autonomy-permission-actions{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
   .autonomy-permission-actions button{padding:9px 12px;border-radius:12px;font-size:13px}
   .autonomy-empty-state{padding:14px 15px;border-radius:16px;background:rgba(255,255,255,.03);border:1px dashed rgba(148,163,184,.24);color:#94a3b8;font-size:13px;line-height:1.5}
   .autonomy-lock-note{padding:13px 15px;border-radius:16px;background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.18);color:#dbeafe;font-size:13px;line-height:1.5}
   .virtual-future-warning{padding:14px 16px;border-radius:16px;background:rgba(2,6,23,.3);border:1px solid rgba(96,165,250,.18);border-left:4px solid #3b82f6;color:#dbeafe;font-size:13px;line-height:1.55}
-  .autonomy-info-button{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:999px;border:1px solid rgba(148,163,184,.28);background:rgba(255,255,255,.06);color:#dbeafe;font-size:12px;font-weight:900;line-height:1;cursor:help;padding:0;flex:0 0 auto}
-  .autonomy-info-button:hover{border-color:rgba(96,165,250,.38);background:rgba(59,130,246,.14)}
   .autonomy-permission-meta{display:flex;gap:8px;flex-wrap:wrap}
   .autonomy-permission-meta .pill{font-size:11px;padding:5px 8px}
   .autonomy-permission-tools{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
@@ -306,14 +303,12 @@
   .permission-settings-preview p{color:#cbd5e1;font-size:13px;line-height:1.5}
   .permission-settings-fields{display:grid;gap:12px}
   .permission-setting-card{padding:14px;border-radius:16px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);display:grid;gap:10px}
-  .permission-setting-card.is-disabled{opacity:.55;filter:saturate(.7)}
   .permission-setting-card h4{margin:0;font-size:15px;letter-spacing:-.02em}
   .permission-setting-card .hint{margin:0}
   .permission-setting-card .agent-switch{margin-top:6px}
   .extended-autonomy-card{position:relative;overflow:hidden;display:grid;gap:14px;padding:18px;border-radius:22px;background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.04));border:1px solid rgba(96,165,250,.14);box-shadow:0 18px 50px rgba(0,0,0,.18)}
   .extended-autonomy-card:before{content:'';position:absolute;inset:-2px auto auto -2px;width:180px;height:180px;background:radial-gradient(circle,rgba(59,130,246,.18),transparent 72%);pointer-events:none;filter:blur(8px)}
-  .extended-autonomy-card.active{border-color:rgba(250,204,21,.3);box-shadow:0 20px 60px rgba(245,158,11,.16),0 0 0 1px rgba(250,204,21,.08) inset}
-  .extended-autonomy-card.active .virtual-agent-icon{box-shadow:0 0 0 1px rgba(250,204,21,.2),0 0 0 10px rgba(250,204,21,.08)}
+  .extended-autonomy-card.active{border-color:rgba(250,204,21,.22);box-shadow:0 20px 60px rgba(245,158,11,.12)}
   .extended-autonomy-head{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;flex-wrap:wrap;position:relative;z-index:1}
   .extended-autonomy-head h4{margin:0;font-size:18px;letter-spacing:-.02em}
   .extended-autonomy-head p{margin-top:4px;color:#cbd5e1;font-size:13px;line-height:1.5}
@@ -321,9 +316,6 @@
   .extended-autonomy-copy{color:#dbeafe;font-size:13px;line-height:1.6}
   .extended-autonomy-actions{display:flex;gap:10px;flex-wrap:wrap}
   .extended-autonomy-note{padding:14px 16px;border-radius:18px;background:rgba(59,130,246,.11);border:1px solid rgba(96,165,250,.18);color:#dbeafe;font-size:13px;line-height:1.55}
-  .autonomy-live-tag{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase}
-  .autonomy-live-tag.active{color:#dcfce7;background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.24)}
-  .autonomy-live-tag.locked{color:#fde68a;background:rgba(250,204,21,.1);border:1px solid rgba(250,204,21,.22)}
   .extended-autonomy-modal-panel{max-width:820px;width:min(96vw,820px)}
   .autonomy-hold-control{display:grid;gap:10px;margin-top:14px}
   .autonomy-hold-button{position:relative;overflow:hidden;min-height:52px}
@@ -447,7 +439,7 @@
     <select id="mainMenu" class="menu-select" aria-label="eBay Lab auswählen">
       <option value="" disabled selected>🧭 Produkt-Pipeline</option>
       <option value="dashboardTab">1. 🏠 Dashboard</option>
-      <option value="productSearchTab">2. 🔎 Produktbeschaffung</option>
+      <option value="productSearchTab">2. 🔎 Produktsuche</option>
       <option value="productAnalysisTab">3. 📊 Produktanalyse</option>
       <option value="productListTab">4. 📚 Meine Produktliste</option>
       <option value="ebayListingTab">5. 🛒 eBay Listing vorbereiten</option>
@@ -569,11 +561,15 @@
     </div>
 
     <div class="card" style="margin-top:20px">
-      <h2>🎯 Tagesfokus</h2>
-      <p class="hint">Kurzer Coach-Hinweis, damit du klein, ruhig und strukturiert weiterarbeitest.</p>
-      <div class="output-box">
-        <h3>Nächster Schritt</h3>
-        <p id="dNext">Starte mit deinem ersten Produkt 👇</p>
+      <h2>🚀 Schnellstart</h2>
+      <p class="hint">Direkt in deinen häufigsten Arbeitsweg springen, ohne den Umweg über das Menü.</p>
+      <div class="launcher-grid">
+        <button class="secondary launcher-btn" id="launcherNewProduct"><strong>📦 Neues Produkt prüfen</strong><small>Zum Produktformular springen</small></button>
+        <button class="secondary launcher-btn" id="launcherBoard"><strong>🧭 Produkt-Board öffnen</strong><small>Produkte, Filter & Kanban</small></button>
+        <button class="secondary launcher-btn" id="launcherGenerator"><strong>✍️ Listing erstellen</strong><small>Titel, SEO & Beschreibung</small></button>
+        <button class="secondary launcher-btn" id="launcherSales"><strong>💰 Verkauf & Rechnung</strong><small>Bestellung, Status, Gewinn und Beleg</small></button>
+        <button class="secondary launcher-btn" id="launcherReturns"><strong>↩️ Retouren prüfen</strong><small>eBay / Shopify Rückgaben</small></button>
+        <button class="secondary launcher-btn" id="launcherBackup"><strong>💾 Backup sichern</strong><small>Komplette Daten exportieren</small></button>
       </div>
     </div>
 
@@ -584,15 +580,11 @@
     </div>
 
     <div class="card" style="margin-top:20px">
-      <h2>🚀 Schnellstart</h2>
-      <p class="hint">Direkt in deinen häufigsten Arbeitsweg springen, ohne den Umweg über das Menü.</p>
-      <div class="launcher-grid">
-        <button class="secondary launcher-btn" id="launcherNewProduct"><strong>📦 Neues Produkt prüfen</strong><small>Zum Produktformular springen</small></button>
-        <button class="secondary launcher-btn" id="launcherBoard"><strong>🧭 Produkt-Board öffnen</strong><small>Produkte, Filter & Kanban</small></button>
-        <button class="secondary launcher-btn" id="launcherGenerator"><strong>✍️ Listing erstellen</strong><small>Titel, SEO & Beschreibung</small></button>
-        <button class="secondary launcher-btn" id="launcherSales"><strong>💰 Verkauf & Rechnung</strong><small>Bestellung, Status, Gewinn und Beleg</small></button>
-        <button class="secondary launcher-btn" id="launcherReturns"><strong>↩️ Retouren prüfen</strong><small>eBay / Shopify Rückgaben</small></button>
-        <button class="secondary launcher-btn" id="launcherBackup"><strong>💾 Backup sichern</strong><small>Komplette Daten exportieren</small></button>
+      <h2>🎯 Tagesfokus</h2>
+      <p class="hint">Kurzer Coach-Hinweis, damit du klein, ruhig und strukturiert weiterarbeitest.</p>
+      <div class="output-box">
+        <h3>Nächster Schritt</h3>
+        <p id="dNext">Starte mit deinem ersten Produkt 👇</p>
       </div>
     </div>
 
@@ -660,30 +652,8 @@
   </section>
 
   <section id="productSearchTab" class="tab">
-    <div class="sourcing-hero">
-      <div class="sourcing-hero-top">
-        <div>
-          <div class="badge">🧭 Sourcing Hub</div>
-          <h2>Produktbeschaffung</h2>
-          <p class="hint">Finde, prüfe und übernimm potenzielle Produkte aus eBay, Suppliern, manueller Suche oder KI.</p>
-        </div>
-        <div class="status-badges">
-          <span class="status-badge">Sourcing</span>
-          <span class="status-badge">Supplier</span>
-          <span class="status-badge">Risiko-Check</span>
-          <span class="status-badge">KI optional</span>
-        </div>
-      </div>
-    </div>
-    <div class="workflow-strip">
-      <div class="workflow-step active"><strong>1. Quelle wählen</strong><span>eBay, Supplier oder manuelle Idee</span></div>
-      <div class="workflow-step"><strong>2. Link prüfen</strong><span>Domain, Supplier und Hinweis erkennen</span></div>
-      <div class="workflow-step"><strong>3. Risiko bewerten</strong><span>Ampel, Compliance und Marge prüfen</span></div>
-      <div class="workflow-step"><strong>4. Produkt übernehmen</strong><span>In die Produktmaske übernehmen</span></div>
-    </div>
-    <section class="sourcing-layout">
-      <div class="sourcing-column">
-        <aside class="sourcing-card" id="productFormCard">
+    <section class="grid">
+      <aside class="card" id="productFormCard">
         <h2>Produkt prüfen</h2>
         <p class="hint">Das Formular ist jetzt in Bereiche aufgeteilt. So bleibt das Board ruhiger und du kannst schneller arbeiten.</p>
 
@@ -731,25 +701,33 @@
         <button class="full" id="addProductBtn" style="margin-top:14px">Produkt speichern & bewerten</button>
         <button class="secondary full hidden" id="cancelEditProductBtn" style="margin-top:10px">Bearbeitung abbrechen</button>
       </aside>
-      </div>
-      <div class="sourcing-column">
-        <section class="sourcing-card">
-          <h2>Produktbeschaffung & Quellen</h2>
-          <p class="hint">Hier sammelst du Produktideen, prüfst sie manuell oder mit KI und importierst Links oder Websiten. eBay bleibt dabei dein zentraler Beschaffungsweg.</p>
-          <div class="quick-actions">
-            <button class="secondary" type="button" onclick="showTab('productListTab')">Zur Produktliste</button>
-            <button class="secondary" type="button" onclick="showTab('productAnalysisTab')">Zur Produktanalyse</button>
-            <button class="secondary" type="button" onclick="showTab('settingsTab')">Zu Import / API</button>
-            <button class="secondary" type="button" onclick="document.getElementById('ebaySearchInput')?.focus()">eBay Search öffnen</button>
+      <section class="card">
+        <h2>Produktsuche & Quellen</h2>
+        <p class="hint">Hier erfasst du neue Produktideen. Die bestehende CJ-Suche, eBay-Suche, CSV-/Google-Sheets-Import und API-Checks bleiben im Bereich Einstellungen / API Status erhalten.</p>
+        <div class="quick-actions">
+          <button class="secondary" type="button" onclick="showTab('productListTab')">Zur Produktliste</button>
+          <button class="secondary" type="button" onclick="showTab('productAnalysisTab')">Zur Produktanalyse</button>
+          <button class="secondary" type="button" onclick="showTab('settingsTab')">Zu Import / API</button>
+        </div>
+        <div class="output-box">
+          <p>Produktideen werden wie bisher lokal im Browser gespeichert. Du kannst hier neue Kandidaten prüfen und danach direkt in die Liste wechseln.</p>
+        </div>
+        <div class="sources-grid" style="margin-top:14px">
+          <div class="card">
+            <h2>1. 📦 CJ Produktdaten suchen</h2>
+            <p class="hint">Nutze CJ als Datenquelle für Produktname, CJ-ID, Preis und Lieferanteninfos. Übernommen wird erst, wenn du bewusst klickst.</p>
+            <label>CJ Suchbegriff</label>
+            <input id="cjSearchKeyword" placeholder="z. B. LED Streifen RGB">
+            <button id="cjSearchBtn" class="secondary full" type="button">CJ Produktdaten suchen</button>
+            <div id="cjSearchResult" class="output-box"><p>Noch keine CJ Suche.</p></div>
           </div>
-          <div class="micro-note">Nur Prüfung / Vorschau - keine Live-Aktion.</div>
-          <div class="sources-grid" style="margin-top:14px">
-          <div class="sourcing-card">
-            <h2>1. 🛒 eBay</h2>
-            <p class="hint">Hier startest du mit dem schnellen eBay-Einstieg: direkt suchen oder die Marktdaten prüfen, bevor du ein Produkt übernimmst.</p>
+
+          <div class="card">
+            <h2>2. 🔎 eBay Marktdaten prüfen</h2>
+            <p class="hint">Vergleiche Preise und Listings über dein Backend. Das hilft später bei Titel, Preis und Produktentscheidung.</p>
             <label>eBay Suchbegriff</label>
             <input id="ebayCompetitionKeyword" placeholder="z. B. LED Streifen RGB 5m">
-            <button id="ebayCompetitionBtn" class="secondary full" type="button">eBay Marktdaten prüfen</button>
+            <button id="ebayCompetitionBtn" class="secondary full" type="button">eBay Konkurrenz prüfen</button>
             <div id="ebayCompetitionResult" class="output-box"><p>Noch keine eBay Konkurrenzprüfung.</p></div>
 
             <details class="form-accordion" style="margin-top:14px">
@@ -763,95 +741,22 @@
               </div>
             </details>
           </div>
-
-          <div class="sourcing-card">
-            <h2>2. 🌍 Weitere Anbieter</h2>
-            <p class="hint">Hier wählst du andere Quellen, wenn das Produkt nicht aus eBay kommt.</p>
-            <label>Quelle wählen</label>
-            <select id="sourceProvider">
-              <option value="cj">CJdropshipping</option>
-              <option value="aliexpress">AliExpress</option>
-              <option value="dropxl">dropxl.com</option>
-              <option value="bigbuy">Bigbuy.com</option>
-              <option value="amazon">Amazon.de</option>
-              <option value="temu">Temu</option>
-              <option value="alibaba">Alibaba</option>
-              <option value="other">Sonstige</option>
-            </select>
-            <label>Produktlink / Quelle</label>
-            <input id="sourceLink" placeholder="Direkten Link zur Quelle einfügen">
-            <div class="row">
-              <button class="secondary full" type="button" id="sourceImportBtn">Quelle übernehmen</button>
-              <button class="secondary full" type="button" id="addSupplierBtn">+ Supplier hinzufügen</button>
-            </div>
-            <div id="supplierUseNotice" class="output-box" style="margin-top:12px"><p>Diese Anbieter sind getrennt von eBay gedacht und ergänzen die manuelle Beschaffung.</p></div>
-            <div class="briefing-section" style="margin-top:14px">
-              <h3>Produktlink analysieren</h3>
-              <label>Produktlink</label>
-              <input id="analysisLinkInput" placeholder="https://...">
-              <label>Optionale Produktnotiz</label>
-              <textarea id="analysisNoteInput" placeholder="z. B. interessante Nische, fragliche Marge, Versandthemen"></textarea>
-              <button class="secondary full" type="button" id="analyzeSourceBtn">Artikel analysieren</button>
-              <div id="sourceAnalysisResult" class="empty" style="margin-top:12px">Noch keine Analyse.</div>
-            </div>
-            <div id="mySuppliersBlock" class="briefing-section" style="margin-top:14px">
-              <h3>Meine Supplier</h3>
-              <div id="mySuppliersList" class="output-box"><p>Noch keine eigenen Supplier gespeichert.</p></div>
-            </div>
+        </div>
+        <div class="briefing-section" style="margin-top:14px">
+          <h3>KI-Produktsuche optional</h3>
+          <label>Suchbegriff / Idee</label>
+          <input id="aiSearchQuery" placeholder="z. B. LED Streifen, Küchenhelfer, Organizer">
+          <div class="row">
+            <button class="secondary full" id="aiSearchImproveBtn" type="button">Suche mit KI verbessern</button>
+            <button class="secondary full" id="aiSearchAnalyzeBtn" type="button">Produktidee prüfen</button>
           </div>
-
-          <div class="sourcing-card">
-            <h2>3. ✨ Manuelle Produktsuche</h2>
-            <p class="hint">Nutze diesen Bereich für Produktideen, die noch keinen festen Supplier haben.</p>
-            <label>Manuelle Produktidee</label>
-            <input id="manualProductIdea" placeholder="z. B. LED Streifen RGB 5m">
-            <label>Produktlink / Notiz</label>
-            <input id="manualProductLink" placeholder="Link oder Quelle manuell eintragen">
-            <button class="secondary full" type="button" id="manualSourceBtn">Manuelle Suche übernehmen</button>
-            <div class="output-box"><p>Manuelle Suche ist als Einstieg gedacht. Du kannst danach prüfen, ergänzen oder die Idee in die Liste übernehmen.</p></div>
-          </div>
-        </section>
-      </div>
+          <button class="secondary full" id="aiSearchBillingBtn" type="button" style="margin-top:10px">KI-Kostenwarnung</button>
+          <p class="hint" style="margin-top:8px;margin-bottom:0">Die KI kann Suchbegriffe, Synonyme, Chancen und Risiken ergänzen, bevor du ein Produkt speicherst.</p>
+        </div>
+        <div id="aiSearchResult" class="empty" style="margin-top:12px">Noch keine KI-Produktsuche.</div>
+      </section>
     </section>
   </section>
-
-  <div id="supplierModal" class="hidden modal-backdrop">
-    <div class="card modal-panel">
-      <h2>Supplier hinzufügen / verwalten</h2>
-      <p class="hint">Eigene Supplier werden lokal gespeichert und ergänzen die Standardanbieter.</p>
-      <input type="hidden" id="supplierEditId">
-      <div class="row">
-        <div><label>Supplier-Name</label><input id="supplierNameInput" placeholder="z. B. Mein Großhändler"></div>
-        <div><label>Website / Shop-Link</label><input id="supplierWebsiteInput" placeholder="https://..."></div>
-      </div>
-      <div class="row">
-        <div><label>Supplier-Typ</label><select id="supplierTypeInput"><option>Dropshipping</option><option>EU-B2B-Supplier</option><option>Marktplatz</option><option>Großhandel</option><option>Retail</option><option>Sonstige</option></select></div>
-        <div><label>Land / Region</label><input id="supplierRegionInput" placeholder="z. B. DE, EU, Global"></div>
-      </div>
-      <div class="row">
-        <div><label>Kategorien</label><input id="supplierCategoriesInput" placeholder="z. B. Home & Garden, Elektronik"></div>
-        <div><label>Durchschnittliche Lieferzeit</label><input id="supplierDeliveryInput" placeholder="z. B. 3-7 Tage"></div>
-      </div>
-      <div class="row">
-        <div><label>Versandkosten / Versandmodell</label><input id="supplierShippingInput" placeholder="z. B. pauschal, gratis, variabel"></div>
-        <div><label>Risiko-Level</label><select id="supplierRiskInput"><option>Niedrig</option><option>Mittel</option><option>Hoch</option><option>Unbekannt</option></select></div>
-      </div>
-      <div class="row">
-        <div><label>Dropshipping geeignet</label><select id="supplierDropshippingInput"><option>Ja</option><option>Nein</option><option>Unbekannt</option></select></div>
-        <div><label>API vorhanden</label><select id="supplierApiInput"><option>Ja</option><option>Nein</option><option>Unbekannt</option></select></div>
-      </div>
-      <div class="row">
-        <div><label>Status</label><select id="supplierStatusInput"><option>Aktiv</option><option>Prüfen</option><option>Deaktiviert</option></select></div>
-        <div></div>
-      </div>
-      <label>Notizen</label>
-      <textarea id="supplierNotesInput" placeholder="Notizen zum Supplier"></textarea>
-      <div class="row">
-        <button class="secondary full" type="button" id="saveSupplierBtn">Supplier speichern</button>
-        <button class="secondary full" type="button" id="closeSupplierModalBtn">Schließen</button>
-      </div>
-    </div>
-  </div>
 
   <section id="productListTab" class="tab">
     <div class="dashboard">
@@ -1049,15 +954,6 @@
       <div class="row">
         <div><label>Zeitraum</label><select id="ebayOrdersRangeOrders"><option value="1">letzte 1 Tag</option><option value="3" selected>letzte 3 Tage</option><option value="7">letzte 7 Tage</option><option value="14">letzte 14 Tage</option><option value="30">letzte 30 Tage</option><option value="90">letzte 90 Tage</option></select></div>
         <div><label>Status</label><select id="ebayOrdersStatusOrders"><option value="all">Alle</option><option value="NOT_STARTED">Nicht versendet</option><option value="IN_PROGRESS">In Bearbeitung</option><option value="FULFILLED">Versendet/erfüllt</option></select></div>
-      </div>
-      <div class="permission-setting-card" style="margin-bottom:13px">
-        <h4>Auto-Import Voraussetzungen</h4>
-        <label class="agent-switch">
-          <input type="checkbox" id="ebayOrdersAutoImportOnce">
-          <span class="agent-switch-track"></span>
-          <span>Einmaligen Auto-Import vorbereiten</span>
-        </label>
-        <p class="hint" style="margin:0">Importiert nur nach Klick und nur, wenn der Bestellworkflow aktiv ist. Danach wird die Option wieder zurückgesetzt.</p>
       </div>
       <div class="row">
         <button id="ebayOrdersPreviewBtnOrders" class="secondary full" type="button">eBay Bestellungen abrufen</button>
@@ -2150,7 +2046,6 @@ let returns = loadStoredArray("elyonReturns");
 let shopifyReturns = loadStoredArray("elyonShopifyReturns");
 let sales = loadStoredArray("elyonSales");
 let suppliers = loadStoredArray("elyonSuppliers");
-const CUSTOM_SUPPLIERS_KEY = 'elyon_custom_suppliers';
 let runningCosts = loadStoredArray("elyonCosts");
 let editingProductId = null;
 let integrationSettings = JSON.parse(localStorage.getItem('elyonIntegrations') || '{}');
@@ -2189,321 +2084,12 @@ const defaultSettings = {
   start: 'dashboardTab'
 };
 let appSettings = { ...defaultSettings, ...JSON.parse(localStorage.getItem('elyonSettings') || '{}') };
-const STANDARD_SUPPLIERS = [
-  { key:'cj', name:'CJdropshipping', domain:'cjdropshipping.com', type:'Dropshipping', region:'Global', risk:'Mittel', delivery:'7-20 Tage', shipping:'Variabel', dropshipping:'Ja', api:'Ja', notes:'Lieferzeit, Produktqualität und Tracking prüfen.', status:'Aktiv' },
-  { key:'aliexpress', name:'AliExpress', domain:'aliexpress.com', type:'Marktplatz', region:'Global', risk:'Hoch', delivery:'10-30 Tage', shipping:'Variabel', dropshipping:'Ja', api:'Unbekannt', notes:'Lieferzeit, Qualität, Retouren und eBay-Eignung kritisch prüfen.', status:'Aktiv' },
-  { key:'bigbuy', name:'BigBuy', domain:'bigbuy.eu', type:'EU-B2B-Supplier', region:'EU', risk:'Mittel', delivery:'2-7 Tage', shipping:'Variabel', dropshipping:'Ja', api:'Ja', notes:'Versandkosten, Marge und Retouren prüfen.', status:'Aktiv' },
-  { key:'dropxl', name:'dropxl.com', domain:'dropxl.com', type:'Supplier / Home & Garden', region:'EU', risk:'Mittel', delivery:'2-7 Tage', shipping:'Variabel', dropshipping:'Ja', api:'Unbekannt', notes:'Retouren, Sperrgut, Versandkosten und Lieferzeit prüfen.', status:'Aktiv' },
-  { key:'vidaxl', name:'vidaXL', domain:'vidaxl.de', type:'Supplier / Home & Garden', region:'EU', risk:'Mittel', delivery:'2-7 Tage', shipping:'Variabel', dropshipping:'Unbekannt', api:'Unbekannt', notes:'Möbel und große Artikel können hohe Retouren- und Versandrisiken haben.', status:'Aktiv' },
-  { key:'amazon', name:'Amazon.de', domain:'amazon.de', type:'Retail', region:'DE', risk:'Hoch', delivery:'1-3 Tage', shipping:'Variabel', dropshipping:'Nein', api:'Unbekannt', notes:'Retail-Arbitrage, Rechnungen, Verfügbarkeit und eBay-Risiko kritisch prüfen.', status:'Aktiv' },
-  { key:'temu', name:'Temu', domain:'temu.com', type:'Marktplatz', region:'Global', risk:'Hoch', delivery:'7-20 Tage', shipping:'Variabel', dropshipping:'Ja', api:'Unbekannt', notes:'Für eBay-Dropshipping sehr kritisch prüfen.', status:'Aktiv' },
-  { key:'alibaba', name:'Alibaba', domain:'alibaba.com', type:'Großhandel', region:'Global', risk:'Mittel/Hoch', delivery:'7-30 Tage', shipping:'Variabel', dropshipping:'Unbekannt', api:'Unbekannt', notes:'Eher für größere Mengen und spätere Phase geeignet.', status:'Aktiv' },
-];
 const listingItems = ['Titel enthält Hauptkeyword','Produktbilder vorhanden','Beschreibung verständlich','Preis geprüft','Versandzeit realistisch','Rücknahmebedingungen klar','LUCID/Verpackung bedacht','WEEE/Batt geprüft, falls relevant','Markenrechte geprüft','Gewinn nach Gebühren positiv'];
 const $ = id => document.getElementById(resolveTabId(id)) || document.getElementById(id);
 const safe = (id, fn) => { const el = $(id); if (el) fn(el); };
 const n = id => { const el = $(id); return el ? (parseFloat(String(el.value || '0').replace(',', '.')) || 0) : 0; };
 function euro(v){ return (Number(v)||0).toLocaleString('de-DE',{style:'currency',currency:'EUR'}); }
 function setHTML(id, html){ safe(id, el => { el.innerHTML = html; }); }
-function normalizeUrl(value){
-  const text = String(value || '').trim();
-  if(!text) return '';
-  try{
-    const withProto = /^https?:\/\//i.test(text) ? text : `https://${text}`;
-    return new URL(withProto).href;
-  }catch(err){
-    return '';
-  }
-}
-function loadCustomSuppliers(){
-  try{
-    const raw = localStorage.getItem(CUSTOM_SUPPLIERS_KEY);
-    const parsed = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? parsed.map(function(item){
-      return {
-        id: String(item.id || Date.now() + Math.random()).replace(/\s+/g,'-'),
-        name: String(item.name || '').trim(),
-        website: normalizeUrl(item.website || item.websiteUrl || item.link || ''),
-        type: String(item.type || 'Sonstige').trim(),
-        region: String(item.region || '').trim(),
-        categories: String(item.categories || '').trim(),
-        deliveryTime: String(item.deliveryTime || item.delivery || '').trim(),
-        shippingModel: String(item.shippingModel || item.shipping || '').trim(),
-        dropshippingSuitable: String(item.dropshippingSuitable || 'Unbekannt').trim(),
-        apiAvailable: String(item.apiAvailable || 'Unbekannt').trim(),
-        riskLevel: String(item.riskLevel || 'Unbekannt').trim(),
-        notes: String(item.notes || '').trim(),
-        status: String(item.status || 'Aktiv').trim(),
-      };
-    }).filter(function(item){ return item.name; }) : [];
-  }catch(err){
-    console.warn('Konnte custom suppliers nicht laden:', err);
-    return [];
-  }
-}
-function saveCustomSuppliers(list){
-  try{
-    localStorage.setItem(CUSTOM_SUPPLIERS_KEY, JSON.stringify(Array.isArray(list) ? list : []));
-  }catch(err){
-    console.warn('Konnte custom suppliers nicht speichern:', err);
-  }
-}
-let customSuppliers = loadCustomSuppliers();
-function getAllSuppliers(){
-  return STANDARD_SUPPLIERS.concat(customSuppliers.map(function(s){ return {...s, custom:true}; }));
-}
-function detectDomainFromUrl(url){
-  try{
-    return new URL(normalizeUrl(url)).hostname.replace(/^www\./i, '').toLowerCase();
-  }catch(err){
-    return '';
-  }
-}
-function detectSupplierFromUrl(url){
-  const domain = detectDomainFromUrl(url);
-  if(!domain) return { supplier:null, domain:'', source:'', match:'unknown' };
-  const lower = domain.toLowerCase();
-  const custom = customSuppliers.find(function(item){
-    const website = detectDomainFromUrl(item.website);
-    return website && (lower === website || lower.endsWith('.' + website) || website.endsWith('.' + lower));
-  });
-  if(custom) return { supplier:custom, domain:domain, source:custom.name, match:'custom' };
-  const standard = STANDARD_SUPPLIERS.find(function(item){
-    return lower === item.domain || lower.endsWith('.' + item.domain) || item.domain.endsWith('.' + lower);
-  });
-  return { supplier:standard || null, domain:domain, source:standard ? standard.name : 'Unbekannter Supplier', match:standard ? 'standard' : 'unknown' };
-}
-function getSupplierRiskProfile(name){
-  const key = String(name || '').trim().toLowerCase();
-  const found = getAllSuppliers().find(function(item){
-    return String(item.name || '').trim().toLowerCase() === key || String(item.key || '').trim().toLowerCase() === key;
-  });
-  return found || { name:'Unbekannt', type:'Unbekannt', risk:'Unbekannt', notes:'Supplier zuerst prüfen oder speichern.', status:'Prüfen' };
-}
-function escapeHtml(text){
-  return String(text || '').replace(/[&<>\"']/g, function(ch){
-    return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch] || ch);
-  });
-}
-function getCustomSuppliers(){
-  return Array.isArray(customSuppliers) ? customSuppliers.filter(function(item){ return item && item.name; }) : [];
-}
-function renderSupplierCards(){
-  const list = $('mySuppliersList');
-  if(!list) return;
-  const items = getCustomSuppliers();
-  if(!items.length){
-    list.innerHTML = '<p>Noch keine eigenen Supplier gespeichert.</p>';
-    return;
-  }
-  list.innerHTML = '<div class="products">' + items.map(function(item){
-    const risk = escapeHtml(item.riskLevel || 'Unbekannt');
-    return '<div class="product-card small-card">'
-      + '<div><div class="product-title">' + escapeHtml(item.name) + '</div>'
-      + '<div class="muted">' + escapeHtml(item.type || 'Sonstige') + ' · ' + escapeHtml(item.region || 'Unbekannt') + '</div>'
-      + '<div class="pill-row">'
-      + '<span class="pill">Risiko: ' + risk + '</span>'
-      + '<span class="pill">Lieferzeit: ' + escapeHtml(item.deliveryTime || '-') + '</span>'
-      + '<span class="pill">Status: ' + escapeHtml(item.status || 'Aktiv') + '</span>'
-      + '</div></div>'
-      + '<div class="actions">'
-      + '<button class="secondary" type="button" data-action="use" data-id="' + escapeHtml(item.id) + '">Als Quelle nutzen</button>'
-      + '<button class="secondary" type="button" data-action="edit" data-id="' + escapeHtml(item.id) + '">Bearbeiten</button>'
-      + '<button class="secondary" type="button" data-action="deactivate" data-id="' + escapeHtml(item.id) + '">Deaktivieren</button>'
-      + '</div></div>';
-  }).join('') + '</div>';
-}
-function handleSupplierCardsClick(event){
-  const btn = event.target && event.target.closest ? event.target.closest('button[data-action][data-id]') : null;
-  if(!btn) return;
-  const id = String(btn.dataset.id || '').trim();
-  const action = String(btn.dataset.action || '').trim();
-  const item = getCustomSuppliers().find(function(entry){ return String(entry.id) === id; });
-  if(!item) return;
-  if(action === 'use'){
-    safe('sourceProvider', function(el){ el.value = item.key || 'other'; });
-    safe('sourceLink', function(el){ el.value = item.website || ''; });
-    showToast('Supplier als Quelle uebernommen: ' + item.name);
-  }else if(action === 'edit'){
-    openSupplierModal(item);
-  }else if(action === 'deactivate'){
-    customSuppliers = getCustomSuppliers().map(function(entry){
-      return entry.id === id ? {...entry, status:'Deaktiviert'} : entry;
-    });
-    saveCustomSuppliers(customSuppliers);
-    renderSupplierCards();
-    showToast('Supplier deaktiviert: ' + item.name);
-  }
-}
-function openSupplierModal(record){
-  const modal = $('supplierModal');
-  if(!modal) return;
-  const item = record || {};
-  safe('supplierEditId', function(el){ el.value = item.id || ''; });
-  safe('supplierNameInput', function(el){ el.value = item.name || ''; });
-  safe('supplierWebsiteInput', function(el){ el.value = item.website || ''; });
-  safe('supplierTypeInput', function(el){ el.value = item.type || 'Dropshipping'; });
-  safe('supplierRegionInput', function(el){ el.value = item.region || ''; });
-  safe('supplierCategoriesInput', function(el){ el.value = item.categories || ''; });
-  safe('supplierDeliveryInput', function(el){ el.value = item.deliveryTime || ''; });
-  safe('supplierShippingInput', function(el){ el.value = item.shippingModel || ''; });
-  safe('supplierDropshippingInput', function(el){ el.value = item.dropshippingSuitable || 'Unbekannt'; });
-  safe('supplierApiInput', function(el){ el.value = item.apiAvailable || 'Unbekannt'; });
-  safe('supplierRiskInput', function(el){ el.value = item.riskLevel || 'Unbekannt'; });
-  safe('supplierNotesInput', function(el){ el.value = item.notes || ''; });
-  safe('supplierStatusInput', function(el){ el.value = item.status || 'Aktiv'; });
-  modal.classList.remove('hidden');
-}
-function closeSupplierModal(){
-  safe('supplierModal', function(el){ el.classList.add('hidden'); });
-}
-function saveSupplierFromModal(){
-  const id = String($('supplierEditId')?.value || '').trim();
-  const record = {
-    id: id || 'sup_' + Date.now(),
-    name: String($('supplierNameInput')?.value || '').trim(),
-    website: normalizeUrl($('supplierWebsiteInput')?.value || ''),
-    type: String($('supplierTypeInput')?.value || 'Sonstige').trim(),
-    region: String($('supplierRegionInput')?.value || '').trim(),
-    categories: String($('supplierCategoriesInput')?.value || '').trim(),
-    deliveryTime: String($('supplierDeliveryInput')?.value || '').trim(),
-    shippingModel: String($('supplierShippingInput')?.value || '').trim(),
-    dropshippingSuitable: String($('supplierDropshippingInput')?.value || 'Unbekannt').trim(),
-    apiAvailable: String($('supplierApiInput')?.value || 'Unbekannt').trim(),
-    riskLevel: String($('supplierRiskInput')?.value || 'Unbekannt').trim(),
-    notes: String($('supplierNotesInput')?.value || '').trim(),
-    status: String($('supplierStatusInput')?.value || 'Aktiv').trim(),
-  };
-  if(!record.name){
-    alert('Bitte einen Supplier-Namen eintragen.');
-    return;
-  }
-  const next = getCustomSuppliers().filter(function(item){ return item.id !== record.id; });
-  next.push(record);
-  customSuppliers = next;
-  saveCustomSuppliers(customSuppliers);
-  renderSupplierCards();
-  closeSupplierModal();
-}
-function getSupplierRiskBadge(risk){
-  const value = String(risk || '').toLowerCase();
-  if(value.includes('niedrig')) return { cls:'good', label:'Grün' };
-  if(value.includes('mittel')) return { cls:'warn', label:'Gelb' };
-  if(value.includes('hoch')) return { cls:'bad', label:'Rot' };
-  return { cls:'info', label:'Grau' };
-}
-function prepareAiSourcingPrompt(data){
-  return [
-    'Bewerte dieses Produkt fuer eBay-Dropshipping.',
-    '',
-    'Supplier: ' + (data.supplier || 'Unbekannt'),
-    'Produktlink: ' + (data.link || ''),
-    'Supplier-Typ: ' + (data.type || 'Unbekannt'),
-    'Risiko-Level: ' + (data.risk || 'Unbekannt'),
-    'Lieferzeit: ' + (data.delivery || 'Unbekannt'),
-    'Notizen: ' + (data.notes || ''),
-    '',
-    'Bitte pruefe:',
-    '- Marge',
-    '- Nachfrage',
-    '- Konkurrenz',
-    '- Lieferzeit',
-    '- Retourenrisiko',
-    '- Compliance-Risiko',
-    '- Listing-Eignung',
-    '- Empfehlung: Listen / Beobachten / Ablehnen',
-    '',
-    'Wichtig:',
-    'Nur Analyse und Empfehlung.',
-    'Keine Bestellung.',
-    'Kein eBay-Posting.',
-    'Keine Kundennachricht.',
-    'Keine Live-Aktion.'
-  ].join('\n');
-}
-function applyAnalysisToProductForm(data){
-  const missing = [];
-  if($('supplierId')) $('supplierId').value = data.supplier || $('supplierId').value || '';
-  if($('supplierLink') && data.link) $('supplierLink').value = data.link;
-  if($('notes') && data.notes){
-    const current = String($('notes').value || '').trim();
-    $('notes').value = current ? current + '\n' + data.notes : data.notes;
-  }
-  if($('productStatus')){
-    const nextStatus = data.statusHint || 'Recherche';
-    $('productStatus').value = nextStatus;
-  }else{
-    missing.push('productStatus');
-  }
-  if($('name') && data.productName && !$('name').value.trim()) $('name').value = data.productName;
-  if(missing.length) showToast('Einige Felder konnten nicht automatisch uebernommen werden.');
-}
-function showToast(message){
-  const box = $('supplierUseNotice');
-  if(box) box.innerHTML = '<p>' + escapeHtml(message) + '</p>';
-}
-function renderSourceAnalysis(result){
-  const box = $('sourceAnalysisResult');
-  if(!box) return;
-  box.innerHTML = result;
-}
-function analyzeSourceLink(){
-  const url = normalizeUrl($('analysisLinkInput')?.value || '');
-  const note = String($('analysisNoteInput')?.value || '').trim();
-  if(!url){
-    renderSourceAnalysis('<p>Bitte einen gueltigen Produktlink eingeben.</p>');
-    return;
-  }
-  const detected = detectSupplierFromUrl(url);
-  const recognized = detected.supplier || getSupplierRiskProfile(detected.source);
-  const supplierName = recognized.name || detected.source || 'Unbekannt';
-  const riskBadge = getSupplierRiskBadge(recognized.risk || recognized.riskLevel || 'Unbekannt');
-  const dataQuality = detected.match === 'unknown' ? 'Link erkannt, Supplier unbekannt' : 'Link erkannt';
-  const html = [
-    '<div class="score-top"><span class="status ' + riskBadge.cls + '">' + riskBadge.label + '</span><span class="score-number">Artikelanalyse</span></div>',
-    '<div class="dashboard" style="margin-top:14px">',
-    '<div class="metric"><small>Erkannter Supplier</small><strong>' + escapeHtml(supplierName) + '</strong></div>',
-    '<div class="metric"><small>Domain</small><strong>' + escapeHtml(detected.domain || '-') + '</strong></div>',
-    '<div class="metric"><small>Supplier-Typ</small><strong>' + escapeHtml(recognized.type || 'Unbekannt') + '</strong></div>',
-    '<div class="metric"><small>Supplier-Risiko</small><strong>' + escapeHtml(recognized.risk || 'Unbekannt') + '</strong></div>',
-    '</div>',
-    '<div class="output-box"><h3>Analysebericht</h3>',
-    '<p><strong>Linkstatus:</strong> ' + escapeHtml(url ? 'Gueltig' : 'Unbekannt') + '</p>',
-    '<p><strong>Datenqualitaet:</strong> ' + escapeHtml(dataQuality) + '</p>',
-    '<p><strong>Compliance-Hinweise:</strong> Vor dem Listen prüfen: Batterien, Elektronik, WEEE, CE, Marken, regulierte Produkte, Retouren, Lieferzeit.</p>',
-    '<p><strong>Marktdaten:</strong> offen</p>',
-    '<p><strong>Marge:</strong> offen</p>',
-    '<p><strong>Empfehlung:</strong> vorlaeufig pruefen</p>',
-    '<p><strong>Nächster Schritt:</strong> Produktmaske aktualisieren oder Supplier speichern.</p>',
-    '</div>',
-    '<div class="output-box"><h3>Hinweis</h3><p>' + escapeHtml(recognized.notes || 'Automatisches Auslesen ist fuer diese Quelle noch nicht verfuegbar. Bitte Produktdaten manuell ergaenzen oder spaeter API/Backend-Anbindung nutzen.') + '</p></div>',
-    '<div class="briefing-section" style="margin-top:12px">',
-    '<button class="secondary full" type="button" id="aiPrepBtn">KI-Einschätzung vorbereiten</button>',
-    '<button class="secondary full" type="button" id="applyAnalysisBtn" style="margin-top:10px">In Produktmaske übernehmen</button>',
-    '</div>'
-  ].join('');
-  renderSourceAnalysis(html);
-  safe('aiPrepBtn', function(el){ el.addEventListener('click', function(){
-    const prompt = prepareAiSourcingPrompt({
-      supplier: supplierName,
-      link: url,
-      type: recognized.type || 'Unbekannt',
-      risk: recognized.risk || 'Unbekannt',
-      delivery: recognized.deliveryTime || 'Unbekannt',
-      notes: note
-    });
-    renderSourceAnalysis('<div class="output-box"><h3>KI-Vorschau</h3><p>Nur Prüfung / Vorschau - keine Live-Aktion.</p><pre style="white-space:pre-wrap;overflow:auto">' + escapeHtml(prompt) + '</pre></div>');
-  }); });
-  safe('applyAnalysisBtn', function(el){ el.addEventListener('click', function(){
-    applyAnalysisToProductForm({
-      supplier: supplierName,
-      link: url,
-      notes: note + (note ? '\n' : '') + 'Supplier erkannt: ' + supplierName + ' (' + (recognized.type || 'Unbekannt') + ')',
-      statusHint: 'Recherche'
-    });
-    showToast('Analyse in die Produktmaske uebernommen.');
-  }); });
-}
 const TAB_ALIASES = {
   homeTab: 'dashboardTab',
   productsTab: 'productSearchTab',
@@ -3841,26 +3427,17 @@ async function previewEbayOrders(){
     syncEbayOrdersImportPanels();
   }
 }
-  function importPreviewedEbayOrders(){
-    if(!pendingEbayOrdersImport.length){ alert('Keine Bestellvorschau zum Importieren vorhanden.'); return; }
-    const autoImportOnce = !!(safe('ebayOrdersAutoImportOnce', el => el.checked));
-    const orderWorkflowActive = getOrderWorkflowSettings().enabled === true;
-    if (autoImportOnce && !orderWorkflowActive) {
-      alert('Einmaliger Auto-Import braucht einen aktiven Bestellworkflow.');
-      return;
-    }
-    sales = sales.concat(pendingEbayOrdersImport);
-    const count = pendingEbayOrdersImport.length;
-    runOrderWorkflowForSales(pendingEbayOrdersImport, 'eBay import');
-    pendingEbayOrdersImport = [];
-    saveSales();
-    render();
-    setHTML('ebayOrdersImportResult','<p>✅ '+count+' eBay Bestellung(en) in den Verkaufsassistenten importiert. Bitte Kosten, Gebühren, Rechnung und Versand prüfen.'+(autoImportOnce ? ' Der einmalige Auto-Import wurde danach wieder zurückgesetzt.' : '')+'</p>');
-    if (autoImportOnce) {
-      safe('ebayOrdersAutoImportOnce', el => { el.checked = false; });
-    }
-    syncEbayOrdersImportPanels();
-  }
+function importPreviewedEbayOrders(){
+  if(!pendingEbayOrdersImport.length){ alert('Keine Bestellvorschau zum Importieren vorhanden.'); return; }
+  sales = sales.concat(pendingEbayOrdersImport);
+  const count = pendingEbayOrdersImport.length;
+  runOrderWorkflowForSales(pendingEbayOrdersImport, 'eBay import');
+  pendingEbayOrdersImport = [];
+  saveSales();
+  render();
+  setHTML('ebayOrdersImportResult','<p>✅ '+count+' eBay Bestellung(en) in den Verkaufsassistenten importiert. Bitte Kosten, Gebühren, Rechnung und Versand prüfen.</p>');
+  syncEbayOrdersImportPanels();
+}
 function calcProduct(p){
   const buy=+p.buy||0, ship=+p.ship||0, sell=+p.sell||0;
   const feePercent = +p.fee || appSettings.fees || 0;
@@ -3930,21 +3507,6 @@ function clearProductForm(){
   editingProductId=null;
   safe('addProductBtn',el=>el.textContent='Produkt speichern & bewerten');
   safe('cancelEditProductBtn',el=>el.classList.add('hidden'));
-}
-function syncProductFormFromSource(sourceName, sourceLink, productName, extraNotes){
-  const provider = String(sourceName || '').trim();
-  const link = String(sourceLink || '').trim();
-  const name = String(productName || '').trim();
-  const notes = String(extraNotes || '').trim();
-  showTab('productSearchTab');
-  if(provider) safe('supplierId', el => { el.value = provider; });
-  if(link) safe('supplierLink', el => { el.value = link; });
-  if(name) safe('name', el => { if(!el.value.trim()) el.value = name; });
-  if(notes) safe('notes', el => { el.value = el.value ? `${el.value}\n${notes}` : notes; });
-  setTimeout(() => {
-    const target = $('productFormCard');
-    if(target) target.scrollIntoView({ behavior:'smooth', block:'start' });
-  }, 60);
 }
 function addProduct(){
   const formData=readProductForm();
@@ -8088,14 +7650,6 @@ function bindEvents(){
   bind('aiSearchImproveBtn','click',()=>startAiProductSearch('improve'));
   bind('aiSearchAnalyzeBtn','click',()=>startAiProductSearch('analyze'));
   bind('aiSearchBillingBtn','click',()=>openAiBillingWarning('product-search','improve'));
-  bind('manualSourceBtn','click',()=>syncProductFormFromSource('Manuell', $('manualProductLink')?.value || '', $('manualProductIdea')?.value || '', 'Manuelle Beschaffung übernommen.'));
-  bind('sourceImportBtn','click',()=>syncProductFormFromSource($('sourceProvider')?.value || '', $('sourceLink')?.value || '', '', 'Quelle aus Anbieterblock übernommen.'));
-  bind('addSupplierBtn','click',()=>openSupplierModal());
-  bind('saveSupplierBtn','click',saveSupplierFromModal);
-  bind('closeSupplierModalBtn','click',closeSupplierModal);
-  safe('supplierModal', el => el.addEventListener('click', function(event){ if(event.target === el) closeSupplierModal(); }));
-  safe('mySuppliersList', el => el.addEventListener('click', handleSupplierCardsClick));
-  bind('analyzeSourceBtn','click',analyzeSourceLink);
   bind('aiTitleBtn','click',()=>openAiBillingWarning({
     task:'title',
     prompt: buildAiTitlePrompt(),
@@ -8359,7 +7913,6 @@ document.addEventListener('DOMContentLoaded',()=>{
   resetMenusToLabNames();
   safe('toggleViewBtn',el=>el.textContent=productViewMode==='list'?'Kanban-Ansicht':'Listen-Ansicht');
   render();
-  renderSupplierCards();
   renderReturns();
   renderShopifyReturns();
   renderReturnsOverview();
@@ -8696,11 +8249,31 @@ document.addEventListener('DOMContentLoaded',()=>{
   ];
   const EXTENDED_AUTONOMY_FEATURE_DEFS = [
     {
+      id: 'auto-actions',
+      kind: 'feature',
+      icon: '⚙️',
+      title: 'Vollautomatische Aktionen',
+      description: 'Agenten können künftig Abläufe selbst vorbereiten und mit Freigabe ausführen, statt nur Hinweise zu geben.',
+      config: {
+        targetArea: 'ki-agents',
+        mode: 'manual',
+        threshold: 'medium',
+        autoStart: false,
+        prompt: 'Prüfe die passende KI-Aufgabe auf Risiken, Zielbereich und sinnvolle nächste Schritte.',
+        note: 'Mit Bestätigung freigeben',
+      },
+      promptTemplates: [
+        'Prüfe die passende KI-Aufgabe auf Risiken, Zielbereich und sinnvolle nächste Schritte.',
+        'Formuliere eine sichere Ausführungsvorlage mit Prüfschritten und Freigabepunkt.',
+        'Erstelle eine kompakte Ablaufempfehlung für den nächsten autonomen Schritt.',
+      ],
+    },
+    {
       id: 'auto-orders',
       kind: 'feature',
       icon: '🔒',
-      title: 'Bestellworkflow aktivieren',
-      description: 'Öffnet den Bestellworkflow für vorbereitete Bestellungen und schiebt sie in die Freigabe.',
+      title: 'Automatische Bestellungen',
+      description: 'Bestellungen werden später aus gespeicherten Bestellplänen vorbereitet und erst nach Freigabe ausgelöst.',
       config: {
         targetArea: 'virtual-ma',
         mode: 'manual',
@@ -8719,8 +8292,8 @@ document.addEventListener('DOMContentLoaded',()=>{
       id: 'auto-messages',
       kind: 'feature',
       icon: '💬',
-      title: 'Kundennachrichten vorbereiten',
-      description: 'Erzeugt freigabepflichtige Antwortentwürfe für Kundenanfragen und Retouren.',
+      title: 'Automatische Kundennachrichten',
+      description: 'Antworten an Kunden können vorbereitet und später automatisch versendet werden.',
       config: {
         targetArea: 'virtual-ma',
         mode: 'manual',
@@ -8739,8 +8312,8 @@ document.addEventListener('DOMContentLoaded',()=>{
       id: 'auto-posting',
       kind: 'feature',
       icon: '🛍️',
-      title: 'eBay-Posting vorbereiten',
-      description: 'Bereitet Listings für den Veröffentlichungsfluss vor und übergibt sie an die Prüflogik.',
+      title: 'Autonomes eBay-Posting',
+      description: 'Produktdaten werden automatisch für eBay vorbereitet und in den Veröffentlichungsfluss übergeben.',
       config: {
         targetArea: 'ai-task-center',
         mode: 'auto',
@@ -8762,7 +8335,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       kind: 'role',
       icon: '🧑‍💼',
       title: 'Freigabe-Operator',
-      description: 'Entscheidet, welche vorbereiteten Schritte in die aktive Freigabe wechseln.',
+      description: 'Entscheidet, welche geschützten Schritte in die aktive Freigabe wechseln.',
       config: {
         responsibleArea: 'ai-task-center',
         scope: 'release',
@@ -8804,7 +8377,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       kind: 'role',
       icon: '🧭',
       title: 'Workflow-Orchestrator',
-      description: 'Koordiniert freigegebene Schritte und hält die Reihenfolge sauber.',
+      description: 'Koordiniert freigegebene Autonomie-Schritte und hält die Reihenfolge sauber.',
       config: {
         responsibleArea: 'all',
         scope: 'manage',
@@ -8825,7 +8398,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       kind: 'role',
       icon: '🤝',
       title: 'Support-Supervisor',
-      description: 'Steuert freigeschaltete Kommunikations- und Eskalationsrollen.',
+      description: 'Steuert wieder freigeschaltete Kommunikations- und Eskalationsrollen.',
       config: {
         responsibleArea: 'virtual-ma',
         scope: 'review',
@@ -8844,6 +8417,36 @@ document.addEventListener('DOMContentLoaded',()=>{
   ];
   const EXTENDED_AUTONOMY_SETTING_DEFS = {
     feature: {
+      'auto-actions': {
+        subtitle: 'Steuert, wie aggressiv diese Automatisierung arbeiten darf.',
+        fields: [
+          { key: 'targetArea', kind: 'select', label: 'Verknüpft mit', options: [
+            { value: 'ai-task-center', label: 'AI Task Center' },
+            { value: 'ki-agents', label: 'KI-Agenten' },
+            { value: 'virtual-ma', label: 'Virtuelle MA' },
+            { value: 'all', label: 'Alle Bereiche' },
+          ] },
+          { key: 'mode', kind: 'select', label: 'Ausführungsmodus', options: [
+            { value: 'manual', label: 'Mit Bestätigung' },
+            { value: 'assist', label: 'Unterstützend' },
+            { value: 'auto', label: 'Automatisch' },
+          ] },
+          { key: 'approvalRule', kind: 'select', label: 'Freigabe-Policy', options: [
+            { value: 'manual_review', label: 'Manuell prüfen' },
+            { value: 'guided', label: 'Geführt freigeben' },
+            { value: 'automatic', label: 'Automatisch' },
+          ]},
+          { key: 'threshold', kind: 'select', label: 'Auslöser-Schwelle', options: [
+            { value: 'low', label: 'Niedrig' },
+            { value: 'medium', label: 'Mittel' },
+            { value: 'high', label: 'Hoch' },
+          ] },
+          { key: 'autoStart', kind: 'checkbox', label: 'Autostart erlauben' },
+          { key: 'requireSafetyCheck', kind: 'checkbox', label: 'Sicherheitscheck erzwingen' },
+          { key: 'prompt', kind: 'textarea', label: 'Prompt', placeholder: 'Beschreibe, was diese Funktion prüfen oder vorbereiten soll.' },
+          { key: 'note', kind: 'textarea', label: 'Notiz' },
+        ],
+      },
       'auto-orders': {
         subtitle: 'Bestellfluss und Risikogrenzen für Supplier-Aktionen.',
         fields: [
@@ -8858,11 +8461,6 @@ document.addEventListener('DOMContentLoaded',()=>{
             { value: 'assist', label: 'Unterstützend' },
             { value: 'auto', label: 'Automatisch' },
           ] },
-          { key: 'automationTier', kind: 'select', label: 'Automationsstufe', options: [
-            { value: 'preview', label: 'Nur vorbereitend' },
-            { value: 'semi', label: 'Halbautomatisch' },
-            { value: 'full', label: 'Vollautomatisch' },
-          ]},
           { key: 'supplierGuard', kind: 'select', label: 'Supplier-Prüfung', options: [
             { value: 'strict', label: 'Streng' },
             { value: 'normal', label: 'Normal' },
@@ -8893,11 +8491,6 @@ document.addEventListener('DOMContentLoaded',()=>{
             { value: 'assist', label: 'Unterstützend' },
             { value: 'auto', label: 'Automatisch' },
           ] },
-          { key: 'automationTier', kind: 'select', label: 'Automationsstufe', options: [
-            { value: 'preview', label: 'Nur vorbereitend' },
-            { value: 'semi', label: 'Halbautomatisch' },
-            { value: 'full', label: 'Vollautomatisch' },
-          ]},
           { key: 'tone', kind: 'select', label: 'Tonfall', options: [
             { value: 'friendly', label: 'Freundlich' },
             { value: 'neutral', label: 'Neutral' },
@@ -8928,11 +8521,6 @@ document.addEventListener('DOMContentLoaded',()=>{
             { value: 'assist', label: 'Unterstützend' },
             { value: 'auto', label: 'Automatisch' },
           ] },
-          { key: 'automationTier', kind: 'select', label: 'Automationsstufe', options: [
-            { value: 'preview', label: 'Nur vorbereitend' },
-            { value: 'semi', label: 'Halbautomatisch' },
-            { value: 'full', label: 'Vollautomatisch' },
-          ]},
           { key: 'publishGate', kind: 'select', label: 'Veröffentlichungs-Gate', options: [
             { value: 'manual', label: 'Nur manuell' },
             { value: 'score_80', label: 'Ab Score 80' },
@@ -10507,13 +10095,13 @@ document.addEventListener('DOMContentLoaded',()=>{
     const featureLinks = (state.extendedAutonomyFeatures || [])
       .filter((item) => {
         const target = item.config && item.config.targetArea;
-        return item.status === 'active' && (target === area || target === 'all');
+        return target === area || target === 'all';
       })
       .map((item) => item.title);
     const roleLinks = (state.extendedAutonomyRoles || [])
       .filter((item) => {
         const target = item.config && item.config.responsibleArea;
-        return item.status === 'active' && (target === area || target === 'all');
+        return target === area || target === 'all';
       })
       .map((item) => item.title);
     return {
@@ -10590,92 +10178,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     render();
     return true;
   };
-  const getExtendedAutonomyTaskType = (type, item) => {
-    if (type === 'role') {
-      const scope = item && item.config ? item.config.scope : '';
-      if (scope === 'manage') return 'operations_check';
-      if (scope === 'release') return 'risk_audit';
-      return 'risk_audit';
-    }
-    const id = item && item.id ? item.id : '';
-    if (id === 'auto-orders') return 'supplier_check';
-    if (id === 'auto-messages') return 'customer_reply_draft';
-    if (id === 'auto-posting') return 'listing_review';
-    return 'operations_check';
-  };
-  const syncExtendedAutonomyTask = (type, item) => {
-    if (!item || item.status !== 'active') return null;
-    const taskId = `extended-autonomy-${type}-${item.id}`;
-    const config = item.config || {};
-    const title = `${item.title} vorbereiten`;
-    const description = sanitizeTaskText(
-      config.prompt || item.description || 'Erweiterte Autonomie wurde freigeschaltet und ist nun ausführbar vorbereitet.',
-      '',
-      500,
-    );
-    const record = upsertAiTaskRecord({
-      id: taskId,
-      title,
-      description,
-      agentId: type === 'role' ? 'soul-operations' : 'soul-seo',
-      agentType: 'extended-autonomy',
-      type: getExtendedAutonomyTaskType(type, item),
-      status: 'queued',
-      priority: config.priority || config.threshold || 'normal',
-      input: {
-        source: 'extended-autonomy',
-        autonomyType: type,
-        autonomyId: item.id,
-        title: item.title,
-        config,
-      },
-      result: '',
-      error: '',
-      logs: [],
-      createdAt: nowIso(),
-      updatedAt: nowIso(),
-      startedAt: '',
-      finishedAt: '',
-    });
-    if (type === 'feature' && item.id === 'auto-orders') {
-      const orders = getOpenWorkflowSales();
-      if (Array.isArray(orders) && orders.length) {
-        runOrderWorkflowForSales(orders, 'erweiterte-autonomie');
-      }
-      createApprovalQueueEntryFromTask(taskId);
-    }
-    if (type === 'feature' && item.id === 'auto-messages') {
-      createApprovalQueueEntryFromTask(taskId);
-    }
-    if (type === 'feature' && item.id === 'auto-posting') {
-      createTaskCenterSuggestionFromTask(taskId);
-      createApprovalQueueEntryFromTask(taskId);
-    }
-    if (type === 'role' && item.id === 'release-operator') {
-      createApprovalQueueEntryFromTask(taskId);
-      createTaskCenterSuggestionFromTask(taskId);
-    }
-    return record;
-  };
-  const syncExtendedAutonomyTasks = () => {
-    const features = Array.isArray(state.extendedAutonomyFeatures) ? state.extendedAutonomyFeatures : [];
-    const roles = Array.isArray(state.extendedAutonomyRoles) ? state.extendedAutonomyRoles : [];
-    [...features.map((item) => ['feature', item]), ...roles.map((item) => ['role', item])].forEach(([type, item]) => {
-      syncExtendedAutonomyTask(type, item);
-    });
-  };
-  const removeExtendedAutonomyTask = (type, itemId) => {
-    const taskId = `extended-autonomy-${type}-${itemId}`;
-    const tasks = Array.isArray(state.aiTasks) ? state.aiTasks.slice() : [];
-    const nextTasks = tasks.filter((task) => task && task.id !== taskId);
-    if (nextTasks.length === tasks.length) return false;
-    state.aiTasks = nextTasks;
-    persistAiCollections();
-    saveState();
-    render();
-    return true;
-  };
-  const handleFutureButtonAction = (event, kind, id, action) => {
+   const handleFutureButtonAction = (event, kind, id, action) => {
      if (event && typeof event.preventDefault === 'function') event.preventDefault();
      if (event && typeof event.stopPropagation === 'function') event.stopPropagation();
      if (action === 'settings') {
@@ -11139,12 +10642,12 @@ document.addEventListener('DOMContentLoaded',()=>{
     all: 'Alle Bereiche',
   };
   const AGENT_AUTONOMY_LINKS = {
-    'soul-scout': { features: ['auto-posting'], roles: ['risk-analyst', 'workflow-orchestrator'] },
+    'soul-scout': { features: ['auto-actions', 'auto-posting'], roles: ['risk-analyst', 'workflow-orchestrator'] },
     'soul-seo': { features: ['auto-posting', 'auto-messages'], roles: ['workflow-orchestrator', 'release-operator'] },
-    'soul-guard': { features: [], roles: ['risk-analyst', 'release-operator'] },
-    'soul-finance': { features: ['auto-orders'], roles: ['release-operator', 'workflow-orchestrator'] },
+    'soul-guard': { features: ['auto-actions'], roles: ['risk-analyst', 'release-operator'] },
+    'soul-finance': { features: ['auto-actions', 'auto-orders'], roles: ['release-operator', 'workflow-orchestrator'] },
     'soul-support': { features: ['auto-messages'], roles: ['support-supervisor', 'workflow-orchestrator'] },
-    'soul-operations': { features: ['auto-orders', 'auto-messages', 'auto-posting'], roles: ['workflow-orchestrator', 'release-operator'] },
+    'soul-operations': { features: ['auto-actions', 'auto-orders', 'auto-messages', 'auto-posting'], roles: ['workflow-orchestrator', 'release-operator'] },
   };
   const getAutonomyItemTitle = (type, id) => {
     const source = type === 'role' ? state.extendedAutonomyRoles : state.extendedAutonomyFeatures;
@@ -11155,14 +10658,8 @@ document.addEventListener('DOMContentLoaded',()=>{
   const getAgentAutonomyLinks = (agentId) => {
     const linkDef = AGENT_AUTONOMY_LINKS[agentId] || { features: [], roles: [] };
     return {
-      features: linkDef.features
-        .map((id) => (state.extendedAutonomyFeatures || []).find((item) => item.id === id && item.status === 'active'))
-        .filter(Boolean)
-        .map((item) => item.title),
-      roles: linkDef.roles
-        .map((id) => (state.extendedAutonomyRoles || []).find((item) => item.id === id && item.status === 'active'))
-        .filter(Boolean)
-        .map((item) => item.title),
+      features: linkDef.features.map((id) => getAutonomyItemTitle('feature', id)),
+      roles: linkDef.roles.map((id) => getAutonomyItemTitle('role', id)),
     };
   };
   const getAreaAutonomyCounts = (area) => {
@@ -11471,8 +10968,6 @@ document.addEventListener('DOMContentLoaded',()=>{
   const createApprovalQueueEntryFromTask = (taskId) => {
     const task = getTaskById(taskId);
     if (!task) return null;
-    const existingEntry = getApprovalQueue().find((entry) => entry && entry.payload && entry.payload.sourceTaskId === task.id);
-    if (existingEntry) return existingEntry;
     const label = String(task.actionLabel || task.title || '').toLowerCase();
     const text = [task.title, task.description, task.category, task.agent, task.actionLabel].join(' ').toLowerCase();
     let entry;
@@ -11552,10 +11047,6 @@ document.addEventListener('DOMContentLoaded',()=>{
   const createTaskCenterSuggestionFromTask = (taskId) => {
     const task = getTaskById(taskId);
     if (!task) return null;
-    const existingTask = Array.isArray(state.aiTasks)
-      ? state.aiTasks.find((item) => item && item.source === 'agent' && item.input && item.input.sourceTaskId === task.id)
-      : null;
-    if (existingTask) return existingTask;
     const tasks = Array.isArray(state.aiTasks) ? state.aiTasks.slice() : [];
     const normalized = normalizeAiTask({
       id: createTaskId(),
@@ -12245,7 +11736,6 @@ document.addEventListener('DOMContentLoaded',()=>{
     const badge = getBadgeMeta(agent);
     const usagePercent = getUsagePercent(agent);
     const activityItems = getActivityLogItems(agent, def);
-    const autonomyLinks = getAgentAutonomyLinks(def.id);
     return `
       <details class="virtual-agent-card virtual-agent-disclosure virtual-agent-accent-${escapeHtml(def.accent || 'scout')}" data-agent-id="${def.id}" ${state.openCards && state.openCards[def.id] ? 'open' : ''}>
         <summary class="virtual-agent-summary">
@@ -12363,14 +11853,6 @@ document.addEventListener('DOMContentLoaded',()=>{
             </div>
           </div>
 
-          <div style="margin-top:14px">
-            <label>Aktive Autonomie-Verknüpfungen</label>
-            <div class="virtual-agent-connections" style="margin-top:8px">
-              ${autonomyLinks.features.length ? autonomyLinks.features.map((item) => `<span class="pill">${escapeHtml(item)}</span>`).join('') : '<span class="pill">Keine aktiven Funktionen</span>'}
-              ${autonomyLinks.roles.length ? autonomyLinks.roles.map((item) => `<span class="pill">${escapeHtml(item)}</span>`).join('') : ''}
-            </div>
-          </div>
-
           <div class="virtual-agent-footer">
             <button type="button" class="secondary" data-agent-action="test-agent" data-agent-id="${def.id}">Agent testen</button>
           </div>
@@ -12433,9 +11915,6 @@ document.addEventListener('DOMContentLoaded',()=>{
     const items = AGENT_DEFS.filter((def) => def.group === groupKey);
     const isActive = activePanel === panelId;
     const areaPrompt = getGroupPromptValue(groupKey);
-    const areaAutonomy = getAreaAutonomyCounts(groupKey);
-    const activeFeatureNames = areaAutonomy.features.filter((item) => item.status === 'active').map((item) => item.title);
-    const activeRoleNames = areaAutonomy.roles.filter((item) => item.status === 'active').map((item) => item.title);
     return `
       <div class="virtual-agent-card virtual-agents-panel ${isActive ? 'active' : ''}" data-panel="${panelId}">
         <div class="virtual-agent-head">
@@ -12461,14 +11940,6 @@ document.addEventListener('DOMContentLoaded',()=>{
               data-agent-action="open-group-prompt-modal"
               data-group-key="${escapeHtml(groupKey)}"
             >Bereichs-Prompt bearbeiten</button>
-          </div>
-        </div>
-        <div class="settings-section" style="margin-top:14px">
-          <h4>Aktive Autonomie im Menü</h4>
-          <p class="hint">Nur freigeschaltete Funktionen und Rollen werden hier angezeigt. Gesperrte Einträge verschwinden wieder aus den Menüs.</p>
-          <div class="virtual-agent-connections" style="margin-top:8px">
-            ${activeFeatureNames.length ? activeFeatureNames.map((item) => `<span class="pill">${escapeHtml(item)}</span>`).join('') : '<span class="pill">Keine aktiven Funktionen</span>'}
-            ${activeRoleNames.length ? activeRoleNames.map((item) => `<span class="pill">${escapeHtml(item)}</span>`).join('') : '<span class="pill">Keine aktiven Rollen</span>'}
           </div>
         </div>
         <div class="virtual-agents-panels" style="margin-top:14px">
@@ -12507,7 +11978,6 @@ document.addEventListener('DOMContentLoaded',()=>{
               data-permission-type="${type}"
               data-permission-id="${escapeHtml(item.id)}"
               ${canEdit ? '' : 'disabled'}
-              onclick="event.preventDefault(); event.stopPropagation(); if (window.elyonOpenExtendedPermissionModal) { window.elyonOpenExtendedPermissionModal('${type}', '${escapeHtml(item.id)}'); } return false;"
               aria-label="${escapeHtml(item.title)} Einstellungen"
             >⚙️</button>
             <button
@@ -12517,7 +11987,6 @@ document.addEventListener('DOMContentLoaded',()=>{
               data-permission-type="${type}"
               data-permission-id="${escapeHtml(item.id)}"
               ${canEdit ? '' : 'disabled'}
-              onclick="event.preventDefault(); event.stopPropagation(); if (window.elyonToggleExtendedPermission) { window.elyonToggleExtendedPermission('${type}', '${escapeHtml(item.id)}'); } return false;"
             >${actionLabel}</button>
           </div>
         </div>
@@ -12617,15 +12086,15 @@ document.addEventListener('DOMContentLoaded',()=>{
     state.openCards = openCards;
     const nav = [
       `<button type="button" class="${activePanel === 'overview' ? 'active' : ''}" data-agent-panel="overview">Übersicht</button>`,
-      `<button type="button" class="${activePanel === 'ai-task-center' ? 'active' : ''}" data-agent-panel="ai-task-center">Aufgaben</button>`,
-      `<button type="button" class="${activePanel === 'order-workflow' ? 'active' : ''}" data-agent-panel="order-workflow">Workflows</button>`,
+      `<button type="button" class="${activePanel === 'order-workflow' ? 'active' : ''}" data-agent-panel="order-workflow">Bestellworkflow</button>`,
+      `<button type="button" class="${activePanel === 'ai-task-center' ? 'active' : ''}" data-agent-panel="ai-task-center">AI Task Center</button>`,
       `<button type="button" class="${activePanel === 'ki-agents' ? 'active' : ''}" data-agent-panel="ki-agents">KI-Agenten</button>`,
       `<button type="button" class="${activePanel === 'virtual-ma' ? 'active' : ''}" data-agent-panel="virtual-ma">Virtuelle MA</button>`,
     ].join('');
     const panels = [
       buildOverviewPanel(),
-      buildTaskCenterPanel(),
       buildOrderWorkflowPanel(),
+      buildTaskCenterPanel(),
       buildCategoryPanel('ki-agents', 'KI-Agenten', 'Strategische Analyse- und Optimierungsrollen für Recherche und Content.', 'ki-agents', 'info'),
       buildCategoryPanel('virtual-ma', 'Virtuelle Mitarbeiter', 'Operative Helfer für Support, Finance und Tagesorganisation.', 'virtual-ma', 'good'),
       activePanel === 'overview' ? buildFutureFunctionsSection() : '',
@@ -12713,15 +12182,6 @@ document.addEventListener('DOMContentLoaded',()=>{
   const unlockAdvancedAutonomy = () => {
     state.advancedMode = true;
     state.autonomyLocked = false;
-    state.extendedAutonomyFeatures = (state.extendedAutonomyFeatures || []).map((item) => ({
-      ...item,
-      status: 'active',
-    }));
-    state.extendedAutonomyRoles = (state.extendedAutonomyRoles || []).map((item) => ({
-      ...item,
-      status: 'active',
-    }));
-    syncExtendedAutonomyTasks();
     saveState();
     render();
     closeAdvancedAutonomyModal();
@@ -13017,41 +12477,13 @@ document.addEventListener('DOMContentLoaded',()=>{
 
   const renderExtendedPermissionField = (type, itemId, field, value) => {
     const fieldId = `extendedPermissionModal_${itemId}_${field.key}`;
-    const infoTextMap = {
-      targetArea: 'Hier wählst du, wo die Funktion sichtbar und nutzbar sein soll. So bestimmst du, ob sie nur im Task Center, bei den KI-Agenten, bei den Virtuellen Mitarbeitern oder überall auftaucht.',
-      mode: 'Der Ausführungsmodus beschreibt den Arbeitsstil der Funktion. Mit Bestätigung heißt: erst fragen, dann machen. Unterstützend heißt: vorbereiten und begleiten. Automatisch heißt: der Ablauf läuft so weit wie möglich ohne Zwischenfrage weiter.',
-      automationTier: 'Die Automationsstufe sagt, wie weit der Ablauf gehen darf. Nur vorbereitend bedeutet Entwurf oder Vorschlag. Halbautomatisch bedeutet Vorbereitung plus Freigabe oder Prüfschritt. Vollautomatisch bedeutet: der interne Ablauf geht direkt weiter, solange keine Sicherheitsgrenze greift.',
-      approvalRule: 'Mit dieser Regel legst du fest, bei welchen Fällen zuerst eine Freigabe nötig ist. So kannst du riskantere Schritte abbremsen und einfache Schritte schneller durchlassen.',
-      publishGate: 'Das Veröffentlichungs-Gate entscheidet, ob ein Ergebnis sofort veröffentlicht werden darf oder erst noch geprüft werden muss. Je höher die Hürde, desto vorsichtiger läuft der Schritt.',
-      autoStart: 'Wenn diese Option aktiv ist, wird die Funktion sofort vorbereitet, sobald sie freigeschaltet ist. Ohne diese Option bleibt der Start eher manuell oder schrittweise.',
-      threshold: 'Der Schwellenwert legt fest, ab welchem Wert der nächste Schritt ausgelöst wird. Das hilft dir dabei, Grenzen für Risiko, Menge oder Sicherheit sauber zu setzen.',
-      supplierGuard: 'Die Supplier-Prüfung bestimmt, wie streng neue Bestellungen oder Lieferanten-Schritte geprüft werden. Streng ist sicherer, locker ist schneller, aber riskanter.',
-      maxOrderValue: 'Hier definierst du die Obergrenze für automatische Schritte. So stellst du sicher, dass nur Bestellungen in einer erlaubten Größenordnung weiterlaufen.',
-      tone: 'Der Tonfall bestimmt, wie die Kommunikation klingen soll. Das ist wichtig, damit Antworten freundlich, neutral oder direkt wirken.',
-      escalation: 'Die Eskalationsstufe sagt, wie schnell ein Fall an eine menschliche Prüfung weitergereicht wird. Niedrig ist entspannt, hoch ist vorsichtiger.',
-      allowAutoReply: 'Wenn du das aktivierst, darf das System Vorschläge oder Antworten automatisch vorbereiten. Das ist nützlich, wenn einfache Fälle ohne lange Wartezeit bearbeitet werden sollen.',
-      requireReview: 'Diese Option sorgt dafür, dass vor dem Versand noch einmal geprüft wird. Das ist die sichere Variante, bevor etwas nach außen geht.',
-      publishGate: 'Das Veröffentlichungs-Gate entscheidet, ob ein Ergebnis sofort veröffentlicht werden darf oder erst noch geprüft werden muss. Je höher die Hürde, desto vorsichtiger läuft der Schritt.',
-      prompt: 'Hier legst du fest, wie die Funktion intern angestoßen oder beschrieben wird. Der Prompt hilft dem System, die Aufgabe in deinem gewünschten Stil auszuführen.',
-      note: 'Die Notiz ist für Zusatzinfos gedacht, zum Beispiel Kontext, Warnungen oder besondere Hinweise für spätere Bearbeitung.',
-      status: 'Aktiv schaltet die Funktion frei und zeigt sie an. Gesperrt nimmt sie wieder aus der aktiven Ansicht heraus und stoppt die Nutzung.',
-    };
-    const showInfo = type === 'feature' && Object.prototype.hasOwnProperty.call(infoTextMap, field.key);
-    const infoText = showInfo ? infoTextMap[field.key] : '';
-    const infoTitle = infoText || field.label;
-    const labelMarkup = `
-      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <span>${escapeHtml(field.label)}</span>
-        ${showInfo ? `<button type="button" class="autonomy-info-button" title="${escapeHtml(infoText)}" aria-label="${escapeHtml(field.label)} Info">i</button>` : ''}
-      </div>
-    `;
     if (field.kind === 'checkbox') {
       return `
         <div class="permission-setting-card">
           <label class="agent-switch" for="${fieldId}">
             <input type="checkbox" id="${fieldId}" data-extended-field="${field.key}" ${value ? 'checked' : ''}>
             <span class="agent-switch-track"></span>
-            <span>${escapeHtml(field.label)}${showInfo ? ` <button type="button" class="autonomy-info-button" title="${escapeHtml(infoTitle)}" aria-label="${escapeHtml(field.label)} Info">i</button>` : ''}</span>
+            <span>${escapeHtml(field.label)}</span>
           </label>
           ${field.help ? `<p class="hint">${escapeHtml(field.help)}</p>` : ''}
         </div>
@@ -13060,7 +12492,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     if (field.kind === 'textarea') {
       return `
         <div class="permission-setting-card">
-          <label for="${fieldId}">${labelMarkup}</label>
+          <label for="${fieldId}">${escapeHtml(field.label)}</label>
           <textarea id="${fieldId}" data-extended-field="${field.key}" placeholder="${escapeHtml(field.placeholder || '')}">${escapeHtml(value || '')}</textarea>
           ${field.key === 'prompt' ? renderPromptTemplates(type, itemId, field) : ''}
           ${field.help ? `<p class="hint">${escapeHtml(field.help)}</p>` : ''}
@@ -13069,7 +12501,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     }
     return `
       <div class="permission-setting-card">
-        <label for="${fieldId}">${labelMarkup}</label>
+        <label for="${fieldId}">${escapeHtml(field.label)}</label>
         <select id="${fieldId}" data-extended-field="${field.key}">
           ${buildExtendedPermissionOptions(field.options || [], value)}
         </select>
@@ -13087,7 +12519,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       <div class="permission-setting-card">
         <h4>Freigabe</h4>
         <label for="${statusId}">Status</label>
-        <select id="${statusId}" data-extended-field="status" onchange="window.elyonSyncExtendedPermissionModalFieldStates && window.elyonSyncExtendedPermissionModalFieldStates()">
+        <select id="${statusId}" data-extended-field="status">
           <option value="locked" ${statusValue === 'locked' ? 'selected' : ''}>Gesperrt</option>
           <option value="active" ${statusValue === 'active' ? 'selected' : ''}>Aktiv</option>
         </select>
@@ -13095,26 +12527,6 @@ document.addEventListener('DOMContentLoaded',()=>{
       ${fields.map((field) => renderExtendedPermissionField(type, item.id, field, getExtendedPermissionFieldValue(item, field))).join('')}
     `;
   };
-
-  const syncExtendedPermissionModalFieldStates = () => {
-    const modal = getEl('extendedPermissionModal');
-    const fieldsRoot = getEl('extendedPermissionModalFields');
-    if (!modal || !fieldsRoot) return;
-    const status = fieldsRoot.querySelector('[data-extended-field="status"]');
-    const locked = !status || status.value !== 'active';
-    const modalPanel = modal.querySelector('.permission-settings-panel');
-    if (modalPanel) modalPanel.classList.toggle('is-locked', locked);
-    fieldsRoot.querySelectorAll('.permission-setting-card').forEach((card) => {
-      const isStatusCard = !!card.querySelector('[data-extended-field="status"]');
-      card.classList.toggle('is-disabled', locked && !isStatusCard);
-      card.querySelectorAll('input, select, textarea, button').forEach((control) => {
-        if (control.classList && control.classList.contains('autonomy-info-button')) return;
-        if (control.dataset && control.dataset.extendedField === 'status') return;
-        control.disabled = locked && !isStatusCard;
-      });
-    });
-  };
-  window.elyonSyncExtendedPermissionModalFieldStates = syncExtendedPermissionModalFieldStates;
 
   const findExtendedPermissionItem = (type, itemId) => getExtendedAutonomyCollection(type).find((item) => item.id === itemId) || null;
 
@@ -13408,7 +12820,6 @@ document.addEventListener('DOMContentLoaded',()=>{
     if (itemTitle) itemTitle.textContent = item.title;
     if (itemDescription) itemDescription.textContent = item.description;
     if (fieldsRoot) fieldsRoot.innerHTML = buildExtendedPermissionFormMarkup(type, item);
-    syncExtendedPermissionModalFieldStates();
     modal.classList.remove('hidden');
   };
 
@@ -13416,24 +12827,6 @@ document.addEventListener('DOMContentLoaded',()=>{
     const modal = getEl('extendedPermissionModal');
     if (modal) modal.classList.add('hidden');
     activeExtendedAutonomySetting = { type: 'feature', id: '' };
-  };
-  window.elyonOpenExtendedPermissionModal = openExtendedPermissionModal;
-  window.elyonToggleExtendedPermission = (type, itemId) => {
-    const permissionType = type === 'role' ? 'role' : 'feature';
-    const item = findExtendedPermissionItem(permissionType, itemId);
-    if (!item) return;
-    const nextStatus = item.status === 'active' ? 'locked' : 'active';
-    updateExtendedAutonomyItem(permissionType, itemId, { status: nextStatus });
-    if (nextStatus === 'active') {
-      syncExtendedAutonomyTask(permissionType, {
-        ...item,
-        status: 'active',
-      });
-      setTaskCenterNotice(`${item.title} wurde aktiviert und im passenden Menü vorbereitet.`);
-    } else {
-      removeExtendedAutonomyTask(permissionType, itemId);
-      setTaskCenterNotice(`${item.title} wurde gesperrt und aus den aktiven Menüs entfernt.`);
-    }
   };
 
   const saveExtendedPermissionModal = () => {
@@ -13461,15 +12854,6 @@ document.addEventListener('DOMContentLoaded',()=>{
       status: status && status.value === 'active' ? 'active' : 'locked',
       config: nextConfig,
     });
-    if (status && status.value === 'active') {
-      syncExtendedAutonomyTask(type, {
-        ...current,
-        status: 'active',
-        config: nextConfig,
-      });
-      saveState();
-      render();
-    }
     toast(`${current.title} wurde gespeichert.`, 'Konfiguration');
     closeExtendedPermissionModal();
   };
@@ -13710,26 +13094,6 @@ document.addEventListener('DOMContentLoaded',()=>{
         openExtendedPermissionModal(permissionType, permissionId);
         return;
       }
-      const extendedPermissionToggleButton = event.target.closest('[data-agent-action="toggle-extended-permission"]');
-      if (extendedPermissionToggleButton) {
-        const permissionType = extendedPermissionToggleButton.dataset.permissionType === 'role' ? 'role' : 'feature';
-        const permissionId = extendedPermissionToggleButton.dataset.permissionId;
-        const item = findExtendedPermissionItem(permissionType, permissionId);
-        if (!item) return;
-        const nextStatus = item.status === 'active' ? 'locked' : 'active';
-        updateExtendedAutonomyItem(permissionType, permissionId, { status: nextStatus });
-        if (nextStatus === 'active') {
-          syncExtendedAutonomyTask(permissionType, {
-            ...item,
-            status: 'active',
-          });
-          setTaskCenterNotice(`${item.title} wurde aktiviert und im passenden Menü vorbereitet.`);
-        } else {
-          removeExtendedAutonomyTask(permissionType, permissionId);
-          setTaskCenterNotice(`${item.title} wurde gesperrt und aus den aktiven Menüs entfernt.`);
-        }
-        return;
-      }
       const generatePromptButton = event.target.closest('[data-agent-action="generate-agent-prompt"]');
       if (generatePromptButton) {
         generateAgentPrompt(generatePromptButton.dataset.agentId);
@@ -13892,16 +13256,6 @@ document.addEventListener('DOMContentLoaded',()=>{
       }
       if (target && target.dataset && target.dataset.taskField === 'status') {
         handleTaskAction(target.dataset.taskId, normalizeTaskStatus(target.value));
-        return;
-      }
-      if (target && target.dataset && target.dataset.extendedField) {
-        if (target.dataset.extendedField === 'status') {
-          syncExtendedPermissionModalFieldStates();
-          return;
-        }
-        if (target.closest && target.closest('#extendedPermissionModal')) {
-          syncExtendedPermissionModalFieldStates();
-        }
       }
     });
   };
@@ -14130,7 +13484,6 @@ document.addEventListener('DOMContentLoaded',()=>{
 <script defer src="elyon-soul.js"></script>
 </body>
 </html>
-
 
 
 
