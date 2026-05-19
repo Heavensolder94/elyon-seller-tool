@@ -401,6 +401,45 @@
     .task-center-action-row{justify-content:flex-start}
     .task-center-triage-head{display:block}
   }
+  #productSearchTab{display:none}
+  #productSearchTab.active{display:block}
+  #productSearchTab .sourcing-hero{margin-bottom:14px;padding:20px 22px;border-radius:18px;background:linear-gradient(135deg,rgba(15,23,42,.96),rgba(30,41,59,.84));border:1px solid rgba(148,163,184,.18);box-shadow:0 18px 50px rgba(0,0,0,.22)}
+  #productSearchTab .sourcing-hero-top{display:flex;align-items:flex-start;justify-content:space-between;gap:18px}
+  #productSearchTab .sourcing-hero h2{margin:0 0 6px;font-size:26px;letter-spacing:0}
+  #productSearchTab .sourcing-hero .hint{max-width:720px;margin-bottom:0;font-size:13px}
+  #productSearchTab .status-badges{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+  #productSearchTab .status-badge{display:inline-flex;align-items:center;min-height:28px;padding:6px 10px;border-radius:999px;background:rgba(15,23,42,.72);border:1px solid rgba(148,163,184,.2);color:#cbd5e1;font-size:12px;font-weight:800}
+  #productSearchTab .workflow-strip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:0 0 18px}
+  #productSearchTab .workflow-step{min-height:64px;padding:12px 14px;border-radius:14px;background:rgba(15,23,42,.58);border:1px solid rgba(148,163,184,.14)}
+  #productSearchTab .workflow-step strong{display:block;margin-bottom:4px;color:#e5e7eb;font-size:13px}
+  #productSearchTab .workflow-step span{display:block;color:#94a3b8;font-size:12px;line-height:1.35}
+  #productSearchTab .workflow-step.active{border-color:rgba(96,165,250,.34);background:rgba(30,64,175,.18)}
+  #productSearchTab .sourcing-layout{display:grid;grid-template-columns:minmax(0,1.24fr) minmax(360px,.76fr);gap:18px;align-items:start}
+  #productSearchTab .sourcing-column{display:grid;gap:14px;min-width:0}
+  #productSearchTab .sourcing-column:first-child{order:2}
+  #productSearchTab .sourcing-column:last-child{order:1}
+  #productSearchTab .sourcing-card{min-width:0;padding:18px;border-radius:14px;background:rgba(15,23,42,.76);border:1px solid rgba(148,163,184,.16);box-shadow:0 16px 44px rgba(0,0,0,.18)}
+  #productSearchTab .sourcing-card h2{margin:0 0 6px;font-size:17px;letter-spacing:0}
+  #productSearchTab .sourcing-card h3{margin:0 0 10px;font-size:15px;color:#bfdbfe;letter-spacing:0}
+  #productSearchTab .sourcing-card .hint{margin-bottom:12px;font-size:12px}
+  #productSearchTab .sourcing-card input,#productSearchTab .sourcing-card select,#productSearchTab .sourcing-card textarea{margin-bottom:10px}
+  #productSearchTab .sourcing-card .row{gap:10px}
+  #productSearchTab .sourcing-primary-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px}
+  #productSearchTab .sourcing-span{grid-column:1/-1}
+  #productSearchTab .sourcing-toolbar{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 0}
+  #productSearchTab .sourcing-toolbar button{padding:9px 11px;font-size:12px}
+  #productSearchTab .sourcing-note{margin-top:10px;padding:12px 13px;border-radius:12px;background:rgba(2,6,23,.36);border:1px solid rgba(148,163,184,.12);color:#cbd5e1;font-size:12px;line-height:1.45}
+  #productSearchTab .sourcing-column:last-child>.sourcing-card{padding:0;background:transparent;border:0;box-shadow:none}
+  #productSearchTab .sourcing-column:last-child>.sourcing-card>h2,#productSearchTab .sourcing-column:last-child>.sourcing-card>.hint,#productSearchTab .sourcing-column:last-child>.sourcing-card>.sourcing-subtle,#productSearchTab .sourcing-column:last-child>.sourcing-card>.quick-actions,#productSearchTab .sourcing-column:last-child>.sourcing-card>.micro-note{padding-left:2px;padding-right:2px}
+  #productSearchTab .sourcing-column:last-child>.sourcing-card>.sourcing-subtle{margin:0 0 12px;padding:12px 14px;border-radius:12px;background:rgba(59,130,246,.1);border:1px solid rgba(96,165,250,.18);color:#bfdbfe;font-size:12px;line-height:1.45}
+  #productSearchTab .sourcing-column:last-child>.sourcing-card>.micro-note{display:inline-flex;margin:0 0 14px;padding:8px 10px;border-radius:999px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.18);color:#bbf7d0;font-weight:800}
+  #productSearchTab .sources-grid{display:grid;grid-template-columns:1fr;gap:14px;margin-top:0!important}
+  #productSearchTab .sources-grid>.sourcing-card{padding:18px;border-radius:14px}
+  #productSearchTab .briefing-section{border-radius:14px;background:rgba(15,23,42,.56);border-color:rgba(148,163,184,.14)}
+  #productSearchTab .output-box,#productSearchTab .empty{border-radius:12px}
+  #productSearchTab #productFormCard{position:sticky;top:16px}
+  @media(max-width:1100px){#productSearchTab .sourcing-layout{grid-template-columns:1fr}#productSearchTab .sourcing-column:first-child,#productSearchTab .sourcing-column:last-child{order:initial}#productSearchTab #productFormCard{position:static}#productSearchTab .workflow-strip{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  @media(max-width:680px){#productSearchTab .sourcing-hero-top{display:block}#productSearchTab .status-badges{justify-content:flex-start;margin-top:12px}#productSearchTab .workflow-strip,#productSearchTab .sourcing-primary-grid{grid-template-columns:1fr}#productSearchTab .sourcing-card .row{grid-template-columns:1fr}}
 </style>
 <body>
 <main class="container">
@@ -439,7 +478,7 @@
     <select id="mainMenu" class="menu-select" aria-label="eBay Lab auswählen">
       <option value="" disabled selected>🧭 Produkt-Pipeline</option>
       <option value="dashboardTab">1. 🏠 Dashboard</option>
-      <option value="productSearchTab">2. 🔎 Produktsuche</option>
+      <option value="productSearchTab">2. 🧭 Produktbeschaffung</option>
       <option value="productAnalysisTab">3. 📊 Produktanalyse</option>
       <option value="productListTab">4. 📚 Meine Produktliste</option>
       <option value="ebayListingTab">5. 🛒 eBay Listing vorbereiten</option>
@@ -652,109 +691,175 @@
   </section>
 
   <section id="productSearchTab" class="tab">
-    <section class="grid">
-      <aside class="card" id="productFormCard">
-        <h2>Produkt prüfen</h2>
-        <p class="hint">Das Formular ist jetzt in Bereiche aufgeteilt. So bleibt das Board ruhiger und du kannst schneller arbeiten.</p>
-
-        <details class="form-accordion" open>
-          <summary>1. Basisdaten</summary>
-          <div class="accordion-body">
-            <label>Produktname</label><input id="name" placeholder="z. B. Tragbarer Mixer USB">
-            <div class="row"><div><label>Produkt-Status</label><select id="productStatus"><option>Recherche</option><option>Draft</option><option>SEO prüfen</option><option>eBay Ready</option><option>Live</option><option>Verkauft</option><option>Versand offen</option><option>Abgeschlossen</option><option>Archiviert</option></select></div><div><label>Priorität</label><select id="priority"><option>Normal</option><option>⭐ Favorit</option><option>🔥 Heiß</option><option>❄️ Später</option></select></div></div>
-          </div>
-        </details>
-
-        <details class="form-accordion">
-          <summary>2. Produkt-Identifikation</summary>
-          <div class="accordion-body">
-            <p class="hint">SKU, Lieferant, eBay-Nummer und Link gehören in die Stammdaten.</p>
-            <div class="row"><div><label>Interne SKU / Artikelnummer</label><input id="sku" placeholder="z. B. ELY-LED-001"></div><div><label>Lieferanten-Artikelnummer</label><input id="supplierId" placeholder="z. B. CJ-123456"></div></div>
-            <div class="row"><div><label>eBay Artikelnummer</label><input id="ebayItemId" placeholder="z. B. 123456789012"></div><div><label>Lieferanten-Link</label><input id="supplierLink" placeholder="https://..."></div></div>
-          </div>
-        </details>
-
-        <details class="form-accordion" open>
-          <summary>3. Kalkulation</summary>
-          <div class="accordion-body">
-            <div class="row"><div><label>EK-Preis €</label><input id="buy" type="number" step="0.01"></div><div><label>Versand €</label><input id="ship" type="number" step="0.01"></div></div>
-            <div class="row"><div><label>Konkurrenzpreis €</label><input id="sell" type="number" step="0.01"></div><div><label>Zielgewinn €</label><input id="targetProfit" type="number" step="0.01" value="7"></div></div>
-            <div class="row"><div><label>eBay/Zahlungsgebühr %</label><input id="fee" type="number" step="0.1" value="15"></div><div><label>Risiko-Puffer %</label><input id="riskBuffer" type="number" step="0.1" value="5"></div></div>
-          </div>
-        </details>
-
-        <details class="form-accordion">
-          <summary>4. Markt & Risiko</summary>
-          <div class="accordion-body">
-            <div class="row"><div><label>Verkäufe geschätzt</label><input id="sales" type="number"></div><div><label>Anbieter/Konkurrenz</label><input id="competition" type="number"></div></div>
-            <div class="row"><div><label>Lieferzeit Tage</label><input id="delivery" type="number"></div><div><label>Risiko-Kategorie</label><select id="risk"><option value="low">Niedrig</option><option value="medium">Mittel</option><option value="high">Hoch / Elektronik / Batterie</option></select></div></div>
-          </div>
-        </details>
-
-        <details class="form-accordion">
-          <summary>5. Notizen</summary>
-          <div class="accordion-body">
-            <label>Lieferant / Link / Notizen</label><textarea id="notes"></textarea>
-          </div>
-        </details>
-
-        <button class="full" id="addProductBtn" style="margin-top:14px">Produkt speichern & bewerten</button>
-        <button class="secondary full hidden" id="cancelEditProductBtn" style="margin-top:10px">Bearbeitung abbrechen</button>
-      </aside>
-      <section class="card">
-        <h2>Produktsuche & Quellen</h2>
-        <p class="hint">Hier erfasst du neue Produktideen. Die bestehende CJ-Suche, eBay-Suche, CSV-/Google-Sheets-Import und API-Checks bleiben im Bereich Einstellungen / API Status erhalten.</p>
-        <div class="quick-actions">
-          <button class="secondary" type="button" onclick="showTab('productListTab')">Zur Produktliste</button>
-          <button class="secondary" type="button" onclick="showTab('productAnalysisTab')">Zur Produktanalyse</button>
-          <button class="secondary" type="button" onclick="showTab('settingsTab')">Zu Import / API</button>
+    <div class="sourcing-hero">
+      <div class="sourcing-hero-top">
+        <div>
+          <div class="badge">🧭 Sourcing Hub</div>
+          <h2>Produktbeschaffung</h2>
+          <p class="hint">Finde, prüfe und übernimm potenzielle Produkte aus eBay, Suppliern, manueller Suche oder KI.</p>
         </div>
-        <div class="output-box">
-          <p>Produktideen werden wie bisher lokal im Browser gespeichert. Du kannst hier neue Kandidaten prüfen und danach direkt in die Liste wechseln.</p>
+        <div class="status-badges">
+          <span class="status-badge">Sourcing</span>
+          <span class="status-badge">Supplier</span>
+          <span class="status-badge">Risiko-Check</span>
+          <span class="status-badge">KI optional</span>
         </div>
-        <div class="sources-grid" style="margin-top:14px">
-          <div class="card">
-            <h2>1. 📦 CJ Produktdaten suchen</h2>
-            <p class="hint">Nutze CJ als Datenquelle für Produktname, CJ-ID, Preis und Lieferanteninfos. Übernommen wird erst, wenn du bewusst klickst.</p>
-            <label>CJ Suchbegriff</label>
-            <input id="cjSearchKeyword" placeholder="z. B. LED Streifen RGB">
-            <button id="cjSearchBtn" class="secondary full" type="button">CJ Produktdaten suchen</button>
-            <div id="cjSearchResult" class="output-box"><p>Noch keine CJ Suche.</p></div>
+      </div>
+    </div>
+    <div class="sourcing-lead">
+      <strong>Arbeitsablauf:</strong> Quelle finden, Link prüfen, Risiko bewerten, Produkt übernehmen.
+    </div>
+    <div class="workflow-strip">
+      <div class="workflow-step active"><strong>1. Quelle wählen</strong><span>eBay, Supplier oder manuelle Idee</span></div>
+      <div class="workflow-step"><strong>2. Link prüfen</strong><span>Domain, Supplier und Hinweis erkennen</span></div>
+      <div class="workflow-step"><strong>3. Risiko bewerten</strong><span>Ampel, Compliance und Marge prüfen</span></div>
+      <div class="workflow-step"><strong>4. Produkt übernehmen</strong><span>In die Produktmaske übernehmen</span></div>
+    </div>
+    <section class="sourcing-layout">
+      <div class="sourcing-column">
+        <aside class="sourcing-card" id="productFormCard">
+          <h2>Produkt prüfen</h2>
+          <p class="hint">Das Formular ist jetzt in Bereiche aufgeteilt. So bleibt das Board ruhiger und du kannst schneller arbeiten.</p>
+
+          <details class="form-accordion" open>
+            <summary>1. Basisdaten</summary>
+            <div class="accordion-body">
+              <label>Produktname</label><input id="name" placeholder="z. B. Tragbarer Mixer USB">
+              <div class="row"><div><label>Produkt-Status</label><select id="productStatus"><option>Recherche</option><option>Draft</option><option>SEO prüfen</option><option>eBay Ready</option><option>Live</option><option>Verkauft</option><option>Versand offen</option><option>Abgeschlossen</option><option>Archiviert</option></select></div><div><label>Priorität</label><select id="priority"><option>Normal</option><option>⭐ Favorit</option><option>🔥 Heiß</option><option>❄️ Später</option></select></div></div>
+            </div>
+          </details>
+
+          <details class="form-accordion">
+            <summary>2. Produkt-Identifikation</summary>
+            <div class="accordion-body">
+              <p class="hint">SKU, Lieferant, eBay-Nummer und Link gehören in die Stammdaten.</p>
+              <div class="row"><div><label>Interne SKU / Artikelnummer</label><input id="sku" placeholder="z. B. ELY-LED-001"></div><div><label>Lieferanten-Artikelnummer</label><input id="supplierId" placeholder="z. B. CJ-123456"></div></div>
+              <div class="row"><div><label>eBay Artikelnummer</label><input id="ebayItemId" placeholder="z. B. 123456789012"></div><div><label>Lieferanten-Link</label><input id="supplierLink" placeholder="https://..."></div></div>
+            </div>
+          </details>
+
+          <details class="form-accordion" open>
+            <summary>3. Kalkulation</summary>
+            <div class="accordion-body">
+              <div class="row"><div><label>EK-Preis €</label><input id="buy" type="number" step="0.01"></div><div><label>Versand €</label><input id="ship" type="number" step="0.01"></div></div>
+              <div class="row"><div><label>Konkurrenzpreis €</label><input id="sell" type="number" step="0.01"></div><div><label>Zielgewinn €</label><input id="targetProfit" type="number" step="0.01" value="7"></div></div>
+              <div class="row"><div><label>eBay/Zahlungsgebühr %</label><input id="fee" type="number" step="0.1" value="15"></div><div><label>Risiko-Puffer %</label><input id="riskBuffer" type="number" step="0.1" value="5"></div></div>
+            </div>
+          </details>
+
+          <details class="form-accordion">
+            <summary>4. Markt & Risiko</summary>
+            <div class="accordion-body">
+              <div class="row"><div><label>Verkäufe geschätzt</label><input id="sales" type="number"></div><div><label>Anbieter/Konkurrenz</label><input id="competition" type="number"></div></div>
+              <div class="row"><div><label>Lieferzeit Tage</label><input id="delivery" type="number"></div><div><label>Risiko-Kategorie</label><select id="risk"><option value="low">Niedrig</option><option value="medium">Mittel</option><option value="high">Hoch / Elektronik / Batterie</option></select></div></div>
+            </div>
+          </details>
+
+          <details class="form-accordion">
+            <summary>5. Notizen</summary>
+            <div class="accordion-body">
+              <label>Lieferant / Link / Notizen</label><textarea id="notes"></textarea>
+            </div>
+          </details>
+
+          <button class="full" id="addProductBtn" style="margin-top:14px">Produkt speichern & bewerten</button>
+          <button class="secondary full hidden" id="cancelEditProductBtn" style="margin-top:10px">Bearbeitung abbrechen</button>
+        </aside>
+      </div>
+      <div class="sourcing-column">
+        <section class="sourcing-card">
+          <h2>Produktbeschaffung & Quellen</h2>
+          <p class="hint">Hier sammelst du Produktideen, prüfst sie manuell oder mit KI und importierst Links oder Websites. eBay bleibt dabei dein zentraler Beschaffungsweg.</p>
+          <div class="sourcing-subtle">Tipp: Nutze zuerst den Link-Check. Danach Supplier erkennen lassen und erst dann in die Produktmaske übernehmen.</div>
+          <div class="quick-actions">
+            <button class="secondary" type="button" onclick="showTab('productListTab')">Produktliste</button>
+            <button class="secondary" type="button" onclick="showTab('productAnalysisTab')">Produktanalyse</button>
+            <button class="secondary" type="button" onclick="showTab('settingsTab')">Import / API</button>
+            <button class="secondary" type="button" onclick="document.getElementById('ebaySearchInput')?.focus()">eBay Suche</button>
           </div>
+          <div class="micro-note">Nur Prüfung / Vorschau - keine Live-Aktion.</div>
+          <div class="sources-grid" style="margin-top:14px">
+            <div class="sourcing-card">
+              <h2>eBay</h2>
+              <p class="hint">Direkt suchen oder die Marktdaten prüfen, bevor du ein Produkt übernimmst.</p>
+              <label>eBay Suchbegriff</label>
+              <input id="ebayCompetitionKeyword" placeholder="z. B. LED Streifen RGB 5m">
+              <button id="ebayCompetitionBtn" class="secondary full" type="button">eBay Marktdaten prüfen</button>
+              <div id="ebayCompetitionResult" class="output-box"><p>Noch keine eBay Konkurrenzprüfung.</p></div>
 
-          <div class="card">
-            <h2>2. 🔎 eBay Marktdaten prüfen</h2>
-            <p class="hint">Vergleiche Preise und Listings über dein Backend. Das hilft später bei Titel, Preis und Produktentscheidung.</p>
-            <label>eBay Suchbegriff</label>
-            <input id="ebayCompetitionKeyword" placeholder="z. B. LED Streifen RGB 5m">
-            <button id="ebayCompetitionBtn" class="secondary full" type="button">eBay Konkurrenz prüfen</button>
-            <div id="ebayCompetitionResult" class="output-box"><p>Noch keine eBay Konkurrenzprüfung.</p></div>
+              <details class="form-accordion" style="margin-top:14px">
+                <summary>🔎 eBay Search direkt</summary>
+                <div class="accordion-body">
+                  <p class="hint">Direkte eBay-Suche über dein Backend. Erwartete Route: <strong>/api/ebay/search?q=...&limit=5</strong></p>
+                  <label>eBay Search Suchwort</label>
+                  <input id="ebaySearchInput" placeholder="z. B. iPhone, LED Streifen, Küchenhelfer">
+                  <button id="ebaySearchBtn" class="secondary full" type="button">eBay Search</button>
+                  <div id="ebaySearchResults" class="output-box"><p>Noch keine eBay Search ausgeführt.</p></div>
+                </div>
+              </details>
+            </div>
 
-            <details class="form-accordion" style="margin-top:14px">
-              <summary>🔎 eBay Search direkt</summary>
-              <div class="accordion-body">
-                <p class="hint">Direkte eBay-Suche über dein Backend. Erwartete Route: <strong>/api/ebay/search?q=...&limit=5</strong></p>
-                <label>eBay Search Suchwort</label>
-                <input id="ebaySearchInput" placeholder="z. B. iPhone, LED Streifen, Küchenhelfer">
-                <button id="ebaySearchBtn" class="secondary full" type="button">eBay Search</button>
-                <div id="ebaySearchResults" class="output-box"><p>Noch keine eBay Search ausgeführt.</p></div>
+            <div class="sourcing-card">
+              <h2>Weitere Anbieter</h2>
+              <p class="hint">Wähle eine Quelle aus oder füge einen eigenen Supplier hinzu.</p>
+              <label>Quelle wählen</label>
+              <select id="sourceProvider">
+                <option value="cj">CJdropshipping</option>
+                <option value="aliexpress">AliExpress</option>
+                <option value="dropxl">dropxl.com</option>
+                <option value="bigbuy">Bigbuy.com</option>
+                <option value="amazon">Amazon.de</option>
+                <option value="temu">Temu</option>
+                <option value="alibaba">Alibaba</option>
+                <option value="other">Sonstige</option>
+              </select>
+              <label>Produktlink / Quelle</label>
+              <input id="sourceLink" placeholder="Direkten Link zur Quelle einfügen">
+              <div class="row">
+                <button class="secondary full" type="button" id="sourceImportBtn">Quelle übernehmen</button>
+                <button class="secondary full" type="button" id="addSupplierBtn">+ Supplier hinzufügen</button>
               </div>
-            </details>
+              <div id="supplierUseNotice" class="output-box" style="margin-top:12px"><p>Diese Anbieter sind getrennt von eBay gedacht und ergänzen die manuelle Beschaffung.</p></div>
+              <div class="briefing-section" style="margin-top:14px">
+                <h3>Produktlink analysieren</h3>
+                <label>Produktlink</label>
+                <input id="analysisLinkInput" placeholder="https://...">
+                <label>Optionale Produktnotiz</label>
+                <textarea id="analysisNoteInput" placeholder="z. B. interessante Nische, fragliche Marge, Versandthemen"></textarea>
+                <button class="secondary full" type="button" id="analyzeSourceBtn">Artikel analysieren</button>
+                <div id="sourceAnalysisResult" class="empty" style="margin-top:12px">Noch keine Analyse.</div>
+              </div>
+              <div id="mySuppliersBlock" class="briefing-section" style="margin-top:14px">
+                <h3>Meine Supplier</h3>
+                <div id="mySuppliersList" class="output-box"><p>Noch keine eigenen Supplier gespeichert.</p></div>
+              </div>
+            </div>
+
+            <div class="sourcing-card">
+              <h2>Manuelle Produktsuche</h2>
+              <p class="hint">Nutze diesen Bereich für Produktideen, die noch keinen festen Supplier haben.</p>
+              <label>Manuelle Produktidee</label>
+              <input id="manualProductIdea" placeholder="z. B. LED Streifen RGB 5m">
+              <label>Produktlink / Notiz</label>
+              <input id="manualProductLink" placeholder="Link oder Quelle manuell eintragen">
+              <button class="secondary full" type="button" id="manualSourceBtn">Manuelle Suche übernehmen</button>
+              <div class="output-box"><p>Manuelle Suche ist als Einstieg gedacht. Du kannst danach prüfen, ergänzen oder die Idee in die Liste übernehmen.</p></div>
+            </div>
           </div>
-        </div>
-        <div class="briefing-section" style="margin-top:14px">
-          <h3>KI-Produktsuche optional</h3>
-          <label>Suchbegriff / Idee</label>
-          <input id="aiSearchQuery" placeholder="z. B. LED Streifen, Küchenhelfer, Organizer">
-          <div class="row">
-            <button class="secondary full" id="aiSearchImproveBtn" type="button">Suche mit KI verbessern</button>
-            <button class="secondary full" id="aiSearchAnalyzeBtn" type="button">Produktidee prüfen</button>
+          <div class="briefing-section" style="margin-top:14px">
+            <h3>KI Produktsuche optional</h3>
+            <label>Suchbegriff / Idee</label>
+            <input id="aiSearchQuery" placeholder="z. B. LED Streifen, Küchenhelfer, Organizer">
+            <div class="row">
+              <button class="secondary full" id="aiSearchImproveBtn" type="button">Suche mit KI verbessern</button>
+              <button class="secondary full" id="aiSearchAnalyzeBtn" type="button">Produktidee prüfen</button>
+            </div>
+            <button class="secondary full" id="aiSearchBillingBtn" type="button" style="margin-top:10px">KI-Kostenwarnung</button>
+            <div class="micro-note" style="margin-top:10px">KI bereitet nur Einschätzungen vor. Keine Bestellung, kein eBay-Posting.</div>
+            <div id="aiSearchResult" class="empty" style="margin-top:12px">Noch keine KI-Produktsuche.</div>
           </div>
-          <button class="secondary full" id="aiSearchBillingBtn" type="button" style="margin-top:10px">KI-Kostenwarnung</button>
-          <p class="hint" style="margin-top:8px;margin-bottom:0">Die KI kann Suchbegriffe, Synonyme, Chancen und Risiken ergänzen, bevor du ein Produkt speicherst.</p>
-        </div>
-        <div id="aiSearchResult" class="empty" style="margin-top:12px">Noch keine KI-Produktsuche.</div>
-      </section>
+        </section>
+      </div>
     </section>
   </section>
 
@@ -1114,7 +1219,7 @@ Land"></textarea>
   <section id="settingsTab" class="tab">
     <div class="card">
       <h2>⚙️ Einstellungen / API Status</h2>
-      <p class="hint">Arbeitsbereich für Backend-Setup, Google Sheets Sync und API-Status. CJ- und eBay-Recherche-Werkzeuge findest du in der Produktsuche.</p>
+      <p class="hint">Arbeitsbereich für Backend-Setup, Google Sheets Sync und API-Status. CJ- und eBay-Recherche-Werkzeuge findest du in der Produktbeschaffung.</p>
       <div class="dashboard">
         <div class="metric"><small>Backend</small><strong id="intBackendStatus">Nicht geprüft</strong></div>
         <div class="metric"><small>CJ</small><strong id="intCjStatus">Nicht geprüft</strong></div>
@@ -1495,7 +1600,7 @@ Land"></textarea>
         <div class="settings-grid">
           <div><label>Theme</label><select id="setTheme"><option value="dark">Dark Mode</option><option value="light">Light Mode</option></select></div>
           <div><label>Design-Variante</label><select id="setDesignPreset"><option value="classic">Elyon Classic Dark</option><option value="midnight">Midnight Blue</option><option value="aurora">Aurora Neon</option><option value="emerald">Emerald Business</option><option value="slate">Slate Professional</option></select></div>
-          <div><label>Startseite</label><select id="setStart"><option value="dashboardTab">Dashboard</option><option value="productSearchTab">Produktsuche</option><option value="productListTab">Meine Produktliste</option><option value="productAnalysisTab">Produktanalyse</option><option value="ebayListingTab">eBay Listing vorbereiten</option><option value="ordersTab">Bestellungen</option><option value="automationTab">Versandzentrale</option><option value="settingsTab">Einstellungen / API Status</option><option value="importTab">Import / Prüfen</option><option value="marketCheckTab">Konkurrenz / Marktcheck</option><option value="financeTab">Kalkulation</option><option value="listingCheckTab">Listing-Check</option><option value="productStatusTab">Produkt-Status</option></select></div>
+          <div><label>Startseite</label><select id="setStart"><option value="dashboardTab">Dashboard</option><option value="productSearchTab">🧭 Produktbeschaffung</option><option value="productListTab">Meine Produktliste</option><option value="productAnalysisTab">Produktanalyse</option><option value="ebayListingTab">eBay Listing vorbereiten</option><option value="ordersTab">Bestellungen</option><option value="automationTab">Versandzentrale</option><option value="settingsTab">Einstellungen / API Status</option><option value="importTab">Import / Prüfen</option><option value="marketCheckTab">Konkurrenz / Marktcheck</option><option value="financeTab">Kalkulation</option><option value="listingCheckTab">Listing-Check</option><option value="productStatusTab">Produkt-Status</option></select></div>
         </div>
       </div>
 
@@ -3578,13 +3683,14 @@ function seoTitle(name){ return `${name} Neu | Praktisch & Modern | Top Preis-Le
 function description(name){ return `Produkt: ${name}\n\nVorteile:\n✓ Neuware\n✓ Praktisch im Alltag\n✓ Modernes Design\n✓ Gutes Preis-Leistungs-Verhältnis\n\nIdeal für Kunden, die eine einfache, zuverlässige und moderne Lösung suchen.\n\nJetzt bestellen und bequem nach Hause liefern lassen.`; }
 function readProductForm(){
   const productStatus = normalizeProductStatus($('productStatus')?.value || 'Draft', 'Draft');
-  return {name:$('name')?.value.trim()||'Unbenanntes Produkt',sku:$('sku')?.value.trim()||'',supplierId:$('supplierId')?.value.trim()||'',ebayItemId:$('ebayItemId')?.value.trim()||'',supplierLink:$('supplierLink')?.value.trim()||'',buy:n('buy'),ship:n('ship'),sell:n('sell'),targetProfit:n('targetProfit')||appSettings.profit,fee:n('fee')||appSettings.fees,riskBuffer:n('riskBuffer')||appSettings.buffer,sales:n('sales'),competition:n('competition'),delivery:n('delivery'),risk:$('risk')?.value||'low',status:productStatus,productStatus:productStatus,priority:$('priority')?.value||'Normal',notes:$('notes')?.value.trim()||''};
+  return {name:$('name')?.value.trim()||'Unbenanntes Produkt',sku:$('sku')?.value.trim()||'',supplierId:$('supplierId')?.value.trim()||'',ebayItemId:$('ebayItemId')?.value.trim()||'',supplierLink:$('supplierLink')?.value.trim()||'',buy:n('buy'),ship:n('ship'),sell:n('sell'),targetProfit:n('targetProfit')||appSettings.profit,fee:n('fee')||appSettings.fees,riskBuffer:n('riskBuffer')||appSettings.buffer,sales:n('sales'),competition:n('competition'),delivery:n('delivery'),risk:$('risk')?.value||'low',status:productStatus,productStatus:productStatus,priority:$('priority')?.value||'Normal',notes:$('notes')?.value.trim()||'',sourceProvider:currentSourcingDraft.sourceProvider||'',sourceRisk:currentSourcingDraft.sourceRisk||'',sourceType:currentSourcingDraft.sourceType||'',sourceDomain:currentSourcingDraft.sourceDomain||'',sourceNote:currentSourcingDraft.sourceNote||'',sourceAnalysisStatus:currentSourcingDraft.sourceAnalysisStatus||'',sourceProductNote:currentSourcingDraft.sourceProductNote||''};
 }
 function clearProductForm(){
   ['name','sku','supplierId','ebayItemId','supplierLink','buy','ship','sell','sales','competition','delivery','notes'].forEach(id=>safe(id,el=>el.value=''));
   safe('productStatus',el=>el.value='Draft');
   safe('priority',el=>el.value='Normal');
   safe('risk',el=>el.value='low');
+  currentSourcingDraft = {};
   editingProductId=null;
   safe('addProductBtn',el=>el.textContent='Produkt speichern & bewerten');
   safe('cancelEditProductBtn',el=>el.classList.add('hidden'));
@@ -3603,9 +3709,319 @@ function addProduct(){
   save();
   clearProductForm();
 }
+const CUSTOM_SUPPLIERS_KEY = 'elyon_custom_suppliers';
+let latestSourceAnalysis = null;
+let editingCustomSupplierId = null;
+let currentSourcingDraft = {};
+const STANDARD_SOURCE_PROFILES = {
+  cj: {name:'CJdropshipping', domains:['cjdropshipping.com'], type:'Dropshipping', risk:'Mittel', traffic:'Gelb', delivery:'Pruefen', note:'Lieferzeit, Produktqualitaet und Tracking pruefen.'},
+  aliexpress: {name:'AliExpress', domains:['aliexpress.com'], type:'Marktplatz', risk:'Hoch', traffic:'Rot/Gelb', delivery:'Lang', note:'Lieferzeit, Qualitaet, Retouren und eBay-Eignung kritisch pruefen.'},
+  bigbuy: {name:'BigBuy', domains:['bigbuy.eu','bigbuy.com'], type:'EU-B2B-Supplier', risk:'Niedrig bis Mittel', traffic:'Gelb', delivery:'EU', note:'Versandkosten, Marge und Retouren pruefen.'},
+  dropxl: {name:'dropxl.com', domains:['dropxl.com'], type:'Supplier / Home & Garden', risk:'Mittel', traffic:'Gelb', delivery:'Pruefen', note:'Retouren, Sperrgut, Versandkosten und Lieferzeit pruefen.'},
+  vidaxl: {name:'vidaXL', domains:['vidaxl.de','vidaxl.com'], type:'Supplier / Home & Garden', risk:'Mittel', traffic:'Gelb', delivery:'Pruefen', note:'Moebel und grosse Artikel koennen hohe Retouren- und Versandrisiken haben.'},
+  amazon: {name:'Amazon.de', domains:['amazon.de'], type:'Retail', risk:'Hoch', traffic:'Rot', delivery:'Schnell', note:'Retail-Arbitrage, Rechnungen, Verfuegbarkeit und eBay-Risiko kritisch pruefen.'},
+  temu: {name:'Temu', domains:['temu.com'], type:'Marktplatz', risk:'Hoch / kritisch', traffic:'Rot', delivery:'Pruefen', note:'Fuer eBay-Dropshipping sehr kritisch pruefen. Qualitaet, Lieferzeit und Account-Risiko beachten.'},
+  alibaba: {name:'Alibaba', domains:['alibaba.com'], type:'Grosshandel', risk:'Mittel bis Hoch', traffic:'Gelb/Rot', delivery:'Lang', note:'Eher fuer groessere Mengen geeignet. Mindestmengen und Importthemen pruefen.'},
+  other: {name:'Sonstige', domains:[], type:'Unbekannt', risk:'Unbekannt', traffic:'Gelb/Rot', delivery:'Unbekannt', note:'Supplier zuerst pruefen oder speichern.'}
+};
+function getCustomSuppliers(){
+  try{
+    const parsed = JSON.parse(localStorage.getItem(CUSTOM_SUPPLIERS_KEY) || '[]');
+    return Array.isArray(parsed) ? parsed.filter(Boolean).map(function(s){
+      return {
+        id: String(s.id || Date.now()),
+        name: String(s.name || '').trim(),
+        website: String(s.website || '').trim(),
+        type: String(s.type || 'Sonstige'),
+        region: String(s.region || ''),
+        categories: String(s.categories || ''),
+        delivery: String(s.delivery || ''),
+        shipping: String(s.shipping || ''),
+        dropshipping: String(s.dropshipping || 'Unbekannt'),
+        api: String(s.api || 'Unbekannt'),
+        risk: String(s.risk || 'Unbekannt'),
+        notes: String(s.notes || ''),
+        status: String(s.status || 'Pruefen')
+      };
+    }).filter(function(s){ return s.name; }) : [];
+  }catch(err){
+    return [];
+  }
+}
+function saveCustomSuppliers(list){
+  const safeList = Array.isArray(list) ? list : [];
+  localStorage.setItem(CUSTOM_SUPPLIERS_KEY, JSON.stringify(safeList));
+  renderSupplierCards();
+  refreshSourceProviderOptions();
+}
+function normalizeUrl(value){
+  const raw = String(value || '').trim();
+  if(!raw) return null;
+  try{ return new URL(raw.match(/^https?:\/\//i) ? raw : 'https://' + raw); }catch(err){ return null; }
+}
+function sourceDomain(value){
+  const url = normalizeUrl(value);
+  return url ? url.hostname.replace(/^www\./i,'').toLowerCase() : '';
+}
+function findCustomSupplierByDomain(domain){
+  if(!domain) return null;
+  return getCustomSuppliers().find(function(s){
+    const supplierDomain = sourceDomain(s.website);
+    return supplierDomain && (domain === supplierDomain || domain.endsWith('.' + supplierDomain));
+  }) || null;
+}
+function detectSupplierFromUrl(value){
+  const url = normalizeUrl(value);
+  if(!url) return {valid:false, supplier:STANDARD_SOURCE_PROFILES.other, domain:'', custom:null};
+  const domain = url.hostname.replace(/^www\./i,'').toLowerCase();
+  const custom = findCustomSupplierByDomain(domain);
+  if(custom){
+    return {valid:true, domain, custom, supplier:{name:custom.name,type:custom.type,risk:custom.risk,traffic:trafficFromRisk(custom.risk),delivery:custom.delivery || 'Pruefen',note:custom.notes || 'Eigener Supplier. Daten manuell pruefen.'}};
+  }
+  const key = Object.keys(STANDARD_SOURCE_PROFILES).find(function(k){
+    return STANDARD_SOURCE_PROFILES[k].domains.some(function(d){ return domain === d || domain.endsWith('.' + d); });
+  });
+  return {valid:true, domain, custom:null, supplier:STANDARD_SOURCE_PROFILES[key || 'other']};
+}
+function trafficFromRisk(risk){
+  const value = String(risk || '').toLowerCase();
+  if(value.includes('niedrig')) return 'Gruen/Gelb';
+  if(value.includes('hoch') || value.includes('kritisch')) return 'Rot';
+  if(value.includes('mittel')) return 'Gelb';
+  return 'Grau';
+}
+function riskClass(risk){
+  const value = String(risk || '').toLowerCase();
+  if(value.includes('hoch') || value.includes('rot') || value.includes('kritisch')) return 'bad';
+  if(value.includes('mittel') || value.includes('gelb')) return 'warn';
+  if(value.includes('niedrig') || value.includes('gruen')) return 'good';
+  return 'info';
+}
+function selectedSourceLabel(){
+  const select = $('sourceProvider');
+  if(!select) return '';
+  const selected = select.options[select.selectedIndex];
+  return selected ? selected.textContent.trim() : select.value;
+}
+function refreshSourceProviderOptions(){
+  safe('sourceProvider', function(select){
+    const current = select.value;
+    const standard = [
+      ['cj','CJdropshipping'],['aliexpress','AliExpress'],['dropxl','dropxl.com'],['bigbuy','Bigbuy.com'],
+      ['amazon','Amazon.de'],['temu','Temu'],['alibaba','Alibaba'],['other','Sonstige']
+    ];
+    let html = standard.map(function(item){ return '<option value="' + item[0] + '">' + item[1] + '</option>'; }).join('');
+    getCustomSuppliers().filter(function(s){ return s.status !== 'Deaktiviert'; }).forEach(function(s){
+      html += '<option value="custom:' + escapeHtml(s.id) + '">' + escapeHtml(s.name) + '</option>';
+    });
+    select.innerHTML = html;
+    if([...select.options].some(function(o){ return o.value === current; })) select.value = current;
+  });
+}
+function renderSupplierCards(){
+  const list = getCustomSuppliers();
+  if(!list.length){
+    setHTML('mySuppliersList','<p>Noch keine eigenen Supplier gespeichert.</p><p class="muted">Nutze + Supplier hinzufuegen, um eigene Quellen dauerhaft zu speichern.</p>');
+    return;
+  }
+  const html = list.map(function(s){
+    const disabled = s.status === 'Deaktiviert' ? ' style="opacity:.55"' : '';
+    return '<article class="ai-product-card supplier-card"' + disabled + ' data-supplier-id="' + escapeHtml(s.id) + '">' +
+      '<div class="product-title">' + escapeHtml(s.name) + '</div>' +
+      '<div class="pill-row"><span class="pill">' + escapeHtml(s.type || 'Sonstige') + '</span><span class="pill">' + escapeHtml(s.region || 'Region offen') + '</span><span class="status ' + riskClass(s.risk) + '">' + escapeHtml(s.risk || 'Unbekannt') + '</span></div>' +
+      '<p class="muted">Lieferzeit: ' + escapeHtml(s.delivery || 'offen') + ' · Status: ' + escapeHtml(s.status || 'Pruefen') + '</p>' +
+      '<div class="copy-row"><button class="secondary copy-btn" type="button" data-supplier-action="use">Als Quelle nutzen</button><button class="secondary copy-btn" type="button" data-supplier-action="edit">Bearbeiten</button><button class="danger copy-btn" type="button" data-supplier-action="disable">Deaktivieren</button></div>' +
+    '</article>';
+  }).join('');
+  setHTML('mySuppliersList', html);
+}
+function useSupplierAsSource(id){
+  const supplier = getCustomSuppliers().find(function(s){ return s.id === String(id); });
+  if(!supplier) return;
+  safe('sourceProvider', function(select){ select.value = 'custom:' + supplier.id; });
+  safe('sourceLink', function(input){ if(!input.value && supplier.website) input.value = supplier.website; });
+  setHTML('supplierUseNotice','<p>Supplier uebernommen: <strong>' + escapeHtml(supplier.name) + '</strong>. Produktlink kannst du weiter ergaenzen.</p>');
+}
+function disableSupplier(id){
+  const list = getCustomSuppliers().map(function(s){ return s.id === String(id) ? {...s,status:'Deaktiviert'} : s; });
+  saveCustomSuppliers(list);
+}
+function openSupplierForm(id){
+  const existing = id ? getCustomSuppliers().find(function(s){ return s.id === String(id); }) : null;
+  editingCustomSupplierId = existing ? existing.id : null;
+  const s = existing || {};
+  let modal = $('supplierModal');
+  if(!modal){
+    modal = document.createElement('div');
+    modal.id = 'supplierModal';
+    modal.className = 'modal-backdrop hidden';
+    modal.innerHTML = '<div class="card modal-panel"><h2 id="supplierModalTitle">Supplier hinzufuegen</h2><p class="hint">Eigene Supplier werden nur lokal gespeichert.</p><div class="settings-grid"><div><label>Supplier-Name</label><input id="supplierName"></div><div><label>Website / Shop-Link</label><input id="supplierWebsite"></div><div><label>Supplier-Typ</label><select id="supplierType"><option>Dropshipping</option><option>EU-B2B-Supplier</option><option>Marktplatz</option><option>Großhandel</option><option>Retail</option><option>Sonstige</option></select></div><div><label>Land / Region</label><input id="supplierRegion"></div><div><label>Kategorien</label><input id="supplierCategories"></div><div><label>Durchschnittliche Lieferzeit</label><input id="supplierDelivery"></div><div><label>Versandkosten / Versandmodell</label><input id="supplierShipping"></div><div><label>Dropshipping geeignet</label><select id="supplierDropshipping"><option>Unbekannt</option><option>Ja</option><option>Nein</option></select></div><div><label>API vorhanden</label><select id="supplierApi"><option>Unbekannt</option><option>Ja</option><option>Nein</option></select></div><div><label>Risiko-Level</label><select id="supplierRisk"><option>Unbekannt</option><option>Niedrig</option><option>Mittel</option><option>Hoch</option></select></div><div><label>Status</label><select id="supplierStatus"><option>Aktiv</option><option>Pruefen</option><option>Deaktiviert</option></select></div></div><label>Notizen</label><textarea id="supplierNotes"></textarea><div class="row"><button class="full" type="button" id="supplierSaveBtn">Supplier speichern</button><button class="secondary full" type="button" id="supplierCancelBtn">Abbrechen</button></div></div>';
+    document.body.appendChild(modal);
+    bind('supplierSaveBtn','click',saveSupplierForm);
+    bind('supplierCancelBtn','click',closeSupplierForm);
+    modal.addEventListener('click', function(event){ if(event.target === modal) closeSupplierForm(); });
+  }
+  safe('supplierModalTitle', function(el){ el.textContent = existing ? 'Supplier bearbeiten' : 'Supplier hinzufuegen'; });
+  safe('supplierName', function(el){ el.value = s.name || ''; });
+  safe('supplierWebsite', function(el){ el.value = s.website || ''; });
+  safe('supplierType', function(el){ el.value = s.type || 'Dropshipping'; });
+  safe('supplierRegion', function(el){ el.value = s.region || ''; });
+  safe('supplierCategories', function(el){ el.value = s.categories || ''; });
+  safe('supplierDelivery', function(el){ el.value = s.delivery || ''; });
+  safe('supplierShipping', function(el){ el.value = s.shipping || ''; });
+  safe('supplierDropshipping', function(el){ el.value = s.dropshipping || 'Unbekannt'; });
+  safe('supplierApi', function(el){ el.value = s.api || 'Unbekannt'; });
+  safe('supplierRisk', function(el){ el.value = s.risk || 'Unbekannt'; });
+  safe('supplierStatus', function(el){ el.value = s.status || 'Pruefen'; });
+  safe('supplierNotes', function(el){ el.value = s.notes || ''; });
+  modal.classList.remove('hidden');
+}
+function closeSupplierForm(){ safe('supplierModal', function(el){ el.classList.add('hidden'); }); editingCustomSupplierId = null; }
+function saveSupplierForm(){
+  const name = getInputValue('supplierName');
+  if(!name){ alert('Bitte Supplier-Name eintragen.'); return; }
+  const record = {
+    id: editingCustomSupplierId || String(Date.now()),
+    name,
+    website:getInputValue('supplierWebsite'),
+    type:$('supplierType') ? $('supplierType').value : 'Sonstige',
+    region:getInputValue('supplierRegion'),
+    categories:getInputValue('supplierCategories'),
+    delivery:getInputValue('supplierDelivery'),
+    shipping:getInputValue('supplierShipping'),
+    dropshipping:$('supplierDropshipping') ? $('supplierDropshipping').value : 'Unbekannt',
+    api:$('supplierApi') ? $('supplierApi').value : 'Unbekannt',
+    risk:$('supplierRisk') ? $('supplierRisk').value : 'Unbekannt',
+    notes:getInputValue('supplierNotes'),
+    status:$('supplierStatus') ? $('supplierStatus').value : 'Pruefen'
+  };
+  const list = getCustomSuppliers();
+  const next = editingCustomSupplierId ? list.map(function(s){ return s.id === editingCustomSupplierId ? record : s; }) : list.concat(record);
+  saveCustomSuppliers(next);
+  closeSupplierForm();
+}
+function syncProductFormFromSource(data){
+  const d = data || {};
+  currentSourcingDraft = {
+    sourceProvider:d.supplier || currentSourcingDraft.sourceProvider || '',
+    sourceRisk:d.risk || currentSourcingDraft.sourceRisk || '',
+    sourceType:d.type || currentSourcingDraft.sourceType || '',
+    sourceDomain:d.domain || currentSourcingDraft.sourceDomain || sourceDomain(d.link) || '',
+    sourceNote:d.note || currentSourcingDraft.sourceNote || '',
+    sourceAnalysisStatus:d.status || currentSourcingDraft.sourceAnalysisStatus || '',
+    sourceProductNote:d.productNote || currentSourcingDraft.sourceProductNote || ''
+  };
+  safe('name', function(el){ if(d.name && (!el.value || el.value === 'Unbenanntes Produkt')) el.value = d.name; });
+  safe('supplierId', function(el){ if(d.supplier) el.value = d.supplier; });
+  safe('supplierLink', function(el){ if(d.link) el.value = d.link; });
+  safe('notes', function(el){
+    const lines = [];
+    if(d.supplier) lines.push('Supplier: ' + d.supplier);
+    if(d.type) lines.push('Supplier-Typ: ' + d.type);
+    if(d.risk) lines.push('Risiko: ' + d.risk);
+    if(d.status) lines.push('Analyse-Status: ' + d.status);
+    if(d.note) lines.push('Hinweis: ' + d.note);
+    if(d.productNote) lines.push('Produktnotiz: ' + d.productNote);
+    const addition = lines.join('\n');
+    if(addition) el.value = el.value ? el.value + '\n\n' + addition : addition;
+  });
+  scrollToProductForm();
+}
+function sourceImport(){
+  const provider = selectedSourceLabel();
+  const link = getInputValue('sourceLink');
+  const detected = link ? detectSupplierFromUrl(link) : null;
+  const profile = detected && detected.valid ? detected.supplier : null;
+  syncProductFormFromSource({supplier:provider, link, domain:detected ? detected.domain : '', type:profile ? profile.type : '', risk:profile ? profile.risk : '', note:profile ? profile.note : 'Quelle manuell uebernommen.', status:'Quelle uebernommen'});
+  setHTML('supplierUseNotice','<p>Quelle uebernommen: <strong>' + escapeHtml(provider || 'Quelle') + '</strong>.</p>');
+}
+function manualSourceImport(){
+  const idea = getInputValue('manualProductIdea');
+  const link = getInputValue('manualProductLink');
+  syncProductFormFromSource({name:idea, supplier:'Manuelle Produktsuche', link, productNote:link, status:'Manuell uebernommen'});
+}
+function renderSourceAnalysis(analysis){
+  latestSourceAnalysis = analysis;
+  const supplier = analysis.supplier || STANDARD_SOURCE_PROFILES.other;
+  const compliance = ['Enthaelt das Produkt Batterien?','Ist es Elektronik?','Koennte WEEE relevant sein?','Gibt es CE-/Produktsicherheitsanforderungen?','Gibt es Markenlogos oder geschuetzte Begriffe?','Ist das Produkt kosmetisch, medizinisch, lebensmittelnah oder reguliert?','Wie hoch ist das Retourenrisiko?','Ist die Lieferzeit fuer eBay-Kunden akzeptabel?'];
+  let html = '<div class="ai-product-card"><div class="score-top"><span class="status ' + riskClass(supplier.risk) + '">Ampel: ' + escapeHtml(supplier.traffic || 'Grau') + '</span><span class="status info">Vorlaeufig</span></div>';
+  html += '<div class="ai-mini-grid">';
+  [['Erkannter Supplier',supplier.name],['Domain',analysis.domain || 'offen'],['Typ',supplier.type],['Risiko',supplier.risk],['Datenqualitaet',analysis.valid ? 'Link erkannt' : 'Link fehlt/ungueltig'],['Marktdaten','offen'],['Marge','offen'],['Empfehlung','vorlaeufig pruefen']].forEach(function(row){
+    html += '<div class="ai-mini-item"><span class="ai-mini-label">' + escapeHtml(row[0]) + '</span><span class="ai-mini-value">' + escapeHtml(row[1] || 'offen') + '</span></div>';
+  });
+  html += '</div><div class="output-box"><h3>Supplier-Hinweis</h3><p>' + escapeHtml(supplier.note || 'Supplier pruefen.') + '</p></div>';
+  html += '<div class="output-box"><h3>Vor dem Listen pruefen</h3><ul>' + compliance.map(function(item){ return '<li>' + escapeHtml(item) + '</li>'; }).join('') + '</ul></div>';
+  html += '<p class="muted">Automatisches Auslesen ist fuer diese Quelle noch nicht verfuegbar. Bitte Produktdaten manuell ergaenzen oder spaeter API/Backend-Anbindung nutzen.</p>';
+  html += '<div class="copy-row"><button class="secondary copy-btn" type="button" onclick="prepareAiSourcingPrompt()">KI-Einschaetzung vorbereiten</button><button class="full copy-btn" type="button" onclick="applyAnalysisToProductForm()">In Produktmaske uebernehmen</button></div></div>';
+  setHTML('sourceAnalysisResult', html);
+}
+function analyzeSourceLink(){
+  const link = getInputValue('analysisLinkInput');
+  const productNote = getInputValue('analysisNoteInput');
+  if(!link){ setHTML('sourceAnalysisResult','<div class="empty">Bitte Produktlink einfuegen.</div>'); return; }
+  const detected = detectSupplierFromUrl(link);
+  if(!detected.valid){ setHTML('sourceAnalysisResult','<div class="empty">Ungueltiger Link. Bitte vollstaendige URL pruefen.</div>'); return; }
+  const analysis = {...detected, link, productNote, status:'Artikelanalyse vorbereitet'};
+  renderSourceAnalysis(analysis);
+  if(detected.supplier && detected.supplier.name === 'Sonstige'){
+    setHTML('supplierUseNotice','<p>Unbekannter Supplier - bitte pruefen oder als neuen Supplier speichern.</p>');
+  }
+}
+function prepareAiSourcingPrompt(){
+  const a = latestSourceAnalysis;
+  if(!a){ return; }
+  const supplier = a.supplier || STANDARD_SOURCE_PROFILES.other;
+  const prompt = [
+    'Bewerte dieses Produkt fuer eBay-Dropshipping.',
+    '',
+    'Supplier: ' + (supplier.name || 'Unbekannt'),
+    'Produktlink: ' + (a.link || ''),
+    'Supplier-Typ: ' + (supplier.type || 'Unbekannt'),
+    'Risiko-Level: ' + (supplier.risk || 'Unbekannt'),
+    'Lieferzeit: ' + (supplier.delivery || 'Unbekannt'),
+    'Notizen: ' + (a.productNote || supplier.note || ''),
+    '',
+    'Bitte pruefe:',
+    '- Marge',
+    '- Nachfrage',
+    '- Konkurrenz',
+    '- Lieferzeit',
+    '- Retourenrisiko',
+    '- Compliance-Risiko',
+    '- Listing-Eignung',
+    '- Empfehlung: Listen / Beobachten / Ablehnen',
+    '',
+    'Wichtig:',
+    'Nur Analyse und Empfehlung.',
+    'Keine Bestellung.',
+    'Kein eBay-Posting.',
+    'Keine Kundennachricht.',
+    'Keine Live-Aktion.',
+    '',
+    'Nur Pruefung / Vorschau - keine Live-Aktion.'
+  ].join('\n');
+  setHTML('sourceAnalysisResult', ($('sourceAnalysisResult') ? $('sourceAnalysisResult').innerHTML : '') + '<div class="output-box"><h3>KI-Prompt Vorschau</h3><p id="sourcingAiPromptPreview">' + escapeHtml(prompt) + '</p><div class="copy-row"><button class="secondary copy-btn" data-copy="sourcingAiPromptPreview">Prompt kopieren</button></div></div>');
+}
+function applyAnalysisToProductForm(){
+  const a = latestSourceAnalysis;
+  if(!a){ return; }
+  const supplier = a.supplier || STANDARD_SOURCE_PROFILES.other;
+  syncProductFormFromSource({supplier:supplier.name, link:a.link, domain:a.domain, type:supplier.type, risk:supplier.risk, note:supplier.note, productNote:a.productNote, status:'Artikelanalyse uebernommen'});
+}
+window.prepareAiSourcingPrompt = prepareAiSourcingPrompt;
+window.applyAnalysisToProductForm = applyAnalysisToProductForm;
 function editProduct(id){
   const p=products.find(x=>x.id===id); if(!p) return;
   editingProductId=id;
+  currentSourcingDraft = {
+    sourceProvider:p.sourceProvider || '',
+    sourceRisk:p.sourceRisk || '',
+    sourceType:p.sourceType || '',
+    sourceDomain:p.sourceDomain || '',
+    sourceNote:p.sourceNote || '',
+    sourceAnalysisStatus:p.sourceAnalysisStatus || '',
+    sourceProductNote:p.sourceProductNote || ''
+  };
   ['name','sku','supplierId','ebayItemId','supplierLink','buy','ship','sell','targetProfit','fee','riskBuffer','sales','competition','delivery','notes'].forEach(key=>safe(key,el=>{el.value = (p[key] !== undefined && p[key] !== null) ? p[key] : '';}));
   safe('productStatus',el=>el.value=normalizeProductStatus(p.productStatus || p.status || 'Draft', 'Draft'));
   safe('priority',el=>el.value=p.priority||'Normal');
@@ -3627,7 +4043,7 @@ function stopProduct(id){
 function clearAll(){ if(confirm('Wirklich alle Produkte löschen?')){ products=[]; save(); } }
 function downloadCSV(rows,name){ const csv=rows.map(r=>r.map(cell=>'"'+String((cell !== undefined && cell !== null) ? cell : '').replaceAll('"','""')+'"').join(';')).join('\n'); const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}); const link=document.createElement('a'); link.href=URL.createObjectURL(blob); link.download=name; link.click(); }
 function exportCSV(){
-  const rows=[['Name','SKU','Lieferanten-ID','eBay-Artikelnummer','Lieferanten-Link','Status','Priorität','EK','Versand','VK','Gewinn','Score','Ampel','Empfohlener VK','Lieferzeit','Anbieter','Verkäufe','Risiko','SEO Titel','Beschreibung','Notizen','Produkt-Status','Listing-Score','Issues','CreatedAt','UpdatedAt','LastCheckedAt']];
+  const rows=[['Name','SKU','Lieferanten-ID','eBay-Artikelnummer','Lieferanten-Link','Status','Priorität','EK','Versand','VK','Gewinn','Score','Ampel','Empfohlener VK','Lieferzeit','Anbieter','Verkäufe','Risiko','Quelle','Supplier-Typ','Supplier-Risiko','Source-Domain','Analyse-Status','Source-Hinweis','SEO Titel','Beschreibung','Notizen','Produkt-Status','Listing-Score','Issues','CreatedAt','UpdatedAt','LastCheckedAt']];
   products.forEach(p=>{
     const c=calcProduct(p),s=statusFromScore(c.score);
     rows.push([
@@ -3649,6 +4065,12 @@ function exportCSV(){
       p.competition,
       p.sales,
       p.risk,
+      p.sourceProvider||'',
+      p.sourceType||'',
+      p.sourceRisk||'',
+      p.sourceDomain||'',
+      p.sourceAnalysisStatus||'',
+      p.sourceNote||'',
       seoTitle(p.name),
       description(p.name),
       p.notes,
@@ -4371,6 +4793,17 @@ function productDecisionReportText(p){
   lines.push('Anbieter/Konkurrenz: ' + (p.competition || 0));
   lines.push('Lieferzeit: ' + (p.delivery || 0) + ' Tage');
   lines.push('Risiko-Kategorie: ' + (p.risk || 'low'));
+  if(p.sourceProvider || p.sourceRisk || p.sourceType || p.sourceDomain){
+    lines.push('');
+    lines.push('Produktbeschaffung');
+    lines.push('Quelle/Supplier: ' + (p.sourceProvider || p.supplierId || 'offen'));
+    lines.push('Supplier-Typ: ' + (p.sourceType || 'offen'));
+    lines.push('Supplier-Risiko: ' + (p.sourceRisk || 'offen'));
+    lines.push('Domain: ' + (p.sourceDomain || 'offen'));
+    lines.push('Analyse-Status: ' + (p.sourceAnalysisStatus || 'offen'));
+    if(p.sourceNote) lines.push('Supplier-Hinweis: ' + p.sourceNote);
+    if(p.sourceProductNote) lines.push('Produktnotiz aus Beschaffung: ' + p.sourceProductNote);
+  }
   lines.push('');
   lines.push('Echte Tool-Daten');
   lines.push('Verkauft laut Tool: ' + salesStats.count);
@@ -4742,6 +5175,9 @@ function productCardHTML(p,small=false){
   detailHtml += '<details class="details-box">';
   detailHtml += '<summary>Details anzeigen</summary>';
   detailHtml += '<div class="pill-row">' + returnPillsForProduct(p,c) + '</div>';
+  if(p.sourceProvider || p.sourceRisk || p.sourceType || p.sourceDomain){
+    detailHtml += '<div class="output-box"><h3>Produktbeschaffung</h3><p>Quelle: ' + escapeHtml(p.sourceProvider || p.supplierId || 'offen') + '\nTyp: ' + escapeHtml(p.sourceType || 'offen') + '\nRisiko: ' + escapeHtml(p.sourceRisk || 'offen') + '\nDomain: ' + escapeHtml(p.sourceDomain || 'offen') + '\nAnalyse: ' + escapeHtml(p.sourceAnalysisStatus || 'offen') + (p.sourceNote ? '\nHinweis: ' + escapeHtml(p.sourceNote) : '') + '</p></div>';
+  }
   detailHtml += '<div class="output-box"><h3>SEO-Titel</h3><p>' + seoTitle(p.name) + '</p></div>';
   if(p.supplierLink){
     detailHtml += '<div class="output-box"><h3>Lieferanten-Link</h3><p>' + p.supplierLink + '</p></div>';
@@ -4756,7 +5192,7 @@ function productCardHTML(p,small=false){
   html += '<div>';
   html += '<div class="product-title">' + (p.priority || 'Normal') + ' · ' + p.name + '</div>';
   html += '<div class="muted">Status: ' + escapeHtml(lifecycle.label) + ' · Erstellt: ' + (p.created || '') + ' · ' + s.text + shopifyInfo + '</div>';
-  html += '<div class="pill-row"><span class="status ' + lifecycle.cls + '">' + escapeHtml(lifecycle.label) + '</span>' + returnCompactPillsForProduct(p,c) + '<span class="pill">Netto: ' + euro(net) + '</span><span class="status '+health.cls+'">'+health.label+'</span></div>';
+  html += '<div class="pill-row"><span class="status ' + lifecycle.cls + '">' + escapeHtml(lifecycle.label) + '</span>' + returnCompactPillsForProduct(p,c) + '<span class="pill">Netto: ' + euro(net) + '</span><span class="status '+health.cls+'">'+health.label+'</span>' + (p.sourceProvider ? '<span class="pill">Quelle: ' + escapeHtml(p.sourceProvider) + '</span>' : '') + (p.sourceRisk ? '<span class="status ' + riskClass(p.sourceRisk) + '">Supplier: ' + escapeHtml(p.sourceRisk) + '</span>' : '') + '</div>';
   html += renderProductAiMiniCard(p);
   html += detailHtml;
   html += '</div>';
@@ -4845,6 +5281,8 @@ function productDataIssues(p){
   if((+p.buy||0)<=0) issues.push('EK fehlt');
   if((+p.sell||0)<=0) issues.push('VK fehlt');
   if((+p.delivery||0)<=0) issues.push('Lieferzeit fehlt');
+  if(!String(p.sourceProvider||p.supplierId||'').trim()) issues.push('Quelle/Supplier fehlt');
+  if(String(p.sourceRisk||'').toLowerCase().includes('hoch')) issues.push('Supplier-Risiko hoch');
   return issues;
 }
 function duplicateSkuList(){
@@ -6788,7 +7226,7 @@ function exportFullBackup(){
     settings:appSettings,
     invoiceSettings:invoiceSettings,
     aiAgentsSettings: localStorage.getItem('elyon_ai_agents_settings') || '',
-      googleSheetsSync:{
+    googleSheetsSync:{
       urlEncrypted: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.urlEncrypted) || '',
       tokenEncrypted: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.tokenEncrypted) || '',
       url: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.url) || '',
@@ -7776,6 +8214,7 @@ function bindEvents(){
   safe('descGenResult', el => el.addEventListener('click', handleGeneratorClick));
   safe('aiResult', el => el.addEventListener('click', handleGeneratorClick));
   safe('aiSearchResult', el => el.addEventListener('click', handleGeneratorClick));
+  safe('sourceAnalysisResult', el => el.addEventListener('click', handleGeneratorClick));
   safe('aiBillingModal', el => el.addEventListener('click', function(event){
     if(event.target === el) closeAiBillingWarning();
   }));
@@ -7812,6 +8251,21 @@ function bindEvents(){
   }));
   bind('ebayCompetitionBtn','click',searchEbayCompetition);
   bind('ebaySearchBtn','click',ebaySuche);
+  bind('sourceImportBtn','click',sourceImport);
+  bind('manualSourceBtn','click',manualSourceImport);
+  bind('analyzeSourceBtn','click',analyzeSourceLink);
+  bind('addSupplierBtn','click',function(){ openSupplierForm(); });
+  safe('mySuppliersList', function(el){
+    el.addEventListener('click', function(event){
+      const btn = event.target.closest('[data-supplier-action]');
+      const card = event.target.closest('[data-supplier-id]');
+      if(!btn || !card) return;
+      const id = card.dataset.supplierId;
+      if(btn.dataset.supplierAction === 'use') useSupplierAsSource(id);
+      if(btn.dataset.supplierAction === 'edit') openSupplierForm(id);
+      if(btn.dataset.supplierAction === 'disable') disableSupplier(id);
+    });
+  });
   bind('ebayOrdersPreviewBtn','click',previewEbayOrders);
   bind('ebayOrdersImportBtn','click',importPreviewedEbayOrders);
   bind('ebayOrdersPreviewBtnOrders','click',previewEbayOrders);
@@ -8016,6 +8470,8 @@ document.addEventListener('DOMContentLoaded',()=>{
   renderSaleProductOptions();
   updateSalePreview();
   renderIntegrationStatus();
+  refreshSourceProviderOptions();
+  renderSupplierCards();
   if(localStorage.getItem('elyonShowStartLauncher') !== 'no') openStartLauncher();
   runSelfTests();
 });
@@ -8162,6 +8618,10 @@ document.addEventListener('DOMContentLoaded',()=>{
 
   try{
     const backendUrl = getBackendUrl();
+    if(!backendUrl){
+      box.innerHTML = '<p>Bitte zuerst die Backend URL speichern.</p><p class="hint">Diese Funktion nutzt /api/ebay/search?q=...&limit=20 und braucht eine erreichbare Backend/API-Verbindung.</p>';
+      return;
+    }
     const res = await fetch(
       backendUrl + '/api/ebay/search?q=' + encodeURIComponent(keyword) + '&limit=20'
     );
@@ -8321,12 +8781,6 @@ document.addEventListener('DOMContentLoaded',()=>{
         autoStart: false,
         prompt: 'Prüfe die passende KI-Aufgabe auf Risiken, Zielbereich und sinnvolle nächste Schritte.',
         note: 'Mit Bestätigung freigeben',
-      },
-      {
-        id: 'auto-orders',
-        icon: '🔒',
-        title: 'Automatische Bestellungen',
-        description: 'Bestellungen werden später aus gespeicherten Bestellplänen vorbereitet und erst nach Freigabe ausgelöst.',
       },
       promptTemplates: [
         'Erstelle eine prüfbare Bestellvorlage mit Lieferant, Risiko und Freigabepunkt.',
@@ -10727,7 +11181,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     return 'Offen';
   };
 
-  const updateAiTask = (taskId, updater) => {
+  const updateTaskCenterAiTask = (taskId, updater) => {
     const tasks = Array.isArray(state.aiTasks) ? state.aiTasks.slice() : [];
     const index = tasks.findIndex((task) => task && task.id === taskId);
     if (index < 0) return null;
@@ -11198,11 +11652,11 @@ document.addEventListener('DOMContentLoaded',()=>{
   const handleTaskAction = (taskId, action) => {
     if (!taskId) return;
     if (action === 'done') {
-      updateAiTask(taskId, (task) => ({ ...task, status: 'done' }));
+      updateTaskCenterAiTask(taskId, (task) => ({ ...task, status: 'done' }));
       return;
     }
     if (action === 'dismiss') {
-      updateAiTask(taskId, (task) => ({ ...task, status: 'blocked' }));
+      updateTaskCenterAiTask(taskId, (task) => ({ ...task, status: 'blocked' }));
       return;
     }
     if (action === 'remove') {
@@ -11214,7 +11668,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       return;
     }
     if (action === 'queued' || action === 'running' || action === 'blocked' || action === 'done' || action === 'failed' || action === 'waiting_approval') {
-      updateAiTask(taskId, (task) => ({ ...task, status: action }));
+      updateTaskCenterAiTask(taskId, (task) => ({ ...task, status: action }));
       return;
     }
     if (action === 'prepare') {
