@@ -8441,6 +8441,11 @@ document.addEventListener('DOMContentLoaded',()=>{
             { value: 'guided', label: 'Geführt freigeben' },
             { value: 'automatic', label: 'Automatisch' },
           ]},
+          { key: 'automationTier', kind: 'select', label: 'Automationsstufe', options: [
+            { value: 'preview', label: 'Nur vorbereitend' },
+            { value: 'semi', label: 'Halbautomatisch' },
+            { value: 'full', label: 'Vollautomatisch' },
+          ]},
           { key: 'threshold', kind: 'select', label: 'Auslöser-Schwelle', options: [
             { value: 'low', label: 'Niedrig' },
             { value: 'medium', label: 'Mittel' },
@@ -8466,6 +8471,11 @@ document.addEventListener('DOMContentLoaded',()=>{
             { value: 'assist', label: 'Unterstützend' },
             { value: 'auto', label: 'Automatisch' },
           ] },
+          { key: 'automationTier', kind: 'select', label: 'Automationsstufe', options: [
+            { value: 'preview', label: 'Nur vorbereitend' },
+            { value: 'semi', label: 'Halbautomatisch' },
+            { value: 'full', label: 'Vollautomatisch' },
+          ]},
           { key: 'supplierGuard', kind: 'select', label: 'Supplier-Prüfung', options: [
             { value: 'strict', label: 'Streng' },
             { value: 'normal', label: 'Normal' },
@@ -8496,6 +8506,11 @@ document.addEventListener('DOMContentLoaded',()=>{
             { value: 'assist', label: 'Unterstützend' },
             { value: 'auto', label: 'Automatisch' },
           ] },
+          { key: 'automationTier', kind: 'select', label: 'Automationsstufe', options: [
+            { value: 'preview', label: 'Nur vorbereitend' },
+            { value: 'semi', label: 'Halbautomatisch' },
+            { value: 'full', label: 'Vollautomatisch' },
+          ]},
           { key: 'tone', kind: 'select', label: 'Tonfall', options: [
             { value: 'friendly', label: 'Freundlich' },
             { value: 'neutral', label: 'Neutral' },
@@ -8526,6 +8541,11 @@ document.addEventListener('DOMContentLoaded',()=>{
             { value: 'assist', label: 'Unterstützend' },
             { value: 'auto', label: 'Automatisch' },
           ] },
+          { key: 'automationTier', kind: 'select', label: 'Automationsstufe', options: [
+            { value: 'preview', label: 'Nur vorbereitend' },
+            { value: 'semi', label: 'Halbautomatisch' },
+            { value: 'full', label: 'Vollautomatisch' },
+          ]},
           { key: 'publishGate', kind: 'select', label: 'Veröffentlichungs-Gate', options: [
             { value: 'manual', label: 'Nur manuell' },
             { value: 'score_80', label: 'Ab Score 80' },
@@ -9861,6 +9881,7 @@ document.addEventListener('DOMContentLoaded',()=>{
           ? source.responsibleArea
           : (AUTONOMY_AREA_OPTIONS.some((item) => item.value === fallback.responsibleArea) ? fallback.responsibleArea : 'all'),
         scope: ROLE_SCOPE_OPTIONS.some((item) => item.value === source.scope) ? source.scope : (fallback.scope || 'review'),
+        automationTier: ['preview', 'semi', 'full'].includes(source.automationTier) ? source.automationTier : (fallback.automationTier || 'preview'),
         canApprove: typeof source.canApprove === 'boolean' ? source.canApprove : (typeof fallback.canApprove === 'boolean' ? fallback.canApprove : false),
         canLock: typeof source.canLock === 'boolean' ? source.canLock : (typeof fallback.canLock === 'boolean' ? fallback.canLock : true),
         priority: ROLE_PRIORITY_OPTIONS.some((item) => item.value === source.priority) ? source.priority : (fallback.priority || 'medium'),
@@ -9877,6 +9898,7 @@ document.addEventListener('DOMContentLoaded',()=>{
         ? source.targetArea
         : (AUTONOMY_AREA_OPTIONS.some((item) => item.value === fallback.targetArea) ? fallback.targetArea : 'all'),
       mode: FEATURE_MODE_OPTIONS.some((item) => item.value === source.mode) ? source.mode : (fallback.mode || 'manual'),
+      automationTier: ['preview', 'semi', 'full'].includes(source.automationTier) ? source.automationTier : (fallback.automationTier || 'preview'),
       approvalRule: ['manual_review', 'guided', 'automatic'].includes(source.approvalRule) ? source.approvalRule : (fallback.approvalRule || 'manual_review'),
       threshold: FEATURE_THRESHOLD_OPTIONS.some((item) => item.value === source.threshold) ? source.threshold : (fallback.threshold || 'medium'),
       autoStart: typeof source.autoStart === 'boolean' ? source.autoStart : (typeof fallback.autoStart === 'boolean' ? fallback.autoStart : false),
@@ -10118,6 +10140,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     const config = item.config || {};
     if (type === 'role') {
       const scope = getExtendedAutonomyModeLabel(type, config.scope, item.id);
+      const automationTier = getExtendedAutonomyFieldLabel(type, item.id, 'automationTier', config.automationTier, 'Nur vorbereitend');
       const priority = getExtendedAutonomyFieldLabel(type, item.id, 'priority', config.priority, 'Mittel');
       const area = getAutonomyAreaLabel(config.responsibleArea);
       const prompt = previewPromptText(config.prompt);
@@ -10126,6 +10149,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       return [
         `Zuständig: ${area}`,
         `Freigabelevel: ${scope}`,
+        `Automationsstufe: ${automationTier}`,
         `Rechte: ${rightLabel} · ${lockLabel}`,
         `Priorität: ${priority}`,
         prompt ? `Prompt: ${prompt}` : 'Prompt: Keine Vorlage',
@@ -10133,6 +10157,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     }
     const area = getAutonomyAreaLabel(config.targetArea);
     const mode = getExtendedAutonomyModeLabel(type, config.mode, item.id);
+    const automationTier = getExtendedAutonomyFieldLabel(type, item.id, 'automationTier', config.automationTier, 'Nur vorbereitend');
     const prompt = previewPromptText(config.prompt);
     const gate = getExtendedAutonomyFieldLabel(type, item.id, 'approvalRule', config.approvalRule, 'Manuell prüfen');
     const threshold = getExtendedAutonomyFieldLabel(type, item.id, 'threshold', config.threshold, 'Mittel');
@@ -10146,6 +10171,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     return [
       `Verknüpft: ${area}`,
       `Modus: ${mode}`,
+      `Automationsstufe: ${automationTier}`,
       secondLine,
       `Autostart: ${config.autoStart ? 'Ja' : 'Nein'}`,
       prompt ? `Prompt: ${prompt}` : 'Prompt: Keine Vorlage',
@@ -10197,6 +10223,12 @@ document.addEventListener('DOMContentLoaded',()=>{
     if (id === 'auto-posting') return 'listing_review';
     return 'operations_check';
   };
+  const getExtendedAutonomyAutomationTier = (type, item) => {
+    const config = item && item.config ? item.config : {};
+    if (config.automationTier === 'full') return 'full';
+    if (config.automationTier === 'semi') return 'semi';
+    return 'preview';
+  };
   const syncExtendedAutonomyTask = (type, item) => {
     if (!item || item.status !== 'active') return null;
     const taskId = `extended-autonomy-${type}-${item.id}`;
@@ -10231,24 +10263,36 @@ document.addEventListener('DOMContentLoaded',()=>{
       startedAt: '',
       finishedAt: '',
     });
+    const automationTier = getExtendedAutonomyAutomationTier(type, item);
+    const isFullAutomation = automationTier === 'full';
+    const isSemiAutomation = automationTier === 'semi';
     if (type === 'feature' && item.id === 'auto-orders') {
       const orders = getOpenWorkflowSales();
       if (Array.isArray(orders) && orders.length) {
-        runOrderWorkflowForSales(orders, 'erweiterte-autonomie');
+        runOrderWorkflowForSales(orders, isFullAutomation ? 'vollautomatisch' : 'erweiterte-autonomie');
+      }
+      if (isSemiAutomation || isFullAutomation) {
+        createApprovalQueueEntryFromTask(taskId);
       }
     }
     if (type === 'feature' && item.id === 'auto-actions') {
       createTaskCenterSuggestionFromTask(taskId);
-      createApprovalQueueEntryFromTask(taskId);
+      if (isSemiAutomation || isFullAutomation) createApprovalQueueEntryFromTask(taskId);
     }
     if (type === 'feature' && item.id === 'auto-messages') {
-      createApprovalQueueEntryFromTask(taskId);
+      if (isFullAutomation) {
+        createTaskCenterSuggestionFromTask(taskId);
+      } else {
+        createApprovalQueueEntryFromTask(taskId);
+      }
     }
     if (type === 'feature' && item.id === 'auto-posting') {
       createTaskCenterSuggestionFromTask(taskId);
+      if (isSemiAutomation || isFullAutomation) createApprovalQueueEntryFromTask(taskId);
     }
     if (type === 'role' && item.id === 'release-operator') {
       createApprovalQueueEntryFromTask(taskId);
+      if (isFullAutomation) createTaskCenterSuggestionFromTask(taskId);
     }
     return record;
   };
