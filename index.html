@@ -179,6 +179,17 @@
     .browser-import-field strong{display:block;color:#e2e8f0;font-size:13px;line-height:1.35;overflow-wrap:anywhere}
     .browser-import-description{max-height:170px;overflow:auto}
     .browser-product-side{min-width:220px}
+    .browser-import-card{grid-template-columns:1fr!important;overflow:hidden}
+    .browser-import-card .browser-import-layout{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;align-items:start}
+    .browser-import-card .browser-import-body{min-width:0}
+    .browser-import-card .browser-import-title{overflow-wrap:anywhere;word-break:break-word;line-height:1.28}
+    .browser-import-card .browser-import-url{overflow-wrap:anywhere;word-break:break-all;max-height:44px;overflow:hidden}
+    .browser-import-card .browser-import-muted{overflow-wrap:anywhere;word-break:break-word}
+    .browser-import-card .pill{max-width:100%;white-space:normal;overflow-wrap:anywhere;text-align:left}
+    .browser-import-card .output-box{max-width:100%;overflow:hidden}
+    .browser-import-card .actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-top:16px;width:100%}
+    .browser-import-card .actions button{width:100%;min-height:48px}
+    .browser-import-gallery{display:flex;gap:8px;flex-wrap:wrap;max-width:100%}
     @media(max-width:980px){.browser-product-card{grid-template-columns:1fr}.browser-product-side{min-width:0}.browser-import-grid{grid-template-columns:1fr}}
     @media(max-width:560px){.browser-product-head{grid-template-columns:1fr}.browser-product-image,.browser-product-image-fallback{width:100%;height:170px}}
   </style>
@@ -6443,11 +6454,12 @@ function renderBrowserImports(){
     const mainImage = imageList[0] || '';
     const imageHtml = mainImage ? '<img src="' + escapeHtml(mainImage) + '" alt="" referrerpolicy="no-referrer" loading="lazy" onerror="this.remove()" style="width:72px;height:72px;object-fit:cover;border-radius:14px;border:1px solid rgba(255,255,255,.12);background:rgba(2,6,23,.4)">' : '<div class="empty" style="width:72px;min-height:72px;padding:10px">Kein Bild</div>';
     const shippingText = item.shipping && typeof item.shipping === 'object' ? [item.shipping.cost, item.shipping.deliveryTime, item.shipping.shipsFrom, item.shipping.text].filter(Boolean).join(' · ') : '';
+    const availabilityText = String(item.availability || '').slice(0, 180);
     const detailRows = Object.entries(item.productDetails || {}).slice(0,12).map(([key,value]) => '<li><strong>' + escapeHtml(key) + ':</strong> ' + escapeHtml(String(value || '')) + '</li>').join('');
     const variantRows = (item.variants || []).slice(0,12).map(variant => '<span class="pill">' + escapeHtml(typeof variant === 'string' ? variant : (variant.label || variant.name || JSON.stringify(variant))) + '</span>').join('');
     const extraRows = [
       item.category ? '<span class="pill">Kategorie: ' + escapeHtml(item.category) + '</span>' : '',
-      item.availability ? '<span class="pill">Verfügbarkeit: ' + escapeHtml(item.availability) + '</span>' : '',
+      availabilityText ? '<span class="pill">Verfügbarkeit: ' + escapeHtml(availabilityText) + (String(item.availability || '').length > 180 ? '…' : '') + '</span>' : '',
       item.rating ? '<span class="pill">Rating: ' + escapeHtml(item.rating) + '</span>' : '',
       item.reviewsCount ? '<span class="pill">Bewertungen: ' + escapeHtml(item.reviewsCount) + '</span>' : '',
       item.soldCount ? '<span class="pill">Verkäufe: ' + escapeHtml(item.soldCount) + '</span>' : '',
@@ -6455,17 +6467,18 @@ function renderBrowserImports(){
     ].filter(Boolean).join('');
     const complianceRows = (item.complianceRisks || []).map(risk => '<span class="pill bad">' + escapeHtml(risk) + '</span>').join('');
     const galleryRows = imageList.slice(0,6).map(src => '<img src="' + escapeHtml(src) + '" alt="" referrerpolicy="no-referrer" loading="lazy" onerror="this.remove()" style="width:46px;height:46px;object-fit:cover;border-radius:10px;border:1px solid rgba(255,255,255,.12)">').join('');
-    return '<div class="product-card small-card" data-browser-import-id="' + escapeHtml(item.id) + '">' +
-      '<div style="display:flex;gap:14px;align-items:flex-start">' +
+    return '<div class="product-card small-card browser-import-card" data-browser-import-id="' + escapeHtml(item.id) + '">' +
+      '<div class="browser-import-layout">' +
+      '<div style="display:flex;gap:14px;align-items:flex-start;min-width:0">' +
         imageHtml +
-        '<div style="flex:1;min-width:0">' +
-          '<div class="product-title">' + escapeHtml(item.title || 'Unbekanntes Produkt') + '</div>' +
-          '<div class="muted">Preis: ' + escapeHtml([item.price, item.currency].filter(Boolean).join(' ')) + ' · Supplier: ' + escapeHtml(item.supplier || '-') + '</div>' +
-          '<div class="muted">Domain: ' + escapeHtml(item.domain || '-') + '</div>' +
-          '<div class="muted" style="word-break:break-all">URL: ' + escapeHtml(item.url || '-') + '</div>' +
+        '<div class="browser-import-body" style="flex:1">' +
+          '<div class="product-title browser-import-title">' + escapeHtml(item.title || 'Unbekanntes Produkt') + '</div>' +
+          '<div class="muted browser-import-muted">Preis: ' + escapeHtml([item.price, item.currency].filter(Boolean).join(' ')) + ' · Supplier: ' + escapeHtml(item.supplier || '-') + '</div>' +
+          '<div class="muted browser-import-muted">Domain: ' + escapeHtml(item.domain || '-') + '</div>' +
+          '<div class="muted browser-import-url">URL: ' + escapeHtml(item.url || '-') + '</div>' +
           (extraRows ? '<div class="pill-row">' + extraRows + '</div>' : '') +
           (complianceRows ? '<div class="pill-row"><span class="pill">Compliance</span>' + complianceRows + '</div>' : '') +
-          (galleryRows ? '<div class="pill-row">' + galleryRows + '</div>' : '') +
+          (galleryRows ? '<div class="browser-import-gallery">' + galleryRows + '</div>' : '') +
           (variantRows ? '<details class="output-box" style="margin-top:10px"><summary>Varianten anzeigen</summary><div class="pill-row">' + variantRows + '</div></details>' : '') +
           (detailRows ? '<details class="output-box" style="margin-top:10px"><summary>Produktdetails anzeigen</summary><ul>' + detailRows + '</ul></details>' : '') +
           (item.description ? '<details class="output-box" style="margin-top:10px"><summary>Artikelbeschreibung anzeigen</summary><p style="white-space:pre-wrap">' + escapeHtml(item.description) + '</p></details>' : '') +
@@ -6475,14 +6488,14 @@ function renderBrowserImports(){
             '<span class="pill">Linked Supplier: ' + escapeHtml(linked) + '</span>' +
           '</div>' +
         '</div>' +
-      '</div>' +
+      '</div></div>' +
       '<div class="actions">' +
         '<button type="button" data-browser-action="board" data-browser-id="' + escapeHtml(item.id) + '">Ins Produktboard übernehmen</button>' +
         '<button type="button" class="secondary" data-browser-action="link" data-browser-id="' + escapeHtml(item.id) + '">Mit Supplier verknüpfen</button>' +
         '<button type="button" class="secondary" data-browser-action="risk" data-browser-id="' + escapeHtml(item.id) + '">Risiko prüfen</button>' +
         '<button type="button" class="secondary" data-browser-action="margin" data-browser-id="' + escapeHtml(item.id) + '">Marge kalkulieren</button>' +
         '<button type="button" class="danger" data-browser-action="discard" data-browser-id="' + escapeHtml(item.id) + '">Verwerfen</button>' +
-      '</div>' +
+      '</div></div>' +
     '</div>';
   }).join('');
 
