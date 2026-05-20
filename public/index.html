@@ -244,6 +244,15 @@
     .kanban-shell.kanban-single .kanban-mini-actions{grid-column:3;grid-template-columns:repeat(2,minmax(0,1fr));align-self:center}
     .kanban-empty-strip{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;padding:12px;border-radius:18px;background:rgba(2,6,23,.34);border:1px dashed rgba(148,163,184,.18)}
     .kanban-empty-pill{padding:7px 10px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);color:#94a3b8;font-size:12px}
+    .product-edit-panel{max-width:980px;width:min(96vw,980px)}
+    .product-edit-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:14px}
+    .product-edit-head h2{margin:0 0 6px}
+    .product-edit-grid{display:grid;grid-template-columns:1.15fr .85fr;gap:16px;align-items:start}
+    .product-edit-preview{display:grid;grid-template-columns:108px minmax(0,1fr);gap:14px;padding:14px;border-radius:20px;background:rgba(2,6,23,.42);border:1px solid rgba(255,255,255,.09);margin-bottom:14px}
+    .product-edit-preview img{width:108px;height:108px;object-fit:cover;border-radius:16px;border:1px solid rgba(255,255,255,.12);background:rgba(2,6,23,.4)}
+    .product-edit-preview strong{display:block;font-size:16px;line-height:1.3;overflow-wrap:anywhere}
+    .product-edit-actions{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;margin-top:14px}
+    @media(max-width:820px){.product-edit-grid{grid-template-columns:1fr}.product-edit-preview{grid-template-columns:86px minmax(0,1fr)}.product-edit-preview img{width:86px;height:86px}}
     @media(max-width:760px){.kanban-shell .kanban-column,.kanban-shell .kanban-column-draft{flex-basis:88vw}.kanban-shell .kanban-mini-card,.kanban-shell .kanban-column-draft .kanban-mini-card,.kanban-shell.kanban-single .kanban-mini-card{grid-template-columns:76px minmax(0,1fr)}.kanban-shell .kanban-mini-card img,.kanban-shell .kanban-column-draft .kanban-mini-card img,.kanban-shell.kanban-single .kanban-mini-card img{width:76px;height:76px}.kanban-shell .kanban-mini-actions,.kanban-shell .kanban-column-draft .kanban-mini-actions,.kanban-shell.kanban-single .kanban-mini-actions{grid-column:1 / -1;grid-template-columns:repeat(2,minmax(0,1fr))}.kanban-shell.kanban-single .kanban-column-cards{grid-template-columns:1fr}}
   </style>
   <link rel="stylesheet" href="elyon-soul.css" />
@@ -690,6 +699,44 @@
           <button id="startBackupNowBtn" class="secondary full">💾 Backup jetzt exportieren</button>
           <label class="checkrow" style="margin:0"><input type="checkbox" id="showStartLauncherAgain" checked> <span>Beim Start anzeigen</span></label>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="productEditModal" class="modal-backdrop hidden" aria-hidden="true">
+    <div class="card modal-panel product-edit-panel">
+      <div class="product-edit-head">
+        <div>
+          <h2>Produkt bearbeiten</h2>
+          <p class="hint">Änderungen bleiben lokal im Produktboard. Keine Live-Aktion, kein Listing, keine Bestellung.</p>
+        </div>
+        <button class="secondary" type="button" id="productEditCloseBtn">Schließen</button>
+      </div>
+      <div id="productEditPreview" class="product-edit-preview"></div>
+      <div class="product-edit-grid">
+        <section class="settings-section">
+          <h3>Basisdaten</h3>
+          <label>Produktname</label><input id="editProductName">
+          <div class="row"><div><label>Status</label><select id="editProductStatus"><option>Recherche</option><option>Draft</option><option>SEO prüfen</option><option>eBay Ready</option><option>Live</option><option>Verkauft</option><option>Versand offen</option><option>Abgeschlossen</option><option>Archiviert</option></select></div><div><label>Priorität</label><select id="editProductPriority"><option>Normal</option><option>⭐ Favorit</option><option>🔥 Heiß</option><option>❄️ Später</option></select></div></div>
+          <div class="row"><div><label>SKU</label><input id="editProductSku"></div><div><label>Supplier-ID</label><input id="editProductSupplierId"></div></div>
+          <label>Lieferanten-Link</label><input id="editProductSupplierLink">
+        </section>
+        <section class="settings-section">
+          <h3>Kalkulation</h3>
+          <div class="row"><div><label>EK-Preis €</label><input id="editProductBuy" type="number" step="0.01"></div><div><label>Versand €</label><input id="editProductShip" type="number" step="0.01"></div></div>
+          <div class="row"><div><label>Verkaufspreis €</label><input id="editProductSell" type="number" step="0.01"></div><div><label>Zielgewinn €</label><input id="editProductTargetProfit" type="number" step="0.01"></div></div>
+          <div class="row"><div><label>Gebühr %</label><input id="editProductFee" type="number" step="0.1"></div><div><label>Risiko-Puffer %</label><input id="editProductRiskBuffer" type="number" step="0.1"></div></div>
+          <div class="row"><div><label>Verkäufe</label><input id="editProductSales" type="number"></div><div><label>Konkurrenz</label><input id="editProductCompetition" type="number"></div></div>
+          <div class="row"><div><label>Lieferzeit Tage</label><input id="editProductDelivery" type="number"></div><div><label>Risiko</label><select id="editProductRisk"><option value="low">Niedrig</option><option value="medium">Mittel</option><option value="high">Hoch / Elektronik / Batterie</option></select></div></div>
+        </section>
+      </div>
+      <section class="settings-section">
+        <h3>Notizen</h3>
+        <textarea id="editProductNotes"></textarea>
+      </section>
+      <div class="product-edit-actions">
+        <button class="secondary" type="button" id="productEditCancelBtn">Abbrechen</button>
+        <button type="button" id="productEditSaveBtn">Änderungen speichern</button>
       </div>
     </div>
   </div>
@@ -2489,6 +2536,7 @@ let sales = loadStoredArray("elyonSales");
 let suppliers = loadStoredArray("elyonSuppliers");
 let runningCosts = loadStoredArray("elyonCosts");
 let editingProductId = null;
+let productEditModalId = null;
 let integrationSettings = JSON.parse(localStorage.getItem('elyonIntegrations') || '{}');
 let invoices = loadStoredArray("elyonInvoices");
 let pendingCsvImport = [];
@@ -4710,34 +4758,89 @@ function setSourcingWorkflowStep(step, targetId, shouldScroll){
   if(activeStep === '2') safe('analysisLinkInput', input => input.focus({preventScroll:true}));
   if(activeStep === '1') safe('sourceProvider', input => input.focus({preventScroll:true}));
 }
+function editModalNumber(id){
+  const value = Number(getInputValue(id).replace(',', '.'));
+  return Number.isFinite(value) ? value : 0;
+}
+function setProductEditValue(id, value){
+  safe(id, el => { el.value = value !== undefined && value !== null ? value : ''; });
+}
+function getProductEditImage(product){
+  const images = parseJsonArrayField(product.sourceOnlineImages);
+  return String(product.sourceOnlineImage || images[0] || '').trim();
+}
+function renderProductEditPreview(product){
+  const image = getProductEditImage(product);
+  const price = [product.sourceOnlinePrice, product.sourceOnlineCurrency].filter(Boolean).join(' ') || (product.sell ? euro(product.sell) : '');
+  const imageHtml = image ? '<img src="' + escapeHtml(image) + '" alt="" referrerpolicy="no-referrer" loading="lazy" onerror="this.remove()">' : '<div class="empty" style="min-height:108px;padding:12px">Kein Bild</div>';
+  setHTML('productEditPreview', imageHtml + '<div><strong>' + escapeHtml(product.name || 'Unbenanntes Produkt') + '</strong><div class="muted" style="margin-top:6px">' + escapeHtml(price || 'Preis offen') + ' · ' + escapeHtml(product.sourceProvider || product.supplierId || 'Quelle offen') + '</div><div class="pill-row"><span class="pill">Keine Live-Aktion</span><span class="pill">Nur Produktdaten</span></div></div>');
+}
+function openProductEditModal(product){
+  if(!product) return;
+  productEditModalId = product.id;
+  renderProductEditPreview(product);
+  setProductEditValue('editProductName', product.name || '');
+  setProductEditValue('editProductStatus', normalizeProductStatus(product.productStatus || product.status || 'Draft', 'Draft'));
+  setProductEditValue('editProductPriority', product.priority || 'Normal');
+  setProductEditValue('editProductSku', product.sku || '');
+  setProductEditValue('editProductSupplierId', product.supplierId || '');
+  setProductEditValue('editProductSupplierLink', product.supplierLink || '');
+  setProductEditValue('editProductBuy', product.buy || '');
+  setProductEditValue('editProductShip', product.ship || '');
+  setProductEditValue('editProductSell', product.sell || '');
+  setProductEditValue('editProductTargetProfit', product.targetProfit || '');
+  setProductEditValue('editProductFee', product.fee || '');
+  setProductEditValue('editProductRiskBuffer', product.riskBuffer || '');
+  setProductEditValue('editProductSales', product.sales || '');
+  setProductEditValue('editProductCompetition', product.competition || '');
+  setProductEditValue('editProductDelivery', product.delivery || '');
+  setProductEditValue('editProductRisk', product.risk || 'low');
+  setProductEditValue('editProductNotes', product.notes || '');
+  safe('productEditModal', el => { el.classList.remove('hidden'); el.setAttribute('aria-hidden','false'); });
+  setTimeout(()=>safe('editProductName', el => el.focus({preventScroll:true})), 30);
+}
+function closeProductEditModal(){
+  productEditModalId = null;
+  safe('productEditModal', el => { el.classList.add('hidden'); el.setAttribute('aria-hidden','true'); });
+}
+function saveProductEditModal(){
+  const product = products.find(item => String(item.id) === String(productEditModalId));
+  if(!product){ closeProductEditModal(); return; }
+  const sku = getInputValue('editProductSku').toUpperCase();
+  if(sku && products.some(item => String(item.id) !== String(product.id) && String(item.sku || '').trim().toUpperCase() === sku)){
+    if(!confirm('Diese SKU existiert bereits. Trotzdem speichern?')) return;
+  }
+  const status = normalizeProductStatus(getInputValue('editProductStatus') || 'Draft', 'Draft');
+  const next = normalizeProductRecord({
+    ...product,
+    name: getInputValue('editProductName') || 'Unbenanntes Produkt',
+    status,
+    productStatus: status,
+    priority: getInputValue('editProductPriority') || 'Normal',
+    sku,
+    supplierId: getInputValue('editProductSupplierId'),
+    supplierLink: getInputValue('editProductSupplierLink'),
+    buy: editModalNumber('editProductBuy'),
+    ship: editModalNumber('editProductShip'),
+    sell: editModalNumber('editProductSell'),
+    targetProfit: editModalNumber('editProductTargetProfit') || appSettings.profit,
+    fee: editModalNumber('editProductFee') || appSettings.fees,
+    riskBuffer: editModalNumber('editProductRiskBuffer') || appSettings.buffer,
+    sales: editModalNumber('editProductSales'),
+    competition: editModalNumber('editProductCompetition'),
+    delivery: editModalNumber('editProductDelivery'),
+    risk: getInputValue('editProductRisk') || 'low',
+    notes: getInputValue('editProductNotes'),
+    updated: new Date().toLocaleDateString('de-DE'),
+    updatedAt: new Date().toISOString()
+  });
+  products = products.map(item => String(item.id) === String(product.id) ? next : item);
+  save();
+  closeProductEditModal();
+}
 function editProduct(id){
-  const p=products.find(x=>x.id===id); if(!p) return;
-  editingProductId=id;
-  currentSourcingDraft = {
-    sourceProvider:p.sourceProvider || '',
-    sourceRisk:p.sourceRisk || '',
-    sourceType:p.sourceType || '',
-    sourceDomain:p.sourceDomain || '',
-    sourceNote:p.sourceNote || '',
-    sourceAnalysisStatus:p.sourceAnalysisStatus || '',
-    sourceProductNote:p.sourceProductNote || '',
-    sourceOnlineStatus:p.sourceOnlineStatus || '',
-    sourceOnlineCheckedAt:p.sourceOnlineCheckedAt || '',
-    sourceOnlineTitle:p.sourceOnlineTitle || '',
-    sourceOnlinePrice:p.sourceOnlinePrice || '',
-    sourceOnlineCurrency:p.sourceOnlineCurrency || '',
-    sourceOnlineImage:p.sourceOnlineImage || '',
-    sourceOnlineAvailability:p.sourceOnlineAvailability || '',
-    sourceOnlineShipping:p.sourceOnlineShipping || '',
-    sourceOnlineConfidence:p.sourceOnlineConfidence || ''
-  };
-  ['name','sku','supplierId','ebayItemId','supplierLink','buy','ship','sell','targetProfit','fee','riskBuffer','sales','competition','delivery','notes'].forEach(key=>safe(key,el=>{el.value = (p[key] !== undefined && p[key] !== null) ? p[key] : '';}));
-  safe('productStatus',el=>el.value=normalizeProductStatus(p.productStatus || p.status || 'Draft', 'Draft'));
-  safe('priority',el=>el.value=p.priority||'Normal');
-  safe('risk',el=>el.value=p.risk||'low');
-  safe('addProductBtn',el=>el.textContent='Änderungen speichern');
-  safe('cancelEditProductBtn',el=>el.classList.remove('hidden'));
-  scrollToProductForm();
+  const p=products.find(x=>String(x.id)===String(id)); if(!p) return;
+  openProductEditModal(p);
 }
 function removeProduct(id){ products=products.filter(p=>p.id!==id); save(); }
 function duplicateProduct(id){ const o=products.find(p=>p.id===id); if(!o) return; products.push({...o,id:Date.now(),name:o.name+' Kopie',created:new Date().toLocaleDateString('de-DE')}); save(); }
@@ -9328,6 +9431,10 @@ function bindEvents(){
   bind('clearBtn','click',clearAll);
   bind('addProductBtn','click',addProduct);
   bind('cancelEditProductBtn','click',clearProductForm);
+  bind('productEditSaveBtn','click',saveProductEditModal);
+  bind('productEditCancelBtn','click',closeProductEditModal);
+  bind('productEditCloseBtn','click',closeProductEditModal);
+  safe('productEditModal', el => el.addEventListener('click', event => { if(event.target === el) closeProductEditModal(); }));
   bind('search','input',render);
   bind('filter','change',render);
   bind('sort','change',render);
