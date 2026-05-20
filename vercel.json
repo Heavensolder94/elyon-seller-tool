@@ -4,7 +4,7 @@
   "regions": ["fra1"],
   "crons": [
     {
-      "path": "/api/agent-engine?tick=1",
+      "path": "/api/agent-engine",
       "schedule": "0 4 * * *"
     }
   ],

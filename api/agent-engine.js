@@ -94,7 +94,8 @@ function buildNextRuntime(runtime, req) {
   next.worker.mode = next.worker.status;
   next.worker.notes = next.worker.notes || "Serverseitiger Status-Worker";
   next.worker.queueLength = Array.isArray(next.queue) ? next.queue.length : 0;
-  next.source = req?.query?.tick ? "cron" : "manual";
+  const userAgent = String(req?.headers?.["user-agent"] || "").toLowerCase();
+  next.source = req?.query?.tick || userAgent.includes("vercel-cron") ? "cron" : "manual";
   return next;
 }
 
