@@ -1,4 +1,6 @@
-import soulHandler from "../elyon-soul.js";
+function json(res, status, body) {
+  return res.status(status).json(body);
+}
 
 function normalizeBody(body) {
   if (typeof body === "string") {
@@ -11,30 +13,32 @@ function normalizeBody(body) {
   return body && typeof body === "object" ? body : {};
 }
 
-function toArray(value) {
-  if (Array.isArray(value)) return value;
-  if (value && typeof value === "object") return [value];
-  return [];
+function toText(value) {
+  if (value === null || value === undefined) return "";
+  return String(value).trim();
 }
 
 export default async function handler(req, res) {
+  res.setHeader("Cache-Control", "no-store");
+
   if (req.method !== "POST") {
-    res.setHeader("Cache-Control", "no-store");
-    return res.status(405).json({
-      ok: false,
-      error: "Nur POST erlaubt."
-    });
+    return json(res, 405, { ok: false, error: "Nur POST erlaubt." });
   }
 
   const body = normalizeBody(req.body);
   const product = body.product || body.item || body.data || {};
-  const forwardedBody = {
-    action: "save-product",
-    prompt: "Produkt aus Elyon Browser OS speichern und vorbereiten.",
-    products: toArray(product),
-    summary: body.summary && typeof body.summary === "object" ? body.summary : { total: 1 }
-  };
+  const title = toText(product.title || product.name || "Unbekanntes Produkt");
+  const url = toText(product.url || "");
 
-  req.body = forwardedBody;
-  return soulHandler(req, res);
+  return json(res, 200, {
+    ok: true,
+    route: "/api/elyon/products",
+    message: "Produkt empfangen und für Elyon vorbereitet.",
+    product: {
+      title,
+      url,
+      status: toText(product.status || "new")
+    },
+    summary: body.summary && typeof body.summary === "object" ? body.summary : { total: 1 }
+  });
 }
