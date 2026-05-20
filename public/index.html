@@ -4147,9 +4147,9 @@ function renderSourceAnalysis(analysis){
   html += '</div>';
   html += '<div class="output-box"><h3>Supplier-Hinweis</h3><p>' + escapeHtml(supplier.note || 'Supplier pruefen.') + '</p></div>';
   html += '<div class="output-box"><h3>Vor dem Listen pruefen</h3><ul>' + compliance.map(function(item){ return '<li>' + escapeHtml(item) + '</li>'; }).join('') + '</ul></div>';
-  html += '<div class="output-box"><h3>ChatGPT-Bewertung</h3><p>' + (aiActive ? 'ChatGPT kann jetzt eine kontrollierte Einschätzung erstellen. Live-Aktionen bleiben blockiert.' : 'KI ist deaktiviert. Die Produktdaten wurden online geprueft, aber nicht durch KI bewertet.') + '</p><div id="sourcingAiReview" class="muted">Noch keine ChatGPT-Bewertung gestartet.</div></div>';
+  html += '<div class="output-box"><h3>KI-Bewertung</h3><p>' + (aiActive ? 'Wähle ChatGPT für die Hauptbewertung oder DeepSeek als günstigere Zweitmeinung. Live-Aktionen bleiben blockiert.' : 'KI ist deaktiviert. Die Produktdaten wurden online geprueft, aber nicht durch KI bewertet.') + '</p><div id="sourcingAiReview" class="muted">Noch keine KI-Bewertung gestartet.</div></div>';
   html += '<div class="copy-row">';
-  if(aiActive) html += '<button class="secondary copy-btn" type="button" onclick="prepareAiSourcingPrompt()">KI-Prompt vorbereiten</button><button class="secondary copy-btn" type="button" onclick="startChatGptSourcingReview()">ChatGPT-Bewertung starten</button>';
+  if(aiActive) html += '<button class="secondary copy-btn" type="button" onclick="prepareAiSourcingPrompt()">KI-Prompt vorbereiten</button><button class="secondary copy-btn" type="button" onclick="startChatGptSourcingReview()">ChatGPT-Bewertung starten</button><button class="secondary copy-btn" type="button" onclick="startDeepSeekSourcingReview()">DeepSeek-Bewertung starten</button>';
   html += '<button class="full copy-btn" type="button" onclick="applyAnalysisToProductForm()">In Produktmaske uebernehmen</button></div></div>';
   setHTML('sourceAnalysisResult', html);
 }
@@ -4278,6 +4278,51 @@ function startChatGptSourcingReview(){
     extra:{ model:'openai-mini', source:'product-procurement' }
   });
 }
+async function startDeepSeekSourcingReview(){
+  if(!latestSourceAnalysis){ alert('Bitte zuerst einen Produktlink analysieren.'); return; }
+  if(!isAiFeatureEnabled()){ setHTML('sourcingAiReview','KI ist deaktiviert. Bitte KI-Funktionen aktivieren, wenn du DeepSeek verwenden willst.'); return; }
+  if(!confirm('DeepSeek-Bewertung starten? Das kann je nach API-Key Kosten verursachen. Es wird keine Bestellung, kein Listing und keine Kundennachricht ausgelöst.')) return;
+  const a = latestSourceAnalysis;
+  const supplier = a.supplier || STANDARD_SOURCE_PROFILES.other;
+  const online = a.online || {};
+  incrementAiUsage();
+  setHTML('sourcingAiReview','<div class="empty">DeepSeek bewertet das Produkt...</div>');
+  try{
+    const data = await postJsonWithTimeout('/api/elyon-soul', {
+      action:'sourcing_review',
+      prompt: buildChatGptSourcingPrompt() + '\n\nBitte gib eine kurze, kritische Zweitmeinung als DeepSeek-Bewertung.',
+      products:[{
+        name: online.title || supplier.name || 'Produkt aus Produktbeschaffung',
+        supplierId: supplier.name || '',
+        supplierLink: a.link || '',
+        sourceProvider: supplier.name || '',
+        sourceType: supplier.type || '',
+        sourceRisk: supplier.risk || '',
+        sourceDomain: a.domain || '',
+        sourceAnalysisStatus: a.status || '',
+        sourceOnlineStatus: online.status || '',
+        sourceOnlineTitle: online.title || '',
+        sourceOnlinePrice: online.price || '',
+        sourceOnlineCurrency: online.currency || '',
+        sourceOnlineAvailability: online.availability || '',
+        sourceOnlineShipping: online.shipping || '',
+        sourceOnlineConfidence: online.confidence || '',
+        notes: a.productNote || supplier.note || ''
+      }],
+      summary:{
+        total:1,
+        missingMarginCount: online.price ? 0 : 1,
+        missingDeliveryCount: supplier.delivery ? 0 : 1,
+        complianceRiskCount: String(supplier.risk || '').toLowerCase().includes('hoch') ? 1 : 0
+      }
+    }, 30000);
+    const recommendation = data && (data.recommendation || data.message) ? (data.recommendation || data.message) : 'Keine DeepSeek-Empfehlung erzeugt.';
+    const mode = data && data.mode ? data.mode : 'deepseek';
+    setHTML('sourcingAiReview','<div class="output-box"><h3>DeepSeek-Bewertung</h3><p>' + escapeHtml(recommendation) + '</p><p class="muted">Modus: ' + escapeHtml(mode) + '. Keine Live-Aktion ausgeführt.</p></div>');
+  }catch(err){
+    setHTML('sourcingAiReview','<div class="empty">⚠️ ' + escapeHtml(err && err.message ? err.message : 'DeepSeek-Bewertung fehlgeschlagen.') + '</div>');
+  }
+}
 function applyAnalysisToProductForm(){
   const a = latestSourceAnalysis;
   if(!a){ return; }
@@ -4292,6 +4337,7 @@ function applyAnalysisToProductForm(){
 window.prepareAiSourcingPrompt = prepareAiSourcingPrompt;
 window.applyAnalysisToProductForm = applyAnalysisToProductForm;
 window.startChatGptSourcingReview = startChatGptSourcingReview;
+window.startDeepSeekSourcingReview = startDeepSeekSourcingReview;
 function setSourcingWorkflowStep(step, targetId, shouldScroll){
   const root = $('productSearchTab');
   if(!root) return;
