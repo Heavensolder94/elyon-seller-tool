@@ -481,9 +481,18 @@ async function storeResearch(product) {
   return response || null;
 }
 
+function importFeedback(response, fallback) {
+  if (!response) return "Keine Antwort von Elyon. Bitte Extension neu laden.";
+  if (response.importResult?.storedLocally) return response.importResult.message || "Backend nicht erreichbar - lokal gespeichert";
+  if (response.importResult?.ok) return response.importResult.message || "Browser Import gespeichert.";
+  if (response.importResult?.message) return response.importResult.message;
+  if (response.ok) return fallback || "Gespeichert";
+  return response.error || fallback || "Speichern fehlgeschlagen";
+}
+
 async function sendToElyon(product) {
   const response = await chrome.runtime.sendMessage({ type: "ELYON_SAVE_PRODUCT", product }).catch(() => null);
-  const message = response?.importResult?.message || response?.boardSync?.message || response?.message || "Gespeichert";
+  const message = importFeedback(response, "Gespeichert");
   if (typeof alert === "function") {
     alert(message);
   }
@@ -645,11 +654,11 @@ function renderOverlay(product) {
   overlay.querySelector('[data-elyon-action="close"]')?.addEventListener("click", removeOverlay);
   overlay.querySelector('[data-elyon-action="save"]')?.addEventListener("click", async () => {
     const result = await storeResearch({ ...product, status: "new" });
-    alert(result?.importResult?.message || result?.boardSync?.message || result?.message || "Gespeichert");
+    alert(importFeedback(result, "Gespeichert"));
   });
   overlay.querySelector('[data-elyon-action="research"]')?.addEventListener("click", async () => {
     const result = await storeResearch({ ...product, status: "new" });
-    alert(result?.importResult?.message || result?.boardSync?.message || result?.message || "Research gemerkt");
+    alert(importFeedback(result, "Research gemerkt"));
   });
   overlay.querySelector('[data-elyon-action="soul"]')?.addEventListener("click", () => {
     chrome.runtime.sendMessage({

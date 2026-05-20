@@ -187,13 +187,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       const importResult = await sendProductImportToElyon({ ...message.product, status: "new" });
       const researchResult = await loadResearchMemory();
       sendResponse({
-        ok: true,
+        ok: importResult?.ok !== false,
         products: await chrome.storage.local.get(STORAGE_KEYS.products).then((result) => Array.isArray(result[STORAGE_KEYS.products]) ? result[STORAGE_KEYS.products] : []),
         researchMemory: researchResult,
         security,
         decision,
         boardSync: importResult?.boardSync || { ok: false, synced: false, message: "Board-Tab nicht offen" },
-        importResult
+        importResult,
+        message: importResult?.message || "Produkt verarbeitet"
       });
       return;
     }
