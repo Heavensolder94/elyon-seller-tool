@@ -157,7 +157,6 @@ function buildApiRoute(pathname, query) {
     { match: /^\/api\/health$/, module: "api/health.js" },
     { match: /^\/api\/env-check$/, module: "api/env-check.js" },
     { match: /^\/api\/google-sheets-sync$/, module: "api/env-check.js" },
-    { match: /^\/api\/google-sheets-sync-settings$/, module: "api/google-sheets-sync-settings.js" },
     { match: /^\/api\/cj\/status$/, module: "api/cj/status.js" },
     { match: /^\/api\/cj\/search$/, module: "api/cj/search.js" },
     { match: /^\/api\/elyon-soul$/, module: "api/elyon-soul.js" },
