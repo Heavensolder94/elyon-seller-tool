@@ -51,6 +51,10 @@ function buildIntegrationReadiness() {
     DEEPSEEK_API_KEY: Boolean(process.env.DEEPSEEK_API_KEY),
   };
 
+  const qwenRequired = {
+    QWEN_API_KEY: Boolean(process.env.QWEN_API_KEY || process.env.DASHSCOPE_API_KEY),
+  };
+
   return {
     localBackup: {
       ready: true,
@@ -85,7 +89,12 @@ function buildIntegrationReadiness() {
     deepseek: {
       ready: Object.values(deepSeekRequired).every(Boolean),
       missing: listMissing(deepSeekRequired),
-      note: "ELYON Soul nutzt DeepSeek nur mit `DEEPSEEK_API_KEY`.",
+      note: `ELYON Soul nutzt DeepSeek nur mit \`DEEPSEEK_API_KEY\` und Modell \`${process.env.DEEPSEEK_MODEL || "deepseek-v4-flash"}\`.`,
+    },
+    qwen: {
+      ready: Object.values(qwenRequired).every(Boolean),
+      missing: listMissing(qwenRequired),
+      note: `Qwen nutzt \`QWEN_API_KEY\` oder \`DASHSCOPE_API_KEY\` und Modell \`${process.env.QWEN_MODEL || "qwen-plus"}\`.`,
     },
   };
 }

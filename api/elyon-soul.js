@@ -148,6 +148,11 @@ function sanitizePrompt(prompt) {
     .slice(0, 240);
 }
 
+function resolveDeepSeekModel() {
+  const configured = toText(process.env.DEEPSEEK_MODEL);
+  return configured || "deepseek-v4-flash";
+}
+
 function stripProductList(summary) {
   const copy = { ...summary };
   delete copy.products;
@@ -196,6 +201,7 @@ function buildChatMessages(summary, products, prompt, action) {
 }
 async function callDeepSeek(summary, products, prompt, action) {
   const apiKey = process.env.DEEPSEEK_API_KEY;
+  const resolvedModel = resolveDeepSeekModel();
   if (!apiKey) {
     return {
       ok: true,
@@ -215,7 +221,7 @@ async function callDeepSeek(summary, products, prompt, action) {
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: "deepseek-v4-flash",
+      model: resolvedModel,
       temperature: 0.2,
       max_tokens: 300,
       messages: buildChatMessages(summary, products, prompt, action),
@@ -245,7 +251,7 @@ async function callDeepSeek(summary, products, prompt, action) {
     ok: true,
     aiEnabled: true,
     mode: "deepseek",
-    model: "deepseek-v4-flash",
+    model: resolvedModel,
     recommendation,
     summary: stripProductList(summary),
   };
@@ -283,11 +289,12 @@ export default async function handler(req, res) {
 
   if (body.probe) {
     const apiKey = process.env.DEEPSEEK_API_KEY;
+    const model = resolveDeepSeekModel();
     return json(res, 200, {
       ok: true,
       aiEnabled: Boolean(apiKey),
       mode: apiKey ? "deepseek" : "rule-based",
-      model: apiKey ? "deepseek-v4-flash" : null,
+      model: apiKey ? model : null,
       message: apiKey ? "KI-Modus ist bereit." : "KI-Modus ist noch nicht aktiviert. Regelbasierte Soul ist aktiv.",
       summary: stripProductList(mergedSummary),
     });
