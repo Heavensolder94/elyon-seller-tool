@@ -16,6 +16,16 @@ function safeText(value) {
   return text.trim().replace(/\s+/g, " ");
 }
 
+function readableText(value) {
+  if (value == null) return "";
+  const text = typeof value === "string" ? value : String(value);
+  return text
+    .replace(/\r/g, "\n")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 function getDomain(url = location.href) {
   try {
     return new URL(url).hostname.toLowerCase();
@@ -89,6 +99,17 @@ function queryText(selectors, root = document) {
   return "";
 }
 
+function queryLongText(selectors, root = document, maxParts = 8) {
+  const parts = [];
+  for (const selector of selectors) {
+    root.querySelectorAll(selector).forEach((node) => {
+      const value = readableText(node?.innerText || node?.textContent || node?.content || "");
+      if (value && value.length > 20) parts.push(value);
+    });
+  }
+  return uniqueList(parts, maxParts).join("\n\n");
+}
+
 function queryAttr(selectors, attr, root = document) {
   for (const selector of selectors) {
     const node = root.querySelector(selector);
@@ -150,9 +171,9 @@ function imageScore(url, img) {
 }
 
 function limitDescription(text) {
-  const value = safeText(text);
+  const value = readableText(text);
   if (!value) return "";
-  return value.slice(0, 12000);
+  return value.slice(0, 50000);
 }
 
 function cleanAvailabilityText(text) {
@@ -424,26 +445,84 @@ function getComplianceRisks(text) {
 }
 
 function getDescription() {
-  const structured = getJsonLdDescription();
-  if (structured) return structured;
+  expandProductInformationSections();
 
+  const structured = getJsonLdDescription();
   const selectors = [
     "#productDescription",
+    "#productDescription_feature_div",
     "#feature-bullets",
+    "#aplus",
+    "#aplus_feature_div",
+    "#productOverview_feature_div",
+    "#detailBullets_feature_div",
+    "#productFactsDesktop_feature_div",
     "#desc_div",
     "#j-product-description",
+    "#product-description",
+    "#product-details",
     "[data-pl='product-description']",
+    "[data-widget-type='productDescription']",
+    "[data-feature-name='productDescription']",
+    "[data-feature-name='featurebullets']",
+    "[data-feature-name='aplus']",
     "[class*='product-description']",
     "[class*='ProductDescription']",
+    "[class*='product-detail']",
+    "[class*='ProductDetail']",
     "[class*='description']",
     "[id*='description']"
   ];
-  for (const selector of selectors) {
-    const value = queryText([selector]);
-    if (value && value.length > 40) return limitDescription(value);
-  }
+  const combined = [structured, queryLongText(selectors)]
+    .map(limitDescription)
+    .filter(Boolean)
+    .join("\n\n");
+  if (combined && combined.length > 40) return limitDescription(combined);
 
   return limitDescription(pickMeta(["meta[property='og:description']", "meta[name='description']"]) || "");
+}
+
+function expandProductInformationSections(root = document) {
+  const patterns = [
+    /weitere\s+produktdetails/i,
+    /produktdetails\s+anzeigen/i,
+    /mehr\s+anzeigen/i,
+    /vollstaendige?\s+beschreibung/i,
+    /show\s+more/i,
+    /see\s+more/i,
+    /read\s+more/i,
+    /more\s+product\s+details/i,
+    /product\s+details/i
+  ];
+  const selectors = [
+    "button",
+    "[role='button']",
+    "a",
+    "summary",
+    "[aria-expanded='false']",
+    "[class*='expand']",
+    "[class*='more']",
+    "[data-action*='expand']"
+  ];
+
+  Array.from(root.querySelectorAll(selectors.join(","))).slice(0, 120).forEach((node) => {
+    const label = safeText([
+      node.textContent,
+      node.getAttribute?.("aria-label"),
+      node.getAttribute?.("title"),
+      node.getAttribute?.("data-action")
+    ].filter(Boolean).join(" "));
+    if (!label || !patterns.some((pattern) => pattern.test(label))) return;
+    const rect = node.getBoundingClientRect?.();
+    const style = window.getComputedStyle ? window.getComputedStyle(node) : null;
+    const visible = rect && rect.width > 0 && rect.height > 0 && (!style || style.visibility !== "hidden" && style.display !== "none");
+    if (!visible) return;
+    try {
+      node.click();
+    } catch {
+      // If the marketplace blocks synthetic clicks, keep the already visible data.
+    }
+  });
 }
 
 function isSupportedPage(domain) {
@@ -467,10 +546,11 @@ function findVisiblePopup(root = document) {
 }
 
 function getAliExpressPopupData(root = document) {
+  expandProductInformationSections(root);
   const title = queryText(["[class*='product-title']", "[class*='title']", "[data-pl='product-title']", "h1"], root);
   const price = queryText(["[class*='price']", "[data-pl='product-price']", "[class*='product-price']"], root);
   const image = normalizeImageUrl(queryAttr(["img", "[class*='image'] img", "[class*='gallery'] img"], "src", root));
-  const description = queryText(["[class*='description']", "[class*='product-description']", "[data-pl='product-description']"], root);
+  const description = queryLongText(["[class*='description']", "[class*='product-description']", "[data-pl='product-description']", "[class*='product-detail']", "[class*='ProductDetail']"], root);
   return { title, price, image, description };
 }
 
