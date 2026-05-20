@@ -40,6 +40,7 @@ function normalizeResearchItem(item = {}) {
     price: item.price ?? "",
     currency: item.currency ?? "",
     image: item.image ?? "",
+    description: item.description ?? "",
     url: item.url ?? "",
     supplier: item.supplier ?? "",
     domain: item.domain ?? "",

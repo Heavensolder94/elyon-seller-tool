@@ -114,6 +114,7 @@ export async function sendProductToElyon(product) {
         price: product?.price || "",
         currency: product?.currency || "",
         image: product?.image || "",
+        description: product?.description || "",
         url: product?.url || "",
         supplier: product?.supplier || "",
         domain: product?.domain || "",

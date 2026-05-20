@@ -119,16 +119,18 @@ function bindClick(id, handler) {
 async function executeSendToElyon() {
   const tab = window.__elyonCurrentTab;
   if (!tab?.url) throw new Error("Kein aktiver Tab gefunden");
+  const detectedProduct = await getProductFromActiveTab(tab);
 
   const product = {
     id: tab.url,
-    title: tab.title || "",
-    price: "",
-    currency: "",
-    image: "",
+    title: detectedProduct?.title || tab.title || "",
+    price: detectedProduct?.price || "",
+    currency: detectedProduct?.currency || "",
+    image: detectedProduct?.image || "",
+    description: detectedProduct?.description || "",
     url: tab.url,
-    supplier: getMarketplaceFromUrl(tab.url),
-    domain: (() => {
+    supplier: detectedProduct?.supplier || getMarketplaceFromUrl(tab.url),
+    domain: detectedProduct?.domain || (() => {
       try {
         return new URL(tab.url).hostname.toLowerCase();
       } catch {
@@ -198,6 +200,16 @@ async function sendBackgroundMessage(payload) {
 async function loadActiveTab() {
   const tabs = await chrome.tabs.query({ active: true, currentWindow: true }).catch(() => []);
   return tabs[0] || null;
+}
+
+async function getProductFromActiveTab(tab) {
+  if (!tab?.id) return null;
+  try {
+    const response = await chrome.tabs.sendMessage(tab.id, { type: "ELYON_GET_PRODUCT" });
+    return response?.ok && response.product ? response.product : null;
+  } catch {
+    return null;
+  }
 }
 
 async function renderLocalSnapshot() {
@@ -529,15 +541,17 @@ bindClick("overlayToggle", async () => {
 bindClick("saveProduct", async () => {
   const tab = window.__elyonCurrentTab;
   if (!tab?.url) throw new Error("Kein aktiver Tab gefunden");
+  const detectedProduct = await getProductFromActiveTab(tab);
   const result = await sendProductToElyon({
     id: tab.url,
-    title: tab.title || "",
-    price: "",
-    currency: "",
-    image: "",
+    title: detectedProduct?.title || tab.title || "",
+    price: detectedProduct?.price || "",
+    currency: detectedProduct?.currency || "",
+    image: detectedProduct?.image || "",
+    description: detectedProduct?.description || "",
     url: tab.url,
-    supplier: getMarketplaceFromUrl(tab.url),
-    domain: (() => {
+    supplier: detectedProduct?.supplier || getMarketplaceFromUrl(tab.url),
+    domain: detectedProduct?.domain || (() => {
       try {
         return new URL(tab.url).hostname.toLowerCase();
       } catch {

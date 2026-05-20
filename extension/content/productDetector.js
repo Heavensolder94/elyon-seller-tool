@@ -98,6 +98,38 @@ function queryAttr(selectors, attr, root = document) {
   return "";
 }
 
+function limitDescription(text) {
+  const value = safeText(text);
+  if (!value) return "";
+  return value.slice(0, 12000);
+}
+
+function getJsonLdDescription() {
+  const scripts = Array.from(document.querySelectorAll("script[type='application/ld+json']"));
+  for (const script of scripts) {
+    try {
+      const data = JSON.parse(script.textContent || "{}");
+      const entries = Array.isArray(data) ? data : [data];
+      const queue = [...entries];
+      while (queue.length) {
+        const item = queue.shift();
+        if (!item || typeof item !== "object") continue;
+        const type = Array.isArray(item["@type"]) ? item["@type"].join(" ") : item["@type"];
+        if (String(type || "").toLowerCase().includes("product") && item.description) {
+          return limitDescription(item.description);
+        }
+        for (const value of Object.values(item)) {
+          if (Array.isArray(value)) queue.push(...value);
+          else if (value && typeof value === "object") queue.push(value);
+        }
+      }
+    } catch {
+      // Ignore invalid structured data from marketplace pages.
+    }
+  }
+  return "";
+}
+
 function getTitle() {
   return pickMeta(["meta[property='og:title']", "meta[name='twitter:title']", "meta[name='title']"]) || safeText(document.title);
 }
@@ -128,7 +160,26 @@ function getImage() {
 }
 
 function getDescription() {
-  return pickMeta(["meta[property='og:description']", "meta[name='description']"]) || "";
+  const structured = getJsonLdDescription();
+  if (structured) return structured;
+
+  const selectors = [
+    "#productDescription",
+    "#feature-bullets",
+    "#desc_div",
+    "#j-product-description",
+    "[data-pl='product-description']",
+    "[class*='product-description']",
+    "[class*='ProductDescription']",
+    "[class*='description']",
+    "[id*='description']"
+  ];
+  for (const selector of selectors) {
+    const value = queryText([selector]);
+    if (value && value.length > 40) return limitDescription(value);
+  }
+
+  return limitDescription(pickMeta(["meta[property='og:description']", "meta[name='description']"]) || "");
 }
 
 function isSupportedPage(domain) {
@@ -369,6 +420,7 @@ function renderOverlay(product) {
         <div class="elyon-field"><span>Supplier</span><strong>${product.supplier || "-"}</strong></div>
         <div class="elyon-field"><span>Domain</span><strong>${product.domain || "-"}</strong></div>
         <div class="elyon-field"><span>Currency</span><strong>${product.currency || "-"}</strong></div>
+        <div class="elyon-field"><span>Description</span><strong>${product.description || "-"}</strong></div>
         <div class="elyon-field"><span>Detected</span><strong>${product.detectedAt || "-"}</strong></div>
       </div>
       <div class="elyon-overlay-actions">
@@ -544,7 +596,7 @@ window.addEventListener("keydown", (event) => {
   }
 });
 
-chrome.runtime.onMessage.addListener((message) => {
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message?.type === "ELYON_TOGGLE_COMMAND_BAR") {
     toggleCommandBar(typeof message.force === "boolean" ? message.force : undefined);
   }
@@ -557,7 +609,14 @@ chrome.runtime.onMessage.addListener((message) => {
     dismissedOverlayUrl = "";
     if (isSupportedPage(getDomain())) renderOverlay(detectProduct());
   }
-  if (message?.type === "ELYON_PING") return;
+  if (message?.type === "ELYON_GET_PRODUCT") {
+    sendResponse({ ok: true, product: detectProduct() });
+    return;
+  }
+  if (message?.type === "ELYON_PING") {
+    sendResponse({ ok: true });
+    return;
+  }
 });
 
 init();
