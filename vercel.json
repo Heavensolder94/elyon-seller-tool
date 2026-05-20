@@ -63,7 +63,7 @@
     },
     {
       "source": "/api/elyon/products",
-      "destination": "/api/elyon-products"
+      "destination": "/api/extension/import-product?collection=products"
     },
     {
       "source": "/api/google-sheets-sync",
