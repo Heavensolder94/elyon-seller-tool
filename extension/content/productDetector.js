@@ -483,7 +483,7 @@ async function storeResearch(product) {
 
 function importFeedback(response, fallback) {
   if (!response) return "Keine Antwort von Elyon. Bitte Extension neu laden.";
-  if (response.importResult?.storedLocally) return response.importResult.message || "Backend nicht erreichbar - lokal gespeichert";
+  if (response.importResult?.serverSaved === false) return response.importResult.message || "Server nicht erreichbar - nicht gespeichert";
   if (response.importResult?.ok) return response.importResult.message || "Browser Import gespeichert.";
   if (response.importResult?.message) return response.importResult.message;
   if (response.ok) return fallback || "Gespeichert";

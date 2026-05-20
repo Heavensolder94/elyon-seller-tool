@@ -178,11 +178,11 @@ async function executeSendToElyon() {
     backendMessage.textContent = [result?.message || "Produkt verarbeitet", boardText].filter(Boolean).join(" | ");
   }
 
-  if (!result.ok && result.storedLocally) {
+  if (!result.ok && result.serverSaved === false) {
     backendMessage?.classList.add("status-bad");
-    backendMessage.textContent = "Lokal gespeichert - Backend nicht erreichbar";
-    setPopupStatus("Backend nicht erreichbar - lokal gespeichert", "error");
-    setActionLog("Produkt lokal gespeichert", "error");
+    backendMessage.textContent = result.message || "Server nicht erreichbar - nicht gespeichert";
+    setPopupStatus("Server nicht erreichbar - nicht gespeichert", "error");
+    setActionLog("Produkt nicht gespeichert", "error");
   } else if (result.ok) {
     setPopupStatus(result?.boardSync?.synced ? "Produkt uebertragen - Board aktualisiert" : "Gespeichert", "ok");
     setActionLog(result?.boardSync?.synced ? "Produkt uebertragen - Board aktualisiert" : "Gespeichert", "ok");
@@ -190,9 +190,9 @@ async function executeSendToElyon() {
 
   holdActionStatus();
   await refresh();
-  if (!result.ok && result.storedLocally) {
-    setPopupStatus("Backend nicht erreichbar - lokal gespeichert", "error");
-    setActionLog("Produkt lokal gespeichert", "error");
+  if (!result.ok && result.serverSaved === false) {
+    setPopupStatus("Server nicht erreichbar - nicht gespeichert", "error");
+    setActionLog("Produkt nicht gespeichert", "error");
   } else if (result.ok) {
     setPopupStatus(result?.boardSync?.synced ? "Produkt uebertragen - Board aktualisiert" : "Gespeichert", "ok");
     setActionLog(result?.boardSync?.synced ? "Produkt uebertragen - Board aktualisiert" : "Gespeichert", "ok");
@@ -591,20 +591,20 @@ bindClick("saveProduct", async () => {
     const boardText = result?.boardSync?.synced ? "Board aktualisiert" : result?.boardSync?.message || "";
     backendMessage.textContent = [result?.message || "Produkt verarbeitet", boardText].filter(Boolean).join(" | ");
   }
-  if (!result.ok && result.storedLocally) {
+  if (!result.ok && result.serverSaved === false) {
     backendMessage?.classList.add("status-bad");
-    backendMessage.textContent = "Lokal gespeichert - Backend nicht erreichbar";
-    setPopupStatus("Lokal gespeichert - Backend nicht erreichbar", "error");
-    setActionLog("Produkt lokal gespeichert", "error");
+    backendMessage.textContent = result.message || "Server nicht erreichbar - nicht gespeichert";
+    setPopupStatus("Server nicht erreichbar - nicht gespeichert", "error");
+    setActionLog("Produkt nicht gespeichert", "error");
   } else if (result.ok) {
     setPopupStatus("Produkt gespeichert", "ok");
     setActionLog(result?.boardSync?.synced ? "Produkt uebertragen und Board aktualisiert" : "Produkt gespeichert", "ok");
   }
   holdActionStatus();
   await refresh();
-  if (!result.ok && result.storedLocally) {
-    setPopupStatus("Lokal gespeichert - Backend nicht erreichbar", "error");
-    setActionLog("Produkt lokal gespeichert", "error");
+  if (!result.ok && result.serverSaved === false) {
+    setPopupStatus("Server nicht erreichbar - nicht gespeichert", "error");
+    setActionLog("Produkt nicht gespeichert", "error");
   } else if (result.ok) {
     setPopupStatus("Produkt gespeichert", "ok");
     setActionLog(result?.boardSync?.synced ? "Produkt uebertragen und Board aktualisiert" : "Produkt gespeichert", "ok");

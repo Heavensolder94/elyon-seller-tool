@@ -1,7 +1,6 @@
 import { upsertResearchProduct, loadResearchMemory } from "./storage.js";
 
 export const API_SETTINGS_KEY = "elyon_extension_api_settings";
-const BROWSER_IMPORTS_KEY = "elyon_browser_imports";
 const DEFAULT_API_SETTINGS = {
   backendUrl: ""
 };
@@ -38,26 +37,6 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = 5000) {
   } finally {
     clearTimeout(timer);
   }
-}
-
-async function upsertLocalBrowserImport(product) {
-  const result = await chrome.storage.local.get(BROWSER_IMPORTS_KEY).catch(() => ({}));
-  const current = Array.isArray(result?.[BROWSER_IMPORTS_KEY]) ? result[BROWSER_IMPORTS_KEY] : [];
-  const url = String(product?.url || "");
-  const now = new Date().toISOString();
-  const nextItem = {
-    ...product,
-    source: "chrome_extension",
-    status: product?.status || "new",
-    importedAt: product?.importedAt || now,
-    updatedAt: now
-  };
-  const existingIndex = current.findIndex((item) => String(item?.url || "") === url);
-  const next = existingIndex >= 0
-    ? current.map((item, index) => (index === existingIndex ? { ...item, ...nextItem } : item))
-    : [nextItem, ...current];
-  await chrome.storage.local.set({ [BROWSER_IMPORTS_KEY]: next });
-  return { items: next, status: existingIndex >= 0 ? "updated" : "saved" };
 }
 
 export async function pingBackend() {
@@ -100,9 +79,7 @@ export async function pingBackend() {
 export async function sendProductToElyon(product) {
   const backendUrl = await getBackendUrl();
   if (!backendUrl) {
-    await upsertResearchProduct({ ...product, updatedAt: new Date().toISOString() });
-    const browserImport = await upsertLocalBrowserImport(product);
-    return { ok: false, storedLocally: true, browserImport, message: "Backend-URL nicht gesetzt" };
+    return { ok: false, storedLocally: false, serverSaved: false, message: "Backend-URL nicht gesetzt - nicht gespeichert" };
   }
 
   try {
@@ -142,68 +119,28 @@ export async function sendProductToElyon(product) {
     }
 
     const payload = await response.json().catch(() => ({}));
-    const browserImport = await upsertLocalBrowserImport({ ...product, ...payload.product, status: payload.status || "new" });
-
-    const boardSync = await chrome.runtime.sendMessage({
-      type: "ELYON_RESEARCH_UPSERT",
-      product: {
-        ...product,
-        updatedAt: new Date().toISOString()
-      }
-    }).catch(() => ({ ok: false, boardSync: { ok: false, message: "Board-Tab nicht offen" } }));
 
     return {
       ok: true,
       storedLocally: false,
-      browserImport,
-      boardSync: boardSync?.boardSync || { ok: false, synced: false, message: "Board-Tab nicht offen" },
-      message:
+      serverSaved: true,
+      product: payload.product || null,
+      status: payload.status || "saved",
+      persisted: payload.persisted === true,
+      message: payload.message || (
         payload.status === "duplicate"
           ? "Schon vorhanden"
           : payload.status === "updated"
-            ? "Gespeichert"
-            : "Gespeichert"
+            ? "Serverseitig aktualisiert"
+            : "Serverseitig gespeichert"
+      )
     };
   } catch (error) {
-    try {
-      const fallback = await fetchWithTimeout(`${backendUrl}/api/elyon-soul`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "save-product",
-          prompt: "Produkt aus Elyon Browser OS speichern und vorbereiten.",
-          products: [product],
-          summary: { total: 1 }
-        })
-      }, 5000);
-      if (fallback.ok) {
-        const browserImport = await upsertLocalBrowserImport(product);
-        const boardSync = await chrome.runtime.sendMessage({
-          type: "ELYON_RESEARCH_UPSERT",
-          product: {
-            ...product,
-            updatedAt: new Date().toISOString()
-          }
-        }).catch(() => ({ ok: false, boardSync: { ok: false, message: "Board-Tab nicht offen" } }));
-        return {
-          ok: true,
-          storedLocally: false,
-          browserImport,
-          boardSync: boardSync?.boardSync || { ok: false, synced: false, message: "Board-Tab nicht offen" },
-          message: "Gespeichert"
-        };
-      }
-    } catch {
-      // fall through to local storage
-    }
-
-    await upsertResearchProduct({ ...product, updatedAt: new Date().toISOString() });
-    const browserImport = await upsertLocalBrowserImport(product);
     return {
       ok: false,
-      storedLocally: true,
-      browserImport,
-      message: error?.name === "AbortError" ? "Backend nicht erreichbar – lokal gespeichert" : "Backend nicht erreichbar – lokal gespeichert"
+      storedLocally: false,
+      serverSaved: false,
+      message: error?.name === "AbortError" ? "Backend nicht erreichbar - nicht gespeichert" : "Server-Import fehlgeschlagen - nicht gespeichert"
     };
   }
 }
