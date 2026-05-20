@@ -6997,6 +6997,12 @@ function normalizeAiRouterProvider(extra){
 function normalizeAiRouterModel(provider, extra){
   const rawModel = extra && typeof extra.model === 'string' ? extra.model.trim().toLowerCase() : '';
   if (provider === 'deepseek') {
+    if (rawModel === 'deepseek-mini') return 'deepseek-v4-flash';
+    if (rawModel === 'deepseek-standard') return 'deepseek-v4-pro';
+    if (rawModel === 'deepseek-chat') return 'deepseek-chat';
+    if (rawModel === 'deepseek-reasoner') return 'deepseek-reasoner';
+    if (rawModel === 'deepseek-v4-flash') return 'deepseek-v4-flash';
+    if (rawModel === 'deepseek-v4-pro') return 'deepseek-v4-pro';
     if (rawModel && rawModel !== 'deepseek') return rawModel;
     return 'deepseek-v4-flash';
   }
@@ -9846,6 +9852,10 @@ document.addEventListener('DOMContentLoaded',()=>{
   ];
   const MODEL_OPTIONS = [
     { value: 'deepseek', label: 'deepseek' },
+    { value: 'deepseek-v4-flash', label: 'deepseek-v4-flash' },
+    { value: 'deepseek-v4-pro', label: 'deepseek-v4-pro' },
+    { value: 'deepseek-chat', label: 'deepseek-chat' },
+    { value: 'deepseek-reasoner', label: 'deepseek-reasoner' },
     { value: 'openai-mini', label: 'openai-mini' },
     { value: 'openai-standard', label: 'openai-standard' },
   ];
