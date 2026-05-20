@@ -5538,7 +5538,7 @@ async function executeProductDecisionTask(productId){
 
   setProductAiButtonState(productId, true);
   const cardId = getProductAiUiId('productAiCard', productId);
-  setHTML(cardId, '<div class="ai-product-card"><div class="score-top"><span class="status ai-status-ghost">KI prüft...</span><span class="score-number">…</span></div><div class="progress"><div class="bar" style="width:24%"></div></div><div class="ai-compact-note">Die Prüfung läuft gerade über /api/ai mit task=product_decision.</div></div>');
+  setHTML(cardId, '<div class="ai-product-card"><div class="score-top"><span class="status ai-status-ghost">KI prüft...</span><span class="score-number">…</span></div><div class="progress"><div class="bar" style="width:24%"></div></div><div class="ai-compact-note">Die Prüfung läuft gerade über /api/ai-router mit task=product_decision.</div></div>');
 
   try{
     const response = await requestCentralAi('product_decision', buildProductDecisionPrompt(product), {
@@ -5553,13 +5553,13 @@ async function executeProductDecisionTask(productId){
         aiDecision: {
           ...normalized,
           savedAt,
-          source: 'api/ai',
+          source: 'api/ai-router',
           task: 'product_decision',
         },
         ai: {
           ...normalized,
           savedAt,
-          source: 'api/ai',
+          source: 'api/ai-router',
           task: 'product_decision',
         },
         aiDecisionAt: savedAt,
@@ -7230,7 +7230,7 @@ async function executeCentralAiTask(config){
       renderAiProductScoreTaskResult(data);
     }else if(resultId){
       const result = data && data.result ? data.result : (data && data.output_text ? data.output_text : '');
-      setHTML(resultId, '<div class="output-box"><h3>ChatGPT-Einschätzung</h3><p>' + escapeHtml(String(result || 'Keine KI-Antwort erzeugt.')) + '</p></div>');
+      setHTML(resultId, '<div class="output-box"><h3>Router-Einschätzung</h3><p>' + escapeHtml(String(result || 'Keine KI-Antwort erzeugt.')) + '</p></div>');
     }
   }catch(err){
     const message = err && err.message ? err.message : 'Unbekannter KI-Fehler';
