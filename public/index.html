@@ -6874,7 +6874,7 @@ async function testAiRouterProvider(provider){
     provider: provider,
     task: provider === 'deepseek' ? 'dashboard_deepseek_test' : 'dashboard_openai_test',
     prompt: provider === 'deepseek' ? 'Kurzer DeepSeek Dashboard-Test.' : 'Kurzer OpenAI Dashboard-Test.',
-    model: defaults.model,
+    model: provider === 'deepseek' ? defaults.model : defaults.model,
     allowFallback: true,
     safety: {
       securityMode: true,
