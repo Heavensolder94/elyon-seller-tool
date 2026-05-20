@@ -54,12 +54,12 @@
       "destination": "/api/health"
     },
     {
-      "source": "/api/ai-workflow",
-      "destination": "/api/agent-engine?action=ai-workflow"
+      "source": "/api/elyon/products",
+      "destination": "/api/elyon/products"
     },
     {
-      "source": "/api/ai-router",
-      "destination": "/api/ai-router"
+      "source": "/api/ai-workflow",
+      "destination": "/api/agent-engine?action=ai-workflow"
     },
     {
       "source": "/api/google-sheets-sync",
