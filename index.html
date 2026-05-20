@@ -164,6 +164,24 @@
       .start-focus-sidebar{grid-template-columns:1fr}
     }
   </style>
+  <style>
+    .browser-product-card{grid-template-columns:minmax(0,1.35fr) minmax(220px,.65fr);align-items:start}
+    .browser-product-main{min-width:0}
+    .browser-product-head{display:grid;grid-template-columns:92px minmax(0,1fr);gap:14px;align-items:start}
+    .browser-product-image{width:92px;height:92px;border-radius:18px;object-fit:cover;border:1px solid rgba(255,255,255,.13);background:rgba(2,6,23,.46)}
+    .browser-product-image-fallback{width:92px;min-height:92px;padding:10px;display:flex;align-items:center;justify-content:center}
+    .browser-product-title{overflow-wrap:anywhere;line-height:1.25}
+    .browser-product-url{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#93c5fd;text-decoration:none}
+    .browser-import-panel{margin-top:14px;padding:14px;border-radius:18px;background:rgba(15,23,42,.62);border:1px solid rgba(148,163,184,.18)}
+    .browser-import-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:10px}
+    .browser-import-field{min-width:0;padding:10px 11px;border-radius:14px;background:rgba(2,6,23,.42);border:1px solid rgba(255,255,255,.08)}
+    .browser-import-field small{display:block;color:#94a3b8;font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}
+    .browser-import-field strong{display:block;color:#e2e8f0;font-size:13px;line-height:1.35;overflow-wrap:anywhere}
+    .browser-import-description{max-height:170px;overflow:auto}
+    .browser-product-side{min-width:220px}
+    @media(max-width:980px){.browser-product-card{grid-template-columns:1fr}.browser-product-side{min-width:0}.browser-import-grid{grid-template-columns:1fr}}
+    @media(max-width:560px){.browser-product-head{grid-template-columns:1fr}.browser-product-image,.browser-product-image-fallback{width:100%;height:170px}}
+  </style>
   <link rel="stylesheet" href="elyon-soul.css" />
 </head>
 <style>
@@ -5766,6 +5784,40 @@ function triggerProductDecision(productId){
   executeProductDecisionTask(productId);
 }
 
+function browserImportField(label, value){
+  const text = String(value || '').trim();
+  if(!text) return '';
+  return '<div class="browser-import-field"><small>' + escapeHtml(label) + '</small><strong>' + escapeHtml(text) + '</strong></div>';
+}
+function renderBrowserProductImportPanel(p){
+  if(!p.sourceOnlineTitle && !p.sourceOnlineImage && !p.sourceOnlineDescription && !p.sourceOnlinePrice && !p.sourceOnlineCategory && !p.sourceOnlineShipping) return '';
+  const image = String(p.sourceOnlineImage || '').trim();
+  const imageHtml = image
+    ? '<img class="browser-product-image" src="' + escapeHtml(image) + '" alt="" referrerpolicy="no-referrer" loading="lazy" onerror="this.remove()">'
+    : '<div class="empty browser-product-image-fallback">Kein Bild</div>';
+  const price = [p.sourceOnlinePrice, p.sourceOnlineCurrency].filter(Boolean).join(' ');
+  const fields = [
+    browserImportField('Preis', price),
+    browserImportField('Verfügbarkeit', p.sourceOnlineAvailability),
+    browserImportField('Versand', p.sourceOnlineShipping),
+    browserImportField('Kategorie', p.sourceOnlineCategory),
+    browserImportField('Rating', p.sourceOnlineRating),
+    browserImportField('Bewertungen', p.sourceOnlineReviews),
+    browserImportField('Verkäufe', p.sourceOnlineSold),
+    browserImportField('Geprüft', p.sourceOnlineCheckedAt)
+  ].filter(Boolean).join('');
+  let html = '<div class="browser-import-panel">';
+  html += '<div class="browser-product-head">' + imageHtml + '<div class="browser-product-main">';
+  html += '<h3 style="margin:0 0 8px">Browser Import</h3>';
+  html += '<div class="product-title browser-product-title">' + escapeHtml(p.sourceOnlineTitle || p.name || 'Importiertes Produkt') + '</div>';
+  if(p.supplierLink) html += '<a class="browser-product-url" href="' + escapeHtml(p.supplierLink) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(p.supplierLink) + '</a>';
+  html += '<div class="browser-import-grid">' + fields + '</div>';
+  html += '</div></div>';
+  if(p.sourceOnlineDescription) html += '<details class="output-box browser-import-description"><summary>Artikelbeschreibung anzeigen</summary><p>' + escapeHtml(p.sourceOnlineDescription) + '</p></details>';
+  html += '</div>';
+  return html;
+}
+
 function productCardHTML(p,small=false){
   const c = calcProduct(p);
   const s = statusFromScore(c.score);
@@ -5774,7 +5826,8 @@ function productCardHTML(p,small=false){
   const ss = getSalesStatsForProduct(p.id);
   const rs = getReturnStatsForProduct(p.id);
   const net = ss.profit - rs.loss;
-  const cardClass = small ? 'product-card small-card' : 'product-card';
+  const isBrowserImport = p.sourceType === 'chrome_extension' || p.sourceProvider === 'browser-import';
+  const cardClass = (small ? 'product-card small-card' : 'product-card') + (isBrowserImport ? ' browser-product-card' : '');
   const shopifyText = p.shopifyCandidate ? 'Shopify entfernen' : 'Für Shopify merken';
   const shopifyInfo = p.shopifyCandidate ? ' · Shopify-Kandidat seit ' + (p.shopifyMarkedAt || 'markiert') : '';
   let detailHtml = '';
@@ -5784,6 +5837,7 @@ function productCardHTML(p,small=false){
   if(p.sourceProvider || p.sourceRisk || p.sourceType || p.sourceDomain){
     detailHtml += '<div class="output-box"><h3>Produktbeschaffung</h3><p>Quelle: ' + escapeHtml(p.sourceProvider || p.supplierId || 'offen') + '\nTyp: ' + escapeHtml(p.sourceType || 'offen') + '\nRisiko: ' + escapeHtml(p.sourceRisk || 'offen') + '\nDomain: ' + escapeHtml(p.sourceDomain || 'offen') + '\nAnalyse: ' + escapeHtml(p.sourceAnalysisStatus || 'offen') + (p.sourceNote ? '\nHinweis: ' + escapeHtml(p.sourceNote) : '') + '</p></div>';
   }
+  detailHtml += renderBrowserProductImportPanel(p);
   detailHtml += '<div class="output-box"><h3>SEO-Titel</h3><p>' + seoTitle(p.name) + '</p></div>';
   if(p.supplierLink){
     detailHtml += '<div class="output-box"><h3>Lieferanten-Link</h3><p>' + p.supplierLink + '</p></div>';
@@ -5795,14 +5849,14 @@ function productCardHTML(p,small=false){
 
   let html = '';
   html += '<article class="' + cardClass + '">';
-  html += '<div>';
+  html += '<div class="' + (isBrowserImport ? 'browser-product-main' : '') + '">';
   html += '<div class="product-title">' + (p.priority || 'Normal') + ' · ' + p.name + '</div>';
   html += '<div class="muted">Status: ' + escapeHtml(lifecycle.label) + ' · Erstellt: ' + (p.created || '') + ' · ' + s.text + shopifyInfo + '</div>';
   html += '<div class="pill-row"><span class="status ' + lifecycle.cls + '">' + escapeHtml(lifecycle.label) + '</span>' + returnCompactPillsForProduct(p,c) + '<span class="pill">Netto: ' + euro(net) + '</span><span class="status '+health.cls+'">'+health.label+'</span>' + (p.sourceProvider ? '<span class="pill">Quelle: ' + escapeHtml(p.sourceProvider) + '</span>' : '') + (p.sourceRisk ? '<span class="status ' + riskClass(p.sourceRisk) + '">Supplier: ' + escapeHtml(p.sourceRisk) + '</span>' : '') + '</div>';
   html += renderProductAiMiniCard(p);
   html += detailHtml;
   html += '</div>';
-  html += '<div class="score-wrap">';
+  html += '<div class="score-wrap ' + (isBrowserImport ? 'browser-product-side' : '') + '">';
   html += '<div class="score-top"><span class="status ' + s.cls + '">' + s.label + '</span><span class="score-number">' + c.score + '</span></div>';
   html += '<div class="progress"><div class="bar" style="width:' + c.score + '%"></div></div>';
   html += '<div class="muted" style="margin-top:8px">Score von 100</div>';
@@ -6442,6 +6496,7 @@ function renderBrowserImports(){
       if(action === 'board'){
         const itemShippingText = item.shipping && typeof item.shipping === 'object' ? [item.shipping.cost, item.shipping.deliveryTime, item.shipping.shipsFrom, item.shipping.text].filter(Boolean).join(' · ') : '';
         const product = normalizeProductRecord({
+          id: Date.now(),
           name: item.title || 'Browser Import',
           supplier: item.supplier || '',
           supplierId: item.linkedSupplierId || '',
