@@ -113,6 +113,42 @@ function queryAllText(selectors, root = document, max = 20) {
   return uniqueList(values, max);
 }
 
+function normalizeImageUrl(value) {
+  const text = safeText(value);
+  if (!text || /^data:/i.test(text) || /^blob:/i.test(text)) return "";
+  const first = text.split(/\s+/)[0];
+  try {
+    const url = new URL(first, location.href);
+    url.hash = "";
+    return url.toString();
+  } catch {
+    return "";
+  }
+}
+
+function isLikelyProductImage(url) {
+  const value = String(url || "").toLowerCase();
+  if (!/^https?:\/\//i.test(value)) return false;
+  if (/\.(svg|gif)(\?|$)/i.test(value)) return false;
+  if (/sprite|icon|logo|avatar|badge|pixel|tracking|transparent|placeholder|loading|spinner|grey-pixel|blank/i.test(value)) return false;
+  if (/\/(nav|header|footer|banner|ads?|advertising)\//i.test(value)) return false;
+  return /\.(jpg|jpeg|png|webp|avif)(\?|$)/i.test(value) || /images|media|alicdn|ssl-images-amazon|m\.media-amazon|i\.ebayimg|ae01\.alicdn|sc04\.alicdn/i.test(value);
+}
+
+function imageScore(url, img) {
+  const value = String(url || "").toLowerCase();
+  let score = 0;
+  if (/og:image|main|landing|hero|large|hires|product|gallery|imageblock|imgtagwrapper|magnifier/i.test(`${img?.id || ""} ${img?.className || ""} ${img?.parentElement?.className || ""}`)) score += 80;
+  if (/m\.media-amazon|ssl-images-amazon|i\.ebayimg|alicdn|ae01\.alicdn|sc04\.alicdn|temu/i.test(value)) score += 60;
+  if (/\/images\/i\/|\/kf\/|\/imgextra\/|s-l\d+|ul\d+|ac_sl|ac_sx|ac_sy/i.test(value)) score += 35;
+  const width = Number(img?.naturalWidth || img?.width || img?.getAttribute?.("width") || 0);
+  const height = Number(img?.naturalHeight || img?.height || img?.getAttribute?.("height") || 0);
+  if (width >= 250 && height >= 250) score += 45;
+  else if (width >= 120 && height >= 120) score += 20;
+  if (/thumb|thumbnail|sprite|logo|icon|avatar|badge/i.test(value)) score -= 30;
+  return score;
+}
+
 function limitDescription(text) {
   const value = safeText(text);
   if (!value) return "";
@@ -171,17 +207,69 @@ function getPrice() {
 }
 
 function getImage() {
-  return pickMeta(["meta[property='og:image']", "meta[name='twitter:image']", "meta[property='twitter:image']"]) || "";
+  return normalizeImageUrl(pickMeta(["meta[property='og:image']", "meta[name='twitter:image']", "meta[property='twitter:image']"]) || "");
 }
 
 function getImages() {
-  const values = [
-    getImage(),
-    ...Array.from(document.querySelectorAll("img"))
-      .map((img) => img.currentSrc || img.src || img.getAttribute("data-src") || img.getAttribute("data-lazy-src"))
-      .filter((src) => /^https?:\/\//i.test(String(src || "")))
+  const candidates = [];
+  const metaImage = getImage();
+  if (metaImage) candidates.push({ url: metaImage, score: 200 });
+
+  const prioritySelectors = [
+    "#landingImage",
+    "#imgBlkFront",
+    "#main-image",
+    "#icImg",
+    "[data-old-hires]",
+    "[data-a-dynamic-image]",
+    "[class*='imageBlock'] img",
+    "[class*='gallery'] img",
+    "[class*='product'] img",
+    "[class*='main'] img",
+    "[class*='image'] img"
   ];
-  return uniqueList(values, 12);
+
+  document.querySelectorAll(prioritySelectors.join(",")).forEach((img) => {
+    const dynamic = img.getAttribute("data-a-dynamic-image");
+    if (dynamic) {
+      try {
+        Object.keys(JSON.parse(dynamic)).forEach((src) => candidates.push({ url: normalizeImageUrl(src), score: imageScore(src, img) + 90 }));
+      } catch {
+        // Ignore malformed marketplace attributes.
+      }
+    }
+    [
+      img.currentSrc,
+      img.src,
+      img.getAttribute("data-old-hires"),
+      img.getAttribute("data-src"),
+      img.getAttribute("data-lazy-src"),
+      img.getAttribute("srcset")?.split(",").pop()?.trim()?.split(/\s+/)[0]
+    ].forEach((src) => candidates.push({ url: normalizeImageUrl(src), score: imageScore(src, img) + 50 }));
+  });
+
+  document.querySelectorAll("img").forEach((img) => {
+    [
+      img.currentSrc,
+      img.src,
+      img.getAttribute("data-src"),
+      img.getAttribute("data-lazy-src"),
+      img.getAttribute("srcset")?.split(",").pop()?.trim()?.split(/\s+/)[0]
+    ].forEach((src) => candidates.push({ url: normalizeImageUrl(src), score: imageScore(src, img) }));
+  });
+
+  const byUrl = new Map();
+  candidates
+    .filter((item) => item.url && isLikelyProductImage(item.url))
+    .forEach((item) => {
+      const current = byUrl.get(item.url);
+      if (!current || item.score > current.score) byUrl.set(item.url, item);
+    });
+
+  return Array.from(byUrl.values())
+    .sort((a, b) => b.score - a.score)
+    .map((item) => item.url)
+    .slice(0, 12);
 }
 
 function getNumberFromText(text) {
@@ -371,7 +459,7 @@ function findVisiblePopup(root = document) {
 function getAliExpressPopupData(root = document) {
   const title = queryText(["[class*='product-title']", "[class*='title']", "[data-pl='product-title']", "h1"], root);
   const price = queryText(["[class*='price']", "[data-pl='product-price']", "[class*='product-price']"], root);
-  const image = queryAttr(["img", "[class*='image'] img", "[class*='gallery'] img"], "src", root);
+  const image = normalizeImageUrl(queryAttr(["img", "[class*='image'] img", "[class*='gallery'] img"], "src", root));
   const description = queryText(["[class*='description']", "[class*='product-description']", "[data-pl='product-description']"], root);
   return { title, price, image, description };
 }
