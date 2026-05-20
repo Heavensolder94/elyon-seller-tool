@@ -183,6 +183,14 @@
     .browser-import-card .browser-import-layout{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;align-items:start}
     .browser-import-card .browser-import-body{min-width:0}
     .browser-import-card .browser-import-title{overflow-wrap:anywhere;word-break:break-word;line-height:1.28}
+    .browser-import-section{margin-top:10px;border-radius:16px;background:rgba(2,6,23,.55);border:1px solid rgba(255,255,255,.1);overflow:hidden}
+    .browser-import-section-toggle{width:100%;display:flex;justify-content:space-between;align-items:center;text-align:left;padding:12px 14px;border:0;border-radius:0;background:rgba(255,255,255,.06);color:#bfdbfe;font-weight:900;cursor:pointer}
+    .browser-import-section-toggle:hover{background:rgba(96,165,250,.14)}
+    .browser-import-section-toggle:after{content:'Öffnen';font-size:11px;color:#94a3b8}
+    .browser-import-section.open .browser-import-section-toggle:after{content:'Schließen'}
+    .browser-import-section-content{display:none;padding:14px;max-height:70vh;overflow:auto}
+    .browser-import-section.open .browser-import-section-content{display:block}
+    .browser-import-section-content p{white-space:pre-wrap;line-height:1.6}
     .browser-import-card .browser-import-url{overflow-wrap:anywhere;word-break:break-all;max-height:44px;overflow:hidden}
     .browser-import-card .browser-import-muted{overflow-wrap:anywhere;word-break:break-word}
     .browser-import-card .pill{max-width:100%;white-space:normal;overflow-wrap:anywhere;text-align:left}
@@ -6733,6 +6741,14 @@ function saveBrowserImports(){
   browserImports = normalizeBrowserImportsCollection(browserImports);
   localStorage.setItem('elyonBrowserImports', JSON.stringify(browserImports));
 }
+function browserImportDisclosureHTML(title, html){
+  if(!html) return '';
+  return '<div class="browser-import-section"><button type="button" class="browser-import-section-toggle" data-import-toggle>' + escapeHtml(title) + '</button><div class="browser-import-section-content">' + html + '</div></div>';
+}
+function toggleBrowserImportSection(button){
+  const section = button && button.closest ? button.closest('.browser-import-section') : null;
+  if(section) section.classList.toggle('open');
+}
 function upsertBrowserImportItem(item){
   const nextItem = normalizeBrowserImportRecord(item);
   const existingIndex = browserImports.findIndex(entry => String(entry.url || '') === String(nextItem.url || ''));
@@ -6787,9 +6803,9 @@ function renderBrowserImports(){
           (extraRows ? '<div class="pill-row">' + extraRows + '</div>' : '') +
           (complianceRows ? '<div class="pill-row"><span class="pill">Compliance</span>' + complianceRows + '</div>' : '') +
           (galleryRows ? '<div class="browser-import-gallery">' + galleryRows + '</div>' : '') +
-          (variantRows ? '<details class="output-box" style="margin-top:10px"><summary>Varianten anzeigen</summary><div class="pill-row">' + variantRows + '</div></details>' : '') +
-          (detailRows ? '<details class="output-box" style="margin-top:10px"><summary>Produktdetails anzeigen</summary><ul>' + detailRows + '</ul></details>' : '') +
-          (item.description ? '<details class="output-box" style="margin-top:10px"><summary>Artikelbeschreibung anzeigen</summary><p style="white-space:pre-wrap">' + escapeHtml(item.description) + '</p></details>' : '') +
+          browserImportDisclosureHTML('Varianten anzeigen', variantRows ? '<div class="pill-row">' + variantRows + '</div>' : '') +
+          browserImportDisclosureHTML('Produktdetails anzeigen', detailRows ? '<ul>' + detailRows + '</ul>' : '') +
+          browserImportDisclosureHTML('Artikelbeschreibung anzeigen', item.description ? '<p>' + escapeHtml(item.description) + '</p>' : '') +
           '<div class="pill-row">' +
             '<span class="pill">Import: ' + escapeHtml(item.importedAt || '-') + '</span>' +
             '<span class="pill">Status: ' + escapeHtml(item.status || 'new') + '</span>' +
@@ -6903,6 +6919,9 @@ function renderBrowserImports(){
         alert('Browser Import verworfen.');
       }
     });
+  });
+  box.querySelectorAll('[data-import-toggle]').forEach(btn => {
+    btn.addEventListener('click', () => toggleBrowserImportSection(btn));
   });
 }
 async function hydrateBrowserImportsFromBackend(){
