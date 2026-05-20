@@ -190,7 +190,23 @@
     .browser-import-card .actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-top:16px;width:100%}
     .browser-import-card .actions button{width:100%;min-height:48px}
     .browser-import-gallery{display:flex;gap:8px;flex-wrap:wrap;max-width:100%}
+    .kanban-board{grid-template-columns:repeat(auto-fit,minmax(360px,1fr));align-items:start}
+    .kanban-column{min-width:0}
+    .kanban-column .browser-product-card{grid-template-columns:minmax(0,1fr) 150px!important;align-items:start}
+    .kanban-column .browser-product-card .browser-product-head{grid-template-columns:78px minmax(0,1fr)}
+    .kanban-column .browser-product-card .browser-product-image{width:78px;height:78px}
+    .kanban-column .browser-product-card .ai-product-card{display:none}
+    .kanban-column .browser-product-card .browser-import-panel{display:none}
+    .kanban-column .browser-product-card .details-box{margin-top:10px}
+    .kanban-column .browser-product-card .actions{display:grid;grid-template-columns:1fr;gap:8px}
+    .kanban-column .browser-product-card .actions button{width:100%;padding:9px 10px;font-size:12px}
+    .kanban-column .browser-product-card .score-wrap{min-width:0}
+    .kanban-column .browser-product-card .pill-row{gap:6px}
+    .kanban-column .browser-product-card .pill,.kanban-column .browser-product-card .status{font-size:11px;padding:5px 8px;white-space:normal}
+    @media(min-width:1180px){.kanban-board{grid-template-columns:repeat(2,minmax(460px,1fr))}}
+    @media(min-width:1540px){.kanban-board{grid-template-columns:repeat(3,minmax(420px,1fr))}}
     @media(max-width:980px){.browser-product-card{grid-template-columns:1fr}.browser-product-side{min-width:0}.browser-import-grid{grid-template-columns:1fr}}
+    @media(max-width:720px){.kanban-board{grid-template-columns:1fr}.kanban-column .browser-product-card{grid-template-columns:1fr!important}.kanban-column .browser-product-card .actions{grid-template-columns:repeat(auto-fit,minmax(130px,1fr))}}
     @media(max-width:560px){.browser-product-head{grid-template-columns:1fr}.browser-product-image,.browser-product-image-fallback{width:100%;height:170px}}
   </style>
   <link rel="stylesheet" href="elyon-soul.css" />
