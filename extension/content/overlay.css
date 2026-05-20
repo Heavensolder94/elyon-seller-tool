@@ -1,0 +1,199 @@
+#elyon-browser-os-overlay {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 2147483647;
+  font-family: Arial, sans-serif;
+}
+
+#elyon-browser-os-command-bar {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 12vh;
+  background: rgba(3, 7, 18, 0.42);
+  backdrop-filter: blur(8px);
+}
+
+.elyon-command-shell {
+  width: min(640px, calc(100vw - 24px));
+  border-radius: 18px;
+  border: 1px solid rgba(214, 177, 94, 0.22);
+  background: linear-gradient(180deg, #111827 0%, #0b1220 100%);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.03) inset,
+    0 18px 50px rgba(0, 0, 0, 0.35),
+    0 0 24px rgba(214, 177, 94, 0.12);
+  padding: 14px;
+  color: #f8fafc;
+}
+
+.elyon-command-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.elyon-command-title {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.elyon-command-subtitle {
+  font-size: 11px;
+  color: rgba(248, 250, 252, 0.68);
+  margin-top: 2px;
+}
+
+.elyon-command-close {
+  border: 0;
+  border-radius: 999px;
+  width: 28px;
+  height: 28px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  cursor: pointer;
+}
+
+.elyon-command-input {
+  width: 100%;
+  box-sizing: border-box;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: #f8fafc;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+}
+
+.elyon-command-list {
+  display: grid;
+  gap: 8px;
+}
+
+.elyon-command-item {
+  border: 0;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #f8fafc;
+  text-align: left;
+  padding: 12px 14px;
+  cursor: pointer;
+}
+
+.elyon-command-item:hover {
+  background: rgba(214, 177, 94, 0.12);
+}
+
+.elyon-overlay-shell {
+  width: 320px;
+  background: linear-gradient(180deg, #111827 0%, #0b1220 100%);
+  color: #f8fafc;
+  border: 1px solid rgba(214, 177, 94, 0.22);
+  border-radius: 18px;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.03) inset,
+    0 18px 50px rgba(0, 0, 0, 0.35),
+    0 0 24px rgba(214, 177, 94, 0.12);
+  padding: 12px;
+  backdrop-filter: blur(8px);
+}
+
+.elyon-overlay-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.elyon-overlay-brand {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.elyon-overlay-sub {
+  font-size: 11px;
+  color: rgba(248, 250, 252, 0.68);
+  margin-top: 2px;
+}
+
+.elyon-overlay-close {
+  border: 0;
+  border-radius: 999px;
+  width: 28px;
+  height: 28px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  cursor: pointer;
+}
+
+.elyon-overlay-card {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.elyon-field {
+  display: grid;
+  gap: 2px;
+}
+
+.elyon-field span {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(248, 250, 252, 0.6);
+}
+
+.elyon-field strong {
+  font-size: 12px;
+  line-height: 1.4;
+  word-break: break-word;
+  font-weight: 600;
+}
+
+.elyon-image-wrap {
+  display: grid;
+  gap: 8px;
+}
+
+.elyon-image {
+  width: 100%;
+  max-height: 180px;
+  object-fit: cover;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.elyon-image-link {
+  font-size: 11px;
+  color: #d8b96b;
+  text-decoration: none;
+}
+
+.elyon-overlay-actions {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.elyon-overlay-actions button {
+  border: 0;
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: linear-gradient(180deg, #d8b96b 0%, #c99d3f 100%);
+  color: #111827;
+  font-weight: 700;
+  cursor: pointer;
+}
