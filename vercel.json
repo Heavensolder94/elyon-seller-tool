@@ -51,7 +51,7 @@
     },
     {
       "source": "/api/ping",
-      "destination": "/api/health"
+      "destination": "/api/env-check?action=health"
     },
     {
       "source": "/api/ai-workflow",

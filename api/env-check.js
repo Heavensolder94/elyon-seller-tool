@@ -90,6 +90,13 @@ function buildIntegrationReadiness() {
   };
 }
 
+function buildHealthPayload() {
+  return {
+    ok: true,
+    message: "Health funktioniert",
+  };
+}
+
 function isGoogleSheetsSyncRequest(req) {
   return Boolean(
     req?.body?.url ||
@@ -183,6 +190,10 @@ async function handleGoogleSheetsSync(req, res) {
 }
 
 export default async function handler(req, res) {
+  if (req.query?.action === "health") {
+    return res.status(200).json(buildHealthPayload());
+  }
+
   if (isGoogleSheetsSyncRequest(req)) {
     return handleGoogleSheetsSync(req, res);
   }

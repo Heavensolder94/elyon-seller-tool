@@ -45,6 +45,13 @@ function getRequestedAction(req, body) {
   return path || "status";
 }
 
+function makeState() {
+  if (globalThis.crypto && typeof globalThis.crypto.randomUUID === "function") {
+    return globalThis.crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
 async function handleStatus(req, res) {
   try {
     if (req.method !== "GET" && req.method !== "POST") {
