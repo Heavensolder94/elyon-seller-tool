@@ -4147,9 +4147,9 @@ function renderSourceAnalysis(analysis){
   html += '</div>';
   html += '<div class="output-box"><h3>Supplier-Hinweis</h3><p>' + escapeHtml(supplier.note || 'Supplier pruefen.') + '</p></div>';
   html += '<div class="output-box"><h3>Vor dem Listen pruefen</h3><ul>' + compliance.map(function(item){ return '<li>' + escapeHtml(item) + '</li>'; }).join('') + '</ul></div>';
-  html += '<div class="output-box"><h3>KI-Bewertung</h3><p>' + (aiActive ? 'KI-Analyse aktiv - Live-Aktionen bleiben blockiert. Nutze die Vorschau bewusst, bevor Kosten entstehen.' : 'KI ist deaktiviert. Die Produktdaten wurden online geprueft, aber nicht durch KI bewertet.') + '</p></div>';
+  html += '<div class="output-box"><h3>ChatGPT-Bewertung</h3><p>' + (aiActive ? 'ChatGPT kann jetzt eine kontrollierte Einschätzung erstellen. Live-Aktionen bleiben blockiert.' : 'KI ist deaktiviert. Die Produktdaten wurden online geprueft, aber nicht durch KI bewertet.') + '</p><div id="sourcingAiReview" class="muted">Noch keine ChatGPT-Bewertung gestartet.</div></div>';
   html += '<div class="copy-row">';
-  if(aiActive) html += '<button class="secondary copy-btn" type="button" onclick="prepareAiSourcingPrompt()">KI-Einschaetzung vorbereiten</button>';
+  if(aiActive) html += '<button class="secondary copy-btn" type="button" onclick="prepareAiSourcingPrompt()">KI-Prompt vorbereiten</button><button class="secondary copy-btn" type="button" onclick="startChatGptSourcingReview()">ChatGPT-Bewertung starten</button>';
   html += '<button class="full copy-btn" type="button" onclick="applyAnalysisToProductForm()">In Produktmaske uebernehmen</button></div></div>';
   setHTML('sourceAnalysisResult', html);
 }
@@ -4221,6 +4221,63 @@ function prepareAiSourcingPrompt(){
   ].join('\n');
   setHTML('sourceAnalysisResult', ($('sourceAnalysisResult') ? $('sourceAnalysisResult').innerHTML : '') + '<div class="output-box"><h3>KI-Prompt Vorschau</h3><p id="sourcingAiPromptPreview">' + escapeHtml(prompt) + '</p><div class="copy-row"><button class="secondary copy-btn" data-copy="sourcingAiPromptPreview">Prompt kopieren</button></div></div>');
 }
+function buildChatGptSourcingPrompt(){
+  const a = latestSourceAnalysis;
+  if(!a) return '';
+  const supplier = a.supplier || STANDARD_SOURCE_PROFILES.other;
+  const online = a.online || {};
+  return [
+    'Bewerte dieses Produkt fuer eBay-Dropshipping im Elyon Seller Tool.',
+    '',
+    'Wichtig:',
+    '- Nur Analyse und Empfehlung.',
+    '- Keine Bestellung.',
+    '- Kein eBay-Posting.',
+    '- Keine Kundennachricht.',
+    '- Keine Live-Aktion.',
+    '- Nicht automatisch speichern.',
+    '',
+    'Produktdaten:',
+    'Supplier: ' + (supplier.name || 'Unbekannt'),
+    'Produktlink: ' + (a.link || ''),
+    'Domain: ' + (a.domain || ''),
+    'Supplier-Typ: ' + (supplier.type || 'Unbekannt'),
+    'Supplier-Risiko: ' + (supplier.risk || 'Unbekannt'),
+    'Lieferzeit: ' + (supplier.delivery || 'Unbekannt'),
+    'Supplier-Hinweis: ' + (supplier.note || ''),
+    'Produktnotiz: ' + (a.productNote || ''),
+    '',
+    'Onlineanalyse:',
+    'Online-Status: ' + (online.status || 'offen'),
+    'Online-Titel: ' + (online.title || ''),
+    'Online-Preis: ' + (online.price || ''),
+    'Waehrung: ' + (online.currency || ''),
+    'Verfuegbarkeit: ' + (online.availability || ''),
+    'Versand: ' + (online.shipping || ''),
+    'Kategorie: ' + (online.category || ''),
+    'Confidence: ' + (online.confidence || 'low'),
+    '',
+    'Bitte antworte strukturiert auf Deutsch mit:',
+    '1. Score 0-100',
+    '2. Empfehlung: Listen / Beobachten / Ablehnen',
+    '3. Hauptgruende',
+    '4. Risiken: Marge, Nachfrage, Konkurrenz, Lieferzeit, Retouren, Compliance',
+    '5. Fehlende Daten',
+    '6. Naechster konkreter Schritt',
+    '',
+    'Bleibe vorsichtig. Wenn Marge, Marktdaten oder Compliance offen sind, keine harte Listen-Empfehlung geben.'
+  ].join('\n');
+}
+function startChatGptSourcingReview(){
+  if(!latestSourceAnalysis){ alert('Bitte zuerst einen Produktlink analysieren.'); return; }
+  if(!isAiFeatureEnabled()){ setHTML('sourcingAiReview','KI ist deaktiviert. Bitte KI-Funktionen aktivieren, wenn du ChatGPT verwenden willst.'); return; }
+  openAiBillingWarning({
+    task:'sourcing_review',
+    prompt: buildChatGptSourcingPrompt(),
+    resultId:'sourcingAiReview',
+    extra:{ model:'openai-mini', source:'product-procurement' }
+  });
+}
 function applyAnalysisToProductForm(){
   const a = latestSourceAnalysis;
   if(!a){ return; }
@@ -4234,6 +4291,7 @@ function applyAnalysisToProductForm(){
 }
 window.prepareAiSourcingPrompt = prepareAiSourcingPrompt;
 window.applyAnalysisToProductForm = applyAnalysisToProductForm;
+window.startChatGptSourcingReview = startChatGptSourcingReview;
 function setSourcingWorkflowStep(step, targetId, shouldScroll){
   const root = $('productSearchTab');
   if(!root) return;
@@ -6900,6 +6958,9 @@ async function executeCentralAiTask(config){
       renderAiTagsTaskResult(data);
     }else if(task === 'product_score'){
       renderAiProductScoreTaskResult(data);
+    }else if(resultId){
+      const result = data && data.result ? data.result : (data && data.output_text ? data.output_text : '');
+      setHTML(resultId, '<div class="output-box"><h3>ChatGPT-Einschätzung</h3><p>' + escapeHtml(String(result || 'Keine KI-Antwort erzeugt.')) + '</p></div>');
     }
   }catch(err){
     const message = err && err.message ? err.message : 'Unbekannter KI-Fehler';
