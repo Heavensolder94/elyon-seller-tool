@@ -203,6 +203,13 @@
     .kanban-column .browser-product-card .score-wrap{min-width:0}
     .kanban-column .browser-product-card .pill-row{gap:6px}
     .kanban-column .browser-product-card .pill,.kanban-column .browser-product-card .status{font-size:11px;padding:5px 8px;white-space:normal}
+    .kanban-mini-card{display:grid;grid-template-columns:76px minmax(0,1fr);gap:12px;margin-bottom:12px;padding:12px;border-radius:18px;background:rgba(2,6,23,.58);border:1px solid rgba(255,255,255,.1)}
+    .kanban-mini-card img{width:76px;height:76px;object-fit:cover;border-radius:14px;border:1px solid rgba(255,255,255,.14);background:rgba(2,6,23,.45)}
+    .kanban-mini-body{min-width:0}
+    .kanban-mini-title{font-size:14px;font-weight:900;line-height:1.25;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical}
+    .kanban-mini-meta{margin-top:6px;color:#94a3b8;font-size:12px;line-height:1.35}
+    .kanban-mini-actions{grid-column:1 / -1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+    .kanban-mini-actions button{padding:8px 9px;font-size:12px;border-radius:12px}
     @media(min-width:1180px){.kanban-board{grid-template-columns:repeat(2,minmax(460px,1fr))}}
     @media(min-width:1540px){.kanban-board{grid-template-columns:repeat(3,minmax(420px,1fr))}}
     @media(max-width:980px){.browser-product-card{grid-template-columns:1fr}.browser-product-side{min-width:0}.browser-import-grid{grid-template-columns:1fr}}
@@ -5931,6 +5938,32 @@ function productCardHTML(p,small=false){
   html += '</article>';
   return html;
 }
+function kanbanProductCardHTML(p){
+  const c = calcProduct(p);
+  const lifecycle = productStatusMeta(p.productStatus || p.status || 'Draft');
+  const isBrowserImport = p.sourceType === 'chrome_extension' || p.sourceProvider === 'browser-import';
+  if(!isBrowserImport) return productCardHTML(p,true);
+  const images = parseJsonArrayField(p.sourceOnlineImages);
+  const thumb = String(p.sourceOnlineImage || images[0] || '').trim();
+  const price = [p.sourceOnlinePrice, p.sourceOnlineCurrency].filter(Boolean).join(' ') || (p.buy ? euro(p.buy) : '');
+  let html = '<article class="kanban-mini-card">';
+  html += thumb
+    ? '<img src="' + escapeHtml(thumb) + '" alt="" referrerpolicy="no-referrer" loading="lazy" onerror="this.remove()">'
+    : '<div class="empty" style="width:76px;min-height:76px;padding:8px">Kein Bild</div>';
+  html += '<div class="kanban-mini-body">';
+  html += '<div class="kanban-mini-title">' + escapeHtml(p.name || 'Browser Import') + '</div>';
+  html += '<div class="kanban-mini-meta">' + escapeHtml(price || 'Preis offen') + ' · Score ' + c.score + '</div>';
+  html += '<div class="pill-row"><span class="status ' + lifecycle.cls + '">' + escapeHtml(lifecycle.label) + '</span><span class="pill">' + escapeHtml(p.sourceProvider || 'browser-import') + '</span></div>';
+  html += '</div>';
+  html += '<div class="kanban-mini-actions">';
+  html += '<button class="secondary" onclick="editProduct(' + p.id + ')">Bearbeiten</button>';
+  html += '<button class="secondary" onclick="triggerProductDecision(' + JSON.stringify(String(p.id)) + ')">KI prüfen</button>';
+  html += '<button class="secondary" onclick="toggleProductView()">Details</button>';
+  html += '<button class="danger" onclick="removeProduct(' + p.id + ')">Löschen</button>';
+  html += '</div>';
+  html += '</article>';
+  return html;
+}
 let productViewMode = localStorage.getItem('elyonProductViewMode') || 'list';
 function dashboardProductScore(p){
   const c = calcProduct(p);
@@ -6711,7 +6744,7 @@ function render(){
     const groups=['Recherche','Draft','SEO prüfen','eBay Ready','Live','Verkauft','Versand offen','Abgeschlossen','Archiviert'];
     list.innerHTML='<div class="kanban-board">'+groups.map(g=>{
       const groupItems=items.filter(p=>normalizeProductStatus(p.productStatus || p.status || 'Draft', 'Draft')===g);
-      return '<div class="kanban-column"><h3>'+g+' · '+groupItems.length+'</h3>'+(groupItems.length?groupItems.map(p=>productCardHTML(p,true)).join(''):'<div class="empty">Leer</div>')+'</div>';
+      return '<div class="kanban-column"><h3>'+g+' · '+groupItems.length+'</h3>'+(groupItems.length?groupItems.map(p=>kanbanProductCardHTML(p)).join(''):'<div class="empty">Leer</div>')+'</div>';
     }).join('')+'</div>';
   } else {
     list.innerHTML=items.map(p=>productCardHTML(p,false)).join('');
