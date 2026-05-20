@@ -155,6 +155,16 @@ function limitDescription(text) {
   return value.slice(0, 12000);
 }
 
+function cleanAvailabilityText(text) {
+  let value = safeText(text);
+  if (!value) return "";
+  value = value.replace(/\{[\s\S]*$/, "").trim();
+  value = value.replace(/\[[\s\S]*$/, "").trim();
+  value = value.replace(/\b(isInternal|showInsightsHub|isRobot|showFaceout|merchantId|availableBadges|loggedIn|asin|showBadge|ingressFaceout|availableFaceouts)\b[\s\S]*$/i, "").trim();
+  value = value.replace(/\s{2,}/g, " ");
+  return value.slice(0, 160);
+}
+
 function getJsonLdDescription() {
   const scripts = Array.from(document.querySelectorAll("script[type='application/ld+json']"));
   for (const script of scripts) {
@@ -306,13 +316,13 @@ function getSoldCount() {
 }
 
 function getAvailability() {
-  return queryText([
+  return cleanAvailabilityText(queryText([
     "#availability",
     "[class*='availability']",
     "[class*='stock']",
     "[data-testid*='availability']",
     "[data-testid*='stock']"
-  ]) || "";
+  ]) || "");
 }
 
 function getCategory() {
