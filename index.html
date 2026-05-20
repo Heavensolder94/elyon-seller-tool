@@ -6385,7 +6385,9 @@ function renderBrowserImports(){
   }
   box.innerHTML = browserImports.slice(0, 20).map(item => {
     const linked = item.linkedSupplierName || item.linkedSupplierId || '-';
-    const imageHtml = item.image ? '<img src="' + escapeHtml(item.image) + '" alt="" style="width:72px;height:72px;object-fit:cover;border-radius:14px;border:1px solid rgba(255,255,255,.12);background:rgba(2,6,23,.4)">' : '<div class="empty" style="width:72px;min-height:72px;padding:10px">Kein Bild</div>';
+    const imageList = [item.image].concat(Array.isArray(item.images) ? item.images : []).filter(Boolean);
+    const mainImage = imageList[0] || '';
+    const imageHtml = mainImage ? '<img src="' + escapeHtml(mainImage) + '" alt="" referrerpolicy="no-referrer" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement(\\'div\\'),{className:\\'empty\\',textContent:\\'Bild nicht ladbar\\'}))" style="width:72px;height:72px;object-fit:cover;border-radius:14px;border:1px solid rgba(255,255,255,.12);background:rgba(2,6,23,.4)">' : '<div class="empty" style="width:72px;min-height:72px;padding:10px">Kein Bild</div>';
     const shippingText = item.shipping && typeof item.shipping === 'object' ? [item.shipping.cost, item.shipping.deliveryTime, item.shipping.shipsFrom, item.shipping.text].filter(Boolean).join(' · ') : '';
     const detailRows = Object.entries(item.productDetails || {}).slice(0,12).map(([key,value]) => '<li><strong>' + escapeHtml(key) + ':</strong> ' + escapeHtml(String(value || '')) + '</li>').join('');
     const variantRows = (item.variants || []).slice(0,12).map(variant => '<span class="pill">' + escapeHtml(typeof variant === 'string' ? variant : (variant.label || variant.name || JSON.stringify(variant))) + '</span>').join('');
@@ -6398,7 +6400,7 @@ function renderBrowserImports(){
       shippingText ? '<span class="pill">Versand: ' + escapeHtml(shippingText) + '</span>' : ''
     ].filter(Boolean).join('');
     const complianceRows = (item.complianceRisks || []).map(risk => '<span class="pill bad">' + escapeHtml(risk) + '</span>').join('');
-    const galleryRows = (item.images || []).slice(0,6).map(src => '<img src="' + escapeHtml(src) + '" alt="" style="width:46px;height:46px;object-fit:cover;border-radius:10px;border:1px solid rgba(255,255,255,.12)">').join('');
+    const galleryRows = imageList.slice(0,6).map(src => '<img src="' + escapeHtml(src) + '" alt="" referrerpolicy="no-referrer" loading="lazy" onerror="this.remove()" style="width:46px;height:46px;object-fit:cover;border-radius:10px;border:1px solid rgba(255,255,255,.12)">').join('');
     return '<div class="product-card small-card" data-browser-import-id="' + escapeHtml(item.id) + '">' +
       '<div style="display:flex;gap:14px;align-items:flex-start">' +
         imageHtml +
