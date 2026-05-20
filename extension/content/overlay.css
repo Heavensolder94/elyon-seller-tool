@@ -4,6 +4,9 @@
   bottom: 16px;
   z-index: 2147483647;
   font-family: Arial, sans-serif;
+  max-width: calc(100vw - 24px);
+  max-height: calc(100vh - 24px);
+  pointer-events: none;
 }
 
 #elyon-browser-os-command-bar {
@@ -92,6 +95,7 @@
 
 .elyon-overlay-shell {
   width: 320px;
+  max-height: calc(100vh - 24px);
   background: linear-gradient(180deg, #111827 0%, #0b1220 100%);
   color: #f8fafc;
   border: 1px solid rgba(214, 177, 94, 0.22);
@@ -102,6 +106,13 @@
     0 0 24px rgba(214, 177, 94, 0.12);
   padding: 12px;
   backdrop-filter: blur(8px);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
+  pointer-events: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
 }
 
 .elyon-overlay-header {
@@ -110,6 +121,13 @@
   align-items: flex-start;
   gap: 12px;
   margin-bottom: 10px;
+  user-select: none;
+}
+
+.elyon-overlay-header-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
 }
 
 .elyon-overlay-brand {
@@ -141,6 +159,8 @@
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.06);
+  overflow: visible;
+  max-height: none;
 }
 
 .elyon-field {
@@ -186,6 +206,17 @@
   display: grid;
   gap: 8px;
   margin-top: 10px;
+  padding-bottom: 2px;
+}
+
+.elyon-overlay-minimize {
+  border: 0;
+  border-radius: 999px;
+  width: 28px;
+  height: 28px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  cursor: pointer;
 }
 
 .elyon-overlay-actions button {
