@@ -27,6 +27,7 @@ function normalizeProduct(product = {}) {
     price: toText(product.price || ""),
     currency: toText(product.currency || ""),
     image: toText(product.image || ""),
+    description: toText(product.description || product.productDescription || product.summary || ""),
     url,
     supplier: toText(product.supplier || ""),
     domain: toText(product.domain || ""),

@@ -73,6 +73,7 @@ function normalizeImport(product = {}) {
     price: toText(product.price || ""),
     currency: toText(product.currency || ""),
     image: toText(product.image || ""),
+    description: toText(product.description || product.productDescription || product.summary || ""),
     url,
     supplier: supplier || supplierMatch.linkedSupplierName || "",
     domain,

@@ -2350,6 +2350,7 @@ function normalizeBrowserImportRecord(item){
     price: String(source.price || '').trim(),
     currency: String(source.currency || '').trim(),
     image: String(source.image || '').trim(),
+    description: String(source.description || source.productDescription || source.summary || '').trim(),
     url,
     supplier: String(source.supplier || '').trim(),
     domain,
@@ -6382,6 +6383,7 @@ function renderBrowserImports(){
           '<div class="muted">Preis: ' + escapeHtml([item.price, item.currency].filter(Boolean).join(' ')) + ' · Supplier: ' + escapeHtml(item.supplier || '-') + '</div>' +
           '<div class="muted">Domain: ' + escapeHtml(item.domain || '-') + '</div>' +
           '<div class="muted" style="word-break:break-all">URL: ' + escapeHtml(item.url || '-') + '</div>' +
+          (item.description ? '<details class="output-box" style="margin-top:10px"><summary>Artikelbeschreibung anzeigen</summary><p style="white-space:pre-wrap">' + escapeHtml(item.description) + '</p></details>' : '') +
           '<div class="pill-row">' +
             '<span class="pill">Import: ' + escapeHtml(item.importedAt || '-') + '</span>' +
             '<span class="pill">Status: ' + escapeHtml(item.status || 'new') + '</span>' +
@@ -6416,6 +6418,7 @@ function renderBrowserImports(){
           sourceType: 'chrome_extension',
           sourceDomain: item.domain || '',
           notes: item.notes || '',
+          description: item.description || '',
           productStatus: 'Draft',
           status: 'Draft',
           sourceNote: 'Aus Browser Import uebernommen',
@@ -6423,6 +6426,7 @@ function renderBrowserImports(){
           sourceOnlinePrice: item.price || '',
           sourceOnlineCurrency: item.currency || '',
           sourceOnlineImage: item.image || '',
+          sourceOnlineDescription: item.description || '',
           sourceOnlineCheckedAt: item.importedAt || new Date().toISOString()
         });
         products = [product, ...products.filter(p => String(p.sku || '') !== String(product.sku || '') || String(p.name || '') !== String(product.name || ''))];
