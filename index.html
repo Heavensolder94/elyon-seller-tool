@@ -6387,7 +6387,7 @@ function renderBrowserImports(){
     const linked = item.linkedSupplierName || item.linkedSupplierId || '-';
     const imageList = [item.image].concat(Array.isArray(item.images) ? item.images : []).filter(Boolean);
     const mainImage = imageList[0] || '';
-    const imageHtml = mainImage ? '<img src="' + escapeHtml(mainImage) + '" alt="" referrerpolicy="no-referrer" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement(\\'div\\'),{className:\\'empty\\',textContent:\\'Bild nicht ladbar\\'}))" style="width:72px;height:72px;object-fit:cover;border-radius:14px;border:1px solid rgba(255,255,255,.12);background:rgba(2,6,23,.4)">' : '<div class="empty" style="width:72px;min-height:72px;padding:10px">Kein Bild</div>';
+    const imageHtml = mainImage ? '<img src="' + escapeHtml(mainImage) + '" alt="" referrerpolicy="no-referrer" loading="lazy" onerror="this.remove()" style="width:72px;height:72px;object-fit:cover;border-radius:14px;border:1px solid rgba(255,255,255,.12);background:rgba(2,6,23,.4)">' : '<div class="empty" style="width:72px;min-height:72px;padding:10px">Kein Bild</div>';
     const shippingText = item.shipping && typeof item.shipping === 'object' ? [item.shipping.cost, item.shipping.deliveryTime, item.shipping.shipsFrom, item.shipping.text].filter(Boolean).join(' · ') : '';
     const detailRows = Object.entries(item.productDetails || {}).slice(0,12).map(([key,value]) => '<li><strong>' + escapeHtml(key) + ':</strong> ' + escapeHtml(String(value || '')) + '</li>').join('');
     const variantRows = (item.variants || []).slice(0,12).map(variant => '<span class="pill">' + escapeHtml(typeof variant === 'string' ? variant : (variant.label || variant.name || JSON.stringify(variant))) + '</span>').join('');
@@ -6440,6 +6440,7 @@ function renderBrowserImports(){
       if(!item) return;
 
       if(action === 'board'){
+        const itemShippingText = item.shipping && typeof item.shipping === 'object' ? [item.shipping.cost, item.shipping.deliveryTime, item.shipping.shipsFrom, item.shipping.text].filter(Boolean).join(' · ') : '';
         const product = normalizeProductRecord({
           name: item.title || 'Browser Import',
           supplier: item.supplier || '',
@@ -6463,7 +6464,7 @@ function renderBrowserImports(){
           sourceOnlineImage: item.image || '',
           sourceOnlineDescription: item.description || '',
           sourceOnlineAvailability: item.availability || '',
-          sourceOnlineShipping: shippingText || '',
+          sourceOnlineShipping: itemShippingText || '',
           sourceOnlineCategory: item.category || '',
           sourceOnlineRating: item.rating || '',
           sourceOnlineReviews: item.reviewsCount || '',
