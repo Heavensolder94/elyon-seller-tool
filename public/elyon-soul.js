@@ -39,6 +39,7 @@
     loading: false,
     aiChecked: false,
     aiEnabled: false,
+    deepSeekModel: null,
     chatMode: "unknown",
     chatDetail: "",
     messages: [],
@@ -411,6 +412,7 @@
 
   function renderChatMode() {
     if (!ui.chatMode) return;
+    const modelLabel = state.deepSeekModel ? `Modell: ${state.deepSeekModel}` : "";
     const labels = {
       unknown: "Chat -> noch nicht geprüft",
       deepseek: "Chat -> DeepSeek aktiv",
@@ -428,7 +430,8 @@
       ready: "good",
     };
     const label = labels[state.chatMode] || labels.unknown;
-    ui.chatMode.textContent = state.chatDetail ? `${label} · ${state.chatDetail}` : label;
+    const details = [state.chatDetail, modelLabel].filter(Boolean).join(" · ");
+    ui.chatMode.textContent = details ? `${label} · ${details}` : label;
     ui.chatMode.dataset.tone = tones[state.chatMode] || "info";
   }
 
@@ -724,6 +727,7 @@
       const result = await requestDeepSeek(prompt, "chat");
       state.aiChecked = true;
       state.aiEnabled = result.aiEnabled === true && result.mode === "deepseek";
+      state.deepSeekModel = result.model || state.deepSeekModel;
       const answer = text(result.recommendation) || getRuleBasedReply(prompt, summary);
       const title = result.mode === "deepseek" ? "DEEPSEEK" : "ELYON SOUL";
       pushMessage("assistant", title, answer);
@@ -780,6 +784,7 @@
       const result = await requestDeepSeek("Bitte erstelle eine kurze, klare Business-Empfehlung auf Basis der Produktdaten.", "analyze");
       state.aiChecked = true;
       state.aiEnabled = result.aiEnabled !== false && result.mode === "deepseek";
+      state.deepSeekModel = result.model || state.deepSeekModel;
       const answer = text(result.recommendation) || summary.recommendation;
       pushMessage("assistant", result.mode === "deepseek" ? "DEEPSEEK" : "ELYON SOUL", answer);
       renderFeedback("KI-Analyse", answer);
@@ -818,6 +823,7 @@
       const data = await response.json().catch(() => ({}));
       state.aiChecked = true;
       state.aiEnabled = Boolean(data && data.aiEnabled && data.mode === "deepseek");
+      state.deepSeekModel = data?.model || (state.aiEnabled ? state.deepSeekModel : null);
       updateAiButton();
       const responseMessage = String(data?.message || data?.error || "").trim();
       const responseDetail = String(data?.details || "").trim();
