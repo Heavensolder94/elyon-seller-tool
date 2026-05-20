@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Elyon Browser OS</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main class="popup">
+      <h1>Elyon Browser OS</h1>
+      <section class="card">
+        <div class="label">Aktueller Sicherheitsstatus</div>
+        <div id="securityStatus" class="value">-</div>
+        <div id="securityHint" class="hint">-</div>
+      </section>
+      <section class="card">
+        <div class="label">Erkannte Seite</div>
+        <div id="detectedPage" class="value">-</div>
+      </section>
+      <section class="card">
+        <div class="label">Warnhinweis</div>
+        <div id="riskLabel" class="value">-</div>
+      </section>
+      <section class="card">
+        <div class="label">Aktiver Tab</div>
+        <div id="activeTab" class="value">-</div>
+      </section>
+      <section class="card">
+        <div class="label">Overlay Status</div>
+        <div id="overlayState" class="value">-</div>
+      </section>
+      <section class="card">
+        <div class="label">Backend Status</div>
+        <div id="backendStatus" class="value">-</div>
+        <div id="backendMessage" class="hint">-</div>
+        <div class="actions-inline">
+          <button id="testBackend" type="button">Backend testen</button>
+          <button id="sendToElyon" type="button">Produkt an Elyon senden</button>
+        </div>
+      </section>
+      <section class="card">
+        <div class="label">Research Memory</div>
+        <div id="researchList" class="research-list">-</div>
+        <div class="actions-inline">
+          <button id="allResearch" type="button">Alle anzeigen</button>
+        </div>
+      </section>
+      <section class="card">
+        <div class="label">Soul Agent System</div>
+        <div id="agentSummary" class="hint">Lade Agenten …</div>
+        <div id="agentList" class="agent-list">-</div>
+        <div class="actions-inline">
+          <button id="openAgents" type="button">Agenten öffnen</button>
+        </div>
+      </section>
+      <section class="card">
+        <div class="label">Multi Tab Hunter</div>
+        <div id="tabHunterSummary" class="hint">Noch kein Scan …</div>
+        <div class="actions-inline">
+          <button id="scanTabs" type="button">Tabs scannen</button>
+        </div>
+        <div id="tabHunterList" class="tab-hunter-list">-</div>
+      </section>
+      <section class="actions">
+        <button id="overlayToggle" type="button">Overlay toggeln</button>
+        <button id="saveProduct" type="button">Produkt speichern</button>
+        <button id="openSettings" type="button">Settings öffnen</button>
+      </section>
+    </main>
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>

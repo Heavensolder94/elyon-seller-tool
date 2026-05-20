@@ -1,0 +1,52 @@
+{
+  "manifest_version": 3,
+  "name": "Elyon Browser OS",
+  "version": "0.1.0",
+  "description": "Chrome Extension to extend the Elyon Seller Tool with product scanning, secure overlays, and modular workflows.",
+  "action": {
+    "default_title": "Elyon Browser OS",
+    "default_popup": "popup/popup.html"
+  },
+  "options_page": "options/options.html",
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "permissions": ["storage", "tabs", "activeTab", "scripting", "notifications"],
+  "host_permissions": [
+    "*://*.ebay.com/*",
+    "*://*.ebay.de/*",
+    "*://*.ebay.co.uk/*",
+    "*://*.amazon.com/*",
+    "*://*.amazon.de/*",
+    "*://*.aliexpress.com/*",
+    "*://*.cjdropshipping.com/*",
+    "*://*.temu.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.ebay.com/*",
+        "*://*.ebay.de/*",
+        "*://*.ebay.co.uk/*",
+        "*://*.amazon.com/*",
+        "*://*.amazon.de/*",
+        "*://*.aliexpress.com/*",
+        "*://*.cjdropshipping.com/*",
+        "*://*.temu.com/*"
+      ],
+      "js": ["content/productDetector.js"],
+      "css": ["content/overlay.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "commands": {
+    "toggle-command-bar": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+E",
+        "mac": "Command+Shift+E"
+      },
+      "description": "Open Elyon command bar"
+    }
+  }
+}
