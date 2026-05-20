@@ -62,6 +62,10 @@
       "destination": "/api/ai-router"
     },
     {
+      "source": "/api/elyon/products",
+      "destination": "/api/elyon-products"
+    },
+    {
       "source": "/api/google-sheets-sync",
       "destination": "/api/env-check"
     },
