@@ -98,6 +98,21 @@ function queryAttr(selectors, attr, root = document) {
   return "";
 }
 
+function uniqueList(values, max = 20) {
+  return Array.from(new Set(values.map((value) => safeText(value)).filter(Boolean))).slice(0, max);
+}
+
+function queryAllText(selectors, root = document, max = 20) {
+  const values = [];
+  for (const selector of selectors) {
+    root.querySelectorAll(selector).forEach((node) => {
+      const text = safeText(node?.textContent || node?.getAttribute?.("aria-label") || node?.getAttribute?.("title"));
+      if (text) values.push(text);
+    });
+  }
+  return uniqueList(values, max);
+}
+
 function limitDescription(text) {
   const value = safeText(text);
   if (!value) return "";
@@ -157,6 +172,157 @@ function getPrice() {
 
 function getImage() {
   return pickMeta(["meta[property='og:image']", "meta[name='twitter:image']", "meta[property='twitter:image']"]) || "";
+}
+
+function getImages() {
+  const values = [
+    getImage(),
+    ...Array.from(document.querySelectorAll("img"))
+      .map((img) => img.currentSrc || img.src || img.getAttribute("data-src") || img.getAttribute("data-lazy-src"))
+      .filter((src) => /^https?:\/\//i.test(String(src || "")))
+  ];
+  return uniqueList(values, 12);
+}
+
+function getNumberFromText(text) {
+  const match = safeText(text).match(/[\d.,]+/);
+  if (!match) return "";
+  return match[0];
+}
+
+function getRating() {
+  return getNumberFromText(queryText([
+    "[class*='rating']",
+    "[class*='star']",
+    "[aria-label*='star']",
+    "[aria-label*='Stern']"
+  ]));
+}
+
+function getReviewsCount() {
+  return getNumberFromText(queryText([
+    "[class*='review']",
+    "[id*='review']",
+    "[data-testid*='review']",
+    "[aria-label*='review']",
+    "[aria-label*='Bewertung']"
+  ]));
+}
+
+function getSoldCount() {
+  return getNumberFromText(queryText([
+    "[class*='sold']",
+    "[class*='order']",
+    "[data-testid*='sold']"
+  ]));
+}
+
+function getAvailability() {
+  return queryText([
+    "#availability",
+    "[class*='availability']",
+    "[class*='stock']",
+    "[data-testid*='availability']",
+    "[data-testid*='stock']"
+  ]) || "";
+}
+
+function getCategory() {
+  return pickMeta(["meta[property='product:category']", "meta[name='category']"]) || queryText([
+    "[class*='breadcrumb']",
+    "nav[aria-label*='breadcrumb']",
+    "[data-testid*='breadcrumb']"
+  ]);
+}
+
+function getVariants() {
+  const labels = queryAllText([
+    "[class*='sku']",
+    "[class*='variant']",
+    "[class*='option']",
+    "[data-testid*='variant']",
+    "[aria-label*='Color']",
+    "[aria-label*='Farbe']",
+    "[aria-label*='Size']",
+    "[aria-label*='Größe']"
+  ], document, 30);
+  return labels
+    .filter((text) => text.length <= 160 && !/cookie|login|newsletter/i.test(text))
+    .slice(0, 20)
+    .map((label) => ({ label }));
+}
+
+function getShipping() {
+  const text = queryText([
+    "[class*='shipping']",
+    "[class*='delivery']",
+    "[class*='logistic']",
+    "[data-testid*='shipping']",
+    "[data-testid*='delivery']",
+    "[aria-label*='shipping']",
+    "[aria-label*='delivery']",
+    "[aria-label*='Versand']",
+    "[aria-label*='Liefer']"
+  ]);
+  return {
+    text,
+    cost: extractPriceFromText(text) || "",
+    deliveryTime: safeText(text.match(/(\d+\s*[-–]\s*\d+|\d+)\s*(tage|days|werktage|wochen|weeks)/i)?.[0] || ""),
+    shipsFrom: queryText(["[class*='ship-from']", "[class*='shipsFrom']", "[data-testid*='ship-from']"])
+  };
+}
+
+function getProductDetails() {
+  const details = {};
+  const rows = Array.from(document.querySelectorAll("tr, li, dl, [class*='spec'], [class*='attribute'], [class*='detail']"));
+  for (const row of rows.slice(0, 80)) {
+    const text = safeText(row.textContent);
+    const match = text.match(/^([^:：]{2,45})[:：]\s*(.{1,180})$/);
+    if (match) details[safeText(match[1])] = safeText(match[2]);
+  }
+  for (const key of ["Brand", "Marke", "Material", "Maße", "Dimensions", "Weight", "Gewicht", "EAN", "GTIN", "MPN"]) {
+    if (!details[key]) {
+      const found = queryText([`[aria-label*='${key}']`, `[class*='${key.toLowerCase()}']`]);
+      if (found && found.length < 180) details[key] = found;
+    }
+  }
+  return details;
+}
+
+function getSupplierInfo(domain, supplier) {
+  return {
+    name: supplier,
+    domain,
+    shopName: queryText(["[class*='store-name']", "[class*='shop-name']", "[class*='seller']", "[data-testid*='seller']"]),
+    rating: getNumberFromText(queryText(["[class*='seller'] [class*='rating']", "[class*='store'] [class*='rating']"])),
+    location: queryText(["[class*='seller-location']", "[class*='store-location']", "[class*='ship-from']"])
+  };
+}
+
+function getComplianceRisks(text) {
+  const value = String(text || "").toLowerCase();
+  const risks = [
+    ["battery", "Akku/Batterie"],
+    ["batterie", "Akku/Batterie"],
+    ["akku", "Akku/Batterie"],
+    ["usb", "Elektro/WEEE"],
+    ["electric", "Elektro/WEEE"],
+    ["elektr", "Elektro/WEEE"],
+    ["ce ", "CE prüfen"],
+    ["medical", "Medizinprodukt"],
+    ["medizin", "Medizinprodukt"],
+    ["cosmetic", "Kosmetik"],
+    ["kosmetik", "Kosmetik"],
+    ["food", "Lebensmittel"],
+    ["lebensmittel", "Lebensmittel"],
+    ["kid", "Kinderprodukt"],
+    ["baby", "Kinderprodukt"],
+    ["toy", "Spielzeug"],
+    ["spielzeug", "Spielzeug"],
+    ["brand", "Marke/Design prüfen"],
+    ["logo", "Marke/Design prüfen"]
+  ];
+  return uniqueList(risks.filter(([needle]) => value.includes(needle)).map(([, label]) => label), 12);
 }
 
 function getDescription() {
@@ -219,21 +385,48 @@ function detectProduct() {
 
   const title = popupData?.title || getTitle() || null;
   const price = extractPriceFromText(popupData?.price || getPrice()) || null;
-  const image = popupData?.image || getImage() || null;
+  const images = uniqueList([popupData?.image, ...getImages()], 12);
+  const image = images[0] || null;
   const currency = getCurrencyFromText(price) || null;
   const description = popupData?.description || getDescription() || null;
+  const shipping = getShipping();
+  const productDetails = getProductDetails();
+  const category = getCategory();
+  const availability = getAvailability();
+  const rating = getRating();
+  const reviewsCount = getReviewsCount();
+  const soldCount = getSoldCount();
+  const variants = getVariants();
+  const supplierInfo = getSupplierInfo(domain, supplier);
+  const complianceRisks = getComplianceRisks([
+    title,
+    description,
+    category,
+    Object.entries(productDetails).map(([key, value]) => `${key}: ${value}`).join(" ")
+  ].join(" "));
 
   return {
     title,
     price,
     image,
+    images,
     url: url || null,
     supplier,
     domain,
     currency,
     detectedAt: new Date().toISOString(),
     productType: getProductType(domain, url),
-    description
+    description,
+    variants,
+    shipping,
+    rating,
+    reviewsCount,
+    soldCount,
+    productDetails,
+    availability,
+    category,
+    supplierInfo,
+    complianceRisks
   };
 }
 
