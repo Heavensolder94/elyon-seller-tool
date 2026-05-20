@@ -1619,33 +1619,53 @@ Land"></textarea>
 
       <div class="settings-section">
         <h3>🤖 KI</h3>
+        <div class="output-box" style="margin:10px 0 12px;padding:12px 14px">
+          <strong style="display:block;margin-bottom:6px">Globale KI-Basis</strong>
+          <p style="margin:0">Standard ist <strong>OpenAI</strong>. Einzelne Bereiche wie virtuelle Mitarbeiter oder das KI-Dashboard können trotzdem bewusst <strong>DeepSeek</strong> oder <strong>Qwen</strong> nutzen.</p>
+        </div>
         <div class="checkrow"><input type="checkbox" id="setAiEnabled" checked><label for="setAiEnabled">KI-Funktionen aktivieren</label></div>
         <p class="hint">Wenn diese Option aus ist, bleiben die KI-Buttons sichtbar, aber es werden keine externen KI-Anfragen gesendet.</p>
-        <div class="settings-grid">
-          <div>
-            <label>Globaler Provider</label>
-            <select id="setAiProvider">
-              <option value="openai">OpenAI</option>
-              <option value="deepseek">DeepSeek</option>
-              <option value="qwen">Qwen</option>
-              <option value="local">Lokal</option>
-            </select>
-          </div>
-          <div>
-            <label>Globales Modell</label>
-            <select id="setAiModel">
-              <option value="gpt-4o-mini">GPT-4o mini</option>
-              <option value="gpt-4o">GPT-4o</option>
-              <option value="deepseek-v4-flash">DeepSeek v4 flash</option>
-              <option value="deepseek-v4-pro">DeepSeek v4 pro</option>
-              <option value="qwen-plus">Qwen Plus</option>
-              <option value="qwen-flash">Qwen Flash</option>
-              <option value="qwen-max">Qwen Max</option>
-            </select>
+        <div class="output-box" style="margin-bottom:12px">
+          <h3 style="margin-top:0">Schnellwahl</h3>
+          <p>Hier legst du fest, welche KI dein Standard sein soll. Das detaillierte KI-Dashboard zeigt dir später Preise, Status und Testknöpfe.</p>
+          <div class="dashboard" style="margin-top:12px">
+            <div class="metric"><small>Standard</small><strong>OpenAI</strong><p class="hint" style="margin:8px 0 0">Das ist deine Haupt-KI für die meisten Aufgaben.</p></div>
+            <div class="metric"><small>Alternativen</small><strong>DeepSeek / Qwen</strong><p class="hint" style="margin:8px 0 0">Nur wenn du bewusst umschalten willst oder Fallback brauchst.</p></div>
+            <div class="metric"><small>Modellwahl</small><strong>OpenAI mini</strong><p class="hint" style="margin:8px 0 0">Die konkrete Modellauswahl liegt in den erweiterten Einstellungen.</p></div>
+            <div class="metric"><small>Detailansicht</small><strong>KI-Dashboard</strong><p class="hint" style="margin:8px 0 0">Preise, Tokens und Tests findest du dort.</p></div>
           </div>
         </div>
+        <details class="settings-section settings-dropdown" style="margin-top:12px">
+          <summary>Erweitert: Anbieter und Modell</summary>
+          <div class="settings-dropdown-content">
+            <p class="hint">Hier kannst du manuell umschalten, wenn du bewusst DeepSeek oder Qwen als Standard willst.</p>
+            <div class="settings-grid">
+              <div>
+                <label>Globaler Provider</label>
+                <select id="setAiProvider">
+                  <option value="openai">OpenAI</option>
+                  <option value="deepseek">DeepSeek</option>
+                  <option value="qwen">Qwen</option>
+                  <option value="local">Lokal</option>
+                </select>
+              </div>
+              <div>
+                <label>Globales Modell</label>
+                <select id="setAiModel">
+                  <option value="gpt-4o-mini">GPT-4o mini</option>
+                  <option value="gpt-4o">GPT-4o</option>
+                  <option value="deepseek-v4-flash">DeepSeek v4 flash</option>
+                  <option value="deepseek-v4-pro">DeepSeek v4 pro</option>
+                  <option value="qwen-plus">Qwen Plus</option>
+                  <option value="qwen-flash">Qwen Flash</option>
+                  <option value="qwen-max">Qwen Max</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </details>
         <div class="row" style="margin-top:10px">
-          <button id="openAiDashboardBtn" class="secondary full" type="button">KI-Dashboard öffnen</button>
+          <button id="openAiDashboardBtn" class="secondary full" type="button">KI-Detail-Dashboard öffnen</button>
         </div>
       </div>
 
@@ -1778,7 +1798,7 @@ PLZ Ort"></textarea>
       <div class="row" style="align-items:center;justify-content:space-between;gap:12px">
         <div>
           <h2 style="margin-bottom:6px">📊 KI-Dashboard</h2>
-          <p class="hint" style="margin:0">Status von OpenAI, DeepSeek, Router, Fallback und Sicherheitslogik.</p>
+          <p class="hint" style="margin:0">Status von OpenAI, DeepSeek, Qwen, Router, Fallback und Sicherheitslogik.</p>
         </div>
         <button id="closeAiDashboardBtn" class="secondary" type="button">Schließen</button>
       </div>
@@ -1794,34 +1814,55 @@ PLZ Ort"></textarea>
         <div class="metric"><small>Autonomie</small><strong id="aiDashAutonomy">Unbekannt</strong></div>
         <div class="metric"><small>Letzte Prüfung</small><strong id="aiDashCheckedAt">Noch nie</strong></div>
       </div>
-      <div class="ai-model-grid">
-        <div class="ai-model-card">
-          <h4>DeepSeek v4 flash</h4>
-          <div class="ai-model-meta">Schnell und günstig. Gut für kurze Texte, einfache Prüfungen und Standardaufgaben.</div>
-          <div class="ai-model-price">$0.14 Input / $0.28 Output pro 1M Tokens</div>
+      <details class="dashboard-more" style="margin-top:12px">
+        <summary>Modellübersicht ein- / ausklappen</summary>
+        <div class="dashboard-more-content">
+          <div class="ai-model-grid" style="margin-top:0">
+            <div class="ai-model-card">
+              <h4>DeepSeek v4 flash</h4>
+              <div class="ai-model-meta">Schnell und günstig. Gut für kurze Texte, einfache Prüfungen und Standardaufgaben.</div>
+              <div class="ai-model-price">$0.14 Input / $0.28 Output pro 1M Tokens</div>
+            </div>
+            <div class="ai-model-card">
+              <h4>DeepSeek v4 pro</h4>
+              <div class="ai-model-meta">Stärker bei komplexeren Aufgaben und besserer Textqualität.</div>
+              <div class="ai-model-price">$0.435 Input / $0.87 Output pro 1M Tokens</div>
+            </div>
+            <div class="ai-model-card">
+              <h4>GPT-4o mini</h4>
+              <div class="ai-model-meta">Preiswert und flott. Gut für kompakte Assistenz, Extraktion und schnelle Antworten.</div>
+              <div class="ai-model-price">$0.15 Input / $0.60 Output pro 1M Tokens</div>
+            </div>
+            <div class="ai-model-card">
+              <h4>GPT-4o</h4>
+              <div class="ai-model-meta">Für hochwertigere Ergebnisse, wenn du mehr Qualität als bei mini willst.</div>
+              <div class="ai-model-price">Siehe OpenAI-Preisseite</div>
+            </div>
+            <div class="ai-model-card">
+              <h4>Qwen Plus</h4>
+              <div class="ai-model-meta">Der ausgewogene Standard für Texte, Analysen und strukturierte Antworten. Gut als Haupt- oder Fallback-Modell.</div>
+              <div class="ai-model-price">Alibaba Model Studio Europa / Frankfurt: Preis je Modell unterschiedlich</div>
+            </div>
+            <div class="ai-model-card">
+              <h4>Qwen Flash</h4>
+              <div class="ai-model-meta">Schnell und günstig. Passt gut für kurze Antworten, einfache Aufgaben und Massenchecks.</div>
+              <div class="ai-model-price">Alibaba Model Studio Europa / Frankfurt: Preis je Modell unterschiedlich</div>
+            </div>
+            <div class="ai-model-card">
+              <h4>Qwen Max</h4>
+              <div class="ai-model-meta">Stärker für komplexere Aufgaben, längere Prompts und bessere Qualität bei schwierigen Analysen.</div>
+              <div class="ai-model-price">Alibaba Model Studio Europa / Frankfurt: Preis je Modell unterschiedlich</div>
+            </div>
+          </div>
         </div>
-        <div class="ai-model-card">
-          <h4>DeepSeek v4 pro</h4>
-          <div class="ai-model-meta">Stärker bei komplexeren Aufgaben und besserer Textqualität.</div>
-          <div class="ai-model-price">$0.435 Input / $0.87 Output pro 1M Tokens</div>
-        </div>
-        <div class="ai-model-card">
-          <h4>GPT-4o mini</h4>
-          <div class="ai-model-meta">Preiswert und flott. Gut für kompakte Assistenz, Extraktion und schnelle Antworten.</div>
-          <div class="ai-model-price">$0.15 Input / $0.60 Output pro 1M Tokens</div>
-        </div>
-        <div class="ai-model-card">
-          <h4>GPT-4o</h4>
-          <div class="ai-model-meta">Für hochwertigere Ergebnisse, wenn du mehr Qualität als bei mini willst.</div>
-          <div class="ai-model-price">Siehe OpenAI-Preisseite</div>
-        </div>
-      </div>
+      </details>
       <div id="aiDashboardResult" class="output-box" style="margin-top:12px"><p>Noch keine KI-Prüfung ausgeführt.</p></div>
       <div class="row" style="margin-top:10px">
         <button id="aiDashTestOpenAiBtn" class="secondary full" type="button">OpenAI testen</button>
         <button id="aiDashTestDeepSeekBtn" class="secondary full" type="button">DeepSeek testen</button>
       </div>
       <div class="row" style="margin-top:10px">
+        <button id="aiDashTestQwenBtn" class="secondary full" type="button">Qwen testen</button>
         <button id="aiDashRefreshBtn" class="secondary full" type="button">Status aktualisieren</button>
         <button id="aiDashCloseBtn" class="secondary full" type="button">Schließen</button>
       </div>
@@ -8924,6 +8965,7 @@ function bindEvents(){
   bind('aiDashRefreshBtn','click',refreshAiDashboardStatus);
   bind('aiDashTestOpenAiBtn','click',()=>testAiRouterProvider('openai'));
   bind('aiDashTestDeepSeekBtn','click',()=>testAiRouterProvider('deepseek'));
+  bind('aiDashTestQwenBtn','click',()=>testAiRouterProvider('qwen'));
   bind('aiDashCloseBtn','click',()=>safe('aiDashboardModal',el=>el.classList.add('hidden')));
   safe('aiDashboardModal', el => el.addEventListener('click', function(event){
     if(event.target === el){
@@ -13069,7 +13111,7 @@ document.addEventListener('DOMContentLoaded',()=>{
             </div>
 
             <div>
-              <label class="label-inline">Modell <span class="model-info" title="DeepSeek v4 flash: $0.14 Input / $0.28 Output pro 1M Tokens. DeepSeek v4 pro: $0.435 Input / $0.87 Output pro 1M Tokens, aktuell mit Rabatt bis 2026-05-31. OpenAI gpt-4o mini: $0.15 Input / $0.60 Output pro 1M Tokens. OpenAI gpt-4o: siehe OpenAI-Preisseite.">i</span></label>
+              <label class="label-inline">Modell <span class="model-info" title="DeepSeek v4 flash: $0.14 Input / $0.28 Output pro 1M Tokens. DeepSeek v4 pro: $0.435 Input / $0.87 Output pro 1M Tokens, aktuell mit Rabatt bis 2026-05-31. OpenAI gpt-4o mini: $0.15 Input / $0.60 Output pro 1M Tokens. OpenAI gpt-4o: siehe OpenAI-Preisseite. Qwen: Europa / Frankfurt, Preise je Modell unterschiedlich.">i</span></label>
               <select data-agent-id="${def.id}" data-agent-field="model">
                 ${MODEL_OPTIONS.map((item) => `<option value="${item.value}" ${normalizeModel(agent.model) === item.value ? 'selected' : ''}>${item.label}</option>`).join('')}
               </select>
