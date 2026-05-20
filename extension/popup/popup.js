@@ -6,6 +6,7 @@ let lastTabHunter = { summary: null, tabs: [] };
 let lastBackendStatus = null;
 let inlineSettingsVisible = false;
 let confirmResolve = null;
+let suppressBackendStatusUntil = 0;
 
 function setActionLog(message, kind = "info") {
   const el = document.getElementById("actionLog");
@@ -14,6 +15,10 @@ function setActionLog(message, kind = "info") {
   el.classList.remove("status-ok", "status-bad");
   if (kind === "ok") el.classList.add("status-ok");
   if (kind === "error") el.classList.add("status-bad");
+}
+
+function holdActionStatus(ms = 2500) {
+  suppressBackendStatusUntil = Date.now() + ms;
 }
 
 function openConfirmModal(text, onAccept) {
@@ -137,23 +142,23 @@ async function executeSendToElyon() {
     updatedAt: new Date().toISOString()
   };
 
-  setPopupStatus("BestÃ¤tigung bereit", "ok");
-  setActionLog("BestÃ¤tigung bereit", "ok");
+  setPopupStatus("Bestaetigung bereit", "ok");
+  setActionLog("Bestaetigung geoeffnet", "ok");
 
-  const confirmed = window.confirm(
-    `Produkt an Elyon senden?\n\nTitel: ${product.title || "Ohne Titel"}\nURL: ${product.url}\n\nEs werden keine Live-Aktionen ausgefÃ¼hrt.`
+  const result = await openConfirmModal(
+    `Titel: ${product.title || "Ohne Titel"}\nURL: ${product.url}\n\nEs werden keine Live-Aktionen ausgefuehrt.`,
+    async () => {
+      setPopupStatus("Sende Produkt an Elyon ...", "ok");
+      setActionLog("Produkt wird gesendet ...", "ok");
+      return sendProductToElyon(product);
+    }
   );
 
-  if (!confirmed) {
+  if (!result) {
     setPopupStatus("Senden abgebrochen", "error");
     setActionLog("Senden abgebrochen", "error");
     return { ok: false, canceled: true };
   }
-
-  setPopupStatus("Sende Produkt an Elyon ...", "ok");
-  setActionLog("Produkt wird gesendet ...", "ok");
-
-  const result = await sendProductToElyon(product);
   const backendMessage = document.getElementById("backendMessage");
   if (backendMessage) {
     const boardText = result?.boardSync?.synced ? "Board aktualisiert" : result?.boardSync?.message || "";
@@ -170,7 +175,15 @@ async function executeSendToElyon() {
     setActionLog(result?.boardSync?.synced ? "Produkt uebertragen - Board aktualisiert" : "Gespeichert", "ok");
   }
 
+  holdActionStatus();
   await refresh();
+  if (!result.ok && result.storedLocally) {
+    setPopupStatus("Backend nicht erreichbar - lokal gespeichert", "error");
+    setActionLog("Produkt lokal gespeichert", "error");
+  } else if (result.ok) {
+    setPopupStatus(result?.boardSync?.synced ? "Produkt uebertragen - Board aktualisiert" : "Gespeichert", "ok");
+    setActionLog(result?.boardSync?.synced ? "Produkt uebertragen - Board aktualisiert" : "Gespeichert", "ok");
+  }
   return result;
 }
 
@@ -464,11 +477,13 @@ async function refreshBackend() {
     backendMessage.textContent = status.message || "-";
   }
 
-  setPopupStatus(
-    status.reachable ? "Backend bereit" : status.backendUrl ? "Backend nicht erreichbar" : "Backend nicht konfiguriert",
-    status.reachable ? "ok" : "error"
-  );
-  setActionLog(status.reachable ? "Backend erreichbar" : "Backend nicht erreichbar", status.reachable ? "ok" : "error");
+  if (Date.now() > suppressBackendStatusUntil) {
+    setPopupStatus(
+      status.reachable ? "Backend bereit" : status.backendUrl ? "Backend nicht erreichbar" : "Backend nicht konfiguriert",
+      status.reachable ? "ok" : "error"
+    );
+    setActionLog(status.reachable ? "Backend erreichbar" : "Backend nicht erreichbar", status.reachable ? "ok" : "error");
+  }
 }
 
 async function refreshInlineSettings() {
@@ -505,7 +520,10 @@ bindClick("overlayToggle", async () => {
   if (!result?.ok) throw new Error(result?.error || "Overlay konnte nicht umgeschaltet werden");
   setPopupStatus(result.settings?.overlayEnabled ? "Overlay aktiviert" : "Overlay deaktiviert", "ok");
   setActionLog(result.settings?.overlayEnabled ? "Overlay aktiviert" : "Overlay deaktiviert", "ok");
+  holdActionStatus();
   await refresh();
+  setPopupStatus(result.settings?.overlayEnabled ? "Overlay aktiviert" : "Overlay deaktiviert", "ok");
+  setActionLog(result.settings?.overlayEnabled ? "Overlay aktiviert" : "Overlay deaktiviert", "ok");
 });
 
 bindClick("saveProduct", async () => {
@@ -546,7 +564,15 @@ bindClick("saveProduct", async () => {
     setPopupStatus("Produkt gespeichert", "ok");
     setActionLog(result?.boardSync?.synced ? "Produkt uebertragen und Board aktualisiert" : "Produkt gespeichert", "ok");
   }
+  holdActionStatus();
   await refresh();
+  if (!result.ok && result.storedLocally) {
+    setPopupStatus("Lokal gespeichert - Backend nicht erreichbar", "error");
+    setActionLog("Produkt lokal gespeichert", "error");
+  } else if (result.ok) {
+    setPopupStatus("Produkt gespeichert", "ok");
+    setActionLog(result?.boardSync?.synced ? "Produkt uebertragen und Board aktualisiert" : "Produkt gespeichert", "ok");
+  }
 });
 
 bindClick("toggleInlineSettings", async () => {

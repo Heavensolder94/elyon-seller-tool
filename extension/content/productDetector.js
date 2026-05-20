@@ -8,6 +8,7 @@ let draggingOverlay = false;
 let dragOffset = { x: 0, y: 0 };
 let lastOverlayScrollTop = 0;
 let dismissedOverlayUrl = "";
+let overlayEnabled = true;
 
 function safeText(value) {
   if (value == null) return "";
@@ -198,6 +199,10 @@ function ensureOverlay() {
 
 function removeOverlay() {
   dismissedOverlayUrl = location.href;
+  document.getElementById(OVERLAY_ID)?.remove();
+}
+
+function hideOverlayForCurrentPage() {
   document.getElementById(OVERLAY_ID)?.remove();
 }
 
@@ -490,13 +495,28 @@ function scheduleRefresh() {
   if (refreshTimer) clearTimeout(refreshTimer);
   refreshTimer = setTimeout(() => {
     try {
+      if (!overlayEnabled) {
+        hideOverlayForCurrentPage();
+        return;
+      }
       if (dismissedOverlayUrl === location.href) return;
       if (isSupportedPage(getDomain())) renderOverlay(detectProduct());
     } catch {}
   }, 250);
 }
 
-function init() {
+async function readOverlayEnabled() {
+  try {
+    const result = await chrome.storage.local.get("elyon.settings");
+    const settings = result?.["elyon.settings"] || {};
+    return settings.overlayEnabled !== false;
+  } catch {
+    return true;
+  }
+}
+
+async function init() {
+  overlayEnabled = await readOverlayEnabled();
   const domain = getDomain();
   if (dismissedOverlayUrl !== location.href) {
     dismissedOverlayUrl = "";
@@ -504,6 +524,10 @@ function init() {
   if (!isSupportedPage(domain)) {
     removeOverlay();
     removeCommandBar();
+    return;
+  }
+  if (!overlayEnabled) {
+    hideOverlayForCurrentPage();
     return;
   }
   renderOverlay(detectProduct());
@@ -523,6 +547,15 @@ window.addEventListener("keydown", (event) => {
 chrome.runtime.onMessage.addListener((message) => {
   if (message?.type === "ELYON_TOGGLE_COMMAND_BAR") {
     toggleCommandBar(typeof message.force === "boolean" ? message.force : undefined);
+  }
+  if (message?.type === "ELYON_SET_OVERLAY_ENABLED") {
+    overlayEnabled = message.enabled !== false;
+    if (!overlayEnabled) {
+      hideOverlayForCurrentPage();
+      return;
+    }
+    dismissedOverlayUrl = "";
+    if (isSupportedPage(getDomain())) renderOverlay(detectProduct());
   }
   if (message?.type === "ELYON_PING") return;
 });

@@ -61,11 +61,28 @@ async function ensureContentScript(tabId) {
   }
 }
 
+async function notifyActiveTabOverlayState(enabled) {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true }).catch(() => []);
+  if (!tab?.id || !isSupportedUrl(tab.url || "")) return false;
+  const injected = await ensureContentScript(tab.id);
+  if (!injected) return false;
+  try {
+    await chrome.tabs.sendMessage(tab.id, { type: "ELYON_SET_OVERLAY_ENABLED", enabled });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function syncProductToBoardTab(product) {
   const tabs = await chrome.tabs.query({}).catch(() => []);
   const target = tabs.find((tab) => {
     const url = String(tab.url || "").toLowerCase();
-    return url.includes("elyon-seller-tool") && url.includes("vercel.app");
+    return (
+      url.includes("elyonsellertool.vercel.app") ||
+      url.includes("elyon-seller-tool.vercel.app") ||
+      url.includes("localhost")
+    );
   });
 
   if (!target?.id) {
@@ -293,7 +310,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message?.type === "ELYON_TOGGLE_OVERLAY") {
       const next = { ...settings, overlayEnabled: !settings.overlayEnabled };
       await chrome.storage.local.set({ [STORAGE_KEYS.settings]: next });
-      sendResponse({ ok: true, settings: next, security, label: getSecurityLabel(security) });
+      const notified = await notifyActiveTabOverlayState(next.overlayEnabled);
+      sendResponse({ ok: true, settings: next, security, label: getSecurityLabel(security), overlayNotified: notified });
       return;
     }
 

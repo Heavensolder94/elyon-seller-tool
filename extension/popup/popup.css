@@ -76,7 +76,7 @@ h1 {
 }
 
 .hidden {
-  display: none;
+  display: none !important;
 }
 
 .actions-inline {
@@ -218,8 +218,13 @@ h1 {
   align-items: center;
   justify-content: center;
   padding: 16px;
-  z-index: 50;
+  z-index: 9999;
   pointer-events: auto;
+}
+
+.confirm-backdrop.hidden {
+  display: none !important;
+  pointer-events: none;
 }
 
 .confirm-modal {
@@ -229,6 +234,8 @@ h1 {
   border-radius: 16px;
   padding: 14px;
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
+  pointer-events: auto;
+  position: relative;
 }
 
 .confirm-title-row {
@@ -271,6 +278,13 @@ h1 {
   display: flex;
   gap: 8px;
   justify-content: flex-end;
+}
+
+.confirm-actions button,
+.confirm-close {
+  pointer-events: auto;
+  position: relative;
+  z-index: 1;
 }
 
 .secondary-btn {
