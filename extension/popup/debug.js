@@ -1,17 +1,28 @@
 (function () {
+  window.__elyonSendButtonDebug = function () {
+    const activeTabLabel = (() => {
+      const el = document.getElementById("activeTab");
+      return el?.textContent?.trim() || "-";
+    })();
+    const log = document.getElementById("actionLog");
+    if (log) log.textContent = `Debug: Popup bereit. Aktiver Tab: ${activeTabLabel}`;
+  };
+
   function bindDebugButton() {
     const button = document.getElementById("sendToElyon");
     if (!button || button.dataset.debugBound === "true") return;
     button.dataset.debugBound = "true";
     button.addEventListener("click", () => {
-      const activeTabLabel = (() => {
-        const el = document.getElementById("activeTab");
-        return el?.textContent?.trim() || "-";
-      })();
-      alert(`Elyon Popup Debug\n\nDer Klick auf "Produkt an Elyon senden" kommt an.\n\nAktiver Tab:\n${activeTabLabel}`);
-      const log = document.getElementById("actionLog");
-      if (log) log.textContent = "Debug: Klick auf Produkt an Elyon senden erkannt.";
+      if (typeof window.__elyonSendButtonDebug === "function") {
+        window.__elyonSendButtonDebug();
+      }
     }, { capture: true });
+    setTimeout(() => {
+      const log = document.getElementById("actionLog");
+      if (log && log.textContent === "Bereit.") {
+        log.textContent = "Popup geladen - Debug bereit.";
+      }
+    }, 50);
   }
 
   if (document.readyState === "loading") {

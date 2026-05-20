@@ -33,14 +33,19 @@ function openConfirmModal(text, onAccept) {
     const cancel = document.getElementById("confirmCancel");
     const close = document.getElementById("confirmClose");
 
+    if (accept) accept.replaceWith(accept.cloneNode(true));
+    if (cancel) cancel.replaceWith(cancel.cloneNode(true));
+    if (close) close.replaceWith(close.cloneNode(true));
+
+    const freshAccept = document.getElementById("confirmAccept");
+    const freshCancel = document.getElementById("confirmCancel");
+    const freshClose = document.getElementById("confirmClose");
+
     const finish = async (value) => {
       backdrop.classList.add("hidden");
       backdrop.setAttribute("aria-hidden", "true");
       confirmResolve = null;
       window.onkeydown = null;
-      accept.onclick = null;
-      cancel.onclick = null;
-      close.onclick = null;
       resolve(value);
     };
 
@@ -55,9 +60,9 @@ function openConfirmModal(text, onAccept) {
 
     const handleCancel = async () => finish(false);
 
-    accept.onclick = handleAccept;
-    cancel.onclick = handleCancel;
-    close.onclick = handleCancel;
+    freshAccept?.addEventListener("click", handleAccept, { once: true });
+    freshCancel?.addEventListener("click", handleCancel, { once: true });
+    freshClose?.addEventListener("click", handleCancel, { once: true });
     backdrop.onclick = (event) => {
       if (event.target === backdrop) handleCancel();
     };
@@ -65,7 +70,7 @@ function openConfirmModal(text, onAccept) {
       if (event.key === "Escape") handleCancel();
     };
 
-    setActionLog("Bestätigung geöffnet. Klick auf Senden oder Abbrechen.", "ok");
+    setActionLog("BestÃ¤tigung geÃ¶ffnet. Klick auf Senden oder Abbrechen.", "ok");
   });
 }
 
@@ -104,6 +109,69 @@ function bindClick(id, handler) {
       setPopupStatus(error?.message || "Aktion fehlgeschlagen", "error");
     }
   });
+}
+
+async function executeSendToElyon() {
+  const tab = window.__elyonCurrentTab;
+  if (!tab?.url) throw new Error("Kein aktiver Tab gefunden");
+
+  const product = {
+    id: tab.url,
+    title: tab.title || "",
+    price: "",
+    currency: "",
+    image: "",
+    url: tab.url,
+    supplier: getMarketplaceFromUrl(tab.url),
+    domain: (() => {
+      try {
+        return new URL(tab.url).hostname.toLowerCase();
+      } catch {
+        return "";
+      }
+    })(),
+    status: "new",
+    notes: "",
+    score: "",
+    detectedAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+
+  setPopupStatus("BestÃ¤tigung bereit", "ok");
+  setActionLog("BestÃ¤tigung bereit", "ok");
+
+  const confirmed = window.confirm(
+    `Produkt an Elyon senden?\n\nTitel: ${product.title || "Ohne Titel"}\nURL: ${product.url}\n\nEs werden keine Live-Aktionen ausgefÃ¼hrt.`
+  );
+
+  if (!confirmed) {
+    setPopupStatus("Senden abgebrochen", "error");
+    setActionLog("Senden abgebrochen", "error");
+    return { ok: false, canceled: true };
+  }
+
+  setPopupStatus("Sende Produkt an Elyon ...", "ok");
+  setActionLog("Produkt wird gesendet ...", "ok");
+
+  const result = await sendProductToElyon(product);
+  const backendMessage = document.getElementById("backendMessage");
+  if (backendMessage) {
+    const boardText = result?.boardSync?.synced ? "Board aktualisiert" : result?.boardSync?.message || "";
+    backendMessage.textContent = [result?.message || "Produkt verarbeitet", boardText].filter(Boolean).join(" | ");
+  }
+
+  if (!result.ok && result.storedLocally) {
+    backendMessage?.classList.add("status-bad");
+    backendMessage.textContent = "Lokal gespeichert - Backend nicht erreichbar";
+    setPopupStatus("Backend nicht erreichbar - lokal gespeichert", "error");
+    setActionLog("Produkt lokal gespeichert", "error");
+  } else if (result.ok) {
+    setPopupStatus(result?.boardSync?.synced ? "Produkt uebertragen - Board aktualisiert" : "Gespeichert", "ok");
+    setActionLog(result?.boardSync?.synced ? "Produkt uebertragen - Board aktualisiert" : "Gespeichert", "ok");
+  }
+
+  await refresh();
+  return result;
 }
 
 async function sendBackgroundMessage(payload) {
@@ -557,65 +625,6 @@ bindClick("testBackend", async () => {
   setActionLog(status.reachable ? "Backend bereit" : "Backend nicht erreichbar", status.reachable ? "ok" : "error");
 });
 
-bindClick("sendToElyon", async () => {
-  const tab = window.__elyonCurrentTab;
-  if (!tab?.url) throw new Error("Kein aktiver Tab gefunden");
-  alert(`Elyon Debug: Klick auf "Produkt an Elyon senden" erkannt.\n\nSeite: ${tab.title || "Ohne Titel"}\nURL: ${tab.url}`);
-  const product = {
-    id: tab.url,
-    title: tab.title || "",
-    price: "",
-    currency: "",
-    image: "",
-    url: tab.url,
-    supplier: getMarketplaceFromUrl(tab.url),
-    domain: (() => {
-      try {
-        return new URL(tab.url).hostname.toLowerCase();
-      } catch {
-        return "";
-      }
-    })(),
-    status: "new",
-    notes: "",
-    score: "",
-    detectedAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  };
-
-  setPopupStatus("Debug: Klick erkannt - Bestätigung folgt", "ok");
-  setActionLog("Debug: Klick auf Produkt an Elyon senden erkannt", "ok");
-
-  const confirmed = await openConfirmModal(
-    `Produkt "${product.title || "Ohne Titel"}" an Elyon senden?`,
-    async () => sendProductToElyon(product)
-  );
-
-  if (!confirmed || confirmed?.ok === false) {
-    setPopupStatus("Senden abgebrochen", "error");
-    setActionLog("Senden abgebrochen", "error");
-    return;
-  }
-
-  const result = confirmed;
-
-  const backendMessage = document.getElementById("backendMessage");
-  if (backendMessage) {
-    const boardText = result?.boardSync?.synced ? "Board aktualisiert" : result?.boardSync?.message || "";
-    backendMessage.textContent = [result?.message || "Produkt verarbeitet", boardText].filter(Boolean).join(" | ");
-  }
-
-  if (!result.ok && result.storedLocally) {
-    backendMessage?.classList.add("status-bad");
-    backendMessage.textContent = "Lokal gespeichert - Backend nicht erreichbar";
-    setPopupStatus("Lokal gespeichert - Backend nicht erreichbar", "error");
-    setActionLog("Produkt lokal gespeichert", "error");
-  } else if (result.ok) {
-    setPopupStatus(result?.boardSync?.synced ? "Produkt uebertragen - Board aktualisiert" : "Produkt an Elyon gesendet", "ok");
-    setActionLog(result?.boardSync?.synced ? "Produkt uebertragen - Board aktualisiert" : "Produkt an Elyon gesendet", "ok");
-  }
-
-  await refresh();
-});
+bindClick("sendToElyon", async () => executeSendToElyon());
 
 void refresh();
