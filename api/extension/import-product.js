@@ -123,38 +123,69 @@ function writeStore(next) {
 }
 
 function getStorageInfo(persisted = false) {
-  const configured = Boolean(process.env.UPSTASH_BACKUP_URL && process.env.UPSTASH_BACKUP_TOKEN);
+  const config = getRedisConfig();
+  const configured = Boolean(config.url && config.token);
   return {
     configured,
     persisted: Boolean(persisted),
     mode: configured ? "server_persistent" : "server_memory",
+    source: config.source,
     message: configured
       ? "Serverseitige Persistenz aktiv."
-      : "Serverseitig aktiv, aber ohne persistente Storage-Umgebung. Bitte UPSTASH_BACKUP_URL und UPSTASH_BACKUP_TOKEN setzen."
+      : "Serverseitig aktiv, aber ohne persistente Storage-Umgebung. Bitte Vercel Storage/Upstash verbinden."
   };
 }
 
+function getRedisConfig() {
+  const pairs = [
+    { source: "custom_upstash_backup", url: process.env.UPSTASH_BACKUP_URL, token: process.env.UPSTASH_BACKUP_TOKEN },
+    { source: "upstash_redis_rest", url: process.env.UPSTASH_REDIS_REST_URL, token: process.env.UPSTASH_REDIS_REST_TOKEN },
+    { source: "vercel_kv_rest", url: process.env.KV_REST_API_URL, token: process.env.KV_REST_API_TOKEN }
+  ];
+  const found = pairs.find((pair) => pair.url && pair.token);
+  return found || { source: "memory", url: "", token: "" };
+}
+
+async function redisCommand(command) {
+  const { url, token } = getRedisConfig();
+  if (!url || !token) return null;
+  const response = await fetch(url.replace(/\/$/, ""), {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+      Accept: "application/json"
+    },
+    body: JSON.stringify(command)
+  });
+  if (!response.ok) throw new Error(`Redis REST ${response.status}`);
+  return response.json().catch(() => null);
+}
+
+function parseStoredList(raw) {
+  if (Array.isArray(raw)) return raw;
+  if (Array.isArray(raw?.value)) return raw.value;
+  if (typeof raw !== "string") return [];
+
+  try {
+    const parsed = JSON.parse(raw || "[]");
+    if (Array.isArray(parsed)) return parsed;
+    if (Array.isArray(parsed?.value)) return parsed.value;
+    return [];
+  } catch {
+    return [];
+  }
+}
+
 async function loadPersistentStore() {
-  const endpoint = process.env.UPSTASH_BACKUP_URL || "";
-  const token = process.env.UPSTASH_BACKUP_TOKEN || "";
-  if (!endpoint || !token) {
+  const { url, token } = getRedisConfig();
+  if (!url || !token) {
     return readStore();
   }
 
   try {
-    const url = `${endpoint.replace(/\/$/, "")}/elyon_browser_imports`;
-    const response = await fetch(url, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: "application/json"
-      }
-    });
-    if (!response.ok) {
-      return readStore();
-    }
-    const data = await response.json().catch(() => null);
-    const items = Array.isArray(data?.value) ? data.value : Array.isArray(data) ? data : [];
+    const data = await redisCommand(["GET", "elyon_browser_imports"]);
+    const items = parseStoredList(data?.result);
     const normalized = normalizeList(items);
     writeStore(normalized);
     return normalized;
@@ -165,24 +196,14 @@ async function loadPersistentStore() {
 
 async function savePersistentStore(items) {
   const normalized = writeStore(items);
-  const endpoint = process.env.UPSTASH_BACKUP_URL || "";
-  const token = process.env.UPSTASH_BACKUP_TOKEN || "";
-  if (!endpoint || !token) {
+  const { url, token } = getRedisConfig();
+  if (!url || !token) {
     return { persisted: false, items: normalized };
   }
 
   try {
-    const url = `${endpoint.replace(/\/$/, "")}/elyon_browser_imports`;
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-        Accept: "application/json"
-      },
-      body: JSON.stringify({ value: normalized })
-    });
-    return { persisted: response.ok, items: normalized };
+    await redisCommand(["SET", "elyon_browser_imports", JSON.stringify(normalized)]);
+    return { persisted: true, items: normalized };
   } catch {
     return { persisted: false, items: normalized };
   }
