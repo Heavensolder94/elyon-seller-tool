@@ -34,6 +34,189 @@ function cleanText(value) {
   return text;
 }
 
+const SOURCE_ANALYSIS_SUPPLIERS = [
+  { name: "CJdropshipping", domains: ["cjdropshipping.com"] },
+  { name: "AliExpress", domains: ["aliexpress.com"] },
+  { name: "BigBuy", domains: ["bigbuy.eu", "bigbuy.com"] },
+  { name: "Amazon.de", domains: ["amazon.de"] },
+  { name: "Temu", domains: ["temu.com"] },
+  { name: "Alibaba", domains: ["alibaba.com"] },
+  { name: "dropxl.com", domains: ["dropxl.com"] },
+  { name: "vidaXL", domains: ["vidaxl.de", "vidaxl.com"] },
+];
+
+function normalizeSourceUrl(value) {
+  const raw = readText(value);
+  if (!raw) return null;
+  try {
+    return new URL(/^https?:\/\//i.test(raw) ? raw : `https://${raw}`);
+  } catch {
+    return null;
+  }
+}
+
+function detectSourceSupplier(url) {
+  const domain = url.hostname.replace(/^www\./i, "").toLowerCase();
+  const found = SOURCE_ANALYSIS_SUPPLIERS.find((supplier) =>
+    supplier.domains.some((item) => domain === item || domain.endsWith(`.${item}`))
+  );
+  return { domain, supplier: found ? found.name : "Unbekannter Supplier" };
+}
+
+function sourceTextBetween(html, regex) {
+  const match = String(html || "").match(regex);
+  return match && match[1] ? cleanText(match[1]) : "";
+}
+
+function sourceAbsoluteUrl(value, baseUrl) {
+  const raw = readText(value);
+  if (!raw) return "";
+  try {
+    return new URL(raw, baseUrl).toString();
+  } catch {
+    return raw;
+  }
+}
+
+function extractBasicSourceMetadata(html, baseUrl) {
+  const title =
+    sourceTextBetween(html, /<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i) ||
+    sourceTextBetween(html, /<meta[^>]+name=["']twitter:title["'][^>]+content=["']([^"']+)["']/i) ||
+    sourceTextBetween(html, /<title[^>]*>([\s\S]*?)<\/title>/i);
+  const description =
+    sourceTextBetween(html, /<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["']/i) ||
+    sourceTextBetween(html, /<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["']/i);
+  const image =
+    sourceTextBetween(html, /<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i) ||
+    sourceTextBetween(html, /<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["']/i);
+  const price =
+    sourceTextBetween(html, /<meta[^>]+property=["']product:price:amount["'][^>]+content=["']([^"']+)["']/i) ||
+    sourceTextBetween(html, /"price"\s*:\s*"?([0-9]+(?:[.,][0-9]+)?)/i);
+  const currency =
+    sourceTextBetween(html, /<meta[^>]+property=["']product:price:currency["'][^>]+content=["']([^"']+)["']/i) ||
+    sourceTextBetween(html, /"priceCurrency"\s*:\s*"([^"]+)"/i);
+  const availability = sourceTextBetween(html, /"availability"\s*:\s*"([^"]+)"/i).split("/").pop();
+  const category = sourceTextBetween(html, /"category"\s*:\s*"([^"]+)"/i);
+
+  return {
+    title,
+    price,
+    currency,
+    image: sourceAbsoluteUrl(image, baseUrl),
+    availability,
+    shipping: "",
+    description,
+    category,
+  };
+}
+
+function normalizeSourceAnalysisResult({ url, supplier, domain, metadata, message, ok = true, reason = "" }) {
+  const detectedData = Object.fromEntries(
+    Object.entries(metadata || {}).filter(([, value]) => value !== undefined && value !== null && readText(value) !== "")
+  );
+  const confidence = Object.keys(detectedData).length >= 4 ? "medium" : "low";
+  return {
+    ok,
+    mode: "online",
+    supplier,
+    domain,
+    title: metadata.title || "",
+    price: metadata.price || "",
+    currency: metadata.currency || "",
+    image: metadata.image || "",
+    availability: metadata.availability || "",
+    shipping: metadata.shipping || "",
+    description: metadata.description || "",
+    category: metadata.category || "",
+    detectedData,
+    confidence,
+    warnings: [],
+    reason,
+    status: ok ? "done" : "failed",
+    checkedAt: new Date().toISOString(),
+    message,
+    url,
+  };
+}
+
+async function handleSourceAnalyze(req, res) {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
+  if (req.method === "OPTIONS") return res.status(204).end();
+  if (req.method !== "POST") {
+    return res.status(405).json({ ok: false, mode: "online", reason: "method_not_allowed", message: "Bitte POST verwenden." });
+  }
+
+  const body = req.body && typeof req.body === "object" ? req.body : {};
+  const url = normalizeSourceUrl(body.url);
+  if (!url) {
+    return res.status(400).json({ ok: false, mode: "online", reason: "invalid_url", message: "Bitte gueltigen Produktlink uebergeben." });
+  }
+
+  const detected = detectSourceSupplier(url);
+  const supplier = readText(body.supplier) || detected.supplier;
+
+  try {
+    const response = await fetch(url.toString(), { redirect: "follow" });
+    if (!response.ok) {
+      return res.status(200).json(normalizeSourceAnalysisResult({
+        url: url.toString(),
+        supplier,
+        domain: detected.domain,
+        metadata: {},
+        ok: false,
+        reason: "unsupported_supplier_or_blocked",
+        message: "Fuer diese Quelle konnten noch keine Produktdaten automatisch gelesen werden.",
+      }));
+    }
+
+    const contentType = String(response.headers.get("content-type") || "").toLowerCase();
+    if (!contentType.includes("text/html")) {
+      return res.status(200).json(normalizeSourceAnalysisResult({
+        url: url.toString(),
+        supplier,
+        domain: detected.domain,
+        metadata: {},
+        ok: false,
+        reason: "unsupported_content_type",
+        message: "Diese Quelle liefert keine auswertbare HTML-Produktseite.",
+      }));
+    }
+
+    const html = (await response.text()).slice(0, 600000);
+    const metadata = extractBasicSourceMetadata(html, url.toString());
+    const hasData = Boolean(metadata.title || metadata.price || metadata.image || metadata.description);
+
+    return res.status(200).json(normalizeSourceAnalysisResult({
+      url: url.toString(),
+      supplier,
+      domain: detected.domain,
+      metadata,
+      ok: hasData,
+      reason: hasData ? "" : "unsupported_supplier_or_blocked",
+      message: hasData
+        ? "Onlineanalyse abgeschlossen. Es wurden oeffentliche Metadaten erkannt."
+        : "Automatisches Auslesen ist fuer diese Quelle noch nicht verfuegbar. Bitte Produktdaten manuell ergaenzen oder spaeter API-Anbindung nutzen.",
+    }));
+  } catch {
+    return res.status(200).json({
+      ok: false,
+      mode: "online",
+      supplier,
+      domain: detected.domain,
+      reason: "unsupported_supplier_or_blocked",
+      message: "Fuer diese Quelle konnten noch keine Produktdaten automatisch gelesen werden.",
+      confidence: "low",
+      warnings: [],
+      detectedData: {},
+      status: "failed",
+      checkedAt: new Date().toISOString(),
+    });
+  }
+}
+
 function normalizeCjProduct(product) {
   const pid = product.pid || product.productId || product.id || "";
   const title = cleanText(product.productNameEn) || cleanText(product.productName) || "CJ Produkt";
@@ -143,11 +326,16 @@ async function parseUpstreamResponse(response) {
 }
 
 export default async function handler(req, res) {
+  const action = readText(req.query.action || req.query.endpoint || "");
+
+  if (action === "source-analyze") {
+    return handleSourceAnalyze(req, res);
+  }
+
   if (req.method !== "GET") {
     return jsonError(res, 405, "Nur GET erlaubt.", "METHOD_NOT_ALLOWED");
   }
 
-  const action = readText(req.query.action || req.query.endpoint || "");
   if (action === "status") {
     return res.status(200).json({
       ok: true,

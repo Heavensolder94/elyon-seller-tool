@@ -66,6 +66,10 @@
       "destination": "/api/cj/search?action=status"
     },
     {
+      "source": "/api/source/analyze",
+      "destination": "/api/cj/search?action=source-analyze"
+    },
+    {
       "source": "/api/google-drive/status",
       "destination": "/api/google-drive?action=status"
     },
