@@ -29,6 +29,9 @@
     toast.timer = window.setTimeout(() => shell.classList.remove("show"), 2800);
   }
 
+  // Expose toast globally so inline modules can safely reuse the same notifier.
+  window.toast = toast;
+
   function dispatch(el, type) {
     if (!el) return;
     el.dispatchEvent(new Event(type, { bubbles: true }));

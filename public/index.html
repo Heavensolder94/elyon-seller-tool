@@ -940,6 +940,21 @@
       </div>
       <div id="list" class="products"></div>
     </div>
+    <div class="card" style="margin-top:16px">
+      <div class="start-focus-head">
+        <div>
+          <div class="badge" id="browserImportsBadge">Noch keine Browser Imports</div>
+          <h2 style="margin-top:10px">Browser Imports</h2>
+          <p class="hint">Hier landen Produkte aus der Chrome Extension. Sie werden nur gespeichert, angezeigt und fuer lokale Elyon-Schritte vorbereitet.</p>
+        </div>
+        <div class="top-actions">
+          <button class="secondary" id="browserImportsRefreshBtn" type="button">Browser Imports aktualisieren</button>
+          <button class="secondary" id="browserImportsOpenBtn" type="button">Import-Tab öffnen</button>
+        </div>
+      </div>
+      <div class="metric" style="margin:14px 0 0"><small>Browser Imports</small><strong id="browserImportsCount">0</strong></div>
+      <div id="browserImportsList" class="products" style="margin-top:14px"></div>
+    </div>
   </section>
 
   <section id="productAnalysisTab" class="tab"><div class="grid-2"><div class="card"><h2>Manueller Konkurrenz-Check</h2><p class="hint">Hier trägst du manuell eBay-Marktdaten ein: Preise, Anbieter, Verkäufe und Lieferzeit. Das Tool bewertet, ob ein Produkt gegen die Konkurrenz bestehen kann.</p><label>Produktname</label><input id="rName"><div class="row"><div><label>Dein EK + Versand €</label><input id="rCost" type="number" step="0.01"></div><div><label>Dein geplanter VK €</label><input id="rMyPrice" type="number" step="0.01"></div></div><div class="row"><div><label>eBay/Gebühren %</label><input id="rFee" type="number" step="0.1" value="15"></div><div><label>Risiko-Puffer %</label><input id="rBuffer" type="number" step="0.1" value="5"></div></div><div class="row"><div><label>Niedrigster Konkurrenzpreis €</label><input id="rLow" type="number" step="0.01"></div><div><label>Durchschnittspreis €</label><input id="rAvg" type="number" step="0.01"></div></div><div class="row"><div><label>Höchster sinnvoller Preis €</label><input id="rHigh" type="number" step="0.01"></div><div><label>Anzahl Anbieter</label><input id="rSellers" type="number"></div></div><div class="row"><div><label>Verkäufe geschätzt</label><input id="rSold" type="number"></div><div><label>Lieferzeit Tage</label><input id="rDelivery" type="number"></div></div><label>Risiko</label><select id="rRisk"><option value="low">Niedrig</option><option value="medium">Mittel</option><option value="high">Hoch / Elektronik / Batterie</option></select><button class="full" id="researchBtn">Konkurrenz bewerten</button><button class="secondary full" id="aiScoreBtn" style="margin-top:10px">Produktanalyse mit KI</button></div><div class="card"><h2>Analyse-Ergebnis</h2><p class="hint">Hier siehst du Break-even, Gewinn, Marktposition, Score und eine kurze Begründung für GO, TEST oder NO.</p><div id="researchResult" class="empty">Noch keine Analyse.</div></div></div></section>
@@ -2321,7 +2336,37 @@ function normalizeEbayListingDraftRecord(draft){
     savedAt: parseLooseDateIso(d.savedAt || updatedAt, updatedAt),
   };
 }
+function normalizeBrowserImportRecord(item){
+  const nowIso = new Date().toISOString();
+  const source = {...(item || {})};
+  const url = String(source.url || '').trim();
+  const domain = String(source.domain || '').trim();
+  const importedAt = parseLooseDateIso(source.importedAt || source.detectedAt || nowIso, nowIso);
+  const updatedAt = parseLooseDateIso(source.updatedAt || importedAt, importedAt);
+  return {
+    ...source,
+    id: String(source.id || url || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`),
+    title: String(source.title || 'Unbekanntes Produkt').trim(),
+    price: String(source.price || '').trim(),
+    currency: String(source.currency || '').trim(),
+    image: String(source.image || '').trim(),
+    url,
+    supplier: String(source.supplier || '').trim(),
+    domain,
+    status: String(source.status || 'new').trim() || 'new',
+    notes: String(source.notes || '').trim(),
+    score: String(source.score || '').trim(),
+    linkedSupplierId: String(source.linkedSupplierId || '').trim(),
+    linkedSupplierName: String(source.linkedSupplierName || '').trim(),
+    importedAt,
+    updatedAt
+  };
+}
+function normalizeBrowserImportsCollection(list){
+  return Array.isArray(list) ? list.map(normalizeBrowserImportRecord) : [];
+}
 let products = normalizeProductsCollection(loadStoredArray("elyonProducts"));
+let browserImports = normalizeBrowserImportsCollection(loadStoredArray("elyonBrowserImports"));
 let returns = loadStoredArray("elyonReturns");
 let shopifyReturns = loadStoredArray("elyonShopifyReturns");
 let sales = loadStoredArray("elyonSales");
@@ -6299,6 +6344,146 @@ function renderDashboardDetails(){
   renderWeeklyReport();
   renderMonthlyReport();
 }
+function saveBrowserImports(){
+  browserImports = normalizeBrowserImportsCollection(browserImports);
+  localStorage.setItem('elyonBrowserImports', JSON.stringify(browserImports));
+}
+function upsertBrowserImportItem(item){
+  const nextItem = normalizeBrowserImportRecord(item);
+  const existingIndex = browserImports.findIndex(entry => String(entry.url || '') === String(nextItem.url || ''));
+  if(existingIndex >= 0){
+    browserImports = browserImports.map((entry, index) => index === existingIndex ? {...entry, ...nextItem, updatedAt:new Date().toISOString()} : entry);
+    saveBrowserImports();
+    return {status:'updated', item: browserImports[existingIndex]};
+  }
+  browserImports = [nextItem, ...browserImports];
+  saveBrowserImports();
+  return {status:'saved', item: nextItem};
+}
+function renderBrowserImports(){
+  const box = $('browserImportsList');
+  const countEl = $('browserImportsCount');
+  const badgeEl = $('browserImportsBadge');
+  if(countEl) countEl.textContent = browserImports.length;
+  if(badgeEl) badgeEl.textContent = browserImports.length ? `${browserImports.length} Browser Imports` : 'Noch keine Browser Imports';
+  if(!box) return;
+  if(!browserImports.length){
+    box.innerHTML = '<div class="empty">Noch keine Browser Imports gespeichert.</div>';
+    return;
+  }
+  box.innerHTML = browserImports.slice(0, 20).map(item => {
+    const linked = item.linkedSupplierName || item.linkedSupplierId || '-';
+    const imageHtml = item.image ? '<img src="' + escapeHtml(item.image) + '" alt="" style="width:72px;height:72px;object-fit:cover;border-radius:14px;border:1px solid rgba(255,255,255,.12);background:rgba(2,6,23,.4)">' : '<div class="empty" style="width:72px;min-height:72px;padding:10px">Kein Bild</div>';
+    return '<div class="product-card small-card" data-browser-import-id="' + escapeHtml(item.id) + '">' +
+      '<div style="display:flex;gap:14px;align-items:flex-start">' +
+        imageHtml +
+        '<div style="flex:1;min-width:0">' +
+          '<div class="product-title">' + escapeHtml(item.title || 'Unbekanntes Produkt') + '</div>' +
+          '<div class="muted">Preis: ' + escapeHtml([item.price, item.currency].filter(Boolean).join(' ')) + ' · Supplier: ' + escapeHtml(item.supplier || '-') + '</div>' +
+          '<div class="muted">Domain: ' + escapeHtml(item.domain || '-') + '</div>' +
+          '<div class="muted" style="word-break:break-all">URL: ' + escapeHtml(item.url || '-') + '</div>' +
+          '<div class="pill-row">' +
+            '<span class="pill">Import: ' + escapeHtml(item.importedAt || '-') + '</span>' +
+            '<span class="pill">Status: ' + escapeHtml(item.status || 'new') + '</span>' +
+            '<span class="pill">Linked Supplier: ' + escapeHtml(linked) + '</span>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="actions">' +
+        '<button type="button" data-browser-action="board" data-browser-id="' + escapeHtml(item.id) + '">Ins Produktboard übernehmen</button>' +
+        '<button type="button" class="secondary" data-browser-action="link" data-browser-id="' + escapeHtml(item.id) + '">Mit Supplier verknüpfen</button>' +
+        '<button type="button" class="secondary" data-browser-action="risk" data-browser-id="' + escapeHtml(item.id) + '">Risiko prüfen</button>' +
+        '<button type="button" class="secondary" data-browser-action="margin" data-browser-id="' + escapeHtml(item.id) + '">Marge kalkulieren</button>' +
+        '<button type="button" class="danger" data-browser-action="discard" data-browser-id="' + escapeHtml(item.id) + '">Verwerfen</button>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+
+  box.querySelectorAll('[data-browser-action]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.getAttribute('data-browser-id');
+      const action = btn.getAttribute('data-browser-action');
+      const item = browserImports.find(entry => String(entry.id) === String(id));
+      if(!item) return;
+
+      if(action === 'board'){
+        const product = normalizeProductRecord({
+          name: item.title || 'Browser Import',
+          supplier: item.supplier || '',
+          supplierId: item.linkedSupplierId || '',
+          supplierLink: item.url || '',
+          sourceProvider: 'browser-import',
+          sourceType: 'chrome_extension',
+          sourceDomain: item.domain || '',
+          notes: item.notes || '',
+          productStatus: 'Draft',
+          status: 'Draft',
+          sourceNote: 'Aus Browser Import uebernommen',
+          sourceOnlineTitle: item.title || '',
+          sourceOnlinePrice: item.price || '',
+          sourceOnlineCurrency: item.currency || '',
+          sourceOnlineImage: item.image || '',
+          sourceOnlineCheckedAt: item.importedAt || new Date().toISOString()
+        });
+        products = [product, ...products.filter(p => String(p.sku || '') !== String(product.sku || '') || String(p.name || '') !== String(product.name || ''))];
+        save();
+        showTab('productListTab');
+        alert('Browser Import ins Produktboard uebernommen.');
+        return;
+      }
+
+      if(action === 'link'){
+        const supplier = (suppliers || []).find(s => String(s.id || '').trim() === String(item.linkedSupplierId || '').trim() || String(s.name || '').trim().toLowerCase() === String(item.supplier || '').trim().toLowerCase());
+        const canonical = supplier ? supplier.id || supplier.supplierId || supplier.name : (item.linkedSupplierId || item.supplier || '');
+        browserImports = browserImports.map(entry => String(entry.id) === String(id) ? {...entry, linkedSupplierId: canonical, linkedSupplierName: supplier ? (supplier.name || supplier.title || canonical) : (entry.linkedSupplierName || entry.supplier || '')} : entry);
+        saveBrowserImports();
+        renderBrowserImports();
+        alert('Supplier-Verknuepfung vorbereitet.');
+        return;
+      }
+
+      if(action === 'risk'){
+        showTab('productAnalysisTab');
+        safe('rName', el => el.value = item.title || '');
+        safe('rCost', el => { if(!el.value) el.value = ''; });
+        safe('rRisk', el => { if(item.domain.includes('amazon') || item.domain.includes('aliexpress')) el.value = 'medium'; });
+        alert('Risiko-Pruefung vorbereitet.');
+        return;
+      }
+
+      if(action === 'margin'){
+        showTab('financeTab');
+        safe('fProductName', el => el.value = item.title || '');
+        safe('fSupplierName', el => el.value = item.supplier || '');
+        alert('Marge-Kalkulation vorbereitet.');
+        return;
+      }
+
+      if(action === 'discard'){
+        if(!confirm('Browser Import wirklich verwerfen?')) return;
+        browserImports = browserImports.filter(entry => String(entry.id) !== String(id));
+        saveBrowserImports();
+        renderBrowserImports();
+        alert('Browser Import verworfen.');
+      }
+    });
+  });
+}
+async function hydrateBrowserImportsFromBackend(){
+  try{
+    const response = await fetch('/api/extension/import-product', { method:'GET' });
+    if(!response.ok) return;
+    const data = await response.json().catch(() => null);
+    const items = normalizeBrowserImportsCollection(Array.isArray(data?.items) ? data.items : []);
+    if(items.length){
+      browserImports = items;
+      saveBrowserImports();
+      renderBrowserImports();
+    }
+  }catch(err){
+    console.warn('Browser Imports konnten nicht geladen werden', err);
+  }
+}
 function render(){
   const stats = products.map(calcProduct);
   const total = products.length;
@@ -6313,6 +6498,7 @@ function render(){
   safe('dGo',el=>el.textContent=go);
   safe('dShopifyCandidates',el=>el.textContent=shopifyCandidates);
   renderDashboardDetails();
+  renderBrowserImports();
 
   const next = getSmartDailyFocus();
   safe('dNext',el=>el.textContent=next);
@@ -7967,6 +8153,7 @@ function exportFullBackup(){
     version:'1.0',
     exportedAt:new Date().toISOString(),
     products: normalizeProductsCollection(products),
+    browserImports,
     sales,
     suppliers: loadStoredArray('elyonSuppliers'),
     runningCosts: loadStoredArray('elyonCosts'),
@@ -8000,6 +8187,7 @@ function importFullBackup(e){
       const data=JSON.parse(String(ev.target.result||'{}'));
       if(!confirm('Backup wirklich wiederherstellen? Aktuelle lokale Daten werden ersetzt.')) return;
       products=normalizeProductsCollection(Array.isArray(data.products)?data.products:[]);
+      browserImports=normalizeBrowserImportsCollection(Array.isArray(data.browserImports)?data.browserImports:[]);
       sales=Array.isArray(data.sales)?data.sales:[];
       suppliers=Array.isArray(data.suppliers)?data.suppliers:[];
       runningCosts=Array.isArray(data.runningCosts)?data.runningCosts:[];
@@ -8019,6 +8207,7 @@ function importFullBackup(e){
         if(data.googleSheetsSync.lastCostsSyncAt !== undefined) localStorage.setItem(GOOGLE_SHEETS_SYNC_KEYS.costsAt, String(data.googleSheetsSync.lastCostsSyncAt || ''));
       }
       localStorage.setItem('elyonProducts',JSON.stringify(products));
+      localStorage.setItem('elyonBrowserImports',JSON.stringify(browserImports));
       localStorage.setItem('elyonSales',JSON.stringify(sales));
       localStorage.setItem('elyonSuppliers',JSON.stringify(suppliers));
       localStorage.setItem('elyonCosts',JSON.stringify(runningCosts));
@@ -8045,6 +8234,7 @@ function importFullBackup(e){
   renderShippingCockpit();
   renderInvoiceOverview();
       renderReturnProductOptions();
+      renderBrowserImports();
       if(typeof window.reloadVirtualAgentsSettings === 'function'){
         window.reloadVirtualAgentsSettings();
       }
@@ -8903,6 +9093,8 @@ function bindEvents(){
   bind('shopifyFilterBtn','click',()=>setProductFilter('shopify'));
   bind('killFilterBtn','click',()=>setProductFilter('kill'));
   bind('toggleViewBtn','click',toggleProductView);
+  bind('browserImportsRefreshBtn','click',()=>hydrateBrowserImportsFromBackend());
+  bind('browserImportsOpenBtn','click',()=>showTab('productListTab'));
   bind('researchBtn','click',runResearchCheck);
   bind('legalBtn','click',legalCheck);
   bind('priceBtn','click',priceCalc);
@@ -9240,6 +9432,8 @@ document.addEventListener('DOMContentLoaded',()=>{
   renderIntegrationStatus();
   refreshSourceProviderOptions();
   renderSupplierCards();
+  renderBrowserImports();
+  hydrateBrowserImportsFromBackend();
   setSourcingWorkflowStep('1', null, false);
   if(localStorage.getItem('elyonShowStartLauncher') !== 'no') openStartLauncher();
   runSelfTests();
