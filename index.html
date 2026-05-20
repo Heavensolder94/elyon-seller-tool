@@ -5694,6 +5694,8 @@ function isAiFeatureEnabled(){
 
 const PRODUCT_DECISION_GO_THRESHOLD = 60;
 const PRODUCT_DECISION_TEST_THRESHOLD = 30;
+const runningProductAiIds = new Set();
+let productAiDelegationBound = false;
 
 function normalizeProductAiDecision(value){
   const raw = value && typeof value === 'object' ? value : {};
@@ -6004,20 +6006,43 @@ function showProductAiNotice(message){
   }
 }
 
+function bindProductAiDelegation(){
+  if(productAiDelegationBound) return;
+  productAiDelegationBound = true;
+  document.addEventListener('click', function(event){
+    const target = event && event.target;
+    const button = target && target.closest ? target.closest('[data-product-ai-action="check"], button[id^="productAiBtn_"]') : null;
+    if(!button) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if(event.stopImmediatePropagation) event.stopImmediatePropagation();
+    const fallbackId = String(button.id || '').replace(/^productAiBtn_/, '');
+    triggerProductDecision(button.getAttribute('data-product-id') || fallbackId || '');
+  }, true);
+}
+
 async function executeProductDecisionTask(productId){
+  const productKey = String(productId || '');
   if(!isAiFeatureEnabled()){
     showProductAiNotice('KI-Funktionen sind deaktiviert oder OpenAI-Tools sind aus. Bitte aktiviere sie zuerst.');
     return;
   }
 
-  const product = products.find(function(item){ return String(item.id) === String(productId); });
+  const product = products.find(function(item){ return String(item.id) === productKey; });
   if(!product){
     showProductAiNotice('Produkt nicht gefunden.');
     return;
   }
 
-  setProductAiButtonState(productId, true);
-  const cardId = getProductAiUiId('productAiCard', productId);
+  if(runningProductAiIds.has(productKey)){
+    showProductAiNotice('KI-Prüfung läuft bereits. Bitte kurz warten.');
+    return;
+  }
+
+  runningProductAiIds.add(productKey);
+  setProductAiButtonState(productKey, true);
+  showProductAiNotice('KI-Prüfung gestartet. Einen Moment bitte...');
+  const cardId = getProductAiUiId('productAiCard', productKey);
   setHTML(cardId, '<div class="ai-product-card"><div class="score-top"><span class="status ai-status-ghost">KI prüft...</span><span class="score-number">…</span></div><div class="progress"><div class="bar" style="width:24%"></div></div><div class="ai-compact-note">Die Prüfung läuft gerade über /api/ai-router mit task=product_decision.</div></div>');
 
   try{
@@ -6028,7 +6053,7 @@ async function executeProductDecisionTask(productId){
     const normalized = normalizeProductAiDecisionResponse(response);
     const savedAt = new Date().toISOString();
     products = products.map(function(item){
-      if(String(item.id) !== String(productId)) return item;
+      if(String(item.id) !== productKey) return item;
       return normalizeProductRecord({
         ...item,
         aiDecision: {
@@ -6054,7 +6079,8 @@ async function executeProductDecisionTask(productId){
     const message = err && err.message ? err.message : 'KI Produktprüfung fehlgeschlagen.';
     showProductAiNotice(message);
   }finally{
-    setProductAiButtonState(productId, false);
+    runningProductAiIds.delete(productKey);
+    setProductAiButtonState(productKey, false);
     render();
   }
 }
@@ -9487,6 +9513,7 @@ function makeSettingsDropdowns(){
 function bindEvents(){
   document.body.classList.remove('print-invoice');
   makeSettingsDropdowns();
+  bindProductAiDelegation();
   bind('settingsBtn','click',openIntegrations);
   bind('startLauncherBtn','click',openStartLauncher);
   bind('closeStartLauncherBtn','click',closeStartLauncher);
