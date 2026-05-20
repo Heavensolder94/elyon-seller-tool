@@ -4331,36 +4331,48 @@ async function startDeepSeekSourcingReview(){
   incrementAiUsage();
   setHTML('sourcingAiReview','<div class="empty">DeepSeek bewertet das Produkt...</div>');
   try{
-    const data = await postJsonWithTimeout('/api/elyon-soul', {
-      action:'sourcing_review',
-      prompt: buildChatGptSourcingPrompt() + '\n\nBitte gib eine kurze, kritische Zweitmeinung als DeepSeek-Bewertung.',
-      products:[{
-        name: online.title || supplier.name || 'Produkt aus Produktbeschaffung',
-        supplierId: supplier.name || '',
-        supplierLink: a.link || '',
-        sourceProvider: supplier.name || '',
-        sourceType: supplier.type || '',
-        sourceRisk: supplier.risk || '',
-        sourceDomain: a.domain || '',
-        sourceAnalysisStatus: a.status || '',
-        sourceOnlineStatus: online.status || '',
-        sourceOnlineTitle: online.title || '',
-        sourceOnlinePrice: online.price || '',
-        sourceOnlineCurrency: online.currency || '',
-        sourceOnlineAvailability: online.availability || '',
-        sourceOnlineShipping: online.shipping || '',
-        sourceOnlineConfidence: online.confidence || '',
-        notes: a.productNote || supplier.note || ''
-      }],
-      summary:{
-        total:1,
-        missingMarginCount: online.price ? 0 : 1,
-        missingDeliveryCount: supplier.delivery ? 0 : 1,
-        complianceRiskCount: String(supplier.risk || '').toLowerCase().includes('hoch') ? 1 : 0
+    const prompt = buildChatGptSourcingPrompt() + '\n\nBitte gib eine kurze, kritische Zweitmeinung als DeepSeek-Bewertung. Keine Live-Aktion ausführen. Nur Analyse, Einschätzung und konkrete Textvorschläge.';
+    const data = await requestAiRouter('sourcing_review', prompt, {
+      provider: 'deepseek',
+      model: 'deepseek-v4-flash',
+      allowFallback: true,
+      context: {
+        source: 'product-procurement',
+        products:[{
+          name: online.title || supplier.name || 'Produkt aus Produktbeschaffung',
+          supplierId: supplier.name || '',
+          supplierLink: a.link || '',
+          sourceProvider: supplier.name || '',
+          sourceType: supplier.type || '',
+          sourceRisk: supplier.risk || '',
+          sourceDomain: a.domain || '',
+          sourceAnalysisStatus: a.status || '',
+          sourceOnlineStatus: online.status || '',
+          sourceOnlineTitle: online.title || '',
+          sourceOnlinePrice: online.price || '',
+          sourceOnlineCurrency: online.currency || '',
+          sourceOnlineAvailability: online.availability || '',
+          sourceOnlineShipping: online.shipping || '',
+          sourceOnlineConfidence: online.confidence || '',
+          notes: a.productNote || supplier.note || ''
+        }],
+        summary:{
+          total:1,
+          missingMarginCount: online.price ? 0 : 1,
+          missingDeliveryCount: supplier.delivery ? 0 : 1,
+          complianceRiskCount: String(supplier.risk || '').toLowerCase().includes('hoch') ? 1 : 0
+        }
+      },
+      safety: {
+        securityMode: true,
+        sandboxMode: true,
+        autonomyLocked: true,
+        requiresLiveAction: false,
+        userApproved: false,
       }
-    }, 30000);
-    const recommendation = data && (data.recommendation || data.message) ? (data.recommendation || data.message) : 'Keine DeepSeek-Empfehlung erzeugt.';
-    const mode = data && data.mode ? data.mode : 'deepseek';
+    });
+    const recommendation = data && data.content ? data.content : 'Keine DeepSeek-Empfehlung erzeugt.';
+    const mode = data && data.provider ? data.provider : 'deepseek';
     setHTML('sourcingAiReview','<div class="output-box"><h3>DeepSeek-Bewertung</h3><p>' + escapeHtml(recommendation) + '</p><p class="muted">Modus: ' + escapeHtml(mode) + '. Keine Live-Aktion ausgeführt.</p></div>');
   }catch(err){
     setHTML('sourcingAiReview','<div class="empty">⚠️ ' + escapeHtml(err && err.message ? err.message : 'DeepSeek-Bewertung fehlgeschlagen.') + '</div>');
@@ -6975,13 +6987,53 @@ async function postJsonWithTimeout(url, payload, timeoutMs){
     clearTimeout(timeoutId);
   }
 }
-async function requestCentralAi(task, prompt, extra){
+function normalizeAiRouterProvider(extra){
+  const rawProvider = extra && typeof extra.provider === 'string' ? extra.provider.trim().toLowerCase() : '';
+  const rawModel = extra && typeof extra.model === 'string' ? extra.model.trim().toLowerCase() : '';
+  if (rawProvider === 'openai' || rawProvider === 'deepseek' || rawProvider === 'local') return rawProvider;
+  if (rawModel === 'deepseek') return 'deepseek';
+  return 'openai';
+}
+function normalizeAiRouterModel(provider, extra){
+  const rawModel = extra && typeof extra.model === 'string' ? extra.model.trim().toLowerCase() : '';
+  if (provider === 'deepseek') {
+    if (rawModel && rawModel !== 'deepseek') return rawModel;
+    return 'deepseek-v4-flash';
+  }
+  if (rawModel === 'openai-mini') return 'gpt-4o-mini';
+  if (rawModel === 'openai-standard') return 'gpt-4o';
+  if (rawModel && rawModel !== 'deepseek') return rawModel;
+  return 'gpt-4o-mini';
+}
+function buildAiRouterSafety(extra){
+  const safety = extra && typeof extra.safety === 'object' ? { ...extra.safety } : {};
+  return {
+    securityMode: safety.securityMode !== false,
+    sandboxMode: safety.sandboxMode !== false,
+    autonomyLocked: safety.autonomyLocked !== false,
+    requiresLiveAction: safety.requiresLiveAction === true,
+    userApproved: safety.userApproved === true,
+  };
+}
+async function requestAiRouter(task, prompt, extra){
   incrementAiUsage();
-  return postJsonWithTimeout('/api/ai', {
-    ...(extra || {}),
+  const provider = normalizeAiRouterProvider(extra || {});
+  const payload = {
+    provider,
     task: task,
     prompt: prompt,
-  }, 30000);
+    model: normalizeAiRouterModel(provider, extra || {}),
+    allowFallback: extra && extra.allowFallback !== undefined ? !!extra.allowFallback : true,
+    context: extra && extra.context && typeof extra.context === 'object' ? extra.context : {},
+    safety: buildAiRouterSafety(extra || {}),
+  };
+  if (Array.isArray(extra && extra.messages)) {
+    payload.messages = extra.messages;
+  }
+  return postJsonWithTimeout('/api/ai-router', payload, 30000);
+}
+async function requestCentralAi(task, prompt, extra){
+  return requestAiRouter(task, prompt, extra || {});
 }
 function readAiProductSearchInput(){
   const query = $('aiSearchQuery') && $('aiSearchQuery').value.trim() ? $('aiSearchQuery').value.trim() : '';
