@@ -89,25 +89,69 @@ function sourceAbsoluteUrl(value, baseUrl) {
   }
 }
 
+function readJsonLdValues(value) {
+  if (Array.isArray(value)) return value.flatMap(readJsonLdValues);
+  if (!value || typeof value !== "object") return [];
+  if (Array.isArray(value["@graph"])) return value["@graph"].flatMap(readJsonLdValues);
+  return [value];
+}
+
+function findJsonLdProduct(html) {
+  const blocks = String(html || "").match(/<script[^>]+type=["']application\/ld\+json["'][^>]*>[\s\S]*?<\/script>/gi) || [];
+  for (const block of blocks) {
+    const jsonText = block.replace(/^<script[^>]*>/i, "").replace(/<\/script>$/i, "").trim();
+    try {
+      const nodes = readJsonLdValues(JSON.parse(jsonText));
+      const product = nodes.find((node) => {
+        const type = node && node["@type"];
+        return Array.isArray(type) ? type.includes("Product") : type === "Product";
+      });
+      if (product) return product;
+    } catch {
+      // Ignore invalid JSON-LD blocks and continue with other metadata.
+    }
+  }
+  return null;
+}
+
+function firstJsonLdImage(image) {
+  if (Array.isArray(image)) return readText(image[0]);
+  if (image && typeof image === "object") return readText(image.url || image.contentUrl);
+  return readText(image);
+}
+
+function getJsonLdOffer(product) {
+  const offers = product && product.offers;
+  if (Array.isArray(offers)) return offers[0] || {};
+  return offers && typeof offers === "object" ? offers : {};
+}
+
 function extractBasicSourceMetadata(html, baseUrl) {
+  const jsonLdProduct = findJsonLdProduct(html);
+  const jsonLdOffer = getJsonLdOffer(jsonLdProduct);
   const title =
+    cleanText(jsonLdProduct?.name) ||
     getMetaContent(html, "og:title") ||
     getMetaContent(html, "twitter:title") ||
     sourceTextBetween(html, /<title[^>]*>([\s\S]*?)<\/title>/i);
   const description =
+    cleanText(jsonLdProduct?.description) ||
     getMetaContent(html, "og:description") ||
     getMetaContent(html, "description");
   const image =
+    firstJsonLdImage(jsonLdProduct?.image) ||
     getMetaContent(html, "og:image") ||
     getMetaContent(html, "twitter:image");
   const price =
+    readText(jsonLdOffer.price || jsonLdProduct?.price) ||
     getMetaContent(html, "product:price:amount") ||
     sourceTextBetween(html, /"price"\s*:\s*"?([0-9]+(?:[.,][0-9]+)?)/i);
   const currency =
+    readText(jsonLdOffer.priceCurrency || jsonLdProduct?.priceCurrency) ||
     getMetaContent(html, "product:price:currency") ||
     sourceTextBetween(html, /"priceCurrency"\s*:\s*"([^"]+)"/i);
-  const availability = sourceTextBetween(html, /"availability"\s*:\s*"([^"]+)"/i).split("/").pop();
-  const category = sourceTextBetween(html, /"category"\s*:\s*"([^"]+)"/i);
+  const availability = (readText(jsonLdOffer.availability) || sourceTextBetween(html, /"availability"\s*:\s*"([^"]+)"/i)).split("/").pop();
+  const category = cleanText(jsonLdProduct?.category) || sourceTextBetween(html, /"category"\s*:\s*"([^"]+)"/i);
 
   return {
     title,
@@ -121,14 +165,17 @@ function extractBasicSourceMetadata(html, baseUrl) {
   };
 }
 
-function normalizeSourceAnalysisResult({ url, supplier, domain, metadata, message, ok = true, reason = "" }) {
+function normalizeSourceAnalysisResult({ url, supplier, domain, metadata, message, ok = true, reason = "", httpStatus = 200, contentType = "" }) {
   const detectedData = Object.fromEntries(
     Object.entries(metadata || {}).filter(([, value]) => value !== undefined && value !== null && readText(value) !== "")
   );
+  const productDataFound = Boolean(detectedData.title || detectedData.price || detectedData.image || detectedData.description);
   const confidence = Object.keys(detectedData).length >= 4 ? "medium" : "low";
   return {
     ok,
     mode: "online",
+    onlineChecked: true,
+    productDataFound,
     supplier,
     domain,
     title: metadata.title || "",
@@ -144,6 +191,8 @@ function normalizeSourceAnalysisResult({ url, supplier, domain, metadata, messag
     warnings: [],
     reason,
     status: ok ? "done" : "failed",
+    httpStatus,
+    contentType,
     checkedAt: new Date().toISOString(),
     message,
     url,
@@ -185,9 +234,11 @@ async function handleSourceAnalyze(req, res) {
         supplier,
         domain: detected.domain,
         metadata: {},
-        ok: false,
-        reason: "unsupported_supplier_or_blocked",
-        message: "Fuer diese Quelle konnten noch keine Produktdaten automatisch gelesen werden.",
+        ok: true,
+        reason: "source_reached_but_blocked",
+        httpStatus: response.status,
+        contentType: String(response.headers.get("content-type") || ""),
+        message: "Onlineanalyse wurde ausgefuehrt, aber die Quelle hat den automatischen Zugriff blockiert oder keine Produktdaten geliefert.",
       }));
     }
 
@@ -198,8 +249,10 @@ async function handleSourceAnalyze(req, res) {
         supplier,
         domain: detected.domain,
         metadata: {},
-        ok: false,
+        ok: true,
         reason: "unsupported_content_type",
+        httpStatus: response.status,
+        contentType,
         message: "Diese Quelle liefert keine auswertbare HTML-Produktseite.",
       }));
     }
@@ -214,11 +267,13 @@ async function handleSourceAnalyze(req, res) {
       supplier,
       domain: detected.domain,
       metadata,
-      ok: hasData,
-      reason: hasData ? "" : "unsupported_supplier_or_blocked",
+      ok: true,
+      reason: hasData ? "" : "no_product_metadata_found",
+      httpStatus: response.status,
+      contentType,
       message: hasData
         ? "Onlineanalyse abgeschlossen. Es wurden oeffentliche Metadaten erkannt."
-        : "Automatisches Auslesen ist fuer diese Quelle noch nicht verfuegbar. Bitte Produktdaten manuell ergaenzen oder spaeter API-Anbindung nutzen.",
+        : "Onlineanalyse abgeschlossen. Es wurden keine echten Produktdaten erkannt. Bitte Produktdaten manuell ergaenzen oder spaeter API-Anbindung nutzen.",
     }));
   } catch {
     return res.status(200).json({

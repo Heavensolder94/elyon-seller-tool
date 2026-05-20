@@ -4206,6 +4206,8 @@ function renderOnlineProductDataMask(online, analysis){
       ['Erkannter Supplier', supplier.name || (online && online.supplier)],
       ['Domain', (analysis && analysis.domain) || (online && online.domain)],
       ['Online-Status', (online && online.status) || 'nicht verfuegbar'],
+      ['HTTP-Status', (online && online.httpStatus) || 'offen'],
+      ['Inhaltstyp', (online && online.contentType) || 'offen'],
       ['Datenvertrauen', (online && online.confidence) || 'low'],
       ['Naechster Schritt', 'Produktdaten manuell ergaenzen oder API-Anbindung nutzen']
     ];
@@ -4221,7 +4223,7 @@ function renderOnlineProductDataMask(online, analysis){
   let html = '<div class="ai-product-card" style="margin-top:0">';
   if(online.image) html += '<p><img src="' + escapeHtml(online.image) + '" alt="Produktbild" style="max-width:150px;border-radius:14px;border:1px solid rgba(148,163,184,.22);margin-bottom:10px"></p>';
   html += '<div class="ai-mini-grid">';
-  [['Produkttitel',online.title],['Preis',online.price],['Waehrung',online.currency],['Verfuegbarkeit',online.availability],['Versandinformationen',online.shipping],['Kategorie',online.category],['Datenvertrauen',online.confidence],['Online-Status',online.status]].forEach(function(row){
+  [['Produkttitel',online.title],['Preis',online.price],['Waehrung',online.currency],['Verfuegbarkeit',online.availability],['Versandinformationen',online.shipping],['Kategorie',online.category],['Datenvertrauen',online.confidence],['Online-Status',online.status],['HTTP-Status',online.httpStatus]].forEach(function(row){
     html += '<div class="ai-mini-item"><span class="ai-mini-label">' + escapeHtml(row[0]) + '</span><span class="ai-mini-value">' + escapeHtml(row[1] || 'offen') + '</span></div>';
   });
   html += '</div>';
