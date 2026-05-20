@@ -26,6 +26,16 @@ function toObject(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : {};
 }
 
+function cleanAvailability(value) {
+  let text = toText(value);
+  if (!text) return "";
+  text = text.replace(/\{[\s\S]*$/, "").trim();
+  text = text.replace(/\[[\s\S]*$/, "").trim();
+  text = text.replace(/\b(isInternal|showInsightsHub|isRobot|showFaceout|merchantId|availableBadges|loggedIn|asin|showBadge|ingressFaceout|availableFaceouts)\b[\s\S]*$/i, "").trim();
+  text = text.replace(/\s{2,}/g, " ");
+  return text.slice(0, 160);
+}
+
 function normalizeDomain(value) {
   const text = toText(value).toLowerCase();
   try {
@@ -80,7 +90,7 @@ function normalizeImport(product = {}) {
     title: toText(product.title || product.name || "Unbekanntes Produkt"),
     price: toText(product.price || ""),
     currency: toText(product.currency || ""),
-    image: toText(product.image || ""),
+    image: toText(product.image || toArray(product.images)[0] || ""),
     images: toArray(product.images).map(toText).filter(Boolean).slice(0, 20),
     description: toText(product.description || product.productDescription || product.summary || ""),
     variants: toArray(product.variants).slice(0, 50),
@@ -89,7 +99,7 @@ function normalizeImport(product = {}) {
     reviewsCount: toText(product.reviewsCount || ""),
     soldCount: toText(product.soldCount || ""),
     productDetails: toObject(product.productDetails),
-    availability: toText(product.availability || ""),
+    availability: cleanAvailability(product.availability || ""),
     category: toText(product.category || ""),
     supplierInfo: toObject(product.supplierInfo),
     complianceRisks: toArray(product.complianceRisks).map(toText).filter(Boolean).slice(0, 20),
