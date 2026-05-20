@@ -6431,7 +6431,7 @@ function renderBrowserImports(){
   }).join('');
 
   box.querySelectorAll('[data-browser-action]').forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', async () => {
       const id = btn.getAttribute('data-browser-id');
       const action = btn.getAttribute('data-browser-action');
       const item = browserImports.find(entry => String(entry.id) === String(id));
@@ -6508,6 +6508,16 @@ function renderBrowserImports(){
 
       if(action === 'discard'){
         if(!confirm('Browser Import wirklich verwerfen?')) return;
+        btn.disabled = true;
+        try{
+          await fetch('/api/extension/import-product', {
+            method:'DELETE',
+            headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({id:item.id, url:item.url})
+          });
+        }catch(err){
+          console.warn('Browser Import konnte serverseitig nicht geloescht werden', err);
+        }
         browserImports = browserImports.filter(entry => String(entry.id) !== String(id));
         saveBrowserImports();
         renderBrowserImports();

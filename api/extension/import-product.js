@@ -190,6 +190,17 @@ function upsertImport(list, incoming) {
   return { next: [item, ...list], status: "saved", product: item };
 }
 
+function deleteImport(list, incoming) {
+  const id = toText(incoming.id || incoming.productId || "");
+  const url = toText(incoming.url || "");
+  const next = list.filter((entry) => {
+    const sameId = id && toText(entry.id) === id;
+    const sameUrl = url && toText(entry.url) === url;
+    return !(sameId || sameUrl);
+  });
+  return { next, deleted: next.length !== list.length };
+}
+
 export default async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
 
@@ -203,8 +214,25 @@ export default async function handler(req, res) {
     });
   }
 
+  if (req.method === "DELETE") {
+    const body = normalizeBody(req.body);
+    const incoming = body.product || body.item || body.data || body || {};
+    const current = await loadPersistentStore();
+    const result = deleteImport(current, incoming);
+    const persisted = await savePersistentStore(result.next);
+    return json(res, 200, {
+      ok: true,
+      route: "/api/extension/import-product",
+      status: result.deleted ? "deleted" : "not_found",
+      deleted: result.deleted,
+      total: persisted.items.length,
+      persisted: persisted.persisted,
+      message: result.deleted ? "Browser Import verworfen." : "Browser Import nicht gefunden."
+    });
+  }
+
   if (req.method !== "POST") {
-    return json(res, 405, { ok: false, error: "Nur GET und POST erlaubt." });
+    return json(res, 405, { ok: false, error: "Nur GET, POST und DELETE erlaubt." });
   }
 
   const body = normalizeBody(req.body);
