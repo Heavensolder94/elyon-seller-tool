@@ -139,6 +139,14 @@ function normalizeSourceAnalysisResult({ url, supplier, domain, metadata, messag
   };
 }
 
+function isBadSourceMetadata(metadata) {
+  const title = readText(metadata?.title).toLowerCase();
+  const description = readText(metadata?.description).toLowerCase();
+  const text = `${title} ${description}`;
+  if (!title && !metadata?.price && !metadata?.image && !metadata?.description) return true;
+  return /\b(404|not found|page not found|access denied|forbidden|captcha|bot detection|seite nicht gefunden|nicht gefunden)\b/i.test(text);
+}
+
 async function handleSourceAnalyze(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
@@ -187,7 +195,8 @@ async function handleSourceAnalyze(req, res) {
 
     const html = (await response.text()).slice(0, 600000);
     const metadata = extractBasicSourceMetadata(html, url.toString());
-    const hasData = Boolean(metadata.title || metadata.price || metadata.image || metadata.description);
+    const badMetadata = isBadSourceMetadata(metadata);
+    const hasData = !badMetadata && Boolean(metadata.title || metadata.price || metadata.image || metadata.description);
 
     return res.status(200).json(normalizeSourceAnalysisResult({
       url: url.toString(),

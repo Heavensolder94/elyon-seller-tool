@@ -4191,7 +4191,28 @@ function getSourceBackendUrl(){
 }
 function hasOnlineProductData(online){
   if(!online || !online.ok) return false;
+  if(isBadOnlineProductData(online)) return false;
   return !!(online.title || online.price || online.image || online.availability || online.shipping || online.description || online.category);
+}
+function isBadOnlineProductData(online){
+  const text = String((online && online.title) || '') + ' ' + String((online && online.description) || '');
+  return /\b(404|not found|page not found|access denied|forbidden|captcha|bot detection|seite nicht gefunden|nicht gefunden)\b/i.test(text);
+}
+function renderOnlineProductDataMask(online){
+  if(!hasOnlineProductData(online)){
+    return '<p>Noch keine echten Produktdaten erkannt.</p><p class="muted">' + escapeHtml((online && online.message) || 'Automatisches Auslesen ist fuer diese Quelle noch nicht verfuegbar. Bitte Produktdaten manuell ergaenzen oder spaeter API-Anbindung nutzen.') + '</p>';
+  }
+  let html = '<div class="ai-product-card" style="margin-top:0">';
+  if(online.image) html += '<p><img src="' + escapeHtml(online.image) + '" alt="Produktbild" style="max-width:150px;border-radius:14px;border:1px solid rgba(148,163,184,.22);margin-bottom:10px"></p>';
+  html += '<div class="ai-mini-grid">';
+  [['Produkttitel',online.title],['Preis',online.price],['Waehrung',online.currency],['Verfuegbarkeit',online.availability],['Versandinformationen',online.shipping],['Kategorie',online.category],['Datenvertrauen',online.confidence],['Online-Status',online.status]].forEach(function(row){
+    html += '<div class="ai-mini-item"><span class="ai-mini-label">' + escapeHtml(row[0]) + '</span><span class="ai-mini-value">' + escapeHtml(row[1] || 'offen') + '</span></div>';
+  });
+  html += '</div>';
+  if(online.description) html += '<div class="output-box"><h3>Kurzbeschreibung</h3><p>' + escapeHtml(String(online.description).slice(0, 420)) + '</p></div>';
+  html += '<div class="sourcing-next-step">Diese Produktdaten sind nur vorbefuellt. Bitte Titel, Preis, Versand und Compliance manuell pruefen.</div>';
+  html += '</div>';
+  return html;
 }
 function renderSourceAnalysis(analysis){
   latestSourceAnalysis = analysis;
@@ -4223,16 +4244,8 @@ function renderSourceAnalysis(analysis){
   html += '<div class="output-box"><h3>Produktdaten aus Onlineanalyse</h3>';
   if(onlinePending){
     html += '<p>Online-Analyse laeuft...</p>';
-  }else if(hasOnlineProductData(online)){
-    if(online.image) html += '<p><img src="' + escapeHtml(online.image) + '" alt="Produktbild" style="max-width:120px;border-radius:12px;border:1px solid rgba(148,163,184,.22)"></p>';
-    html += '<div class="ai-mini-grid">';
-    [['Produkttitel',online.title],['Preis',online.price],['Waehrung',online.currency],['Verfuegbarkeit',online.availability],['Versandinformationen',online.shipping],['Kategorie',online.category],['Datenvertrauen',online.confidence]].forEach(function(row){
-      html += '<div class="ai-mini-item"><span class="ai-mini-label">' + escapeHtml(row[0]) + '</span><span class="ai-mini-value">' + escapeHtml(row[1] || 'offen') + '</span></div>';
-    });
-    html += '</div>';
-    if(online.description) html += '<p class="muted">' + escapeHtml(String(online.description).slice(0, 320)) + '</p>';
   }else{
-    html += '<p>Noch keine echten Produktdaten erkannt.</p><p class="muted">' + escapeHtml(online.message || 'Automatisches Auslesen ist fuer diese Quelle noch nicht verfuegbar. Bitte Produktdaten manuell ergaenzen oder spaeter API-Anbindung nutzen.') + '</p>';
+    html += renderOnlineProductDataMask(online);
   }
   html += '</div>';
   html += '<div class="output-box"><h3>Supplier-Hinweis</h3><p>' + escapeHtml(supplier.note || 'Supplier pruefen.') + '</p></div>';
