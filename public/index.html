@@ -2350,7 +2350,18 @@ function normalizeBrowserImportRecord(item){
     price: String(source.price || '').trim(),
     currency: String(source.currency || '').trim(),
     image: String(source.image || '').trim(),
+    images: Array.isArray(source.images) ? source.images.filter(Boolean).slice(0,20) : [],
     description: String(source.description || source.productDescription || source.summary || '').trim(),
+    variants: Array.isArray(source.variants) ? source.variants.slice(0,50) : [],
+    shipping: source.shipping && typeof source.shipping === 'object' ? source.shipping : {},
+    rating: String(source.rating || '').trim(),
+    reviewsCount: String(source.reviewsCount || '').trim(),
+    soldCount: String(source.soldCount || '').trim(),
+    productDetails: source.productDetails && typeof source.productDetails === 'object' ? source.productDetails : {},
+    availability: String(source.availability || '').trim(),
+    category: String(source.category || '').trim(),
+    supplierInfo: source.supplierInfo && typeof source.supplierInfo === 'object' ? source.supplierInfo : {},
+    complianceRisks: Array.isArray(source.complianceRisks) ? source.complianceRisks.filter(Boolean).slice(0,20) : [],
     url,
     supplier: String(source.supplier || '').trim(),
     domain,
@@ -6375,6 +6386,19 @@ function renderBrowserImports(){
   box.innerHTML = browserImports.slice(0, 20).map(item => {
     const linked = item.linkedSupplierName || item.linkedSupplierId || '-';
     const imageHtml = item.image ? '<img src="' + escapeHtml(item.image) + '" alt="" style="width:72px;height:72px;object-fit:cover;border-radius:14px;border:1px solid rgba(255,255,255,.12);background:rgba(2,6,23,.4)">' : '<div class="empty" style="width:72px;min-height:72px;padding:10px">Kein Bild</div>';
+    const shippingText = item.shipping && typeof item.shipping === 'object' ? [item.shipping.cost, item.shipping.deliveryTime, item.shipping.shipsFrom, item.shipping.text].filter(Boolean).join(' · ') : '';
+    const detailRows = Object.entries(item.productDetails || {}).slice(0,12).map(([key,value]) => '<li><strong>' + escapeHtml(key) + ':</strong> ' + escapeHtml(String(value || '')) + '</li>').join('');
+    const variantRows = (item.variants || []).slice(0,12).map(variant => '<span class="pill">' + escapeHtml(typeof variant === 'string' ? variant : (variant.label || variant.name || JSON.stringify(variant))) + '</span>').join('');
+    const extraRows = [
+      item.category ? '<span class="pill">Kategorie: ' + escapeHtml(item.category) + '</span>' : '',
+      item.availability ? '<span class="pill">Verfügbarkeit: ' + escapeHtml(item.availability) + '</span>' : '',
+      item.rating ? '<span class="pill">Rating: ' + escapeHtml(item.rating) + '</span>' : '',
+      item.reviewsCount ? '<span class="pill">Bewertungen: ' + escapeHtml(item.reviewsCount) + '</span>' : '',
+      item.soldCount ? '<span class="pill">Verkäufe: ' + escapeHtml(item.soldCount) + '</span>' : '',
+      shippingText ? '<span class="pill">Versand: ' + escapeHtml(shippingText) + '</span>' : ''
+    ].filter(Boolean).join('');
+    const complianceRows = (item.complianceRisks || []).map(risk => '<span class="pill bad">' + escapeHtml(risk) + '</span>').join('');
+    const galleryRows = (item.images || []).slice(0,6).map(src => '<img src="' + escapeHtml(src) + '" alt="" style="width:46px;height:46px;object-fit:cover;border-radius:10px;border:1px solid rgba(255,255,255,.12)">').join('');
     return '<div class="product-card small-card" data-browser-import-id="' + escapeHtml(item.id) + '">' +
       '<div style="display:flex;gap:14px;align-items:flex-start">' +
         imageHtml +
@@ -6383,6 +6407,11 @@ function renderBrowserImports(){
           '<div class="muted">Preis: ' + escapeHtml([item.price, item.currency].filter(Boolean).join(' ')) + ' · Supplier: ' + escapeHtml(item.supplier || '-') + '</div>' +
           '<div class="muted">Domain: ' + escapeHtml(item.domain || '-') + '</div>' +
           '<div class="muted" style="word-break:break-all">URL: ' + escapeHtml(item.url || '-') + '</div>' +
+          (extraRows ? '<div class="pill-row">' + extraRows + '</div>' : '') +
+          (complianceRows ? '<div class="pill-row"><span class="pill">Compliance</span>' + complianceRows + '</div>' : '') +
+          (galleryRows ? '<div class="pill-row">' + galleryRows + '</div>' : '') +
+          (variantRows ? '<details class="output-box" style="margin-top:10px"><summary>Varianten anzeigen</summary><div class="pill-row">' + variantRows + '</div></details>' : '') +
+          (detailRows ? '<details class="output-box" style="margin-top:10px"><summary>Produktdetails anzeigen</summary><ul>' + detailRows + '</ul></details>' : '') +
           (item.description ? '<details class="output-box" style="margin-top:10px"><summary>Artikelbeschreibung anzeigen</summary><p style="white-space:pre-wrap">' + escapeHtml(item.description) + '</p></details>' : '') +
           '<div class="pill-row">' +
             '<span class="pill">Import: ' + escapeHtml(item.importedAt || '-') + '</span>' +
@@ -6419,6 +6448,10 @@ function renderBrowserImports(){
           sourceDomain: item.domain || '',
           notes: item.notes || '',
           description: item.description || '',
+          sales: item.soldCount || '',
+          competition: item.reviewsCount || '',
+          delivery: item.shipping?.deliveryTime || '',
+          risk: (item.complianceRisks || []).length ? 'high' : 'low',
           productStatus: 'Draft',
           status: 'Draft',
           sourceNote: 'Aus Browser Import uebernommen',
@@ -6427,6 +6460,16 @@ function renderBrowserImports(){
           sourceOnlineCurrency: item.currency || '',
           sourceOnlineImage: item.image || '',
           sourceOnlineDescription: item.description || '',
+          sourceOnlineAvailability: item.availability || '',
+          sourceOnlineShipping: shippingText || '',
+          sourceOnlineCategory: item.category || '',
+          sourceOnlineRating: item.rating || '',
+          sourceOnlineReviews: item.reviewsCount || '',
+          sourceOnlineSold: item.soldCount || '',
+          sourceOnlineVariants: JSON.stringify(item.variants || []),
+          sourceOnlineImages: JSON.stringify(item.images || []),
+          sourceOnlineDetails: JSON.stringify(item.productDetails || {}),
+          sourceOnlineCompliance: (item.complianceRisks || []).join(', '),
           sourceOnlineCheckedAt: item.importedAt || new Date().toISOString()
         });
         products = [product, ...products.filter(p => String(p.sku || '') !== String(product.sku || '') || String(p.name || '') !== String(product.name || ''))];

@@ -18,6 +18,14 @@ function toText(value) {
   return String(value).trim();
 }
 
+function toArray(value) {
+  return Array.isArray(value) ? value : [];
+}
+
+function toObject(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+
 function normalizeProduct(product = {}) {
   const now = new Date().toISOString();
   const url = toText(product.url || "");
@@ -27,7 +35,18 @@ function normalizeProduct(product = {}) {
     price: toText(product.price || ""),
     currency: toText(product.currency || ""),
     image: toText(product.image || ""),
+    images: toArray(product.images).map(toText).filter(Boolean).slice(0, 20),
     description: toText(product.description || product.productDescription || product.summary || ""),
+    variants: toArray(product.variants).slice(0, 50),
+    shipping: toObject(product.shipping),
+    rating: toText(product.rating || ""),
+    reviewsCount: toText(product.reviewsCount || ""),
+    soldCount: toText(product.soldCount || ""),
+    productDetails: toObject(product.productDetails),
+    availability: toText(product.availability || ""),
+    category: toText(product.category || ""),
+    supplierInfo: toObject(product.supplierInfo),
+    complianceRisks: toArray(product.complianceRisks).map(toText).filter(Boolean).slice(0, 20),
     url,
     supplier: toText(product.supplier || ""),
     domain: toText(product.domain || ""),

@@ -18,6 +18,14 @@ function toText(value) {
   return String(value).trim();
 }
 
+function toArray(value) {
+  return Array.isArray(value) ? value : [];
+}
+
+function toObject(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+
 function normalizeDomain(value) {
   const text = toText(value).toLowerCase();
   try {
@@ -73,7 +81,18 @@ function normalizeImport(product = {}) {
     price: toText(product.price || ""),
     currency: toText(product.currency || ""),
     image: toText(product.image || ""),
+    images: toArray(product.images).map(toText).filter(Boolean).slice(0, 20),
     description: toText(product.description || product.productDescription || product.summary || ""),
+    variants: toArray(product.variants).slice(0, 50),
+    shipping: toObject(product.shipping),
+    rating: toText(product.rating || ""),
+    reviewsCount: toText(product.reviewsCount || ""),
+    soldCount: toText(product.soldCount || ""),
+    productDetails: toObject(product.productDetails),
+    availability: toText(product.availability || ""),
+    category: toText(product.category || ""),
+    supplierInfo: toObject(product.supplierInfo),
+    complianceRisks: toArray(product.complianceRisks).map(toText).filter(Boolean).slice(0, 20),
     url,
     supplier: supplier || supplierMatch.linkedSupplierName || "",
     domain,
