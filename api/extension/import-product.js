@@ -187,6 +187,59 @@ function parseStoredList(raw) {
   }
 }
 
+async function readPersistentList(key) {
+  const data = await redisCommand(["GET", key]);
+  return normalizeList(parseStoredList(data?.result));
+}
+
+function browserImportFromProduct(product = {}) {
+  const sourceType = toText(product.sourceType || product.source || "");
+  const sourceProvider = toText(product.sourceProvider || "");
+  const sourceDomain = toText(product.sourceDomain || product.domain || "");
+  const sourceUrl = toText(product.supplierLink || product.url || "");
+  const looksLikeBrowserImport =
+    sourceType === "chrome_extension" ||
+    sourceProvider === "browser-import" ||
+    Boolean(product.sourceOnlineTitle || product.sourceOnlineImage || product.sourceOnlineImages);
+
+  if (!looksLikeBrowserImport) return null;
+
+  let images = [];
+  if (Array.isArray(product.images)) images = product.images;
+  if (Array.isArray(product.sourceOnlineImages)) images = product.sourceOnlineImages;
+  if (typeof product.sourceOnlineImages === "string" && product.sourceOnlineImages.trim()) {
+    try {
+      const parsed = JSON.parse(product.sourceOnlineImages);
+      if (Array.isArray(parsed)) images = parsed;
+    } catch {
+      images = [];
+    }
+  }
+
+  return normalizeImport({
+    id: product.browserImportId || product.id || sourceUrl,
+    title: product.sourceOnlineTitle || product.title || product.name || "",
+    price: product.sourceOnlinePrice || product.price || "",
+    currency: product.sourceOnlineCurrency || product.currency || "",
+    image: product.sourceOnlineImage || product.image || images[0] || "",
+    images,
+    description: product.sourceOnlineDescription || product.description || product.notes || "",
+    url: sourceUrl,
+    supplier: product.supplier || product.supplierId || product.sourceProvider || "",
+    domain: sourceDomain,
+    status: product.sourceImportStatus || product.status || "reviewed",
+    detectedAt: product.sourceOnlineCheckedAt || product.detectedAt || product.createdAt || "",
+    importedAt: product.sourceOnlineCheckedAt || product.importedAt || product.createdAt || "",
+    linkedSupplierId: product.supplierId || product.linkedSupplierId || "",
+    linkedSupplierName: product.linkedSupplierName || product.supplier || "",
+    availability: product.sourceOnlineAvailability || "",
+    category: product.sourceOnlineCategory || product.category || "",
+    rating: product.sourceOnlineRating || product.rating || "",
+    reviewsCount: product.sourceOnlineReviews || product.reviewsCount || "",
+    soldCount: product.sourceOnlineSold || product.soldCount || "",
+  });
+}
+
 async function loadPersistentStore() {
   const { url, token } = getRedisConfig();
   if (!url || !token) {
@@ -194,9 +247,16 @@ async function loadPersistentStore() {
   }
 
   try {
-    const data = await redisCommand(["GET", "elyon_browser_imports"]);
-    const items = parseStoredList(data?.result);
-    const normalized = normalizeList(items);
+    let normalized = await readPersistentList("elyon_browser_imports");
+    if (!normalized.length) {
+      const recovered = (await readPersistentList("elyon_products"))
+        .map(browserImportFromProduct)
+        .filter(Boolean);
+      if (recovered.length) {
+        normalized = recovered;
+        await redisCommand(["SET", "elyon_browser_imports", JSON.stringify(normalized)]);
+      }
+    }
     writeStore(normalized);
     return normalized;
   } catch {

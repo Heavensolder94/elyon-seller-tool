@@ -2528,7 +2528,7 @@ function normalizeBrowserImportsCollection(list){
   return Array.isArray(list) ? list.map(normalizeBrowserImportRecord) : [];
 }
 let products = normalizeProductsCollection(loadStoredArray("elyonProducts"));
-let browserImports = [];
+let browserImports = normalizeBrowserImportsCollection(loadStoredArray("elyonBrowserImports"));
 let browserImportsStorage = {mode:'server_unknown', message:'Serverstatus wird geladen.'};
 let returns = loadStoredArray("elyonReturns");
 let shopifyReturns = loadStoredArray("elyonShopifyReturns");
@@ -6731,6 +6731,7 @@ function renderDashboardDetails(){
 }
 function saveBrowserImports(){
   browserImports = normalizeBrowserImportsCollection(browserImports);
+  localStorage.setItem('elyonBrowserImports', JSON.stringify(browserImports));
 }
 function upsertBrowserImportItem(item){
   const nextItem = normalizeBrowserImportRecord(item);
@@ -6911,12 +6912,15 @@ async function hydrateBrowserImportsFromBackend(){
     const data = await response.json().catch(() => null);
     const items = normalizeBrowserImportsCollection(Array.isArray(data?.items) ? data.items : []);
     browserImportsStorage = data?.storage || browserImportsStorage;
+    if(!items.length && browserImports.length){
+      renderBrowserImports();
+      return;
+    }
     browserImports = items;
     saveBrowserImports();
     renderBrowserImports();
   }catch(err){
     console.warn('Browser Imports konnten nicht geladen werden', err);
-    browserImports = [];
     renderBrowserImports();
   }
 }
