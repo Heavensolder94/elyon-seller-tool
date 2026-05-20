@@ -6813,11 +6813,12 @@ function updateAiDashboardUi(data){
 async function refreshAiDashboardStatus(){
   const now = new Date().toLocaleString('de-DE');
   const settings = JSON.parse(localStorage.getItem('elyonSettings') || '{}');
+  const defaults = getGlobalAiDefaults();
   const securityMode = settings.securityMode !== false;
   const sandboxMode = settings.sandboxMode !== false;
   const autonomyLocked = settings.autonomyLocked !== false;
-  let provider = settings.aiProvider || (settings.aiEnabled === false ? 'local' : 'openai');
-  let model = settings.aiModel || (provider === 'deepseek' ? 'deepseek-v4-flash' : 'gpt-4o-mini');
+  let provider = defaults.provider;
+  let model = defaults.model;
   let status = 'Ungeprüft';
   let fallback = settings.aiAllowFallback === false ? 'Aus' : 'An';
   let detail = 'Die Übersicht zeigt lokale Einstellungen und den Backend-Status.';
@@ -6830,11 +6831,11 @@ async function refreshAiDashboardStatus(){
 
     if(provider === 'deepseek'){
       status = deepseekReady ? 'Bereit' : 'Key fehlt';
-      model = settings.aiModel || 'deepseek-v4-flash';
+      model = defaults.model;
       detail = deepseekReady ? 'DeepSeek ist laut Backend-Check bereit.' : 'DeepSeek ist im Backend noch nicht vollständig eingerichtet.';
     }else if(provider === 'openai'){
       status = openaiReady ? 'Bereit' : 'Key fehlt';
-      model = settings.aiModel || 'gpt-4o-mini';
+      model = defaults.model;
       detail = openaiReady ? 'OpenAI ist laut Backend-Check bereit.' : 'OpenAI ist im Backend noch nicht vollständig eingerichtet.';
     }else{
       status = 'Lokal';
@@ -6868,10 +6869,12 @@ async function refreshAiDashboardStatus(){
   }
 }
 async function testAiRouterProvider(provider){
+  const defaults = getGlobalAiDefaults();
   const payload = {
     provider: provider,
     task: provider === 'deepseek' ? 'dashboard_deepseek_test' : 'dashboard_openai_test',
     prompt: provider === 'deepseek' ? 'Kurzer DeepSeek Dashboard-Test.' : 'Kurzer OpenAI Dashboard-Test.',
+    model: provider === 'deepseek' ? defaults.model : defaults.model,
     allowFallback: true,
     safety: {
       securityMode: true,
@@ -6891,7 +6894,7 @@ async function testAiRouterProvider(provider){
     updateAiDashboardUi({
       checkedAt: new Date().toLocaleString('de-DE'),
       provider: data.provider || provider,
-      model: data.model || (provider === 'deepseek' ? 'deepseek-v4-flash' : 'gpt-4o-mini'),
+      model: data.model || defaults.model,
       status: data.ok ? 'OK' : (data.error && data.error.type ? String(data.error.type) : 'Fehler'),
       fallback: data.fallbackUsed ? 'An' : 'Aus',
       security: 'Aktiv',
@@ -6903,7 +6906,7 @@ async function testAiRouterProvider(provider){
     updateAiDashboardUi({
       checkedAt: new Date().toLocaleString('de-DE'),
       provider,
-      model: provider === 'deepseek' ? 'deepseek-v4-flash' : 'gpt-4o-mini',
+      model: defaults.model,
       status: 'Fehler',
       fallback: 'An',
       security: 'Aktiv',
@@ -7064,6 +7067,15 @@ function buildAiRouterSafety(extra){
     userApproved: safety.userApproved === true,
   };
 }
+function getGlobalAiDefaults(){
+  const settings = JSON.parse(localStorage.getItem('elyonSettings') || '{}');
+  const provider = settings.aiProvider || (settings.aiEnabled === false ? 'local' : 'openai');
+  return {
+    provider,
+    model: settings.aiModel || (provider === 'deepseek' ? 'deepseek-v4-flash' : 'gpt-4o-mini'),
+    allowFallback: settings.aiAllowFallback !== false,
+  };
+}
 async function requestAiRouter(task, prompt, extra){
   incrementAiUsage();
   const provider = normalizeAiRouterProvider(extra || {});
@@ -7082,7 +7094,14 @@ async function requestAiRouter(task, prompt, extra){
   return postJsonWithTimeout('/api/ai-router', payload, 30000);
 }
 async function requestCentralAi(task, prompt, extra){
-  return requestAiRouter(task, prompt, extra || {});
+  const defaults = getGlobalAiDefaults();
+  const incoming = extra && typeof extra === 'object' ? extra : {};
+  return requestAiRouter(task, prompt, {
+    ...incoming,
+    provider: incoming.provider || defaults.provider,
+    model: incoming.model || defaults.model,
+    allowFallback: incoming.allowFallback !== undefined ? incoming.allowFallback : defaults.allowFallback,
+  });
 }
 function readAiProductSearchInput(){
   const query = $('aiSearchQuery') && $('aiSearchQuery').value.trim() ? $('aiSearchQuery').value.trim() : '';
@@ -13648,7 +13667,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     }
     try {
       const prompt = buildPromptTemplateGenerationPrompt(type, item);
-      const data = await requestCentralAi('prompt_templates', prompt, { model: 'deepseek' });
+      const data = await requestCentralAi('prompt_templates', prompt, {});
       const list = extractPromptTemplateList(data);
       if (!list.length) {
         throw new Error('DeepSeek hat keine nutzbaren Vorlagen geliefert.');
@@ -13690,7 +13709,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     }
     try {
       const prompt = buildPromptTemplateRefinementPrompt(type, item, draft);
-      const data = await requestCentralAi('prompt_refine', prompt, { model: 'deepseek' });
+      const data = await requestCentralAi('prompt_refine', prompt, {});
       const list = extractPromptTemplateList(data);
       if (!list.length) {
         throw new Error('DeepSeek hat keinen nutzbaren Vorschlag geliefert.');
@@ -13877,7 +13896,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     }
     try {
       const requestPrompt = buildAgentPromptRefinementPrompt(def, draft);
-      const data = await requestCentralAi('prompt_refine', requestPrompt, { model: 'deepseek' });
+      const data = await requestCentralAi('prompt_refine', requestPrompt, {});
       const list = extractPromptTemplateList(data);
       if (!list.length) {
         throw new Error('Deepseek hat keinen nutzbaren Vorschlag geliefert.');
@@ -14013,7 +14032,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     }
     try {
       const requestPrompt = buildGroupPromptRefinementPrompt(groupKey, draft);
-      const data = await requestCentralAi('prompt_refine', requestPrompt, { model: 'deepseek' });
+      const data = await requestCentralAi('prompt_refine', requestPrompt, {});
       const list = extractPromptTemplateList(data);
       if (!list.length) {
         throw new Error('Deepseek hat keinen nutzbaren Vorschlag geliefert.');
