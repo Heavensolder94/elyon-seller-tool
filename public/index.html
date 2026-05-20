@@ -1621,6 +1621,9 @@ Land"></textarea>
         <h3>🤖 KI</h3>
         <div class="checkrow"><input type="checkbox" id="setAiEnabled" checked><label for="setAiEnabled">KI-Funktionen aktivieren</label></div>
         <p class="hint">Wenn diese Option aus ist, bleiben die KI-Buttons sichtbar, aber die Prüfung nutzt keine OpenAI-Funktionen.</p>
+        <div class="row" style="margin-top:10px">
+          <button id="openAiDashboardBtn" class="secondary full" type="button">KI-Dashboard öffnen</button>
+        </div>
       </div>
 
       <div class="settings-section">
@@ -1743,6 +1746,39 @@ PLZ Ort"></textarea>
       <div class="row">
         <button type="button" id="aiBillingProceedBtn" class="full">Verstanden, KI starten</button>
         <button type="button" id="aiBillingCloseBtn" class="secondary full">Abbrechen</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="aiDashboardModal" class="hidden modal-backdrop">
+    <div class="card modal-panel">
+      <div class="row" style="align-items:center;justify-content:space-between;gap:12px">
+        <div>
+          <h2 style="margin-bottom:6px">📊 KI-Dashboard</h2>
+          <p class="hint" style="margin:0">Status von OpenAI, DeepSeek, Router, Fallback und Sicherheitslogik.</p>
+        </div>
+        <button id="closeAiDashboardBtn" class="secondary" type="button">Schließen</button>
+      </div>
+      <div class="dashboard" style="margin-top:14px">
+        <div class="metric"><small>Aktiver Provider</small><strong id="aiDashProvider">Unbekannt</strong></div>
+        <div class="metric"><small>Modell</small><strong id="aiDashModel">Unbekannt</strong></div>
+        <div class="metric"><small>Status</small><strong id="aiDashStatus">Ungeprüft</strong></div>
+        <div class="metric"><small>Fallback</small><strong id="aiDashFallback">Aus</strong></div>
+      </div>
+      <div class="dashboard" style="margin-top:12px">
+        <div class="metric"><small>Sicherheitsmodus</small><strong id="aiDashSecurity">Unbekannt</strong></div>
+        <div class="metric"><small>Sandbox</small><strong id="aiDashSandbox">Unbekannt</strong></div>
+        <div class="metric"><small>Autonomie</small><strong id="aiDashAutonomy">Unbekannt</strong></div>
+        <div class="metric"><small>Letzte Prüfung</small><strong id="aiDashCheckedAt">Noch nie</strong></div>
+      </div>
+      <div id="aiDashboardResult" class="output-box" style="margin-top:12px"><p>Noch keine KI-Prüfung ausgeführt.</p></div>
+      <div class="row" style="margin-top:10px">
+        <button id="aiDashTestOpenAiBtn" class="secondary full" type="button">OpenAI testen</button>
+        <button id="aiDashTestDeepSeekBtn" class="secondary full" type="button">DeepSeek testen</button>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <button id="aiDashRefreshBtn" class="secondary full" type="button">Status aktualisieren</button>
+        <button id="aiDashCloseBtn" class="secondary full" type="button">Schließen</button>
       </div>
     </div>
   </div>
@@ -2383,6 +2419,13 @@ function openIntegrations(){
     });
     refreshGoogleSheetsSyncSettingsForm().then(renderGoogleSheetsSyncStatus);
   },50);
+}
+function openAiDashboard(){
+  openIntegrations();
+  setTimeout(function(){
+    safe('aiDashboardModal', el => el.classList.remove('hidden'));
+    refreshAiDashboardStatus();
+  },80);
 }
 function openApiImport(){
   showTab('settingsTab');
@@ -4288,36 +4331,48 @@ async function startDeepSeekSourcingReview(){
   incrementAiUsage();
   setHTML('sourcingAiReview','<div class="empty">DeepSeek bewertet das Produkt...</div>');
   try{
-    const data = await postJsonWithTimeout('/api/elyon-soul', {
-      action:'sourcing_review',
-      prompt: buildChatGptSourcingPrompt() + '\n\nBitte gib eine kurze, kritische Zweitmeinung als DeepSeek-Bewertung.',
-      products:[{
-        name: online.title || supplier.name || 'Produkt aus Produktbeschaffung',
-        supplierId: supplier.name || '',
-        supplierLink: a.link || '',
-        sourceProvider: supplier.name || '',
-        sourceType: supplier.type || '',
-        sourceRisk: supplier.risk || '',
-        sourceDomain: a.domain || '',
-        sourceAnalysisStatus: a.status || '',
-        sourceOnlineStatus: online.status || '',
-        sourceOnlineTitle: online.title || '',
-        sourceOnlinePrice: online.price || '',
-        sourceOnlineCurrency: online.currency || '',
-        sourceOnlineAvailability: online.availability || '',
-        sourceOnlineShipping: online.shipping || '',
-        sourceOnlineConfidence: online.confidence || '',
-        notes: a.productNote || supplier.note || ''
-      }],
-      summary:{
-        total:1,
-        missingMarginCount: online.price ? 0 : 1,
-        missingDeliveryCount: supplier.delivery ? 0 : 1,
-        complianceRiskCount: String(supplier.risk || '').toLowerCase().includes('hoch') ? 1 : 0
+    const prompt = buildChatGptSourcingPrompt() + '\n\nBitte gib eine kurze, kritische Zweitmeinung als DeepSeek-Bewertung. Keine Live-Aktion ausführen. Nur Analyse, Einschätzung und konkrete Textvorschläge.';
+    const data = await requestAiRouter('sourcing_review', prompt, {
+      provider: 'deepseek',
+      model: 'deepseek-v4-flash',
+      allowFallback: true,
+      context: {
+        source: 'product-procurement',
+        products:[{
+          name: online.title || supplier.name || 'Produkt aus Produktbeschaffung',
+          supplierId: supplier.name || '',
+          supplierLink: a.link || '',
+          sourceProvider: supplier.name || '',
+          sourceType: supplier.type || '',
+          sourceRisk: supplier.risk || '',
+          sourceDomain: a.domain || '',
+          sourceAnalysisStatus: a.status || '',
+          sourceOnlineStatus: online.status || '',
+          sourceOnlineTitle: online.title || '',
+          sourceOnlinePrice: online.price || '',
+          sourceOnlineCurrency: online.currency || '',
+          sourceOnlineAvailability: online.availability || '',
+          sourceOnlineShipping: online.shipping || '',
+          sourceOnlineConfidence: online.confidence || '',
+          notes: a.productNote || supplier.note || ''
+        }],
+        summary:{
+          total:1,
+          missingMarginCount: online.price ? 0 : 1,
+          missingDeliveryCount: supplier.delivery ? 0 : 1,
+          complianceRiskCount: String(supplier.risk || '').toLowerCase().includes('hoch') ? 1 : 0
+        }
+      },
+      safety: {
+        securityMode: true,
+        sandboxMode: true,
+        autonomyLocked: true,
+        requiresLiveAction: false,
+        userApproved: false,
       }
-    }, 30000);
-    const recommendation = data && (data.recommendation || data.message) ? (data.recommendation || data.message) : 'Keine DeepSeek-Empfehlung erzeugt.';
-    const mode = data && data.mode ? data.mode : 'deepseek';
+    });
+    const recommendation = data && data.content ? data.content : 'Keine DeepSeek-Empfehlung erzeugt.';
+    const mode = data && data.provider ? data.provider : 'deepseek';
     setHTML('sourcingAiReview','<div class="output-box"><h3>DeepSeek-Bewertung</h3><p>' + escapeHtml(recommendation) + '</p><p class="muted">Modus: ' + escapeHtml(mode) + '. Keine Live-Aktion ausgeführt.</p></div>');
   }catch(err){
     setHTML('sourcingAiReview','<div class="empty">⚠️ ' + escapeHtml(err && err.message ? err.message : 'DeepSeek-Bewertung fehlgeschlagen.') + '</div>');
@@ -5483,7 +5538,7 @@ async function executeProductDecisionTask(productId){
 
   setProductAiButtonState(productId, true);
   const cardId = getProductAiUiId('productAiCard', productId);
-  setHTML(cardId, '<div class="ai-product-card"><div class="score-top"><span class="status ai-status-ghost">KI prüft...</span><span class="score-number">…</span></div><div class="progress"><div class="bar" style="width:24%"></div></div><div class="ai-compact-note">Die Prüfung läuft gerade über /api/ai mit task=product_decision.</div></div>');
+  setHTML(cardId, '<div class="ai-product-card"><div class="score-top"><span class="status ai-status-ghost">KI prüft...</span><span class="score-number">…</span></div><div class="progress"><div class="bar" style="width:24%"></div></div><div class="ai-compact-note">Die Prüfung läuft gerade über /api/ai-router mit task=product_decision.</div></div>');
 
   try{
     const response = await requestCentralAi('product_decision', buildProductDecisionPrompt(product), {
@@ -5498,13 +5553,13 @@ async function executeProductDecisionTask(productId){
         aiDecision: {
           ...normalized,
           savedAt,
-          source: 'api/ai',
+          source: 'api/ai-router',
           task: 'product_decision',
         },
         ai: {
           ...normalized,
           savedAt,
-          source: 'api/ai',
+          source: 'api/ai-router',
           task: 'product_decision',
         },
         aiDecisionAt: savedAt,
@@ -6616,6 +6671,17 @@ const AI_BUTTON_META = [
 let aiLoadingButtonId = '';
 const aiCooldownEndsByButton = {};
 const aiCooldownTimersByButton = {};
+let aiDashboardCache = {
+  checkedAt: '',
+  provider: 'Unbekannt',
+  model: 'Unbekannt',
+  status: 'Ungeprüft',
+  fallback: 'Aus',
+  security: 'Unbekannt',
+  sandbox: 'Unbekannt',
+  autonomy: 'Unbekannt',
+  detail: 'Noch keine KI-Prüfung ausgeführt.',
+};
 
 function getLocalDateKey(date){
   const value = date instanceof Date ? date : new Date();
@@ -6685,6 +6751,124 @@ function renderAiUsageStatus(){
     '<span class="ai-usage-warning ' + statusClass + '">' + escapeHtml(warning || 'Niedrige Nutzung') + '</span>'
   ].join('');
   setHTML('aiUsageStatus', html);
+}
+function updateAiDashboardUi(data){
+  const dash = data || aiDashboardCache;
+  aiDashboardCache = dash;
+  safe('aiDashProvider', el => el.textContent = dash.provider || 'Unbekannt');
+  safe('aiDashModel', el => el.textContent = dash.model || 'Unbekannt');
+  safe('aiDashStatus', el => el.textContent = dash.status || 'Ungeprüft');
+  safe('aiDashFallback', el => el.textContent = dash.fallback || 'Aus');
+  safe('aiDashSecurity', el => el.textContent = dash.security || 'Unbekannt');
+  safe('aiDashSandbox', el => el.textContent = dash.sandbox || 'Unbekannt');
+  safe('aiDashAutonomy', el => el.textContent = dash.autonomy || 'Unbekannt');
+  safe('aiDashCheckedAt', el => el.textContent = dash.checkedAt || 'Noch nie');
+  safe('aiDashboardResult', el => {
+    el.innerHTML = '<p><strong>' + escapeHtml(dash.status || 'Ungeprüft') + '</strong></p><p>' + escapeHtml(dash.detail || 'Noch keine KI-Prüfung ausgeführt.') + '</p>';
+  });
+}
+async function refreshAiDashboardStatus(){
+  const now = new Date().toLocaleString('de-DE');
+  const settings = JSON.parse(localStorage.getItem('elyonSettings') || '{}');
+  const securityMode = settings.securityMode !== false;
+  const sandboxMode = settings.sandboxMode !== false;
+  const autonomyLocked = settings.autonomyLocked !== false;
+  let provider = settings.aiProvider || (settings.aiEnabled === false ? 'local' : 'openai');
+  let model = settings.aiModel || (provider === 'deepseek' ? 'deepseek-v4-flash' : 'gpt-4o-mini');
+  let status = 'Ungeprüft';
+  let fallback = settings.aiAllowFallback === false ? 'Aus' : 'An';
+  let detail = 'Die Übersicht zeigt lokale Einstellungen und den Backend-Status.';
+
+  try{
+    const response = await fetch('/api/env-check');
+    const data = await response.json().catch(() => ({}));
+    const openaiReady = !!(data && data.readiness && data.readiness.openai && data.readiness.openai.ready);
+    const deepseekReady = !!(data && data.readiness && data.readiness.deepseek && data.readiness.deepseek.ready);
+
+    if(provider === 'deepseek'){
+      status = deepseekReady ? 'Bereit' : 'Key fehlt';
+      model = settings.aiModel || 'deepseek-v4-flash';
+      detail = deepseekReady ? 'DeepSeek ist laut Backend-Check bereit.' : 'DeepSeek ist im Backend noch nicht vollständig eingerichtet.';
+    }else if(provider === 'openai'){
+      status = openaiReady ? 'Bereit' : 'Key fehlt';
+      model = settings.aiModel || 'gpt-4o-mini';
+      detail = openaiReady ? 'OpenAI ist laut Backend-Check bereit.' : 'OpenAI ist im Backend noch nicht vollständig eingerichtet.';
+    }else{
+      status = 'Lokal';
+      model = 'local-fallback';
+      detail = 'Lokaler Fallback ist aktiv oder als sicherer Ersatz vorgesehen.';
+    }
+
+    updateAiDashboardUi({
+      checkedAt: now,
+      provider: provider || 'openai',
+      model,
+      status,
+      fallback,
+      security: securityMode ? 'Aktiv' : 'Aus',
+      sandbox: sandboxMode ? 'Aktiv' : 'Aus',
+      autonomy: autonomyLocked ? 'Gesperrt' : 'Frei',
+      detail,
+    });
+  }catch(error){
+    updateAiDashboardUi({
+      checkedAt: now,
+      provider,
+      model,
+      status: 'Fehler',
+      fallback,
+      security: securityMode ? 'Aktiv' : 'Aus',
+      sandbox: sandboxMode ? 'Aktiv' : 'Aus',
+      autonomy: autonomyLocked ? 'Gesperrt' : 'Frei',
+      detail: error && error.message ? error.message : 'Status konnte nicht geladen werden.',
+    });
+  }
+}
+async function testAiRouterProvider(provider){
+  const payload = {
+    provider: provider,
+    task: provider === 'deepseek' ? 'dashboard_deepseek_test' : 'dashboard_openai_test',
+    prompt: provider === 'deepseek' ? 'Kurzer DeepSeek Dashboard-Test.' : 'Kurzer OpenAI Dashboard-Test.',
+    allowFallback: true,
+    safety: {
+      securityMode: true,
+      sandboxMode: true,
+      autonomyLocked: true,
+      requiresLiveAction: false,
+      userApproved: false,
+    },
+  };
+  try{
+    const response = await fetch('/api/ai-router', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await response.json().catch(() => ({}));
+    updateAiDashboardUi({
+      checkedAt: new Date().toLocaleString('de-DE'),
+      provider: data.provider || provider,
+      model: data.model || (provider === 'deepseek' ? 'deepseek-v4-flash' : 'gpt-4o-mini'),
+      status: data.ok ? 'OK' : (data.error && data.error.type ? String(data.error.type) : 'Fehler'),
+      fallback: data.fallbackUsed ? 'An' : 'Aus',
+      security: 'Aktiv',
+      sandbox: 'Aktiv',
+      autonomy: 'Gesperrt',
+      detail: data.ok ? (data.content || 'Verbindung erfolgreich.') : ((data.error && data.error.message) || 'Verbindung fehlgeschlagen.'),
+    });
+  }catch(error){
+    updateAiDashboardUi({
+      checkedAt: new Date().toLocaleString('de-DE'),
+      provider,
+      model: provider === 'deepseek' ? 'deepseek-v4-flash' : 'gpt-4o-mini',
+      status: 'Fehler',
+      fallback: 'An',
+      security: 'Aktiv',
+      sandbox: 'Aktiv',
+      autonomy: 'Gesperrt',
+      detail: error && error.message ? error.message : 'Verbindung fehlgeschlagen.',
+    });
+  }
 }
 function refreshAiButtonStates(){
   const now = Date.now();
@@ -6803,13 +6987,53 @@ async function postJsonWithTimeout(url, payload, timeoutMs){
     clearTimeout(timeoutId);
   }
 }
-async function requestCentralAi(task, prompt, extra){
+function normalizeAiRouterProvider(extra){
+  const rawProvider = extra && typeof extra.provider === 'string' ? extra.provider.trim().toLowerCase() : '';
+  const rawModel = extra && typeof extra.model === 'string' ? extra.model.trim().toLowerCase() : '';
+  if (rawProvider === 'openai' || rawProvider === 'deepseek' || rawProvider === 'local') return rawProvider;
+  if (rawModel === 'deepseek') return 'deepseek';
+  return 'openai';
+}
+function normalizeAiRouterModel(provider, extra){
+  const rawModel = extra && typeof extra.model === 'string' ? extra.model.trim().toLowerCase() : '';
+  if (provider === 'deepseek') {
+    if (rawModel && rawModel !== 'deepseek') return rawModel;
+    return 'deepseek-v4-flash';
+  }
+  if (rawModel === 'openai-mini') return 'gpt-4o-mini';
+  if (rawModel === 'openai-standard') return 'gpt-4o';
+  if (rawModel && rawModel !== 'deepseek') return rawModel;
+  return 'gpt-4o-mini';
+}
+function buildAiRouterSafety(extra){
+  const safety = extra && typeof extra.safety === 'object' ? { ...extra.safety } : {};
+  return {
+    securityMode: safety.securityMode !== false,
+    sandboxMode: safety.sandboxMode !== false,
+    autonomyLocked: safety.autonomyLocked !== false,
+    requiresLiveAction: safety.requiresLiveAction === true,
+    userApproved: safety.userApproved === true,
+  };
+}
+async function requestAiRouter(task, prompt, extra){
   incrementAiUsage();
-  return postJsonWithTimeout('/api/ai', {
-    ...(extra || {}),
+  const provider = normalizeAiRouterProvider(extra || {});
+  const payload = {
+    provider,
     task: task,
     prompt: prompt,
-  }, 30000);
+    model: normalizeAiRouterModel(provider, extra || {}),
+    allowFallback: extra && extra.allowFallback !== undefined ? !!extra.allowFallback : true,
+    context: extra && extra.context && typeof extra.context === 'object' ? extra.context : {},
+    safety: buildAiRouterSafety(extra || {}),
+  };
+  if (Array.isArray(extra && extra.messages)) {
+    payload.messages = extra.messages;
+  }
+  return postJsonWithTimeout('/api/ai-router', payload, 30000);
+}
+async function requestCentralAi(task, prompt, extra){
+  return requestAiRouter(task, prompt, extra || {});
 }
 function readAiProductSearchInput(){
   const query = $('aiSearchQuery') && $('aiSearchQuery').value.trim() ? $('aiSearchQuery').value.trim() : '';
@@ -7006,7 +7230,7 @@ async function executeCentralAiTask(config){
       renderAiProductScoreTaskResult(data);
     }else if(resultId){
       const result = data && data.result ? data.result : (data && data.output_text ? data.output_text : '');
-      setHTML(resultId, '<div class="output-box"><h3>ChatGPT-Einschätzung</h3><p>' + escapeHtml(String(result || 'Keine KI-Antwort erzeugt.')) + '</p></div>');
+      setHTML(resultId, '<div class="output-box"><h3>Router-Einschätzung</h3><p>' + escapeHtml(String(result || 'Keine KI-Antwort erzeugt.')) + '</p></div>');
     }
   }catch(err){
     const message = err && err.message ? err.message : 'Unbekannter KI-Fehler';
@@ -8609,6 +8833,17 @@ function bindEvents(){
   bind('setCjConnectPlanBtn','click',prepareCjIntegration);
   bind('resetIntegrationSettingsBtn','click',resetIntegrationSettings);
   bind('apiOpenSettingsBtn','click',openIntegrations);
+  bind('openAiDashboardBtn','click',openAiDashboard);
+  bind('closeAiDashboardBtn','click',()=>safe('aiDashboardModal',el=>el.classList.add('hidden')));
+  bind('aiDashRefreshBtn','click',refreshAiDashboardStatus);
+  bind('aiDashTestOpenAiBtn','click',()=>testAiRouterProvider('openai'));
+  bind('aiDashTestDeepSeekBtn','click',()=>testAiRouterProvider('deepseek'));
+  bind('aiDashCloseBtn','click',()=>safe('aiDashboardModal',el=>el.classList.add('hidden')));
+  safe('aiDashboardModal', el => el.addEventListener('click', function(event){
+    if(event.target === el){
+      el.classList.add('hidden');
+    }
+  }));
   bind('cjSearchBtn','click',searchCjProducts);
   safe('cjSearchResult', el => el.addEventListener('click', function(event){
     const btn = event.target.closest('[data-cj-copy]');
@@ -8817,6 +9052,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   applyInvoiceSettings();
   refreshGoogleSheetsSyncSettingsForm().then(renderGoogleSheetsSyncStatus);
   renderAiUsageStatus();
+  refreshAiDashboardStatus();
   refreshAiButtonStates();
   const storedEbayDraft = loadStoredEbayListingDraft();
   if(storedEbayDraft){
