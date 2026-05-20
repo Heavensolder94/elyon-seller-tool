@@ -21,7 +21,8 @@
     "*://*.amazon.de/*",
     "*://*.aliexpress.com/*",
     "*://*.cjdropshipping.com/*",
-    "*://*.temu.com/*"
+    "*://*.temu.com/*",
+    "*://*.vercel.app/*"
   ],
   "content_scripts": [
     {

@@ -8,35 +8,140 @@
   </head>
   <body>
     <main class="wrap">
-      <h1>Settings</h1>
-      <section class="card">
-        <label><input type="checkbox" id="securityMode" /> securityMode</label>
-        <label><input type="checkbox" id="sandboxMode" /> sandboxMode</label>
-        <label><input type="checkbox" id="autonomyLocked" /> autonomyLocked</label>
-        <label><input type="checkbox" id="pauseAllAgents" /> pauseAllAgents</label>
-        <label><input type="checkbox" id="aiEnabled" /> aiEnabled</label>
+      <header class="hero">
+        <div>
+          <div class="eyebrow">Elyon Browser OS</div>
+          <h1>Settings Center</h1>
+          <p>Security, Overlay, Research und UI-Verhalten sauber an einem Ort.</p>
+        </div>
+        <div id="securityPreview" class="hero-badge">-</div>
+      </header>
+
+      <section class="grid">
+        <section class="card">
+          <div class="section-head">
+            <div>
+              <div class="label-row">
+                <div class="label">Security Layer</div>
+                <span class="info-tip" data-tip="Legt fest, was Elyon tun darf und was blockiert bleibt.">i</span>
+              </div>
+              <h2>Sicherheitsmodus</h2>
+            </div>
+            <div class="tag tag-critical">Schutz</div>
+          </div>
+          <div class="toggle-list">
+            <label class="toggle-row"><input type="checkbox" id="securityMode" /> securityMode <span class="info-tip" data-tip="Blockiert Live-Aktionen wie Bestellungen oder Nachrichten.">i</span></label>
+            <label class="toggle-row"><input type="checkbox" id="sandboxMode" /> sandboxMode <span class="info-tip" data-tip="Aktionen werden nur simuliert oder vorbereitet.">i</span></label>
+            <label class="toggle-row"><input type="checkbox" id="autonomyLocked" /> autonomyLocked <span class="info-tip" data-tip="Verhindert autonome Aktionen ohne Freigabe.">i</span></label>
+            <label class="toggle-row"><input type="checkbox" id="pauseAllAgents" /> pauseAllAgents <span class="info-tip" data-tip="Setzt alle Soul Agents vorübergehend auf Pause.">i</span></label>
+            <label class="toggle-row"><input type="checkbox" id="aiEnabled" /> aiEnabled <span class="info-tip" data-tip="Schaltet KI von vorbereitet auf aktiv.">i</span></label>
+          </div>
+          <div id="securityDetail" class="hint">-</div>
+        </section>
+
+        <section class="card">
+          <div class="section-head">
+            <div>
+              <div class="label-row">
+                <div class="label">UI Verhalten</div>
+                <span class="info-tip" data-tip="Steuert Overlay, Popup-Layout und kleine Komfortfunktionen.">i</span>
+              </div>
+              <h2>Overlay & Bedienung</h2>
+            </div>
+            <div class="tag">Core</div>
+          </div>
+          <div class="toggle-list">
+            <label class="toggle-row"><input type="checkbox" id="overlayEnabled" /> Overlay aktiv <span class="info-tip" data-tip="Aktiviert oder deaktiviert das Smart Overlay.">i</span></label>
+            <label class="toggle-row"><input type="checkbox" id="autoOpenOverlay" /> Overlay automatisch öffnen <span class="info-tip" data-tip="Öffnet das Overlay automatisch auf unterstützten Seiten.">i</span></label>
+            <label class="toggle-row"><input type="checkbox" id="rememberOverlayPosition" /> Position merken <span class="info-tip" data-tip="Merkt sich die letzte Overlay-Position auf der Seite.">i</span></label>
+            <label class="toggle-row"><input type="checkbox" id="compactPopup" /> Kompaktes Popup <span class="info-tip" data-tip="Zeigt das Popup kompakter und dichter an.">i</span></label>
+          </div>
+          <div class="hint">Diese Optionen verändern nur die Darstellung und das Overlay-Verhalten.</div>
+        </section>
+
+        <section class="card">
+          <div class="section-head">
+            <div>
+              <div class="label-row">
+                <div class="label">Research Memory</div>
+                <span class="info-tip" data-tip="Steuert lokale Produktliste, Badges und Export-Verhalten.">i</span>
+              </div>
+              <h2>Speichern & Export</h2>
+            </div>
+            <div class="tag">Research</div>
+          </div>
+          <div class="toggle-list">
+            <label class="toggle-row"><input type="checkbox" id="autoSaveResearch" /> Research automatisch speichern <span class="info-tip" data-tip="Speichert erkannte Produkte automatisch lokal.">i</span></label>
+            <label class="toggle-row"><input type="checkbox" id="showTabCountBadges" /> Tab-Badges anzeigen <span class="info-tip" data-tip="Zeigt Marktplatz-/Treffer-Badges im Tab Hunter an.">i</span></label>
+          </div>
+          <div class="actions-inline">
+            <div class="action-with-info">
+              <button id="openResearch" type="button">Research anzeigen</button>
+              <span class="info-tip" data-tip="Öffnet die vollständige Research-Memory-Seite.">i</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="section-head">
+            <div>
+              <div class="label-row">
+                <div class="label">Backend Connector</div>
+                <span class="info-tip" data-tip="Verbindung zu deinem Elyon Seller Tool Backend.">i</span>
+              </div>
+              <h2>API</h2>
+            </div>
+            <div class="tag">Connect</div>
+          </div>
+          <input id="backendUrl" type="url" placeholder="https://dein-backend.vercel.app" />
+          <div id="backendHint" class="hint">Noch nicht getestet.</div>
+          <div class="actions-inline">
+            <div class="action-with-info">
+              <button id="testBackend" type="button">Backend testen</button>
+              <span class="info-tip" data-tip="Prüft die Erreichbarkeit des Elyon Backends.">i</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="section-head">
+            <div>
+              <div class="label-row">
+                <div class="label">Soul Agents</div>
+                <span class="info-tip" data-tip="Zeigt Agentenstatus und Vorbereitung an, ohne Live-Ausführung.">i</span>
+              </div>
+              <h2>Workflow Vorschau</h2>
+            </div>
+            <div class="tag">AI</div>
+          </div>
+          <div class="toggle-list">
+            <label class="toggle-row"><input type="checkbox" id="showCommandBarHints" /> Command-Bar-Hinweise <span class="info-tip" data-tip="Zeigt kleine Tipps für die Command Bar an.">i</span></label>
+            <label class="toggle-row"><input type="checkbox" id="notifyOnBackendFallback" /> Fallback-Hinweise anzeigen <span class="info-tip" data-tip="Zeigt Hinweise, wenn das Backend nicht erreichbar ist und lokal gespeichert wird.">i</span></label>
+            <label class="toggle-row"><input type="checkbox" id="showImagePreview" /> Bildvorschau anzeigen <span class="info-tip" data-tip="Zeigt Produktbilder im Overlay und in Listen als Vorschau.">i</span></label>
+          </div>
+          <div class="hint">Agenten bleiben vorbereitet oder gesperrt, bis AI wirklich freigegeben ist.</div>
+          <div class="actions-inline">
+            <div class="action-with-info">
+              <button id="openAgents" type="button">Agenten anzeigen</button>
+              <span class="info-tip" data-tip="Öffnet die Soul-Agenten-Übersicht.">i</span>
+            </div>
+          </div>
+        </section>
       </section>
-      <section class="card">
-        <div class="label">Security Preview</div>
-        <div id="securityPreview" class="value">-</div>
-        <div id="securityDetail" class="hint">-</div>
+
+      <section class="card footer-card">
+        <div class="actions-inline">
+          <div class="action-with-info">
+            <button id="save" type="button">Speichern</button>
+            <span class="info-tip" data-tip="Speichert alle Elyon Einstellungen lokal.">i</span>
+          </div>
+          <div class="action-with-info">
+            <button id="resetSafeDefaults" type="button">Sichere Defaults</button>
+            <span class="info-tip" data-tip="Setzt alle Optionen auf sichere Standardwerte zurück.">i</span>
+          </div>
+        </div>
+        <div id="saveStatus" class="hint">-</div>
       </section>
-      <section class="card">
-        <div class="label">Research Memory</div>
-        <div class="hint">Lokale Produktliste mit Status, Notizen und Export.</div>
-        <button id="openResearch" type="button">Research anzeigen</button>
-      </section>
-      <section class="card">
-        <div class="label">API Connector</div>
-        <input id="backendUrl" type="url" placeholder="Backend URL" />
-        <div id="backendHint" class="hint">Noch nicht getestet.</div>
-      </section>
-      <section class="card">
-        <div class="label">Soul Agent System</div>
-        <div class="hint">Nur Vorschau / Sandbox. Keine Live-Aktion.</div>
-        <button id="openAgents" type="button">Agenten anzeigen</button>
-      </section>
-      <button id="save" type="button">Speichern</button>
     </main>
     <script type="module" src="options.js"></script>
   </body>

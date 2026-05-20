@@ -1,9 +1,73 @@
-import { getActionLabel, getSecurityLabel } from "../shared/security.js";
-import { SOUL_AGENTS, getAgentModeLabel, getAgentStatus, getAgentStatusLabel } from "../shared/agents.js";
-import { getElyonStatus, pingBackend, sendProductToElyon, prepareAiAnalysis } from "../shared/apiClient.js";
+import { SOUL_AGENTS, getAgentStatus, getAgentStatusLabel } from "../shared/agents.js";
+import { getElyonStatus, pingBackend, sendProductToElyon, getBackendUrl, setBackendUrl } from "../shared/apiClient.js";
+import { DEFAULT_SECURITY_STATE, getActionLabel, getSecurityLabel, getSecurityState, setSecurityState } from "../shared/security.js";
 
 let lastTabHunter = { summary: null, tabs: [] };
 let lastBackendStatus = null;
+let inlineSettingsVisible = false;
+let confirmResolve = null;
+
+function setActionLog(message, kind = "info") {
+  const el = document.getElementById("actionLog");
+  if (!el) return;
+  el.textContent = message || "Bereit.";
+  el.classList.remove("status-ok", "status-bad");
+  if (kind === "ok") el.classList.add("status-ok");
+  if (kind === "error") el.classList.add("status-bad");
+}
+
+function openConfirmModal(text, onAccept) {
+  const backdrop = document.getElementById("confirmBackdrop");
+  const confirmText = document.getElementById("confirmText");
+  if (!backdrop || !confirmText) {
+    return onAccept();
+  }
+
+  confirmText.textContent = text || "Produkt an Elyon senden?";
+  backdrop.classList.remove("hidden");
+  backdrop.setAttribute("aria-hidden", "false");
+
+  return new Promise((resolve) => {
+    confirmResolve = resolve;
+    const accept = document.getElementById("confirmAccept");
+    const cancel = document.getElementById("confirmCancel");
+    const close = document.getElementById("confirmClose");
+
+    const finish = async (value) => {
+      backdrop.classList.add("hidden");
+      backdrop.setAttribute("aria-hidden", "true");
+      confirmResolve = null;
+      window.onkeydown = null;
+      accept.onclick = null;
+      cancel.onclick = null;
+      close.onclick = null;
+      resolve(value);
+    };
+
+    const handleAccept = async () => {
+      try {
+        const result = await onAccept();
+        await finish(result ?? true);
+      } catch (error) {
+        await finish({ ok: false, error: error?.message || String(error) });
+      }
+    };
+
+    const handleCancel = async () => finish(false);
+
+    accept.onclick = handleAccept;
+    cancel.onclick = handleCancel;
+    close.onclick = handleCancel;
+    backdrop.onclick = (event) => {
+      if (event.target === backdrop) handleCancel();
+    };
+    window.onkeydown = (event) => {
+      if (event.key === "Escape") handleCancel();
+    };
+
+    setActionLog("Bestätigung geöffnet. Klick auf Senden oder Abbrechen.", "ok");
+  });
+}
 
 function getMarketplaceFromUrl(url = "") {
   const value = String(url).toLowerCase();
@@ -15,28 +79,142 @@ function getMarketplaceFromUrl(url = "") {
   return "Unbekannt";
 }
 
-async function refresh() {
-  const snapshot = await chrome.runtime.sendMessage({ type: "ELYON_GET_SNAPSHOT" });
-  if (!snapshot?.ok) return;
-  const researchResult = await chrome.runtime.sendMessage({ type: "ELYON_RESEARCH_LIST" });
-  const security = snapshot.security || {};
-  const tab = snapshot.currentTab || null;
-  document.getElementById("securityStatus").textContent = `${getSecurityLabel(security)}${security.aiEnabled ? "" : " · KI vorbereitet"}`;
-  document.getElementById("securityHint").textContent = [
-    security.securityMode ? "Live-Aktion blockiert" : "Live-Aktionen möglich",
-    security.sandboxMode ? "Sandbox aktiv" : "Sandbox inaktiv",
-    security.autonomyLocked ? "Autonomie gesperrt" : "Autonomie frei",
-    security.aiEnabled ? "AI aktiv" : "AI vorbereitet"
-  ].join(" · ");
-  document.getElementById("detectedPage").textContent = tab?.url ? getMarketplaceFromUrl(tab.url) : "Keine aktive Seite";
-  document.getElementById("activeTab").textContent = tab ? `${tab.title || "Ohne Titel"}\n${tab.url || "-"}` : "-";
-  document.getElementById("overlayState").textContent = snapshot.settings?.overlayEnabled === false ? "Overlay aus" : "Overlay an";
-  document.getElementById("riskLabel").textContent = getActionLabel("live_order", security);
-  renderResearchList(Array.isArray(researchResult?.researchMemory) ? researchResult.researchMemory : []);
+function setPopupStatus(message, kind = "info") {
+  const el = document.getElementById("popupStatus");
+  if (!el) return;
+  el.textContent = message || "-";
+  el.classList.remove("status-ok", "status-bad");
+  if (kind === "ok") el.classList.add("status-ok");
+  if (kind === "error") el.classList.add("status-bad");
+}
+
+function bindClick(id, handler) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.addEventListener("click", async (event) => {
+    event.preventDefault();
+    setPopupStatus("Aktion wird ausgefuehrt ...");
+    setActionLog(`Starte ${el.textContent || id} ...`);
+    el.classList.add("button-flash");
+    setTimeout(() => el.classList.remove("button-flash"), 180);
+    try {
+      await handler(event);
+    } catch (error) {
+      setActionLog(error?.message || "Aktion fehlgeschlagen", "error");
+      setPopupStatus(error?.message || "Aktion fehlgeschlagen", "error");
+    }
+  });
+}
+
+async function sendBackgroundMessage(payload) {
+  try {
+    return await chrome.runtime.sendMessage(payload);
+  } catch (error) {
+    return { ok: false, error: error?.message || String(error) };
+  }
+}
+
+async function loadActiveTab() {
+  const tabs = await chrome.tabs.query({ active: true, currentWindow: true }).catch(() => []);
+  return tabs[0] || null;
+}
+
+async function renderLocalSnapshot() {
+  const security = await getSecurityState().catch(() => DEFAULT_SECURITY_STATE);
+  const tab = await loadActiveTab();
+  const researchResult = await chrome.storage.local.get("elyon_research_memory").catch(() => ({}));
+  const researchMemory = Array.isArray(researchResult.elyon_research_memory) ? researchResult.elyon_research_memory : [];
+  const settings = await chrome.storage.local.get("elyon.settings").catch(() => ({}));
+  const overlayEnabled = settings?.["elyon.settings"]?.overlayEnabled !== false;
+
+  const securityStatus = document.getElementById("securityStatus");
+  if (securityStatus) {
+    securityStatus.textContent = `${getSecurityLabel(security)}${security.aiEnabled ? "" : " | KI vorbereitet"}`;
+  }
+
+  const securityHint = document.getElementById("securityHint");
+  if (securityHint) {
+    securityHint.textContent = [
+      security.securityMode ? "Live-Aktion blockiert" : "Live-Aktionen moeglich",
+      security.sandboxMode ? "Sandbox aktiv" : "Sandbox inaktiv",
+      security.autonomyLocked ? "Autonomie gesperrt" : "Autonomie frei",
+      security.aiEnabled ? "KI aktiv" : "KI vorbereitet"
+    ].join(" | ");
+  }
+
+  const detectedPage = document.getElementById("detectedPage");
+  if (detectedPage) {
+    detectedPage.textContent = tab?.url ? getMarketplaceFromUrl(tab.url) : "Keine aktive Seite";
+  }
+
+  const activeTab = document.getElementById("activeTab");
+  if (activeTab) {
+    activeTab.textContent = tab ? `${tab.title || "Ohne Titel"}\n${tab.url || "-"}` : "-";
+  }
+
+  const overlayState = document.getElementById("overlayState");
+  if (overlayState) {
+    overlayState.textContent = overlayEnabled ? "Overlay an" : "Overlay aus";
+  }
+
+  const riskLabel = document.getElementById("riskLabel");
+  if (riskLabel) {
+    riskLabel.textContent = getActionLabel("live_order", security);
+  }
+
+  renderResearchList(researchMemory);
   renderAgents(security);
-  renderTabHunter(lastTabHunter.summary, lastTabHunter.tabs);
-  await refreshBackend();
   window.__elyonCurrentTab = tab;
+  setPopupStatus(tab?.url ? "Lokale Daten geladen" : "Bereit", "ok");
+  setActionLog(tab?.url ? "Popup bereit - Aktionen verfuegbar" : "Popup bereit", "ok");
+}
+
+async function refresh() {
+  await renderLocalSnapshot();
+  const snapshot = await Promise.race([
+    sendBackgroundMessage({ type: "ELYON_GET_SNAPSHOT" }),
+    new Promise((resolve) => setTimeout(() => resolve({ ok: false, timeout: true }), 1200))
+  ]);
+
+  if (snapshot?.ok) {
+    const security = { ...DEFAULT_SECURITY_STATE, ...(snapshot.security || {}) };
+    const tab = snapshot.currentTab || window.__elyonCurrentTab || null;
+    const researchResult = await sendBackgroundMessage({ type: "ELYON_RESEARCH_LIST" });
+    const overlayState = document.getElementById("overlayState");
+    if (overlayState) {
+      overlayState.textContent = snapshot.settings?.overlayEnabled === false ? "Overlay aus" : "Overlay an";
+    }
+    const securityStatus = document.getElementById("securityStatus");
+    if (securityStatus) {
+      securityStatus.textContent = `${getSecurityLabel(security)}${security.aiEnabled ? "" : " | KI vorbereitet"}`;
+    }
+    const securityHint = document.getElementById("securityHint");
+    if (securityHint) {
+      securityHint.textContent = [
+        security.securityMode ? "Live-Aktion blockiert" : "Live-Aktionen moeglich",
+        security.sandboxMode ? "Sandbox aktiv" : "Sandbox inaktiv",
+        security.autonomyLocked ? "Autonomie gesperrt" : "Autonomie frei",
+        security.aiEnabled ? "KI aktiv" : "KI vorbereitet"
+      ].join(" | ");
+    }
+    const detectedPage = document.getElementById("detectedPage");
+    if (detectedPage) {
+      detectedPage.textContent = tab?.url ? getMarketplaceFromUrl(tab.url) : "Keine aktive Seite";
+    }
+    const activeTab = document.getElementById("activeTab");
+    if (activeTab) {
+      activeTab.textContent = tab ? `${tab.title || "Ohne Titel"}\n${tab.url || "-"}` : "-";
+    }
+    const riskLabel = document.getElementById("riskLabel");
+    if (riskLabel) {
+      riskLabel.textContent = getActionLabel("live_order", security);
+    }
+    renderResearchList(Array.isArray(researchResult?.researchMemory) ? researchResult.researchMemory : []);
+    renderAgents(security);
+    window.__elyonCurrentTab = tab;
+  }
+  await refreshBackend();
+  await refreshInlineSettings();
 }
 
 function getBadgeClass(status) {
@@ -49,9 +227,10 @@ function renderResearchList(items) {
   if (!list) return;
   const latest = items.slice(0, 10);
   if (!latest.length) {
-    list.textContent = "Noch keine Research-Memory-Einträge.";
+    list.textContent = "Noch keine Research-Memory-Eintraege.";
     return;
   }
+
   list.innerHTML = latest
     .map((item) => {
       const badgeText = item.status || "new";
@@ -72,6 +251,7 @@ function renderAgents(security) {
   const summary = document.getElementById("agentSummary");
   const list = document.getElementById("agentList");
   if (!summary || !list) return;
+
   summary.textContent = security.aiEnabled ? "KI-Verbindung aktiv" : "KI-Verbindung nicht aktiv";
   list.innerHTML = SOUL_AGENTS.map((agent) => {
     const status = getAgentStatus(agent, security);
@@ -94,25 +274,29 @@ function renderTabHunter(summary, tabs) {
   const summaryEl = document.getElementById("tabHunterSummary");
   const listEl = document.getElementById("tabHunterList");
   if (!summaryEl || !listEl) return;
+
   if (!summary) {
     summaryEl.textContent = "Noch kein Scan";
     listEl.textContent = "Tabs scannen, um Ergebnisse zu sehen.";
     return;
   }
-  summaryEl.textContent = `${summary.checkedTabs} geprüft · ${summary.supportedTabs} unterstützt · ${summary.savedTabs} gespeichert · ${summary.newTabs} neu`;
+
+  summaryEl.textContent = `${summary.checkedTabs} geprueft | ${summary.supportedTabs} unterstuetzt | ${summary.savedTabs} gespeichert | ${summary.newTabs} neu`;
+
   const items = Array.isArray(tabs) ? tabs.slice(0, 50) : [];
   if (!items.length) {
-    listEl.textContent = "Keine unterstützten Tabs gefunden.";
+    listEl.textContent = "Keine unterstuetzten Tabs gefunden.";
     return;
   }
+
   listEl.innerHTML = items
     .map((tab) => `
       <div class="tab-hunter-item">
         <div class="tab-hunter-title">${tab.title || "Ohne Titel"}</div>
-        <div class="tab-hunter-meta">${tab.marketplace || "-"} · ${tab.domain || "-"} · ${tab.saved ? "bereits gespeichert" : "neu"}</div>
+        <div class="tab-hunter-meta">${tab.marketplace || "-"} | ${tab.domain || "-"} | ${tab.saved ? "bereits gespeichert" : "neu"}</div>
         <div class="tab-hunter-meta">${tab.url || "-"}</div>
         <div class="actions-inline">
-          <button type="button" data-tab-open="${tab.id}">Öffnen</button>
+          <button type="button" data-tab-open="${tab.id}">Oeffnen</button>
           <button type="button" data-tab-save="${tab.id}">Speichern</button>
           <button type="button" data-tab-prepare="${tab.id}">Analysieren vorbereiten</button>
         </div>
@@ -123,59 +307,77 @@ function renderTabHunter(summary, tabs) {
   listEl.querySelectorAll("[data-tab-open]").forEach((button) => {
     button.addEventListener("click", async () => {
       const id = Number(button.getAttribute("data-tab-open"));
-      if (!Number.isNaN(id)) {
+      if (Number.isNaN(id)) return;
+      try {
         await chrome.tabs.update(id, { active: true });
+        setPopupStatus("Tab geoeffnet", "ok");
         await refresh();
+      } catch (error) {
+        setPopupStatus(error?.message || "Tab konnte nicht geoeffnet werden", "error");
       }
     });
   });
+
   listEl.querySelectorAll("[data-tab-save]").forEach((button) => {
     button.addEventListener("click", async () => {
       const id = Number(button.getAttribute("data-tab-save"));
       if (Number.isNaN(id)) return;
-      const tabs = await chrome.runtime.sendMessage({ type: "ELYON_SCAN_TABS" });
-      const tab = Array.isArray(tabs?.tabs) ? tabs.tabs.find((entry) => entry.id === id) : null;
-      if (!tab?.url) return;
-      await chrome.runtime.sendMessage({
-        type: "ELYON_RESEARCH_UPSERT",
-        product: {
-          id: tab.url,
-          title: tab.title || "",
-          price: "",
-          currency: "",
-          image: "",
-          url: tab.url,
-          supplier: tab.marketplace || "",
-          domain: tab.domain || "",
-          status: "new",
-          notes: "",
-          score: "",
-          detectedAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        }
-      });
-      await refresh();
+      try {
+        const tabsResult = await sendBackgroundMessage({ type: "ELYON_SCAN_TABS" });
+        const tab = Array.isArray(tabsResult?.tabs) ? tabsResult.tabs.find((entry) => entry.id === id) : null;
+        if (!tab?.url) throw new Error("Tab-Daten fehlen");
+        const result = await sendBackgroundMessage({
+          type: "ELYON_RESEARCH_UPSERT",
+          product: {
+            id: tab.url,
+            title: tab.title || "",
+            price: "",
+            currency: "",
+            image: "",
+            url: tab.url,
+            supplier: tab.marketplace || "",
+            domain: tab.domain || "",
+            status: "new",
+            notes: "",
+            score: "",
+            detectedAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          }
+        });
+        if (!result?.ok) throw new Error(result?.error || "Speichern fehlgeschlagen");
+        setPopupStatus("Tab gespeichert", "ok");
+        await refresh();
+      } catch (error) {
+        setPopupStatus(error?.message || "Tab konnte nicht gespeichert werden", "error");
+      }
     });
   });
+
   listEl.querySelectorAll("[data-tab-prepare]").forEach((button) => {
     button.addEventListener("click", async () => {
       const id = Number(button.getAttribute("data-tab-prepare"));
       if (Number.isNaN(id)) return;
-      await chrome.tabs.update(id, { active: true });
-      await chrome.runtime.sendMessage({
-        type: "ELYON_RESEARCH_UPSERT",
-        product: {
-          id: `tab-${id}`,
-          title: "Tab Analyse vorbereitet",
-          url: `tab:${id}`,
-          status: "new",
-          notes: "Analyse vorbereitet",
-          score: "",
-          detectedAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        }
-      });
-      await refresh();
+      try {
+        await chrome.tabs.update(id, { active: true });
+        const result = await sendBackgroundMessage({
+          type: "ELYON_RESEARCH_UPSERT",
+          product: {
+            id: `tab-${id}`,
+            title: "Tab Analyse vorbereitet",
+            url: `tab:${id}`,
+            status: "new",
+            notes: "Analyse vorbereitet",
+            score: "",
+            detectedAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          }
+        });
+        if (!result?.ok) throw new Error(result?.error || "Vorbereitung fehlgeschlagen");
+        setPopupStatus("Analyse vorbereitet", "ok");
+        await refresh();
+      } catch (error) {
+        setPopupStatus(error?.message || "Analyse konnte nicht vorbereitet werden", "error");
+      }
     });
   });
 }
@@ -183,6 +385,7 @@ function renderTabHunter(summary, tabs) {
 async function refreshBackend() {
   const status = await getElyonStatus().catch(() => ({ backendUrl: "", reachable: false, message: "Backend nicht erreichbar" }));
   lastBackendStatus = status;
+
   const backendStatus = document.getElementById("backendStatus");
   const backendMessage = document.getElementById("backendMessage");
   if (backendStatus) {
@@ -192,45 +395,54 @@ async function refreshBackend() {
   if (backendMessage) {
     backendMessage.textContent = status.message || "-";
   }
+
+  setPopupStatus(
+    status.reachable ? "Backend bereit" : status.backendUrl ? "Backend nicht erreichbar" : "Backend nicht konfiguriert",
+    status.reachable ? "ok" : "error"
+  );
+  setActionLog(status.reachable ? "Backend erreichbar" : "Backend nicht erreichbar", status.reachable ? "ok" : "error");
 }
 
-document.getElementById("overlayToggle").addEventListener("click", async () => {
-  await chrome.runtime.sendMessage({ type: "ELYON_TOGGLE_OVERLAY" });
+async function refreshInlineSettings() {
+  const state = await getSecurityState().catch(() => DEFAULT_SECURITY_STATE);
+  for (const id of ["securityMode", "sandboxMode", "autonomyLocked", "pauseAllAgents", "aiEnabled"]) {
+    const el = document.getElementById(id);
+    if (el) el.checked = state[id] === true;
+  }
+
+  const backendUrl = await getBackendUrl().catch(() => "");
+  const backendInput = document.getElementById("backendUrl");
+  if (backendInput) backendInput.value = backendUrl || "";
+}
+
+async function saveInlineSettings() {
+  const nextSecurity = {};
+  for (const id of ["securityMode", "sandboxMode", "autonomyLocked", "pauseAllAgents", "aiEnabled"]) {
+    nextSecurity[id] = document.getElementById(id)?.checked === true;
+  }
+  await setSecurityState(nextSecurity);
+
+  const backendInput = document.getElementById("backendUrl");
+  if (backendInput) {
+    await setBackendUrl(backendInput.value || "");
+  }
+
+  setPopupStatus("Einstellungen gespeichert", "ok");
+  setActionLog("Einstellungen gespeichert", "ok");
+  await refresh();
+}
+
+bindClick("overlayToggle", async () => {
+  const result = await sendBackgroundMessage({ type: "ELYON_TOGGLE_OVERLAY" });
+  if (!result?.ok) throw new Error(result?.error || "Overlay konnte nicht umgeschaltet werden");
+  setPopupStatus(result.settings?.overlayEnabled ? "Overlay aktiviert" : "Overlay deaktiviert", "ok");
+  setActionLog(result.settings?.overlayEnabled ? "Overlay aktiviert" : "Overlay deaktiviert", "ok");
   await refresh();
 });
 
-document.getElementById("saveProduct").addEventListener("click", async () => {
+bindClick("saveProduct", async () => {
   const tab = window.__elyonCurrentTab;
-  if (!tab?.url) return;
-  await chrome.runtime.sendMessage({
-    type: "ELYON_SAVE_PRODUCT",
-    product: {
-      url: tab.url,
-      title: tab.title || "Unbekannt",
-      marketplace: getMarketplaceFromUrl(tab.url),
-      status: "new"
-    }
-  });
-  await refresh();
-});
-
-document.getElementById("openSettings").addEventListener("click", () => chrome.runtime.openOptionsPage());
-document.getElementById("allResearch").addEventListener("click", () => chrome.tabs.create({ url: chrome.runtime.getURL("options/research.html") }));
-document.getElementById("openAgents").addEventListener("click", () => chrome.tabs.create({ url: chrome.runtime.getURL("options/agents.html") }));
-document.getElementById("scanTabs").addEventListener("click", async () => {
-  const result = await chrome.runtime.sendMessage({ type: "ELYON_SCAN_TABS" });
-  if (!result?.ok) return;
-  lastTabHunter = { summary: result.summary || null, tabs: Array.isArray(result.tabs) ? result.tabs : [] };
-  renderTabHunter(result.summary || null, result.tabs || []);
-});
-
-document.getElementById("testBackend").addEventListener("click", async () => {
-  await refreshBackend();
-});
-
-document.getElementById("sendToElyon").addEventListener("click", async () => {
-  const tab = window.__elyonCurrentTab;
-  if (!tab?.url) return;
+  if (!tab?.url) throw new Error("Kein aktiver Tab gefunden");
   const result = await sendProductToElyon({
     id: tab.url,
     title: tab.title || "",
@@ -240,7 +452,11 @@ document.getElementById("sendToElyon").addEventListener("click", async () => {
     url: tab.url,
     supplier: getMarketplaceFromUrl(tab.url),
     domain: (() => {
-      try { return new URL(tab.url).hostname.toLowerCase(); } catch { return ""; }
+      try {
+        return new URL(tab.url).hostname.toLowerCase();
+      } catch {
+        return "";
+      }
     })(),
     status: "new",
     notes: "",
@@ -250,17 +466,156 @@ document.getElementById("sendToElyon").addEventListener("click", async () => {
   });
   const backendMessage = document.getElementById("backendMessage");
   if (backendMessage) {
-    backendMessage.textContent = result?.message || "Produkt verarbeitet";
+    const boardText = result?.boardSync?.synced ? "Board aktualisiert" : result?.boardSync?.message || "";
+    backendMessage.textContent = [result?.message || "Produkt verarbeitet", boardText].filter(Boolean).join(" | ");
   }
   if (!result.ok && result.storedLocally) {
     backendMessage?.classList.add("status-bad");
-    backendMessage.textContent = "Lokal gespeichert – Backend nicht erreichbar";
+    backendMessage.textContent = "Lokal gespeichert - Backend nicht erreichbar";
+    setPopupStatus("Lokal gespeichert - Backend nicht erreichbar", "error");
+    setActionLog("Produkt lokal gespeichert", "error");
+  } else if (result.ok) {
+    setPopupStatus("Produkt gespeichert", "ok");
+    setActionLog(result?.boardSync?.synced ? "Produkt uebertragen und Board aktualisiert" : "Produkt gespeichert", "ok");
   }
-  if (!result.ok) {
-    await refresh();
-  } else {
-    await refreshBackend();
+  await refresh();
+});
+
+bindClick("toggleInlineSettings", async () => {
+  inlineSettingsVisible = !inlineSettingsVisible;
+  const panel = document.getElementById("inlineSettings");
+  if (panel) panel.classList.toggle("hidden", !inlineSettingsVisible);
+  setPopupStatus(inlineSettingsVisible ? "Inline-Einstellungen geoeffnet" : "Inline-Einstellungen geschlossen", "ok");
+  setActionLog(inlineSettingsVisible ? "Schnelleinstellungen geoeffnet" : "Schnelleinstellungen geschlossen", "ok");
+});
+
+bindClick("saveInlineSettings", saveInlineSettings);
+
+bindClick("openAdvancedSettings", async () => {
+  await chrome.tabs.create({ url: chrome.runtime.getURL("options/options.html") });
+  setPopupStatus("Erweiterte Settings geoeffnet", "ok");
+  setActionLog("Erweiterte Settings geoeffnet", "ok");
+});
+
+bindClick("openSettings", async () => {
+  await chrome.runtime.openOptionsPage();
+  setPopupStatus("Settings geoeffnet", "ok");
+  setActionLog("Settings geoeffnet", "ok");
+});
+
+bindClick("allResearch", async () => {
+  await chrome.tabs.create({ url: chrome.runtime.getURL("options/research.html") });
+  setPopupStatus("Research Memory geoeffnet", "ok");
+  setActionLog("Research Memory geoeffnet", "ok");
+});
+
+bindClick("openAgents", async () => {
+  await chrome.tabs.create({ url: chrome.runtime.getURL("options/agents.html") });
+  setPopupStatus("Agenten geoeffnet", "ok");
+  setActionLog("Agenten geoeffnet", "ok");
+});
+
+bindClick("prepareScoutWorkflow", async () => {
+  const activeTab = window.__elyonCurrentTab;
+  const agent = SOUL_AGENTS.find((entry) => entry.id === "soul-scout");
+  if (!agent) throw new Error("Soul Scout nicht gefunden");
+  const result = await sendBackgroundMessage({
+    type: "ELYON_PREPARE_AGENT_WORKFLOW",
+    agentId: agent.id,
+    context: {
+      title: activeTab?.title ? `Soul Scout: ${activeTab.title}` : "Soul Scout vorbereitet",
+      url: activeTab?.url || "",
+      notes: activeTab?.url ? "Analyse aus dem aktuellen Tab vorbereitet" : "Workflow vorbereitet"
+    }
+  });
+  if (!result?.ok) throw new Error(result?.error || "Workflow konnte nicht vorbereitet werden");
+  setPopupStatus("Soul Scout Workflow vorbereitet", "ok");
+  setActionLog("Soul Scout Workflow vorbereitet", "ok");
+});
+
+bindClick("scanTabs", async () => {
+  const result = await sendBackgroundMessage({ type: "ELYON_SCAN_TABS" });
+  if (!result?.ok) throw new Error(result?.error || "Tabs konnten nicht gescannt werden");
+  lastTabHunter = { summary: result.summary || null, tabs: Array.isArray(result.tabs) ? result.tabs : [] };
+  renderTabHunter(result.summary || null, result.tabs || []);
+  setPopupStatus(`Tabs gescannt: ${result.summary?.supportedTabs || 0} Treffer`, "ok");
+  setActionLog(`Tabs gescannt: ${result.summary?.supportedTabs || 0} Treffer`, "ok");
+});
+
+bindClick("testBackend", async () => {
+  const status = await pingBackend().catch(() => ({ reachable: false, message: "Backend nicht erreichbar" }));
+  const backendStatus = document.getElementById("backendStatus");
+  const backendMessage = document.getElementById("backendMessage");
+  if (backendStatus) {
+    backendStatus.textContent = status.reachable ? "Verbunden" : "Getrennt";
+    backendStatus.className = `value ${status.reachable ? "status-ok" : "status-bad"}`;
   }
+  if (backendMessage) {
+    backendMessage.textContent = status.message || "-";
+  }
+  setPopupStatus(status.reachable ? "Backend bereit" : "Backend nicht erreichbar", status.reachable ? "ok" : "error");
+  setActionLog(status.reachable ? "Backend bereit" : "Backend nicht erreichbar", status.reachable ? "ok" : "error");
+});
+
+bindClick("sendToElyon", async () => {
+  const tab = window.__elyonCurrentTab;
+  if (!tab?.url) throw new Error("Kein aktiver Tab gefunden");
+  alert(`Elyon Debug: Klick auf "Produkt an Elyon senden" erkannt.\n\nSeite: ${tab.title || "Ohne Titel"}\nURL: ${tab.url}`);
+  const product = {
+    id: tab.url,
+    title: tab.title || "",
+    price: "",
+    currency: "",
+    image: "",
+    url: tab.url,
+    supplier: getMarketplaceFromUrl(tab.url),
+    domain: (() => {
+      try {
+        return new URL(tab.url).hostname.toLowerCase();
+      } catch {
+        return "";
+      }
+    })(),
+    status: "new",
+    notes: "",
+    score: "",
+    detectedAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+
+  setPopupStatus("Debug: Klick erkannt - Bestätigung folgt", "ok");
+  setActionLog("Debug: Klick auf Produkt an Elyon senden erkannt", "ok");
+
+  const confirmed = await openConfirmModal(
+    `Produkt "${product.title || "Ohne Titel"}" an Elyon senden?`,
+    async () => sendProductToElyon(product)
+  );
+
+  if (!confirmed || confirmed?.ok === false) {
+    setPopupStatus("Senden abgebrochen", "error");
+    setActionLog("Senden abgebrochen", "error");
+    return;
+  }
+
+  const result = confirmed;
+
+  const backendMessage = document.getElementById("backendMessage");
+  if (backendMessage) {
+    const boardText = result?.boardSync?.synced ? "Board aktualisiert" : result?.boardSync?.message || "";
+    backendMessage.textContent = [result?.message || "Produkt verarbeitet", boardText].filter(Boolean).join(" | ");
+  }
+
+  if (!result.ok && result.storedLocally) {
+    backendMessage?.classList.add("status-bad");
+    backendMessage.textContent = "Lokal gespeichert - Backend nicht erreichbar";
+    setPopupStatus("Lokal gespeichert - Backend nicht erreichbar", "error");
+    setActionLog("Produkt lokal gespeichert", "error");
+  } else if (result.ok) {
+    setPopupStatus(result?.boardSync?.synced ? "Produkt uebertragen - Board aktualisiert" : "Produkt an Elyon gesendet", "ok");
+    setActionLog(result?.boardSync?.synced ? "Produkt uebertragen - Board aktualisiert" : "Produkt an Elyon gesendet", "ok");
+  }
+
+  await refresh();
 });
 
 void refresh();

@@ -13,6 +13,9 @@ import {
   updateResearchProductById,
   deleteResearchProductById
 } from "./shared/storage.js";
+import { prepareAgentWorkflow, loadAgentWorkflows } from "./shared/agentWorkflows.js";
+import { SOUL_AGENTS } from "./shared/agents.js";
+import { sendProductToElyon as sendProductImportToElyon } from "./shared/apiClient.js";
 
 const DEFAULT_SETTINGS = {
   ...DEFAULT_SECURITY_STATE,
@@ -37,6 +40,7 @@ chrome.runtime.onInstalled.addListener(async () => {
   if (!result[STORAGE_KEYS.state]) await chrome.storage.local.set({ [STORAGE_KEYS.state]: { lastUpdated: new Date().toISOString(), currentTab: null } });
   if (!result[STORAGE_KEYS.products]) await chrome.storage.local.set({ [STORAGE_KEYS.products]: [] });
   if (!result[STORAGE_KEYS.researchMemory]) await chrome.storage.local.set({ [STORAGE_KEYS.researchMemory]: [] });
+  if (!result.elyon_agent_workflows) await chrome.storage.local.set({ elyon_agent_workflows: [] });
 });
 
 async function ensureContentScript(tabId) {
@@ -54,6 +58,70 @@ async function ensureContentScript(tabId) {
     } catch {
       return false;
     }
+  }
+}
+
+async function syncProductToBoardTab(product) {
+  const tabs = await chrome.tabs.query({}).catch(() => []);
+  const target = tabs.find((tab) => {
+    const url = String(tab.url || "").toLowerCase();
+    return url.includes("elyon-seller-tool") && url.includes("vercel.app");
+  });
+
+  if (!target?.id) {
+    return { ok: false, synced: false, message: "Elyon-Board-Tab nicht offen" };
+  }
+
+  try {
+    const [result] = await chrome.scripting.executeScript({
+      target: { tabId: target.id },
+      func: (incoming) => {
+        try {
+          const key = "elyonProducts";
+          const raw = localStorage.getItem(key);
+          let current = [];
+          try {
+            const parsed = JSON.parse(raw || "[]");
+            current = Array.isArray(parsed) ? parsed : [];
+          } catch {
+            current = [];
+          }
+
+          const now = new Date().toISOString();
+          const nextItem = {
+            ...(incoming || {}),
+            createdAt: incoming?.createdAt || incoming?.savedAt || now,
+            savedAt: incoming?.savedAt || now,
+            updatedAt: now
+          };
+          const url = String(nextItem.url || "");
+          const existingIndex = current.findIndex((item) => item && item.url === url);
+          const next = existingIndex >= 0
+            ? current.map((item, index) => (index === existingIndex ? { ...item, ...nextItem } : item))
+            : [nextItem, ...current];
+
+          localStorage.setItem(key, JSON.stringify(next));
+          window.dispatchEvent(new CustomEvent("elyon:external-product-sync", { detail: { product: nextItem, source: "extension" } }));
+          return { ok: true, count: next.length };
+        } catch (error) {
+          return { ok: false, error: error?.message || String(error) };
+        }
+      },
+      args: [product]
+    });
+
+    if (result?.result?.ok) {
+      try {
+        await chrome.tabs.reload(target.id, { bypassCache: true });
+      } catch {
+        // reload is best-effort only
+      }
+      return { ok: true, synced: true, message: "Board aktualisiert und Seite neu geladen" };
+    }
+
+    return { ok: false, synced: false, message: result?.result?.error || "Board-Sync fehlgeschlagen" };
+  } catch (error) {
+    return { ok: false, synced: false, message: error?.message || "Board-Sync fehlgeschlagen" };
   }
 }
 
@@ -99,32 +167,24 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     if (message?.type === "ELYON_SAVE_PRODUCT" && message.product) {
       const decision = canRunAction("research_save", security);
-      const result = await chrome.storage.local.get(STORAGE_KEYS.products);
-      const products = Array.isArray(result[STORAGE_KEYS.products]) ? result[STORAGE_KEYS.products] : [];
-      const exists = products.some((item) => item.url === message.product.url);
-      const next = exists
-        ? products.map((item) => (item.url === message.product.url ? { ...item, ...message.product, updatedAt: new Date().toISOString() } : item))
-        : [{ ...message.product, savedAt: new Date().toISOString() }, ...products];
-      await chrome.storage.local.set({ [STORAGE_KEYS.products]: next });
-      const researchResult = await chrome.storage.local.get(STORAGE_KEYS.researchMemory);
-      const researchMemory = Array.isArray(researchResult[STORAGE_KEYS.researchMemory]) ? researchResult[STORAGE_KEYS.researchMemory] : [];
-      const researchExists = researchMemory.some((item) => item.url === message.product.url);
-      const nextResearch = researchExists
-        ? researchMemory.map((item) =>
-            item.url === message.product.url
-              ? { ...item, ...message.product, updatedAt: new Date().toISOString(), status: item.status || "new" }
-              : item
-          )
-        : [{ ...message.product, status: "new", detectedAt: message.product.detectedAt || new Date().toISOString() }, ...researchMemory];
-      await chrome.storage.local.set({ [STORAGE_KEYS.researchMemory]: nextResearch });
-      const normalizedResearch = await upsertResearchProduct({ ...message.product, status: "new" });
-      sendResponse({ ok: true, products: next, researchMemory: normalizedResearch, security, decision });
+      const importResult = await sendProductImportToElyon({ ...message.product, status: "new" });
+      const researchResult = await loadResearchMemory();
+      sendResponse({
+        ok: true,
+        products: await chrome.storage.local.get(STORAGE_KEYS.products).then((result) => Array.isArray(result[STORAGE_KEYS.products]) ? result[STORAGE_KEYS.products] : []),
+        researchMemory: researchResult,
+        security,
+        decision,
+        boardSync: importResult?.boardSync || { ok: false, synced: false, message: "Board-Tab nicht offen" },
+        importResult
+      });
       return;
     }
 
     if (message?.type === "ELYON_RESEARCH_UPSERT" && message.product) {
       const next = await upsertResearchProduct(message.product);
-      sendResponse({ ok: true, researchMemory: next, security });
+      const boardSync = await syncProductToBoardTab(message.product);
+      sendResponse({ ok: true, researchMemory: next, security, boardSync });
       return;
     }
 
@@ -149,6 +209,23 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message?.type === "ELYON_RESEARCH_EXPORT_PREP") {
       const researchMemory = await loadResearchMemory();
       sendResponse({ ok: true, exportJson: JSON.stringify(researchMemory, null, 2), security });
+      return;
+    }
+
+    if (message?.type === "ELYON_PREPARE_AGENT_WORKFLOW" && message.agentId) {
+      const agent = SOUL_AGENTS.find((entry) => entry.id === message.agentId);
+      if (!agent) {
+        sendResponse({ ok: false, error: "Agent not found" });
+        return;
+      }
+      const workflows = await prepareAgentWorkflow(agent, message.context || {});
+      sendResponse({ ok: true, workflows, lastWorkflow: workflows[0], security });
+      return;
+    }
+
+    if (message?.type === "ELYON_AGENT_WORKFLOWS_LIST") {
+      const workflows = await loadAgentWorkflows();
+      sendResponse({ ok: true, workflows, security });
       return;
     }
 

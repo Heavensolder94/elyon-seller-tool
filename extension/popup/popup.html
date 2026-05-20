@@ -9,65 +9,185 @@
   <body>
     <main class="popup">
       <h1>Elyon Browser OS</h1>
+
       <section class="card">
-        <div class="label">Aktueller Sicherheitsstatus</div>
+        <div class="label-row">
+          <div class="label">Aktueller Sicherheitsstatus</div>
+          <span class="info-tip" data-tip="Zeigt, ob Live-Aktionen blockiert, sandboxed oder vorbereitet sind.">i</span>
+        </div>
         <div id="securityStatus" class="value">-</div>
         <div id="securityHint" class="hint">-</div>
       </section>
+
       <section class="card">
-        <div class="label">Erkannte Seite</div>
+        <div class="label-row">
+          <div class="label">Popup Status</div>
+          <span class="info-tip" data-tip="Kurzer Status der letzten Aktion oder Meldung im Elyon Popup.">i</span>
+        </div>
+        <div id="popupStatus" class="value">-</div>
+        <div id="actionLog" class="action-log">Bereit.</div>
+      </section>
+
+      <section class="card">
+        <div class="label-row">
+          <div class="label">Erkannte Seite</div>
+          <span class="info-tip" data-tip="Marktplatz-Erkennung basierend auf der aktuellen URL.">i</span>
+        </div>
         <div id="detectedPage" class="value">-</div>
       </section>
+
       <section class="card">
-        <div class="label">Warnhinweis</div>
+        <div class="label-row">
+          <div class="label">Warnhinweis</div>
+          <span class="info-tip" data-tip="Zeigt an, ob die aktuelle Aktion gesperrt oder nur vorbereitet ist.">i</span>
+        </div>
         <div id="riskLabel" class="value">-</div>
       </section>
+
       <section class="card">
-        <div class="label">Aktiver Tab</div>
+        <div class="label-row">
+          <div class="label">Aktiver Tab</div>
+          <span class="info-tip" data-tip="Titel und URL des aktuell aktiven Tabs.">i</span>
+        </div>
         <div id="activeTab" class="value">-</div>
       </section>
+
       <section class="card">
-        <div class="label">Overlay Status</div>
+        <div class="label-row">
+          <div class="label">Overlay Status</div>
+          <span class="info-tip" data-tip="Zeigt, ob das Smart Overlay aktuell aktiv ist.">i</span>
+        </div>
         <div id="overlayState" class="value">-</div>
       </section>
+
       <section class="card">
-        <div class="label">Backend Status</div>
+        <div class="actions-inline">
+          <div class="action-with-info">
+            <button id="toggleInlineSettings" type="button">Einstellungen</button>
+            <span class="info-tip" data-tip="Öffnet die schnellen Elyon-Einstellungen direkt im Popup.">i</span>
+          </div>
+          <div class="action-with-info">
+            <button id="openAdvancedSettings" type="button">Erweiterte Settings</button>
+            <span class="info-tip" data-tip="Öffnet die vollständige Settings-Seite mit allen Elyon-Optionen.">i</span>
+          </div>
+        </div>
+      </section>
+
+      <section id="inlineSettings" class="card inline-settings hidden">
+        <div class="label-row">
+          <div class="label">Elyon Einstellungen</div>
+          <span class="info-tip" data-tip="Schnelle Sicherheits- und Backend-Einstellungen für das Popup.">i</span>
+        </div>
+        <label class="setting-row"><input id="securityMode" type="checkbox" /> securityMode <span class="info-tip" data-tip="Blockiert Live-Aktionen wie Bestellungen oder Nachrichten.">i</span></label>
+        <label class="setting-row"><input id="sandboxMode" type="checkbox" /> sandboxMode <span class="info-tip" data-tip="Aktionen werden nur simuliert oder vorbereitet.">i</span></label>
+        <label class="setting-row"><input id="autonomyLocked" type="checkbox" /> autonomyLocked <span class="info-tip" data-tip="Verhindert autonome Aktionen ohne Freigabe.">i</span></label>
+        <label class="setting-row"><input id="pauseAllAgents" type="checkbox" /> pauseAllAgents <span class="info-tip" data-tip="Setzt alle Soul Agents vorübergehend auf Pause.">i</span></label>
+        <label class="setting-row"><input id="aiEnabled" type="checkbox" /> aiEnabled <span class="info-tip" data-tip="Schaltet KI von vorbereitet auf aktiv.">i</span></label>
+        <div class="actions-inline">
+          <div class="action-with-info">
+            <button id="saveInlineSettings" type="button">Speichern</button>
+            <span class="info-tip" data-tip="Speichert die schnellen Elyon-Einstellungen.">i</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="label-row">
+          <div class="label">Backend Status</div>
+          <span class="info-tip" data-tip="Verbindung zu deinem Elyon Seller Tool Backend.">i</span>
+        </div>
         <div id="backendStatus" class="value">-</div>
         <div id="backendMessage" class="hint">-</div>
         <div class="actions-inline">
-          <button id="testBackend" type="button">Backend testen</button>
-          <button id="sendToElyon" type="button">Produkt an Elyon senden</button>
+          <div class="action-with-info">
+            <button id="testBackend" type="button">Backend testen</button>
+            <span class="info-tip" data-tip="Prüft, ob das Elyon Backend erreichbar ist.">i</span>
+          </div>
+          <div class="action-with-info">
+            <button id="sendToElyon" type="button">Produkt an Elyon senden</button>
+            <span class="info-tip" data-tip="Sendet das erkannte Produkt nur vorbereitet an Elyon.">i</span>
+          </div>
         </div>
       </section>
+
       <section class="card">
-        <div class="label">Research Memory</div>
+        <div class="label-row">
+          <div class="label">Research Memory</div>
+          <span class="info-tip" data-tip="Lokale Produktliste mit Status, Notizen und Export.">i</span>
+        </div>
         <div id="researchList" class="research-list">-</div>
         <div class="actions-inline">
-          <button id="allResearch" type="button">Alle anzeigen</button>
+          <div class="action-with-info">
+            <button id="allResearch" type="button">Alle anzeigen</button>
+            <span class="info-tip" data-tip="Öffnet die vollständige Research-Memory-Seite.">i</span>
+          </div>
         </div>
       </section>
+
       <section class="card">
-        <div class="label">Soul Agent System</div>
-        <div id="agentSummary" class="hint">Lade Agenten …</div>
+        <div class="label-row">
+          <div class="label">Soul Agent System</div>
+          <span class="info-tip" data-tip="Übersicht der Agenten mit Status, Guardrails und Vorbereitung.">i</span>
+        </div>
+        <div id="agentSummary" class="hint">Lade Agenten ...</div>
         <div id="agentList" class="agent-list">-</div>
         <div class="actions-inline">
-          <button id="openAgents" type="button">Agenten öffnen</button>
+          <div class="action-with-info">
+            <button id="openAgents" type="button">Agenten öffnen</button>
+            <span class="info-tip" data-tip="Öffnet die Soul-Agenten-Übersicht.">i</span>
+          </div>
+          <div class="action-with-info">
+            <button id="prepareScoutWorkflow" type="button">Soul Scout vorbereiten</button>
+            <span class="info-tip" data-tip="Erstellt lokal einen vorbereiteten Workflow für Soul Scout.">i</span>
+          </div>
         </div>
       </section>
+
       <section class="card">
-        <div class="label">Multi Tab Hunter</div>
-        <div id="tabHunterSummary" class="hint">Noch kein Scan …</div>
+        <div class="label-row">
+          <div class="label">Multi Tab Hunter</div>
+          <span class="info-tip" data-tip="Scannt offene Tabs nach unterstützten Produktseiten.">i</span>
+        </div>
+        <div id="tabHunterSummary" class="hint">Noch kein Scan ...</div>
         <div class="actions-inline">
-          <button id="scanTabs" type="button">Tabs scannen</button>
+          <div class="action-with-info">
+            <button id="scanTabs" type="button">Tabs scannen</button>
+            <span class="info-tip" data-tip="Prüft offene Tabs und sammelt unterstützte Produktseiten.">i</span>
+          </div>
         </div>
         <div id="tabHunterList" class="tab-hunter-list">-</div>
       </section>
+
       <section class="actions">
-        <button id="overlayToggle" type="button">Overlay toggeln</button>
-        <button id="saveProduct" type="button">Produkt speichern</button>
-        <button id="openSettings" type="button">Settings öffnen</button>
+        <div class="action-with-info">
+          <button id="overlayToggle" type="button">Overlay toggeln</button>
+          <span class="info-tip" data-tip="Schaltet das Smart Overlay auf Produktseiten an oder aus.">i</span>
+        </div>
+        <div class="action-with-info">
+          <button id="saveProduct" type="button">Produkt speichern</button>
+          <span class="info-tip" data-tip="Speichert den aktuellen Tab lokal in Research Memory.">i</span>
+        </div>
+        <div class="action-with-info">
+          <button id="openSettings" type="button">Settings öffnen</button>
+          <span class="info-tip" data-tip="Öffnet die vollständigen Elyon-Einstellungen von Chrome.">i</span>
+        </div>
       </section>
     </main>
+    <div id="confirmBackdrop" class="confirm-backdrop hidden" aria-hidden="true">
+      <div class="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+        <div class="confirm-title-row">
+          <h2 id="confirmTitle">Produkt an Elyon senden?</h2>
+          <button id="confirmClose" class="confirm-close" type="button" aria-label="Schließen">×</button>
+        </div>
+        <p id="confirmText" class="confirm-text">-</p>
+        <p class="confirm-note">Es werden keine Live-Aktionen ausgeführt. Bei fehlendem Backend wird lokal gespeichert.</p>
+        <div class="confirm-actions">
+          <button id="confirmCancel" type="button" class="secondary-btn">Abbrechen</button>
+          <button id="confirmAccept" type="button">Senden</button>
+        </div>
+      </div>
+    </div>
+    <script src="debug.js"></script>
     <script type="module" src="popup.js"></script>
   </body>
 </html>

@@ -5,6 +5,14 @@ function badgeClass(status) {
   return `badge badge-${String(status || "locked").toLowerCase()}`;
 }
 
+async function sendBackgroundMessage(payload) {
+  try {
+    return await chrome.runtime.sendMessage(payload);
+  } catch (error) {
+    return { ok: false, error: error?.message || String(error) };
+  }
+}
+
 function renderPrompt(agent) {
   alert(`${agent.name}\n\n${agent.prompt}`);
 }
@@ -13,9 +21,25 @@ function renderGuardrails(agent) {
   alert(`${agent.name}\n\n${agent.guardrails.join("\n")}`);
 }
 
+function renderWorkflowState(workflows = []) {
+  const latest = Array.isArray(workflows) && workflows.length ? workflows[0] : null;
+  const state = document.getElementById("workflowState");
+  const hint = document.getElementById("workflowHint");
+  if (state) {
+    state.textContent = latest ? `${latest.agentName} · ${latest.status}` : "Noch kein Workflow vorbereitet";
+  }
+  if (hint) {
+    hint.textContent = latest
+      ? `${latest.title || "Vorbereitung"} | ${latest.notes || "Analyse vorbereitet"}`
+      : "Klicke bei einem Agenten auf Analyse vorbereiten, um einen Workflow lokal zu speichern.";
+  }
+}
+
 async function load() {
   const security = await getSecurityState();
   document.getElementById("agentState").textContent = security.aiEnabled ? "KI aktiv" : "KI-Verbindung nicht aktiv";
+  const workflowsResult = await sendBackgroundMessage({ type: "ELYON_AGENT_WORKFLOWS_LIST" });
+  renderWorkflowState(Array.isArray(workflowsResult?.workflows) ? workflowsResult.workflows : []);
   const root = document.getElementById("agentGrid");
   root.innerHTML = SOUL_AGENTS.map((agent) => {
     const status = getAgentStatus(agent, security);
@@ -60,9 +84,21 @@ async function load() {
     });
   });
   root.querySelectorAll("[data-prepare]").forEach((button) => {
-    button.addEventListener("click", () => {
+    button.addEventListener("click", async () => {
       const agent = SOUL_AGENTS.find((entry) => entry.id === button.getAttribute("data-prepare"));
-      if (agent) alert(`${agent.name}\n\nVorbereitet, aber gesperrt\nKeine Live-Aktion\nNur Vorschau / Sandbox`);
+      if (!agent) return;
+      const result = await sendBackgroundMessage({
+        type: "ELYON_PREPARE_AGENT_WORKFLOW",
+        agentId: agent.id,
+        context: { title: `${agent.name} vorbereitet` }
+      });
+      if (result?.ok) {
+        document.getElementById("agentState").textContent = "Workflow vorbereitet";
+        renderWorkflowState(result.workflows || []);
+        alert(`${agent.name}\n\nWorkflow vorbereitet\nKeine Live-Aktion\nNur Vorschau / Sandbox`);
+      } else {
+        alert(result?.error || "Workflow konnte nicht vorbereitet werden");
+      }
     });
   });
 }

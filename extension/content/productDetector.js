@@ -3,6 +3,11 @@ const COMMAND_BAR_ID = "elyon-browser-os-command-bar";
 let commandBarVisible = false;
 let mutationObserver = null;
 let refreshTimer = null;
+let overlayPosition = { left: null, top: null };
+let draggingOverlay = false;
+let dragOffset = { x: 0, y: 0 };
+let lastOverlayScrollTop = 0;
+let dismissedOverlayUrl = "";
 
 function safeText(value) {
   if (value == null) return "";
@@ -35,11 +40,34 @@ function getProductType(domain, url = location.href) {
 
 function getCurrencyFromText(text) {
   const value = safeText(text);
-  if (/€/.test(value)) return "EUR";
+  if (/\u20ac/.test(value) || /\bEUR\b/i.test(value) || /\bEuro\b/i.test(value)) return "EUR";
   if (/\$/.test(value)) return "USD";
-  if (/£/.test(value)) return "GBP";
-  if (/¥/.test(value)) return "JPY";
+  if (/£/.test(value) || /\bGBP\b/i.test(value)) return "GBP";
+  if (/¥/.test(value) || /\bJPY\b/i.test(value)) return "JPY";
   return null;
+}
+
+function normalizePriceText(text) {
+  const value = safeText(text).replace(/\s+/g, " ");
+  const priceMatch = value.match(/(?:\u20ac|eur|euro|usd|gbp|jpy)?\s*[\d.,]+(?:\s*(?:\u20ac|eur|euro|usd|gbp|jpy))?/i);
+  return priceMatch ? safeText(priceMatch[0]) : value;
+}
+
+function extractPriceFromText(text) {
+  const value = safeText(text);
+  if (!value) return "";
+  const candidates = [
+    value,
+    normalizePriceText(value),
+    value.replace(/[^\d.,\u20ac$£¥EURGBPJPY ]/gi, " ")
+  ];
+  for (const candidate of candidates) {
+    const match = candidate.match(/(?:\u20ac|eur|euro|usd|gbp|jpy)?\s*[\d]{1,3}(?:[.\s]\d{3})*(?:[.,]\d{2})?\s*(?:\u20ac|eur|euro|usd|gbp|jpy)?/i);
+    if (match && safeText(match[0])) {
+      return safeText(match[0]).replace(/\s+/g, " ");
+    }
+  }
+  return "";
 }
 
 function pickMeta(selectors, root = document) {
@@ -70,34 +98,32 @@ function queryAttr(selectors, attr, root = document) {
 }
 
 function getTitle() {
-  return (
-    pickMeta(["meta[property='og:title']", "meta[name='twitter:title']", "meta[name='title']"]) ||
-    safeText(document.title)
-  );
+  return pickMeta(["meta[property='og:title']", "meta[name='twitter:title']", "meta[name='title']"]) || safeText(document.title);
 }
 
 function getPrice() {
-  return (
-    pickMeta([
-      "meta[property='product:price:amount']",
-      "meta[property='og:price:amount']",
-      "meta[name='price']"
-    ]) ||
-    safeText(document.querySelector("[class*='price']")?.textContent) ||
-    safeText(document.querySelector("[data-testid*='price']")?.textContent) ||
-    safeText(document.querySelector("[aria-label*='price']")?.getAttribute("aria-label")) ||
-    ""
-  );
+  const direct = pickMeta([
+    "meta[property='product:price:amount']",
+    "meta[property='og:price:amount']",
+    "meta[name='price']"
+  ]);
+  const fields = [
+    direct,
+    document.querySelector("[class*='price']")?.textContent,
+    document.querySelector("[data-testid*='price']")?.textContent,
+    document.querySelector("[aria-label*='price']")?.getAttribute("aria-label"),
+    document.querySelector("[class*='price'] [class*='value']")?.textContent,
+    document.querySelector("[class*='price'] [class*='amount']")?.textContent
+  ];
+  for (const field of fields) {
+    const extracted = extractPriceFromText(field);
+    if (extracted) return extracted;
+  }
+  return "";
 }
 
 function getImage() {
-  return (
-    pickMeta([
-      "meta[property='og:image']",
-      "meta[name='twitter:image']",
-      "meta[property='twitter:image']"
-    ]) || ""
-  );
+  return pickMeta(["meta[property='og:image']", "meta[name='twitter:image']", "meta[property='twitter:image']"]) || "";
 }
 
 function getDescription() {
@@ -116,14 +142,12 @@ function findVisiblePopup(root = document) {
   const candidates = Array.from(
     root.querySelectorAll("[role='dialog'], [aria-modal='true'], [class*='popup'], [class*='modal'], [class*='drawer'], [class*='overlay']")
   );
-  return (
-    candidates.find((node) => {
-      const text = safeText(node.textContent);
-      const rect = node.getBoundingClientRect?.();
-      const visible = rect && rect.width > 180 && rect.height > 120;
-      return text && visible;
-    }) || null
-  );
+  return candidates.find((node) => {
+    const text = safeText(node.textContent);
+    const rect = node.getBoundingClientRect?.();
+    const visible = rect && rect.width > 180 && rect.height > 120;
+    return text && visible;
+  }) || null;
 }
 
 function getAliExpressPopupData(root = document) {
@@ -142,7 +166,7 @@ function detectProduct() {
   const popupData = popupRoot ? getAliExpressPopupData(popupRoot) : null;
 
   const title = popupData?.title || getTitle() || null;
-  const price = popupData?.price || getPrice() || null;
+  const price = extractPriceFromText(popupData?.price || getPrice()) || null;
   const image = popupData?.image || getImage() || null;
   const currency = getCurrencyFromText(price) || null;
   const description = popupData?.description || getDescription() || null;
@@ -166,11 +190,14 @@ function ensureOverlay() {
   if (overlay) return overlay;
   overlay = document.createElement("div");
   overlay.id = OVERLAY_ID;
+  overlay.style.left = "auto";
+  overlay.style.top = "auto";
   document.documentElement.appendChild(overlay);
   return overlay;
 }
 
 function removeOverlay() {
+  dismissedOverlayUrl = location.href;
   document.getElementById(OVERLAY_ID)?.remove();
 }
 
@@ -207,6 +234,10 @@ async function storeResearch(product) {
 
 async function sendToElyon(product) {
   const response = await chrome.runtime.sendMessage({ type: "ELYON_SAVE_PRODUCT", product }).catch(() => null);
+  const message = response?.importResult?.message || response?.boardSync?.message || response?.message || "Gespeichert";
+  if (typeof alert === "function") {
+    alert(message);
+  }
   return response || null;
 }
 
@@ -236,16 +267,8 @@ function getCommandItems() {
           }
         })
     },
-    {
-      id: "save",
-      label: "Produkt speichern",
-      action: () => storeResearch({ ...product, status: "new" })
-    },
-    {
-      id: "send",
-      label: "Zu Elyon senden",
-      action: () => sendToElyon({ ...product, status: "new" })
-    },
+    { id: "save", label: "Produkt speichern", action: () => storeResearch({ ...product, status: "new" }) },
+    { id: "send", label: "Zu Elyon senden", action: () => sendToElyon({ ...product, status: "new" }) },
     { id: "overlay", label: "Overlay ein/aus", action: () => chrome.runtime.sendMessage({ type: "ELYON_TOGGLE_OVERLAY" }) },
     { id: "soul-scout", label: "Soul Scout öffnen", action: () => chrome.runtime.sendMessage({ type: "ELYON_OPEN_SOUL_SCOUT" }) },
     { id: "soul-guard", label: "Soul Guard prüfen", action: () => chrome.runtime.sendMessage({ type: "ELYON_CHECK_SOUL_GUARD" }) },
@@ -312,18 +335,26 @@ function toggleCommandBar(force) {
 }
 
 function renderOverlay(product) {
+  if (dismissedOverlayUrl === location.href) return;
   const overlay = ensureOverlay();
+  const previousShell = overlay.querySelector(".elyon-overlay-shell");
+  if (previousShell) {
+    lastOverlayScrollTop = previousShell.scrollTop || 0;
+  }
   const imageMarkup = product.image
     ? `<div class="elyon-image-wrap"><img class="elyon-image" src="${product.image}" alt="Produktbild" loading="lazy" referrerpolicy="no-referrer" /><a class="elyon-image-link" href="${product.image}" target="_blank" rel="noreferrer">Bild öffnen</a></div>`
     : `<strong>-</strong>`;
   overlay.innerHTML = `
     <div class="elyon-overlay-shell">
-      <div class="elyon-overlay-header">
+      <div class="elyon-overlay-header" data-elyon-drag-handle>
         <div>
           <div class="elyon-overlay-brand">Elyon Browser OS</div>
           <div class="elyon-overlay-sub">Smart Overlay</div>
         </div>
-        <button type="button" class="elyon-overlay-close" data-elyon-close>×</button>
+        <div class="elyon-overlay-header-actions">
+          <button type="button" class="elyon-overlay-minimize" data-elyon-minimize>–</button>
+          <button type="button" class="elyon-overlay-close" data-elyon-close>×</button>
+        </div>
       </div>
       <div class="elyon-overlay-card">
         <div class="elyon-field"><span>Title</span><strong>${product.title || "-"}</strong></div>
@@ -344,10 +375,32 @@ function renderOverlay(product) {
     </div>
   `;
 
+  applyOverlayPosition(overlay);
+  wireOverlayDrag(overlay);
+  wireOverlayScroll(overlay);
+  const nextShell = overlay.querySelector(".elyon-overlay-shell");
+  if (nextShell) {
+    nextShell.scrollTop = lastOverlayScrollTop;
+  }
+
   overlay.querySelector("[data-elyon-close]")?.addEventListener("click", removeOverlay);
+  overlay.querySelector("[data-elyon-minimize]")?.addEventListener("click", () => {
+    const card = overlay.querySelector(".elyon-overlay-card");
+    const actions = overlay.querySelector(".elyon-overlay-actions");
+    const minimized = overlay.dataset.minimized === "true";
+    overlay.dataset.minimized = minimized ? "false" : "true";
+    if (card) card.style.display = minimized ? "grid" : "none";
+    if (actions) actions.style.display = minimized ? "grid" : "none";
+  });
   overlay.querySelector('[data-elyon-action="close"]')?.addEventListener("click", removeOverlay);
-  overlay.querySelector('[data-elyon-action="save"]')?.addEventListener("click", () => storeResearch({ ...product, status: "new" }));
-  overlay.querySelector('[data-elyon-action="research"]')?.addEventListener("click", () => storeResearch({ ...product, status: "new" }));
+  overlay.querySelector('[data-elyon-action="save"]')?.addEventListener("click", async () => {
+    const result = await storeResearch({ ...product, status: "new" });
+    alert(result?.importResult?.message || result?.boardSync?.message || result?.message || "Gespeichert");
+  });
+  overlay.querySelector('[data-elyon-action="research"]')?.addEventListener("click", async () => {
+    const result = await storeResearch({ ...product, status: "new" });
+    alert(result?.importResult?.message || result?.boardSync?.message || result?.message || "Research gemerkt");
+  });
   overlay.querySelector('[data-elyon-action="soul"]')?.addEventListener("click", () => {
     chrome.runtime.sendMessage({
       type: "ELYON_SAVE_PRODUCT",
@@ -356,10 +409,88 @@ function renderOverlay(product) {
   });
 }
 
+function applyOverlayPosition(overlay) {
+  if (overlayPosition.left != null && overlayPosition.top != null) {
+    overlay.style.left = `${overlayPosition.left}px`;
+    overlay.style.top = `${overlayPosition.top}px`;
+    overlay.style.right = "auto";
+    overlay.style.bottom = "auto";
+  } else {
+    overlay.style.right = "16px";
+    overlay.style.bottom = "16px";
+    overlay.style.left = "auto";
+    overlay.style.top = "auto";
+  }
+}
+
+function clampOverlayPosition(left, top, overlay) {
+  const rect = overlay.getBoundingClientRect();
+  const maxLeft = Math.max(8, window.innerWidth - rect.width - 8);
+  const maxTop = Math.max(8, window.innerHeight - rect.height - 8);
+  return {
+    left: Math.min(Math.max(8, left), maxLeft),
+    top: Math.min(Math.max(8, top), maxTop)
+  };
+}
+
+function wireOverlayDrag(overlay) {
+  const handle = overlay.querySelector("[data-elyon-drag-handle]");
+  if (!handle) return;
+  handle.style.cursor = "move";
+  handle.addEventListener("mousedown", (event) => {
+    if (event.button !== 0) return;
+    draggingOverlay = true;
+    const rect = overlay.getBoundingClientRect();
+    dragOffset = { x: event.clientX - rect.left, y: event.clientY - rect.top };
+    overlay.style.right = "auto";
+    overlay.style.bottom = "auto";
+    event.preventDefault();
+  });
+
+  window.addEventListener("mousemove", (event) => {
+    if (!draggingOverlay) return;
+    const next = clampOverlayPosition(event.clientX - dragOffset.x, event.clientY - dragOffset.y, overlay);
+    overlayPosition = next;
+    overlay.style.left = `${next.left}px`;
+    overlay.style.top = `${next.top}px`;
+  });
+
+  window.addEventListener("mouseup", () => {
+    draggingOverlay = false;
+  });
+}
+
+function wireOverlayScroll(overlay) {
+  const shell = overlay.querySelector(".elyon-overlay-shell");
+  if (!shell || shell.dataset.scrollWired === "true") return;
+  shell.dataset.scrollWired = "true";
+  shell.addEventListener(
+    "wheel",
+    (event) => {
+      const canScroll = shell.scrollHeight > shell.clientHeight;
+      if (!canScroll) return;
+      event.preventDefault();
+      shell.scrollTop += event.deltaY;
+    },
+    { passive: false }
+  );
+  shell.addEventListener(
+    "touchmove",
+    (event) => {
+      const canScroll = shell.scrollHeight > shell.clientHeight;
+      if (canScroll) {
+        event.preventDefault();
+      }
+    },
+    { passive: false }
+  );
+}
+
 function scheduleRefresh() {
   if (refreshTimer) clearTimeout(refreshTimer);
   refreshTimer = setTimeout(() => {
     try {
+      if (dismissedOverlayUrl === location.href) return;
       if (isSupportedPage(getDomain())) renderOverlay(detectProduct());
     } catch {}
   }, 250);
@@ -367,6 +498,9 @@ function scheduleRefresh() {
 
 function init() {
   const domain = getDomain();
+  if (dismissedOverlayUrl !== location.href) {
+    dismissedOverlayUrl = "";
+  }
   if (!isSupportedPage(domain)) {
     removeOverlay();
     removeCommandBar();
@@ -376,7 +510,6 @@ function init() {
   if (mutationObserver) mutationObserver.disconnect();
   mutationObserver = new MutationObserver(() => scheduleRefresh());
   mutationObserver.observe(document.documentElement, { childList: true, subtree: true });
-  window.addEventListener("scroll", scheduleRefresh, { passive: true });
   window.addEventListener("resize", scheduleRefresh, { passive: true });
 }
 
