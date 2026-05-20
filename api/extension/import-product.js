@@ -122,6 +122,18 @@ function writeStore(next) {
   return globalThis.__elyonBrowserImports;
 }
 
+function getStorageInfo(persisted = false) {
+  const configured = Boolean(process.env.UPSTASH_BACKUP_URL && process.env.UPSTASH_BACKUP_TOKEN);
+  return {
+    configured,
+    persisted: Boolean(persisted),
+    mode: configured ? "server_persistent" : "server_memory",
+    message: configured
+      ? "Serverseitige Persistenz aktiv."
+      : "Serverseitig aktiv, aber ohne persistente Storage-Umgebung. Bitte UPSTASH_BACKUP_URL und UPSTASH_BACKUP_TOKEN setzen."
+  };
+}
+
 async function loadPersistentStore() {
   const endpoint = process.env.UPSTASH_BACKUP_URL || "";
   const token = process.env.UPSTASH_BACKUP_TOKEN || "";
@@ -210,7 +222,8 @@ export default async function handler(req, res) {
       ok: true,
       route: "/api/extension/import-product",
       items,
-      total: items.length
+      total: items.length,
+      storage: getStorageInfo(false)
     });
   }
 
@@ -227,6 +240,7 @@ export default async function handler(req, res) {
       deleted: result.deleted,
       total: persisted.items.length,
       persisted: persisted.persisted,
+      storage: getStorageInfo(persisted.persisted),
       message: result.deleted ? "Browser Import verworfen." : "Browser Import nicht gefunden."
     });
   }
@@ -254,6 +268,7 @@ export default async function handler(req, res) {
         : "Browser Import gespeichert.",
     product: result.product,
     total: persisted.items.length,
-    persisted: persisted.persisted
+    persisted: persisted.persisted,
+    storage: getStorageInfo(persisted.persisted)
   });
 }
