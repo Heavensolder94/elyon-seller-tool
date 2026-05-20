@@ -221,6 +221,7 @@
     .kanban-shell .kanban-board::-webkit-scrollbar-track{background:rgba(15,23,42,.7);border-radius:999px}
     .kanban-shell .kanban-board::-webkit-scrollbar-thumb{background:linear-gradient(90deg,#3b82f6,#8b5cf6);border-radius:999px}
     .kanban-shell .kanban-column{flex:0 0 min(420px,82vw);min-height:420px;padding:14px;background:linear-gradient(180deg,rgba(15,23,42,.86),rgba(2,6,23,.64));border-color:rgba(148,163,184,.18);box-shadow:0 18px 50px rgba(0,0,0,.18);scroll-snap-align:start}
+    .kanban-shell .kanban-column-draft{flex-basis:min(720px,calc(100vw - 72px))}
     .kanban-shell .kanban-column h3{display:flex;align-items:center;justify-content:space-between;margin:-2px 0 14px;padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,.08);font-size:14px;letter-spacing:.01em}
     .kanban-shell .kanban-count{display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:26px;padding:0 8px;border-radius:999px;background:rgba(59,130,246,.16);color:#bfdbfe;font-size:12px}
     .kanban-shell .kanban-mini-card{grid-template-columns:92px minmax(0,1fr);padding:14px;border-radius:20px;background:linear-gradient(180deg,rgba(15,23,42,.88),rgba(2,6,23,.72));border-color:rgba(148,163,184,.18)}
@@ -229,9 +230,13 @@
     .kanban-shell .kanban-mini-meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
     .kanban-shell .kanban-mini-actions{grid-template-columns:repeat(4,minmax(0,1fr))}
     .kanban-shell .kanban-mini-actions button{min-height:36px;white-space:normal}
+    .kanban-shell .kanban-column-draft .kanban-mini-card{grid-template-columns:120px minmax(0,1fr);align-items:center}
+    .kanban-shell .kanban-column-draft .kanban-mini-card img{width:120px;height:120px}
+    .kanban-shell .kanban-column-draft .kanban-mini-title{font-size:17px;-webkit-line-clamp:2}
+    .kanban-shell .kanban-column-draft .kanban-mini-actions{grid-column:2;grid-template-columns:repeat(4,minmax(0,1fr));align-self:end}
     .kanban-empty-strip{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;padding:12px;border-radius:18px;background:rgba(2,6,23,.34);border:1px dashed rgba(148,163,184,.18)}
     .kanban-empty-pill{padding:7px 10px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);color:#94a3b8;font-size:12px}
-    @media(max-width:760px){.kanban-shell .kanban-column{flex-basis:88vw}.kanban-shell .kanban-mini-card{grid-template-columns:76px minmax(0,1fr)}.kanban-shell .kanban-mini-card img{width:76px;height:76px}.kanban-shell .kanban-mini-actions{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    @media(max-width:760px){.kanban-shell .kanban-column,.kanban-shell .kanban-column-draft{flex-basis:88vw}.kanban-shell .kanban-mini-card,.kanban-shell .kanban-column-draft .kanban-mini-card{grid-template-columns:76px minmax(0,1fr)}.kanban-shell .kanban-mini-card img,.kanban-shell .kanban-column-draft .kanban-mini-card img{width:76px;height:76px}.kanban-shell .kanban-mini-actions,.kanban-shell .kanban-column-draft .kanban-mini-actions{grid-column:1 / -1;grid-template-columns:repeat(2,minmax(0,1fr))}}
   </style>
   <link rel="stylesheet" href="elyon-soul.css" />
 </head>
@@ -6765,7 +6770,8 @@ function render(){
     const emptyGroups = groups.filter(g=>!activeGroups.includes(g));
     list.innerHTML='<div class="kanban-shell"><div class="kanban-board">'+activeGroups.map(g=>{
       const groupItems=items.filter(p=>normalizeProductStatus(p.productStatus || p.status || 'Draft', 'Draft')===g);
-      return '<div class="kanban-column"><h3><span>'+escapeHtml(g)+'</span><span class="kanban-count">'+groupItems.length+'</span></h3>'+groupItems.map(p=>kanbanProductCardHTML(p)).join('')+'</div>';
+      const columnClass = 'kanban-column kanban-column-' + String(g || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      return '<div class="'+columnClass+'"><h3><span>'+escapeHtml(g)+'</span><span class="kanban-count">'+groupItems.length+'</span></h3>'+groupItems.map(p=>kanbanProductCardHTML(p)).join('')+'</div>';
     }).join('')+'</div>'+(emptyGroups.length?'<div class="kanban-empty-strip"><span class="kanban-empty-pill">Leere Phasen:</span>'+emptyGroups.map(g=>'<span class="kanban-empty-pill">'+escapeHtml(g)+'</span>').join('')+'</div>':'')+'</div>';
   } else {
     list.innerHTML=items.map(p=>productCardHTML(p,false)).join('');
