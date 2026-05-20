@@ -12,6 +12,43 @@ function readBody(req) {
   return {};
 }
 
+function parseJsonObjectFromText(value) {
+  if (!value) return null;
+  if (typeof value === "object") return value;
+  const text = String(value || "").trim();
+  if (!text) return null;
+
+  const candidates = [
+    text,
+    text.replace(/^```(?:json)?/i, "").replace(/```$/i, "").trim(),
+  ];
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  if (start >= 0 && end > start) {
+    candidates.push(text.slice(start, end + 1));
+  }
+
+  for (const candidate of candidates) {
+    try {
+      const parsed = JSON.parse(candidate);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) return parsed;
+    } catch {
+      // Providers sometimes wrap JSON in Markdown. Try the next candidate.
+    }
+  }
+  return null;
+}
+
+function withStructuredTaskResult(result) {
+  if (!result || !result.ok || result.task !== "product_decision") return result;
+  const parsed = parseJsonObjectFromText(result.result || result.content);
+  if (!parsed) return result;
+  return {
+    ...result,
+    result: parsed,
+  };
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({
@@ -43,5 +80,5 @@ export default async function handler(req, res) {
     safety: body.safety,
   });
 
-  return res.status(result.ok ? 200 : 400).json(result);
+  return res.status(result.ok ? 200 : 400).json(withStructuredTaskResult(result));
 }

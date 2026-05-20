@@ -5740,6 +5740,87 @@ function normalizeProductAiDecision(value){
   };
 }
 
+function parseProductAiDecisionJson(value){
+  if(!value) return null;
+  if(typeof value === 'object'){
+    if(value.score !== undefined || value.decision || value.riskLevel || value.compliance || value.profitVerdict) return value;
+    if(value.result){
+      const parsedResult = parseProductAiDecisionJson(value.result);
+      if(parsedResult) return parsedResult;
+    }
+    if(value.aiDecision){
+      const parsedDecision = parseProductAiDecisionJson(value.aiDecision);
+      if(parsedDecision) return parsedDecision;
+    }
+    if(value.content){
+      const parsedContent = parseProductAiDecisionJson(value.content);
+      if(parsedContent) return parsedContent;
+    }
+    if(value.message){
+      const parsedMessage = parseProductAiDecisionJson(value.message);
+      if(parsedMessage) return parsedMessage;
+    }
+    return null;
+  }
+
+  const rawText = String(value || '').trim();
+  if(!rawText) return null;
+  const candidates = [
+    rawText,
+    rawText.replace(/^```(?:json)?/i, '').replace(/```$/i, '').trim(),
+  ];
+  const firstObject = rawText.indexOf('{');
+  const lastObject = rawText.lastIndexOf('}');
+  if(firstObject >= 0 && lastObject > firstObject){
+    candidates.push(rawText.slice(firstObject, lastObject + 1));
+  }
+
+  for(const candidate of candidates){
+    try{
+      const parsed = JSON.parse(candidate);
+      if(parsed && typeof parsed === 'object') return parsed;
+    }catch(err){
+      // Anbieter liefern gelegentlich Markdown oder Erklaertext; naechsten Kandidaten versuchen.
+    }
+  }
+  return null;
+}
+
+function normalizeProductAiDecisionResponse(response){
+  const parsed = parseProductAiDecisionJson(response);
+  if(parsed) return normalizeProductAiDecision(parsed);
+
+  const content = String(response && (response.content || response.output || response.text || response.message || '') || '').trim();
+  const fallbackUsed = response && (response.fallbackUsed === true || response.provider === 'local');
+  if(fallbackUsed){
+    return normalizeProductAiDecision({
+      score: 0,
+      decision: 'NO',
+      riskLevel: 'high',
+      compliance: 'red',
+      profitVerdict: 'bad',
+      shortSummary: 'KI-Anbieter war nicht erreichbar. Die Produktpruefung wurde nicht live ausgefuehrt.',
+      warnings: [content || 'KI-Anbieter nicht erreichbar oder API-Key pruefen.'],
+      nextSteps: ['API-Status pruefen und KI-Pruefung erneut starten.'],
+    });
+  }
+
+  if(content){
+    return normalizeProductAiDecision({
+      score: 45,
+      decision: 'TEST',
+      riskLevel: 'medium',
+      compliance: 'yellow',
+      profitVerdict: 'tight',
+      shortSummary: content.slice(0, 240),
+      warnings: ['KI-Antwort war nicht als klares JSON formatiert. Ergebnis bitte manuell gegenpruefen.'],
+      nextSteps: ['Produktdaten pruefen und KI-Pruefung bei Bedarf erneut starten.'],
+    });
+  }
+
+  throw new Error('KI hat keine verwertbare Antwort geliefert.');
+}
+
 function getProductAiDecision(product){
   return normalizeProductAiDecision(product && (product.aiDecision || product.ai || {}));
 }
@@ -5847,7 +5928,8 @@ function buildProductDecisionPrompt(product){
   const payload = buildProductDecisionPayload(product);
   return [
     'Pruefe dieses einzelne Produkt fuer eine interne Kauf- und Listing-Entscheidung.',
-    'Antworte nur mit JSON im geforderten Schema.',
+    'Antworte ausschliesslich mit validem JSON. Kein Markdown, keine Code-Fences, keine Erklaerung ausserhalb von JSON.',
+    'Schema: {"score":0-100,"decision":"GO|TEST|NO","riskLevel":"low|medium|high","compliance":"green|yellow|red","profitVerdict":"good|tight|bad","publishReady":false,"shortSummary":"kurz","warnings":["..."],"nextSteps":["..."]}',
     'Nenne kurze Warnungen und naechste Schritte, keine langen Fliesstexte.',
     'Keine automatische Veröffentlichung, keine Bestellungen, nur Beratung.',
     'Achte besonders auf Produktname, Einkaufspreis, Verkaufspreis, Versandkosten, Marge, Lieferzeit, Supplier, Kategorie, Beschreibung, Wettbewerb und Compliance-Themen wie Elektronik, Akku, Batterie, CE, Markenrisiko, LUCID, WEEE und BATT.',
@@ -5931,10 +6013,11 @@ async function executeProductDecisionTask(productId){
   setHTML(cardId, '<div class="ai-product-card"><div class="score-top"><span class="status ai-status-ghost">KI prüft...</span><span class="score-number">…</span></div><div class="progress"><div class="bar" style="width:24%"></div></div><div class="ai-compact-note">Die Prüfung läuft gerade über /api/ai-router mit task=product_decision.</div></div>');
 
   try{
+    const productPayload = buildProductDecisionPayload(product).product;
     const response = await requestCentralAi('product_decision', buildProductDecisionPrompt(product), {
-      product: buildProductDecisionPayload(product).product,
+      context: { product: productPayload },
     });
-    const normalized = normalizeProductAiDecision(response && response.result ? response.result : response);
+    const normalized = normalizeProductAiDecisionResponse(response);
     const savedAt = new Date().toISOString();
     products = products.map(function(item){
       if(String(item.id) !== String(productId)) return item;
@@ -5958,7 +6041,7 @@ async function executeProductDecisionTask(productId){
       });
     });
     save();
-    showProductAiNotice('KI Produktprüfung gespeichert.');
+    showProductAiNotice('KI Produktprüfung gespeichert: ' + normalized.decision + ' · Score ' + normalized.score + '/100');
   }catch(err){
     const message = err && err.message ? err.message : 'KI Produktprüfung fehlgeschlagen.';
     showProductAiNotice(message);
@@ -6006,6 +6089,18 @@ function renderBrowserProductImportPanel(p){
   if(importImages.length > 1) html += '<div class="browser-import-gallery" style="margin-top:12px">' + importImages.slice(1,7).map(src => '<img src="' + escapeHtml(src) + '" alt="" referrerpolicy="no-referrer" loading="lazy" onerror="this.remove()" style="width:52px;height:52px;object-fit:cover;border-radius:12px;border:1px solid rgba(255,255,255,.12)">').join('') + '</div>';
   html += '</div>';
   return html;
+}
+
+function renderProductAiTinyBadge(product){
+  const hasDecision = hasProductAiDecision(product);
+  const decision = getProductAiDecision(product);
+  const label = hasDecision ? productAiDecisionLabel(decision.decision) : 'KI ungeprüft';
+  const cls = hasDecision ? productAiDecisionStatusClass(decision.decision) : 'ai-status-ghost';
+  const score = hasDecision ? ' · ' + decision.score + '/100' : '';
+  const title = hasDecision
+    ? 'KI-Prüfung gespeichert'
+    : (isAiFeatureEnabled() ? 'Noch nicht geprüft. Klicke auf KI prüfen.' : 'KI-Funktionen sind deaktiviert.');
+  return '<span class="status ' + cls + '" title="' + escapeHtml(title) + '">' + escapeHtml(label + score) + '</span>';
 }
 
 function productCardHTML(p,small=false){
@@ -6086,11 +6181,11 @@ function kanbanProductCardHTML(p){
   html += '<div class="kanban-mini-body">';
   html += '<div class="kanban-mini-title">' + escapeHtml(p.name || 'Browser Import') + '</div>';
   html += '<div class="kanban-mini-meta"><span>' + escapeHtml(price || 'Preis offen') + '</span><span>Score ' + c.score + '</span></div>';
-  html += '<div class="pill-row"><span class="status ' + lifecycle.cls + '">' + escapeHtml(lifecycle.label) + '</span><span class="pill">' + escapeHtml(p.sourceProvider || 'browser-import') + '</span></div>';
+  html += '<div class="pill-row"><span class="status ' + lifecycle.cls + '">' + escapeHtml(lifecycle.label) + '</span>' + renderProductAiTinyBadge(p) + '<span class="pill">' + escapeHtml(p.sourceProvider || 'browser-import') + '</span></div>';
   html += '</div>';
   html += '<div class="kanban-mini-actions">';
   html += '<button class="secondary" onclick="editProduct(' + p.id + ')">Bearbeiten</button>';
-  html += '<button class="secondary" onclick="triggerProductDecision(' + JSON.stringify(String(p.id)) + ')">KI prüfen</button>';
+  html += '<button class="secondary" id="' + getProductAiUiId('productAiBtn', p.id) + '" onclick="triggerProductDecision(' + JSON.stringify(String(p.id)) + ')">KI prüfen</button>';
   html += '<button class="secondary" onclick="toggleProductView()">Liste</button>';
   html += '<button class="danger" onclick="removeProduct(' + p.id + ')">Löschen</button>';
   html += '</div>';
