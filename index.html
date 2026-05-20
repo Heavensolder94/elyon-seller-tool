@@ -4198,9 +4198,25 @@ function isBadOnlineProductData(online){
   const text = String((online && online.title) || '') + ' ' + String((online && online.description) || '');
   return /\b(404|not found|page not found|access denied|forbidden|captcha|bot detection|seite nicht gefunden|nicht gefunden)\b/i.test(text);
 }
-function renderOnlineProductDataMask(online){
+function renderOnlineProductDataMask(online, analysis){
   if(!hasOnlineProductData(online)){
-    return '<p>Noch keine echten Produktdaten erkannt.</p><p class="muted">' + escapeHtml((online && online.message) || 'Automatisches Auslesen ist fuer diese Quelle noch nicht verfuegbar. Bitte Produktdaten manuell ergaenzen oder spaeter API-Anbindung nutzen.') + '</p>';
+    const supplier = (analysis && analysis.supplier) || {};
+    const rows = [
+      ['Produktlink', (analysis && analysis.url) || (online && online.url)],
+      ['Erkannter Supplier', supplier.name || (online && online.supplier)],
+      ['Domain', (analysis && analysis.domain) || (online && online.domain)],
+      ['Online-Status', (online && online.status) || 'nicht verfuegbar'],
+      ['Datenvertrauen', (online && online.confidence) || 'low'],
+      ['Naechster Schritt', 'Produktdaten manuell ergaenzen oder API-Anbindung nutzen']
+    ];
+    let html = '<div class="ai-product-card" style="margin-top:0">';
+    html += '<p>Noch keine echten Produktdaten erkannt.</p><p class="muted">' + escapeHtml((online && online.message) || 'Automatisches Auslesen ist fuer diese Quelle noch nicht verfuegbar. Bitte Produktdaten manuell ergaenzen oder spaeter API-Anbindung nutzen.') + '</p>';
+    html += '<div class="ai-mini-grid">';
+    rows.forEach(function(row){
+      html += '<div class="ai-mini-item"><span class="ai-mini-label">' + escapeHtml(row[0]) + '</span><span class="ai-mini-value">' + escapeHtml(row[1] || 'offen') + '</span></div>';
+    });
+    html += '</div><div class="sourcing-next-step">Maske bleibt nutzbar: Titel, Einkaufspreis, Versand und Notizen kannst du unten in der Produktmaske selbst eintragen.</div></div>';
+    return html;
   }
   let html = '<div class="ai-product-card" style="margin-top:0">';
   if(online.image) html += '<p><img src="' + escapeHtml(online.image) + '" alt="Produktbild" style="max-width:150px;border-radius:14px;border:1px solid rgba(148,163,184,.22);margin-bottom:10px"></p>';
@@ -4245,7 +4261,7 @@ function renderSourceAnalysis(analysis){
   if(onlinePending){
     html += '<p>Online-Analyse laeuft...</p>';
   }else{
-    html += renderOnlineProductDataMask(online);
+    html += renderOnlineProductDataMask(online, analysis);
   }
   html += '</div>';
   html += '<div class="output-box"><h3>Supplier-Hinweis</h3><p>' + escapeHtml(supplier.note || 'Supplier pruefen.') + '</p></div>';

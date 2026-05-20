@@ -68,6 +68,17 @@ function sourceTextBetween(html, regex) {
   return match && match[1] ? cleanText(match[1]) : "";
 }
 
+function getMetaContent(html, key) {
+  const tags = String(html || "").match(/<meta\b[^>]*>/gi) || [];
+  for (const tag of tags) {
+    const property = sourceTextBetween(tag, /\bproperty=["']([^"']+)["']/i);
+    const name = sourceTextBetween(tag, /\bname=["']([^"']+)["']/i);
+    if (property.toLowerCase() !== key.toLowerCase() && name.toLowerCase() !== key.toLowerCase()) continue;
+    return sourceTextBetween(tag, /\bcontent=["']([^"']*)["']/i);
+  }
+  return "";
+}
+
 function sourceAbsoluteUrl(value, baseUrl) {
   const raw = readText(value);
   if (!raw) return "";
@@ -80,20 +91,20 @@ function sourceAbsoluteUrl(value, baseUrl) {
 
 function extractBasicSourceMetadata(html, baseUrl) {
   const title =
-    sourceTextBetween(html, /<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i) ||
-    sourceTextBetween(html, /<meta[^>]+name=["']twitter:title["'][^>]+content=["']([^"']+)["']/i) ||
+    getMetaContent(html, "og:title") ||
+    getMetaContent(html, "twitter:title") ||
     sourceTextBetween(html, /<title[^>]*>([\s\S]*?)<\/title>/i);
   const description =
-    sourceTextBetween(html, /<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["']/i) ||
-    sourceTextBetween(html, /<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["']/i);
+    getMetaContent(html, "og:description") ||
+    getMetaContent(html, "description");
   const image =
-    sourceTextBetween(html, /<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i) ||
-    sourceTextBetween(html, /<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["']/i);
+    getMetaContent(html, "og:image") ||
+    getMetaContent(html, "twitter:image");
   const price =
-    sourceTextBetween(html, /<meta[^>]+property=["']product:price:amount["'][^>]+content=["']([^"']+)["']/i) ||
+    getMetaContent(html, "product:price:amount") ||
     sourceTextBetween(html, /"price"\s*:\s*"?([0-9]+(?:[.,][0-9]+)?)/i);
   const currency =
-    sourceTextBetween(html, /<meta[^>]+property=["']product:price:currency["'][^>]+content=["']([^"']+)["']/i) ||
+    getMetaContent(html, "product:price:currency") ||
     sourceTextBetween(html, /"priceCurrency"\s*:\s*"([^"]+)"/i);
   const availability = sourceTextBetween(html, /"availability"\s*:\s*"([^"]+)"/i).split("/").pop();
   const category = sourceTextBetween(html, /"category"\s*:\s*"([^"]+)"/i);
