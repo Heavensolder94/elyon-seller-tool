@@ -658,7 +658,6 @@ function expandProductInformationSections(root = document) {
   const selectors = [
     "button",
     "[role='button']",
-    "a",
     "summary",
     "[aria-expanded='false']",
     "[class*='expand']",
@@ -667,6 +666,9 @@ function expandProductInformationSections(root = document) {
   ];
 
   Array.from(root.querySelectorAll(selectors.join(","))).slice(0, 120).forEach((node) => {
+    const tagName = String(node.tagName || "").toLowerCase();
+    const href = safeText(node.getAttribute?.("href"));
+    if (tagName === "a" || href) return;
     const label = safeText([
       node.textContent,
       node.getAttribute?.("aria-label"),
@@ -679,7 +681,7 @@ function expandProductInformationSections(root = document) {
     const visible = rect && rect.width > 0 && rect.height > 0 && (!style || style.visibility !== "hidden" && style.display !== "none");
     if (!visible) return;
     try {
-      node.click();
+      node.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, view: window }));
     } catch {
       // If the marketplace blocks synthetic clicks, keep the already visible data.
     }
