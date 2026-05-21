@@ -16,6 +16,14 @@ function safeText(value) {
   return text.trim().replace(/\s+/g, " ");
 }
 
+function decodeHtmlEntities(value) {
+  const text = safeText(value);
+  if (!text) return "";
+  const textarea = document.createElement("textarea");
+  textarea.innerHTML = text;
+  return safeText(textarea.value || text);
+}
+
 function readableText(value) {
   if (value == null) return "";
   const text = typeof value === "string" ? value : String(value);
@@ -81,6 +89,20 @@ function extractPriceFromText(text) {
   return "";
 }
 
+function normalizePriceCurrency(priceText, fallbackCurrency = "") {
+  let price = safeText(priceText);
+  let currency = fallbackCurrency || getCurrencyFromText(price) || "";
+  if (!price) return { price: "", currency };
+  price = price
+    .replace(/\b(EUR|Euro)\b/gi, "")
+    .replace(/\b(USD|GBP|JPY)\b/gi, "")
+    .replace(/[$£¥€]/g, "")
+    .trim();
+  const match = price.match(/[\d]{1,3}(?:[.\s]\d{3})*(?:[.,]\d{1,2})?|[\d]+/);
+  price = match ? match[0].replace(/\s+/g, "") : price;
+  return { price, currency };
+}
+
 function pickMeta(selectors, root = document) {
   for (const selector of selectors) {
     const node = root.querySelector(selector);
@@ -135,7 +157,7 @@ function queryAllText(selectors, root = document, max = 20) {
 }
 
 function normalizeImageUrl(value) {
-  const text = safeText(value);
+  const text = decodeHtmlEntities(value);
   if (!text || /^data:/i.test(text) || /^blob:/i.test(text)) return "";
   const first = text.split(/\s+/)[0];
   try {
@@ -181,6 +203,7 @@ function cleanAvailabilityText(text) {
   if (!value) return "";
   value = value.replace(/\{[\s\S]*$/, "").trim();
   value = value.replace(/\[[\s\S]*$/, "").trim();
+  value = value.replace(/"\s*,?\s*".*$/g, "").trim();
   value = value.replace(/\b(isInternal|showInsightsHub|isRobot|showFaceout|merchantId|availableBadges|loggedIn|asin|showBadge|ingressFaceout|availableFaceouts)\b[\s\S]*$/i, "").trim();
   value = value.replace(/\s{2,}/g, " ");
   return value.slice(0, 160);
@@ -213,7 +236,25 @@ function getJsonLdDescription() {
 }
 
 function getTitle() {
-  return pickMeta(["meta[property='og:title']", "meta[name='twitter:title']", "meta[name='title']"]) || safeText(document.title);
+  const domain = getDomain();
+  const pageTitle = queryText([
+    "#productTitle",
+    "h1[data-testid*='title']",
+    "h1[class*='title']",
+    "[data-pl='product-title']",
+    ".x-item-title__mainTitle",
+    ".x-item-title span",
+    "h1"
+  ]);
+  const metaTitle = pickMeta(["meta[property='og:title']", "meta[name='twitter:title']", "meta[name='title']"]) || safeText(document.title);
+  let title = pageTitle || metaTitle;
+  if (/amazon\./i.test(domain)) {
+    title = title.replace(/\s*:\s*Amazon\.[^:]+(?::.*)?$/i, "").trim();
+  }
+  if (/aliexpress/i.test(domain)) {
+    title = title.replace(/\s*-\s*AliExpress.*$/i, "").trim();
+  }
+  return title;
 }
 
 function getPrice() {
@@ -224,6 +265,11 @@ function getPrice() {
   ]);
   const fields = [
     direct,
+    document.querySelector(".a-price .a-offscreen")?.textContent,
+    document.querySelector("#corePriceDisplay_desktop_feature_div .a-offscreen")?.textContent,
+    document.querySelector("#priceblock_ourprice")?.textContent,
+    document.querySelector("#priceblock_dealprice")?.textContent,
+    document.querySelector("[itemprop='price']")?.content,
     document.querySelector("[class*='price']")?.textContent,
     document.querySelector("[data-testid*='price']")?.textContent,
     document.querySelector("[aria-label*='price']")?.getAttribute("aria-label"),
@@ -339,6 +385,8 @@ function getSoldCount() {
 function getAvailability() {
   return cleanAvailabilityText(queryText([
     "#availability",
+    "#availability span",
+    "#outOfStock",
     "[class*='availability']",
     "[class*='stock']",
     "[data-testid*='availability']",
@@ -562,10 +610,12 @@ function detectProduct() {
   const popupData = popupRoot ? getAliExpressPopupData(popupRoot) : null;
 
   const title = popupData?.title || getTitle() || null;
-  const price = extractPriceFromText(popupData?.price || getPrice()) || null;
+  const rawPrice = extractPriceFromText(popupData?.price || getPrice()) || "";
   const images = uniqueList([popupData?.image, ...getImages()], 12);
   const image = images[0] || null;
-  const currency = getCurrencyFromText(price) || null;
+  const priceParts = normalizePriceCurrency(rawPrice, getCurrencyFromText(rawPrice) || "");
+  const price = priceParts.price || null;
+  const currency = priceParts.currency || null;
   const description = popupData?.description || getDescription() || null;
   const shipping = getShipping();
   const productDetails = getProductDetails();
