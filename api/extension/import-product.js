@@ -18,6 +18,15 @@ function toText(value) {
   return String(value).trim();
 }
 
+function decodeHtmlEntities(value) {
+  return toText(value)
+    .replace(/&amp;/gi, "&")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">");
+}
+
 function toArray(value) {
   return Array.isArray(value) ? value : [];
 }
@@ -26,14 +35,78 @@ function toObject(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : {};
 }
 
+function isHumanVerificationText(value) {
+  return /\b(human verification|verify you are human|captcha|bot detection|access denied|forbidden)\b/i.test(toText(value));
+}
+
+function sanitizeProductTitle(value) {
+  const text = toText(value);
+  if (isHumanVerificationText(text)) return "";
+  return text
+    .replace(/\s*:\s*Amazon\.[^:]+(?::.*)?$/i, "")
+    .replace(/\s*-\s*AliExpress.*$/i, "")
+    .replace(/\s*\|\s*eBay.*$/i, "")
+    .trim()
+    .slice(0, 260);
+}
+
+function sanitizeProductDescription(value) {
+  const text = toText(value);
+  return isHumanVerificationText(text) ? "" : text;
+}
+
 function cleanAvailability(value) {
   let text = toText(value);
   if (!text) return "";
   text = text.replace(/\{[\s\S]*$/, "").trim();
   text = text.replace(/\[[\s\S]*$/, "").trim();
+  text = text.replace(/"\s*,?\s*".*$/g, "").trim();
   text = text.replace(/\b(isInternal|showInsightsHub|isRobot|showFaceout|merchantId|availableBadges|loggedIn|asin|showBadge|ingressFaceout|availableFaceouts)\b[\s\S]*$/i, "").trim();
   text = text.replace(/\s{2,}/g, " ");
   return text.slice(0, 160);
+}
+
+function normalizeImageUrl(value) {
+  const text = decodeHtmlEntities(value);
+  if (!text || /^data:/i.test(text) || /^blob:/i.test(text)) return "";
+  try {
+    const url = new URL(text);
+    url.hash = "";
+    return url.toString();
+  } catch {
+    return "";
+  }
+}
+
+function detectCurrency(value, fallback = "") {
+  const text = toText(value);
+  if (/€|\bEUR\b|\bEuro\b/i.test(text)) return "EUR";
+  if (/\$|\bUSD\b/i.test(text)) return "USD";
+  if (/£|\bGBP\b/i.test(text)) return "GBP";
+  if (/¥|\bJPY\b/i.test(text)) return "JPY";
+  return toText(fallback);
+}
+
+function normalizePrice(value, fallbackCurrency = "") {
+  const text = toText(value);
+  const currency = detectCurrency(text, fallbackCurrency);
+  if (!text) return { price: "", currency };
+  const withoutCurrency = text
+    .replace(/\b(EUR|Euro|USD|GBP|JPY)\b/gi, "")
+    .replace(/[€$£¥]/g, "")
+    .trim();
+  const match = withoutCurrency.match(/[\d]{1,3}(?:[.\s]\d{3})*(?:[.,]\d{1,2})?|[\d]+/);
+  return {
+    price: match ? match[0].replace(/\s+/g, "") : withoutCurrency,
+    currency
+  };
+}
+
+function normalizeImages(primary, images) {
+  const list = [primary, ...toArray(images)]
+    .map(normalizeImageUrl)
+    .filter(Boolean);
+  return Array.from(new Set(list)).slice(0, 20);
 }
 
 function normalizeDomain(value) {
@@ -85,14 +158,19 @@ function normalizeImport(product = {}) {
   const supplier = toText(product.supplier || "");
   const supplierMatch = resolveSupplier(domain, supplier);
   const linkedSupplierId = toText(product.linkedSupplierId || supplierMatch.linkedSupplierId);
+  const rawTitle = sanitizeProductTitle(product.title || product.name || "");
+  const rawDescription = sanitizeProductDescription(product.description || product.productDescription || product.summary || "");
+  const blocked = isHumanVerificationText(product.title || product.name || "") || isHumanVerificationText(product.description || product.productDescription || product.summary || "");
+  const priceParts = normalizePrice(product.price || "", product.currency || "");
+  const images = normalizeImages(product.image, product.images);
   return {
     id: toText(product.id || url || `${now}-${Math.random().toString(36).slice(2, 10)}`),
-    title: toText(product.title || product.name || "Unbekanntes Produkt"),
-    price: toText(product.price || ""),
-    currency: toText(product.currency || ""),
-    image: toText(product.image || toArray(product.images)[0] || ""),
-    images: toArray(product.images).map(toText).filter(Boolean).slice(0, 20),
-    description: toText(product.description || product.productDescription || product.summary || ""),
+    title: rawTitle || "Unbekanntes Produkt",
+    price: priceParts.price,
+    currency: priceParts.currency,
+    image: images[0] || "",
+    images,
+    description: rawDescription,
     variants: toArray(product.variants).slice(0, 50),
     shipping: toObject(product.shipping),
     rating: toText(product.rating || ""),
@@ -108,13 +186,14 @@ function normalizeImport(product = {}) {
     domain,
     detectedAt: toText(product.detectedAt || now) || now,
     source: "chrome_extension",
-    status: toText(product.status || "new") || "new",
+    status: blocked ? "blocked" : (toText(product.status || "new") || "new"),
     notes: toText(product.notes || ""),
     score: toText(product.score || ""),
     linkedSupplierId,
     linkedSupplierName: supplierMatch.linkedSupplierName || "",
     importedAt: toText(product.importedAt || now) || now,
-    updatedAt: toText(product.updatedAt || now) || now
+    updatedAt: toText(product.updatedAt || now) || now,
+    blockedByHumanVerification: blocked
   };
 }
 
