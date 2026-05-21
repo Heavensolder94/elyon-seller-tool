@@ -343,7 +343,7 @@ Antwortfelder:
 
 Ein einfacher CJ-Status-Check.
 
-#### `GET /api/cj/search?q=...&page=1&size=10`
+#### `GET /api/cj?q=...&page=1&size=10`
 
 Sucht CJ-Produkte.
 

@@ -71,23 +71,23 @@
     },
     {
       "source": "/api/cj/status",
-      "destination": "/api/cj/search?action=status"
+      "destination": "/api/cj?action=status"
     },
     {
       "source": "/api/cj/search",
-      "destination": "/api/cj/search?action=search"
+      "destination": "/api/cj?action=search"
     },
     {
       "source": "/api/cj/product",
-      "destination": "/api/cj/search?action=product"
+      "destination": "/api/cj?action=product"
     },
     {
       "source": "/api/cj/detail",
-      "destination": "/api/cj/search?action=detail"
+      "destination": "/api/cj?action=detail"
     },
     {
       "source": "/api/source/analyze",
-      "destination": "/api/cj/search?action=source-analyze"
+      "destination": "/api/cj?action=source-analyze"
     },
     {
       "source": "/api/google-drive/status",

@@ -3771,7 +3771,7 @@ async function searchCjProducts(){
   setHTML('cjSearchResult','<p>CJ Produktdaten werden geladen...</p>');
   try{
     const params = new URLSearchParams({ keyword: keyword });
-    const url = '/api/cj/search?' + params.toString();
+    const url = '/api/cj?' + params.toString();
     const res = await fetch(url, {
       method: 'GET',
       headers: { 'Accept': 'application/json, text/plain, */*' }
@@ -3798,7 +3798,7 @@ async function searchCjProducts(){
     if(!items.length){ setHTML('cjSearchResult','<p>Keine CJ Produkte gefunden oder Backend liefert keine Produktliste.</p>'); return; }
     setHTML('cjSearchResult','<h3>CJ Treffer</h3><div class="products">'+items.slice(0,10).map(cjProductCardHTML).join('')+'</div>');
   }catch(err){
-    setHTML('cjSearchResult','<p>⚠️ '+(err && err.message ? err.message : 'Backend nicht erreichbar')+'</p><p class="hint">Erwartete Backend-Route: /api/cj/search?keyword=...</p>');
+    setHTML('cjSearchResult','<p>⚠️ '+(err && err.message ? err.message : 'Backend nicht erreichbar')+'</p><p class="hint">Erwartete Backend-Route: /api/cj?keyword=...</p>');
   }
 }
 function copyCjProductToForm(index){

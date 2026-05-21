@@ -2,6 +2,8 @@ function jsonError(res, status, error, details) {
   return res.status(status).json({
     ok: false,
     source: "cj-search",
+    sandbox: true,
+    cjConnected: Boolean(process.env.CJ_API_KEY),
     status,
     error,
     details: details ?? null,
@@ -264,9 +266,24 @@ function uniqueStrings(values) {
   return out;
 }
 
+function slugToKeywords(value) {
+  const raw = readText(value)
+    .replace(/[-_+/]+/g, " ")
+    .replace(/\b(p|pid|sku|spu|vid|variant|product|detail|item|goods)\b/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!raw) return [];
+  return uniqueStrings(
+    raw
+      .split(" ")
+      .map((item) => item.trim())
+      .filter((item) => item.length >= 3 && !/^\d+$/.test(item))
+  );
+}
+
 function extractCjIdentifiers(sourceUrl) {
   const normalized = normalizeSourceUrl(sourceUrl);
-  if (!normalized) return { pid: "", productSku: "", variantSku: "", sku: "", sourceUrl: "" };
+  if (!normalized) return { pid: "", productSku: "", variantSku: "", sku: "", sourceUrl: "", searchTerms: [] };
 
   const readParam = (...names) => {
     for (const name of names) {
@@ -279,21 +296,39 @@ function extractCjIdentifiers(sourceUrl) {
   const path = normalized.pathname || "";
   const segments = path.split("/").filter(Boolean);
   const lastSegment = readText(segments[segments.length - 1] || "");
-  const pidFromPathMatch = path.match(/(?:product|detail|item|goods)[\/-]([A-Za-z0-9_-]{5,})/i);
-  const skuFromPathMatch = path.match(/(?:sku|variant|vid)[\/-]([A-Za-z0-9_-]{5,})/i);
+  const pidFromSlugMatch =
+    path.match(/(?:^|[-_/])p[-_](\d{10,})(?:\.html?)?$/i) ||
+    path.match(/(?:^|[-_/])p[-_]([A-Za-z0-9]{10,})(?:\.html?)?$/i);
+  const pidFromPathMatch =
+    path.match(/(?:product|detail|item|goods)\/[^?]*?[-_/]p[-_](\d{10,})(?:\.html?)?$/i) ||
+    path.match(/(?:product|detail|item|goods)\/[^?]*?[-_/]p[-_]([A-Za-z0-9]{10,})(?:\.html?)?$/i);
+  const skuFromPathMatch =
+    path.match(/(?:^|[-_/])(sku|spu)[-_]([A-Za-z0-9_-]{5,})(?:\.html?)?$/i) ||
+    path.match(/(?:sku|variant|vid)[\/-]([A-Za-z0-9_-]{5,})/i);
+  const vidFromPathMatch =
+    path.match(/(?:^|[-_/])v(?:id)?[-_]([A-Za-z0-9_-]{5,})(?:\.html?)?$/i) ||
+    path.match(/(?:variant|vid)[\/-]([A-Za-z0-9_-]{5,})/i);
+  const slugSearchTerms = uniqueStrings(
+    segments.flatMap((segment) => slugToKeywords(segment))
+  );
+  const paramSearchTerms = uniqueStrings([
+    ...slugToKeywords(readParam("title", "name", "productName", "product_name", "keyword", "keyWord", "q")),
+    ...slugToKeywords(lastSegment),
+  ]);
 
   const pid = firstNonEmpty(
     readParam("pid", "productId", "product_id", "id"),
     pidFromPathMatch && pidFromPathMatch[1],
+    pidFromSlugMatch && pidFromSlugMatch[1],
     /^[A-Za-z0-9_-]{5,}$/.test(lastSegment) && /product|detail|item|goods/i.test(path) ? lastSegment : ""
   );
   const productSku = firstNonEmpty(
     readParam("productSku", "product_sku", "sku", "spu"),
-    skuFromPathMatch && skuFromPathMatch[1]
+    skuFromPathMatch && (skuFromPathMatch[2] || skuFromPathMatch[1])
   );
   const variantSku = firstNonEmpty(
     readParam("variantSku", "variant_sku", "vid"),
-    skuFromPathMatch && skuFromPathMatch[1]
+    vidFromPathMatch && vidFromPathMatch[1]
   );
 
   return {
@@ -302,6 +337,7 @@ function extractCjIdentifiers(sourceUrl) {
     variantSku,
     sku: firstNonEmpty(productSku, variantSku),
     sourceUrl: normalized.toString(),
+    searchTerms: uniqueStrings([...paramSearchTerms, ...slugSearchTerms]).slice(0, 8),
   };
 }
 
@@ -447,6 +483,118 @@ async function fetchCjProductByIdentifiers(identifiers) {
   };
 }
 
+async function searchCjProductsByKeyword(keyword, token) {
+  const normalizedKeyword = readText(keyword);
+  if (!normalizedKeyword) return [];
+
+  const cjUrl = new URL("https://developers.cjdropshipping.com/api2.0/v1/product/listV2");
+  cjUrl.search = new URLSearchParams({
+    page: "1",
+    size: "10",
+    keyWord: normalizedKeyword,
+  }).toString();
+
+  const response = await fetch(cjUrl.toString(), {
+    method: "GET",
+    headers: {
+      "CJ-Access-Token": token,
+      "Content-Type": "application/json",
+      "Accept": "application/json",
+    },
+  });
+
+  const { rawText, data } = await parseUpstreamResponse(response);
+  if (!response.ok || data?.result === false || !data) return [];
+  return extractProductList(data).map(normalizeCjProduct);
+}
+
+function scoreCjSearchCandidate(product, identifiers) {
+  const haystack = [
+    product?.title,
+    product?.productName,
+    product?.productNameEn,
+    product?.sku,
+    product?.productSku,
+    product?.pid,
+  ].map((item) => readText(item).toLowerCase()).join(" ");
+  let score = 0;
+  for (const term of identifiers?.searchTerms || []) {
+    const value = readText(term).toLowerCase();
+    if (!value) continue;
+    if (haystack.includes(value)) score += value.length >= 6 ? 3 : 1;
+  }
+  return score;
+}
+
+async function fetchCjProductBySearchTerms(identifiers) {
+  const searchTerms = Array.isArray(identifiers?.searchTerms) ? identifiers.searchTerms.filter(Boolean) : [];
+  if (!searchTerms.length) {
+    return {
+      ok: false,
+      found: false,
+      reason: "missing_cj_search_terms",
+      message: "CJ-Link erkannt, aber es konnten keine Suchbegriffe aus der URL abgeleitet werden.",
+      identifiers,
+    };
+  }
+
+  const token = await getCjAccessToken();
+  const candidates = [];
+  for (const term of searchTerms.slice(0, 3)) {
+    const products = await searchCjProductsByKeyword(term, token);
+    products.forEach((product) => {
+      candidates.push({ product, score: scoreCjSearchCandidate(product, identifiers), term });
+    });
+  }
+
+  candidates.sort((a, b) => b.score - a.score);
+  const best = candidates.find((entry) => entry.score > 0) || candidates[0];
+  if (!best || !best.product) {
+    return {
+      ok: false,
+      found: false,
+      reason: "cj_search_no_results",
+      message: "CJ API konnte keine Produktdaten laden.",
+      identifiers,
+    };
+  }
+
+  const detailResult = await fetchCjProductByIdentifiers({
+    pid: best.product.pid || "",
+    productSku: best.product.productSku || best.product.sku || "",
+    variantSku: "",
+    sku: best.product.productSku || best.product.sku || "",
+    sourceUrl: identifiers?.sourceUrl || "",
+    searchTerms,
+  });
+
+  if (detailResult?.found) {
+    return {
+      ...detailResult,
+      via: "search-term",
+      matchedKeyword: best.term,
+    };
+  }
+
+  return {
+    ok: true,
+    found: true,
+    via: "search-list",
+    matchedKeyword: best.term,
+    identifiers,
+    raw: null,
+    product: {
+      ...best.product,
+      title: best.product.title || best.product.productName || best.product.productNameEn || "",
+      description: "",
+      images: best.product.image ? [best.product.image] : [],
+      variants: [],
+      shipping: "",
+      currency: best.product.currency || "USD",
+    },
+  };
+}
+
 function normalizeCjApiAnalysisResult({ url, supplier, domain, product, identifiers, raw }) {
   const metadata = {
     title: product?.title || "",
@@ -524,6 +672,23 @@ async function handleSourceAnalyze(req, res) {
             product: cjApiResult.product,
             identifiers: cjApiResult.identifiers,
             raw: cjApiResult.raw,
+          })
+        );
+      }
+      const cjSearchResult = await fetchCjProductBySearchTerms(cjIdentifiers);
+      if (cjSearchResult?.found && cjSearchResult.product) {
+        return res.status(200).json(
+          normalizeCjApiAnalysisResult({
+            url: url.toString(),
+            supplier,
+            domain: detected.domain,
+            product: cjSearchResult.product,
+            identifiers: {
+              ...(cjSearchResult.identifiers || cjIdentifiers || {}),
+              matchedKeyword: cjSearchResult.matchedKeyword || "",
+              via: cjSearchResult.via || "search-term",
+            },
+            raw: cjSearchResult.raw,
           })
         );
       }
@@ -618,17 +783,21 @@ async function handleSourceAnalyze(req, res) {
 
 function normalizeCjProduct(product) {
   const pid = product.pid || product.productId || product.id || "";
-  const title = cleanText(product.productNameEn) || cleanText(product.productName) || "CJ Produkt";
-  const sku = product.productSku || product.sku || "";
-  const image = product.productImage || product.image || "";
-  const price = toNumber(product.sellPrice || product.price || product.nowPrice);
+  const title = cleanText(product.nameEn) || cleanText(product.productNameEn) || cleanText(product.productName) || "CJ Produkt";
+  const sku = product.sku || product.productSku || "";
+  const image = product.bigImage || product.productImage || product.image || "";
+  const priceRaw = product.sellPrice ?? product.price ?? product.nowPrice ?? "";
+  const price = toNumber(priceRaw);
   const weight = toNumber(product.productWeight || product.weight);
   const supplierName = cleanText(product.supplierName) || "";
   const supplierId = product.supplierId || "";
-  const categoryName = cleanText(product.categoryName) || "";
+  const categoryName = cleanText(product.categoryName) || cleanText(product.categoryId) || "";
   const shippingCountries = Array.isArray(product.shippingCountryCodes) ? product.shippingCountryCodes : [];
   const isFreeShipping = Boolean(product.isFreeShipping);
   const saleStatus = product.saleStatus ?? null;
+  const listedNum = product.listedNum ?? null;
+  const warehouseInventoryNum = product.warehouseInventoryNum ?? null;
+  const categoryId = product.categoryId ?? null;
 
   return {
     pid,
@@ -640,16 +809,113 @@ function normalizeCjProduct(product) {
     image,
     productImage: image,
     price,
+    priceRaw: priceRaw === null || priceRaw === undefined ? "" : String(priceRaw),
     sellPrice: price,
     weight,
     productWeight: weight,
     supplierName,
     supplierId,
     categoryName,
+    listedNum,
+    warehouseInventoryNum,
+    categoryId,
     shippingCountries,
     isFreeShipping,
     saleStatus,
     source: "CJ Dropshipping",
+  };
+}
+
+function normalizeShippingCountries(value) {
+  return Array.isArray(value)
+    ? value.map((item) => readText(item)).filter(Boolean)
+    : [];
+}
+
+function normalizeProductVariants(product) {
+  const variants = Array.isArray(product?.variants)
+    ? product.variants
+    : Array.isArray(product?.variantList)
+      ? product.variantList
+      : Array.isArray(product?.skuList)
+        ? product.skuList
+        : [];
+
+  return variants.slice(0, 50).map((item, index) => ({
+    id: readText(item?.variantSku || item?.vid || item?.sku || `variant-${index + 1}`),
+    title: readText(item?.variantName || item?.name || item?.title || ""),
+    image: readText(item?.variantImage || item?.image || ""),
+    price: readText(item?.sellPrice || item?.price || item?.variantSellPrice || ""),
+  })).filter((item) => item.id || item.title || item.image || item.price);
+}
+
+function toCjSearchProduct(product) {
+  const normalized = normalizeCjProduct(product || {});
+  const productLink = normalized.pid
+    ? `https://www.cjdropshipping.com/product/-p-${encodeURIComponent(normalized.pid)}.html`
+    : "";
+  const shippingCountries = normalizeShippingCountries(product?.shippingCountryCodes || normalized.shippingCountries);
+  const variants = normalizeProductVariants(product);
+  const title = readText(product?.productName || product?.productNameEn || normalized.title || "CJ Produkt");
+  const image = readText(product?.productImage || product?.image || normalized.image || "");
+  const supplier = readText(product?.supplierName || normalized.supplierName || "CJ Dropshipping");
+  const category = readText(product?.categoryName || normalized.categoryName || "");
+  const rawPrice = product?.sellPrice ?? product?.price ?? product?.nowPrice ?? normalized.sellPrice;
+  const price = rawPrice === null || rawPrice === undefined || rawPrice === "" ? "" : String(rawPrice);
+  const deliveryInfo = readText(product?.deliveryTime || product?.shipping || product?.logisticInfo || "");
+
+  return {
+    id: readText(normalized.pid || normalized.productSku || normalized.sku || ""),
+    title,
+    image,
+    price,
+    productLink,
+    shipping: deliveryInfo,
+    supplier,
+    category,
+    shippingCountries,
+    variants,
+    productName: title,
+    productImage: image,
+    sellPrice: price,
+    priceRaw: normalized.priceRaw || price,
+    supplierName: supplier,
+    categoryName: category,
+    pid: normalized.pid || "",
+    sku: normalized.productSku || normalized.sku || "",
+    listedNum: normalized.listedNum,
+    warehouseInventoryNum: normalized.warehouseInventoryNum,
+    categoryId: normalized.categoryId,
+    saleStatus: normalized.saleStatus,
+    source: normalized.source || "CJ Dropshipping",
+    status: "prepared",
+  };
+}
+
+function sandboxSearchResponse(query, products = [], extra = {}) {
+  return {
+    ok: true,
+    service: "CJ",
+    apiReady: true,
+    futureLiveMode: false,
+    query,
+    sandbox: true,
+    cjConnected: Boolean(process.env.CJ_API_KEY),
+    products,
+    ...extra,
+  };
+}
+
+function createPreparedSearchProduct(query) {
+  const safeQuery = readText(query);
+  return {
+    id: "cj-demo-1",
+    title: safeQuery ? `Demo Produkt: ${safeQuery}` : "Demo Produkt",
+    image: "",
+    price: "",
+    shipping: "",
+    supplier: "CJ Dropshipping",
+    status: "prepared",
   };
 }
 
@@ -658,9 +924,78 @@ function extractProductList(data) {
   if (Array.isArray(data.products)) return data.products;
   if (Array.isArray(data.data)) return data.data;
   if (Array.isArray(data.data?.list)) return data.data.list;
-  if (Array.isArray(data.data?.content)) return data.data.content;
+  if (Array.isArray(data?.data?.content)) {
+    return data.data.content.flatMap((entry) =>
+      Array.isArray(entry?.productList) ? entry.productList : entry
+    );
+  }
   if (Array.isArray(data.result)) return data.result;
   return [];
+}
+
+function createPreparedProductsFromCjData(rawProducts, fallbackQuery) {
+  const items = Array.isArray(rawProducts) ? rawProducts.map((item) => toCjSearchProduct(item)).filter(Boolean) : [];
+  if (items.length) return items;
+  return [createPreparedSearchProduct(fallbackQuery)];
+}
+
+async function fetchJsonWithTimeout(url, options = {}, timeoutMs = 8000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+    const text = await response.text();
+    let data = null;
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch {
+      data = null;
+    }
+    return { response, data, text };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function fetchCjProductsWithAccessToken(query) {
+  const token = readText(process.env.CJ_ACCESS_TOKEN);
+  if (!token) {
+    throw new Error("CJ_ACCESS_TOKEN fehlt.");
+  }
+
+  const keyword = readText(query);
+  if (!keyword) return [];
+
+  const cjUrl = new URL("https://developers.cjdropshipping.com/api2.0/v1/product/listV2");
+  cjUrl.search = new URLSearchParams({
+    page: "1",
+    size: "10",
+    keyWord: keyword,
+  }).toString();
+
+  const { response, data, text } = await fetchJsonWithTimeout(cjUrl.toString(), {
+    method: "GET",
+    headers: {
+      "CJ-Access-Token": token,
+      "Content-Type": "application/json",
+      "Accept": "application/json",
+    },
+  });
+
+  console.log("CJ RAW RESPONSE:", data);
+
+  if (!response.ok) {
+    throw new Error(text || `CJ search failed with status ${response.status}`);
+  }
+
+  if (!data || data.result === false) {
+    throw new Error((data && (data.message || data.error)) || "CJ search returned no usable data.");
+  }
+
+  return extractProductList(data);
 }
 
 async function getCjAccessToken() {
@@ -725,7 +1060,7 @@ async function parseUpstreamResponse(response) {
 }
 
 export default async function handler(req, res) {
-  const action = readText(req.query.action || req.query.endpoint || "");
+  const action = readText(req.query.action || req.query.endpoint || "search");
 
   if (action === "source-analyze") {
     return handleSourceAnalyze(req, res);
@@ -739,8 +1074,8 @@ export default async function handler(req, res) {
     return res.status(200).json({
       ok: true,
       service: "CJ",
-      routes: ["/api/cj/status", "/api/cj/search", "/api/cj/product", "/api/cj/detail"],
-      hasApiKey: Boolean(process.env.CJ_API_KEY),
+      source: "cj",
+      tokenConfigured: Boolean(readText(process.env.CJ_ACCESS_TOKEN) || readText(process.env.CJ_API_KEY)),
     });
   }
 
@@ -783,16 +1118,35 @@ export default async function handler(req, res) {
     }
   }
 
+  if (action !== "search") {
+    return res.status(400).json({
+      ok: false,
+      source: "cj",
+      error: `Unknown action: ${action || "(empty)"}`,
+    });
+  }
+
   const keyword = readText(req.query.keyword || req.query.q || "");
   const page = Math.max(Number(req.query.page || 1), 1);
   const size = Math.min(Math.max(Number(req.query.size || req.query.limit || 10), 1), 50);
   const rawMode = req.query.raw === "1";
 
   if (!keyword) {
-    return jsonError(res, 400, "keyword fehlt.", "QUERY_MISSING");
+    return jsonError(res, 400, "Query Parameter q fehlt.", "QUERY_MISSING");
   }
 
   try {
+    if (!process.env.CJ_API_KEY && !process.env.CJ_ACCESS_TOKEN) {
+      return res.status(200).json(
+        sandboxSearchResponse(keyword, [], {
+          source: "cj-search",
+          status: 200,
+          message: "CJ Suchroute ist vorbereitet. Echte API-Requests bleiben im Sicherheitsmodus defensiv und koennen spaeter erweitert werden.",
+          placeholder: true,
+        })
+      );
+    }
+
     const token = await getCjAccessToken();
     const cjUrl = new URL("https://developers.cjdropshipping.com/api2.0/v1/product/listV2");
     cjUrl.search = new URLSearchParams({
@@ -831,6 +1185,7 @@ export default async function handler(req, res) {
 
     const rawProducts = extractProductList(data);
     const products = rawProducts.map(normalizeCjProduct);
+    const searchProducts = rawProducts.map(toCjSearchProduct);
 
     return res.status(200).json({
       ok: true,
@@ -841,7 +1196,7 @@ export default async function handler(req, res) {
       size,
       total: data.data?.total || products.length,
       count: products.length,
-      products,
+      products: searchProducts,
       raw: rawMode ? data : undefined,
     });
   } catch (error) {
