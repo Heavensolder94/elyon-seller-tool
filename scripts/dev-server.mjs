@@ -3,6 +3,9 @@ import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { loadLocalEnv } from "./load-env.mjs";
+
+const loadedEnvFile = loadLocalEnv();
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const appRoot = path.resolve(scriptDir, "..");
@@ -153,13 +156,12 @@ function buildApiRoute(pathname, query) {
   const clean = pathname.replace(/\/+$/, "") || "/";
 
   const routes = [
-    { match: /^\/api\/ping$/, module: "api/health.js" },
-    { match: /^\/api\/health$/, module: "api/health.js" },
+    { match: /^\/api\/ping$/, module: "api/env-check.js" },
+    { match: /^\/api\/health$/, module: "api/env-check.js" },
     { match: /^\/api\/env-check$/, module: "api/env-check.js" },
     { match: /^\/api\/google-sheets-sync$/, module: "api/env-check.js" },
     { match: /^\/api\/google-sheets-sync-settings$/, module: "api/google-sheets-sync-settings.js" },
-    { match: /^\/api\/cj\/status$/, module: "api/cj/status.js" },
-    { match: /^\/api\/cj\/search$/, module: "api/cj/search.js" },
+    { match: /^\/api\/cj(?:\/(status|search|product|detail))?$/, module: "api/cj.js" },
     { match: /^\/api\/elyon-soul$/, module: "api/elyon-soul.js" },
     { match: /^\/api\/agent-engine$/, module: "api/agent-engine.js" },
     { match: /^\/api\/ai-router$/, module: "api/ai-router.js" },
@@ -176,8 +178,14 @@ function buildApiRoute(pathname, query) {
     if (route.module === "api/ai.js" && match[1]) {
       nextQuery.task = match[1];
     }
+    if (route.module === "api/env-check.js" && /^\/api\/(?:ping|health)$/.test(clean)) {
+      nextQuery.action = "health";
+    }
     if (route.module === "api/google-drive.js" && match[1]) {
       nextQuery.action = match[1].split("/").pop();
+    }
+    if (route.module === "api/cj.js" && match[1]) {
+      nextQuery.action = match[1];
     }
     if (route.module === "api/ebay/index.js" && match[1]) {
       nextQuery.action = match[1];
@@ -302,4 +310,9 @@ const server = http.createServer(async (req, res) => {
 server.listen(port, host, () => {
   console.log(`Elyon local server running at http://${host}:${port}`);
   console.log(`Serving app root: ${appRoot}`);
+  if (loadedEnvFile) {
+    console.log(`Loaded local env from: ${loadedEnvFile}`);
+  } else {
+    console.log("No local .env file found.");
+  }
 });
