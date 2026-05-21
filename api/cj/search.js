@@ -93,37 +93,92 @@ function normalizeCjProduct(product) {
 }
 
 async function getCjAccessToken() {
+  // PRIORITÄT 1:
+  // Wenn bereits ein echter Access Token existiert
+  const existingToken =
+    process.env.CJ_ACCESS_TOKEN ||
+    "";
+
+  if (
+    existingToken &&
+    String(existingToken).length > 20
+  ) {
+    console.log("CJ USING EXISTING ACCESS TOKEN");
+    return existingToken;
+  }
+
+  // PRIORITÄT 2:
+  // Alten API-Key Flow versuchen
   const apiKey =
     process.env.CJ_API_KEY ||
-    process.env.CJ_ACCESS_TOKEN;
+    "";
 
   if (!apiKey) {
     throw new Error(
-      "CJ_API_KEY oder CJ_ACCESS_TOKEN fehlt in Vercel."
+      "CJ_ACCESS_TOKEN oder CJ_API_KEY fehlt in Vercel."
     );
   }
 
-  // Falls bereits ein echter Access Token vorhanden ist
-  if (
-    String(apiKey).startsWith("ey") ||
-    String(apiKey).length > 80
-  ) {
-    return apiKey;
-  }
+  console.log("CJ REQUESTING ACCESS TOKEN");
 
-  // Sonst versuche alten API-Key Flow
   const response = await fetch(
     "https://developers.cjdropshipping.com/api2.0/v1/authentication/getAccessToken",
     {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        "Accept": "application/json",
       },
       body: JSON.stringify({
         apiKey,
       }),
     }
   );
+
+  const rawText = await response.text();
+
+  console.log("CJ AUTH RAW:", rawText);
+
+  let data = null;
+
+  try {
+    data = JSON.parse(rawText);
+  } catch (err) {
+    throw new Error(
+      "CJ Auth Antwort ist kein JSON."
+    );
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      data?.message ||
+      "CJ Auth Fehler"
+    );
+  }
+
+  // Unterstützt ALLE bekannten CJ Antworttypen
+  const token =
+    data?.data?.accessToken ||
+    data?.accessToken ||
+    data?.token ||
+    data?.data?.token ||
+    "";
+
+  if (!token) {
+    console.log(
+      "CJ AUTH FULL RESPONSE:",
+      JSON.stringify(data, null, 2)
+    );
+
+    throw new Error(
+      "CJ Access Token fehlt."
+    );
+  }
+
+  console.log("CJ ACCESS TOKEN CREATED");
+
+  return token;
+}
 
   const contentType = String(
     response.headers.get("content-type") || ""
