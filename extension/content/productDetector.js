@@ -235,6 +235,113 @@ function getJsonLdDescription() {
   return "";
 }
 
+function stripHtml(value) {
+  const text = String(value || "");
+  if (!text) return "";
+  const container = document.createElement("div");
+  container.innerHTML = text;
+  return readableText(container.innerText || container.textContent || text.replace(/<[^>]+>/g, " "));
+}
+
+function getEmbeddedProductText() {
+  const usefulKeys = /^(description|desc|productDescription|productDesc|detail|details|specification|specifications|productDetails|productInfo|features|sellingPoints|packingList)$/i;
+  const blockedKeys = /^(url|image|img|icon|logo|sku|id|token|cookie|href|src)$/i;
+  const values = [];
+  const seen = new Set();
+
+  function pushValue(value) {
+    const text = stripHtml(value);
+    if (!text || text.length < 30) return;
+    if (/captcha|verify you are human|access denied|enable javascript/i.test(text)) return;
+    const key = text.slice(0, 300);
+    if (seen.has(key)) return;
+    seen.add(key);
+    values.push(text);
+  }
+
+  function walk(value, key = "", depth = 0) {
+    if (depth > 8 || value == null) return;
+    if (typeof value === "string") {
+      if (usefulKeys.test(key) || (value.includes("<") && /description|detail|spec|feature/i.test(value))) {
+        pushValue(value);
+      }
+      return;
+    }
+    if (Array.isArray(value)) {
+      value.slice(0, 80).forEach((entry) => walk(entry, key, depth + 1));
+      return;
+    }
+    if (typeof value !== "object") return;
+    Object.entries(value).forEach(([nextKey, nextValue]) => {
+      if (blockedKeys.test(nextKey)) return;
+      walk(nextValue, nextKey, depth + 1);
+    });
+  }
+
+  Array.from(document.querySelectorAll("script")).forEach((script) => {
+    const raw = script.textContent || "";
+    if (!raw || !/description|productDesc|productDescription|specification|productDetails|productInfo/i.test(raw)) return;
+
+    if (script.type === "application/json" || script.id === "__NEXT_DATA__") {
+      try {
+        walk(JSON.parse(raw));
+      } catch {
+        // Some shops ship malformed embedded data; regex fallback below still helps.
+      }
+    }
+
+    const patterns = [
+      /"(?:description|productDescription|productDesc|desc|specification|productDetails|productInfo)"\s*:\s*"((?:\\.|[^"\\]){30,})"/gi,
+      /'(?:description|productDescription|productDesc|desc|specification|productDetails|productInfo)'\s*:\s*'((?:\\.|[^'\\]){30,})'/gi
+    ];
+    patterns.forEach((pattern) => {
+      let match;
+      while ((match = pattern.exec(raw)) && values.length < 12) {
+        try {
+          pushValue(JSON.parse('"' + match[1].replace(/"/g, '\\"') + '"'));
+        } catch {
+          pushValue(match[1]);
+        }
+      }
+    });
+  });
+
+  return uniqueList(values.map(limitDescription), 8).join("\n\n");
+}
+
+function getCjDescription() {
+  expandProductInformationSections();
+  const selectors = [
+    "#product-detail",
+    "#productDetail",
+    "#product-description",
+    "#description",
+    "#specification",
+    "[class*='product-detail']",
+    "[class*='productDetail']",
+    "[class*='product-description']",
+    "[class*='ProductDescription']",
+    "[class*='description']",
+    "[class*='Description']",
+    "[class*='specification']",
+    "[class*='Specification']",
+    "[class*='detail-content']",
+    "[class*='detailContent']",
+    "[class*='goods-detail']",
+    "[class*='goodsDetail']",
+    "[class*='module-detail']",
+    "[class*='tab-content']",
+    "[class*='tabContent']"
+  ];
+  const visibleText = queryLongText(selectors, document, 14);
+  const embeddedText = getEmbeddedProductText();
+  const combined = [visibleText, embeddedText]
+    .map(limitDescription)
+    .filter(Boolean)
+    .join("\n\n");
+  return limitDescription(combined);
+}
+
 function getTitle() {
   const domain = getDomain();
   const pageTitle = queryText([
@@ -496,6 +603,7 @@ function getDescription() {
   expandProductInformationSections();
 
   const structured = getJsonLdDescription();
+  const cjDescription = /cjdropshipping/i.test(getDomain()) ? getCjDescription() : "";
   const selectors = [
     "#productDescription",
     "#productDescription_feature_div",
@@ -521,7 +629,7 @@ function getDescription() {
     "[class*='description']",
     "[id*='description']"
   ];
-  const combined = [structured, queryLongText(selectors)]
+  const combined = [structured, cjDescription, queryLongText(selectors), getEmbeddedProductText()]
     .map(limitDescription)
     .filter(Boolean)
     .join("\n\n");
@@ -540,7 +648,12 @@ function expandProductInformationSections(root = document) {
     /see\s+more/i,
     /read\s+more/i,
     /more\s+product\s+details/i,
-    /product\s+details/i
+    /product\s+details/i,
+    /description/i,
+    /specification/i,
+    /details/i,
+    /product\s+info/i,
+    /overview/i
   ];
   const selectors = [
     "button",
