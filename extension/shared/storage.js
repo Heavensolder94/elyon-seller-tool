@@ -42,6 +42,8 @@ function normalizeResearchItem(item = {}) {
     image: item.image ?? "",
     images: Array.isArray(item.images) ? item.images : [],
     description: item.description ?? "",
+    descriptionCandidates: Array.isArray(item.descriptionCandidates) ? item.descriptionCandidates : [],
+    descriptionSource: item.descriptionSource ?? "",
     variants: Array.isArray(item.variants) ? item.variants : [],
     shipping: item.shipping && typeof item.shipping === "object" ? item.shipping : {},
     rating: item.rating ?? "",

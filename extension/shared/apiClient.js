@@ -93,6 +93,8 @@ export async function sendProductToElyon(product) {
         image: product?.image || "",
         images: Array.isArray(product?.images) ? product.images : [],
         description: product?.description || "",
+        descriptionCandidates: Array.isArray(product?.descriptionCandidates) ? product.descriptionCandidates : [],
+        descriptionSource: product?.descriptionSource || "",
         variants: Array.isArray(product?.variants) ? product.variants : [],
         shipping: product?.shipping && typeof product.shipping === "object" ? product.shipping : {},
         rating: product?.rating || "",
