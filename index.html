@@ -3929,16 +3929,20 @@ async function ebaySuche(){
       const priceValue = item.price && item.price.value ? item.price.value : (item.price || '-');
       const currency = item.price && item.price.currency ? item.price.currency : '';
       const condition = item.condition || '-';
-      const url = item.itemWebUrl || item.itemAffiliateWebUrl || item.url || '';
+      const itemId = item.itemId || item.legacyItemId || item.id || '';
+      const rawUrl = item.itemWebUrl || item.itemAffiliateWebUrl || item.url || (itemId ? ('https://www.ebay.de/itm/' + encodeURIComponent(String(itemId).replace(/^v1\|/, '').split('|')[0])) : '');
+      const safeUrl = rawUrl ? escapeHtml(rawUrl) : '';
       let card = '';
-      card += '<article class="product-card small-card">';
+      if(safeUrl) card += '<a href="' + safeUrl + '" target="_blank" rel="noopener noreferrer" style="display:block;color:inherit;text-decoration:none">';
+      card += '<article class="product-card small-card"' + (safeUrl ? ' style="cursor:pointer"' : '') + '>';
       card += '<div>';
-      card += '<div class="product-title">' + title + '</div>';
-      card += '<div class="muted">Preis: ' + priceValue + ' ' + currency + '<br>Zustand: ' + condition + '</div>';
-      if(url) card += '<div class="output-box"><p><a href="' + url + '" target="_blank" rel="noopener">Auf eBay ansehen</a></p></div>';
+      card += '<div class="product-title">' + escapeHtml(title) + '</div>';
+      card += '<div class="muted">Preis: ' + escapeHtml(String(priceValue)) + ' ' + escapeHtml(currency) + '<br>Zustand: ' + escapeHtml(condition) + '</div>';
+      if(safeUrl) card += '<div class="output-box"><p>eBay-Seite öffnen</p></div>';
       card += '</div>';
       card += '<div class="score-wrap"><span class="status good">eBay Search</span></div>';
       card += '</article>';
+      if(safeUrl) card += '</a>';
       return card;
     }).join('');
 
