@@ -1,3 +1,5 @@
+import { routeAIRequest } from "../../lib/ai-provider-router.js";
+
 function json(res, status, body) {
   return res.status(status).json(body);
 }
@@ -190,6 +192,12 @@ function normalizeImport(product = {}) {
     description: rawDescription,
     descriptionCandidates: toArray(product.descriptionCandidates).map(toText).filter(Boolean).slice(0, 8),
     descriptionSource: toText(product.descriptionSource || ""),
+    aiPrepared: product.aiPrepared && typeof product.aiPrepared === "object" ? product.aiPrepared : null,
+    aiPreparedAt: toText(product.aiPreparedAt || ""),
+    aiProvider: toText(product.aiProvider || ""),
+    aiModel: toText(product.aiModel || ""),
+    aiStatus: toText(product.aiStatus || ""),
+    aiError: toText(product.aiError || ""),
     variants: toArray(product.variants).slice(0, 50),
     shipping: toObject(product.shipping),
     rating: toText(product.rating || ""),
@@ -214,6 +222,152 @@ function normalizeImport(product = {}) {
     updatedAt: toText(product.updatedAt || now) || now,
     blockedByHumanVerification: blocked
   };
+}
+
+function parseJsonObjectFromText(value) {
+  if (!value) return null;
+  if (typeof value === "object" && !Array.isArray(value)) return value;
+  const text = String(value || "").trim();
+  if (!text) return null;
+  const candidates = [
+    text,
+    text.replace(/^```(?:json)?/i, "").replace(/```$/i, "").trim(),
+  ];
+  const first = text.indexOf("{");
+  const last = text.lastIndexOf("}");
+  if (first >= 0 && last > first) candidates.push(text.slice(first, last + 1));
+  for (const candidate of candidates) {
+    try {
+      const parsed = JSON.parse(candidate);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) return parsed;
+    } catch {
+      // Providers can wrap JSON in Markdown or prose. Try next candidate.
+    }
+  }
+  return null;
+}
+
+function normalizeStringArray(value, limit = 12) {
+  return toArray(value).map(toText).filter(Boolean).slice(0, limit);
+}
+
+function normalizeAiPrepared(value = {}) {
+  const source = value && typeof value === "object" ? value : {};
+  return {
+    cleanTitle: toText(source.cleanTitle || source.title || ""),
+    rawDescription: toText(source.rawDescription || ""),
+    cleanDescription: toText(source.cleanDescription || source.description || ""),
+    bulletPoints: normalizeStringArray(source.bulletPoints || source.bullets || source.features, 16),
+    technicalDetails: toObject(source.technicalDetails || source.specifications || source.details),
+    includedItems: normalizeStringArray(source.includedItems || source.packageContents || source.includes, 12),
+    material: toText(source.material || ""),
+    dimensions: toText(source.dimensions || source.size || ""),
+    shippingInfo: toText(source.shippingInfo || source.shipping || ""),
+    supplierWarnings: normalizeStringArray(source.supplierWarnings || source.warnings, 12),
+    complianceHints: normalizeStringArray(source.complianceHints || source.compliance || source.risks, 12),
+    elyonSummary: toText(source.elyonSummary || source.summary || ""),
+    confidence: Number.isFinite(Number(source.confidence)) ? Math.max(0, Math.min(100, Number(source.confidence))) : 0,
+  };
+}
+
+function buildBrowserImportAiPrompt(product) {
+  const payload = {
+    title: product.title,
+    price: product.price,
+    currency: product.currency,
+    supplier: product.supplier,
+    domain: product.domain,
+    url: product.url,
+    description: product.description,
+    descriptionCandidates: product.descriptionCandidates || [],
+    productDetails: product.productDetails || {},
+    variants: product.variants || [],
+    shipping: product.shipping || {},
+    availability: product.availability,
+    category: product.category,
+    complianceRisks: product.complianceRisks || [],
+  };
+
+  return [
+    "Du strukturierst einen Browser-Import fuer das Elyon Seller Tool.",
+    "Ziel: Originaldaten bewahren, aber eine saubere Elyon-Version vorbereiten.",
+    "Keine Bestellung, kein Listing, keine Live-Aktion. Nur Daten strukturieren.",
+    "Waehle die echte Artikelbeschreibung aus den Kandidaten. Entferne Menue-, Cookie-, Policy-, Login-, Empfehlungs- und Werbetexte.",
+    "Erfinde keine Fakten. Wenn etwas fehlt, leer lassen.",
+    "Antworte ausschliesslich mit validem JSON ohne Markdown.",
+    'Schema: {"cleanTitle":"","rawDescription":"","cleanDescription":"","bulletPoints":[],"technicalDetails":{},"includedItems":[],"material":"","dimensions":"","shippingInfo":"","supplierWarnings":[],"complianceHints":[],"elyonSummary":"","confidence":0}',
+    "",
+    "Produktdaten:",
+    JSON.stringify(payload, null, 2).slice(0, 18000),
+  ].join("\n");
+}
+
+async function prepareBrowserImportWithAi(product) {
+  const provider = toText(process.env.BROWSER_IMPORT_AI_PROVIDER || process.env.AI_BROWSER_IMPORT_PROVIDER || "qwen").toLowerCase();
+  const model =
+    provider === "deepseek"
+      ? toText(process.env.BROWSER_IMPORT_AI_MODEL || process.env.DEEPSEEK_MODEL || "deepseek-v4-flash")
+      : provider === "openai"
+        ? toText(process.env.BROWSER_IMPORT_AI_MODEL || process.env.OPENAI_MODEL || "gpt-4o-mini")
+        : toText(process.env.BROWSER_IMPORT_AI_MODEL || process.env.QWEN_MODEL || "qwen-plus");
+
+  try {
+    const result = await routeAIRequest({
+      provider,
+      model,
+      task: "browser_import_structure",
+      prompt: buildBrowserImportAiPrompt(product),
+      temperature: 0.1,
+      maxTokens: 1800,
+      allowFallback: true,
+      safety: {
+        securityMode: true,
+        sandboxMode: true,
+        autonomyLocked: true,
+        requiresLiveAction: false,
+        userApproved: false,
+      },
+      context: { source: "chrome_extension_browser_import", productId: product.id },
+    });
+
+    if (!result || !result.ok || result.fallbackUsed && result.provider === "local") {
+      return {
+        ...product,
+        aiPrepared: null,
+        aiStatus: "not_available",
+        aiError: result?.error?.message || result?.content || "KI-Struktur nicht verfuegbar.",
+      };
+    }
+
+    const parsed = parseJsonObjectFromText(result.result || result.content);
+    if (!parsed) {
+      return {
+        ...product,
+        aiPrepared: null,
+        aiStatus: "parse_failed",
+        aiProvider: result.provider || provider,
+        aiModel: result.model || model,
+        aiError: "KI-Antwort war kein verwertbares JSON.",
+      };
+    }
+
+    return {
+      ...product,
+      aiPrepared: normalizeAiPrepared(parsed),
+      aiPreparedAt: new Date().toISOString(),
+      aiProvider: result.provider || provider,
+      aiModel: result.model || model,
+      aiStatus: "prepared",
+      aiError: "",
+    };
+  } catch (error) {
+    return {
+      ...product,
+      aiPrepared: null,
+      aiStatus: "failed",
+      aiError: error && error.message ? error.message : "KI-Strukturierung fehlgeschlagen.",
+    };
+  }
 }
 
 function normalizeList(list) {
@@ -441,7 +595,9 @@ export default async function handler(req, res) {
   const body = normalizeBody(req.body);
   const incoming = body.product || body.item || body.data || body || {};
   const current = await loadPersistentStore();
-  const result = upsertImport(current, incoming);
+  const normalizedIncoming = normalizeImport(incoming);
+  const aiReadyIncoming = await prepareBrowserImportWithAi(normalizedIncoming);
+  const result = upsertImport(current, aiReadyIncoming);
   const persisted = await savePersistentStore(result.next);
 
   return json(res, 200, {

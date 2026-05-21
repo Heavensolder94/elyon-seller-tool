@@ -2492,6 +2492,14 @@ function normalizeBrowserImportRecord(item){
     image: images[0] || '',
     images,
     description: String(source.description || source.productDescription || source.summary || '').trim(),
+    descriptionCandidates: Array.isArray(source.descriptionCandidates) ? source.descriptionCandidates.filter(Boolean).slice(0,8) : [],
+    descriptionSource: String(source.descriptionSource || '').trim(),
+    aiPrepared: source.aiPrepared && typeof source.aiPrepared === 'object' ? source.aiPrepared : null,
+    aiPreparedAt: String(source.aiPreparedAt || '').trim(),
+    aiProvider: String(source.aiProvider || '').trim(),
+    aiModel: String(source.aiModel || '').trim(),
+    aiStatus: String(source.aiStatus || '').trim(),
+    aiError: String(source.aiError || '').trim(),
     variants: Array.isArray(source.variants) ? source.variants.slice(0,50) : [],
     shipping: source.shipping && typeof source.shipping === 'object' ? source.shipping : {},
     rating: String(source.rating || '').trim(),
@@ -6864,6 +6872,22 @@ function renderBrowserImports(){
     const availabilityText = String(item.availability || '').slice(0, 180);
     const detailRows = Object.entries(item.productDetails || {}).slice(0,12).map(([key,value]) => '<li><strong>' + escapeHtml(key) + ':</strong> ' + escapeHtml(String(value || '')) + '</li>').join('');
     const variantRows = (item.variants || []).slice(0,12).map(variant => '<span class="pill">' + escapeHtml(typeof variant === 'string' ? variant : (variant.label || variant.name || JSON.stringify(variant))) + '</span>').join('');
+    const ai = item.aiPrepared && typeof item.aiPrepared === 'object' ? item.aiPrepared : null;
+    const aiBulletRows = ai && Array.isArray(ai.bulletPoints) ? ai.bulletPoints.slice(0,10).map(text => '<li>' + escapeHtml(text) + '</li>').join('') : '';
+    const aiDetailRows = ai && ai.technicalDetails && typeof ai.technicalDetails === 'object' ? Object.entries(ai.technicalDetails).slice(0,12).map(([key,value]) => '<li><strong>' + escapeHtml(key) + ':</strong> ' + escapeHtml(String(value || '')) + '</li>').join('') : '';
+    const aiWarnings = ai ? (Array.isArray(ai.supplierWarnings) ? ai.supplierWarnings : []).concat(Array.isArray(ai.complianceHints) ? ai.complianceHints : []) : [];
+    const aiWarningRows = aiWarnings.slice(0,12).map(text => '<span class="pill bad">' + escapeHtml(text) + '</span>').join('');
+    const aiHtml = ai
+      ? '<div class="output-box"><h3>KI-Struktur fuer Elyon</h3>' +
+          '<p><strong>' + escapeHtml(ai.cleanTitle || item.title || 'KI-Titel offen') + '</strong></p>' +
+          (ai.elyonSummary ? '<p>' + escapeHtml(ai.elyonSummary) + '</p>' : '') +
+          (ai.cleanDescription ? '<p>' + escapeHtml(ai.cleanDescription) + '</p>' : '') +
+          (aiBulletRows ? '<h4>Bulletpoints</h4><ul>' + aiBulletRows + '</ul>' : '') +
+          (aiDetailRows ? '<h4>Technische Details</h4><ul>' + aiDetailRows + '</ul>' : '') +
+          (aiWarningRows ? '<div class="pill-row">' + aiWarningRows + '</div>' : '') +
+          '<p class="muted">Provider: ' + escapeHtml(item.aiProvider || '-') + ' · Modell: ' + escapeHtml(item.aiModel || '-') + ' · Vertrauen: ' + escapeHtml(String(ai.confidence || 0)) + '/100</p>' +
+        '</div>'
+      : (item.aiStatus ? '<div class="output-box"><h3>KI-Struktur</h3><p class="muted">' + escapeHtml(item.aiStatus === 'not_available' ? 'KI nicht verfuegbar. Originaldaten wurden gespeichert.' : (item.aiError || item.aiStatus)) + '</p></div>' : '');
     const extraRows = [
       item.category ? '<span class="pill">Kategorie: ' + escapeHtml(item.category) + '</span>' : '',
       availabilityText ? '<span class="pill">Verfügbarkeit: ' + escapeHtml(availabilityText) + (String(item.availability || '').length > 180 ? '…' : '') + '</span>' : '',
@@ -6888,6 +6912,7 @@ function renderBrowserImports(){
           (galleryRows ? '<div class="browser-import-gallery">' + galleryRows + '</div>' : '') +
           browserImportDisclosureHTML('Varianten anzeigen', variantRows ? '<div class="pill-row">' + variantRows + '</div>' : '') +
           browserImportDisclosureHTML('Produktdetails anzeigen', detailRows ? '<ul>' + detailRows + '</ul>' : '') +
+          browserImportDisclosureHTML('KI-Struktur anzeigen', aiHtml) +
           browserImportDisclosureHTML('Artikelbeschreibung anzeigen', item.description ? '<p>' + escapeHtml(item.description) + '</p>' : '') +
           '<div class="pill-row">' +
             '<span class="pill">Import: ' + escapeHtml(item.importedAt || '-') + '</span>' +
@@ -6915,9 +6940,12 @@ function renderBrowserImports(){
 
       if(action === 'board'){
         const itemShippingText = item.shipping && typeof item.shipping === 'object' ? [item.shipping.cost, item.shipping.deliveryTime, item.shipping.shipsFrom, item.shipping.text].filter(Boolean).join(' · ') : '';
+        const ai = item.aiPrepared && typeof item.aiPrepared === 'object' ? item.aiPrepared : {};
+        const cleanTitle = ai.cleanTitle || item.title || 'Browser Import';
+        const cleanDescription = ai.cleanDescription || item.description || '';
         const product = normalizeProductRecord({
           id: Date.now(),
-          name: item.title || 'Browser Import',
+          name: cleanTitle,
           supplier: item.supplier || '',
           supplierId: item.linkedSupplierId || '',
           supplierLink: item.url || '',
@@ -6925,7 +6953,7 @@ function renderBrowserImports(){
           sourceType: 'chrome_extension',
           sourceDomain: item.domain || '',
           notes: item.notes || '',
-          description: item.description || '',
+          description: cleanDescription,
           sales: item.soldCount || '',
           competition: item.reviewsCount || '',
           delivery: item.shipping?.deliveryTime || '',
@@ -6938,6 +6966,9 @@ function renderBrowserImports(){
           sourceOnlineCurrency: item.currency || '',
           sourceOnlineImage: item.image || '',
           sourceOnlineDescription: item.description || '',
+          sourceOnlineAiDescription: cleanDescription,
+          sourceOnlineAiSummary: ai.elyonSummary || '',
+          sourceOnlineAiPrepared: JSON.stringify(ai || {}),
           sourceOnlineAvailability: cleanAvailabilityText(item.availability || ''),
           sourceOnlineShipping: itemShippingText || '',
           sourceOnlineCategory: item.category || '',
