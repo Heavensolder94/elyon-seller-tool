@@ -55,6 +55,15 @@ function sanitizeProductDescription(value) {
   return isHumanVerificationText(text) ? "" : text;
 }
 
+function firstUsefulText(values) {
+  const list = Array.isArray(values) ? values : [values];
+  for (const value of list) {
+    const text = sanitizeProductDescription(value);
+    if (text && text.length >= 30) return text;
+  }
+  return "";
+}
+
 function cleanAvailability(value) {
   let text = toText(value);
   if (!text) return "";
@@ -159,8 +168,16 @@ function normalizeImport(product = {}) {
   const supplierMatch = resolveSupplier(domain, supplier);
   const linkedSupplierId = toText(product.linkedSupplierId || supplierMatch.linkedSupplierId);
   const rawTitle = sanitizeProductTitle(product.title || product.name || "");
-  const rawDescription = sanitizeProductDescription(product.description || product.productDescription || product.summary || "");
-  const blocked = isHumanVerificationText(product.title || product.name || "") || isHumanVerificationText(product.description || product.productDescription || product.summary || "");
+  const rawDescription = firstUsefulText([
+    product.description,
+    product.productDescription,
+    product.sourceOnlineDescription,
+    product.longDescription,
+    product.shortDescription,
+    product.summary,
+    ...(Array.isArray(product.descriptionCandidates) ? product.descriptionCandidates : [])
+  ]);
+  const blocked = isHumanVerificationText(product.title || product.name || "") || isHumanVerificationText(rawDescription);
   const priceParts = normalizePrice(product.price || "", product.currency || "");
   const images = normalizeImages(product.image, product.images);
   return {
@@ -171,6 +188,8 @@ function normalizeImport(product = {}) {
     image: images[0] || "",
     images,
     description: rawDescription,
+    descriptionCandidates: toArray(product.descriptionCandidates).map(toText).filter(Boolean).slice(0, 8),
+    descriptionSource: toText(product.descriptionSource || ""),
     variants: toArray(product.variants).slice(0, 50),
     shipping: toObject(product.shipping),
     rating: toText(product.rating || ""),
