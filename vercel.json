@@ -74,6 +74,18 @@
       "destination": "/api/cj/search?action=status"
     },
     {
+      "source": "/api/cj/search",
+      "destination": "/api/cj/search?action=search"
+    },
+    {
+      "source": "/api/cj/product",
+      "destination": "/api/cj/search?action=product"
+    },
+    {
+      "source": "/api/cj/detail",
+      "destination": "/api/cj/search?action=detail"
+    },
+    {
       "source": "/api/source/analyze",
       "destination": "/api/cj/search?action=source-analyze"
     },

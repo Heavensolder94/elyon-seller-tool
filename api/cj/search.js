@@ -68,6 +68,10 @@ function sourceTextBetween(html, regex) {
   return match && match[1] ? cleanText(match[1]) : "";
 }
 
+function humanVerificationDetected(text) {
+  return /\b(human verification|verify you are human|captcha|bot detection|access denied|forbidden)\b/i.test(String(text || ""));
+}
+
 function getMetaContent(html, key) {
   const tags = String(html || "").match(/<meta\b[^>]*>/gi) || [];
   for (const tag of tags) {
@@ -199,12 +203,292 @@ function normalizeSourceAnalysisResult({ url, supplier, domain, metadata, messag
   };
 }
 
+function blockedSourceAnalysisResult({ url, supplier, domain, message, reason = "blocked_by_human_verification", httpStatus = 200, contentType = "text/html", mode = "online", identifiers = {} }) {
+  return {
+    ok: true,
+    mode,
+    onlineChecked: true,
+    productDataFound: false,
+    supplier,
+    domain,
+    title: "",
+    price: "",
+    currency: "",
+    image: "",
+    images: [],
+    availability: "",
+    shipping: "",
+    description: "",
+    category: "",
+    variants: [],
+    detectedData: {},
+    confidence: "low",
+    warnings: ["human_verification_detected"],
+    reason,
+    status: "blockiert",
+    httpStatus,
+    contentType,
+    checkedAt: new Date().toISOString(),
+    message,
+    url,
+    identifiers,
+  };
+}
+
 function isBadSourceMetadata(metadata) {
   const title = readText(metadata?.title).toLowerCase();
   const description = readText(metadata?.description).toLowerCase();
   const text = `${title} ${description}`;
   if (!title && !metadata?.price && !metadata?.image && !metadata?.description) return true;
   return /\b(404|not found|page not found|access denied|forbidden|captcha|bot detection|seite nicht gefunden|nicht gefunden)\b/i.test(text);
+}
+
+function firstNonEmpty(...values) {
+  for (const value of values) {
+    const text = readText(value);
+    if (text) return text;
+  }
+  return "";
+}
+
+function uniqueStrings(values) {
+  const seen = new Set();
+  const out = [];
+  for (const value of Array.isArray(values) ? values : []) {
+    const text = readText(value);
+    if (!text) continue;
+    if (seen.has(text)) continue;
+    seen.add(text);
+    out.push(text);
+  }
+  return out;
+}
+
+function extractCjIdentifiers(sourceUrl) {
+  const normalized = normalizeSourceUrl(sourceUrl);
+  if (!normalized) return { pid: "", productSku: "", variantSku: "", sku: "", sourceUrl: "" };
+
+  const readParam = (...names) => {
+    for (const name of names) {
+      const value = readText(normalized.searchParams.get(name));
+      if (value) return value;
+    }
+    return "";
+  };
+
+  const path = normalized.pathname || "";
+  const segments = path.split("/").filter(Boolean);
+  const lastSegment = readText(segments[segments.length - 1] || "");
+  const pidFromPathMatch = path.match(/(?:product|detail|item|goods)[\/-]([A-Za-z0-9_-]{5,})/i);
+  const skuFromPathMatch = path.match(/(?:sku|variant|vid)[\/-]([A-Za-z0-9_-]{5,})/i);
+
+  const pid = firstNonEmpty(
+    readParam("pid", "productId", "product_id", "id"),
+    pidFromPathMatch && pidFromPathMatch[1],
+    /^[A-Za-z0-9_-]{5,}$/.test(lastSegment) && /product|detail|item|goods/i.test(path) ? lastSegment : ""
+  );
+  const productSku = firstNonEmpty(
+    readParam("productSku", "product_sku", "sku", "spu"),
+    skuFromPathMatch && skuFromPathMatch[1]
+  );
+  const variantSku = firstNonEmpty(
+    readParam("variantSku", "variant_sku", "vid"),
+    skuFromPathMatch && skuFromPathMatch[1]
+  );
+
+  return {
+    pid,
+    productSku,
+    variantSku,
+    sku: firstNonEmpty(productSku, variantSku),
+    sourceUrl: normalized.toString(),
+  };
+}
+
+function extractDetailPayload(data) {
+  if (!data || typeof data !== "object") return null;
+  if (Array.isArray(data.data)) return data.data[0] || null;
+  if (data.data && typeof data.data === "object") return data.data;
+  if (data.result && typeof data.result === "object" && !Array.isArray(data.result)) return data.result;
+  return null;
+}
+
+function normalizeCjVariants(input) {
+  const list = Array.isArray(input) ? input : [];
+  return list.slice(0, 100).map((item) => ({
+    variantSku: firstNonEmpty(item?.variantSku, item?.vid, item?.sku),
+    productSku: firstNonEmpty(item?.productSku, item?.sku),
+    title: firstNonEmpty(item?.variantName, item?.name, item?.title),
+    price: firstNonEmpty(item?.sellPrice, item?.price, item?.variantSellPrice),
+    image: firstNonEmpty(item?.variantImage, item?.image),
+    stock: firstNonEmpty(item?.inventory, item?.stock, item?.quantity),
+  })).filter((item) => item.variantSku || item.title || item.price || item.image);
+}
+
+function normalizeCjDetailProduct(product, identifiers = {}) {
+  const pid = firstNonEmpty(product?.pid, product?.productId, product?.id, identifiers.pid);
+  const productSku = firstNonEmpty(product?.productSku, product?.sku, identifiers.productSku);
+  const variantSku = firstNonEmpty(product?.variantSku, product?.vid, identifiers.variantSku);
+  const title = firstNonEmpty(product?.productNameEn, product?.productName, product?.name, product?.title);
+  const description = cleanText(firstNonEmpty(product?.description, product?.productDescription, product?.descriptionEn));
+  const category = cleanText(firstNonEmpty(product?.categoryName, product?.category, product?.googleCategoryName));
+  const image = firstNonEmpty(product?.productImage, product?.image, product?.coverImage);
+  const images = uniqueStrings(
+    []
+      .concat(Array.isArray(product?.productImages) ? product.productImages : [])
+      .concat(Array.isArray(product?.images) ? product.images : [])
+      .concat(image ? [image] : [])
+  );
+  const variants = normalizeCjVariants(
+    product?.variants || product?.variantList || product?.skuList || product?.productVariants || []
+  );
+  const shippingCountries = uniqueStrings(product?.shippingCountryCodes || product?.shipToCountries || []);
+  const shippingText = shippingCountries.length ? shippingCountries.join(", ") : "";
+  const price = firstNonEmpty(product?.sellPrice, product?.price, product?.nowPrice, variants[0]?.price);
+  const currency = firstNonEmpty(product?.currency, product?.currencyCode, "USD");
+
+  return {
+    pid,
+    sku: productSku,
+    productSku,
+    variantSku,
+    title,
+    price,
+    currency,
+    image,
+    images,
+    availability: firstNonEmpty(product?.saleStatus, product?.availability),
+    shipping: shippingText,
+    description,
+    category,
+    variants,
+    supplierName: firstNonEmpty(product?.supplierName),
+    supplierId: firstNonEmpty(product?.supplierId),
+    shippingCountries,
+    isFreeShipping: Boolean(product?.isFreeShipping),
+    saleStatus: product?.saleStatus ?? null,
+    source: "CJ API",
+  };
+}
+
+async function cjApiRequest(path, { method = "GET", token, query, body } = {}) {
+  const url = new URL(`https://developers.cjdropshipping.com/api2.0/v1${path}`);
+  if (query && typeof query === "object") {
+    Object.entries(query).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && readText(value) !== "") {
+        url.searchParams.set(key, String(value));
+      }
+    });
+  }
+
+  const response = await fetch(url.toString(), {
+    method,
+    headers: {
+      "CJ-Access-Token": token,
+      "Content-Type": "application/json",
+      "Accept": "application/json",
+    },
+    body: method === "GET" ? undefined : JSON.stringify(body || {}),
+  });
+
+  const { rawText, data } = await parseUpstreamResponse(response);
+  return { response, rawText, data };
+}
+
+async function fetchCjProductByIdentifiers(identifiers) {
+  const token = await getCjAccessToken();
+  const attempts = [
+    identifiers?.pid ? { label: "pid", body: { pid: identifiers.pid } } : null,
+    identifiers?.productSku ? { label: "productSku", body: { productSku: identifiers.productSku } } : null,
+    identifiers?.variantSku ? { label: "variantSku", body: { variantSku: identifiers.variantSku } } : null,
+  ].filter(Boolean);
+
+  if (!attempts.length) {
+    return {
+      ok: false,
+      found: false,
+      reason: "missing_cj_identifier",
+      message: "CJ-Link erkannt, aber es konnte keine Produkt-ID aus der URL extrahiert werden.",
+      identifiers,
+    };
+  }
+
+  const errors = [];
+  for (const attempt of attempts) {
+    const { response, rawText, data } = await cjApiRequest("/product/query", { method: "POST", token, body: attempt.body });
+    if (!response.ok || data?.result === false) {
+      errors.push({
+        identifier: attempt.label,
+        status: response.status,
+        message: data?.message || data?.error || rawText || "CJ product query failed",
+      });
+      continue;
+    }
+    const detail = extractDetailPayload(data);
+    if (detail) {
+      return {
+        ok: true,
+        found: true,
+        identifier: attempt.label,
+        identifiers,
+        raw: data,
+        product: normalizeCjDetailProduct(detail, identifiers),
+      };
+    }
+  }
+
+  return {
+    ok: false,
+    found: false,
+    reason: "cj_product_not_found",
+    message: "CJ API konnte keine Produktdaten laden.",
+    identifiers,
+    errors,
+  };
+}
+
+function normalizeCjApiAnalysisResult({ url, supplier, domain, product, identifiers, raw }) {
+  const metadata = {
+    title: product?.title || "",
+    price: product?.price || "",
+    currency: product?.currency || "",
+    image: product?.image || "",
+    availability: product?.availability || "",
+    shipping: product?.shipping || "",
+    description: product?.description || "",
+    category: product?.category || "",
+  };
+  const base = normalizeSourceAnalysisResult({
+    url,
+    supplier,
+    domain,
+    metadata,
+    ok: true,
+    reason: "",
+    httpStatus: 200,
+    contentType: "application/json",
+    message: "CJ API erfolgreich verwendet. Produktdaten wurden ueber die API geladen.",
+  });
+  return {
+    ...base,
+    mode: "cj-api",
+    source: "cj-api",
+    images: Array.isArray(product?.images) ? product.images : [],
+    variants: Array.isArray(product?.variants) ? product.variants : [],
+    identifiers,
+    cj: {
+      pid: product?.pid || "",
+      sku: product?.sku || "",
+      productSku: product?.productSku || "",
+      variantSku: product?.variantSku || "",
+      supplierName: product?.supplierName || "",
+      supplierId: product?.supplierId || "",
+      shippingCountries: Array.isArray(product?.shippingCountries) ? product.shippingCountries : [],
+      saleStatus: product?.saleStatus ?? null,
+      isFreeShipping: Boolean(product?.isFreeShipping),
+    },
+    raw: raw || undefined,
+  };
 }
 
 async function handleSourceAnalyze(req, res) {
@@ -225,6 +509,28 @@ async function handleSourceAnalyze(req, res) {
 
   const detected = detectSourceSupplier(url);
   const supplier = readText(body.supplier) || detected.supplier;
+  const isCjLink = detected.domain === "cjdropshipping.com" || supplier.toLowerCase().includes("cj");
+  const cjIdentifiers = isCjLink ? extractCjIdentifiers(url.toString()) : null;
+
+  if (isCjLink) {
+    try {
+      const cjApiResult = await fetchCjProductByIdentifiers(cjIdentifiers);
+      if (cjApiResult?.found && cjApiResult.product) {
+        return res.status(200).json(
+          normalizeCjApiAnalysisResult({
+            url: url.toString(),
+            supplier,
+            domain: detected.domain,
+            product: cjApiResult.product,
+            identifiers: cjApiResult.identifiers,
+            raw: cjApiResult.raw,
+          })
+        );
+      }
+    } catch (error) {
+      // Continue with HTML fallback, but do not fail the whole analysis path.
+    }
+  }
 
   try {
     const response = await fetch(url.toString(), { redirect: "follow" });
@@ -258,6 +564,21 @@ async function handleSourceAnalyze(req, res) {
     }
 
     const html = (await response.text()).slice(0, 600000);
+    if (humanVerificationDetected(html)) {
+      const blocked = blockedSourceAnalysisResult({
+        url: url.toString(),
+        supplier,
+        domain: detected.domain,
+        message: isCjLink
+          ? "CJ API konnte keine Produktdaten laden. Die HTML-Seite wurde durch Human Verification blockiert."
+          : "Die Quelle blockiert den automatischen Zugriff mit Human Verification.",
+        httpStatus: response.status,
+        contentType,
+        mode: isCjLink ? "cj-fallback" : "online",
+        identifiers: cjIdentifiers || {},
+      });
+      return res.status(200).json(blocked);
+    }
     const metadata = extractBasicSourceMetadata(html, url.toString());
     const badMetadata = isBadSourceMetadata(metadata);
     const hasData = !badMetadata && Boolean(metadata.title || metadata.price || metadata.image || metadata.description);
@@ -273,7 +594,9 @@ async function handleSourceAnalyze(req, res) {
       contentType,
       message: hasData
         ? "Onlineanalyse abgeschlossen. Es wurden oeffentliche Metadaten erkannt."
-        : "Onlineanalyse abgeschlossen. Es wurden keine echten Produktdaten erkannt. Bitte Produktdaten manuell ergaenzen oder spaeter API-Anbindung nutzen.",
+        : isCjLink
+          ? "CJ API konnte keine Produktdaten laden."
+          : "Onlineanalyse abgeschlossen. Es wurden keine echten Produktdaten erkannt. Bitte Produktdaten manuell ergaenzen oder spaeter API-Anbindung nutzen.",
     }));
   } catch {
     return res.status(200).json({
@@ -288,6 +611,7 @@ async function handleSourceAnalyze(req, res) {
       detectedData: {},
       status: "failed",
       checkedAt: new Date().toISOString(),
+      ...(isCjLink ? { message: "CJ API konnte keine Produktdaten laden." } : {}),
     });
   }
 }
@@ -415,7 +739,48 @@ export default async function handler(req, res) {
     return res.status(200).json({
       ok: true,
       service: "CJ",
+      routes: ["/api/cj/status", "/api/cj/search", "/api/cj/product", "/api/cj/detail"],
+      hasApiKey: Boolean(process.env.CJ_API_KEY),
     });
+  }
+
+  if (action === "product" || action === "detail") {
+    const identifiers = {
+      pid: readText(req.query.pid || req.query.productId || ""),
+      productSku: readText(req.query.productSku || req.query.sku || ""),
+      variantSku: readText(req.query.variantSku || req.query.vid || ""),
+    };
+
+    if (!identifiers.pid && !identifiers.productSku && !identifiers.variantSku) {
+      return jsonError(res, 400, "pid, productSku oder variantSku fehlt.", "QUERY_MISSING");
+    }
+
+    try {
+      const result = await fetchCjProductByIdentifiers(identifiers);
+      if (!result?.found || !result.product) {
+        return res.status(404).json({
+          ok: false,
+          source: "cj-detail",
+          status: 404,
+          error: "CJ API konnte keine Produktdaten laden.",
+          details: result?.errors || null,
+          identifiers,
+        });
+      }
+
+      return res.status(200).json({
+        ok: true,
+        source: action === "detail" ? "cj-detail" : "cj-product",
+        status: 200,
+        identifiers: result.identifiers || identifiers,
+        product: result.product,
+      });
+    } catch (error) {
+      return jsonError(res, 502, error?.message || "CJ Detail Fehler", {
+        identifiers,
+        ...(error?.details ? { upstream: error.details } : {}),
+      });
+    }
   }
 
   const keyword = readText(req.query.keyword || req.query.q || "");

@@ -4091,7 +4091,7 @@ function seoTitle(name){ return `${name} Neu | Praktisch & Modern | Top Preis-Le
 function description(name){ return `Produkt: ${name}\n\nVorteile:\n✓ Neuware\n✓ Praktisch im Alltag\n✓ Modernes Design\n✓ Gutes Preis-Leistungs-Verhältnis\n\nIdeal für Kunden, die eine einfache, zuverlässige und moderne Lösung suchen.\n\nJetzt bestellen und bequem nach Hause liefern lassen.`; }
 function readProductForm(){
   const productStatus = normalizeProductStatus($('productStatus')?.value || 'Draft', 'Draft');
-  return {name:$('name')?.value.trim()||'Unbenanntes Produkt',sku:$('sku')?.value.trim()||'',supplierId:$('supplierId')?.value.trim()||'',ebayItemId:$('ebayItemId')?.value.trim()||'',supplierLink:$('supplierLink')?.value.trim()||'',buy:n('buy'),ship:n('ship'),sell:n('sell'),targetProfit:n('targetProfit')||appSettings.profit,fee:n('fee')||appSettings.fees,riskBuffer:n('riskBuffer')||appSettings.buffer,sales:n('sales'),competition:n('competition'),delivery:n('delivery'),risk:$('risk')?.value||'low',status:productStatus,productStatus:productStatus,priority:$('priority')?.value||'Normal',notes:$('notes')?.value.trim()||'',sourceProvider:currentSourcingDraft.sourceProvider||'',sourceRisk:currentSourcingDraft.sourceRisk||'',sourceType:currentSourcingDraft.sourceType||'',sourceDomain:currentSourcingDraft.sourceDomain||'',sourceNote:currentSourcingDraft.sourceNote||'',sourceAnalysisStatus:currentSourcingDraft.sourceAnalysisStatus||'',sourceProductNote:currentSourcingDraft.sourceProductNote||'',sourceOnlineStatus:currentSourcingDraft.sourceOnlineStatus||'',sourceOnlineCheckedAt:currentSourcingDraft.sourceOnlineCheckedAt||'',sourceOnlineTitle:currentSourcingDraft.sourceOnlineTitle||'',sourceOnlinePrice:currentSourcingDraft.sourceOnlinePrice||'',sourceOnlineCurrency:currentSourcingDraft.sourceOnlineCurrency||'',sourceOnlineImage:currentSourcingDraft.sourceOnlineImage||'',sourceOnlineAvailability:currentSourcingDraft.sourceOnlineAvailability||'',sourceOnlineShipping:currentSourcingDraft.sourceOnlineShipping||'',sourceOnlineConfidence:currentSourcingDraft.sourceOnlineConfidence||''};
+  return {name:$('name')?.value.trim()||'Unbenanntes Produkt',sku:$('sku')?.value.trim()||'',supplierId:$('supplierId')?.value.trim()||'',ebayItemId:$('ebayItemId')?.value.trim()||'',supplierLink:$('supplierLink')?.value.trim()||'',buy:n('buy'),ship:n('ship'),sell:n('sell'),targetProfit:n('targetProfit')||appSettings.profit,fee:n('fee')||appSettings.fees,riskBuffer:n('riskBuffer')||appSettings.buffer,sales:n('sales'),competition:n('competition'),delivery:n('delivery'),risk:$('risk')?.value||'low',status:productStatus,productStatus:productStatus,priority:$('priority')?.value||'Normal',notes:$('notes')?.value.trim()||'',sourceProvider:currentSourcingDraft.sourceProvider||'',sourceRisk:currentSourcingDraft.sourceRisk||'',sourceType:currentSourcingDraft.sourceType||'',sourceDomain:currentSourcingDraft.sourceDomain||'',sourceNote:currentSourcingDraft.sourceNote||'',sourceAnalysisStatus:currentSourcingDraft.sourceAnalysisStatus||'',sourceProductNote:currentSourcingDraft.sourceProductNote||'',sourceOnlineStatus:currentSourcingDraft.sourceOnlineStatus||'',sourceOnlineCheckedAt:currentSourcingDraft.sourceOnlineCheckedAt||'',sourceOnlineTitle:currentSourcingDraft.sourceOnlineTitle||'',sourceOnlinePrice:currentSourcingDraft.sourceOnlinePrice||'',sourceOnlineCurrency:currentSourcingDraft.sourceOnlineCurrency||'',sourceOnlineImage:currentSourcingDraft.sourceOnlineImage||'',sourceOnlineImages:currentSourcingDraft.sourceOnlineImages||'',sourceOnlineAvailability:currentSourcingDraft.sourceOnlineAvailability||'',sourceOnlineShipping:currentSourcingDraft.sourceOnlineShipping||'',sourceOnlineConfidence:currentSourcingDraft.sourceOnlineConfidence||'',sourceOnlineDescription:currentSourcingDraft.sourceOnlineDescription||'',sourceOnlineCategory:currentSourcingDraft.sourceOnlineCategory||'',sourceOnlineVariants:currentSourcingDraft.sourceOnlineVariants||'',sourceOnlineMode:currentSourcingDraft.sourceOnlineMode||'',sourceOnlineReason:currentSourcingDraft.sourceOnlineReason||''};
 }
 function clearProductForm(){
   ['name','sku','supplierId','ebayItemId','supplierLink','buy','ship','sell','sales','competition','delivery','notes'].forEach(id=>safe(id,el=>el.value=''));
@@ -4161,6 +4161,13 @@ function saveCustomSuppliers(list){
   localStorage.setItem(CUSTOM_SUPPLIERS_KEY, JSON.stringify(safeList));
   renderSupplierCards();
   refreshSourceProviderOptions();
+}
+function isHumanVerificationText(value){
+  return /\b(human verification|verify you are human|captcha|bot detection|access denied|forbidden)\b/i.test(String(value || '').trim());
+}
+function sanitizeOnlineText(value){
+  const text = String(value || '').trim();
+  return isHumanVerificationText(text) ? '' : text;
 }
 function normalizeUrl(value){
   const raw = String(value || '').trim();
@@ -4311,6 +4318,9 @@ function saveSupplierForm(){
 function syncProductFormFromSource(data){
   const d = data || {};
   const online = d.online || {};
+  const safeName = sanitizeOnlineText(d.name);
+  const safeOnlineTitle = sanitizeOnlineText(online.title);
+  const safeOnlineDescription = sanitizeOnlineText(online.description);
   currentSourcingDraft = {
     sourceProvider:d.supplier || currentSourcingDraft.sourceProvider || '',
     sourceRisk:d.risk || currentSourcingDraft.sourceRisk || '',
@@ -4321,15 +4331,21 @@ function syncProductFormFromSource(data){
     sourceProductNote:d.productNote || currentSourcingDraft.sourceProductNote || '',
     sourceOnlineStatus:online.status || currentSourcingDraft.sourceOnlineStatus || '',
     sourceOnlineCheckedAt:online.checkedAt || currentSourcingDraft.sourceOnlineCheckedAt || '',
-    sourceOnlineTitle:online.title || currentSourcingDraft.sourceOnlineTitle || '',
+    sourceOnlineTitle:safeOnlineTitle || currentSourcingDraft.sourceOnlineTitle || '',
     sourceOnlinePrice:online.price || currentSourcingDraft.sourceOnlinePrice || '',
     sourceOnlineCurrency:online.currency || currentSourcingDraft.sourceOnlineCurrency || '',
     sourceOnlineImage:online.image || currentSourcingDraft.sourceOnlineImage || '',
+    sourceOnlineImages:JSON.stringify(Array.isArray(online.images) ? online.images : []),
     sourceOnlineAvailability:online.availability || currentSourcingDraft.sourceOnlineAvailability || '',
     sourceOnlineShipping:online.shipping || currentSourcingDraft.sourceOnlineShipping || '',
-    sourceOnlineConfidence:online.confidence || currentSourcingDraft.sourceOnlineConfidence || ''
+    sourceOnlineConfidence:online.confidence || currentSourcingDraft.sourceOnlineConfidence || '',
+    sourceOnlineDescription:safeOnlineDescription || currentSourcingDraft.sourceOnlineDescription || '',
+    sourceOnlineCategory:online.category || currentSourcingDraft.sourceOnlineCategory || '',
+    sourceOnlineVariants:JSON.stringify(Array.isArray(online.variants) ? online.variants : []),
+    sourceOnlineMode:online.mode || currentSourcingDraft.sourceOnlineMode || '',
+    sourceOnlineReason:online.reason || currentSourcingDraft.sourceOnlineReason || ''
   };
-  safe('name', function(el){ if(d.name && (!el.value || el.value === 'Unbenanntes Produkt')) el.value = d.name; });
+  safe('name', function(el){ if(safeName && (!el.value || el.value === 'Unbenanntes Produkt')) el.value = safeName; });
   safe('buy', function(el){ if(online.price && !el.value) el.value = String(online.price).replace(',','.'); });
   safe('supplierId', function(el){ if(d.supplier) el.value = d.supplier; });
   safe('supplierLink', function(el){ if(d.link) el.value = d.link; });
@@ -4340,7 +4356,7 @@ function syncProductFormFromSource(data){
     if(d.risk) lines.push('Risiko: ' + d.risk);
     if(d.status) lines.push('Analyse-Status: ' + d.status);
     if(online.status) lines.push('Online-Status: ' + online.status);
-    if(online.title) lines.push('Online-Titel: ' + online.title);
+    if(safeOnlineTitle) lines.push('Online-Titel: ' + safeOnlineTitle);
     if(online.price) lines.push('Online-Preis: ' + online.price + (online.currency ? ' ' + online.currency : ''));
     if(online.image) lines.push('Online-Bild: ' + online.image);
     if(online.availability) lines.push('Verfuegbarkeit: ' + online.availability);
@@ -4413,10 +4429,13 @@ function hasOnlineProductData(online){
 }
 function isBadOnlineProductData(online){
   const text = String((online && online.title) || '') + ' ' + String((online && online.description) || '');
-  return /\b(404|not found|page not found|access denied|forbidden|captcha|bot detection|seite nicht gefunden|nicht gefunden)\b/i.test(text);
+  return /\b(404|not found|page not found|access denied|forbidden|captcha|bot detection|human verification|verify you are human|seite nicht gefunden|nicht gefunden)\b/i.test(text);
 }
 function renderOnlineProductDataMask(online, analysis){
   const supplier = (analysis && analysis.supplier) || {};
+  const variantCount = Array.isArray(online && online.variants) ? online.variants.length : 0;
+  const imageCount = Array.isArray(online && online.images) ? online.images.length : 0;
+  const blocked = String((online && online.status) || '').toLowerCase() === 'blockiert' || String((online && online.reason) || '').toLowerCase().includes('human_verification');
   if(!hasOnlineProductData(online)){
     const rows = [
       ['Produktlink', (analysis && analysis.url) || (online && online.url)],
@@ -4426,10 +4445,11 @@ function renderOnlineProductDataMask(online, analysis){
       ['HTTP-Status', (online && online.httpStatus) || 'offen'],
       ['Inhaltstyp', (online && online.contentType) || 'offen'],
       ['Datenvertrauen', (online && online.confidence) || 'low'],
+      ['Quelle', (online && online.mode) || 'online'],
       ['Naechster Schritt', 'Produktdaten manuell ergaenzen oder API-Anbindung nutzen']
     ];
     let html = '<div class="ai-product-card" style="margin-top:0">';
-    html += '<p>Noch keine echten Produktdaten erkannt.</p><p class="muted">' + escapeHtml((online && online.message) || 'Automatisches Auslesen ist fuer diese Quelle noch nicht verfuegbar. Bitte Produktdaten manuell ergaenzen oder spaeter API-Anbindung nutzen.') + '</p>';
+    html += '<p>' + escapeHtml(blocked ? 'Automatischer Zugriff blockiert.' : 'Noch keine echten Produktdaten erkannt.') + '</p><p class="muted">' + escapeHtml((online && online.message) || 'Automatisches Auslesen ist fuer diese Quelle noch nicht verfuegbar. Bitte Produktdaten manuell ergaenzen oder spaeter API-Anbindung nutzen.') + '</p>';
     html += '<div class="ai-mini-grid">';
     rows.forEach(function(row){
       html += '<div class="ai-mini-item"><span class="ai-mini-label">' + escapeHtml(row[0]) + '</span><span class="ai-mini-value">' + escapeHtml(row[1] || 'offen') + '</span></div>';
@@ -4447,11 +4467,12 @@ function renderOnlineProductDataMask(online, analysis){
   let html = '<div class="ai-product-card" style="margin-top:0">';
   if(online.image) html += '<p><img src="' + escapeHtml(online.image) + '" alt="Produktbild" style="max-width:150px;border-radius:14px;border:1px solid rgba(148,163,184,.22);margin-bottom:10px"></p>';
   html += '<div class="ai-mini-grid">';
-  [['Produkttitel',online.title],['Preis',online.price],['Waehrung',online.currency],['Verfuegbarkeit',online.availability],['Versandinformationen',online.shipping],['Kategorie',online.category],['Datenvertrauen',online.confidence],['Online-Status',online.status],['HTTP-Status',online.httpStatus]].forEach(function(row){
+  [['Produkttitel',online.title],['Preis',online.price],['Waehrung',online.currency],['Verfuegbarkeit',online.availability],['Versandinformationen',online.shipping],['Kategorie',online.category],['Varianten',variantCount ? String(variantCount) : 'offen'],['Bilder',imageCount ? String(imageCount) : 'offen'],['Quelle',online.mode || 'online'],['Datenvertrauen',online.confidence],['Online-Status',online.status],['HTTP-Status',online.httpStatus]].forEach(function(row){
     html += '<div class="ai-mini-item"><span class="ai-mini-label">' + escapeHtml(row[0]) + '</span><span class="ai-mini-value">' + escapeHtml(row[1] || 'offen') + '</span></div>';
   });
   html += '</div>';
   if(online.description) html += '<div class="output-box"><h3>Kurzbeschreibung</h3><p>' + escapeHtml(String(online.description).slice(0, 420)) + '</p></div>';
+  if(variantCount) html += '<div class="output-box"><h3>Varianten</h3><p>' + escapeHtml(online.variants.slice(0,5).map(function(item){ return item.title || item.variantSku || item.productSku || 'Variante'; }).join(' | ')) + '</p></div>';
   html += '<div class="sourcing-next-step">Diese Produktdaten sind nur vorbefuellt. Bitte Titel, Preis, Versand und Compliance manuell pruefen.</div>';
   html += '</div>';
   return html;
@@ -4475,16 +4496,16 @@ function applyManualSourcingDetails(){
   const online = {
     ...(a.online || {}),
     status:(a.online && a.online.status) || 'done',
-    title:manual.title || (a.online && a.online.title) || '',
+    title:sanitizeOnlineText(manual.title || (a.online && a.online.title) || ''),
     price:manual.price || (a.online && a.online.price) || '',
     image:manual.image || (a.online && a.online.image) || '',
-    category:manual.category || (a.online && a.online.category) || '',
+    category:sanitizeOnlineText(manual.category || (a.online && a.online.category) || ''),
     shipping:manual.shippingCost ? (manual.shippingCost + ' EUR') : ((a.online && a.online.shipping) || ''),
     confidence:manual.title || manual.price ? 'manual' : ((a.online && a.online.confidence) || 'low')
   };
   a.online = online;
   a.productNote = manual.note || a.productNote || '';
-  syncProductFormFromSource({name:manual.title || online.title || '', supplier:supplier.name, link:a.link, domain:a.domain, type:supplier.type, risk:supplier.risk, note:supplier.note, productNote:a.productNote, status:'Manuelle Produktdaten uebernommen', online});
+  syncProductFormFromSource({name:sanitizeOnlineText(manual.title || online.title || ''), supplier:supplier.name, link:a.link, domain:a.domain, type:supplier.type, risk:supplier.risk, note:supplier.note, productNote:a.productNote, status:'Manuelle Produktdaten uebernommen', online});
   safe('ship', function(el){ if(manual.shippingCost && !el.value) el.value = String(manual.shippingCost).replace(',','.'); });
   safe('delivery', function(el){ if(manual.delivery && !el.value) el.value = manual.delivery; });
   safe('notes', function(el){
@@ -4560,6 +4581,9 @@ async function analyzeSourceLink(){
   const detected = detectSupplierFromUrl(link);
   if(!detected.valid){ setHTML('sourceAnalysisResult','<div class="empty">Ungueltiger Link. Bitte vollstaendige URL pruefen.</div>'); return; }
   const analysis = {...detected, link, productNote, status:'Lokale Analyse - Backend nicht verfuegbar'};
+  if(detected.supplier && detected.supplier.name === 'CJdropshipping'){
+    analysis.status = 'CJ-Link erkannt - API wird bevorzugt';
+  }
   renderSourceAnalysis(analysis);
   if(detected.supplier && detected.supplier.name === 'Sonstige'){
     setHTML('supplierUseNotice','<p>Unbekannter Supplier - bitte pruefen oder als neuen Supplier speichern.</p>');
@@ -4568,7 +4592,11 @@ async function analyzeSourceLink(){
   renderSourceAnalysis(analysis);
   const online = await analyzeSourceOnline(analysis);
   analysis.online = online;
-  analysis.status = online && online.ok ? (isAiFeatureEnabled() ? 'Online geprueft - KI optional' : 'Online geprueft - ohne KI') : 'Lokale Analyse - Backend nicht verfuegbar';
+  analysis.status = online && online.status === 'blockiert'
+    ? 'Quelle blockiert - manuelle Pruefung noetig'
+    : online && online.ok
+      ? (isAiFeatureEnabled() ? 'Online geprueft - KI optional' : 'Online geprueft - ohne KI')
+      : 'Lokale Analyse - Backend nicht verfuegbar';
   renderSourceAnalysis(analysis);
 }
 function prepareAiSourcingPrompt(){
@@ -4634,7 +4662,7 @@ function buildChatGptSourcingPrompt(){
     '',
     'Onlineanalyse:',
     'Online-Status: ' + (online.status || 'offen'),
-    'Online-Titel: ' + (online.title || ''),
+    'Online-Titel: ' + (sanitizeOnlineText(online.title) || ''),
     'Online-Preis: ' + (online.price || ''),
     'Waehrung: ' + (online.currency || ''),
     'Verfuegbarkeit: ' + (online.availability || ''),
@@ -4681,7 +4709,7 @@ async function startDeepSeekSourcingReview(){
       context: {
         source: 'product-procurement',
         products:[{
-          name: online.title || supplier.name || 'Produkt aus Produktbeschaffung',
+          name: sanitizeOnlineText(online.title) || supplier.name || 'Produkt aus Produktbeschaffung',
           supplierId: supplier.name || '',
           supplierLink: a.link || '',
           sourceProvider: supplier.name || '',
@@ -4690,7 +4718,7 @@ async function startDeepSeekSourcingReview(){
           sourceDomain: a.domain || '',
           sourceAnalysisStatus: a.status || '',
           sourceOnlineStatus: online.status || '',
-          sourceOnlineTitle: online.title || '',
+          sourceOnlineTitle: sanitizeOnlineText(online.title) || '',
           sourceOnlinePrice: online.price || '',
           sourceOnlineCurrency: online.currency || '',
           sourceOnlineAvailability: online.availability || '',
@@ -4728,7 +4756,7 @@ function applyAnalysisToProductForm(){
   if(hasOnlineProductData(online)){
     setHTML('supplierUseNotice','<p>Einige Produktdaten wurden online erkannt. Bestehende Eingaben werden nicht automatisch ueberschrieben.</p>');
   }
-  syncProductFormFromSource({name:online.title || '', supplier:supplier.name, link:a.link, domain:a.domain, type:supplier.type, risk:supplier.risk, note:supplier.note, productNote:a.productNote, status:a.status || 'Artikelanalyse uebernommen', online});
+  syncProductFormFromSource({name:sanitizeOnlineText(online.title) || '', supplier:supplier.name, link:a.link, domain:a.domain, type:supplier.type, risk:supplier.risk, note:supplier.note, productNote:a.productNote, status:a.status || 'Artikelanalyse uebernommen', online});
   setSourcingWorkflowStep('4', 'productFormCard');
 }
 window.prepareAiSourcingPrompt = prepareAiSourcingPrompt;

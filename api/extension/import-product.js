@@ -26,6 +26,20 @@ function toObject(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : {};
 }
 
+function isHumanVerificationText(value) {
+  return /\b(human verification|verify you are human|captcha|bot detection|access denied|forbidden)\b/i.test(toText(value));
+}
+
+function sanitizeProductTitle(value) {
+  const text = toText(value);
+  return isHumanVerificationText(text) ? "" : text;
+}
+
+function sanitizeProductDescription(value) {
+  const text = toText(value);
+  return isHumanVerificationText(text) ? "" : text;
+}
+
 function cleanAvailability(value) {
   let text = toText(value);
   if (!text) return "";
@@ -85,14 +99,17 @@ function normalizeImport(product = {}) {
   const supplier = toText(product.supplier || "");
   const supplierMatch = resolveSupplier(domain, supplier);
   const linkedSupplierId = toText(product.linkedSupplierId || supplierMatch.linkedSupplierId);
+  const rawTitle = sanitizeProductTitle(product.title || product.name || "");
+  const rawDescription = sanitizeProductDescription(product.description || product.productDescription || product.summary || "");
+  const blocked = isHumanVerificationText(product.title || product.name || "") || isHumanVerificationText(product.description || product.productDescription || product.summary || "");
   return {
     id: toText(product.id || url || `${now}-${Math.random().toString(36).slice(2, 10)}`),
-    title: toText(product.title || product.name || "Unbekanntes Produkt"),
+    title: rawTitle || "Unbekanntes Produkt",
     price: toText(product.price || ""),
     currency: toText(product.currency || ""),
     image: toText(product.image || toArray(product.images)[0] || ""),
     images: toArray(product.images).map(toText).filter(Boolean).slice(0, 20),
-    description: toText(product.description || product.productDescription || product.summary || ""),
+    description: rawDescription,
     variants: toArray(product.variants).slice(0, 50),
     shipping: toObject(product.shipping),
     rating: toText(product.rating || ""),
@@ -108,13 +125,14 @@ function normalizeImport(product = {}) {
     domain,
     detectedAt: toText(product.detectedAt || now) || now,
     source: "chrome_extension",
-    status: toText(product.status || "new") || "new",
+    status: blocked ? "blocked" : (toText(product.status || "new") || "new"),
     notes: toText(product.notes || ""),
     score: toText(product.score || ""),
     linkedSupplierId,
     linkedSupplierName: supplierMatch.linkedSupplierName || "",
     importedAt: toText(product.importedAt || now) || now,
-    updatedAt: toText(product.updatedAt || now) || now
+    updatedAt: toText(product.updatedAt || now) || now,
+    blockedByHumanVerification: blocked
   };
 }
 
