@@ -263,19 +263,34 @@ function stripHtml(value) {
 function isUsefulDescriptionText(value) {
   const text = safeText(value);
   if (text.length < 35) return false;
-  if (text.length > 12000) return false;
-  if (/captcha|verify you are human|access denied|enable javascript|cookie|privacy policy|dispute policy|newsletter|login|sign in/i.test(text)) return false;
+  if (text.length > 8000) return false;
+  if (/^\s*[\[{]/.test(text)) return false;
+  if (/(captcha|verify you are human|access denied|enable javascript|cookie|privacy policy|dispute policy|newsletter|login|sign in|terms of use|return policy|refund policy|shipping policy|customer service|help center)/i.test(text)) return false;
   if (/^(home|cart|account|search|share|follow|reviews?|rating)$/i.test(text)) return false;
-  if (/add to cart|buy now|customers also|similar products|sponsored|recently viewed|recommended|bewertungen|kunden kauften/i.test(text)) return false;
+  if (/add to cart|buy now|customers also|similar products|sponsored|recently viewed|recommended|bewertungen|kunden kauften|frequently bought|people also|compare with similar|advertisement/i.test(text)) return false;
+  if (/(var |window\.|__NEXT_DATA__|webpack|function\(|merchantId|availableBadges|showFaceout|csrf|session|token)/i.test(text)) return false;
+  const uiWordMatches = text.match(/\b(home|shop|cart|login|account|wishlist|share|policy|privacy|terms|help|support|search|filter|sort|recommended|sponsored)\b/gi) || [];
+  if (uiWordMatches.length >= 5) return false;
   return true;
 }
 
 function descriptionScore(value) {
   const text = safeText(value);
   let score = Math.min(text.length, 4000);
-  if (/feature|benefit|description|specification|details|material|package|includes|bullet|product/i.test(text)) score += 500;
-  if (/cookie|newsletter|login|recommended|similar items|customers also/i.test(text)) score -= 1200;
+  if (/feature|benefit|description|specification|details|material|package|includes|bullet|product|about this item|info zu diesem artikel|artikelbeschreibung/i.test(text)) score += 700;
+  if (/cookie|newsletter|login|recommended|similar items|customers also|policy|support|cart|buy now/i.test(text)) score -= 1800;
+  if (/^\s*[\[{]/.test(text)) score -= 2500;
   return score;
+}
+
+function cleanDescriptionText(value) {
+  let text = readableText(stripHtml(value));
+  if (!text) return "";
+  text = text
+    .replace(/\b(Show more|Show less|Mehr anzeigen|Weniger anzeigen|Weitere Produktdetails|See more product details)\b/gi, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  return isUsefulDescriptionText(text) ? limitDescription(text) : "";
 }
 
 function collectDescriptionSelectorText(selectors, root = document, maxParts = 18) {
@@ -287,8 +302,8 @@ function collectDescriptionSelectorText(selectors, root = document, maxParts = 1
       const hidden = style && (style.display === "none" || style.visibility === "hidden");
       const tiny = rect && rect.width <= 1 && rect.height <= 1;
       if (hidden || tiny) return;
-      const text = readableText(node?.innerText || node?.textContent || node?.content || "");
-      if (isUsefulDescriptionText(text)) parts.push(text);
+      const text = cleanDescriptionText(node?.innerText || node?.textContent || node?.content || "");
+      if (text) parts.push(text);
     });
   }
   return uniqueReadableList(parts.sort((a, b) => descriptionScore(b) - descriptionScore(a)), maxParts);
@@ -309,8 +324,8 @@ function sectionTextFromHeadingPatterns(patterns, root = document) {
       heading.parentElement?.parentElement
     ].filter(Boolean);
     for (const container of containers) {
-      const text = readableText(container.innerText || container.textContent || "");
-      if (isUsefulDescriptionText(text)) {
+      const text = cleanDescriptionText(container.innerText || container.textContent || "");
+      if (text) {
         parts.push(text);
         break;
       }
@@ -404,8 +419,8 @@ function getFrameDescriptionText() {
     try {
       const doc = frame.contentDocument || frame.contentWindow?.document;
       if (!doc) return;
-      const text = readableText(doc.body?.innerText || doc.body?.textContent || "");
-      if (isUsefulDescriptionText(text)) parts.push(text);
+      const text = cleanDescriptionText(doc.body?.innerText || doc.body?.textContent || "");
+      if (text) parts.push(text);
     } catch {
       // Cross-origin description frames cannot be read by the extension on every marketplace.
     }
@@ -420,8 +435,8 @@ function getEmbeddedProductText() {
   const seen = new Set();
 
   function pushValue(value) {
-    const text = stripHtml(value);
-    if (!isUsefulDescriptionText(text)) return;
+    const text = cleanDescriptionText(value);
+    if (!text) return;
     const key = text.slice(0, 300);
     if (seen.has(key)) return;
     seen.add(key);
@@ -503,7 +518,7 @@ function getCjDescription() {
     "[class*='tab-content']",
     "[class*='tabContent']"
   ];
-  const visibleText = queryLongText(selectors, document, 14);
+  const visibleText = collectDescriptionSelectorText(selectors, document, 14).join("\n\n");
   const embeddedText = getEmbeddedProductText();
   const combined = [visibleText, embeddedText]
     .map(limitDescription)
@@ -776,19 +791,27 @@ function getDescription() {
 function getDescriptionData() {
   const structured = getJsonLdDescription();
   const cjDescription = /cjdropshipping/i.test(getDomain()) ? getCjDescription() : "";
-  const candidates = uniqueReadableList([
+  const primaryCandidates = uniqueReadableList([
     ...getAboutThisItemText(),
     ...getProductDescriptionText(),
     ...getItemSpecificsText(),
     structured,
     cjDescription,
-    getEmbeddedProductText(),
     pickMeta(["meta[property='og:description']", "meta[name='description']"])
   ].filter(Boolean), 20)
-    .filter(isUsefulDescriptionText)
+    .map(cleanDescriptionText)
+    .filter(Boolean)
     .sort((a, b) => descriptionScore(b) - descriptionScore(a));
 
-  const combined = uniqueReadableList(candidates, 8).join("\n\n");
+  const candidates = primaryCandidates.filter((text) => {
+    const title = safeText(getTitle()).toLowerCase();
+    if (!title || title.length < 12) return true;
+    const words = title.split(/\s+/).filter((word) => word.length >= 4).slice(0, 8);
+    if (!words.length) return true;
+    return words.some((word) => text.toLowerCase().includes(word)) || /material|features?|beschreibung|description|specification|details|package|includes|product/i.test(text);
+  });
+
+  const combined = uniqueReadableList(candidates, 6).join("\n\n");
   if (combined && combined.length > 40) {
     return {
       text: limitDescription(combined),
@@ -827,42 +850,12 @@ function isSafeDetailTrigger(node) {
 }
 
 async function openDetailsWithUserConsent() {
-  const beforeUrl = location.href;
-  const selectors = [
-    "button",
-    "summary",
-    "[role='button']",
-    "[aria-expanded='false']",
-    "[class*='expand']",
-    "[class*='more']",
-    "[data-action*='expand']"
-  ];
-  const candidates = Array.from(document.querySelectorAll(selectors.join(",")))
-    .filter(isSafeDetailTrigger)
-    .slice(0, 12);
-  let opened = 0;
-  let blocked = 0;
-
-  for (const node of candidates) {
-    if (location.href !== beforeUrl) break;
-    try {
-      node.click();
-      opened += 1;
-      await new Promise((resolve) => setTimeout(resolve, 120));
-    } catch {
-      blocked += 1;
-    }
-  }
-
-  const changedUrl = location.href !== beforeUrl;
-  if (changedUrl) {
-    history.back();
-  }
   return {
-    attempted: candidates.length,
-    opened,
-    blocked,
-    changedUrl
+    attempted: 0,
+    opened: 0,
+    blocked: 0,
+    changedUrl: false,
+    disabled: true
   };
 }
 
@@ -890,7 +883,13 @@ function getAliExpressPopupData(root = document) {
   const title = queryText(["[class*='product-title']", "[class*='title']", "[data-pl='product-title']", "h1"], root);
   const price = queryText(["[class*='price']", "[data-pl='product-price']", "[class*='product-price']"], root);
   const image = normalizeImageUrl(queryAttr(["img", "[class*='image'] img", "[class*='gallery'] img"], "src", root));
-  const description = queryLongText(["[class*='product-description']", "[data-pl='product-description']", "[class*='description-content']", "[class*='product-detail']", "[class*='ProductDetail']"], root);
+  const description = collectDescriptionSelectorText([
+    "[data-pl='product-description']",
+    "[class*='product-description']",
+    "[class*='description-content']",
+    "[class*='product-detail']",
+    "[class*='ProductDetail']"
+  ], root, 6).join("\n\n");
   return { title, price, image, description };
 }
 
@@ -1722,7 +1721,7 @@ function renderOverlay(product) {
     : `<strong>-</strong>`;
   const descInfo = product.description
     ? `Beschreibung erkannt · ${String(product.description).length} Zeichen`
-    : "Noch keine Beschreibung erkannt. Seite manuell aufklappen oder Details sicher öffnen.";
+    : "Noch keine passende Beschreibung erkannt. Bitte Produktdetails auf der Seite manuell aufklappen und neu erfassen.";
   overlay.innerHTML = `
     <div class="elyon-overlay-shell">
       <div class="elyon-overlay-header" data-elyon-drag-handle>
@@ -1750,7 +1749,7 @@ function renderOverlay(product) {
       <div class="elyon-overlay-actions">
         <button type="button" data-elyon-action="save">Zu Elyon speichern</button>
         <button type="button" class="elyon-secondary-action" data-elyon-action="rescan">Neu erfassen</button>
-        <button type="button" class="elyon-secondary-action" data-elyon-action="open-details">Details sicher öffnen</button>
+        <button type="button" class="elyon-secondary-action" data-elyon-action="open-details">Nach manuellem Aufklappen neu erfassen</button>
         <button type="button" data-elyon-action="research">Research merken</button>
         <button type="button" data-elyon-action="soul">Soul Scout vorbereiten</button>
         <button type="button" data-elyon-action="close">Overlay schließen</button>
@@ -1786,7 +1785,7 @@ function renderOverlay(product) {
   });
   overlay.querySelector('[data-elyon-action="open-details"]')?.addEventListener("click", async () => {
     const status = overlay.querySelector("[data-elyon-status]");
-    if (status) status.textContent = "Öffne sichere Detailbereiche...";
+    if (status) status.textContent = "Scanne erneut. Es wird nichts automatisch angeklickt.";
     const result = await openDetailsWithUserConsent();
     await new Promise((resolve) => setTimeout(resolve, 250));
     const nextProduct = detectProduct();
@@ -1796,7 +1795,7 @@ function renderOverlay(product) {
     if (nextStatus) {
       nextStatus.textContent = result.changedUrl
         ? "Abgebrochen: Seite wollte navigieren."
-        : `Details geprüft: ${result.opened}/${result.attempted} geöffnet · Beschreibung ${nextProduct.description ? "erkannt" : "noch leer"}`;
+        : `Neu erfasst ohne Klicks · Beschreibung ${nextProduct.description ? "erkannt" : "noch leer"}`;
     }
   });
   overlay.querySelector('[data-elyon-action="research"]')?.addEventListener("click", async () => {
