@@ -1978,14 +1978,45 @@ function applyManualCaptureToProduct(product, capture) {
   return { product: next, capture: note, classification: target };
 }
 
-function captureSelectedText(target = "auto") {
-  const text = readableText(window.getSelection?.().toString() || "");
+function captureTextValue(textValue, target = "auto") {
+  const text = readableText(stripHtml(textValue || ""));
   if (!text) {
     return { ok: false, message: "Kein Text markiert.", capture: null, product: detectProduct() };
   }
   const classification = target === "auto" ? classifySelectedText(text) : target;
   const result = applyManualCaptureToProduct(detectProduct(), { text, target: classification });
   return { ok: true, message: `Text übernommen als ${classification}.`, ...result };
+}
+
+function captureSelectedText(target = "auto") {
+  return captureTextValue(window.getSelection?.().toString() || "", target);
+}
+
+function captureImageUrl(srcUrl, asMain = false) {
+  const imageUrl = normalizeImageUrl(srcUrl || "");
+  if (!imageUrl) return { ok: false, message: "Keine Bild-URL erkannt.", product: detectProduct() };
+  const product = detectProduct();
+  const next = { ...product };
+  const images = uniqueList([imageUrl, ...(Array.isArray(product.images) ? product.images : [])], 30);
+  next.image = asMain ? imageUrl : product.image || imageUrl;
+  next.images = asMain ? uniqueList([imageUrl, ...images], 30) : images;
+  if (next.elyonProduct) {
+    next.elyonProduct = {
+      ...next.elyonProduct,
+      media: {
+        ...(next.elyonProduct.media || {}),
+        mainImage: asMain ? imageUrl : next.elyonProduct.media?.mainImage || imageUrl,
+        images: asMain
+          ? uniqueList([imageUrl, ...(next.elyonProduct.media?.images || [])], 30)
+          : uniqueList([...(next.elyonProduct.media?.images || []), imageUrl], 30)
+      },
+      notes: [
+        ...(Array.isArray(next.elyonProduct.notes) ? next.elyonProduct.notes : []),
+        { type: asMain ? "main_image" : "image", text: imageUrl, capturedAt: new Date().toISOString(), sourceUrl: location.href }
+      ].slice(-50)
+    };
+  }
+  return { ok: true, message: asMain ? "Hauptbild lokal übernommen." : "Bild lokal übernommen.", product: next };
 }
 
 function calculateConfidence(product) {
@@ -2662,10 +2693,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
   if (message?.type === "ELYON_CAPTURE_SELECTED_TEXT") {
-    const result = captureSelectedText(message.target || "auto");
-    if (result.ok) {
+    const result = message.text ? captureTextValue(message.text, message.target || "auto") : captureSelectedText(message.target || "auto");
+    if (result.ok && message.persist !== false) {
       chrome.runtime.sendMessage({ type: "ELYON_MANUAL_CAPTURE_SAVE", capture: result.capture, product: result.product }).catch(() => null);
     }
+    sendResponse(result);
+    return;
+  }
+  if (message?.type === "ELYON_CAPTURE_IMAGE") {
+    const result = captureImageUrl(message.srcUrl || "", message.asMain === true);
     sendResponse(result);
     return;
   }

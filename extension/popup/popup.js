@@ -579,6 +579,10 @@ function renderExtractionDebug(product) {
   }
   if (rawEl) rawEl.textContent = normalized ? JSON.stringify(normalized, null, 2) : "-";
   renderVariantDebug(product?.platformVariants || product?.aliexpressVariants || normalized?.variants || null, product?.platformVariantDebug || product?.aliexpressVariantDebug || debug.platformVariants || debug.aliexpressVariants || null);
+  const manualStatus = document.getElementById("manualCaptureStatus");
+  if (manualStatus && product?.localStatus) {
+    manualStatus.textContent = product.localStatus;
+  }
 }
 
 function renderVariantDebug(variants, debug) {

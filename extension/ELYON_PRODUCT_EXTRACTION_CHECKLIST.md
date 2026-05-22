@@ -52,3 +52,10 @@ Diese Checkliste ist nur fuer manuelle Debug-Tests. Keine Live-Aktion ausfuehren
 - Popup oder Overlay: `Side Panel oeffnen`.
 - Tabs pruefen: Produkt, Analyse, Supplier, Varianten, History, Notizen, Sicherheit.
 - Workflow Buttons setzen nur lokale Vorbereitung, keine KI-Ausfuehrung erzwingen.
+
+## Rechtsklick-Menue
+- Rechtsklick auf markierten Text: `Elyon > Markierten Text uebernehmen`.
+- Rechtsklick auf markierten Text: Beschreibung, Bulletpoints, technische Daten, Lieferinfo oder Notiz lokal speichern.
+- Rechtsklick auf Bild: `Bild uebernehmen` oder `Als Hauptbild setzen`.
+- Rechtsklick auf Seite: `Produktdaten lokal erfassen` oder `Varianten lokal scannen`.
+- Pruefen: Es darf kein Backend-POST ausgelöst werden; Status bleibt lokal.

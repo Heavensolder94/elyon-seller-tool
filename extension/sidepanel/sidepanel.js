@@ -37,7 +37,7 @@ function renderProduct(product) {
     card("Preis", [product?.price, product?.currency].filter(Boolean).join(" ")),
     card("Plattform", product?.detectedPlatform || product?.elyonProduct?.meta?.detectedPlatform),
     card("URL", product?.url || product?.elyonProduct?.meta?.sourceUrl),
-    card("Status", "Draft / Review erforderlich")
+    card("Status", product?.localStatus || "Draft / Review erforderlich")
   ].join("");
 }
 

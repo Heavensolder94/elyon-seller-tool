@@ -34,6 +34,20 @@ const STORAGE_KEYS = {
 
 const ALIEXPRESS_VARIANT_CACHE_KEY = "elyon_aliexpress_variant_cache";
 const ALIEXPRESS_PARENT_SEARCH_KEY = "elyon_aliexpress_parent_search";
+const PLATFORM_VARIANT_CACHE_KEY = "elyon_platform_variant_cache";
+
+const CONTEXT_MENU_ITEMS = [
+  { id: "elyon-capture-auto", title: "Markierten Text übernehmen", contexts: ["selection"] },
+  { id: "elyon-capture-description", title: "Als Produktbeschreibung speichern", contexts: ["selection"] },
+  { id: "elyon-capture-bullets", title: "Als Bulletpoints speichern", contexts: ["selection"] },
+  { id: "elyon-capture-technical", title: "Als technische Daten speichern", contexts: ["selection"] },
+  { id: "elyon-capture-delivery", title: "Als Lieferinfo speichern", contexts: ["selection"] },
+  { id: "elyon-capture-note", title: "Als Notiz speichern", contexts: ["selection", "page"] },
+  { id: "elyon-capture-image", title: "Bild übernehmen", contexts: ["image"] },
+  { id: "elyon-capture-main-image", title: "Als Hauptbild setzen", contexts: ["image"] },
+  { id: "elyon-capture-product-local", title: "Produktdaten lokal erfassen", contexts: ["page", "selection", "image"] },
+  { id: "elyon-scan-variants-local", title: "Varianten lokal scannen", contexts: ["page"] }
+];
 
 async function readSettings() {
   const result = await chrome.storage.local.get(SECURITY_STORAGE_KEY);
@@ -47,7 +61,27 @@ chrome.runtime.onInstalled.addListener(async () => {
   if (!result[STORAGE_KEYS.products]) await chrome.storage.local.set({ [STORAGE_KEYS.products]: [] });
   if (!result[STORAGE_KEYS.researchMemory]) await chrome.storage.local.set({ [STORAGE_KEYS.researchMemory]: [] });
   if (!result.elyon_agent_workflows) await chrome.storage.local.set({ elyon_agent_workflows: [] });
+  createContextMenus();
 });
+
+chrome.runtime.onStartup.addListener(() => {
+  createContextMenus();
+});
+
+function createContextMenus() {
+  if (!chrome.contextMenus) return;
+  chrome.contextMenus.removeAll(() => {
+    chrome.contextMenus.create({ id: "elyon-root", title: "Elyon", contexts: ["page", "selection", "image", "link"] });
+    CONTEXT_MENU_ITEMS.forEach((item) => {
+      chrome.contextMenus.create({
+        id: item.id,
+        parentId: "elyon-root",
+        title: item.title,
+        contexts: item.contexts
+      });
+    });
+  });
+}
 
 async function ensureContentScript(tabId) {
   if (!tabId) return false;
@@ -222,6 +256,110 @@ async function cacheAliExpressProduct(product = {}, tabId = null) {
   return nextProduct;
 }
 
+function localToast(message) {
+  chrome.action?.setBadgeText?.({ text: "OK" });
+  chrome.action?.setBadgeBackgroundColor?.({ color: "#22c55e" });
+  setTimeout(() => chrome.action?.setBadgeText?.({ text: "" }), 1800);
+  chrome.storage.local.set({
+    elyon_extension_last_local_status: {
+      message,
+      updatedAt: new Date().toISOString()
+    }
+  }).catch(() => null);
+}
+
+async function saveLocalProductOnly(product = {}, extraDebug = {}) {
+  const now = new Date().toISOString();
+  const nextProduct = {
+    ...product,
+    updatedAt: now,
+    localOnly: true,
+    localStatus: "Lokal übernommen – noch nicht an Elyon gesendet."
+  };
+  await saveCurrentProductSnapshot(nextProduct).catch(() => null);
+  const debugResult = await chrome.storage.local.get("elyon_extraction_debug").catch(() => ({}));
+  await chrome.storage.local.set({
+    elyon_extraction_debug: {
+      ...(debugResult?.elyon_extraction_debug || {}),
+      ...extraDebug,
+      lastLocalActionAt: now,
+      status: "Lokal übernommen – noch nicht an Elyon gesendet."
+    }
+  }).catch(() => null);
+  return nextProduct;
+}
+
+async function handleLocalTextCapture(tab, target, selectedText = "") {
+  if (!tab?.id) return { ok: false, error: "Kein Tab" };
+  const injected = await ensureContentScript(tab.id);
+  if (!injected) return { ok: false, error: "Content Script nicht geladen" };
+  const response = await chrome.tabs.sendMessage(tab.id, {
+    type: "ELYON_CAPTURE_SELECTED_TEXT",
+    target,
+    text: selectedText || "",
+    persist: false
+  }).catch((error) => ({ ok: false, error: error?.message || String(error) }));
+  if (response?.ok && response.product) {
+    await saveLocalProductOnly(response.product, { manualCapture: response.capture || null });
+    if (response.capture) await saveManualCapture(response.capture).catch(() => null);
+  }
+  return response;
+}
+
+async function handleLocalImageCapture(tab, srcUrl, asMain = false) {
+  if (!tab?.id) return { ok: false, error: "Kein Tab" };
+  const injected = await ensureContentScript(tab.id);
+  if (!injected) return { ok: false, error: "Content Script nicht geladen" };
+  const response = await chrome.tabs.sendMessage(tab.id, {
+    type: "ELYON_CAPTURE_IMAGE",
+    srcUrl,
+    asMain
+  }).catch((error) => ({ ok: false, error: error?.message || String(error) }));
+  if (response?.ok && response.product) {
+    await saveLocalProductOnly(response.product, { imageCapture: { srcUrl, asMain } });
+  }
+  return response;
+}
+
+async function handleLocalProductCapture(tab) {
+  if (!tab?.id) return { ok: false, error: "Kein Tab" };
+  const injected = await ensureContentScript(tab.id);
+  if (!injected) return { ok: false, error: "Content Script nicht geladen" };
+  const response = await chrome.tabs.sendMessage(tab.id, { type: "ELYON_GET_PRODUCT" }).catch((error) => ({ ok: false, error: error?.message || String(error) }));
+  if (response?.ok && response.product) {
+    await saveLocalProductOnly(response.product, { productCapture: { url: response.product.url || tab.url || "", capturedAt: new Date().toISOString() } });
+  }
+  return response;
+}
+
+async function handleLocalVariantScan(tab) {
+  if (!tab?.id) return { ok: false, error: "Kein Tab" };
+  const injected = await ensureContentScript(tab.id);
+  if (!injected) return { ok: false, error: "Content Script nicht geladen" };
+  const isAli = String(tab.url || "").toLowerCase().includes("aliexpress");
+  const response = await chrome.tabs.sendMessage(tab.id, {
+    type: isAli ? "ELYON_SCAN_ALIEXPRESS_VARIANTS" : "ELYON_SCAN_PLATFORM_VARIANTS"
+  }).catch((error) => ({ ok: false, error: error?.message || String(error) }));
+  if (response?.ok && response.product) {
+    await saveLocalProductOnly(response.product, { variantScan: response.debug || null });
+    const cacheResult = await chrome.storage.local.get([ALIEXPRESS_VARIANT_CACHE_KEY, PLATFORM_VARIANT_CACHE_KEY]).catch(() => ({}));
+    const key = response.product.url || tab.url || `tab-${tab.id}`;
+    const cacheKey = isAli ? ALIEXPRESS_VARIANT_CACHE_KEY : PLATFORM_VARIANT_CACHE_KEY;
+    await chrome.storage.local.set({
+      [cacheKey]: {
+        ...(cacheResult?.[cacheKey] || {}),
+        [key]: {
+          product: response.product,
+          variants: response.variants || null,
+          debug: response.debug || null,
+          updatedAt: new Date().toISOString()
+        }
+      }
+    }).catch(() => null);
+  }
+  return response;
+}
+
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   (async () => {
     const url = tab?.url || changeInfo?.url || "";
@@ -236,6 +374,36 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
       await cacheAliExpressProduct(response.product, tabId);
     }
   })().catch(() => {});
+});
+
+chrome.contextMenus?.onClicked.addListener((info, tab) => {
+  (async () => {
+    let result = null;
+    const selectedText = info.selectionText || "";
+    const srcUrl = info.srcUrl || "";
+    const targetByMenu = {
+      "elyon-capture-auto": "auto",
+      "elyon-capture-description": "description",
+      "elyon-capture-bullets": "bullets",
+      "elyon-capture-technical": "technical",
+      "elyon-capture-delivery": "delivery",
+      "elyon-capture-note": "note"
+    };
+
+    if (targetByMenu[info.menuItemId]) {
+      result = await handleLocalTextCapture(tab, targetByMenu[info.menuItemId], selectedText);
+    } else if (info.menuItemId === "elyon-capture-image") {
+      result = await handleLocalImageCapture(tab, srcUrl, false);
+    } else if (info.menuItemId === "elyon-capture-main-image") {
+      result = await handleLocalImageCapture(tab, srcUrl, true);
+    } else if (info.menuItemId === "elyon-capture-product-local") {
+      result = await handleLocalProductCapture(tab);
+    } else if (info.menuItemId === "elyon-scan-variants-local") {
+      result = await handleLocalVariantScan(tab);
+    }
+
+    localToast(result?.ok ? "Lokal übernommen – noch nicht an Elyon gesendet." : result?.error || result?.message || "Aktion konnte nicht lokal übernommen werden.");
+  })().catch((error) => localToast(error?.message || "Rechtsklick-Aktion fehlgeschlagen."));
 });
 
 chrome.commands.onCommand.addListener(async (command) => {

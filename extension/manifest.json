@@ -15,7 +15,7 @@
     "service_worker": "background.js",
     "type": "module"
   },
-  "permissions": ["storage", "tabs", "activeTab", "scripting", "notifications", "sidePanel"],
+  "permissions": ["storage", "tabs", "activeTab", "scripting", "notifications", "sidePanel", "contextMenus"],
   "host_permissions": [
     "*://*.ebay.com/*",
     "*://*.ebay.de/*",
