@@ -158,6 +158,15 @@ function resolveSupplier(domain, supplier) {
 
 function normalizeImport(product = {}) {
   const now = new Date().toISOString();
+  const elyonProduct = toObject(product.elyonProduct || product.normalizedProduct || {});
+  const elyonIdentity = toObject(elyonProduct.identity);
+  const elyonContent = toObject(elyonProduct.content);
+  const elyonMedia = toObject(elyonProduct.media);
+  const elyonPricing = toObject(elyonProduct.pricing);
+  const elyonAvailability = toObject(elyonProduct.availability);
+  const elyonSupplier = toObject(elyonProduct.supplier);
+  const elyonReviews = toObject(elyonProduct.reviews);
+  const elyonRisk = toObject(elyonProduct.risk);
   const url = toText(product.url || "");
   const domain = normalizeDomain(product.domain || (url ? (() => {
     try {
@@ -169,7 +178,7 @@ function normalizeImport(product = {}) {
   const supplier = toText(product.supplier || "");
   const supplierMatch = resolveSupplier(domain, supplier);
   const linkedSupplierId = toText(product.linkedSupplierId || supplierMatch.linkedSupplierId);
-  const rawTitle = sanitizeProductTitle(product.title || product.name || "");
+  const rawTitle = sanitizeProductTitle(product.title || product.name || elyonIdentity.title || "");
   const rawDescription = firstUsefulText([
     product.description,
     product.productDescription,
@@ -177,11 +186,13 @@ function normalizeImport(product = {}) {
     product.longDescription,
     product.shortDescription,
     product.summary,
+    elyonContent.longDescription,
+    ...(Array.isArray(elyonContent.bulletPoints) ? elyonContent.bulletPoints : []),
     ...(Array.isArray(product.descriptionCandidates) ? product.descriptionCandidates : [])
   ]);
   const blocked = isHumanVerificationText(product.title || product.name || "") || isHumanVerificationText(rawDescription);
-  const priceParts = normalizePrice(product.price || "", product.currency || "");
-  const images = normalizeImages(product.image, product.images);
+  const priceParts = normalizePrice(product.price || elyonPricing.priceText || elyonPricing.currentPrice || "", product.currency || elyonPricing.currency || "");
+  const images = normalizeImages(product.image || elyonMedia.mainImage, Array.isArray(product.images) && product.images.length ? product.images : elyonMedia.images);
   return {
     id: toText(product.id || url || `${now}-${Math.random().toString(36).slice(2, 10)}`),
     title: rawTitle || "Unbekanntes Produkt",
@@ -192,22 +203,25 @@ function normalizeImport(product = {}) {
     description: rawDescription,
     descriptionCandidates: toArray(product.descriptionCandidates).map(toText).filter(Boolean).slice(0, 8),
     descriptionSource: toText(product.descriptionSource || ""),
+    elyonProduct,
+    normalizedProduct: elyonProduct,
+    extractionDebug: toObject(product.extractionDebug),
     aiPrepared: product.aiPrepared && typeof product.aiPrepared === "object" ? product.aiPrepared : null,
     aiPreparedAt: toText(product.aiPreparedAt || ""),
     aiProvider: toText(product.aiProvider || ""),
     aiModel: toText(product.aiModel || ""),
     aiStatus: toText(product.aiStatus || ""),
     aiError: toText(product.aiError || ""),
-    variants: toArray(product.variants).slice(0, 50),
+    variants: toArray(product.variants).length ? toArray(product.variants).slice(0, 50) : toArray(toObject(elyonProduct.variants).variantItems).slice(0, 50),
     shipping: toObject(product.shipping),
-    rating: toText(product.rating || ""),
-    reviewsCount: toText(product.reviewsCount || ""),
+    rating: toText(product.rating || elyonReviews.ratingValue || ""),
+    reviewsCount: toText(product.reviewsCount || elyonReviews.reviewsCount || ""),
     soldCount: toText(product.soldCount || ""),
-    productDetails: toObject(product.productDetails),
-    availability: cleanAvailability(product.availability || ""),
-    category: toText(product.category || ""),
-    supplierInfo: toObject(product.supplierInfo),
-    complianceRisks: toArray(product.complianceRisks).map(toText).filter(Boolean).slice(0, 20),
+    productDetails: Object.keys(toObject(product.productDetails)).length ? toObject(product.productDetails) : toObject(elyonContent.productDetails),
+    availability: cleanAvailability(product.availability || elyonAvailability.stockText || ""),
+    category: toText(product.category || elyonIdentity.category || ""),
+    supplierInfo: Object.keys(toObject(product.supplierInfo)).length ? toObject(product.supplierInfo) : elyonSupplier,
+    complianceRisks: toArray(product.complianceRisks).length ? toArray(product.complianceRisks).map(toText).filter(Boolean).slice(0, 20) : toArray(elyonRisk.warningTexts).map(toText).filter(Boolean).slice(0, 20),
     url,
     supplier: supplier || supplierMatch.linkedSupplierName || "",
     domain,
@@ -286,6 +300,8 @@ function buildBrowserImportAiPrompt(product) {
     availability: product.availability,
     category: product.category,
     complianceRisks: product.complianceRisks || [],
+    elyonProduct: product.elyonProduct || product.normalizedProduct || null,
+    extractionDebug: product.extractionDebug || null,
   };
 
   return [
