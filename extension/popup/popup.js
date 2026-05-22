@@ -669,6 +669,23 @@ async function scanPlatformVariantsFromPopup() {
   return response;
 }
 
+async function captureSelectedTextFromPopup() {
+  const tab = window.__elyonCurrentTab || await loadActiveTab();
+  if (!tab?.id) throw new Error("Kein aktiver Tab gefunden");
+  const target = document.getElementById("manualCaptureTarget")?.value || "auto";
+  const response = await chrome.tabs.sendMessage(tab.id, { type: "ELYON_CAPTURE_SELECTED_TEXT", target }).catch((error) => ({ ok: false, error: error?.message || String(error) }));
+  if (!response?.ok) throw new Error(response?.error || response?.message || "Textübernahme fehlgeschlagen");
+  if (response.product) {
+    window.__elyonDetectedProduct = response.product;
+    await saveCurrentProductSnapshot(response.product).catch(() => null);
+  }
+  const status = document.getElementById("manualCaptureStatus");
+  if (status) status.textContent = response.message || "Text übernommen.";
+  setPopupStatus(response.message || "Text übernommen", "ok");
+  setActionLog(response.message || "Text übernommen", "ok");
+  return response;
+}
+
 async function refreshBackend() {
   const status = await getElyonStatus().catch(() => ({ backendUrl: "", reachable: false, message: "Backend nicht erreichbar" }));
   lastBackendStatus = status;
@@ -862,6 +879,17 @@ bindClick("copyAliVariantsJson", async () => {
   await navigator.clipboard.writeText(JSON.stringify(variants, null, 2));
   setPopupStatus("Varianten JSON kopiert", "ok");
   setActionLog("Varianten JSON kopiert", "ok");
+});
+
+bindClick("captureSelectedText", async () => {
+  await captureSelectedTextFromPopup();
+});
+
+bindClick("openSidePanel", async () => {
+  const result = await sendBackgroundMessage({ type: "ELYON_OPEN_SIDEPANEL" });
+  if (!result?.ok) throw new Error(result?.error || "Side Panel konnte nicht geöffnet werden");
+  setPopupStatus("Side Panel geöffnet", "ok");
+  setActionLog("Side Panel geöffnet", "ok");
 });
 
 void refresh();

@@ -83,6 +83,35 @@
 
       <section class="card">
         <div class="label-row">
+          <div class="label">Manuelle Textübernahme</div>
+          <span class="info-tip" data-tip="Übernimmt aktuell markierten Seitentext lokal und ordnet ihn Produktbeschreibung, Bulletpoints, Technik, Lieferinfo, Notiz oder Risiko zu.">i</span>
+        </div>
+        <select id="manualCaptureTarget" class="select-input">
+          <option value="auto">Automatisch klassifizieren</option>
+          <option value="description">Als Produktbeschreibung</option>
+          <option value="bullets">Als Bulletpoints</option>
+          <option value="technical">Als technische Infos</option>
+          <option value="delivery">Als Lieferinfo</option>
+          <option value="note">Als Notiz</option>
+          <option value="risk">Als Risiko-Hinweis</option>
+          <option value="supplier">Als Supplier-Info</option>
+          <option value="seo">Als SEO Keywords</option>
+        </select>
+        <div id="manualCaptureStatus" class="hint">Text auf der Produktseite markieren und übernehmen.</div>
+        <div class="actions-inline">
+          <div class="action-with-info">
+            <button id="captureSelectedText" type="button">Markierten Text übernehmen</button>
+            <span class="info-tip" data-tip="Liest nur deine aktuelle Markierung auf der Seite.">i</span>
+          </div>
+          <div class="action-with-info">
+            <button id="openSidePanel" type="button">Side Panel öffnen</button>
+            <span class="info-tip" data-tip="Öffnet den Elyon Browser Companion mit Produkt-, Varianten-, Notizen- und Sicherheitstabs.">i</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="label-row">
           <div class="label">Warnhinweis</div>
           <span class="info-tip" data-tip="Zeigt an, ob die aktuelle Aktion gesperrt oder nur vorbereitet ist.">i</span>
         </div>

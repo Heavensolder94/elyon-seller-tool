@@ -12,7 +12,9 @@ import {
   upsertResearchProduct,
   updateResearchProductById,
   deleteResearchProductById,
-  saveCurrentProductSnapshot
+  saveCurrentProductSnapshot,
+  saveManualCapture,
+  loadManualCaptures
 } from "./shared/storage.js";
 import { prepareAgentWorkflow, loadAgentWorkflows } from "./shared/agentWorkflows.js";
 import { SOUL_AGENTS } from "./shared/agents.js";
@@ -333,6 +335,33 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message?.type === "ELYON_AGENT_WORKFLOWS_LIST") {
       const workflows = await loadAgentWorkflows();
       sendResponse({ ok: true, workflows, security });
+      return;
+    }
+
+    if (message?.type === "ELYON_MANUAL_CAPTURE_SAVE" && message.capture) {
+      const captures = await saveManualCapture(message.capture);
+      if (message.product) await saveCurrentProductSnapshot(message.product).catch(() => null);
+      sendResponse({ ok: true, captures, capture: message.capture, security });
+      return;
+    }
+
+    if (message?.type === "ELYON_MANUAL_CAPTURE_LIST") {
+      const captures = await loadManualCaptures();
+      sendResponse({ ok: true, captures, security });
+      return;
+    }
+
+    if (message?.type === "ELYON_OPEN_SIDEPANEL") {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true }).catch(() => []);
+      try {
+        if (chrome.sidePanel?.open && tab?.windowId) {
+          await chrome.sidePanel.open({ windowId: tab.windowId });
+          sendResponse({ ok: true, opened: "sidepanel" });
+          return;
+        }
+      } catch {}
+      await chrome.tabs.create({ url: chrome.runtime.getURL("sidepanel/sidepanel.html") });
+      sendResponse({ ok: true, opened: "tab" });
       return;
     }
 

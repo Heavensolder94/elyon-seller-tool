@@ -6,7 +6,8 @@ const STORAGE_KEYS = {
   currentProduct: "elyon_current_product",
   extensionHistory: "elyon_extension_history",
   extractionDebug: "elyon_extraction_debug",
-  extensionSettings: "elyon_extension_settings"
+  extensionSettings: "elyon_extension_settings",
+  manualCaptures: "elyon_manual_captures"
 };
 
 export async function loadSettings(defaults) {
@@ -64,6 +65,7 @@ function normalizeResearchItem(item = {}) {
     aliexpressVariantDebug: item.aliexpressVariantDebug && typeof item.aliexpressVariantDebug === "object" ? item.aliexpressVariantDebug : null,
     platformVariants: item.platformVariants && typeof item.platformVariants === "object" ? item.platformVariants : null,
     platformVariantDebug: item.platformVariantDebug && typeof item.platformVariantDebug === "object" ? item.platformVariantDebug : null,
+    manualCaptures: Array.isArray(item.manualCaptures) ? item.manualCaptures : [],
     parentSearchUrl: item.parentSearchUrl ?? "",
     url: item.url ?? "",
     supplier: item.supplier ?? "",
@@ -74,6 +76,26 @@ function normalizeResearchItem(item = {}) {
     detectedAt: item.detectedAt ?? now,
     updatedAt: item.updatedAt ?? now
   };
+}
+
+export async function loadManualCaptures() {
+  const result = await chrome.storage.local.get(STORAGE_KEYS.manualCaptures).catch(() => ({}));
+  return Array.isArray(result[STORAGE_KEYS.manualCaptures]) ? result[STORAGE_KEYS.manualCaptures] : [];
+}
+
+export async function saveManualCapture(capture = {}) {
+  const current = await loadManualCaptures();
+  const now = new Date().toISOString();
+  const nextCapture = {
+    id: capture.id || `${now}-${Math.random().toString(36).slice(2, 8)}`,
+    type: capture.type || "note",
+    text: capture.text || "",
+    sourceUrl: capture.sourceUrl || "",
+    capturedAt: capture.capturedAt || now
+  };
+  const next = [nextCapture, ...current].slice(0, 100);
+  await chrome.storage.local.set({ [STORAGE_KEYS.manualCaptures]: next });
+  return next;
 }
 
 export async function saveCurrentProductSnapshot(product = {}) {

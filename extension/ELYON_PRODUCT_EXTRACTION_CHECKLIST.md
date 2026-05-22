@@ -41,3 +41,14 @@ Diese Checkliste ist nur fuer manuelle Debug-Tests. Keine Live-Aktion ausfuehren
 - Button `JSON kopieren` kopiert die normalisierte `elyonProduct` Struktur.
 - `Produkt an Elyon senden` sendet weiter an `/api/extension/import-product`.
 - Wenn Backend nicht erreichbar ist, wird lokal in `elyon_research_memory` gespeichert.
+
+## Manuelle Textuebernahme
+- Text auf Produktseite markieren.
+- Popup oder Overlay: `Markierten Text uebernehmen`.
+- Automatische lokale Klassifizierung pruefen: Beschreibung, Bulletpoints, technische Infos, Lieferinfo, Risiko, Supplier, SEO oder Notiz.
+- Captures werden unter `elyon_manual_captures` gespeichert.
+
+## Sidepanel
+- Popup oder Overlay: `Side Panel oeffnen`.
+- Tabs pruefen: Produkt, Analyse, Supplier, Varianten, History, Notizen, Sicherheit.
+- Workflow Buttons setzen nur lokale Vorbereitung, keine KI-Ausfuehrung erzwingen.

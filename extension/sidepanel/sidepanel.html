@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Elyon Browser Companion</title>
+    <link rel="stylesheet" href="sidepanel.css" />
+  </head>
+  <body>
+    <main class="sidepanel">
+      <header class="hero">
+        <div>
+          <h1>Elyon Companion</h1>
+          <p>Nur Vorschau - kein Live-Listing.</p>
+        </div>
+        <span id="safeBadge" class="badge">Sicher</span>
+      </header>
+
+      <nav class="tabs" aria-label="Elyon Sidepanel Tabs">
+        <button data-tab="product" class="active">Produkt</button>
+        <button data-tab="analysis">Analyse</button>
+        <button data-tab="supplier">Supplier</button>
+        <button data-tab="variants">Varianten</button>
+        <button data-tab="history">History</button>
+        <button data-tab="notes">Notizen</button>
+        <button data-tab="security">Sicherheit</button>
+      </nav>
+
+      <section id="tab-product" class="panel active">
+        <h2>Produkt</h2>
+        <div id="productView" class="stack">Lade Produkt...</div>
+      </section>
+
+      <section id="tab-analysis" class="panel">
+        <h2>Analyse</h2>
+        <div id="analysisView" class="stack"></div>
+        <div class="actions">
+          <button data-workflow="soul-scout">Soul Scout vorbereiten</button>
+          <button data-workflow="soul-seo">SEO vorbereiten</button>
+          <button data-workflow="soul-finance">Pricing vorbereiten</button>
+          <button data-workflow="soul-guard">Compliance vorbereiten</button>
+        </div>
+      </section>
+
+      <section id="tab-supplier" class="panel">
+        <h2>Supplier</h2>
+        <div id="supplierView" class="stack"></div>
+      </section>
+
+      <section id="tab-variants" class="panel">
+        <h2>Varianten</h2>
+        <div id="variantsView" class="stack"></div>
+      </section>
+
+      <section id="tab-history" class="panel">
+        <h2>History</h2>
+        <div id="historyView" class="stack"></div>
+      </section>
+
+      <section id="tab-notes" class="panel">
+        <h2>Notizen</h2>
+        <div id="notesView" class="stack"></div>
+      </section>
+
+      <section id="tab-security" class="panel">
+        <h2>Sicherheit</h2>
+        <div id="securityView" class="stack"></div>
+      </section>
+    </main>
+    <script type="module" src="sidepanel.js"></script>
+  </body>
+</html>

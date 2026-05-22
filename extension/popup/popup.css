@@ -329,6 +329,16 @@ button {
   cursor: pointer;
 }
 
+.select-input {
+  width: 100%;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 10px;
+  background: rgba(2, 6, 23, 0.65);
+  color: #f8fafc;
+  padding: 9px 10px;
+  font-size: 12px;
+}
+
 .info-tip {
   position: relative;
   display: inline-flex;

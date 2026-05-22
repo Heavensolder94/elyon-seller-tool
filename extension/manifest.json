@@ -8,11 +8,14 @@
     "default_popup": "popup/popup.html"
   },
   "options_page": "options/options.html",
+  "side_panel": {
+    "default_path": "sidepanel/sidepanel.html"
+  },
   "background": {
     "service_worker": "background.js",
     "type": "module"
   },
-  "permissions": ["storage", "tabs", "activeTab", "scripting", "notifications"],
+  "permissions": ["storage", "tabs", "activeTab", "scripting", "notifications", "sidePanel"],
   "host_permissions": [
     "*://*.ebay.com/*",
     "*://*.ebay.de/*",

@@ -85,12 +85,17 @@ export async function sendProductToElyon(product) {
 
   const normalizedProduct = product?.elyonProduct && typeof product.elyonProduct === "object" ? product.elyonProduct : null;
   const extractionDebug = product?.extractionDebug && typeof product.extractionDebug === "object" ? product.extractionDebug : null;
+  const importProductPayload = {
+    ...(product || {}),
+    elyonProduct: normalizedProduct,
+    normalizedProduct,
+    extractionDebug
+  };
 
   try {
-    const response = await fetchWithTimeout(`${backendUrl}/api/extension/import-product`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+    const requestBody = JSON.stringify({
+        product: importProductPayload,
+        mode: "draft",
         title: product?.title || "",
         price: product?.price || "",
         currency: product?.currency || "",
@@ -127,11 +132,26 @@ export async function sendProductToElyon(product) {
           reviewRequired: true,
           manualApprovalRequired: true
         }
-      })
-    }, 5000);
+      });
+    const endpoints = ["/api/extension/import", "/api/extension/import-product"];
+    let response = null;
+    let lastError = null;
+    for (const endpoint of endpoints) {
+      try {
+        response = await fetchWithTimeout(`${backendUrl}${endpoint}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: requestBody
+        }, 5000);
+        if (response.ok) break;
+        lastError = new Error(`HTTP ${response.status}`);
+      } catch (error) {
+        lastError = error;
+      }
+    }
 
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
+    if (!response?.ok) {
+      throw lastError || new Error("Backend-Import fehlgeschlagen");
     }
 
     const payload = await response.json().catch(() => ({}));

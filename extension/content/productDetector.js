@@ -1781,6 +1781,7 @@ function createEmptyElyonProduct() {
       extractedAt: null,
       extractorVersion: "1.0.0",
       importSource: "chrome-extension",
+      browserMode: true,
       confidenceScore: 0
     },
     identity: {
@@ -1883,12 +1884,108 @@ function createEmptyElyonProduct() {
         supplierCheck: "pending"
       }
     },
+    notes: [],
     raw: {
       platformSpecificData: {},
       debugSelectors: {},
       extractionWarnings: []
     }
   };
+}
+
+function splitBulletText(value) {
+  return uniqueList(
+    readableText(value)
+      .split(/\n|•|·|\*|-{1,2}|;|\u2022/g)
+      .map((part) => safeText(part.replace(/^[\s•·*\-–—]+/, "")))
+      .filter((part) => part.length > 2),
+    40
+  );
+}
+
+function classifySelectedText(value) {
+  const text = readableText(value);
+  const lower = text.toLowerCase();
+  if (!text) return "note";
+  if (/liefer|versand|shipping|delivery|tage|days|warehouse|ships from|zustellung|ankunft/i.test(text)) return "delivery";
+  if (/akku|batterie|battery|ce\b|weee|epr|medizin|medical|warn|gefahr|risk|achtung|trademark|marke|logo/i.test(text)) return "risk";
+  if (/material|gewicht|maße|masse|dimension|size|größe|groesse|spannung|volt|watt|technical|spezifikation|specification|modell|sku|asin/i.test(text)) return "technical";
+  if (/supplier|store|shop|seller|verkäufer|bewertung|rating|followers|lager|warehouse/i.test(text)) return "supplier";
+  if (/keyword|seo|suchbegriff|search term|ranking/i.test(text)) return "seo";
+  const bulletLines = splitBulletText(text);
+  if (bulletLines.length >= 2 && bulletLines.join(" ").length >= 30) return "bullets";
+  if (lower.length >= 80) return "description";
+  return "note";
+}
+
+function applyManualCaptureToProduct(product, capture) {
+  const next = { ...(product || detectProduct()) };
+  const text = readableText(capture?.text || "");
+  const target = capture?.target || classifySelectedText(text);
+  const now = new Date().toISOString();
+  const note = { type: target, text, capturedAt: now, sourceUrl: location.href };
+  next.manualCaptures = [...(Array.isArray(next.manualCaptures) ? next.manualCaptures : []), note].slice(-50);
+
+  if (next.elyonProduct) {
+    next.elyonProduct = {
+      ...next.elyonProduct,
+      notes: [...(Array.isArray(next.elyonProduct.notes) ? next.elyonProduct.notes : []), note].slice(-50),
+      raw: {
+        ...(next.elyonProduct.raw || {}),
+        platformSpecificData: {
+          ...(next.elyonProduct.raw?.platformSpecificData || {}),
+          manualCaptures: [...(next.elyonProduct.raw?.platformSpecificData?.manualCaptures || []), note].slice(-50)
+        }
+      }
+    };
+
+    if (target === "description") {
+      next.description = text;
+      next.elyonProduct.content = { ...(next.elyonProduct.content || {}), longDescription: text };
+    } else if (target === "bullets") {
+      const bullets = splitBulletText(text);
+      next.descriptionCandidates = uniqueReadableList([...(next.descriptionCandidates || []), ...bullets], 30);
+      next.elyonProduct.content = {
+        ...(next.elyonProduct.content || {}),
+        bulletPoints: uniqueList([...(next.elyonProduct.content?.bulletPoints || []), ...bullets], 40)
+      };
+    } else if (target === "technical") {
+      next.elyonProduct.content = {
+        ...(next.elyonProduct.content || {}),
+        specifications: {
+          ...(next.elyonProduct.content?.specifications || {}),
+          manualTechnicalInfo: text
+        }
+      };
+    } else if (target === "delivery") {
+      next.elyonProduct.availability = {
+        ...(next.elyonProduct.availability || {}),
+        deliveryText: text
+      };
+    } else if (target === "risk") {
+      next.elyonProduct.risk = {
+        ...(next.elyonProduct.risk || {}),
+        warningTexts: uniqueList([...(next.elyonProduct.risk?.warningTexts || []), text], 30)
+      };
+    } else if (target === "supplier") {
+      next.elyonProduct.supplier = {
+        ...(next.elyonProduct.supplier || {}),
+        supplierName: next.elyonProduct.supplier?.supplierName || text.slice(0, 120)
+      };
+    }
+  }
+
+  return { product: next, capture: note, classification: target };
+}
+
+function captureSelectedText(target = "auto") {
+  const text = readableText(window.getSelection?.().toString() || "");
+  if (!text) {
+    return { ok: false, message: "Kein Text markiert.", capture: null, product: detectProduct() };
+  }
+  const classification = target === "auto" ? classifySelectedText(text) : target;
+  const result = applyManualCaptureToProduct(detectProduct(), { text, target: classification });
+  return { ok: true, message: `Text übernommen als ${classification}.`, ...result };
 }
 
 function calculateConfidence(product) {
@@ -2326,6 +2423,9 @@ function renderOverlay(product) {
       <div class="elyon-overlay-actions">
         <button type="button" data-elyon-action="save">Zu Elyon speichern</button>
         <button type="button" class="elyon-secondary-action" data-elyon-action="rescan">Neu erfassen</button>
+        <button type="button" class="elyon-secondary-action" data-elyon-action="capture-text">Markierten Text übernehmen</button>
+        <button type="button" class="elyon-secondary-action" data-elyon-action="sidepanel">Side Panel öffnen</button>
+        <button type="button" class="elyon-secondary-action" data-elyon-action="watch">Beobachten</button>
         <button type="button" class="elyon-secondary-action" data-elyon-action="open-details">Nach manuellem Aufklappen neu erfassen</button>
         <button type="button" data-elyon-action="research">Research merken</button>
         <button type="button" data-elyon-action="soul">Soul Scout vorbereiten</button>
@@ -2359,6 +2459,21 @@ function renderOverlay(product) {
   overlay.querySelector('[data-elyon-action="rescan"]')?.addEventListener("click", () => {
     dismissedOverlayUrl = "";
     renderOverlay(detectProduct());
+  });
+  overlay.querySelector('[data-elyon-action="capture-text"]')?.addEventListener("click", async () => {
+    const result = captureSelectedText("auto");
+    if (result.ok) {
+      await chrome.runtime.sendMessage({ type: "ELYON_MANUAL_CAPTURE_SAVE", capture: result.capture, product: result.product }).catch(() => null);
+    }
+    alert(result.message || "Textübernahme abgeschlossen.");
+  });
+  overlay.querySelector('[data-elyon-action="sidepanel"]')?.addEventListener("click", () => {
+    chrome.runtime.sendMessage({ type: "ELYON_OPEN_SIDEPANEL" });
+  });
+  overlay.querySelector('[data-elyon-action="watch"]')?.addEventListener("click", async () => {
+    const product = { ...detectProduct(), notes: "Beobachtung vorbereitet", watchState: "prepared" };
+    const result = await chrome.runtime.sendMessage({ type: "ELYON_RESEARCH_UPSERT", product }).catch(() => null);
+    alert(result?.ok ? "Beobachtung vorbereitet." : "Beobachtung konnte nicht vorbereitet werden.");
   });
   overlay.querySelector('[data-elyon-action="open-details"]')?.addEventListener("click", async () => {
     const status = overlay.querySelector("[data-elyon-status]");
@@ -2545,6 +2660,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       .then((result) => sendResponse(result))
       .catch((error) => sendResponse({ ok: false, error: error?.message || String(error) }));
     return true;
+  }
+  if (message?.type === "ELYON_CAPTURE_SELECTED_TEXT") {
+    const result = captureSelectedText(message.target || "auto");
+    if (result.ok) {
+      chrome.runtime.sendMessage({ type: "ELYON_MANUAL_CAPTURE_SAVE", capture: result.capture, product: result.product }).catch(() => null);
+    }
+    sendResponse(result);
+    return;
   }
   if (message?.type === "ELYON_PING") {
     sendResponse({ ok: true });
