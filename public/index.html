@@ -7032,22 +7032,45 @@ function renderBrowserImports(){
   });
 }
 async function hydrateBrowserImportsFromBackend(){
+  const badgeEl = $('browserImportsBadge');
+  const box = $('browserImportsList');
+  if(badgeEl) badgeEl.textContent = 'Browser Imports werden geladen ...';
+  if(box && !browserImports.length) box.innerHTML = '<div class="empty">Browser Imports werden geladen ...</div>';
   try{
-    const response = await fetch('/api/extension/import-product', { method:'GET' });
-    if(!response.ok) return;
-    const data = await response.json().catch(() => null);
+    const endpoints = ['/api/extension/import-product', '/api/elyon/products'];
+    let response = null;
+    let data = null;
+    let lastStatus = '';
+    for(const endpoint of endpoints){
+      response = await fetch(endpoint, { method:'GET', cache:'no-store' }).catch(err => ({ok:false, status:0, _error:err}));
+      if(response && response.ok){
+        data = await response.json().catch(() => null);
+        break;
+      }
+      lastStatus = response && response.status ? 'HTTP '+response.status : 'Backend nicht erreichbar';
+    }
+    if(!response || !response.ok){
+      if(box && !browserImports.length) box.innerHTML = '<div class="empty">Browser Imports konnten nicht vom Server geladen werden. Bitte Backend/Deployment prüfen.</div>';
+      renderBrowserImports();
+      if(badgeEl) badgeEl.textContent = 'Browser Imports konnten nicht geladen werden · ' + lastStatus;
+      return;
+    }
     const items = normalizeBrowserImportsCollection(Array.isArray(data?.items) ? data.items : []);
     browserImportsStorage = data?.storage || browserImportsStorage;
     if(!items.length && browserImports.length){
+      if(badgeEl) badgeEl.textContent = browserImports.length + ' Browser Imports · lokal zwischengespeichert';
       renderBrowserImports();
       return;
     }
     browserImports = items;
     saveBrowserImports();
     renderBrowserImports();
+    if(badgeEl) badgeEl.textContent = browserImports.length ? `${browserImports.length} Browser Imports · Server aktualisiert` : 'Keine Browser Imports auf dem Server';
   }catch(err){
     console.warn('Browser Imports konnten nicht geladen werden', err);
+    if(box && !browserImports.length) box.innerHTML = '<div class="empty">Browser Imports konnten nicht geladen werden.</div>';
     renderBrowserImports();
+    if(badgeEl) badgeEl.textContent = 'Browser Imports konnten nicht geladen werden';
   }
 }
 function render(){
