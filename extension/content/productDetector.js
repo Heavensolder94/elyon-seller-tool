@@ -743,10 +743,69 @@ function getDescriptionData() {
 }
 
 function expandProductInformationSections(root = document) {
-  // Safety first: do not click marketplace UI automatically.
-  // Some shops use harmless-looking detail buttons for popups, policy pages or navigation.
-  // The scanner now reads visible DOM, metadata, iframes and embedded JSON only.
-  return root;
+  // Deprecated on purpose: no automatic marketplace UI clicks during scanning.
+  return { attempted: 0, opened: 0, blocked: 0, changedUrl: false };
+}
+
+function isSafeDetailTrigger(node) {
+  const tagName = String(node?.tagName || "").toLowerCase();
+  const href = safeText(node?.getAttribute?.("href"));
+  if (!node || tagName === "a" || href) return false;
+  if (!["button", "summary"].includes(tagName) && node.getAttribute?.("role") !== "button") return false;
+
+  const label = safeText([
+    node.textContent,
+    node.getAttribute?.("aria-label"),
+    node.getAttribute?.("title"),
+    node.getAttribute?.("data-action")
+  ].filter(Boolean).join(" "));
+  if (!label || label.length > 90) return false;
+  if (/cart|basket|buy|checkout|order|login|sign in|register|chat|message|contact|support|wishlist|favorite|share|coupon|policy|privacy|terms|dispute|refund|return|shipping policy|cookie/i.test(label)) return false;
+  if (!/(description|beschreibung|details?|produktdetails|product details|specification|specs|technical|overview|more|mehr anzeigen|show more|read more)/i.test(label)) return false;
+
+  const rect = node.getBoundingClientRect?.();
+  const style = window.getComputedStyle ? window.getComputedStyle(node) : null;
+  return Boolean(rect && rect.width > 0 && rect.height > 0 && (!style || style.visibility !== "hidden" && style.display !== "none"));
+}
+
+async function openDetailsWithUserConsent() {
+  const beforeUrl = location.href;
+  const selectors = [
+    "button",
+    "summary",
+    "[role='button']",
+    "[aria-expanded='false']",
+    "[class*='expand']",
+    "[class*='more']",
+    "[data-action*='expand']"
+  ];
+  const candidates = Array.from(document.querySelectorAll(selectors.join(",")))
+    .filter(isSafeDetailTrigger)
+    .slice(0, 12);
+  let opened = 0;
+  let blocked = 0;
+
+  for (const node of candidates) {
+    if (location.href !== beforeUrl) break;
+    try {
+      node.click();
+      opened += 1;
+      await new Promise((resolve) => setTimeout(resolve, 120));
+    } catch {
+      blocked += 1;
+    }
+  }
+
+  const changedUrl = location.href !== beforeUrl;
+  if (changedUrl) {
+    history.back();
+  }
+  return {
+    attempted: candidates.length,
+    opened,
+    blocked,
+    changedUrl
+  };
 }
 
 function isSupportedPage(domain) {
@@ -1009,6 +1068,9 @@ function renderOverlay(product) {
   const imageMarkup = product.image
     ? `<div class="elyon-image-wrap"><img class="elyon-image" src="${product.image}" alt="Produktbild" loading="lazy" referrerpolicy="no-referrer" /><a class="elyon-image-link" href="${product.image}" target="_blank" rel="noreferrer">Bild öffnen</a></div>`
     : `<strong>-</strong>`;
+  const descInfo = product.description
+    ? `Beschreibung erkannt · ${String(product.description).length} Zeichen`
+    : "Noch keine Beschreibung erkannt. Seite manuell aufklappen oder Details sicher öffnen.";
   overlay.innerHTML = `
     <div class="elyon-overlay-shell">
       <div class="elyon-overlay-header" data-elyon-drag-handle>
@@ -1030,10 +1092,13 @@ function renderOverlay(product) {
         <div class="elyon-field"><span>Domain</span><strong>${product.domain || "-"}</strong></div>
         <div class="elyon-field"><span>Currency</span><strong>${product.currency || "-"}</strong></div>
         <div class="elyon-field"><span>Description</span><strong>${product.description || "-"}</strong></div>
+        <div class="elyon-field"><span>Status</span><strong data-elyon-status>${descInfo}</strong></div>
         <div class="elyon-field"><span>Detected</span><strong>${product.detectedAt || "-"}</strong></div>
       </div>
       <div class="elyon-overlay-actions">
         <button type="button" data-elyon-action="save">Zu Elyon speichern</button>
+        <button type="button" class="elyon-secondary-action" data-elyon-action="rescan">Neu erfassen</button>
+        <button type="button" class="elyon-secondary-action" data-elyon-action="open-details">Details sicher öffnen</button>
         <button type="button" data-elyon-action="research">Research merken</button>
         <button type="button" data-elyon-action="soul">Soul Scout vorbereiten</button>
         <button type="button" data-elyon-action="close">Overlay schließen</button>
@@ -1060,17 +1125,36 @@ function renderOverlay(product) {
   });
   overlay.querySelector('[data-elyon-action="close"]')?.addEventListener("click", removeOverlay);
   overlay.querySelector('[data-elyon-action="save"]')?.addEventListener("click", async () => {
-    const result = await storeResearch({ ...product, status: "new" });
+    const result = await storeResearch({ ...detectProduct(), status: "new" });
     alert(importFeedback(result, "Gespeichert"));
   });
+  overlay.querySelector('[data-elyon-action="rescan"]')?.addEventListener("click", () => {
+    dismissedOverlayUrl = "";
+    renderOverlay(detectProduct());
+  });
+  overlay.querySelector('[data-elyon-action="open-details"]')?.addEventListener("click", async () => {
+    const status = overlay.querySelector("[data-elyon-status]");
+    if (status) status.textContent = "Öffne sichere Detailbereiche...";
+    const result = await openDetailsWithUserConsent();
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    const nextProduct = detectProduct();
+    renderOverlay(nextProduct);
+    const nextOverlay = document.getElementById(OVERLAY_ID);
+    const nextStatus = nextOverlay?.querySelector("[data-elyon-status]");
+    if (nextStatus) {
+      nextStatus.textContent = result.changedUrl
+        ? "Abgebrochen: Seite wollte navigieren."
+        : `Details geprüft: ${result.opened}/${result.attempted} geöffnet · Beschreibung ${nextProduct.description ? "erkannt" : "noch leer"}`;
+    }
+  });
   overlay.querySelector('[data-elyon-action="research"]')?.addEventListener("click", async () => {
-    const result = await storeResearch({ ...product, status: "new" });
+    const result = await storeResearch({ ...detectProduct(), status: "new" });
     alert(importFeedback(result, "Research gemerkt"));
   });
   overlay.querySelector('[data-elyon-action="soul"]')?.addEventListener("click", () => {
     chrome.runtime.sendMessage({
       type: "ELYON_SAVE_PRODUCT",
-      product: { ...product, status: "new", soulState: "prepared" }
+      product: { ...detectProduct(), status: "new", soulState: "prepared" }
     });
   });
 }

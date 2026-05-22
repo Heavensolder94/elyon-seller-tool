@@ -228,3 +228,9 @@
   font-weight: 700;
   cursor: pointer;
 }
+
+.elyon-overlay-actions button.elyon-secondary-action {
+  background: rgba(255, 255, 255, 0.08);
+  color: #f8fafc;
+  border: 1px solid rgba(214, 177, 94, 0.18);
+}
