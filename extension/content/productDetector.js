@@ -261,8 +261,10 @@ function stripHtml(value) {
 function isUsefulDescriptionText(value) {
   const text = safeText(value);
   if (text.length < 35) return false;
+  if (text.length > 12000) return false;
   if (/captcha|verify you are human|access denied|enable javascript|cookie|privacy policy|dispute policy|newsletter|login|sign in/i.test(text)) return false;
   if (/^(home|cart|account|search|share|follow|reviews?|rating)$/i.test(text)) return false;
+  if (/add to cart|buy now|customers also|similar products|sponsored|recently viewed|recommended|bewertungen|kunden kauften/i.test(text)) return false;
   return true;
 }
 
@@ -288,6 +290,110 @@ function collectDescriptionSelectorText(selectors, root = document, maxParts = 1
     });
   }
   return uniqueReadableList(parts.sort((a, b) => descriptionScore(b) - descriptionScore(a)), maxParts);
+}
+
+function sectionTextFromHeadingPatterns(patterns, root = document) {
+  const parts = [];
+  const headings = Array.from(root.querySelectorAll("h1,h2,h3,h4,h5,legend,summary,button,[role='heading'],[class*='title'],[class*='heading']"));
+  headings.forEach((heading) => {
+    const label = safeText(heading.innerText || heading.textContent || heading.getAttribute?.("aria-label") || "");
+    if (!label || !patterns.some((pattern) => pattern.test(label))) return;
+    const containers = [
+      heading.closest("section"),
+      heading.closest("[class*='section']"),
+      heading.closest("[class*='panel']"),
+      heading.closest("[class*='tab']"),
+      heading.parentElement,
+      heading.parentElement?.parentElement
+    ].filter(Boolean);
+    for (const container of containers) {
+      const text = readableText(container.innerText || container.textContent || "");
+      if (isUsefulDescriptionText(text)) {
+        parts.push(text);
+        break;
+      }
+    }
+  });
+  return uniqueReadableList(parts, 8);
+}
+
+function getAboutThisItemText() {
+  const selectors = [
+    "#feature-bullets",
+    "#featurebullets_feature_div",
+    "[data-feature-name='featurebullets']",
+    ".vim.x-about-this-item",
+    "[data-testid='x-about-this-item']",
+    "[data-testid*='about-this-item']",
+    "[class*='about-this-item']"
+  ];
+  const direct = collectDescriptionSelectorText(selectors, document, 6);
+  const headed = sectionTextFromHeadingPatterns([
+    /info\s+zu\s+diesem\s+artikel/i,
+    /about\s+this\s+item/i,
+    /artikelmerkmale/i,
+    /item\s+specifics/i
+  ]);
+  return uniqueReadableList([...direct, ...headed], 8);
+}
+
+function getProductDescriptionText() {
+  const selectors = [
+    "#productDescription",
+    "#productDescription_feature_div",
+    "#aplus",
+    "#aplus_feature_div",
+    "#desc_div",
+    "#j-product-description",
+    "#product-description",
+    "#itemDescription",
+    "[data-pl='product-description']",
+    "[data-widget-type='productDescription']",
+    "[data-feature-name='productDescription']",
+    "[data-feature-name='aplus']",
+    "[class*='product-description']",
+    "[class*='ProductDescription']"
+  ];
+  const direct = collectDescriptionSelectorText(selectors, document, 8);
+  const headed = sectionTextFromHeadingPatterns([
+    /^produktbeschreibung$/i,
+    /^artikelbeschreibung$/i,
+    /^beschreibung$/i,
+    /^description$/i,
+    /product\s+description/i
+  ]);
+  return uniqueReadableList([...direct, ...headed, ...getFrameDescriptionText()], 10);
+}
+
+function getItemSpecificsText() {
+  const selectors = [
+    "#productOverview_feature_div",
+    "#detailBullets_feature_div",
+    "#productDetails_feature_div",
+    "#productDetails_db_sections",
+    "#productDetails_techSpec_section_1",
+    "#productDetails_detailBullets_sections1",
+    "#viTabs_0_is",
+    "[data-feature-name='productOverview']",
+    "[data-feature-name='productDetails']",
+    "[data-pl='product-specs']",
+    "[class*='specification']",
+    "[class*='Specification']",
+    "[class*='attribute']",
+    "[class*='Attribute']"
+  ];
+  const direct = collectDescriptionSelectorText(selectors, document, 8);
+  const headed = sectionTextFromHeadingPatterns([
+    /^artikelangaben$/i,
+    /^artikeldetails$/i,
+    /^produktdetails$/i,
+    /^technische\s+details$/i,
+    /^spezifikationen$/i,
+    /^specifications$/i,
+    /^product\s+details$/i,
+    /^item\s+specifics$/i
+  ]);
+  return uniqueReadableList([...direct, ...headed], 10);
 }
 
 function getFrameDescriptionText() {
@@ -367,7 +473,7 @@ function getEmbeddedProductText() {
     });
   });
 
-  return uniqueReadableList(values.map(limitDescription), 8).join("\n\n");
+  return uniqueReadableList(values.map(limitDescription).filter((text) => safeText(text).length <= 6000), 4).join("\n\n");
 }
 
 function getCjDescription() {
@@ -381,8 +487,10 @@ function getCjDescription() {
     "[class*='productDetail']",
     "[class*='product-description']",
     "[class*='ProductDescription']",
-    "[class*='description']",
-    "[class*='Description']",
+    "[class*='goods-description']",
+    "[class*='goodsDescription']",
+    "[class*='description-content']",
+    "[class*='DescriptionContent']",
     "[class*='specification']",
     "[class*='Specification']",
     "[class*='detail-content']",
@@ -666,64 +774,12 @@ function getDescription() {
 function getDescriptionData() {
   const structured = getJsonLdDescription();
   const cjDescription = /cjdropshipping/i.test(getDomain()) ? getCjDescription() : "";
-  const selectors = [
-    "#productDescription",
-    "#productDescription_feature_div",
-    "#feature-bullets",
-    "#aplus",
-    "#aplus_feature_div",
-    "#productOverview_feature_div",
-    "#detailBullets_feature_div",
-    "#productDetails_feature_div",
-    "#productDetails_db_sections",
-    "#productDetails_techSpec_section_1",
-    "#productDetails_detailBullets_sections1",
-    "#viTabs_0_is",
-    "#desc_ifr",
-    "#iframeContent",
-    "#productFactsDesktop_feature_div",
-    "#featurebullets_feature_div",
-    "#desc_div",
-    "#j-product-description",
-    "#product-description",
-    "#product-details",
-    "#itemDescription",
-    ".ux-layout-section",
-    ".vim.x-about-this-item",
-    "[data-testid='x-about-this-item']",
-    "[data-testid*='description']",
-    "[data-testid*='product-detail']",
-    "[data-pl='product-description']",
-    "[data-pl='product-specs']",
-    "[data-spm*='description']",
-    "[data-widget-type='productDescription']",
-    "[data-feature-name='productDescription']",
-    "[data-feature-name='featurebullets']",
-    "[data-feature-name='aplus']",
-    "[data-feature-name='productOverview']",
-    "[data-feature-name='productDetails']",
-    "[class*='feature-bullets']",
-    "[class*='product-description']",
-    "[class*='ProductDescription']",
-    "[class*='product-detail']",
-    "[class*='ProductDetail']",
-    "[class*='product-overview']",
-    "[class*='ProductOverview']",
-    "[class*='specification']",
-    "[class*='Specification']",
-    "[class*='attribute']",
-    "[class*='Attribute']",
-    "[class*='bullet']",
-    "[class*='description']",
-    "[id*='description']"
-  ];
-  const selectorCandidates = collectDescriptionSelectorText(selectors, document, 18);
-  const frameCandidates = getFrameDescriptionText();
   const candidates = uniqueReadableList([
+    ...getAboutThisItemText(),
+    ...getProductDescriptionText(),
+    ...getItemSpecificsText(),
     structured,
     cjDescription,
-    ...selectorCandidates,
-    ...frameCandidates,
     getEmbeddedProductText(),
     pickMeta(["meta[property='og:description']", "meta[name='description']"])
   ].filter(Boolean), 20)
@@ -761,7 +817,7 @@ function isSafeDetailTrigger(node) {
   ].filter(Boolean).join(" "));
   if (!label || label.length > 90) return false;
   if (/cart|basket|buy|checkout|order|login|sign in|register|chat|message|contact|support|wishlist|favorite|share|coupon|policy|privacy|terms|dispute|refund|return|shipping policy|cookie/i.test(label)) return false;
-  if (!/(description|beschreibung|details?|produktdetails|product details|specification|specs|technical|overview|more|mehr anzeigen|show more|read more)/i.test(label)) return false;
+  if (!/(info zu diesem artikel|artikelangaben|artikelbeschreibung|produktbeschreibung|description|beschreibung|details?|produktdetails|product details|item specifics|specification|specs|technical|overview|more|mehr anzeigen|show more|read more)/i.test(label)) return false;
 
   const rect = node.getBoundingClientRect?.();
   const style = window.getComputedStyle ? window.getComputedStyle(node) : null;
@@ -832,7 +888,7 @@ function getAliExpressPopupData(root = document) {
   const title = queryText(["[class*='product-title']", "[class*='title']", "[data-pl='product-title']", "h1"], root);
   const price = queryText(["[class*='price']", "[data-pl='product-price']", "[class*='product-price']"], root);
   const image = normalizeImageUrl(queryAttr(["img", "[class*='image'] img", "[class*='gallery'] img"], "src", root));
-  const description = queryLongText(["[class*='description']", "[class*='product-description']", "[data-pl='product-description']", "[class*='product-detail']", "[class*='ProductDetail']"], root);
+  const description = queryLongText(["[class*='product-description']", "[data-pl='product-description']", "[class*='description-content']", "[class*='product-detail']", "[class*='ProductDetail']"], root);
   return { title, price, image, description };
 }
 
