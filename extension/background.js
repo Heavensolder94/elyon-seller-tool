@@ -11,7 +11,8 @@ import {
   saveResearchMemory,
   upsertResearchProduct,
   updateResearchProductById,
-  deleteResearchProductById
+  deleteResearchProductById,
+  saveCurrentProductSnapshot
 } from "./shared/storage.js";
 import { prepareAgentWorkflow, loadAgentWorkflows } from "./shared/agentWorkflows.js";
 import { SOUL_AGENTS } from "./shared/agents.js";
@@ -28,6 +29,9 @@ const STORAGE_KEYS = {
   state: "elyon.state",
   researchMemory: "elyon_research_memory"
 };
+
+const ALIEXPRESS_VARIANT_CACHE_KEY = "elyon_aliexpress_variant_cache";
+const ALIEXPRESS_PARENT_SEARCH_KEY = "elyon_aliexpress_parent_search";
 
 async function readSettings() {
   const result = await chrome.storage.local.get(SECURITY_STORAGE_KEY);
@@ -158,6 +162,79 @@ function getMarketplaceFromUrl(url = "") {
   if (value.includes("vidaxl.") || value.includes("dropshippingxl")) return "vidaXL";
   return "Unknown";
 }
+
+function isAliExpressUrl(url = "") {
+  return String(url || "").toLowerCase().includes("aliexpress");
+}
+
+function isAliExpressProductUrl(url = "") {
+  const value = String(url || "").toLowerCase();
+  return value.includes("aliexpress") && value.includes("/item/");
+}
+
+async function rememberAliExpressParentSearch(tabId, url = "") {
+  if (!tabId || !isAliExpressUrl(url) || isAliExpressProductUrl(url)) return;
+  const result = await chrome.storage.local.get(ALIEXPRESS_PARENT_SEARCH_KEY).catch(() => ({}));
+  const current = result?.[ALIEXPRESS_PARENT_SEARCH_KEY] || {};
+  await chrome.storage.local.set({
+    [ALIEXPRESS_PARENT_SEARCH_KEY]: {
+      ...current,
+      [tabId]: { url, capturedAt: new Date().toISOString() }
+    }
+  });
+}
+
+async function readAliExpressParentSearch(tabId) {
+  const result = await chrome.storage.local.get(ALIEXPRESS_PARENT_SEARCH_KEY).catch(() => ({}));
+  const current = result?.[ALIEXPRESS_PARENT_SEARCH_KEY] || {};
+  const own = current?.[tabId]?.url || "";
+  if (own) return own;
+  const recent = Object.values(current)
+    .filter((entry) => entry?.url)
+    .sort((a, b) => String(b.capturedAt || "").localeCompare(String(a.capturedAt || "")))[0];
+  return recent?.url || "";
+}
+
+async function cacheAliExpressProduct(product = {}, tabId = null) {
+  const parentSearchUrl = product.parentSearchUrl || await readAliExpressParentSearch(tabId);
+  const nextProduct = {
+    ...product,
+    parentSearchUrl,
+    extractedAt: new Date().toISOString()
+  };
+  await saveCurrentProductSnapshot(nextProduct).catch(() => null);
+  const cacheResult = await chrome.storage.local.get(ALIEXPRESS_VARIANT_CACHE_KEY).catch(() => ({}));
+  const cache = cacheResult?.[ALIEXPRESS_VARIANT_CACHE_KEY] || {};
+  const key = nextProduct.url || `tab-${tabId || Date.now()}`;
+  await chrome.storage.local.set({
+    [ALIEXPRESS_VARIANT_CACHE_KEY]: {
+      ...cache,
+      [key]: {
+        product: nextProduct,
+        variants: nextProduct.aliexpressVariants || nextProduct.elyonProduct?.variants || null,
+        debug: nextProduct.aliexpressVariantDebug || nextProduct.extractionDebug?.aliexpressVariants || null,
+        updatedAt: new Date().toISOString()
+      }
+    }
+  });
+  return nextProduct;
+}
+
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  (async () => {
+    const url = tab?.url || changeInfo?.url || "";
+    if (url && isAliExpressUrl(url) && !isAliExpressProductUrl(url)) {
+      await rememberAliExpressParentSearch(tabId, url);
+    }
+    if (changeInfo.status !== "complete" || !isAliExpressProductUrl(tab?.url || "")) return;
+    const injected = await ensureContentScript(tabId);
+    if (!injected) return;
+    const response = await chrome.tabs.sendMessage(tabId, { type: "ELYON_GET_PRODUCT" }).catch(() => null);
+    if (response?.ok && response.product) {
+      await cacheAliExpressProduct(response.product, tabId);
+    }
+  })().catch(() => {});
+});
 
 chrome.commands.onCommand.addListener(async (command) => {
   if (command !== "toggle-command-bar") return;

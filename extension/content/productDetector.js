@@ -940,6 +940,16 @@ function isAliExpress(domain) {
   return /aliexpress/i.test(domain);
 }
 
+function isAliExpressProductPage(url = location.href, root = document) {
+  const value = String(url || "").toLowerCase();
+  if (!value.includes("aliexpress")) return false;
+  if (value.includes("/item/")) return true;
+  return Boolean(
+    root.querySelector("[data-pl='product-title'], h1, [class*='product-title']") &&
+    root.querySelector("[data-pl='product-price'], [class*='price'], [class*='sku'], [class*='variant']")
+  );
+}
+
 function findVisiblePopup(root = document) {
   const candidates = Array.from(
     root.querySelectorAll("[role='dialog'], [aria-modal='true'], [class*='popup'], [class*='modal'], [class*='drawer'], [class*='overlay']")
@@ -964,6 +974,307 @@ function getAliExpressPopupData(root = document) {
     "[class*='ProductDetail']"
   ], root, 6).join("\n\n");
   return { title, price, image, description };
+}
+
+function isVisibleElement(node) {
+  const rect = node?.getBoundingClientRect?.();
+  const style = node && window.getComputedStyle ? window.getComputedStyle(node) : null;
+  return Boolean(node && rect && rect.width > 4 && rect.height > 4 && (!style || (style.display !== "none" && style.visibility !== "hidden" && style.opacity !== "0")));
+}
+
+function isDangerousActionNode(node) {
+  const label = safeText([
+    node?.textContent,
+    node?.getAttribute?.("aria-label"),
+    node?.getAttribute?.("title"),
+    node?.getAttribute?.("data-action"),
+    node?.getAttribute?.("href")
+  ].filter(Boolean).join(" ")).toLowerCase();
+  return /buy now|add to cart|checkout|order|payment|pay now|warenkorb|jetzt kaufen|kaufen|bestellen|zur kasse|login|sign in|message|chat|contact|coupon|wishlist|favorite|share/i.test(label);
+}
+
+function isDisabledVariantNode(node) {
+  const value = safeText([
+    node?.getAttribute?.("aria-disabled"),
+    node?.getAttribute?.("disabled"),
+    node?.className,
+    node?.getAttribute?.("class")
+  ].filter(Boolean).join(" ")).toLowerCase();
+  return /true|disabled|disable|soldout|sold-out|unavailable|not-available|out-of-stock|sku-property-item-disabled/i.test(value);
+}
+
+function getVariantOptionLabel(node) {
+  const imageAlt = queryText(["img"], node);
+  return safeText(
+    node?.getAttribute?.("title") ||
+    node?.getAttribute?.("aria-label") ||
+    node?.getAttribute?.("data-title") ||
+    node?.getAttribute?.("data-value") ||
+    imageAlt ||
+    node?.innerText ||
+    node?.textContent ||
+    ""
+  ).replace(/\b(selected|ausgewählt|nicht verfügbar|unavailable)\b/gi, "").trim();
+}
+
+function getVariantOptionImage(node) {
+  return normalizeImageUrl(
+    node?.querySelector?.("img")?.currentSrc ||
+    node?.querySelector?.("img")?.src ||
+    node?.querySelector?.("img")?.getAttribute?.("data-src") ||
+    node?.style?.backgroundImage?.match(/url\(["']?([^"')]+)["']?\)/i)?.[1] ||
+    ""
+  );
+}
+
+function getAliExpressVariantContainers(root = document) {
+  const selectors = [
+    "[class*='sku']",
+    "[class*='Sku']",
+    "[class*='variant']",
+    "[class*='Variant']",
+    "[data-pl*='sku']",
+    "[data-pl*='variant']",
+    "[class*='product-property']",
+    "[class*='ProductProperty']"
+  ];
+  return Array.from(root.querySelectorAll(selectors.join(",")))
+    .filter((node) => isVisibleElement(node) && safeText(node.textContent).length >= 2)
+    .slice(0, 20);
+}
+
+function getAliExpressVariantGroups(root = document) {
+  const groups = [];
+  const seen = new Set();
+  const containers = getAliExpressVariantContainers(root);
+
+  containers.forEach((container, index) => {
+    const optionNodes = Array.from(container.querySelectorAll("button, li, [role='button'], [class*='item'], [class*='option'], [class*='value'], [data-sku-col], [data-sku-row]"))
+      .filter((node) => node !== container)
+      .filter(isVisibleElement)
+      .filter((node) => !isDangerousActionNode(node))
+      .filter((node) => getVariantOptionLabel(node) || getVariantOptionImage(node))
+      .slice(0, 60);
+    if (!optionNodes.length) return;
+
+    const title = safeText(
+      container.querySelector("[class*='title'], [class*='name'], span")?.textContent ||
+      container.getAttribute("aria-label") ||
+      container.previousElementSibling?.textContent ||
+      `Variante ${groups.length + 1}`
+    ).replace(/[:：]\s*$/, "");
+
+    const options = [];
+    optionNodes.forEach((node) => {
+      const label = getVariantOptionLabel(node) || getVariantOptionImage(node);
+      const key = `${index}:${label}:${getVariantOptionImage(node)}`;
+      if (!label || seen.has(key)) return;
+      seen.add(key);
+      const selectedText = safeText([node.className, node.getAttribute("aria-pressed"), node.getAttribute("aria-selected")].join(" ")).toLowerCase();
+      options.push({
+        label,
+        selected: /selected|active|current|checked|true|sku-property-item-selected/i.test(selectedText),
+        disabled: isDisabledVariantNode(node),
+        image: getVariantOptionImage(node) || null,
+        price: parsePriceNumber(getPrice()),
+        originalPrice: null,
+        currency: getCurrencyFromText(getPrice()) || null,
+        shippingText: getShipping().text || null,
+        deliveryText: getShipping().deliveryTime || null,
+        stockText: getAvailability() || null,
+        _node: node
+      });
+    });
+
+    if (options.length) {
+      groups.push({ name: title || `Variante ${groups.length + 1}`, options });
+    }
+  });
+
+  return groups.slice(0, 8);
+}
+
+function stripVariantNodes(groups) {
+  return groups.map((group) => ({
+    name: group.name || null,
+    options: (Array.isArray(group.options) ? group.options : []).map((option) => ({
+      label: option.label || null,
+      selected: option.selected === true,
+      disabled: option.disabled === true,
+      image: option.image || null,
+      price: option.price ?? null,
+      originalPrice: option.originalPrice ?? null,
+      currency: option.currency || null,
+      shippingText: option.shippingText || null,
+      deliveryText: option.deliveryText || null,
+      stockText: option.stockText || null
+    }))
+  }));
+}
+
+function getSelectedAliExpressCombination(groups) {
+  const labels = [];
+  groups.forEach((group) => {
+    const selected = (group.options || []).find((option) => option.selected) || null;
+    if (selected?.label) labels.push(selected.label);
+  });
+  return {
+    labels,
+    price: parsePriceNumber(getPrice()),
+    currency: getCurrencyFromText(getPrice()) || null,
+    image: getImages()[0] || null,
+    shippingText: getShipping().text || null,
+    deliveryText: getShipping().deliveryTime || null
+  };
+}
+
+function buildAliExpressVariantDebug(groups, variantItems, manualScanned, warnings = []) {
+  const optionsCount = groups.reduce((sum, group) => sum + (Array.isArray(group.options) ? group.options.length : 0), 0);
+  return {
+    aliexpressProductPage: isAliExpressProductPage(),
+    variantAreaFound: groups.length > 0,
+    variantGroupCount: groups.length,
+    variantOptionCount: optionsCount,
+    autoScanned: false,
+    manualScanned: manualScanned === true,
+    warnings,
+    variantItemsCount: Array.isArray(variantItems) ? variantItems.length : 0
+  };
+}
+
+async function scanAliExpressVariants() {
+  if (!isAliExpressProductPage()) {
+    return {
+      ok: false,
+      message: "Keine AliExpress Produktseite erkannt.",
+      variants: { hasVariants: false, variantGroups: [], selectedCombination: null, variantItems: [] },
+      debug: buildAliExpressVariantDebug([], [], true, ["Keine AliExpress Produktseite erkannt"])
+    };
+  }
+
+  const beforeUrl = location.href;
+  const initialGroups = getAliExpressVariantGroups();
+  const initiallySelected = initialGroups.flatMap((group) => (group.options || []).filter((option) => option.selected && option._node));
+  const variantItems = [];
+  const warnings = [];
+
+  for (const group of initialGroups) {
+    for (const option of group.options || []) {
+      if (variantItems.length >= 80) {
+        warnings.push("Scan bei 80 Varianten begrenzt.");
+        break;
+      }
+      if (!option._node || option.disabled || isDangerousActionNode(option._node) || !isVisibleElement(option._node)) {
+        if (option.disabled) warnings.push(`Nicht verfuegbar: ${option.label}`);
+        continue;
+      }
+      try {
+        option._node.scrollIntoView({ block: "center", inline: "center" });
+        option._node.click();
+        await new Promise((resolve) => setTimeout(resolve, 450));
+        if (location.href !== beforeUrl) {
+          warnings.push("Scan abgebrochen: Klick wollte die Seite wechseln.");
+          history.back();
+          break;
+        }
+        const currentGroups = getAliExpressVariantGroups();
+        const selectedCombination = getSelectedAliExpressCombination(currentGroups);
+        const labels = selectedCombination.labels.length ? selectedCombination.labels : [option.label].filter(Boolean);
+        variantItems.push({
+          combinationKey: labels.join("|") || option.label || `variant-${variantItems.length + 1}`,
+          labels,
+          price: parsePriceNumber(getPrice()),
+          currency: getCurrencyFromText(getPrice()) || option.currency || null,
+          image: getImages()[0] || option.image || null,
+          availability: getAvailability() || null,
+          shippingText: getShipping().text || null,
+          deliveryText: getShipping().deliveryTime || null,
+          capturedAt: new Date().toISOString()
+        });
+      } catch (error) {
+        warnings.push(`Variante nicht gescannt: ${option.label || "unbekannt"}`);
+      }
+    }
+  }
+
+  for (const option of initiallySelected.slice(0, 8)) {
+    try {
+      if (location.href !== beforeUrl || !option._node || isDangerousActionNode(option._node) || !isVisibleElement(option._node)) continue;
+      option._node.click();
+      await new Promise((resolve) => setTimeout(resolve, 180));
+    } catch {
+      warnings.push("Urspruengliche Variantenauswahl konnte nicht vollstaendig wiederhergestellt werden.");
+    }
+  }
+
+  const finalGroups = stripVariantNodes(getAliExpressVariantGroups());
+  const selectedCombination = getSelectedAliExpressCombination(getAliExpressVariantGroups());
+  const variants = {
+    hasVariants: finalGroups.length > 0,
+    variantGroups: finalGroups,
+    selectedCombination,
+    variantItems: uniqueVariantItems(variantItems)
+  };
+  const product = mergeAliExpressVariantsIntoProduct(detectProduct(), variants);
+  const debug = buildAliExpressVariantDebug(finalGroups, variants.variantItems, true, warnings);
+  product.aliexpressVariantDebug = debug;
+  product.extractionDebug = {
+    ...(product.extractionDebug || {}),
+    aliexpressVariants: debug
+  };
+  return { ok: true, product, variants, debug, message: `${variants.variantItems.length || finalGroups.reduce((sum, group) => sum + group.options.length, 0)} Varianten gefunden.` };
+}
+
+function uniqueVariantItems(items) {
+  const seen = new Set();
+  return (Array.isArray(items) ? items : []).filter((item) => {
+    const key = item.combinationKey || JSON.stringify(item.labels || []);
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function mergeAliExpressVariantsIntoProduct(product, variants) {
+  const next = { ...(product || {}) };
+  next.variants = Array.isArray(variants?.variantItems) ? variants.variantItems : next.variants;
+  next.aliexpressVariants = variants;
+  if (next.elyonProduct) {
+    next.elyonProduct = {
+      ...next.elyonProduct,
+      variants: {
+        hasVariants: variants?.hasVariants === true,
+        variantGroups: Array.isArray(variants?.variantGroups) ? variants.variantGroups : [],
+        variantItems: Array.isArray(variants?.variantItems) ? variants.variantItems : [],
+        selectedCombination: variants?.selectedCombination || null
+      },
+      pricing: {
+        ...(next.elyonProduct.pricing || {}),
+        currentPrice: variants?.selectedCombination?.price ?? next.elyonProduct.pricing?.currentPrice ?? null,
+        currency: variants?.selectedCombination?.currency || next.elyonProduct.pricing?.currency || null
+      },
+      availability: {
+        ...(next.elyonProduct.availability || {}),
+        deliveryText: variants?.selectedCombination?.deliveryText || next.elyonProduct.availability?.deliveryText || null,
+        stockText: getAvailability() || next.elyonProduct.availability?.stockText || null
+      },
+      media: {
+        ...(next.elyonProduct.media || {}),
+        mainImage: variants?.selectedCombination?.image || next.elyonProduct.media?.mainImage || null
+      },
+      raw: {
+        ...(next.elyonProduct.raw || {}),
+        platformSpecificData: {
+          ...(next.elyonProduct.raw?.platformSpecificData || {}),
+          aliexpress: {
+            variants,
+            capturedAt: new Date().toISOString()
+          }
+        }
+      }
+    };
+  }
+  return next;
 }
 
 function detectPlatform(domain = getDomain()) {
@@ -1118,6 +1429,8 @@ function extractAliExpressProduct(base = {}) {
   const details = getProductDetails();
   const descriptionData = getDescriptionData();
   const storeUrl = normalizeImageUrl("") || queryAttr(["a[href*='/store/']", "a[href*='store.aliexpress']"], "href");
+  const variantGroups = stripVariantNodes(getAliExpressVariantGroups());
+  const selectedCombination = getSelectedAliExpressCombination(getAliExpressVariantGroups());
   return {
     ...base,
     parserName: "extractAliExpressProduct",
@@ -1140,6 +1453,8 @@ function extractAliExpressProduct(base = {}) {
     followers: getNumberFromText(queryText(["[class*='followers']", "[class*='follower']"])),
     ratingValue: base.rating,
     reviewsCount: base.reviewsCount,
+    variantGroups,
+    selectedCombination,
     variantItems: base.variants,
     warningTexts: getComplianceRisks([base.title, base.description, Object.values(details).join(" ")].join(" "))
   };
@@ -1357,7 +1672,8 @@ function createEmptyElyonProduct() {
     variants: {
       hasVariants: false,
       variantGroups: [],
-      variantItems: []
+      variantItems: [],
+      selectedCombination: null
     },
     marketplace: {
       sellerName: null,
@@ -1499,7 +1815,10 @@ function normalizeProductData(rawData = {}, platform = "generic") {
   product.reviews.reviewSnippets = cleanTextArray(rawData.reviewSnippets, 10);
 
   product.variants.variantItems = variants;
-  product.variants.variantGroups = cleanTextArray(rawData.variantGroups, 20);
+  product.variants.variantGroups = Array.isArray(rawData.variantGroups)
+    ? rawData.variantGroups.map((group) => (group && typeof group === "object" ? group : { name: safeText(group), options: [] })).slice(0, 30)
+    : [];
+  product.variants.selectedCombination = rawData.selectedCombination && typeof rawData.selectedCombination === "object" ? rawData.selectedCombination : null;
   product.variants.hasVariants = variants.length > 0 || product.variants.variantGroups.length > 0;
 
   product.marketplace.sellerName = emptyToNull(rawData.sellerName);
@@ -1517,6 +1836,13 @@ function normalizeProductData(rawData = {}, platform = "generic") {
   product.risk.eprHint = warningTexts.find((text) => /epr|weee|verpackung/i.test(text)) || null;
 
   product.raw.platformSpecificData = { ...rawData, documentTitle: document.title };
+  if (platform === "aliexpress") {
+    product.raw.platformSpecificData.aliexpress = {
+      variantGroups: product.variants.variantGroups,
+      variantItems: product.variants.variantItems,
+      selectedCombination: product.variants.selectedCombination
+    };
+  }
   product.raw.debugSelectors = {
     parser: rawData.parserName || "unknown",
     jsonLdProducts: extractJsonLdProducts().length,
@@ -2029,6 +2355,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message?.type === "ELYON_GET_PRODUCT") {
     sendResponse({ ok: true, product: detectProduct() });
     return;
+  }
+  if (message?.type === "ELYON_SCAN_ALIEXPRESS_VARIANTS") {
+    scanAliExpressVariants()
+      .then((result) => sendResponse(result))
+      .catch((error) => sendResponse({ ok: false, error: error?.message || String(error) }));
+    return true;
   }
   if (message?.type === "ELYON_PING") {
     sendResponse({ ok: true });

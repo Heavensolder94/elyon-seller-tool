@@ -14,6 +14,9 @@ Diese Checkliste ist nur fuer manuelle Debug-Tests. Keine Live-Aktion ausfuehren
 - Sichtbares Produkt-Popup wird beruecksichtigt, falls vorhanden.
 - Titel, Preis, Bilder, Varianten, Store und Versanddaten werden defensiv erkannt.
 - Fehlende Felder werden als `null`, `[]` oder `{}` gespeichert.
+- Produkt-Tabs mit `/item/` werden beim Laden lokal als `elyon_current_product` gespeichert.
+- Button `AliExpress Varianten scannen` scannt nur Variantenoptionen, keine Kauf-/Warenkorb-Aktionen.
+- Varianten landen in `elyon_aliexpress_variant_cache` und in `elyonProduct.variants`.
 
 ## CJ Dropshipping
 - Plattform wird als `cjdropshipping` erkannt.
