@@ -2525,11 +2525,18 @@ function renderOverlay(product) {
     const result = await storeResearch({ ...detectProduct(), status: "new" });
     alert(importFeedback(result, "Research gemerkt"));
   });
-  overlay.querySelector('[data-elyon-action="soul"]')?.addEventListener("click", () => {
-    chrome.runtime.sendMessage({
-      type: "ELYON_SAVE_PRODUCT",
-      product: { ...detectProduct(), status: "new", soulState: "prepared" }
-    });
+  overlay.querySelector('[data-elyon-action="soul"]')?.addEventListener("click", async () => {
+    const result = await chrome.runtime.sendMessage({
+      type: "ELYON_RUN_AGENT_ANALYSIS",
+      agentId: "soul-scout",
+      product: { ...detectProduct(), status: "new", soulState: "prepared" },
+      context: {
+        title: "Soul Scout Analyse",
+        url: location.href,
+        notes: "Aus Overlay gestartet. Keine Live-Aktion."
+      }
+    }).catch((error) => ({ ok: false, message: error?.message || "Soul Scout nicht erreichbar" }));
+    alert(result?.analysis?.content || result?.message || "Soul Scout vorbereitet.");
   });
 }
 

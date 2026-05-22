@@ -821,18 +821,27 @@ bindClick("prepareScoutWorkflow", async () => {
   const activeTab = window.__elyonCurrentTab;
   const agent = SOUL_AGENTS.find((entry) => entry.id === "soul-scout");
   if (!agent) throw new Error("Soul Scout nicht gefunden");
+  setPopupStatus("Soul Scout analysiert ...", "ok");
+  setActionLog("Soul Scout Analyse gestartet", "ok");
+  let product = window.__elyonCurrentProduct || {};
+  if (activeTab?.id) {
+    const tabProduct = await chrome.tabs.sendMessage(activeTab.id, { type: "ELYON_GET_PRODUCT" }).catch(() => null);
+    if (tabProduct?.product) product = tabProduct.product;
+  }
   const result = await sendBackgroundMessage({
-    type: "ELYON_PREPARE_AGENT_WORKFLOW",
+    type: "ELYON_RUN_AGENT_ANALYSIS",
     agentId: agent.id,
+    product,
     context: {
-      title: activeTab?.title ? `Soul Scout: ${activeTab.title}` : "Soul Scout vorbereitet",
-      url: activeTab?.url || "",
-      notes: activeTab?.url ? "Analyse aus dem aktuellen Tab vorbereitet" : "Workflow vorbereitet"
+      title: product?.title ? `Soul Scout: ${product.title}` : activeTab?.title ? `Soul Scout: ${activeTab.title}` : "Soul Scout Analyse",
+      url: product?.url || activeTab?.url || "",
+      notes: "Soul Scout Analyse aus der Extension. Keine Live-Aktion."
     }
   });
-  if (!result?.ok) throw new Error(result?.error || "Workflow konnte nicht vorbereitet werden");
-  setPopupStatus("Soul Scout Workflow vorbereitet", "ok");
-  setActionLog("Soul Scout Workflow vorbereitet", "ok");
+  if (!result?.ok && !result?.preparedOnly) throw new Error(result?.error || result?.message || "Soul Scout Analyse konnte nicht gestartet werden");
+  const message = result?.preparedOnly ? "Soul Scout vorbereitet - KI in Extension gesperrt" : result?.analysis?.content ? "Soul Scout Analyse fertig" : (result?.message || "Soul Scout vorbereitet");
+  setPopupStatus(message, result?.ok ? "ok" : "error");
+  setActionLog(result?.analysis?.content || message, result?.ok ? "ok" : "error");
 });
 
 bindClick("scanTabs", async () => {

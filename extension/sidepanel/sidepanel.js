@@ -113,12 +113,13 @@ async function prepareWorkflow(agentId) {
   const { result } = await loadState();
   const product = result.elyon_current_product || {};
   const response = await sendMessage({
-    type: "ELYON_PREPARE_AGENT_WORKFLOW",
+    type: "ELYON_RUN_AGENT_ANALYSIS",
     agentId,
+    product,
     context: {
       title: `${agentId}: ${product.title || "Produktanalyse vorbereitet"}`,
       url: product.url || "",
-      notes: "Aus Sidepanel vorbereitet. Keine Live-Aktion."
+      notes: "Aus Sidepanel analysiert. Keine Live-Aktion."
     }
   });
   return response;
@@ -145,8 +146,10 @@ document.querySelectorAll("[data-tab]").forEach((button) => {
 
 document.querySelectorAll("[data-workflow]").forEach((button) => {
   button.addEventListener("click", async () => {
-    button.textContent = "Vorbereitet";
-    await prepareWorkflow(button.dataset.workflow);
+    button.textContent = "Analyse läuft";
+    const result = await prepareWorkflow(button.dataset.workflow);
+    button.textContent = result?.ok ? "Analyse fertig" : "Vorbereitet";
+    await render();
   });
 });
 

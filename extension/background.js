@@ -18,7 +18,7 @@ import {
 } from "./shared/storage.js";
 import { prepareAgentWorkflow, loadAgentWorkflows } from "./shared/agentWorkflows.js";
 import { SOUL_AGENTS } from "./shared/agents.js";
-import { sendProductToElyon as sendProductImportToElyon } from "./shared/apiClient.js";
+import { sendProductToElyon as sendProductImportToElyon, prepareAiAnalysis } from "./shared/apiClient.js";
 
 const DEFAULT_SETTINGS = {
   ...DEFAULT_SECURITY_STATE,
@@ -497,6 +497,56 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       }
       const workflows = await prepareAgentWorkflow(agent, message.context || {});
       sendResponse({ ok: true, workflows, lastWorkflow: workflows[0], security });
+      return;
+    }
+
+    if (message?.type === "ELYON_RUN_AGENT_ANALYSIS" && message.agentId) {
+      const agent = SOUL_AGENTS.find((entry) => entry.id === message.agentId);
+      if (!agent) {
+        sendResponse({ ok: false, error: "Agent not found" });
+        return;
+      }
+      const product = message.product && typeof message.product === "object" ? message.product : {};
+      const decision = canRunAction("ai_prepare", security);
+      const workflows = await prepareAgentWorkflow(agent, {
+        ...(message.context || {}),
+        url: message.context?.url || product.url || "",
+        notes: decision.label || "Soul Scout Analyse vorbereitet"
+      });
+      if (security.pauseAllAgents) {
+        sendResponse({ ok: false, paused: true, workflows, lastWorkflow: workflows[0], message: "Alle Agenten pausiert.", security });
+        return;
+      }
+      if (!security.aiEnabled) {
+        sendResponse({ ok: true, preparedOnly: true, workflows, lastWorkflow: workflows[0], message: "Vorbereitet, aber gesperrt - KI ist in der Extension nicht aktiviert.", security });
+        return;
+      }
+      const analysis = await prepareAiAnalysis(product, {
+        agentId: agent.id,
+        action: "soul-scout-analysis",
+        prompt: message.prompt || undefined
+      });
+      const nextWorkflow = {
+        ...workflows[0],
+        status: analysis.ok ? "active" : "prepared",
+        mode: analysis.ok ? (analysis.mode || "analysis") : "prepared",
+        notes: analysis.content || analysis.message || workflows[0]?.notes || "",
+        updatedAt: new Date().toISOString()
+      };
+      const nextWorkflows = [nextWorkflow, ...workflows.slice(1)];
+      await chrome.storage.local.set({
+        elyon_agent_workflows: nextWorkflows,
+        elyon_last_soul_scout_analysis: {
+          agentId: agent.id,
+          productUrl: product.url || "",
+          ok: analysis.ok === true,
+          message: analysis.message || "",
+          content: analysis.content || "",
+          mode: analysis.mode || "",
+          updatedAt: new Date().toISOString()
+        }
+      }).catch(() => null);
+      sendResponse({ ok: analysis.ok === true, analysis, workflows: nextWorkflows, lastWorkflow: nextWorkflow, message: analysis.message, security });
       return;
     }
 

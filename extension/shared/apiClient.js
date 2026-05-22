@@ -182,11 +182,45 @@ export async function sendProductToElyon(product) {
   }
 }
 
-export async function prepareAiAnalysis(product) {
+function buildSoulScoutPrompt(product = {}) {
+  const normalized = product?.elyonProduct && typeof product.elyonProduct === "object" ? product.elyonProduct : {};
+  const title = product?.title || normalized?.identity?.title || "Unbekanntes Produkt";
+  const supplier = product?.supplier || normalized?.supplier?.supplierName || product?.domain || "Unbekannter Supplier";
+  return [
+    "Du bist Soul Scout im Elyon Seller Tool.",
+    "Analysiere dieses importierte Produkt nur als Entscheidungshilfe. Keine Live-Aktion ausfuehren.",
+    "Bewerte kurz und praktisch: Nachfrage, Zielgruppe, Wettbewerb, Liefer-/Supplier-Risiko, Compliance-Risiko, Marge-Potenzial und naechster manueller Schritt.",
+    "Gib am Ende eine klare Empfehlung: winner, reviewed, risky oder rejected.",
+    "",
+    `Produkt: ${title}`,
+    `Supplier/Domain: ${supplier}`,
+    `Preis: ${product?.price || normalized?.pricing?.priceText || "-"} ${product?.currency || normalized?.pricing?.currency || ""}`,
+    `URL: ${product?.url || normalized?.meta?.sourceUrl || "-"}`
+  ].join("\n");
+}
+
+function buildAnalysisSummary(product = {}) {
+  const risks = Array.isArray(product?.complianceRisks) ? product.complianceRisks.length : 0;
+  const priceNumber = Number(String(product?.price || "").replace(/[^\d.,-]/g, "").replace(",", "."));
+  return {
+    total: 1,
+    missingMarginCount: 1,
+    missingDeliveryCount: product?.shipping || product?.availability ? 0 : 1,
+    complianceRiskCount: risks,
+    weakMarginCount: Number.isFinite(priceNumber) && priceNumber > 0 ? 0 : 1,
+    averageProfit: 0,
+    averageMargin: 0
+  };
+}
+
+export async function prepareAiAnalysis(product, options = {}) {
   const backendUrl = await getBackendUrl();
+  const agentId = options.agentId || "soul-scout";
+  const action = options.action || "soul-scout-analysis";
+  const prompt = options.prompt || buildSoulScoutPrompt(product);
   if (!backendUrl) {
-    await upsertResearchProduct({ ...product, notes: "AI-Analyse vorbereitet", updatedAt: new Date().toISOString() });
-    return { ok: false, storedLocally: true, message: "KI-Verbindung nicht aktiv" };
+    await upsertResearchProduct({ ...product, notes: "Soul Scout Analyse lokal vorbereitet", updatedAt: new Date().toISOString() });
+    return { ok: false, storedLocally: true, message: "Backend-URL nicht gesetzt - Soul Scout lokal vorbereitet." };
   }
 
   try {
@@ -194,28 +228,41 @@ export async function prepareAiAnalysis(product) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        action: "ai-prepare",
-        prompt: "AI-Analyse fuer ein Produkt vorbereiten.",
+        action,
+        agentId,
+        source: "chrome_extension",
+        mode: "draft_analysis",
+        prompt,
         products: [product],
-        summary: {
-          total: 1,
-          missingMarginCount: 0,
-          missingDeliveryCount: 0,
-          complianceRiskCount: 0,
-          weakMarginCount: 0,
-          averageProfit: 0
+        summary: buildAnalysisSummary(product),
+        safety: {
+          liveAction: false,
+          listingCreated: false,
+          orderCreated: false,
+          messageSent: false,
+          reviewRequired: true,
+          manualApprovalRequired: true
         }
       })
-    }, 5000);
+    }, 12000);
 
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return { ok: true, storedLocally: false, message: "KI-Analyse vorbereitet" };
+    const payload = await response.json().catch(() => ({}));
+    return {
+      ok: true,
+      storedLocally: false,
+      aiEnabled: payload.aiEnabled === true,
+      mode: payload.mode || "analysis",
+      content: payload.content || payload.answer || payload.message || "",
+      summary: payload.summary || null,
+      message: payload.message || "Soul Scout Analyse abgeschlossen."
+    };
   } catch (error) {
-    await upsertResearchProduct({ ...product, notes: "AI-Analyse vorbereitet", updatedAt: new Date().toISOString() });
+    await upsertResearchProduct({ ...product, notes: "Soul Scout Analyse lokal vorbereitet", updatedAt: new Date().toISOString() });
     return {
       ok: false,
       storedLocally: true,
-      message: "Lokal gespeichert – Backend nicht erreichbar"
+      message: error?.name === "AbortError" ? "Soul Scout Timeout - lokal vorbereitet." : "Soul Scout Backend nicht erreichbar - lokal vorbereitet."
     };
   }
 }
