@@ -48,6 +48,8 @@ function getSupplier(domain) {
   if (domain.includes("aliexpress")) return "AliExpress";
   if (domain.includes("cjdropshipping")) return "CJ Dropshipping";
   if (domain.includes("temu")) return "Temu";
+  if (domain.includes("bigbuy.")) return "BigBuy";
+  if (domain.includes("vidaxl.") || domain.includes("dropshippingxl")) return "vidaXL";
   return "Unknown";
 }
 
@@ -865,7 +867,7 @@ async function openDetailsWithUserConsent() {
 }
 
 function isSupportedPage(domain) {
-  return /(^|\.)ebay\./i.test(domain) || /(^|\.)amazon\./i.test(domain) || /aliexpress/i.test(domain) || /cjdropshipping/i.test(domain) || /temu/i.test(domain);
+  return /(^|\.)ebay\./i.test(domain) || /(^|\.)amazon\./i.test(domain) || /aliexpress/i.test(domain) || /cjdropshipping/i.test(domain) || /temu/i.test(domain) || /bigbuy\./i.test(domain) || /vidaxl\./i.test(domain) || /dropshippingxl/i.test(domain);
 }
 
 function isAliExpress(domain) {
@@ -890,6 +892,589 @@ function getAliExpressPopupData(root = document) {
   const image = normalizeImageUrl(queryAttr(["img", "[class*='image'] img", "[class*='gallery'] img"], "src", root));
   const description = queryLongText(["[class*='product-description']", "[data-pl='product-description']", "[class*='description-content']", "[class*='product-detail']", "[class*='ProductDetail']"], root);
   return { title, price, image, description };
+}
+
+function detectPlatform(domain = getDomain()) {
+  const value = String(domain || "").toLowerCase();
+  if (/amazon\./i.test(value)) return "amazon";
+  if (/aliexpress/i.test(value)) return "aliexpress";
+  if (/cjdropshipping/i.test(value)) return "cjdropshipping";
+  if (/ebay\./i.test(value)) return "ebay";
+  if (/bigbuy\./i.test(value)) return "bigbuy";
+  if (/vidaxl\./i.test(value) || /dropshippingxl/i.test(value)) return "vidaxl";
+  if (/temu\./i.test(value)) return "temu";
+  return "generic";
+}
+
+function emptyToNull(value) {
+  if (value == null) return null;
+  if (typeof value === "string") {
+    const text = safeText(stripHtml(value));
+    return text ? text : null;
+  }
+  return value;
+}
+
+function cleanTextArray(values, max = 40) {
+  return uniqueReadableList((Array.isArray(values) ? values : [values]).map(emptyToNull).filter(Boolean), max);
+}
+
+function cleanObject(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const output = {};
+  Object.entries(value).forEach(([key, entry]) => {
+    const cleanKey = safeText(key);
+    const cleanValue = emptyToNull(entry);
+    if (cleanKey && cleanValue != null) output[cleanKey] = cleanValue;
+  });
+  return output;
+}
+
+function parsePriceNumber(value) {
+  const text = safeText(value);
+  if (!text) return null;
+  const match = text.match(/[\d]{1,3}(?:[.\s]\d{3})*(?:[.,]\d{1,2})?|[\d]+(?:[.,]\d{1,2})?/);
+  if (!match) return null;
+  let numberText = match[0].replace(/\s/g, "");
+  if (numberText.includes(",") && numberText.includes(".")) {
+    numberText = numberText.replace(/\./g, "").replace(",", ".");
+  } else if (numberText.includes(",")) {
+    numberText = numberText.replace(",", ".");
+  }
+  const number = Number(numberText);
+  return Number.isFinite(number) ? number : null;
+}
+
+function extractJsonLdProducts() {
+  const products = [];
+  const scripts = Array.from(document.querySelectorAll("script[type='application/ld+json']"));
+
+  function visit(value) {
+    if (!value || typeof value !== "object") return;
+    if (Array.isArray(value)) {
+      value.forEach(visit);
+      return;
+    }
+    const type = Array.isArray(value["@type"]) ? value["@type"].join(" ") : value["@type"];
+    if (String(type || "").toLowerCase().includes("product")) products.push(value);
+    Object.values(value).forEach((entry) => {
+      if (entry && typeof entry === "object") visit(entry);
+    });
+  }
+
+  scripts.forEach((script) => {
+    try {
+      visit(JSON.parse(script.textContent || "{}"));
+    } catch {
+      // Some supplier pages ship invalid JSON-LD; extraction should continue.
+    }
+  });
+  return products;
+}
+
+function firstJsonLdProduct() {
+  return extractJsonLdProducts()[0] || {};
+}
+
+function getOfferValue(jsonLd, key) {
+  const offers = Array.isArray(jsonLd?.offers) ? jsonLd.offers[0] : jsonLd?.offers;
+  return offers?.[key] || null;
+}
+
+function getBrandValue(jsonLd, details = {}) {
+  const brand = jsonLd?.brand;
+  if (typeof brand === "string") return brand;
+  if (brand?.name) return brand.name;
+  return details.Brand || details.Marke || details.brand || details.marke || null;
+}
+
+function extractAsin(details = {}) {
+  const urlMatch = location.href.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})(?:[/?]|$)/i);
+  return urlMatch?.[1] || details.ASIN || details.Asin || details.asin || null;
+}
+
+function extractEbayItemId(details = {}) {
+  const urlMatch = location.href.match(/\/itm\/(?:[^/]+\/)?(\d{7,})/i);
+  return urlMatch?.[1] || details["Artikelnummer"] || details["Item number"] || details["eBay item number"] || null;
+}
+
+function extractAmazonProduct(base = {}) {
+  const details = getProductDetails();
+  const descriptionData = getDescriptionData();
+  const jsonLd = firstJsonLdProduct();
+  const bullets = queryAllText(["#feature-bullets li span.a-list-item", "#feature-bullets li"], document, 20)
+    .filter((text) => !/make sure this fits|page|previous|next/i.test(text));
+  const breadcrumbs = queryAllText(["#wayfinding-breadcrumbs_feature_div a", "nav[aria-label*='breadcrumb'] a"], document, 12);
+  const sellerText = queryText(["#sellerProfileTriggerId", "#merchant-info", "#tabular-buybox-truncate-0", "[data-feature-name='shipsFromSoldBy']"]);
+  const fulfilledText = queryText(["#merchant-info", "#tabular-buybox", "#mir-layout-DELIVERY_BLOCK-slot-PRIMARY_DELIVERY_MESSAGE_LARGE"]);
+
+  return {
+    ...base,
+    parserName: "extractAmazonProduct",
+    title: base.title || jsonLd.name || getTitle(),
+    brand: getBrandValue(jsonLd, details),
+    asin: extractAsin(details),
+    model: details["Modellnummer"] || details["Model Number"] || details["Item model number"] || null,
+    category: base.category || breadcrumbs.join(" > ") || getCategory(),
+    breadcrumbs,
+    shortDescription: bullets[0] || pickMeta(["meta[name='description']", "meta[property='og:description']"]),
+    longDescription: base.description || descriptionData.text || jsonLd.description || "",
+    bulletPoints: bullets,
+    productDetails: details,
+    specifications: details,
+    mainImage: base.image || normalizeImageUrl(Array.isArray(jsonLd.image) ? jsonLd.image[0] : jsonLd.image),
+    images: base.images,
+    currentPrice: base.price || getOfferValue(jsonLd, "price"),
+    originalPrice: queryText([".basisPrice .a-offscreen", ".a-text-price .a-offscreen", "[data-a-strike='true'] .a-offscreen"]),
+    currency: base.currency || getOfferValue(jsonLd, "priceCurrency"),
+    stockText: base.availability || getOfferValue(jsonLd, "availability"),
+    deliveryText: base.shipping?.deliveryTime || fulfilledText,
+    sellerName: sellerText,
+    fulfilledBy: fulfilledText,
+    prime: /prime/i.test(document.body?.innerText || ""),
+    ratingValue: base.rating || jsonLd?.aggregateRating?.ratingValue,
+    reviewsCount: base.reviewsCount || jsonLd?.aggregateRating?.reviewCount,
+    marketplaceCategory: breadcrumbs.join(" > "),
+    variants: base.variants,
+    warningTexts: getComplianceRisks([base.title, base.description, Object.values(details).join(" ")].join(" "))
+  };
+}
+
+function extractAliExpressProduct(base = {}) {
+  const popupRoot = findVisiblePopup(document);
+  const popupData = popupRoot ? getAliExpressPopupData(popupRoot) : {};
+  const details = getProductDetails();
+  const descriptionData = getDescriptionData();
+  const storeUrl = normalizeImageUrl("") || queryAttr(["a[href*='/store/']", "a[href*='store.aliexpress']"], "href");
+  return {
+    ...base,
+    parserName: "extractAliExpressProduct",
+    title: popupData.title || base.title,
+    longDescription: popupData.description || base.description || descriptionData.text,
+    bulletPoints: cleanTextArray(descriptionData.candidates, 8),
+    productDetails: details,
+    specifications: details,
+    mainImage: popupData.image || base.image,
+    images: base.images,
+    currentPrice: popupData.price || base.price,
+    originalPrice: queryText(["[class*='original-price']", "[class*='old-price']", "[class*='crossed']"]),
+    currency: base.currency,
+    shippingCost: base.shipping?.cost || "",
+    deliveryText: base.shipping?.deliveryTime || base.shipping?.text || "",
+    shipsFrom: base.shipping?.shipsFrom || queryText(["[class*='ship-from']", "[class*='ShipsFrom']"]),
+    storeName: queryText(["[class*='store-name']", "[class*='shop-name']", "a[href*='/store/']"]),
+    storeUrl,
+    supplierRating: getNumberFromText(queryText(["[class*='store'] [class*='rating']", "[class*='seller'] [class*='rating']"])),
+    followers: getNumberFromText(queryText(["[class*='followers']", "[class*='follower']"])),
+    ratingValue: base.rating,
+    reviewsCount: base.reviewsCount,
+    variantItems: base.variants,
+    warningTexts: getComplianceRisks([base.title, base.description, Object.values(details).join(" ")].join(" "))
+  };
+}
+
+function extractCJProduct(base = {}) {
+  const details = getProductDetails();
+  const description = getCjDescription() || base.description || getDescriptionData().text;
+  return {
+    ...base,
+    parserName: "extractCJProduct",
+    productId: details["Product ID"] || details["Produkt-ID"] || location.href.match(/product-detail\/([^/?#]+)/i)?.[1] || null,
+    sku: details.SKU || details.sku || null,
+    longDescription: description,
+    productDetails: details,
+    specifications: details,
+    mainImage: base.image,
+    images: base.images,
+    currentPrice: base.price,
+    currency: base.currency,
+    warehouse: queryText(["[class*='warehouse']", "[class*='Warehouse']"]),
+    shippingMethods: queryAllText(["[class*='shipping']", "[class*='logistics']", "[class*='delivery']"], document, 12),
+    processingTime: queryText(["[class*='processing']", "[class*='Processing']"]),
+    shippingCost: base.shipping?.cost || "",
+    stockText: base.availability || queryText(["[class*='inventory']", "[class*='stock']"]),
+    variants: base.variants,
+    warningTexts: getComplianceRisks([base.title, description, Object.values(details).join(" ")].join(" "))
+  };
+}
+
+function extractEbayProduct(base = {}) {
+  const details = getProductDetails();
+  const descriptionData = getDescriptionData();
+  return {
+    ...base,
+    parserName: "extractEbayProduct",
+    itemId: extractEbayItemId(details),
+    title: base.title,
+    longDescription: base.description || descriptionData.text,
+    bulletPoints: getAboutThisItemText(),
+    productDetails: details,
+    specifications: details,
+    mainImage: base.image,
+    images: base.images,
+    currentPrice: base.price,
+    currency: base.currency,
+    shippingCost: base.shipping?.cost || "",
+    deliveryText: base.shipping?.deliveryTime || base.shipping?.text || "",
+    sellerName: queryText([".x-sellercard-atf__info__about-seller a", "[data-testid='x-sellercard-atf'] a", "[class*='seller'] a"]),
+    supplierRating: getNumberFromText(queryText(["[class*='seller'] [class*='rating']", "[class*='feedback']"])),
+    marketplaceCategory: base.category,
+    stockText: base.availability,
+    variants: base.variants,
+    soldCount: base.soldCount,
+    warningTexts: getComplianceRisks([base.title, base.description, Object.values(details).join(" ")].join(" "))
+  };
+}
+
+function extractBigBuyProduct(base = {}) {
+  const details = getProductDetails();
+  return {
+    ...base,
+    parserName: "extractBigBuyProduct",
+    supplierName: "BigBuy",
+    longDescription: base.description || getDescriptionData().text,
+    productDetails: details,
+    specifications: details,
+    mainImage: base.image,
+    images: base.images,
+    currentPrice: base.price,
+    currency: base.currency,
+    stockText: base.availability,
+    warningTexts: getComplianceRisks([base.title, base.description, Object.values(details).join(" ")].join(" "))
+  };
+}
+
+function extractVidaXLProduct(base = {}) {
+  const details = getProductDetails();
+  return {
+    ...base,
+    parserName: "extractVidaXLProduct",
+    supplierName: /dropshippingxl/i.test(base.domain || "") ? "vidaXL / dropshippingXL" : "vidaXL",
+    longDescription: base.description || getDescriptionData().text,
+    productDetails: details,
+    specifications: details,
+    mainImage: base.image,
+    images: base.images,
+    currentPrice: base.price,
+    currency: base.currency,
+    stockText: base.availability,
+    warningTexts: getComplianceRisks([base.title, base.description, Object.values(details).join(" ")].join(" "))
+  };
+}
+
+function extractGenericProduct(base = {}) {
+  const jsonLd = firstJsonLdProduct();
+  const jsonImages = Array.isArray(jsonLd.image) ? jsonLd.image : [jsonLd.image].filter(Boolean);
+  const details = getProductDetails();
+  return {
+    ...base,
+    parserName: "extractGenericProduct",
+    title: base.title || jsonLd.name || pickMeta(["meta[property='og:title']", "meta[name='twitter:title']"]),
+    brand: getBrandValue(jsonLd, details),
+    sku: jsonLd.sku || details.SKU || null,
+    productId: jsonLd.productID || details["Product ID"] || null,
+    shortDescription: pickMeta(["meta[property='og:description']", "meta[name='description']"]),
+    longDescription: base.description || jsonLd.description || getDescriptionData().text,
+    productDetails: details,
+    specifications: details,
+    mainImage: base.image || normalizeImageUrl(jsonImages[0]),
+    images: uniqueList([...base.images, ...jsonImages.map(normalizeImageUrl)], 12),
+    currentPrice: base.price || getOfferValue(jsonLd, "price"),
+    currency: base.currency || getOfferValue(jsonLd, "priceCurrency"),
+    ratingValue: base.rating || jsonLd?.aggregateRating?.ratingValue,
+    reviewsCount: base.reviewsCount || jsonLd?.aggregateRating?.reviewCount,
+    stockText: base.availability || getOfferValue(jsonLd, "availability"),
+    warningTexts: getComplianceRisks([base.title, base.description, Object.values(details).join(" ")].join(" "))
+  };
+}
+
+function extractProductByPlatform(platform, base) {
+  switch (platform) {
+    case "amazon":
+      return extractAmazonProduct(base);
+    case "aliexpress":
+      return extractAliExpressProduct(base);
+    case "cjdropshipping":
+      return extractCJProduct(base);
+    case "ebay":
+      return extractEbayProduct(base);
+    case "bigbuy":
+      return extractBigBuyProduct(base);
+    case "vidaxl":
+      return extractVidaXLProduct(base);
+    default:
+      return extractGenericProduct(base);
+  }
+}
+
+function createEmptyElyonProduct() {
+  return {
+    meta: {
+      sourceUrl: null,
+      sourceDomain: null,
+      detectedPlatform: null,
+      extractedAt: null,
+      extractorVersion: "1.0.0",
+      importSource: "chrome-extension",
+      confidenceScore: 0
+    },
+    identity: {
+      title: null,
+      brand: null,
+      sku: null,
+      asin: null,
+      itemId: null,
+      productId: null,
+      model: null,
+      category: null,
+      breadcrumbs: []
+    },
+    content: {
+      shortDescription: null,
+      longDescription: null,
+      bulletPoints: [],
+      productDetails: {},
+      specifications: {},
+      materials: [],
+      dimensions: null,
+      colors: [],
+      sizes: [],
+      careInstructions: null,
+      includedItems: []
+    },
+    media: {
+      mainImage: null,
+      images: [],
+      videos: []
+    },
+    pricing: {
+      currentPrice: null,
+      originalPrice: null,
+      currency: null,
+      discountPercent: null,
+      shippingCost: null,
+      totalEstimatedCost: null,
+      priceText: null
+    },
+    availability: {
+      inStock: null,
+      stockText: null,
+      quantityAvailable: null,
+      deliveryText: null,
+      processingTime: null,
+      estimatedDelivery: null,
+      shipsFrom: null,
+      shipsTo: null
+    },
+    supplier: {
+      supplierName: null,
+      storeName: null,
+      storeUrl: null,
+      supplierRating: null,
+      followers: null,
+      warehouse: null,
+      shippingMethods: [],
+      dropshippingAvailable: null
+    },
+    reviews: {
+      ratingValue: null,
+      reviewsCount: null,
+      ratingsBreakdown: {},
+      reviewSnippets: []
+    },
+    variants: {
+      hasVariants: false,
+      variantGroups: [],
+      variantItems: []
+    },
+    marketplace: {
+      sellerName: null,
+      fulfilledBy: null,
+      prime: null,
+      bestsellerRank: null,
+      marketplaceCategory: null
+    },
+    risk: {
+      brandRiskHint: null,
+      batteryHint: null,
+      electronicHint: null,
+      medicalHint: null,
+      trademarkHint: null,
+      eprHint: null,
+      warningTexts: []
+    },
+    workflow: {
+      importTarget: "browser-import",
+      status: "draft",
+      reviewRequired: true,
+      liveAction: false,
+      automationAllowed: false,
+      analysisQueue: {
+        soulScout: "pending",
+        soulSeo: "pending",
+        soulPricing: "pending",
+        soulGuard: "pending",
+        supplierCheck: "pending"
+      }
+    },
+    raw: {
+      platformSpecificData: {},
+      debugSelectors: {},
+      extractionWarnings: []
+    }
+  };
+}
+
+function calculateConfidence(product) {
+  const checks = [
+    product.identity.title,
+    product.pricing.currentPrice,
+    product.media.mainImage,
+    product.meta.sourceUrl,
+    product.content.longDescription,
+    product.content.bulletPoints.length,
+    Object.keys(product.content.productDetails).length,
+    product.supplier.supplierName,
+    product.availability.stockText,
+    product.reviews.ratingValue
+  ];
+  const found = checks.filter(Boolean).length;
+  return Math.round((found / checks.length) * 100);
+}
+
+function buildExtractionWarnings(product) {
+  const warnings = [];
+  if (!product.identity.title) warnings.push("Titel nicht gefunden");
+  if (!product.pricing.currentPrice && !product.pricing.priceText) warnings.push("Preis nicht gefunden");
+  if (!product.media.mainImage) warnings.push("Hauptbild nicht gefunden");
+  if (!product.content.longDescription && !product.content.bulletPoints.length) warnings.push("Beschreibung nicht gefunden");
+  if (!product.meta.detectedPlatform || product.meta.detectedPlatform === "generic") warnings.push("Nur Generic Parser verwendet");
+  return warnings;
+}
+
+function normalizeProductData(rawData = {}, platform = "generic") {
+  const product = createEmptyElyonProduct();
+  const images = uniqueList([rawData.mainImage, rawData.image, ...(Array.isArray(rawData.images) ? rawData.images : [])].map(normalizeImageUrl), 20);
+  const priceText = rawData.currentPrice || rawData.price || rawData.priceText || "";
+  const shippingCostText = rawData.shippingCost || rawData.shipping?.cost || "";
+  const details = cleanObject(rawData.productDetails);
+  const specifications = cleanObject(rawData.specifications);
+  const variants = Array.isArray(rawData.variantItems) ? rawData.variantItems : Array.isArray(rawData.variants) ? rawData.variants : [];
+  const warningTexts = cleanTextArray([...(Array.isArray(rawData.warningTexts) ? rawData.warningTexts : []), ...(Array.isArray(rawData.complianceRisks) ? rawData.complianceRisks : [])], 20);
+
+  product.meta.sourceUrl = emptyToNull(rawData.url || location.href);
+  product.meta.sourceDomain = emptyToNull(rawData.domain || getDomain());
+  product.meta.detectedPlatform = platform || "generic";
+  product.meta.extractedAt = rawData.detectedAt || new Date().toISOString();
+
+  product.identity.title = emptyToNull(rawData.title);
+  product.identity.brand = emptyToNull(rawData.brand);
+  product.identity.sku = emptyToNull(rawData.sku);
+  product.identity.asin = emptyToNull(rawData.asin);
+  product.identity.itemId = emptyToNull(rawData.itemId);
+  product.identity.productId = emptyToNull(rawData.productId);
+  product.identity.model = emptyToNull(rawData.model);
+  product.identity.category = emptyToNull(rawData.category);
+  product.identity.breadcrumbs = cleanTextArray(rawData.breadcrumbs, 20);
+
+  product.content.shortDescription = emptyToNull(rawData.shortDescription);
+  product.content.longDescription = emptyToNull(rawData.longDescription || rawData.description);
+  product.content.bulletPoints = cleanTextArray(rawData.bulletPoints || rawData.descriptionCandidates, 30);
+  product.content.productDetails = details;
+  product.content.specifications = Object.keys(specifications).length ? specifications : details;
+  product.content.materials = cleanTextArray([details.Material, details.material, rawData.materials].flat(), 10);
+  product.content.dimensions = emptyToNull(details.Dimensions || details["Maße"] || details["Masse"] || details.Size);
+  product.content.colors = cleanTextArray([details.Color, details.Farbe, rawData.colors].flat(), 20);
+  product.content.sizes = cleanTextArray([details.Size, details.Größe, details.Groesse, rawData.sizes].flat(), 20);
+  product.content.careInstructions = emptyToNull(details["Care instructions"] || details.Pflegehinweise);
+  product.content.includedItems = cleanTextArray([details["Included Components"], details.Lieferumfang, rawData.includedItems].flat(), 20);
+
+  product.media.mainImage = images[0] || null;
+  product.media.images = images;
+  product.media.videos = cleanTextArray(rawData.videos, 10);
+
+  product.pricing.currentPrice = parsePriceNumber(priceText);
+  product.pricing.originalPrice = parsePriceNumber(rawData.originalPrice);
+  product.pricing.currency = emptyToNull(rawData.currency || getCurrencyFromText(priceText) || getCurrencyFromText(rawData.originalPrice));
+  product.pricing.discountPercent = parsePriceNumber(rawData.discountPercent);
+  product.pricing.shippingCost = parsePriceNumber(shippingCostText);
+  product.pricing.totalEstimatedCost = product.pricing.currentPrice != null && product.pricing.shippingCost != null
+    ? Number((product.pricing.currentPrice + product.pricing.shippingCost).toFixed(2))
+    : null;
+  product.pricing.priceText = emptyToNull(priceText);
+
+  product.availability.stockText = emptyToNull(rawData.stockText || rawData.availability);
+  product.availability.inStock = product.availability.stockText ? !/out of stock|nicht verfügbar|ausverkauft/i.test(product.availability.stockText) : null;
+  product.availability.quantityAvailable = parsePriceNumber(rawData.quantityAvailable);
+  product.availability.deliveryText = emptyToNull(rawData.deliveryText || rawData.shipping?.deliveryTime || rawData.shipping?.text);
+  product.availability.processingTime = emptyToNull(rawData.processingTime);
+  product.availability.estimatedDelivery = emptyToNull(rawData.estimatedDelivery);
+  product.availability.shipsFrom = emptyToNull(rawData.shipsFrom || rawData.shipping?.shipsFrom);
+  product.availability.shipsTo = emptyToNull(rawData.shipsTo);
+
+  product.supplier.supplierName = emptyToNull(rawData.supplierName || rawData.supplier);
+  product.supplier.storeName = emptyToNull(rawData.storeName || rawData.supplierInfo?.shopName);
+  product.supplier.storeUrl = emptyToNull(rawData.storeUrl);
+  product.supplier.supplierRating = emptyToNull(rawData.supplierRating || rawData.supplierInfo?.rating);
+  product.supplier.followers = emptyToNull(rawData.followers);
+  product.supplier.warehouse = emptyToNull(rawData.warehouse);
+  product.supplier.shippingMethods = cleanTextArray(rawData.shippingMethods, 20);
+  product.supplier.dropshippingAvailable = /dropshipping|cj|bigbuy|vidaxl|dropxl/i.test(`${rawData.supplier || ""} ${rawData.domain || ""}`) || null;
+
+  product.reviews.ratingValue = emptyToNull(rawData.ratingValue || rawData.rating);
+  product.reviews.reviewsCount = emptyToNull(rawData.reviewsCount);
+  product.reviews.ratingsBreakdown = cleanObject(rawData.ratingsBreakdown);
+  product.reviews.reviewSnippets = cleanTextArray(rawData.reviewSnippets, 10);
+
+  product.variants.variantItems = variants;
+  product.variants.variantGroups = cleanTextArray(rawData.variantGroups, 20);
+  product.variants.hasVariants = variants.length > 0 || product.variants.variantGroups.length > 0;
+
+  product.marketplace.sellerName = emptyToNull(rawData.sellerName);
+  product.marketplace.fulfilledBy = emptyToNull(rawData.fulfilledBy);
+  product.marketplace.prime = typeof rawData.prime === "boolean" ? rawData.prime : null;
+  product.marketplace.bestsellerRank = emptyToNull(rawData.bestsellerRank || details["Best Sellers Rank"] || details["Bestseller-Rang"]);
+  product.marketplace.marketplaceCategory = emptyToNull(rawData.marketplaceCategory || rawData.category);
+
+  product.risk.warningTexts = warningTexts;
+  product.risk.brandRiskHint = warningTexts.find((text) => /marke|brand|trademark|logo/i.test(text)) || null;
+  product.risk.batteryHint = warningTexts.find((text) => /akku|battery|batterie/i.test(text)) || null;
+  product.risk.electronicHint = warningTexts.find((text) => /elektro|electric|usb|weee/i.test(text)) || null;
+  product.risk.medicalHint = warningTexts.find((text) => /medizin|medical/i.test(text)) || null;
+  product.risk.trademarkHint = warningTexts.find((text) => /trademark|marke|logo/i.test(text)) || null;
+  product.risk.eprHint = warningTexts.find((text) => /epr|weee|verpackung/i.test(text)) || null;
+
+  product.raw.platformSpecificData = { ...rawData, documentTitle: document.title };
+  product.raw.debugSelectors = {
+    parser: rawData.parserName || "unknown",
+    jsonLdProducts: extractJsonLdProducts().length,
+    descriptionSource: rawData.descriptionSource || "unknown"
+  };
+  product.raw.extractionWarnings = buildExtractionWarnings(product);
+  product.meta.confidenceScore = calculateConfidence(product);
+  return product;
+}
+
+function buildExtractionDebug(elyonProduct) {
+  const required = {
+    title: elyonProduct.identity.title,
+    price: elyonProduct.pricing.currentPrice || elyonProduct.pricing.priceText,
+    image: elyonProduct.media.mainImage,
+    description: elyonProduct.content.longDescription || elyonProduct.content.bulletPoints.length,
+    url: elyonProduct.meta.sourceUrl,
+    supplier: elyonProduct.supplier.supplierName
+  };
+  const foundFields = Object.entries(required).filter(([, value]) => Boolean(value)).map(([key]) => key);
+  const missingFields = Object.entries(required).filter(([, value]) => !value).map(([key]) => key);
+  return {
+    platform: elyonProduct.meta.detectedPlatform,
+    parser: elyonProduct.raw.debugSelectors.parser,
+    confidenceScore: elyonProduct.meta.confidenceScore,
+    foundFields,
+    missingFields,
+    extractionWarnings: elyonProduct.raw.extractionWarnings,
+    rawProduct: elyonProduct
+  };
 }
 
 function detectProduct() {
@@ -925,7 +1510,7 @@ function detectProduct() {
   ].join(" "));
   const descriptionCandidates = uniqueReadableList([popupData?.description, ...(descriptionData.candidates || [])], 8);
 
-  return {
+  const legacyProduct = {
     title,
     price,
     image,
@@ -949,6 +1534,17 @@ function detectProduct() {
     category,
     supplierInfo,
     complianceRisks
+  };
+  const platform = detectPlatform(domain);
+  const rawPlatformProduct = extractProductByPlatform(platform, legacyProduct);
+  const elyonProduct = normalizeProductData(rawPlatformProduct, platform);
+  const extractionDebug = buildExtractionDebug(elyonProduct);
+
+  return {
+    ...legacyProduct,
+    detectedPlatform: platform,
+    elyonProduct,
+    extractionDebug
   };
 }
 

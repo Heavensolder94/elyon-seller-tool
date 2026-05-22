@@ -38,6 +38,27 @@
 
       <section class="card">
         <div class="label-row">
+          <div class="label">Extraction Debug</div>
+          <span class="info-tip" data-tip="Zeigt Parser, Treffer, fehlende Felder und Rohdaten der aktuellen Produkt-Erkennung.">i</span>
+        </div>
+        <div id="debugPlatform" class="value">-</div>
+        <div id="debugConfidence" class="hint">-</div>
+        <div id="debugFields" class="hint">-</div>
+        <div id="debugWarnings" class="hint">-</div>
+        <details class="debug-raw">
+          <summary>Rohdaten anzeigen</summary>
+          <pre id="debugRawJson">-</pre>
+        </details>
+        <div class="actions-inline">
+          <div class="action-with-info">
+            <button id="copyRawJson" type="button">JSON kopieren</button>
+            <span class="info-tip" data-tip="Kopiert die normalisierte Elyon-Produktstruktur in die Zwischenablage.">i</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="label-row">
           <div class="label">Warnhinweis</div>
           <span class="info-tip" data-tip="Zeigt an, ob die aktuelle Aktion gesperrt oder nur vorbereitet ist.">i</span>
         </div>

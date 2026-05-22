@@ -1,6 +1,7 @@
 import { SOUL_AGENTS, getAgentStatus, getAgentStatusLabel } from "../shared/agents.js";
 import { getElyonStatus, pingBackend, sendProductToElyon, getBackendUrl, setBackendUrl } from "../shared/apiClient.js";
 import { DEFAULT_SECURITY_STATE, getActionLabel, getSecurityLabel, getSecurityState, setSecurityState } from "../shared/security.js";
+import { saveCurrentProductSnapshot } from "../shared/storage.js";
 
 let lastTabHunter = { summary: null, tabs: [] };
 let lastBackendStatus = null;
@@ -86,6 +87,8 @@ function getMarketplaceFromUrl(url = "") {
   if (value.includes("aliexpress")) return "AliExpress";
   if (value.includes("cjdropshipping")) return "CJ Dropshipping";
   if (value.includes("temu")) return "Temu";
+  if (value.includes("bigbuy.")) return "BigBuy";
+  if (value.includes("vidaxl.") || value.includes("dropshippingxl")) return "vidaXL";
   return "Unbekannt";
 }
 
@@ -120,42 +123,7 @@ async function executeSendToElyon() {
   const tab = window.__elyonCurrentTab;
   if (!tab?.url) throw new Error("Kein aktiver Tab gefunden");
   const detectedProduct = await getProductFromActiveTab(tab);
-
-  const product = {
-    id: tab.url,
-    title: detectedProduct?.title || tab.title || "",
-    price: detectedProduct?.price || "",
-    currency: detectedProduct?.currency || "",
-    image: detectedProduct?.image || "",
-    images: Array.isArray(detectedProduct?.images) ? detectedProduct.images : [],
-    description: detectedProduct?.description || "",
-    descriptionCandidates: Array.isArray(detectedProduct?.descriptionCandidates) ? detectedProduct.descriptionCandidates : [],
-    descriptionSource: detectedProduct?.descriptionSource || "",
-    variants: Array.isArray(detectedProduct?.variants) ? detectedProduct.variants : [],
-    shipping: detectedProduct?.shipping || {},
-    rating: detectedProduct?.rating || "",
-    reviewsCount: detectedProduct?.reviewsCount || "",
-    soldCount: detectedProduct?.soldCount || "",
-    productDetails: detectedProduct?.productDetails || {},
-    availability: detectedProduct?.availability || "",
-    category: detectedProduct?.category || "",
-    supplierInfo: detectedProduct?.supplierInfo || {},
-    complianceRisks: Array.isArray(detectedProduct?.complianceRisks) ? detectedProduct.complianceRisks : [],
-    url: tab.url,
-    supplier: detectedProduct?.supplier || getMarketplaceFromUrl(tab.url),
-    domain: detectedProduct?.domain || (() => {
-      try {
-        return new URL(tab.url).hostname.toLowerCase();
-      } catch {
-        return "";
-      }
-    })(),
-    status: "new",
-    notes: "",
-    score: "",
-    detectedAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  };
+  const product = buildProductPayload(tab, detectedProduct);
 
   setPopupStatus("Bestaetigung bereit", "ok");
   setActionLog("Bestaetigung geoeffnet", "ok");
@@ -219,10 +187,53 @@ async function getProductFromActiveTab(tab) {
   if (!tab?.id) return null;
   try {
     const response = await chrome.tabs.sendMessage(tab.id, { type: "ELYON_GET_PRODUCT" });
-    return response?.ok && response.product ? response.product : null;
+    const product = response?.ok && response.product ? response.product : null;
+    if (product) await saveCurrentProductSnapshot(product).catch(() => null);
+    return product;
   } catch {
     return null;
   }
+}
+
+function buildProductPayload(tab, detectedProduct = {}) {
+  return {
+    id: tab?.url || detectedProduct?.url || "",
+    title: detectedProduct?.title || tab?.title || "",
+    price: detectedProduct?.price || "",
+    currency: detectedProduct?.currency || "",
+    image: detectedProduct?.image || "",
+    images: Array.isArray(detectedProduct?.images) ? detectedProduct.images : [],
+    description: detectedProduct?.description || "",
+    descriptionCandidates: Array.isArray(detectedProduct?.descriptionCandidates) ? detectedProduct.descriptionCandidates : [],
+    descriptionSource: detectedProduct?.descriptionSource || "",
+    variants: Array.isArray(detectedProduct?.variants) ? detectedProduct.variants : [],
+    shipping: detectedProduct?.shipping || {},
+    rating: detectedProduct?.rating || "",
+    reviewsCount: detectedProduct?.reviewsCount || "",
+    soldCount: detectedProduct?.soldCount || "",
+    productDetails: detectedProduct?.productDetails || {},
+    availability: detectedProduct?.availability || "",
+    category: detectedProduct?.category || "",
+    supplierInfo: detectedProduct?.supplierInfo || {},
+    complianceRisks: Array.isArray(detectedProduct?.complianceRisks) ? detectedProduct.complianceRisks : [],
+    elyonProduct: detectedProduct?.elyonProduct || null,
+    extractionDebug: detectedProduct?.extractionDebug || null,
+    detectedPlatform: detectedProduct?.detectedPlatform || "",
+    url: tab?.url || detectedProduct?.url || "",
+    supplier: detectedProduct?.supplier || getMarketplaceFromUrl(tab?.url || detectedProduct?.url || ""),
+    domain: detectedProduct?.domain || (() => {
+      try {
+        return new URL(tab?.url || detectedProduct?.url || "").hostname.toLowerCase();
+      } catch {
+        return "";
+      }
+    })(),
+    status: "new",
+    notes: "",
+    score: "",
+    detectedAt: detectedProduct?.detectedAt || new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
 }
 
 async function renderLocalSnapshot() {
@@ -271,6 +282,12 @@ async function renderLocalSnapshot() {
   renderResearchList(researchMemory);
   renderAgents(security);
   window.__elyonCurrentTab = tab;
+  if (tab?.id) {
+    const detectedProduct = await getProductFromActiveTab(tab).catch(() => null);
+    renderExtractionDebug(detectedProduct);
+  } else {
+    renderExtractionDebug(null);
+  }
   setPopupStatus(tab?.url ? "Lokale Daten geladen" : "Bereit", "ok");
   setActionLog(tab?.url ? "Popup bereit - Aktionen verfuegbar" : "Popup bereit", "ok");
 }
@@ -488,6 +505,29 @@ function renderTabHunter(summary, tabs) {
   });
 }
 
+function renderExtractionDebug(product) {
+  const debug = product?.extractionDebug || {};
+  const normalized = product?.elyonProduct || debug.rawProduct || null;
+  const platformEl = document.getElementById("debugPlatform");
+  const confidenceEl = document.getElementById("debugConfidence");
+  const fieldsEl = document.getElementById("debugFields");
+  const warningsEl = document.getElementById("debugWarnings");
+  const rawEl = document.getElementById("debugRawJson");
+
+  if (platformEl) platformEl.textContent = debug.platform ? `${debug.platform} | ${debug.parser || "Parser unbekannt"}` : "-";
+  if (confidenceEl) confidenceEl.textContent = debug.confidenceScore != null ? `Confidence Score: ${debug.confidenceScore}%` : "-";
+  if (fieldsEl) {
+    const found = Array.isArray(debug.foundFields) ? debug.foundFields.join(", ") : "-";
+    const missing = Array.isArray(debug.missingFields) ? debug.missingFields.join(", ") : "-";
+    fieldsEl.textContent = `Gefunden: ${found} | Fehlt: ${missing}`;
+  }
+  if (warningsEl) {
+    const warnings = Array.isArray(debug.extractionWarnings) ? debug.extractionWarnings : [];
+    warningsEl.textContent = warnings.length ? `Warnings: ${warnings.join(" | ")}` : "Keine kritischen Warnings.";
+  }
+  if (rawEl) rawEl.textContent = normalized ? JSON.stringify(normalized, null, 2) : "-";
+}
+
 async function refreshBackend() {
   const status = await getElyonStatus().catch(() => ({ backendUrl: "", reachable: false, message: "Backend nicht erreichbar" }));
   lastBackendStatus = status;
@@ -555,41 +595,7 @@ bindClick("saveProduct", async () => {
   const tab = window.__elyonCurrentTab;
   if (!tab?.url) throw new Error("Kein aktiver Tab gefunden");
   const detectedProduct = await getProductFromActiveTab(tab);
-  const result = await sendProductToElyon({
-    id: tab.url,
-    title: detectedProduct?.title || tab.title || "",
-    price: detectedProduct?.price || "",
-    currency: detectedProduct?.currency || "",
-    image: detectedProduct?.image || "",
-    images: Array.isArray(detectedProduct?.images) ? detectedProduct.images : [],
-    description: detectedProduct?.description || "",
-    descriptionCandidates: Array.isArray(detectedProduct?.descriptionCandidates) ? detectedProduct.descriptionCandidates : [],
-    descriptionSource: detectedProduct?.descriptionSource || "",
-    variants: Array.isArray(detectedProduct?.variants) ? detectedProduct.variants : [],
-    shipping: detectedProduct?.shipping || {},
-    rating: detectedProduct?.rating || "",
-    reviewsCount: detectedProduct?.reviewsCount || "",
-    soldCount: detectedProduct?.soldCount || "",
-    productDetails: detectedProduct?.productDetails || {},
-    availability: detectedProduct?.availability || "",
-    category: detectedProduct?.category || "",
-    supplierInfo: detectedProduct?.supplierInfo || {},
-    complianceRisks: Array.isArray(detectedProduct?.complianceRisks) ? detectedProduct.complianceRisks : [],
-    url: tab.url,
-    supplier: detectedProduct?.supplier || getMarketplaceFromUrl(tab.url),
-    domain: detectedProduct?.domain || (() => {
-      try {
-        return new URL(tab.url).hostname.toLowerCase();
-      } catch {
-        return "";
-      }
-    })(),
-    status: "new",
-    notes: "",
-    score: "",
-    detectedAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  });
+  const result = await sendProductToElyon(buildProductPayload(tab, detectedProduct));
   const backendMessage = document.getElementById("backendMessage");
   if (backendMessage) {
     const boardText = result?.boardSync?.synced ? "Board aktualisiert" : result?.boardSync?.message || "";
@@ -692,5 +698,13 @@ bindClick("testBackend", async () => {
 });
 
 bindClick("sendToElyon", async () => executeSendToElyon());
+
+bindClick("copyRawJson", async () => {
+  const raw = document.getElementById("debugRawJson")?.textContent || "";
+  if (!raw || raw === "-") throw new Error("Keine Rohdaten vorhanden");
+  await navigator.clipboard.writeText(raw);
+  setPopupStatus("JSON kopiert", "ok");
+  setActionLog("Normalisierte Produktdaten kopiert", "ok");
+});
 
 void refresh();

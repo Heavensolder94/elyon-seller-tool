@@ -2,7 +2,11 @@ const STORAGE_KEYS = {
   settings: "elyon.settings",
   products: "elyon.products",
   state: "elyon.state",
-  researchMemory: "elyon_research_memory"
+  researchMemory: "elyon_research_memory",
+  currentProduct: "elyon_current_product",
+  extensionHistory: "elyon_extension_history",
+  extractionDebug: "elyon_extraction_debug",
+  extensionSettings: "elyon_extension_settings"
 };
 
 export async function loadSettings(defaults) {
@@ -54,6 +58,8 @@ function normalizeResearchItem(item = {}) {
     category: item.category ?? "",
     supplierInfo: item.supplierInfo && typeof item.supplierInfo === "object" ? item.supplierInfo : {},
     complianceRisks: Array.isArray(item.complianceRisks) ? item.complianceRisks : [],
+    elyonProduct: item.elyonProduct && typeof item.elyonProduct === "object" ? item.elyonProduct : null,
+    extractionDebug: item.extractionDebug && typeof item.extractionDebug === "object" ? item.extractionDebug : null,
     url: item.url ?? "",
     supplier: item.supplier ?? "",
     domain: item.domain ?? "",
@@ -63,6 +69,20 @@ function normalizeResearchItem(item = {}) {
     detectedAt: item.detectedAt ?? now,
     updatedAt: item.updatedAt ?? now
   };
+}
+
+export async function saveCurrentProductSnapshot(product = {}) {
+  const now = new Date().toISOString();
+  const snapshot = normalizeResearchItem({ ...product, updatedAt: now });
+  const current = await chrome.storage.local.get([STORAGE_KEYS.extensionHistory]).catch(() => ({}));
+  const history = Array.isArray(current[STORAGE_KEYS.extensionHistory]) ? current[STORAGE_KEYS.extensionHistory] : [];
+  const nextHistory = [snapshot, ...history.filter((item) => item.url !== snapshot.url)].slice(0, 50);
+  await chrome.storage.local.set({
+    [STORAGE_KEYS.currentProduct]: snapshot,
+    [STORAGE_KEYS.extensionHistory]: nextHistory,
+    [STORAGE_KEYS.extractionDebug]: snapshot.extractionDebug || snapshot.elyonProduct?.raw || {}
+  });
+  return snapshot;
 }
 
 export async function loadResearchMemory() {

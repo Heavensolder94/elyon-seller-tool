@@ -22,6 +22,11 @@
     "*://*.aliexpress.com/*",
     "*://*.cjdropshipping.com/*",
     "*://*.temu.com/*",
+    "*://*.bigbuy.eu/*",
+    "*://*.bigbuy.com/*",
+    "*://*.vidaxl.de/*",
+    "*://*.vidaxl.com/*",
+    "*://*.dropshippingxl.com/*",
     "*://*.vercel.app/*"
   ],
   "content_scripts": [
@@ -34,7 +39,12 @@
         "*://*.amazon.de/*",
         "*://*.aliexpress.com/*",
         "*://*.cjdropshipping.com/*",
-        "*://*.temu.com/*"
+        "*://*.temu.com/*",
+        "*://*.bigbuy.eu/*",
+        "*://*.bigbuy.com/*",
+        "*://*.vidaxl.de/*",
+        "*://*.vidaxl.com/*",
+        "*://*.dropshippingxl.com/*"
       ],
       "js": ["content/productDetector.js"],
       "css": ["content/overlay.css"],

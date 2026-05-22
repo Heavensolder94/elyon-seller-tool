@@ -50,6 +50,28 @@ h1 {
   color: #fbbf24;
 }
 
+.debug-raw {
+  margin-top: 8px;
+  font-size: 11px;
+  color: #cbd5e1;
+}
+
+.debug-raw summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.debug-raw pre {
+  max-height: 180px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  padding: 8px;
+  border-radius: 10px;
+  background: rgba(2, 6, 23, 0.55);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+}
+
 .action-log {
   margin-top: 8px;
   font-size: 11px;

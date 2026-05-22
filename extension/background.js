@@ -144,7 +144,19 @@ async function syncProductToBoardTab(product) {
 
 function isSupportedUrl(url = "") {
   const value = String(url).toLowerCase();
-  return value.includes("ebay.") || value.includes("amazon.") || value.includes("aliexpress") || value.includes("cjdropshipping") || value.includes("temu");
+  return value.includes("ebay.") || value.includes("amazon.") || value.includes("aliexpress") || value.includes("cjdropshipping") || value.includes("temu") || value.includes("bigbuy.") || value.includes("vidaxl.") || value.includes("dropshippingxl");
+}
+
+function getMarketplaceFromUrl(url = "") {
+  const value = String(url).toLowerCase();
+  if (value.includes("ebay.")) return "eBay";
+  if (value.includes("amazon.")) return "Amazon";
+  if (value.includes("aliexpress")) return "AliExpress";
+  if (value.includes("cjdropshipping")) return "CJ Dropshipping";
+  if (value.includes("temu")) return "Temu";
+  if (value.includes("bigbuy.")) return "BigBuy";
+  if (value.includes("vidaxl.") || value.includes("dropshippingxl")) return "vidaXL";
+  return "Unknown";
 }
 
 chrome.commands.onCommand.addListener(async (command) => {
@@ -252,8 +264,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       const researchMemory = await loadResearchMemory();
       const supported = tabs
         .filter((tab) => {
-          const url = String(tab.url || "").toLowerCase();
-          return url.includes("ebay.") || url.includes("amazon.") || url.includes("aliexpress") || url.includes("cjdropshipping") || url.includes("temu");
+          return isSupportedUrl(tab.url || "");
         })
         .map((tab) => {
           const url = tab.url || "";
@@ -271,17 +282,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             title,
             url,
             domain,
-            marketplace: domain.includes("ebay")
-              ? "eBay"
-              : domain.includes("amazon")
-                ? "Amazon"
-                : domain.includes("aliexpress")
-                  ? "AliExpress"
-                  : domain.includes("cjdropshipping")
-                    ? "CJ Dropshipping"
-                    : domain.includes("temu")
-                      ? "Temu"
-                      : "Unknown",
+            marketplace: getMarketplaceFromUrl(url),
             saved,
             status: saved ? "saved" : "new"
           };

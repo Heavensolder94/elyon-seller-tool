@@ -79,8 +79,12 @@ export async function pingBackend() {
 export async function sendProductToElyon(product) {
   const backendUrl = await getBackendUrl();
   if (!backendUrl) {
-    return { ok: false, storedLocally: false, serverSaved: false, message: "Backend-URL nicht gesetzt - nicht gespeichert" };
+    await upsertResearchProduct({ ...product, notes: "Backend-URL nicht gesetzt", updatedAt: new Date().toISOString() }).catch(() => null);
+    return { ok: false, storedLocally: true, serverSaved: false, message: "Backend nicht erreichbar - Produkt lokal gespeichert." };
   }
+
+  const normalizedProduct = product?.elyonProduct && typeof product.elyonProduct === "object" ? product.elyonProduct : null;
+  const extractionDebug = product?.extractionDebug && typeof product.extractionDebug === "object" ? product.extractionDebug : null;
 
   try {
     const response = await fetchWithTimeout(`${backendUrl}/api/extension/import-product`, {
@@ -112,7 +116,17 @@ export async function sendProductToElyon(product) {
         source: "chrome_extension",
         status: product?.status || "new",
         notes: product?.notes || "",
-        score: product?.score || ""
+        score: product?.score || "",
+        elyonProduct: normalizedProduct,
+        normalizedProduct,
+        extractionDebug,
+        safety: {
+          liveAction: false,
+          listingCreated: false,
+          orderCreated: false,
+          reviewRequired: true,
+          manualApprovalRequired: true
+        }
       })
     }, 5000);
 
@@ -138,11 +152,12 @@ export async function sendProductToElyon(product) {
       )
     };
   } catch (error) {
+    await upsertResearchProduct({ ...product, notes: "Backend nicht erreichbar", updatedAt: new Date().toISOString() }).catch(() => null);
     return {
       ok: false,
-      storedLocally: false,
+      storedLocally: true,
       serverSaved: false,
-      message: error?.name === "AbortError" ? "Backend nicht erreichbar - nicht gespeichert" : "Server-Import fehlgeschlagen - nicht gespeichert"
+      message: error?.name === "AbortError" ? "Backend nicht erreichbar - Produkt lokal gespeichert." : "Server-Import fehlgeschlagen - Produkt lokal gespeichert."
     };
   }
 }
