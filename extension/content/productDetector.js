@@ -371,7 +371,6 @@ function getEmbeddedProductText() {
 }
 
 function getCjDescription() {
-  expandProductInformationSections();
   const selectors = [
     "#product-detail",
     "#productDetail",
@@ -665,8 +664,6 @@ function getDescription() {
 }
 
 function getDescriptionData() {
-  expandProductInformationSections();
-
   const structured = getJsonLdDescription();
   const cjDescription = /cjdropshipping/i.test(getDomain()) ? getCjDescription() : "";
   const selectors = [
@@ -746,54 +743,10 @@ function getDescriptionData() {
 }
 
 function expandProductInformationSections(root = document) {
-  const patterns = [
-    /weitere\s+produktdetails/i,
-    /produktdetails\s+anzeigen/i,
-    /mehr\s+anzeigen/i,
-    /vollstaendige?\s+beschreibung/i,
-    /show\s+more/i,
-    /see\s+more/i,
-    /read\s+more/i,
-    /more\s+product\s+details/i,
-    /product\s+details/i,
-    /description/i,
-    /specification/i,
-    /details/i,
-    /product\s+info/i,
-    /overview/i
-  ];
-  const selectors = [
-    "button",
-    "[role='button']",
-    "summary",
-    "[aria-expanded='false']",
-    "[class*='expand']",
-    "[class*='more']",
-    "[data-action*='expand']"
-  ];
-
-  Array.from(root.querySelectorAll(selectors.join(","))).slice(0, 120).forEach((node) => {
-    const tagName = String(node.tagName || "").toLowerCase();
-    const href = safeText(node.getAttribute?.("href"));
-    if (tagName === "a" || href) return;
-    const label = safeText([
-      node.textContent,
-      node.getAttribute?.("aria-label"),
-      node.getAttribute?.("title"),
-      node.getAttribute?.("data-action")
-    ].filter(Boolean).join(" "));
-    if (!label || !patterns.some((pattern) => pattern.test(label))) return;
-    if (/dispute|policy|privacy|terms|returns?|refund|shipping policy|cookies?/i.test(label)) return;
-    const rect = node.getBoundingClientRect?.();
-    const style = window.getComputedStyle ? window.getComputedStyle(node) : null;
-    const visible = rect && rect.width > 0 && rect.height > 0 && (!style || style.visibility !== "hidden" && style.display !== "none");
-    if (!visible) return;
-    try {
-      node.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, view: window }));
-    } catch {
-      // If the marketplace blocks synthetic clicks, keep the already visible data.
-    }
-  });
+  // Safety first: do not click marketplace UI automatically.
+  // Some shops use harmless-looking detail buttons for popups, policy pages or navigation.
+  // The scanner now reads visible DOM, metadata, iframes and embedded JSON only.
+  return root;
 }
 
 function isSupportedPage(domain) {
@@ -817,7 +770,6 @@ function findVisiblePopup(root = document) {
 }
 
 function getAliExpressPopupData(root = document) {
-  expandProductInformationSections(root);
   const title = queryText(["[class*='product-title']", "[class*='title']", "[data-pl='product-title']", "h1"], root);
   const price = queryText(["[class*='price']", "[data-pl='product-price']", "[class*='product-price']"], root);
   const image = normalizeImageUrl(queryAttr(["img", "[class*='image'] img", "[class*='gallery'] img"], "src", root));
