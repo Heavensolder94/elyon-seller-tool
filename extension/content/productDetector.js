@@ -283,6 +283,76 @@ function descriptionScore(value) {
   return score;
 }
 
+function trimAfterDescriptionStopBlocks(value) {
+  const text = readableText(value);
+  if (!text) return "";
+  const stopPatterns = [
+    /^kundenrezensionen\b/i,
+    /^customer reviews\b/i,
+    /^bewertungen\b/i,
+    /^rezensionen\b/i,
+    /^fragen und antworten\b/i,
+    /^customer questions\b/i,
+    /^ähnliche produkte\b/i,
+    /^similar products\b/i,
+    /^sponsored\b/i,
+    /^gesponsert\b/i,
+    /^kunden kauften auch\b/i,
+    /^customers also bought\b/i,
+    /^häufig zusammen gekauft\b/i,
+    /^frequently bought together\b/i,
+    /^versand\b/i,
+    /^shipping\b/i,
+    /^rückgabe\b/i,
+    /^returns?\b/i,
+    /^verkäuferinformationen\b/i,
+    /^seller information\b/i,
+    /^shop\b/i,
+    /^store\b/i,
+    /^empfohlen\b/i,
+    /^recommended\b/i
+  ];
+  const lines = text.split(/\n+/);
+  const kept = [];
+  for (const line of lines) {
+    const cleanLine = safeText(line);
+    if (!cleanLine) continue;
+    if (kept.length && stopPatterns.some((pattern) => pattern.test(cleanLine))) break;
+    kept.push(cleanLine);
+  }
+  return kept.join("\n");
+}
+
+function removeRepeatedUiLines(value) {
+  const lines = readableText(value).split(/\n+/);
+  const seen = new Map();
+  const kept = [];
+  for (const line of lines) {
+    const text = safeText(line);
+    if (!text) continue;
+    if (/^(share|teilen|follow|folgen|add to cart|buy now|in den warenkorb|jetzt kaufen|wishlist|merken)$/i.test(text)) continue;
+    const key = text.toLowerCase();
+    const count = seen.get(key) || 0;
+    if (count >= 1 && text.length < 120) continue;
+    seen.set(key, count + 1);
+    kept.push(text);
+  }
+  return kept.join("\n");
+}
+
+function keepBestDescriptionParagraphs(value) {
+  const text = readableText(value);
+  if (!text) return "";
+  const paragraphs = text.split(/\n{2,}|\n(?=[A-ZÄÖÜ0-9][^:\n]{0,80}:)/).map(safeText).filter(Boolean);
+  const good = paragraphs.filter((part) => {
+    if (part.length < 25) return false;
+    if (/^(price|preis|rating|bewertung|reviews?|sold|verkauft|shipping|versand|return|rückgabe)\b/i.test(part)) return false;
+    if (/(add to cart|buy now|similar products|sponsored|recommended|customer reviews|kundenrezensionen)/i.test(part)) return false;
+    return true;
+  });
+  return (good.length ? good : paragraphs).slice(0, 10).join("\n\n");
+}
+
 function cleanDescriptionText(value) {
   let text = readableText(stripHtml(value));
   if (!text) return "";
@@ -290,6 +360,9 @@ function cleanDescriptionText(value) {
     .replace(/\b(Show more|Show less|Mehr anzeigen|Weniger anzeigen|Weitere Produktdetails|See more product details)\b/gi, "")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+  text = trimAfterDescriptionStopBlocks(text);
+  text = removeRepeatedUiLines(text);
+  text = keepBestDescriptionParagraphs(text);
   return isUsefulDescriptionText(text) ? limitDescription(text) : "";
 }
 
