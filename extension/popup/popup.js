@@ -8,7 +8,7 @@ let lastBackendStatus = null;
 let inlineSettingsVisible = false;
 let confirmResolve = null;
 let suppressBackendStatusUntil = 0;
-let lastAliExpressVariantResult = null;
+let lastVariantResult = null;
 
 function setActionLog(message, kind = "info") {
   const el = document.getElementById("actionLog");
@@ -201,18 +201,23 @@ async function getProductFromActiveTab(tab) {
 }
 
 async function mergeAliExpressVariantCache(product = {}) {
-  if (!String(product.url || "").toLowerCase().includes("aliexpress")) return product;
-  const cacheResult = await chrome.storage.local.get("elyon_aliexpress_variant_cache").catch(() => ({}));
-  const cache = cacheResult?.elyon_aliexpress_variant_cache || {};
+  const cacheResult = await chrome.storage.local.get(["elyon_aliexpress_variant_cache", "elyon_platform_variant_cache"]).catch(() => ({}));
+  const cache = {
+    ...(cacheResult?.elyon_aliexpress_variant_cache || {}),
+    ...(cacheResult?.elyon_platform_variant_cache || {})
+  };
   const entry = cache[product.url] || null;
   if (!entry?.variants) return product;
   const next = {
     ...product,
+    platformVariants: entry.variants,
+    platformVariantDebug: entry.debug || product.platformVariantDebug || null,
     aliexpressVariants: entry.variants,
     aliexpressVariantDebug: entry.debug || product.aliexpressVariantDebug || null,
     extractionDebug: {
       ...(product.extractionDebug || {}),
-      aliexpressVariants: entry.debug || product.extractionDebug?.aliexpressVariants || null
+      aliexpressVariants: String(product.url || "").toLowerCase().includes("aliexpress") ? entry.debug || product.extractionDebug?.aliexpressVariants || null : product.extractionDebug?.aliexpressVariants || null,
+      platformVariants: entry.debug || product.extractionDebug?.platformVariants || null
     }
   };
   if (next.elyonProduct) {
@@ -262,6 +267,8 @@ function buildProductPayload(tab, detectedProduct = {}) {
     extractionDebug: detectedProduct?.extractionDebug || null,
     aliexpressVariants: detectedProduct?.aliexpressVariants || null,
     aliexpressVariantDebug: detectedProduct?.aliexpressVariantDebug || detectedProduct?.extractionDebug?.aliexpressVariants || null,
+    platformVariants: detectedProduct?.platformVariants || null,
+    platformVariantDebug: detectedProduct?.platformVariantDebug || detectedProduct?.extractionDebug?.platformVariants || null,
     parentSearchUrl: detectedProduct?.parentSearchUrl || "",
     detectedPlatform: detectedProduct?.detectedPlatform || "",
     url: tab?.url || detectedProduct?.url || "",
@@ -571,15 +578,15 @@ function renderExtractionDebug(product) {
     warningsEl.textContent = warnings.length ? `Warnings: ${warnings.join(" | ")}` : "Keine kritischen Warnings.";
   }
   if (rawEl) rawEl.textContent = normalized ? JSON.stringify(normalized, null, 2) : "-";
-  renderAliExpressVariantDebug(product?.aliexpressVariants || normalized?.variants || null, product?.aliexpressVariantDebug || debug.aliexpressVariants || null);
+  renderVariantDebug(product?.platformVariants || product?.aliexpressVariants || normalized?.variants || null, product?.platformVariantDebug || product?.aliexpressVariantDebug || debug.platformVariants || debug.aliexpressVariants || null);
 }
 
-function renderAliExpressVariantDebug(variants, debug) {
+function renderVariantDebug(variants, debug) {
   if (variants || debug) {
-    lastAliExpressVariantResult = {
-      ...(lastAliExpressVariantResult || {}),
-      variants: variants || lastAliExpressVariantResult?.variants || null,
-      debug: debug || lastAliExpressVariantResult?.debug || null
+    lastVariantResult = {
+      ...(lastVariantResult || {}),
+      variants: variants || lastVariantResult?.variants || null,
+      debug: debug || lastVariantResult?.debug || null
     };
   }
   const statusEl = document.getElementById("aliVariantStatus");
@@ -589,15 +596,15 @@ function renderAliExpressVariantDebug(variants, debug) {
   const items = Array.isArray(variants?.variantItems) ? variants.variantItems : [];
   const options = groups.reduce((sum, group) => sum + (Array.isArray(group.options) ? group.options.length : 0), 0);
   if (statusEl) {
-    statusEl.textContent = debug?.aliexpressProductPage === false
-      ? "Keine AliExpress Produktseite"
+    statusEl.textContent = debug?.productPage === false || debug?.aliexpressProductPage === false
+      ? "Keine Produktseite"
       : groups.length || items.length
         ? `${groups.length} Gruppen | ${options} Optionen | ${items.length} gescannte Items`
         : "-";
   }
   if (summaryEl) {
     summaryEl.textContent = debug
-      ? `Produktseite: ${debug.aliexpressProductPage ? "ja" : "nein"} | Variantenbereich: ${debug.variantAreaFound ? "ja" : "nein"} | Manuell gescannt: ${debug.manualScanned ? "ja" : "nein"}`
+      ? `Plattform: ${debug.platform || "aliexpress"} | Produktseite: ${(debug.productPage ?? debug.aliexpressProductPage) ? "ja" : "nein"} | Variantenbereich: ${debug.variantAreaFound ? "ja" : "nein"} | Manuell gescannt: ${debug.manualScanned ? "ja" : "nein"}`
       : "Nur Produktdaten-Extraktion. Keine Live-Aktion.";
   }
   if (warningsEl) {
@@ -613,7 +620,7 @@ async function scanAliExpressVariantsFromPopup() {
   }
   const response = await chrome.tabs.sendMessage(tab.id, { type: "ELYON_SCAN_ALIEXPRESS_VARIANTS" }).catch((error) => ({ ok: false, error: error?.message || String(error) }));
   if (!response?.ok) throw new Error(response?.error || response?.message || "Varianten-Scan fehlgeschlagen");
-  lastAliExpressVariantResult = response;
+  lastVariantResult = response;
   window.__elyonDetectedProduct = response.product || window.__elyonDetectedProduct || null;
   if (response.product) await saveCurrentProductSnapshot(response.product).catch(() => null);
   const cacheResult = await chrome.storage.local.get("elyon_aliexpress_variant_cache").catch(() => ({}));
@@ -629,9 +636,36 @@ async function scanAliExpressVariantsFromPopup() {
       }
     }
   }).catch(() => null);
-  renderAliExpressVariantDebug(response.variants, response.debug);
+  renderVariantDebug(response.variants, response.debug);
   setPopupStatus(response.message || "AliExpress Varianten gescannt", "ok");
   setActionLog(response.message || "AliExpress Varianten gescannt", "ok");
+  return response;
+}
+
+async function scanPlatformVariantsFromPopup() {
+  const tab = window.__elyonCurrentTab || await loadActiveTab();
+  if (!tab?.id) throw new Error("Kein aktiver Tab gefunden");
+  const response = await chrome.tabs.sendMessage(tab.id, { type: "ELYON_SCAN_PLATFORM_VARIANTS" }).catch((error) => ({ ok: false, error: error?.message || String(error) }));
+  if (!response?.ok) throw new Error(response?.error || response?.message || "Varianten-Erkennung fehlgeschlagen");
+  lastVariantResult = response;
+  window.__elyonDetectedProduct = response.product || window.__elyonDetectedProduct || null;
+  if (response.product) await saveCurrentProductSnapshot(response.product).catch(() => null);
+  const cacheResult = await chrome.storage.local.get("elyon_platform_variant_cache").catch(() => ({}));
+  const cache = cacheResult?.elyon_platform_variant_cache || {};
+  await chrome.storage.local.set({
+    elyon_platform_variant_cache: {
+      ...cache,
+      [response.product?.url || tab.url]: {
+        product: response.product || null,
+        variants: response.variants || null,
+        debug: response.debug || null,
+        updatedAt: new Date().toISOString()
+      }
+    }
+  }).catch(() => null);
+  renderVariantDebug(response.variants, response.debug);
+  setPopupStatus(response.message || "Varianten erkannt", "ok");
+  setActionLog(response.message || "Varianten erkannt", "ok");
   return response;
 }
 
@@ -818,12 +852,16 @@ bindClick("scanAliVariants", async () => {
   await scanAliExpressVariantsFromPopup();
 });
 
+bindClick("scanPlatformVariants", async () => {
+  await scanPlatformVariantsFromPopup();
+});
+
 bindClick("copyAliVariantsJson", async () => {
-  const variants = lastAliExpressVariantResult?.variants;
-  if (!variants) throw new Error("Keine AliExpress Varianten vorhanden");
+  const variants = lastVariantResult?.variants;
+  if (!variants) throw new Error("Keine Varianten vorhanden");
   await navigator.clipboard.writeText(JSON.stringify(variants, null, 2));
   setPopupStatus("Varianten JSON kopiert", "ok");
-  setActionLog("AliExpress Varianten JSON kopiert", "ok");
+  setActionLog("Varianten JSON kopiert", "ok");
 });
 
 void refresh();

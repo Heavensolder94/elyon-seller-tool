@@ -59,16 +59,20 @@
 
       <section class="card">
         <div class="label-row">
-          <div class="label">AliExpress Varianten</div>
-          <span class="info-tip" data-tip="Liest nur sichtbare AliExpress Varianten. Keine Bestellung, kein Warenkorb, kein Live-Listing.">i</span>
+          <div class="label">Varianten Scanner</div>
+          <span class="info-tip" data-tip="Liest sichtbare Varianten. Bei AliExpress kann ein manueller Varianten-Scan gestartet werden. Keine Bestellung, kein Warenkorb, kein Live-Listing.">i</span>
         </div>
         <div id="aliVariantStatus" class="value">-</div>
         <div id="aliVariantSummary" class="hint">Nur Produktdaten-Extraktion. Keine Live-Aktion.</div>
         <div id="aliVariantWarnings" class="hint">-</div>
         <div class="actions-inline">
           <div class="action-with-info">
+            <button id="scanPlatformVariants" type="button">Varianten erkennen</button>
+            <span class="info-tip" data-tip="Erkennt sichtbare Varianten sicher ohne Durchklicken.">i</span>
+          </div>
+          <div class="action-with-info">
             <button id="scanAliVariants" type="button">AliExpress Varianten scannen</button>
-            <span class="info-tip" data-tip="Scannt Varianten-Swatches manuell gestartet und blockiert Kauf-/Warenkorb-Aktionen.">i</span>
+            <span class="info-tip" data-tip="Nur AliExpress: scannt Varianten-Swatches manuell gestartet und blockiert Kauf-/Warenkorb-Aktionen.">i</span>
           </div>
           <div class="action-with-info">
             <button id="copyAliVariantsJson" type="button">Varianten JSON kopieren</button>

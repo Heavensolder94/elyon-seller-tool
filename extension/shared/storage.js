@@ -62,6 +62,8 @@ function normalizeResearchItem(item = {}) {
     extractionDebug: item.extractionDebug && typeof item.extractionDebug === "object" ? item.extractionDebug : null,
     aliexpressVariants: item.aliexpressVariants && typeof item.aliexpressVariants === "object" ? item.aliexpressVariants : null,
     aliexpressVariantDebug: item.aliexpressVariantDebug && typeof item.aliexpressVariantDebug === "object" ? item.aliexpressVariantDebug : null,
+    platformVariants: item.platformVariants && typeof item.platformVariants === "object" ? item.platformVariants : null,
+    platformVariantDebug: item.platformVariantDebug && typeof item.platformVariantDebug === "object" ? item.platformVariantDebug : null,
     parentSearchUrl: item.parentSearchUrl ?? "",
     url: item.url ?? "",
     supplier: item.supplier ?? "",

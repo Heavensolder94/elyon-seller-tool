@@ -7,6 +7,7 @@ Diese Checkliste ist nur fuer manuelle Debug-Tests. Keine Live-Aktion ausfuehren
 - Titel, Preis, Waehrung, Hauptbild und URL sind gesetzt.
 - `Info zu diesem Artikel`, Produktbeschreibung und Produktdetails landen in `elyonProduct.content`.
 - ASIN, Marke, Bewertung und Rezensionen werden soweit sichtbar uebernommen.
+- Button `Varianten erkennen` liest sichtbare Amazon Varianten sicher ohne Durchklicken.
 - `workflow.liveAction` bleibt `false`.
 
 ## AliExpress
@@ -22,11 +23,13 @@ Diese Checkliste ist nur fuer manuelle Debug-Tests. Keine Live-Aktion ausfuehren
 - Plattform wird als `cjdropshipping` erkannt.
 - Titel, SKU/Product-ID, Preis, Bilder, Beschreibung, Spezifikationen und Warehouse-Daten werden soweit sichtbar erkannt.
 - Keine automatische Navigation und kein automatischer Klick auf riskante Links.
+- Button `Varianten erkennen` liest sichtbare Varianten/SKUs als Snapshot.
 
 ## eBay
 - Plattform wird als `ebay` erkannt.
 - Titel, Preis, Versand, Seller, Item-ID, Bilder und Artikelangaben werden soweit sichtbar erkannt.
 - Keine eBay-Live-Aktion, kein Listing, keine Nachricht.
+- Button `Varianten erkennen` liest sichtbare eBay Varianten sicher ohne Durchklicken.
 
 ## Generic / JSON-LD
 - Unbekannte Produktseiten nutzen `extractGenericProduct()`.

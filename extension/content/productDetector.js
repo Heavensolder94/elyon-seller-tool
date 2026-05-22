@@ -950,6 +950,18 @@ function isAliExpressProductPage(url = location.href, root = document) {
   );
 }
 
+function isProductPageLike(url = location.href, root = document) {
+  const domain = getDomain(url);
+  if (isAliExpressProductPage(url, root)) return true;
+  const value = String(url || "").toLowerCase();
+  if (/amazon\./i.test(domain) && (/\/dp\/|\/gp\/product\//i.test(value) || root.querySelector("#productTitle"))) return true;
+  if (/ebay\./i.test(domain) && (/\/itm\//i.test(value) || root.querySelector(".x-item-title__mainTitle"))) return true;
+  if (/cjdropshipping/i.test(domain) && (/\/product/i.test(value) || root.querySelector("[class*='product'] h1, h1"))) return true;
+  if (/temu\./i.test(domain) && (root.querySelector("h1, [class*='goods'], [class*='sku'], [class*='variant']"))) return true;
+  if (/bigbuy\.|vidaxl\.|dropshippingxl/i.test(domain) && root.querySelector("h1, [class*='product']")) return true;
+  return Boolean(root.querySelector("script[type='application/ld+json']") && root.querySelector("h1"));
+}
+
 function findVisiblePopup(root = document) {
   const candidates = Array.from(
     root.querySelectorAll("[role='dialog'], [aria-modal='true'], [class*='popup'], [class*='modal'], [class*='drawer'], [class*='overlay']")
@@ -1041,6 +1053,82 @@ function getAliExpressVariantContainers(root = document) {
   return Array.from(root.querySelectorAll(selectors.join(",")))
     .filter((node) => isVisibleElement(node) && safeText(node.textContent).length >= 2)
     .slice(0, 20);
+}
+
+function getGenericVariantContainers(root = document) {
+  const selectors = [
+    "#variation_color_name",
+    "#variation_size_name",
+    "[id^='variation_']",
+    ".variation",
+    ".a-row.a-spacing-small",
+    "[data-testid*='variation']",
+    "[data-testid*='variant']",
+    "[class*='variation']",
+    "[class*='Variation']",
+    "[class*='variant']",
+    "[class*='Variant']",
+    "[class*='sku']",
+    "[class*='Sku']",
+    "[class*='swatch']",
+    "[class*='Swatch']",
+    "[class*='option']",
+    "[class*='Option']",
+    "[class*='product-property']",
+    "[class*='ProductProperty']"
+  ];
+  return Array.from(root.querySelectorAll(selectors.join(",")))
+    .filter((node) => isVisibleElement(node) && safeText(node.textContent).length >= 1)
+    .slice(0, 28);
+}
+
+function getVariantGroupsForPlatform(platform = detectPlatform(), root = document) {
+  if (platform === "aliexpress") return getAliExpressVariantGroups(root);
+
+  const groups = [];
+  const seen = new Set();
+  const containers = getGenericVariantContainers(root);
+  containers.forEach((container, index) => {
+    const optionNodes = Array.from(container.querySelectorAll("button, li, select option, [role='button'], [aria-checked], [aria-selected], [class*='swatch'], [class*='option'], [class*='value'], img"))
+      .filter((node) => node !== container)
+      .filter((node) => node.tagName?.toLowerCase() === "option" || isVisibleElement(node))
+      .filter((node) => !isDangerousActionNode(node))
+      .filter((node) => getVariantOptionLabel(node) || getVariantOptionImage(node))
+      .slice(0, 70);
+    if (!optionNodes.length) return;
+
+    const title = safeText(
+      container.querySelector("label, legend, .a-form-label, [class*='title'], [class*='name']")?.textContent ||
+      container.getAttribute("aria-label") ||
+      container.previousElementSibling?.textContent ||
+      `Variante ${groups.length + 1}`
+    ).replace(/[:：]\s*$/, "");
+
+    const options = [];
+    optionNodes.forEach((node) => {
+      const label = getVariantOptionLabel(node) || getVariantOptionImage(node);
+      const key = `${index}:${label}:${getVariantOptionImage(node)}`;
+      if (!label || seen.has(key)) return;
+      seen.add(key);
+      const selectedText = safeText([node.className, node.getAttribute("aria-pressed"), node.getAttribute("aria-selected"), node.getAttribute("selected"), node.getAttribute("aria-checked")].join(" ")).toLowerCase();
+      options.push({
+        label,
+        selected: /selected|active|current|checked|true|swatchSelect|a-button-selected/i.test(selectedText),
+        disabled: isDisabledVariantNode(node),
+        image: getVariantOptionImage(node) || null,
+        price: parsePriceNumber(getPrice()),
+        originalPrice: null,
+        currency: getCurrencyFromText(getPrice()) || null,
+        shippingText: getShipping().text || null,
+        deliveryText: getShipping().deliveryTime || null,
+        stockText: getAvailability() || null,
+        _node: node
+      });
+    });
+
+    if (options.length) groups.push({ name: title || `Variante ${groups.length + 1}`, options });
+  });
+  return groups.slice(0, 10);
 }
 
 function getAliExpressVariantGroups(root = document) {
@@ -1142,6 +1230,63 @@ function buildAliExpressVariantDebug(groups, variantItems, manualScanned, warnin
   };
 }
 
+function buildVariantDebug(platform, groups, variantItems, manualScanned, warnings = []) {
+  const optionsCount = groups.reduce((sum, group) => sum + (Array.isArray(group.options) ? group.options.length : 0), 0);
+  return {
+    platform,
+    productPage: isProductPageLike(),
+    variantAreaFound: groups.length > 0,
+    variantGroupCount: groups.length,
+    variantOptionCount: optionsCount,
+    autoScanned: false,
+    manualScanned: manualScanned === true,
+    clickScanEnabled: platform === "aliexpress",
+    warnings,
+    variantItemsCount: Array.isArray(variantItems) ? variantItems.length : 0
+  };
+}
+
+function scanVisibleVariantsSnapshot(platform = detectPlatform()) {
+  if (!isProductPageLike()) {
+    const debug = buildVariantDebug(platform, [], [], true, ["Keine Produktseite erkannt"]);
+    return {
+      ok: false,
+      message: "Keine Produktseite erkannt.",
+      variants: { hasVariants: false, variantGroups: [], selectedCombination: null, variantItems: [] },
+      debug
+    };
+  }
+
+  const groupsWithNodes = getVariantGroupsForPlatform(platform);
+  const groups = stripVariantNodes(groupsWithNodes);
+  const selectedCombination = getSelectedAliExpressCombination(groupsWithNodes);
+  const variantItems = groups.flatMap((group) => (group.options || []).map((option) => ({
+    combinationKey: [group.name, option.label].filter(Boolean).join("|"),
+    labels: [group.name, option.label].filter(Boolean),
+    price: option.price ?? parsePriceNumber(getPrice()),
+    currency: option.currency || getCurrencyFromText(getPrice()) || null,
+    image: option.image || getImages()[0] || null,
+    availability: option.stockText || getAvailability() || null,
+    shippingText: option.shippingText || getShipping().text || null,
+    deliveryText: option.deliveryText || getShipping().deliveryTime || null,
+    capturedAt: new Date().toISOString()
+  })));
+  const variants = {
+    hasVariants: groups.length > 0,
+    variantGroups: groups,
+    selectedCombination,
+    variantItems: uniqueVariantItems(variantItems)
+  };
+  const product = mergePlatformVariantsIntoProduct(detectProduct(), variants, platform);
+  const debug = buildVariantDebug(platform, groups, variants.variantItems, true, platform === "aliexpress" ? ["AliExpress Vollscan bitte mit AliExpress Scan starten."] : ["Sicherer Snapshot: keine Varianten angeklickt."]);
+  product.platformVariantDebug = debug;
+  product.extractionDebug = {
+    ...(product.extractionDebug || {}),
+    platformVariants: debug
+  };
+  return { ok: true, product, variants, debug, message: `${variants.variantItems.length || groups.reduce((sum, group) => sum + group.options.length, 0)} Varianten/Sichtoptionen gefunden.` };
+}
+
 async function scanAliExpressVariants() {
   if (!isAliExpressProductPage()) {
     return {
@@ -1236,9 +1381,14 @@ function uniqueVariantItems(items) {
 }
 
 function mergeAliExpressVariantsIntoProduct(product, variants) {
+  return mergePlatformVariantsIntoProduct(product, variants, "aliexpress");
+}
+
+function mergePlatformVariantsIntoProduct(product, variants, platform = detectPlatform()) {
   const next = { ...(product || {}) };
   next.variants = Array.isArray(variants?.variantItems) ? variants.variantItems : next.variants;
-  next.aliexpressVariants = variants;
+  next.platformVariants = variants;
+  if (platform === "aliexpress") next.aliexpressVariants = variants;
   if (next.elyonProduct) {
     next.elyonProduct = {
       ...next.elyonProduct,
@@ -1266,7 +1416,7 @@ function mergeAliExpressVariantsIntoProduct(product, variants) {
         ...(next.elyonProduct.raw || {}),
         platformSpecificData: {
           ...(next.elyonProduct.raw?.platformSpecificData || {}),
-          aliexpress: {
+          [platform]: {
             variants,
             capturedAt: new Date().toISOString()
           }
@@ -1390,6 +1540,8 @@ function extractAmazonProduct(base = {}) {
   const breadcrumbs = queryAllText(["#wayfinding-breadcrumbs_feature_div a", "nav[aria-label*='breadcrumb'] a"], document, 12);
   const sellerText = queryText(["#sellerProfileTriggerId", "#merchant-info", "#tabular-buybox-truncate-0", "[data-feature-name='shipsFromSoldBy']"]);
   const fulfilledText = queryText(["#merchant-info", "#tabular-buybox", "#mir-layout-DELIVERY_BLOCK-slot-PRIMARY_DELIVERY_MESSAGE_LARGE"]);
+  const variantGroups = stripVariantNodes(getVariantGroupsForPlatform("amazon"));
+  const selectedCombination = getSelectedAliExpressCombination(getVariantGroupsForPlatform("amazon"));
 
   return {
     ...base,
@@ -1418,6 +1570,8 @@ function extractAmazonProduct(base = {}) {
     ratingValue: base.rating || jsonLd?.aggregateRating?.ratingValue,
     reviewsCount: base.reviewsCount || jsonLd?.aggregateRating?.reviewCount,
     marketplaceCategory: breadcrumbs.join(" > "),
+    variantGroups,
+    selectedCombination,
     variants: base.variants,
     warningTexts: getComplianceRisks([base.title, base.description, Object.values(details).join(" ")].join(" "))
   };
@@ -1463,6 +1617,8 @@ function extractAliExpressProduct(base = {}) {
 function extractCJProduct(base = {}) {
   const details = getProductDetails();
   const description = getCjDescription() || base.description || getDescriptionData().text;
+  const variantGroups = stripVariantNodes(getVariantGroupsForPlatform("cjdropshipping"));
+  const selectedCombination = getSelectedAliExpressCombination(getVariantGroupsForPlatform("cjdropshipping"));
   return {
     ...base,
     parserName: "extractCJProduct",
@@ -1480,6 +1636,8 @@ function extractCJProduct(base = {}) {
     processingTime: queryText(["[class*='processing']", "[class*='Processing']"]),
     shippingCost: base.shipping?.cost || "",
     stockText: base.availability || queryText(["[class*='inventory']", "[class*='stock']"]),
+    variantGroups,
+    selectedCombination,
     variants: base.variants,
     warningTexts: getComplianceRisks([base.title, description, Object.values(details).join(" ")].join(" "))
   };
@@ -1488,6 +1646,8 @@ function extractCJProduct(base = {}) {
 function extractEbayProduct(base = {}) {
   const details = getProductDetails();
   const descriptionData = getDescriptionData();
+  const variantGroups = stripVariantNodes(getVariantGroupsForPlatform("ebay"));
+  const selectedCombination = getSelectedAliExpressCombination(getVariantGroupsForPlatform("ebay"));
   return {
     ...base,
     parserName: "extractEbayProduct",
@@ -1507,6 +1667,8 @@ function extractEbayProduct(base = {}) {
     supplierRating: getNumberFromText(queryText(["[class*='seller'] [class*='rating']", "[class*='feedback']"])),
     marketplaceCategory: base.category,
     stockText: base.availability,
+    variantGroups,
+    selectedCombination,
     variants: base.variants,
     soldCount: base.soldCount,
     warningTexts: getComplianceRisks([base.title, base.description, Object.values(details).join(" ")].join(" "))
@@ -1515,6 +1677,8 @@ function extractEbayProduct(base = {}) {
 
 function extractBigBuyProduct(base = {}) {
   const details = getProductDetails();
+  const variantGroups = stripVariantNodes(getVariantGroupsForPlatform("bigbuy"));
+  const selectedCombination = getSelectedAliExpressCombination(getVariantGroupsForPlatform("bigbuy"));
   return {
     ...base,
     parserName: "extractBigBuyProduct",
@@ -1527,12 +1691,17 @@ function extractBigBuyProduct(base = {}) {
     currentPrice: base.price,
     currency: base.currency,
     stockText: base.availability,
+    variantGroups,
+    selectedCombination,
+    variantItems: base.variants,
     warningTexts: getComplianceRisks([base.title, base.description, Object.values(details).join(" ")].join(" "))
   };
 }
 
 function extractVidaXLProduct(base = {}) {
   const details = getProductDetails();
+  const variantGroups = stripVariantNodes(getVariantGroupsForPlatform("vidaxl"));
+  const selectedCombination = getSelectedAliExpressCombination(getVariantGroupsForPlatform("vidaxl"));
   return {
     ...base,
     parserName: "extractVidaXLProduct",
@@ -1545,6 +1714,9 @@ function extractVidaXLProduct(base = {}) {
     currentPrice: base.price,
     currency: base.currency,
     stockText: base.availability,
+    variantGroups,
+    selectedCombination,
+    variantItems: base.variants,
     warningTexts: getComplianceRisks([base.title, base.description, Object.values(details).join(" ")].join(" "))
   };
 }
@@ -1553,6 +1725,9 @@ function extractGenericProduct(base = {}) {
   const jsonLd = firstJsonLdProduct();
   const jsonImages = Array.isArray(jsonLd.image) ? jsonLd.image : [jsonLd.image].filter(Boolean);
   const details = getProductDetails();
+  const platform = detectPlatform();
+  const variantGroups = stripVariantNodes(getVariantGroupsForPlatform(platform));
+  const selectedCombination = getSelectedAliExpressCombination(getVariantGroupsForPlatform(platform));
   return {
     ...base,
     parserName: "extractGenericProduct",
@@ -1571,6 +1746,9 @@ function extractGenericProduct(base = {}) {
     ratingValue: base.rating || jsonLd?.aggregateRating?.ratingValue,
     reviewsCount: base.reviewsCount || jsonLd?.aggregateRating?.reviewCount,
     stockText: base.availability || getOfferValue(jsonLd, "availability"),
+    variantGroups,
+    selectedCombination,
+    variantItems: base.variants,
     warningTexts: getComplianceRisks([base.title, base.description, Object.values(details).join(" ")].join(" "))
   };
 }
@@ -2358,6 +2536,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
   if (message?.type === "ELYON_SCAN_ALIEXPRESS_VARIANTS") {
     scanAliExpressVariants()
+      .then((result) => sendResponse(result))
+      .catch((error) => sendResponse({ ok: false, error: error?.message || String(error) }));
+    return true;
+  }
+  if (message?.type === "ELYON_SCAN_PLATFORM_VARIANTS") {
+    Promise.resolve(scanVisibleVariantsSnapshot(detectPlatform()))
       .then((result) => sendResponse(result))
       .catch((error) => sendResponse({ ok: false, error: error?.message || String(error) }));
     return true;
