@@ -5582,11 +5582,53 @@ function googleSheetCsvCandidates(input){
     .filter(Boolean)
     .filter(function(value,index,list){ return list.indexOf(value) === index; });
 }
+function getLocalAppCandidates(){
+  return [
+    'http://127.0.0.1:4173/',
+    'http://localhost:4173/'
+  ];
+}
+function isFileProtocolApp(){
+  return !!(window.location && /^file:$/i.test(window.location.protocol));
+}
+async function findReachableLocalAppUrl(){
+  const candidates = getLocalAppCandidates();
+  for(let i = 0; i < candidates.length; i++){
+    const candidate = candidates[i];
+    try{
+      const response = await fetch(candidate + 'api/health', { method:'GET' });
+      if(response.ok) return candidate;
+    }catch(err){}
+  }
+  return '';
+}
+async function ensureGoogleSheetImportContext(){
+  if(!isFileProtocolApp()) return true;
+  const localAppUrl = await findReachableLocalAppUrl();
+  if(localAppUrl){
+    const shouldOpenLocal = window.confirm(
+      'Google-Sheets-Import funktioniert nicht zuverlässig in der Datei-Ansicht (file://).' +
+      '\n\nDie lokale App ist erreichbar unter:\n' + localAppUrl +
+      '\n\nSoll die App jetzt dort geöffnet werden?'
+    );
+    if(shouldOpenLocal){
+      window.location.href = localAppUrl;
+    }
+    return false;
+  }
+  alert(
+    'Google-Sheets-Import braucht die lokale Server-Version der App.' +
+    '\n\nBitte öffne das Tool über:\nhttp://127.0.0.1:4173/' +
+    '\n\nDann den Import dort erneut starten.'
+  );
+  return false;
+}
 function getGoogleSheetImportBackendUrl(){
   const fromSettings = getBackendUrl ? getBackendUrl() : '';
   const stored = normalizeBackendUrl(localStorage.getItem('backendUrl') || localStorage.getItem('elyonBackendUrl') || '');
   const sameOrigin = (window.location && /^https?:$/i.test(window.location.protocol)) ? normalizeBackendUrl(window.location.origin) : '';
-  return fromSettings || stored || sameOrigin || 'https://elyonsellertool.vercel.app';
+  const localPreferred = isFileProtocolApp() ? 'http://127.0.0.1:4173' : '';
+  return fromSettings || stored || sameOrigin || localPreferred || 'https://elyonsellertool.vercel.app';
 }
 async function fetchGoogleSheetCsvViaBackend(input){
   const backendUrl = getGoogleSheetImportBackendUrl();
@@ -5711,6 +5753,8 @@ async function fetchGoogleSheetCsvDirect(input){
 }
 async function loadGoogleSheetCSV(){
   try{
+    const canContinue = await ensureGoogleSheetImportContext();
+    if(!canContinue) return;
     const input = $('googleSheetUrl') ? $('googleSheetUrl').value : '';
     googleSheetCsvUrl(input);
     let text = '';
