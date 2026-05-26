@@ -5560,20 +5560,186 @@ function googleSheetCsvUrl(input){
   if(gidMatch) gid = gidMatch[1];
   return 'https://docs.google.com/spreadsheets/d/' + id + '/export?format=csv&gid=' + gid;
 }
+function googleSheetCsvCandidates(input){
+  const primary = googleSheetCsvUrl(input);
+  const url = String(input || '').trim();
+  const match = url.match(/\/spreadsheets\/d\/([^/]+)/);
+  const id = match ? match[1] : '';
+  let gid = '0';
+  const gidMatch = url.match(/[?&#]gid=([0-9]+)/);
+  if(gidMatch) gid = gidMatch[1];
+  return [primary]
+    .concat(id ? [
+      'https://docs.google.com/spreadsheets/d/' + id + '/gviz/tq?tqx=out:csv&gid=' + gid,
+      'https://docs.google.com/spreadsheets/d/' + id + '/pub?output=csv&gid=' + gid
+    ] : [])
+    .filter(Boolean)
+    .filter(function(value,index,list){ return list.indexOf(value) === index; });
+}
+function getGoogleSheetImportBackendUrl(){
+  const fromSettings = getBackendUrl ? getBackendUrl() : '';
+  const stored = normalizeBackendUrl(localStorage.getItem('backendUrl') || localStorage.getItem('elyonBackendUrl') || '');
+  const sameOrigin = (window.location && /^https?:$/i.test(window.location.protocol)) ? normalizeBackendUrl(window.location.origin) : '';
+  return fromSettings || stored || sameOrigin || 'https://elyonsellertool.vercel.app';
+}
+async function fetchGoogleSheetCsvViaBackend(input){
+  const backendUrl = getGoogleSheetImportBackendUrl();
+  if(!backendUrl) throw new Error('Kein Backend für den Google-Sheet-Import gefunden.');
+  const endpoint = backendUrl + '/api/google-drive/import-sheet-csv';
+  const controller = new AbortController();
+  const timer = setTimeout(function(){ controller.abort(); }, 12000);
+  try{
+    const response = await fetch(endpoint, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ sheetUrl: String(input || '').trim() }),
+      signal: controller.signal
+    });
+    let data = {};
+    try{ data = await response.json(); }catch(err){ data = {}; }
+    if(!response.ok || !data.ok || !data.csvText){
+      const detailText = Array.isArray(data.details) && data.details.length ? ' Details: ' + data.details.join(' | ') : '';
+      const error = new Error((data.error || 'Google Sheet konnte nicht über das Backend geladen werden.') + detailText);
+      error.code = data.code || 'GOOGLE_SHEET_IMPORT_FAILED';
+      error.backendUrl = backendUrl;
+      throw error;
+    }
+    return data.csvText;
+  }catch(err){
+    if(err.name === 'AbortError'){
+      const timeoutError = new Error('Zeitüberschreitung beim Backend-Import. Bitte Backend/Internet prüfen.');
+      timeoutError.code = 'BACKEND_TIMEOUT';
+      timeoutError.backendUrl = backendUrl;
+      throw timeoutError;
+    }
+    throw err;
+  }finally{
+    clearTimeout(timer);
+  }
+}
+function fetchGoogleSheetViaGvizJsonp(input){
+  return new Promise(function(resolve,reject){
+    try{
+      const raw = String(input || '').trim();
+      const match = raw.match(/\/spreadsheets\/d\/([^/]+)/);
+      if(!match) throw new Error('Das sieht nicht wie ein gültiger Google-Sheets-Link aus.');
+      const id = match[1];
+      let gid = '0';
+      const gidMatch = raw.match(/[?&#]gid=([0-9]+)/);
+      if(gidMatch) gid = gidMatch[1];
+      const callbackName = '__elyonSheetImportCallback_' + Date.now() + '_' + Math.random().toString(16).slice(2);
+      const cleanup = function(script){
+        try{ delete window[callbackName]; }catch(err){ window[callbackName] = undefined; }
+        if(script && script.parentNode) script.parentNode.removeChild(script);
+      };
+      const script = document.createElement('script');
+      const timer = setTimeout(function(){
+        cleanup(script);
+        reject(new Error('Google Visualization Timeout. Bitte Freigabe oder Internet prüfen.'));
+      }, 15000);
+      window[callbackName] = function(payload){
+        clearTimeout(timer);
+        try{
+          const rows = (((payload || {}).table || {}).rows || []).map(function(row){
+            return ((row || {}).c || []).map(function(cell){
+              return cell && cell.v !== undefined && cell.v !== null ? String(cell.v) : '';
+            });
+          });
+          cleanup(script);
+          if(!rows.length) throw new Error('Google Visualization hat keine Zeilen geliefert.');
+          const csv = rows.map(function(row){
+            return row.map(function(value){
+              const text = String(value || '');
+              if(/[",\r\n;]/.test(text)) return '\"' + text.replace(/\"/g,'\"\"') + '\"';
+              return text;
+            }).join(',');
+          }).join('\\r\\n');
+          resolve(csv);
+        }catch(err){
+          reject(err);
+        }
+      };
+      script.onerror = function(){
+        clearTimeout(timer);
+        cleanup(script);
+        reject(new Error('Google Visualization konnte nicht geladen werden.'));
+      };
+      script.src = 'https://docs.google.com/spreadsheets/d/' + id + '/gviz/tq?tqx=responseHandler:' + callbackName + ';out:json&gid=' + gid;
+      document.head.appendChild(script);
+    }catch(err){
+      reject(err);
+    }
+  });
+}
+async function fetchGoogleSheetCsvDirect(input){
+  const candidates = googleSheetCsvCandidates(input);
+  const errors = [];
+  for(let i=0;i<candidates.length;i++){
+    const candidate = candidates[i];
+    try{
+      const response = await fetch(candidate);
+      if(!response.ok){
+        errors.push('HTTP ' + response.status + ' bei ' + candidate);
+        continue;
+      }
+      const text = await response.text();
+      if(!text || !text.trim()){
+        errors.push('Leere Antwort bei ' + candidate);
+        continue;
+      }
+      if(text.toLowerCase().includes('<html')){
+        errors.push('HTML statt CSV bei ' + candidate);
+        continue;
+      }
+      return text;
+    }catch(err){
+      errors.push((err.message || 'Fetch-Fehler') + ' bei ' + candidate);
+    }
+  }
+  try{
+    return await fetchGoogleSheetViaGvizJsonp(input);
+  }catch(err){
+    errors.push(err.message || 'Google Visualization fehlgeschlagen');
+  }
+  throw new Error('Direkter Google-Import fehlgeschlagen. ' + errors.join(' | '));
+}
 async function loadGoogleSheetCSV(){
   try{
     const input = $('googleSheetUrl') ? $('googleSheetUrl').value : '';
-    const csvUrl = googleSheetCsvUrl(input);
-    const response = await fetch(csvUrl);
-    if(!response.ok) throw new Error('Google Sheet konnte nicht geladen werden. Prüfe, ob es öffentlich freigegeben ist.');
-    const text = await response.text();
+    googleSheetCsvUrl(input);
+    let text = '';
+    let backendImportError = null;
+    try{
+      text = await fetchGoogleSheetCsvViaBackend(input);
+    }catch(err){
+      backendImportError = err;
+      try{
+        text = await fetchGoogleSheetCsvDirect(input);
+      }catch(directErr){
+        if(backendImportError && (backendImportError.code === 'GOOGLE_DRIVE_AUTH_REQUIRED' || backendImportError.code === 'GOOGLE_DRIVE_SCOPE_REQUIRED')){
+          throw backendImportError;
+        }
+        throw directErr;
+      }
+    }
     if(!text || !text.trim()) throw new Error('Keine CSV-Daten erhalten.');
     if(text.toLowerCase().includes('<html')) throw new Error('Google hat keine CSV-Daten geliefert. Sheet wahrscheinlich nicht öffentlich freigegeben.');
     const draft = csvToImportDraft(text,'Google Sheets');
     safe('csvImportMenu',function(el){ el.classList.add('hidden'); });
     showCsvImportPreview(draft);
   }catch(err){
-    alert(err.message || 'Google Sheet konnte nicht importiert werden.');
+    if(err && (err.code === 'GOOGLE_DRIVE_AUTH_REQUIRED' || err.code === 'GOOGLE_DRIVE_SCOPE_REQUIRED')){
+      const backendUrl = err.backendUrl || getGoogleSheetImportBackendUrl();
+      if(backendUrl){
+        alert((err.message || 'Google Drive Verbindung fehlt.') + '\n\nDu wirst jetzt zum Google-Login weitergeleitet. Danach bitte den Import hier noch einmal starten.');
+        window.location.href = backendUrl + '/api/google-drive/oauth/start';
+      }
+      return;
+    }
+    const extra = String(err && err.message || '').includes('Direkter Google-Import fehlgeschlagen')
+      ? '\n\nTipp: Falls dein Sheet privat ist, verbinde Google Drive einmal mit dem Tool. Alternativ kannst du das Sheet in Google Sheets als CSV/XLSX herunterladen und lokal importieren.'
+      : '';
+    alert((err.message || 'Google Sheet konnte nicht importiert werden.') + extra);
   }
 }
 function getReturnStatsForProduct(productId){

@@ -33,6 +33,212 @@ function setResponseCookies(req, res, cookies) {
   }
 }
 
+function parseGoogleSheetInput(input) {
+  const raw = String(input || "").trim();
+  if (!raw) {
+    throw new Error("Bitte Google-Sheets-Link einfügen.");
+  }
+
+  let parsed;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    throw new Error("Das sieht nicht wie ein gültiger Google-Sheets-Link aus.");
+  }
+
+  const match = parsed.pathname.match(/\/spreadsheets\/d\/([^/]+)/);
+  if (!match) {
+    throw new Error("Das sieht nicht wie ein gültiger Google-Sheets-Link aus.");
+  }
+
+  const spreadsheetId = match[1];
+  const gid = parsed.searchParams.get("gid") || (parsed.hash.match(/gid=([0-9]+)/) || [])[1] || "0";
+
+  return { spreadsheetId, gid, input: raw };
+}
+
+function buildGoogleSheetCsvCandidates(input) {
+  const { spreadsheetId, gid } = parseGoogleSheetInput(input);
+  return [
+    `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=csv&gid=${gid}`,
+    `https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:csv&gid=${gid}`,
+    `https://docs.google.com/spreadsheets/d/${spreadsheetId}/pub?output=csv&gid=${gid}`,
+  ];
+}
+
+function escapeSheetRangeTitle(title) {
+  const raw = String(title || "Tabelle1");
+  return `'${raw.replace(/'/g, "''")}'`;
+}
+
+function matrixToCsv(rows) {
+  const escapeCell = (value) => {
+    const text = String(value ?? "");
+    if (/[",\r\n;]/.test(text)) {
+      return `"${text.replace(/"/g, '""')}"`;
+    }
+    return text;
+  };
+  return (Array.isArray(rows) ? rows : []).map((row) => (Array.isArray(row) ? row : []).map(escapeCell).join(",")).join("\r\n");
+}
+
+async function fetchGoogleJson(url, accessToken) {
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      Accept: "application/json",
+    },
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const message = data?.error?.message || data?.message || `Google API Fehler ${response.status}`;
+    const error = new Error(message);
+    error.status = response.status;
+    error.google = data?.error || data;
+    throw error;
+  }
+  return data;
+}
+
+async function fetchPrivateGoogleSheetCsv({ refreshToken, sheetUrl }) {
+  const tokenData = await refreshGoogleAccessToken(refreshToken);
+  const accessToken = tokenData.access_token;
+  const { spreadsheetId, gid } = parseGoogleSheetInput(sheetUrl);
+  const metadataUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=spreadsheetId,sheets(properties(sheetId,title,index,hidden))`;
+  const metadata = await fetchGoogleJson(metadataUrl, accessToken);
+  const sheets = Array.isArray(metadata?.sheets) ? metadata.sheets : [];
+  const gidNumber = Number(gid);
+  const matchingSheet = sheets.find((sheet) => Number(sheet?.properties?.sheetId) === gidNumber)
+    || sheets.find((sheet) => sheet?.properties?.hidden !== true)
+    || sheets[0];
+  if (!matchingSheet || !matchingSheet.properties || !matchingSheet.properties.title) {
+    throw new Error("Google Sheet Tab konnte nicht bestimmt werden.");
+  }
+  const range = encodeURIComponent(escapeSheetRangeTitle(matchingSheet.properties.title));
+  const valuesUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}?majorDimension=ROWS`;
+  const valuesData = await fetchGoogleJson(valuesUrl, accessToken);
+  const values = Array.isArray(valuesData?.values) ? valuesData.values : [];
+  if (!values.length) {
+    throw new Error("Google Sheet enthält keine lesbaren Zeilen im gewählten Tab.");
+  }
+  return {
+    csvText: matrixToCsv(values),
+    sheetTitle: matchingSheet.properties.title,
+    spreadsheetId,
+  };
+}
+
+async function fetchTextWithTimeout(url, options = {}) {
+  const controller = new AbortController();
+  const timeoutMs = Math.max(1000, Number(options.timeoutMs) || 12000);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      redirect: "follow",
+      headers: {
+        "accept": "text/csv,text/plain;q=0.9,*/*;q=0.8",
+        "user-agent": "ElyonSellerTool/1.0 GoogleSheetImport",
+      },
+      signal: controller.signal,
+    });
+    const text = await response.text();
+    return { ok: response.ok, status: response.status, text, url };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function looksLikeHtml(text) {
+  const sample = String(text || "").trim().slice(0, 600).toLowerCase();
+  return sample.startsWith("<!doctype html") || sample.startsWith("<html") || sample.includes("<body");
+}
+
+async function handleImportSheetCsv(req, res) {
+  try {
+    if (req.method !== "GET" && req.method !== "POST") {
+      return res.status(405).json({ ok: false, error: "Nur GET oder POST erlaubt." });
+    }
+
+    const body = readBody(req);
+    const sheetUrl = String(body.sheetUrl || req.query?.sheetUrl || "").trim();
+    const refreshToken = getRefreshTokenCookie(req);
+    const candidates = buildGoogleSheetCsvCandidates(sheetUrl);
+    const errors = [];
+
+    if (refreshToken) {
+      try {
+        const privateResult = await fetchPrivateGoogleSheetCsv({ refreshToken, sheetUrl });
+        return res.status(200).json({
+          ok: true,
+          service: "Google Drive",
+          source: "google-sheet-private-api",
+          csvText: privateResult.csvText,
+          sheetTitle: privateResult.sheetTitle,
+          spreadsheetId: privateResult.spreadsheetId,
+        });
+      } catch (error) {
+        errors.push(`Privater Google-Zugriff: ${error.message || "Unbekannter Fehler"}`);
+        const insufficientScope = /insufficient authentication scopes|permission/i.test(String(error.message || ""));
+        if (error.status === 403 && insufficientScope) {
+          return res.status(403).json({
+            ok: false,
+            code: "GOOGLE_DRIVE_SCOPE_REQUIRED",
+            error: "Google Drive ist verbunden, aber ohne Sheets-Leserechte. Bitte Google Drive einmal neu verbinden.",
+            details: errors,
+          });
+        }
+      }
+    }
+
+    for (const candidate of candidates) {
+      try {
+        const result = await fetchTextWithTimeout(candidate, { timeoutMs: 12000 });
+        if (!result.ok) {
+          errors.push(`HTTP ${result.status} bei ${candidate}`);
+          continue;
+        }
+        if (!result.text || !result.text.trim()) {
+          errors.push(`Leere Antwort bei ${candidate}`);
+          continue;
+        }
+        if (looksLikeHtml(result.text)) {
+          errors.push(`HTML statt CSV bei ${candidate}`);
+          continue;
+        }
+        return res.status(200).json({
+          ok: true,
+          service: "Google Drive",
+          source: "google-sheet-csv",
+          csvText: result.text,
+          fetchedUrl: candidate,
+        });
+      } catch (error) {
+        if (error?.name === "AbortError") {
+          errors.push(`Zeitüberschreitung bei ${candidate}`);
+        } else {
+          errors.push(`${error.message || "Fehler"} bei ${candidate}`);
+        }
+      }
+    }
+
+    return res.status(400).json({
+      ok: false,
+      code: refreshToken ? "GOOGLE_SHEET_IMPORT_FAILED" : "GOOGLE_DRIVE_AUTH_REQUIRED",
+      error: refreshToken
+        ? "Google Sheet konnte nicht geladen werden. Prüfe Freigabe, Tab oder Berechtigungen."
+        : "Google Sheet konnte nicht geladen werden. Verbinde Google Drive für private Sheets oder nutze ein öffentlich freigegebenes Sheet.",
+      details: errors,
+    });
+  } catch (error) {
+    return res.status(400).json({
+      ok: false,
+      error: error.message || "Google Sheet konnte nicht importiert werden.",
+    });
+  }
+}
+
 function getRequestedAction(req, body) {
   const fromBody = String(body?.action || body?.endpoint || body?.path || "").trim();
   if (fromBody) return fromBody;
@@ -358,6 +564,7 @@ export default async function handler(req, res) {
   if (action === "start") return handleStart(req, res);
   if (action === "callback") return handleCallback(req, res);
   if (action === "upload-backup") return handleUploadBackup(req, res);
+  if (action === "import-sheet-csv") return handleImportSheetCsv(req, res);
 
   return res.status(404).json({
     ok: false,

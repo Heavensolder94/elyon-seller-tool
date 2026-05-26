@@ -110,6 +110,10 @@
       "destination": "/api/google-drive?action=upload-backup"
     },
     {
+      "source": "/api/google-drive/import-sheet-csv",
+      "destination": "/api/google-drive?action=import-sheet-csv"
+    },
+    {
       "source": "/api/google-drive/oauth/start",
       "destination": "/api/google-drive?action=start"
     },
