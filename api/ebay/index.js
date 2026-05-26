@@ -24,7 +24,7 @@ function getScopes() {
 function getOrdersScopes() {
   const scopes = getScopes();
   if (!scopes.includes(DEFAULT_SCOPE)) scopes.unshift(DEFAULT_SCOPE);
-  return Array.from(new Set([...scopes, ...ORDERS_SCOPES]));
+  return Array.from(new Set(scopes));
 }
 
 function hasOrdersScope(scopeValue) {
