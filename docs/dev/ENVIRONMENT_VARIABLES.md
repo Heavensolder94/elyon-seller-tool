@@ -1,0 +1,15 @@
+# Environment Variables
+
+## KI
+
+- OPENAI_API_KEY
+- DEEPSEEK_API_KEY
+
+## eBay
+
+- EBAY_CLIENT_ID
+- EBAY_CLIENT_SECRET
+
+## Google
+
+- GOOGLE_CLIENT_SECRET
