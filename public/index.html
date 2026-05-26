@@ -803,7 +803,7 @@
     <button id="ordersBtn" class="secondary">📦 Bestellungen</button>
     <button id="returnsBtn" class="secondary">↩️ Retouren</button>
     <select id="mainMenu" class="menu-select" aria-label="eBay Lab auswählen">
-      <option value="" disabled selected>🧭 Produkt-Pipeline</option>
+      <option value="" selected>🧭 Produkt-Pipeline</option>
       <option value="dashboardTab">1. 🏠 Dashboard</option>
       <option value="productSearchTab">2. 🧭 Produktbeschaffung</option>
       <option value="productAnalysisTab">3. 📊 Produktanalyse</option>
@@ -2968,9 +2968,15 @@ function showTab(tabId){
   if(startTarget) localStorage.setItem('elyonLastStartTarget', startTarget);
 }
 window.showTab = showTab;
+function resetMainMenuSelection(){
+  safe('mainMenu', menu => {
+    const placeholderIndex = [...menu.options].findIndex(option => option.value === '');
+    menu.selectedIndex = placeholderIndex >= 0 ? placeholderIndex : 0;
+  });
+}
 function showShopifyTool(sectionId){
   showTab('shopifyTab');
-  safe('mainMenu', menu => { menu.value = ''; });
+  resetMainMenuSelection();
   safe('shopifyMenu', menu => { menu.value = sectionId || 'shopifyTab'; });
 
   const defaultSection = sectionId && sectionId !== 'shopifyTab' ? sectionId : 'shopifyPageSection';
@@ -2980,7 +2986,7 @@ function showShopifyTool(sectionId){
   window.scrollTo({top:0, behavior:'smooth'});
 }
 function resetMenusToLabNames(){
-  safe('mainMenu', menu => { menu.value = ''; });
+  resetMainMenuSelection();
   safe('shopifyMenu', menu => { menu.value = 'shopifyTab'; });
 }
 function showDashboard(){
@@ -10236,6 +10242,10 @@ function bindEvents(){
   bind('shopifyMenu','change',e=>showShopifyTool(e.target.value));
   bind('mainMenu','change',e=>{
     const value = e.target.value;
+    if(!value){
+      resetMainMenuSelection();
+      return;
+    }
     if(value === 'importTab'){ openImportCheck(); return; }
     if(value === 'marketCheckTab'){ openMarketCheck(); return; }
     if(value === 'financeTab'){ openFinanceTool(); return; }
