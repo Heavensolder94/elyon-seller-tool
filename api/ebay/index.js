@@ -2,6 +2,11 @@ import { readToken, writeToken, getTokenStoreDescription } from "../../lib/ebay-
 
 const SANDBOX_AUTH_URL = "https://auth.sandbox.ebay.com/oauth2/authorize";
 const PRODUCTION_AUTH_URL = "https://auth.ebay.com/oauth2/authorize";
+const DEFAULT_SCOPE = "https://api.ebay.com/oauth/api_scope";
+const ORDERS_SCOPES = [
+  "https://api.ebay.com/oauth/api_scope/sell.fulfillment",
+  "https://api.ebay.com/oauth/api_scope/sell.fulfillment.readonly",
+];
 
 function normalizeEnvironment(value) {
   return String(value || "production").toLowerCase() === "sandbox" ? "sandbox" : "production";
@@ -12,8 +17,44 @@ function getRedirectUri() {
 }
 
 function getScopes() {
-  const raw = process.env.EBAY_SCOPES || "https://api.ebay.com/oauth/api_scope";
+  const raw = process.env.EBAY_SCOPES || DEFAULT_SCOPE;
   return String(raw).split(/[\s,]+/).map(scope => scope.trim()).filter(Boolean);
+}
+
+function getOrdersScopes() {
+  const scopes = getScopes();
+  if (!scopes.includes(DEFAULT_SCOPE)) scopes.unshift(DEFAULT_SCOPE);
+  return Array.from(new Set([...scopes, ...ORDERS_SCOPES]));
+}
+
+function hasOrdersScope(scopeValue) {
+  const scopes = String(scopeValue || "").split(/[\s,]+/).map(scope => scope.trim()).filter(Boolean);
+  return scopes.some(scope => ORDERS_SCOPES.includes(scope));
+}
+
+function getMissingEnvForOrders() {
+  return [
+    !process.env.EBAY_CLIENT_ID ? "EBAY_CLIENT_ID" : null,
+    !process.env.EBAY_CLIENT_SECRET ? "EBAY_CLIENT_SECRET" : null,
+    !getRedirectUri() ? "EBAY_REDIRECT_URI_OR_RUNAME" : null,
+  ].filter(Boolean);
+}
+
+async function readJsonSafe(response) {
+  const text = await response.text();
+  if (!text) return {};
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { raw_text: text };
+  }
+}
+
+function buildDebugPayload(extra = {}) {
+  return {
+    timestamp: new Date().toISOString(),
+    ...extra,
+  };
 }
 
 function makeState() {
@@ -70,7 +111,7 @@ async function getEbayAppToken() {
     }),
   });
 
-  const data = await response.json();
+  const data = await readJsonSafe(response);
   if (!response.ok) {
     throw new Error(data.error_description || data.error || "eBay Token konnte nicht erstellt werden.");
   }
@@ -126,7 +167,7 @@ async function handleSearch(req, res) {
     }
   );
 
-  const data = await response.json();
+  const data = await readJsonSafe(response);
   if (!response.ok) {
     return res.status(response.status).json({
       ok: false,
@@ -214,7 +255,7 @@ async function handleExchangeToken(req, res) {
     body: new URLSearchParams({ grant_type: "authorization_code", code, redirect_uri: redirectUri }),
   });
 
-  const data = await response.json();
+  const data = await readJsonSafe(response);
   if (!response.ok) {
     return res.status(response.status || 500).json({
       ok: false,
@@ -260,6 +301,7 @@ async function getAccessTokenFromRefreshToken(environment, refreshToken) {
   const clientSecret = process.env.EBAY_CLIENT_SECRET;
   if (!clientId || !clientSecret) throw new Error("EBAY_CLIENT_ID oder EBAY_CLIENT_SECRET fehlt");
   if (!refreshToken) throw new Error("Kein gespeicherter EBAY refresh_token vorhanden");
+  const requestedScopes = getOrdersScopes();
 
   const response = await fetch(getEbayTokenEndpoint(environment), {
     method: "POST",
@@ -270,12 +312,19 @@ async function getAccessTokenFromRefreshToken(environment, refreshToken) {
     body: new URLSearchParams({
       grant_type: "refresh_token",
       refresh_token: refreshToken,
-      scope: "https://api.ebay.com/oauth/api_scope",
+      scope: requestedScopes.join(" "),
     }),
   });
 
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error_description || data.error || "eBay Token konnte nicht erneuert werden.");
+  const data = await readJsonSafe(response);
+  if (!response.ok) {
+    const error = new Error(data.error_description || data.error || "eBay Token konnte nicht erneuert werden.");
+    error.httpStatus = response.status;
+    error.payload = data;
+    error.requestedScopes = requestedScopes;
+    throw error;
+  }
+  data.requested_scopes = requestedScopes;
   return data;
 }
 
@@ -303,6 +352,9 @@ async function handleToken(req, res) {
     expires_in: data.expires_in || null,
     access_token_preview: data.access_token ? `${String(data.access_token).slice(0, 12)}...` : null,
     stored_refresh_token_preview: String(refreshToken).slice(0, 12) + "...",
+    scope: data.scope || null,
+    requested_scopes: data.requested_scopes || [],
+    has_orders_scope: hasOrdersScope(data.scope || data.requested_scopes?.join(" ")),
     store_mode: storeDescription.mode,
     store_target: storeDescription.key || storeDescription.path || null,
   });
@@ -318,6 +370,26 @@ async function handleOrders(req, res) {
   const days = Number(req.query.days || 7);
   const status = req.query.status || "all";
   const environment = normalizeEnvironment(req.query.environment || req.query.env || process.env.EBAY_ENV || "production");
+  const missingEnv = getMissingEnvForOrders();
+  const configuredScopes = getScopes();
+  const configuredOrdersScope = configuredScopes.some(scope => ORDERS_SCOPES.includes(scope));
+  const storeDescription = getTokenStoreDescription(environment);
+
+  if (missingEnv.length) {
+    return res.status(500).json({
+      ok: false,
+      error: "Fehlende eBay ENV Variablen.",
+      reason: "missing_env",
+      missing_env: missingEnv,
+      debug: buildDebugPayload({
+        environment,
+        configured_scopes: configuredScopes,
+        required_orders_scopes: ORDERS_SCOPES,
+        store_mode: storeDescription.mode,
+        store_target: storeDescription.key || storeDescription.path || null,
+      }),
+    });
+  }
 
   const stored = await readToken(environment);
   const refreshToken = stored?.refresh_token || process.env.EBAY_REFRESH_TOKEN;
@@ -326,17 +398,56 @@ async function handleOrders(req, res) {
       ok: false,
       error: "Kein gespeicherter refresh_token gefunden.",
       environment,
+      reason: "missing_refresh_token",
+      debug: buildDebugPayload({
+        environment,
+        has_stored_token: Boolean(stored),
+        has_refresh_token_env: Boolean(process.env.EBAY_REFRESH_TOKEN),
+        store_mode: storeDescription.mode,
+        store_target: storeDescription.key || storeDescription.path || null,
+      }),
     });
   }
 
-  const refreshed = await getAccessTokenFromRefreshToken(environment, refreshToken);
+  let refreshed;
+  try {
+    refreshed = await getAccessTokenFromRefreshToken(environment, refreshToken);
+  } catch (error) {
+    const statusCode = Number(error?.httpStatus) || 500;
+    return res.status(statusCode).json({
+      ok: false,
+      error: error.message || "eBay Token konnte nicht erneuert werden.",
+      reason: statusCode === 401 ? "expired_or_invalid_refresh_token" : "token_refresh_failed",
+      debug: buildDebugPayload({
+        environment,
+        ebay_status: statusCode,
+        ebay_error: error?.payload || null,
+        requested_scopes: error?.requestedScopes || [],
+        configured_scopes: configuredScopes,
+        configured_orders_scope: configuredOrdersScope,
+        has_refresh_token: true,
+        store_mode: storeDescription.mode,
+        store_target: storeDescription.key || storeDescription.path || null,
+      }),
+    });
+  }
+
   const accessToken = refreshed?.access_token;
   if (!accessToken) {
     return res.status(500).json({
       ok: false,
       error: "eBay Access Token konnte nicht aus dem Refresh Token erzeugt werden.",
+      reason: "missing_access_token",
+      debug: buildDebugPayload({
+        environment,
+        scope: refreshed?.scope || null,
+        requested_scopes: refreshed?.requested_scopes || [],
+      }),
     });
   }
+
+  const tokenScope = refreshed?.scope || "";
+  const tokenHasOrdersScope = hasOrdersScope(tokenScope || refreshed?.requested_scopes?.join(" "));
 
   const filters = [];
   filters.push(`creationdate:[${daysAgoIso(days)}..${new Date().toISOString()}]`);
@@ -353,12 +464,23 @@ async function handleOrders(req, res) {
     },
   });
 
-  const data = await response.json();
+  const data = await readJsonSafe(response);
   if (!response.ok) {
     return res.status(response.status).json({
       ok: false,
-      error: data.errors?.[0]?.message || data.message || "eBay Orders Fehler",
+      error: data.errors?.[0]?.message || data.message || data.error_description || data.error || "eBay Orders Fehler",
+      reason: response.status === 401 ? "expired_or_invalid_access_token" : response.status === 403 ? "missing_permission" : "ebay_orders_request_failed",
       details: data,
+      debug: buildDebugPayload({
+        environment,
+        ebay_status: response.status,
+        endpoint,
+        configured_scopes: configuredScopes,
+        configured_orders_scope: configuredOrdersScope,
+        token_scope: tokenScope || null,
+        token_has_orders_scope: tokenHasOrdersScope,
+        requested_scopes: refreshed?.requested_scopes || [],
+      }),
     });
   }
 
@@ -370,6 +492,16 @@ async function handleOrders(req, res) {
     count: data.orders?.length || 0,
     orders: data.orders || [],
     raw: data,
+    debug: buildDebugPayload({
+      environment,
+      configured_scopes: configuredScopes,
+      configured_orders_scope: configuredOrdersScope,
+      token_scope: tokenScope || null,
+      token_has_orders_scope: tokenHasOrdersScope,
+      has_refresh_token: true,
+      store_mode: storeDescription.mode,
+      store_target: storeDescription.key || storeDescription.path || null,
+    }),
   });
 }
 

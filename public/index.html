@@ -3308,7 +3308,13 @@ async function fetchBackendJSON(path,options){
     try{ data = await response.json(); }catch(err){ data = {}; }
     if(!response.ok){
       const msg = data && (data.error || data.message) ? (data.error || data.message) : ('Backend-Fehler: HTTP ' + response.status);
-      throw new Error(msg + ' · URL: ' + url);
+      const error = new Error(msg + ' · URL: ' + url);
+      error.status = response.status;
+      error.url = url;
+      error.data = data;
+      error.reason = data && data.reason ? data.reason : '';
+      error.debug = data && data.debug ? data.debug : null;
+      throw error;
     }
     return data;
   }catch(err){
@@ -3316,6 +3322,47 @@ async function fetchBackendJSON(path,options){
     if(String(err.message || '').includes('URL:')) throw err;
     throw new Error('Failed to fetch · Prüfe Backend URL, CORS oder Vercel-Route · URL: ' + url);
   }
+}
+function escapeHtml(value){
+  return String(value == null ? '' : value)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&#39;');
+}
+function renderDebugKeyValue(label,value){
+  if(value === undefined || value === null || value === '') return '';
+  const text = typeof value === 'string' ? value : JSON.stringify(value);
+  return '<p class="hint"><strong>'+escapeHtml(label)+':</strong> '+escapeHtml(text)+'</p>';
+}
+function buildEbayOrdersErrorHtml(err){
+  const reason = err && err.reason ? String(err.reason) : '';
+  const data = err && err.data ? err.data : {};
+  const debug = err && err.debug ? err.debug : {};
+  const titleMap = {
+    missing_refresh_token: 'Kein Refresh Token gespeichert',
+    missing_env: 'Fehlende eBay ENV Variablen',
+    expired_or_invalid_refresh_token: 'Refresh Token abgelaufen oder ungültig',
+    token_refresh_failed: 'Token-Erneuerung fehlgeschlagen',
+    missing_access_token: 'Kein Access Token erzeugt',
+    expired_or_invalid_access_token: 'Access Token abgelaufen oder ungültig',
+    missing_permission: 'Fehlende Berechtigung für Orders API'
+  };
+  const title = titleMap[reason] || 'eBay Orders Fehler';
+  let html = '<p>⚠️ <strong>'+escapeHtml(title)+'</strong></p>';
+  html += '<p>'+escapeHtml((err && err.message) ? err.message : 'Unbekannter Fehler')+'</p>';
+  html += renderDebugKeyValue('Grund', reason || 'unclassified');
+  html += renderDebugKeyValue('HTTP Status', err && err.status ? err.status : '');
+  html += renderDebugKeyValue('Umgebung', debug.environment || data.environment || '');
+  html += renderDebugKeyValue('Fehlende ENV', data.missing_env || '');
+  html += renderDebugKeyValue('Konfigurierte Scopes', debug.configured_scopes || '');
+  html += renderDebugKeyValue('Token Scope', debug.token_scope || '');
+  html += renderDebugKeyValue('Token hat Orders Scope', debug.token_has_orders_scope);
+  html += renderDebugKeyValue('eBay Status', debug.ebay_status || '');
+  html += renderDebugKeyValue('eBay Details', data.details || debug.ebay_error || '');
+  html += '<p class="hint">Erwartete Backend-Route: /api/ebay/orders?days=7&status=all</p>';
+  return html;
 }
 function testBackendConnection(){
   const backendUrl = getBackendUrl();
@@ -4352,7 +4399,7 @@ async function previewEbayOrders(){
     if(!orders.length){ setHTML('ebayOrdersImportResult','<p>Keine Bestellungen gefunden oder Backend liefert keine Order-Liste.</p>'); return; }
     showEbayOrdersPreview(orders);
   }catch(err){
-    setHTML('ebayOrdersImportResult','<p>⚠️ '+err.message+'</p><p class="hint">Erwartete Backend-Route: /api/ebay/orders?days=7&status=all</p>');
+    setHTML('ebayOrdersImportResult',buildEbayOrdersErrorHtml(err));
     syncEbayOrdersImportPanels();
   }
 }

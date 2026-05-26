@@ -55,6 +55,11 @@ function buildIntegrationReadiness() {
     QWEN_API_KEY: Boolean(process.env.QWEN_API_KEY || process.env.DASHSCOPE_API_KEY),
   };
 
+  const googleSheetsRequired = {
+    GOOGLE_SHEETS_SYNC_URL: Boolean(process.env.GOOGLE_SHEETS_SYNC_URL),
+    GOOGLE_SHEETS_SYNC_TOKEN: Boolean(process.env.GOOGLE_SHEETS_SYNC_TOKEN),
+  };
+
   return {
     localBackup: {
       ready: true,
@@ -77,9 +82,12 @@ function buildIntegrationReadiness() {
       note: "Google-Drive-Backup braucht OAuth-Client, Secret und Callback-URL.",
     },
     googleSheets: {
-      ready: false,
-      missing: ["Apps-Script-Web-App-URL", "Sync-Token"],
-      note: "Google Sheets Sync wird erst mit Web-App-URL und Token aktiv.",
+      ready: Object.values(googleSheetsRequired).every(Boolean),
+      missing: [
+        !googleSheetsRequired.GOOGLE_SHEETS_SYNC_URL ? "Apps-Script-Web-App-URL" : null,
+        !googleSheetsRequired.GOOGLE_SHEETS_SYNC_TOKEN ? "Sync-Token" : null,
+      ].filter(Boolean),
+      note: "Google Sheets Sync wird mit `GOOGLE_SHEETS_SYNC_URL` und `GOOGLE_SHEETS_SYNC_TOKEN` aktiv.",
     },
     openai: {
       ready: Object.values(openAiRequired).every(Boolean),
@@ -116,6 +124,56 @@ function isGoogleSheetsSyncRequest(req) {
       req?.query?.token ||
       req?.body?.payload
   );
+}
+
+function sanitizeGoogleSheetsSettings(input) {
+  const source = input && typeof input === "object" ? input : {};
+  return {
+    url: String(source.url || "").trim(),
+    token: String(source.token || "").trim(),
+    lastInventorySyncAt: String(source.lastInventorySyncAt || "").trim(),
+    lastSupplierSyncAt: String(source.lastSupplierSyncAt || "").trim(),
+    lastSalesSyncAt: String(source.lastSalesSyncAt || "").trim(),
+    lastCostsSyncAt: String(source.lastCostsSyncAt || "").trim(),
+    lastSalesLoadAt: String(source.lastSalesLoadAt || "").trim(),
+  };
+}
+
+async function handleGoogleSheetsSyncSettings(req, res) {
+  const { getSettingsStoreDescription, readSettings, writeSettings } = await import("../lib/google-sheets-sync-settings-store.js");
+
+  if (req.method === "GET") {
+    const stored = await readSettings();
+    return res.status(200).json({
+      ok: true,
+      settings: stored ? sanitizeGoogleSheetsSettings(stored) : null,
+      store: getSettingsStoreDescription(),
+    });
+  }
+
+  if (req.method === "POST") {
+    const payload = sanitizeGoogleSheetsSettings(req.body?.settings || req.body || {});
+    const result = await writeSettings(payload);
+    if (!result?.ok) {
+      return res.status(500).json({
+        ok: false,
+        error: result?.error || "Die Google Sheets Sync-Einstellungen konnten nicht gespeichert werden.",
+        store: getSettingsStoreDescription(),
+      });
+    }
+
+    return res.status(200).json({
+      ok: true,
+      settings: payload,
+      store: getSettingsStoreDescription(),
+    });
+  }
+
+  res.setHeader("Allow", ["GET", "POST"]);
+  return res.status(405).json({
+    ok: false,
+    error: "Methode nicht erlaubt.",
+  });
 }
 
 async function handleGoogleSheetsSync(req, res) {
@@ -201,6 +259,17 @@ async function handleGoogleSheetsSync(req, res) {
 export default async function handler(req, res) {
   if (req.query?.action === "health") {
     return res.status(200).json(buildHealthPayload());
+  }
+
+  if (req.query?.action === "google-sheets-sync-settings") {
+    try {
+      return await handleGoogleSheetsSyncSettings(req, res);
+    } catch (error) {
+      return res.status(500).json({
+        ok: false,
+        error: error && error.message ? error.message : "Google Sheets Sync Settings Fehler",
+      });
+    }
   }
 
   if (isGoogleSheetsSyncRequest(req)) {

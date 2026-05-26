@@ -74,6 +74,10 @@
       "destination": "/api/env-check"
     },
     {
+      "source": "/api/google-sheets-sync-settings",
+      "destination": "/api/env-check?action=google-sheets-sync-settings"
+    },
+    {
       "source": "/api/cj/status",
       "destination": "/api/cj?action=status"
     },

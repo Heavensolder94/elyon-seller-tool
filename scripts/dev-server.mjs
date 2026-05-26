@@ -160,14 +160,13 @@ function buildApiRoute(pathname, query) {
     { match: /^\/api\/health$/, module: "api/env-check.js" },
     { match: /^\/api\/env-check$/, module: "api/env-check.js" },
     { match: /^\/api\/google-sheets-sync$/, module: "api/env-check.js" },
-    { match: /^\/api\/google-sheets-sync-settings$/, module: "api/google-sheets-sync-settings.js" },
     { match: /^\/api\/cj(?:\/(status|search|product|detail))?$/, module: "api/cj.js" },
     { match: /^\/api\/elyon-soul$/, module: "api/elyon-soul.js" },
     { match: /^\/api\/agent-engine$/, module: "api/agent-engine.js" },
     { match: /^\/api\/ai-router$/, module: "api/ai-router.js" },
     { match: /^\/api\/ai(?:\/(listing-optimizer|product-search))?$/, module: "api/ai.js" },
     { match: /^\/api\/google-drive(?:\/(status|auth-url|upload-backup|oauth\/start|oauth\/callback))?$/, module: "api/google-drive.js" },
-    { match: /^\/api\/ebay(?:\/(status|login-url|search|competition|exchange-token|token))?$/, module: "api/ebay/index.js" },
+    { match: /^\/api\/ebay(?:\/(status|login-url|search|competition|exchange-token|token|orders))?$/, module: "api/ebay/index.js" },
   ];
 
   for (const route of routes) {
@@ -180,6 +179,9 @@ function buildApiRoute(pathname, query) {
     }
     if (route.module === "api/env-check.js" && /^\/api\/(?:ping|health)$/.test(clean)) {
       nextQuery.action = "health";
+    }
+    if (route.module === "api/env-check.js" && clean === "/api/google-sheets-sync-settings") {
+      nextQuery.action = "google-sheets-sync-settings";
     }
     if (route.module === "api/google-drive.js" && match[1]) {
       nextQuery.action = match[1].split("/").pop();
