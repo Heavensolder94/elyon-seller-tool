@@ -33,7 +33,7 @@ function setResponseCookies(req, res, cookies) {
   }
 }
 
-function parseGoogleSheetInput(input) {
+function legacyParseGoogleSheetInput(input) {
   const raw = String(input || "").trim();
   if (!raw) {
     throw new Error("Bitte Google-Sheets-Link einfügen.");
@@ -57,12 +57,67 @@ function parseGoogleSheetInput(input) {
   return { spreadsheetId, gid, input: raw };
 }
 
-function buildGoogleSheetCsvCandidates(input) {
+function legacyBuildGoogleSheetCsvCandidates(input) {
   const { spreadsheetId, gid } = parseGoogleSheetInput(input);
   return [
     `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=csv&gid=${gid}`,
     `https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:csv&gid=${gid}`,
     `https://docs.google.com/spreadsheets/d/${spreadsheetId}/pub?output=csv&gid=${gid}`,
+  ];
+}
+
+// Additive override: support both classic Sheets links and published /pubhtml links.
+function parseGoogleSheetInput(input) {
+  const raw = String(input || "").trim();
+  if (!raw) {
+    throw new Error("Bitte Google-Sheets-Link einfuegen.");
+  }
+
+  let parsed;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    throw new Error("Das sieht nicht wie ein gueltiger Google-Sheets-Link aus.");
+  }
+
+  const standardMatch = parsed.pathname.match(/\/spreadsheets\/d\/([^/]+)/);
+  const publishedMatch = parsed.pathname.match(/\/spreadsheets\/d\/e\/([^/]+)/);
+  if (!standardMatch && !publishedMatch) {
+    throw new Error("Das sieht nicht wie ein gueltiger Google-Sheets-Link aus.");
+  }
+
+  const gid = parsed.searchParams.get("gid") || (parsed.hash.match(/gid=([0-9]+)/) || [])[1] || "0";
+  if (publishedMatch) {
+    return {
+      kind: "published",
+      publishedId: publishedMatch[1],
+      gid,
+      input: raw,
+    };
+  }
+
+  return {
+    kind: "standard",
+    spreadsheetId: standardMatch[1],
+    gid,
+    input: raw,
+  };
+}
+
+function buildGoogleSheetCsvCandidates(input) {
+  const parsed = parseGoogleSheetInput(input);
+  if (parsed.kind === "published") {
+    const base = `https://docs.google.com/spreadsheets/d/e/${parsed.publishedId}/pub`;
+    return [
+      `${base}?output=csv`,
+      `${base}?gid=${parsed.gid}&single=true&output=csv`,
+      `${base}?gid=${parsed.gid}&output=csv`,
+    ];
+  }
+  return [
+    `https://docs.google.com/spreadsheets/d/${parsed.spreadsheetId}/export?format=csv&gid=${parsed.gid}`,
+    `https://docs.google.com/spreadsheets/d/${parsed.spreadsheetId}/gviz/tq?tqx=out:csv&gid=${parsed.gid}`,
+    `https://docs.google.com/spreadsheets/d/${parsed.spreadsheetId}/pub?output=csv&gid=${parsed.gid}`,
   ];
 }
 
@@ -104,7 +159,11 @@ async function fetchGoogleJson(url, accessToken) {
 async function fetchPrivateGoogleSheetCsv({ refreshToken, sheetUrl }) {
   const tokenData = await refreshGoogleAccessToken(refreshToken);
   const accessToken = tokenData.access_token;
-  const { spreadsheetId, gid } = parseGoogleSheetInput(sheetUrl);
+  const parsedSheet = parseGoogleSheetInput(sheetUrl);
+  if (parsedSheet.kind !== "standard") {
+    throw new Error("Veroeffentlichte Google-Sheet-Links werden direkt als CSV geladen.");
+  }
+  const { spreadsheetId, gid } = parsedSheet;
   const metadataUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=spreadsheetId,sheets(properties(sheetId,title,index,hidden))`;
   const metadata = await fetchGoogleJson(metadataUrl, accessToken);
   const sheets = Array.isArray(metadata?.sheets) ? metadata.sheets : [];

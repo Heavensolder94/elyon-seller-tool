@@ -3215,13 +3215,14 @@ function startQuickAction(action){
   }
   if(action === 'return') openReturnsCenter();
 }
-function save(){ products = normalizeProductsCollection(products); localStorage.setItem('elyonProducts', JSON.stringify(products)); render(); renderReturnProductOptions(); }
-function saveReturns(){ localStorage.setItem('elyonReturns', JSON.stringify(returns)); renderReturns(); renderReturnsOverview(); render(); }
+function save(){ products = normalizeProductsCollection(products); localStorage.setItem('elyonProducts', JSON.stringify(products)); render(); renderReturnProductOptions(); triggerBrainRefresh('products-save'); }
+function saveReturns(){ localStorage.setItem('elyonReturns', JSON.stringify(returns)); renderReturns(); renderReturnsOverview(); render(); triggerBrainRefresh('returns-save'); }
 function saveShopifyReturns(){ localStorage.setItem('elyonShopifyReturns', JSON.stringify(shopifyReturns)); renderShopifyReturns(); renderReturnsOverview(); }
-function saveSales(){ localStorage.setItem('elyonSales', JSON.stringify(sales)); renderSales(); render(); }
+function saveSales(){ localStorage.setItem('elyonSales', JSON.stringify(sales)); renderSales(); render(); triggerBrainRefresh('sales-save'); }
 function saveInvoices(){
   localStorage.setItem('elyonInvoices', JSON.stringify(invoices));
   renderInvoiceOverview();
+  triggerBrainRefresh('invoices-save');
 }
 function saveInvoiceSettings(){
   invoiceSettings = {
@@ -5320,7 +5321,34 @@ function exportCSV(){
   });
   downloadCSV(rows,'elyon-produktliste.csv');
 }
-function parseCSVLine(line){ let res=[],cur='',q=false; for(let i=0;i<line.length;i++){let ch=line[i]; if(ch==='"'&&line[i+1]==='"'){cur+='"';i++;} else if(ch==='"'){q=!q;} else if(ch===';'&&!q){res.push(cur);cur='';} else {cur+=ch;}} res.push(cur); return res; }
+function detectCsvDelimiter(line){
+  const text = String(line || '');
+  let inQuotes = false;
+  let semicolons = 0;
+  let commas = 0;
+  for(let i = 0; i < text.length; i++){
+    const ch = text[i];
+    if(ch === '"' && text[i + 1] === '"'){ i++; continue; }
+    if(ch === '"'){ inQuotes = !inQuotes; continue; }
+    if(inQuotes) continue;
+    if(ch === ';') semicolons++;
+    if(ch === ',') commas++;
+  }
+  return semicolons >= commas ? ';' : ',';
+}
+function parseCSVLine(line, delimiter){
+  const sep = delimiter || detectCsvDelimiter(line);
+  let res=[],cur='',q=false;
+  for(let i=0;i<line.length;i++){
+    let ch=line[i];
+    if(ch==='"'&&line[i+1]==='"'){cur+='"';i++;}
+    else if(ch==='"'){q=!q;}
+    else if(ch===sep&&!q){res.push(cur);cur='';}
+    else {cur+=ch;}
+  }
+  res.push(cur);
+  return res;
+}
 function nextImportSku(existingSkuSet){
   let num = 1;
   while(true){
@@ -5344,6 +5372,28 @@ function normalizeImportNumber(value){
   const num = parseFloat(cleaned);
   return Number.isFinite(num) ? num : 0;
 }
+function hasMeaningfulImportData(obj){
+  const source = obj && typeof obj === 'object' ? obj : {};
+  const textKeys = [
+    'SKU','Sku','sku','Artikel-ID','Artikel ID','Artikelnummer','Artikel Nummer',
+    'Name','Bezeichnung','Titel','Produktname','Produkt','Artikel','Artikelbezeichnung',
+    'Lieferanten-ID','Lieferanten Id','Supplier ID','Supplier','Anbieter-ID',
+    'Lieferanten-Link','Lieferanten Link','Link','URL',
+    'Lieferant','Versandzeit','Hinweise','Notizen','Notiz','Bemerkung'
+  ];
+  const numberKeys = [
+    'EK','Preis EK','Einkaufspreis','Kosten','Preis Einkauf',
+    'Versand','Versand mind.','Versand ab','Versandkosten','Shipping',
+    'VK','Preis VK (ebay)','Preis VK','Verkaufspreis','Verkaufspreis eBay','Ebay Preis'
+  ];
+  const hasText = textKeys.some(function(key){
+    return String(source[key] === undefined || source[key] === null ? '' : source[key]).trim() !== '';
+  });
+  const hasNumber = numberKeys.some(function(key){
+    return normalizeImportNumber(source[key]) > 0;
+  });
+  return hasText || hasNumber;
+}
 function firstImportValue(obj, keys){
   for(let i=0;i<keys.length;i++){
     const key = keys[i];
@@ -5357,9 +5407,7 @@ function firstImportValue(obj, keys){
 function buildImportDraftFromRows(rows,sourceLabel){
   const normalizedRows = Array.isArray(rows) ? rows.filter(function(row){
     if(!row || typeof row !== 'object') return false;
-    return Object.values(row).some(function(value){
-      return String(value === undefined || value === null ? '' : value).trim() !== '';
-    });
+    return hasMeaningfulImportData(row);
   }) : [];
 
   if(normalizedRows.length < 1) throw new Error('CSV enthält keine Produktdaten.');
@@ -5393,6 +5441,9 @@ function buildImportDraftFromRows(rows,sourceLabel){
     const supplierLink = String(firstImportValue(normalizedObj, ['Lieferanten-Link','Lieferanten Link','Link','URL']) || '').trim();
     const status = String(firstImportValue(normalizedObj, ['Status','Typ']) || 'Draft').trim() || 'Draft';
     const priority = String(firstImportValue(normalizedObj, ['Priorität','Prioritaet','Priorität ','Prio']) || 'Normal').trim() || 'Normal';
+    const supplierName = String(firstImportValue(normalizedObj, ['Lieferant','Supplier','Anbieter']) || '').trim();
+    const supplierShippingTime = String(firstImportValue(normalizedObj, ['Versandzeit','Lieferzeit Text','Shipping Time']) || '').trim();
+    const importHints = String(firstImportValue(normalizedObj, ['Hinweise','Notizen','Notiz','Bemerkung']) || '').trim();
     const buy = normalizeImportNumber(firstImportValue(normalizedObj, ['EK','Preis EK','Einkaufspreis','Kosten','Preis Einkauf']));
     const ship = normalizeImportNumber(firstImportValue(normalizedObj, ['Versand','Versand mind.','Versand ab','Versandkosten','Shipping']));
     const sell = normalizeImportNumber(firstImportValue(normalizedObj, ['VK','Preis VK (ebay)','Preis VK','Verkaufspreis','Verkaufspreis eBay','Ebay Preis']));
@@ -5439,6 +5490,13 @@ function buildImportDraftFromRows(rows,sourceLabel){
       createdAt: parseLooseDateIso(firstImportValue(normalizedObj, ['createdAt','Created At','Erstellt Am']) || '', new Date().toISOString()),
       updatedAt: parseLooseDateIso(firstImportValue(normalizedObj, ['updatedAt','Updated At','Aktualisiert Am']) || '', new Date().toISOString()),
       notes: String(firstImportValue(normalizedObj, ['Notizen','Notiz','Bemerkung']) || '').trim(),
+      sourceProvider: supplierName || supplierId || '',
+      sourceType: sourceLabel && String(sourceLabel).toLowerCase().includes('google') ? 'google_sheet_import' : 'csv_import',
+      sourceRisk: '',
+      sourceDomain: supplierLink ? sourceDomain(supplierLink) : '',
+      sourceAnalysisStatus: 'importiert',
+      sourceNote: importHints,
+      sourceOnlineShipping: supplierShippingTime,
       created: new Date().toLocaleDateString('de-DE'),
       importSource: sourceLabel || 'CSV'
     };
@@ -5450,6 +5508,16 @@ function buildImportDraftFromRows(rows,sourceLabel){
 
   return draft;
 }
+function triggerBrainRefresh(reason){
+  try{
+    if(window.ElyonBusinessBrain && typeof window.ElyonBusinessBrain.recalculateAll === 'function'){
+      window.ElyonBusinessBrain.recalculateAll();
+    }
+    if(window.ElyonBusinessBrain && typeof window.ElyonBusinessBrain.dispatchBrainEvent === 'function'){
+      window.ElyonBusinessBrain.dispatchBrainEvent('elyon:brain-updated', { source: reason || 'tool-update' });
+    }
+  }catch(err){}
+}
 function csvToImportDraft(text,sourceLabel){
   const cleanText = String(text || '').trim();
   if(!cleanText) throw new Error('Keine CSV-Daten erhalten.');
@@ -5458,10 +5526,11 @@ function csvToImportDraft(text,sourceLabel){
   const lines = normalizedText.split(String.fromCharCode(10)).filter(function(line){ return line.trim(); });
   if(lines.length < 2) throw new Error('CSV enthält keine Produktdaten.');
 
-  const header = parseCSVLine(lines[0]).map(function(x){ return x.trim(); });
+  const delimiter = detectCsvDelimiter(lines[0]);
+  const header = parseCSVLine(lines[0], delimiter).map(function(x){ return x.trim(); });
   const rows = [];
   for(let i=1;i<lines.length;i++){
-    const cols = parseCSVLine(lines[i]);
+    const cols = parseCSVLine(lines[i], delimiter);
     const obj = {};
     header.forEach(function(h,idx){ obj[h] = cols[idx] || ''; });
     rows.push(obj);
@@ -5582,6 +5651,47 @@ function googleSheetCsvCandidates(input){
     .filter(Boolean)
     .filter(function(value,index,list){ return list.indexOf(value) === index; });
 }
+function parseGoogleSheetLink(input){
+  const raw = String(input || '').trim();
+  if(!raw) throw new Error('Bitte Google-Sheets-Link einfügen.');
+  let parsed;
+  try{
+    parsed = new URL(raw);
+  }catch(err){
+    throw new Error('Das sieht nicht wie ein gültiger Google-Sheets-Link aus.');
+  }
+  const standardMatch = parsed.pathname.match(/\/spreadsheets\/d\/([^/]+)/);
+  const publishedMatch = parsed.pathname.match(/\/spreadsheets\/d\/e\/([^/]+)/);
+  if(!standardMatch && !publishedMatch) throw new Error('Das sieht nicht wie ein gültiger Google-Sheets-Link aus.');
+  const gid = parsed.searchParams.get('gid') || ((parsed.hash || '').match(/gid=([0-9]+)/) || [])[1] || '0';
+  if(publishedMatch){
+    return { kind:'published', publishedId:publishedMatch[1], gid:gid, input:raw };
+  }
+  return { kind:'standard', spreadsheetId:standardMatch[1], gid:gid, input:raw };
+}
+function googleSheetCsvUrl(input){
+  const parsed = parseGoogleSheetLink(input);
+  if(parsed.kind === 'published'){
+    return 'https://docs.google.com/spreadsheets/d/e/' + parsed.publishedId + '/pub?output=csv';
+  }
+  return 'https://docs.google.com/spreadsheets/d/' + parsed.spreadsheetId + '/export?format=csv&gid=' + parsed.gid;
+}
+function googleSheetCsvCandidates(input){
+  const parsed = parseGoogleSheetLink(input);
+  if(parsed.kind === 'published'){
+    const base = 'https://docs.google.com/spreadsheets/d/e/' + parsed.publishedId + '/pub';
+    return [
+      base + '?output=csv',
+      base + '?gid=' + parsed.gid + '&single=true&output=csv',
+      base + '?gid=' + parsed.gid + '&output=csv'
+    ].filter(function(value,index,list){ return list.indexOf(value) === index; });
+  }
+  return [
+    'https://docs.google.com/spreadsheets/d/' + parsed.spreadsheetId + '/export?format=csv&gid=' + parsed.gid,
+    'https://docs.google.com/spreadsheets/d/' + parsed.spreadsheetId + '/gviz/tq?tqx=out:csv&gid=' + parsed.gid,
+    'https://docs.google.com/spreadsheets/d/' + parsed.spreadsheetId + '/pub?output=csv&gid=' + parsed.gid
+  ].filter(function(value,index,list){ return list.indexOf(value) === index; });
+}
 function getLocalAppCandidates(){
   return [
     'http://127.0.0.1:4173/',
@@ -5668,13 +5778,10 @@ async function fetchGoogleSheetCsvViaBackend(input){
 function fetchGoogleSheetViaGvizJsonp(input){
   return new Promise(function(resolve,reject){
     try{
-      const raw = String(input || '').trim();
-      const match = raw.match(/\/spreadsheets\/d\/([^/]+)/);
-      if(!match) throw new Error('Das sieht nicht wie ein gültiger Google-Sheets-Link aus.');
-      const id = match[1];
-      let gid = '0';
-      const gidMatch = raw.match(/[?&#]gid=([0-9]+)/);
-      if(gidMatch) gid = gidMatch[1];
+      const parsed = parseGoogleSheetLink(input);
+      if(parsed.kind !== 'standard') throw new Error('Google Visualization wird nur fuer klassische Google-Sheets-Links verwendet.');
+      const id = parsed.spreadsheetId;
+      const gid = parsed.gid;
       const callbackName = '__elyonSheetImportCallback_' + Date.now() + '_' + Math.random().toString(16).slice(2);
       const cleanup = function(script){
         try{ delete window[callbackName]; }catch(err){ window[callbackName] = undefined; }
