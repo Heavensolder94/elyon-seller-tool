@@ -9575,10 +9575,22 @@ function readSettingsFromForm(){
     start:resolveTabId($('setStart')?.value||'dashboardTab')
   };
 }
+function syncGeneralAiSettingsToAgentSecurity(){
+  if(typeof state !== 'object' || !state) return;
+  const confirmLiveActions = appSettings.aiConfirmLiveActions !== false;
+  const sandboxMode = appSettings.aiSandboxMode !== false;
+  const advancedMode = appSettings.aiAdvancedMode === true;
+  state.securityMode = confirmLiveActions;
+  state.safetyMode = confirmLiveActions;
+  state.sandboxMode = sandboxMode;
+  state.advancedMode = advancedMode;
+  saveState();
+}
 function saveSettings(){
   appSettings = { ...defaultSettings, ...readSettingsFromForm() };
   appSettings.brainModuleSettings = normalizeBrainModuleSettings(appSettings.brainModuleSettings);
   localStorage.setItem('elyonSettings', JSON.stringify(appSettings));
+  syncGeneralAiSettingsToAgentSecurity();
   applySettings();
   render();
   if(typeof window.refreshElyonBusinessBrain === 'function') window.refreshElyonBusinessBrain();
@@ -9589,6 +9601,7 @@ function resetSettings(){
   appSettings = {...defaultSettings};
   appSettings.brainModuleSettings = normalizeBrainModuleSettings(appSettings.brainModuleSettings);
   localStorage.setItem('elyonSettings', JSON.stringify(appSettings));
+  syncGeneralAiSettingsToAgentSecurity();
   applySettings();
   render();
 }
@@ -13042,6 +13055,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   };
 
   const state = loadState();
+  syncGeneralAiSettingsToAgentSecurity();
   loadAiWorkflowFromServer().then(() => {
     render();
   });
@@ -16416,6 +16430,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   window.reloadVirtualAgentsSettings = () => {
     const next = loadState();
     Object.assign(state, next);
+    syncGeneralAiSettingsToAgentSecurity();
     activePanel = normalizePanel(state.activePanel);
     render();
   };
