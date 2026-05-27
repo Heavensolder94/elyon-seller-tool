@@ -6397,6 +6397,7 @@ function renderProductAiTinyBadge(product){
 function productCardHTML(p,small=false){
   const c = calcProduct(p);
   const s = statusFromScore(c.score);
+  const ebayReady = c.score >= 65;
   const health = productHealth(p);
   const lifecycle = productStatusMeta(p.productStatus || p.status || 'Draft');
   const ss = getSalesStatsForProduct(p.id);
@@ -6444,10 +6445,15 @@ function productCardHTML(p,small=false){
   html += '<div class="progress"><div class="bar" style="width:' + c.score + '%"></div></div>';
   html += '<div class="muted" style="margin-top:8px">Score von 100</div>';
   html += '<div class="muted" style="margin-top:8px">Gesundheit: '+health.score+'/100 · '+health.text+'</div>';
+  if(ebayReady){
+    html += '<button style="margin-top:12px;width:100%" onclick="prepareProductForEbayDraft(\'' + escapeHtml(String(p.id)) + '\')">Zu eBay Listing</button>';
+  }else{
+    html += '<div class="muted" style="margin-top:12px">eBay-Verbindung wird ab Score 65 hervorgehoben.</div>';
+  }
   html += '</div>';
   html += '<div class="actions">';
   html += '<button class="secondary" id="' + getProductAiUiId('productAiBtn', p.id) + '" onclick="triggerProductDecision(' + JSON.stringify(String(p.id)) + ')">KI prüfen</button>';
-  html += '<button class="secondary" onclick="prepareProductForEbayDraft(\'' + escapeHtml(String(p.id)) + '\')">Für eBay vorbereiten</button>';
+  html += '<button class="' + (ebayReady ? '' : 'secondary') + '" onclick="prepareProductForEbayDraft(\'' + escapeHtml(String(p.id)) + '\')">' + (ebayReady ? 'eBay Listing vorbereiten' : 'Für eBay vorbereiten') + '</button>';
   html += '<button class="secondary" onclick="editProduct(' + p.id + ')">Bearbeiten</button>';
   html += '<button class="secondary" onclick="toggleShopifyCandidate(' + p.id + ')">' + shopifyText + '</button>';
   html += '<button class="secondary" onclick="duplicateProduct(' + p.id + ')">Duplizieren</button>';
