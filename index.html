@@ -3192,8 +3192,35 @@ const GOOGLE_SHEETS_AUTO_SYNC_KEYS = {
   intervalMinutes: 'elyon_google_sheets_auto_sync_interval_minutes',
   lastRunAt: 'elyon_google_sheets_auto_sync_last_run_at',
 };
+const GOOGLE_SHEETS_SYNC_ERROR_KEYS = {
+  inventory: 'elyon_google_sheets_sync_error_inventory',
+  suppliers: 'elyon_google_sheets_sync_error_suppliers',
+  sales: 'elyon_google_sheets_sync_error_sales',
+  costs: 'elyon_google_sheets_sync_error_costs',
+  load: 'elyon_google_sheets_sync_error_load',
+};
 let googleSheetsAutoSyncTimer = null;
 let googleSheetsAutoSyncInFlight = false;
+function getGoogleSheetsSyncError(type){
+  const key = GOOGLE_SHEETS_SYNC_ERROR_KEYS[type];
+  return key ? String(localStorage.getItem(key) || '') : '';
+}
+function setGoogleSheetsSyncError(type, message){
+  const key = GOOGLE_SHEETS_SYNC_ERROR_KEYS[type];
+  if(!key) return;
+  localStorage.setItem(key, String(message || ''));
+}
+function clearGoogleSheetsSyncError(type){
+  const key = GOOGLE_SHEETS_SYNC_ERROR_KEYS[type];
+  if(!key) return;
+  localStorage.removeItem(key);
+}
+function setGoogleSheetsSyncLoadError(message){
+  localStorage.setItem(GOOGLE_SHEETS_SYNC_ERROR_KEYS.load, String(message || ''));
+}
+function clearGoogleSheetsSyncLoadError(){
+  localStorage.removeItem(GOOGLE_SHEETS_SYNC_ERROR_KEYS.load);
+}
 function sheetText(value){
   if(value === null || value === undefined) return '';
   if(value instanceof Date) return value.toISOString();
