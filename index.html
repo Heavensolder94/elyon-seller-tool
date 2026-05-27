@@ -5161,7 +5161,22 @@ function exportCSV(){
   });
   downloadCSV(rows,'elyon-produktliste.csv');
 }
-function parseCSVLine(line){ let res=[],cur='',q=false; for(let i=0;i<line.length;i++){let ch=line[i]; if(ch==='"'&&line[i+1]==='"'){cur+='"';i++;} else if(ch==='"'){q=!q;} else if(ch===';'&&!q){res.push(cur);cur='';} else {cur+=ch;}} res.push(cur); return res; }
+function detectCsvDelimiter(line){
+  const text = String(line || '');
+  let inQuotes = false;
+  let semicolons = 0;
+  let commas = 0;
+  for(let i=0;i<text.length;i++){
+    const ch = text[i];
+    if(ch === '"' && text[i+1] === '"'){ i++; continue; }
+    if(ch === '"'){ inQuotes = !inQuotes; continue; }
+    if(inQuotes) continue;
+    if(ch === ';') semicolons++;
+    if(ch === ',') commas++;
+  }
+  return semicolons >= commas ? ';' : ',';
+}
+function parseCSVLine(line, delimiter){ let res=[],cur='',q=false; const sep = delimiter || detectCsvDelimiter(line); for(let i=0;i<line.length;i++){let ch=line[i]; if(ch==='"'&&line[i+1]==='"'){cur+='"';i++;} else if(ch==='"'){q=!q;} else if(ch===sep&&!q){res.push(cur);cur='';} else {cur+=ch;}} res.push(cur); return res; }
 function nextImportSku(existingSkuSet){
   let num = 1;
   while(true){
