@@ -16,6 +16,7 @@ const mobileModuleScripts = [
   "mobile-push-v1.js",
   "mobile-agents-v1.js",
   "mobile-bootstrap.js",
+  "mobile-more-ui.js",
 ];
 
 function injectMobileScripts(html) {
@@ -42,6 +43,7 @@ const filesToMirror = [
   ["mobile-push-v1.js", "public/mobile-push-v1.js"],
   ["mobile-agents-v1.js", "public/mobile-agents-v1.js"],
   ["mobile-bootstrap.js", "public/mobile-bootstrap.js"],
+  ["mobile-more-ui.js", "public/mobile-more-ui.js"],
   ["manifest.json", "public/manifest.json"],
 ];
 
