@@ -270,7 +270,7 @@ async function getAccessTokenFromRefreshToken(environment, refreshToken) {
     body: new URLSearchParams({
       grant_type: "refresh_token",
       refresh_token: refreshToken,
-      scope: "https://api.ebay.com/oauth/api_scope",
+      scope: getScopes().join(" "),
     }),
   });
 
@@ -301,6 +301,7 @@ async function handleToken(req, res) {
     environment,
     token_type: data.token_type || null,
     expires_in: data.expires_in || null,
+    scope: data.scope || null,
     access_token_preview: data.access_token ? `${String(data.access_token).slice(0, 12)}...` : null,
     stored_refresh_token_preview: String(refreshToken).slice(0, 12) + "...",
     store_mode: storeDescription.mode,
@@ -359,6 +360,7 @@ async function handleOrders(req, res) {
       ok: false,
       error: data.errors?.[0]?.message || data.message || "eBay Orders Fehler",
       details: data,
+      requested_scope: refreshed?.scope || getScopes().join(" "),
     });
   }
 
