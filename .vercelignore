@@ -6,6 +6,22 @@ api/mobile-summary.js
 api/feature-flags.js
 api/product-vision.js
 
+# Nonessential / compatibility API files stay in GitHub but are excluded from Hobby deployments.
+# Important live routes are handled through consolidated functions and vercel.json rewrites.
+api/ai-router.js
+api/ai-workflow.js
+api/google-sheets-sync.js
+api/ping.js
+api/cj-status.js
+api/ebay-status.js
+api/ebay-token.js
+api/ebay-orders.js
+api/ebay-search.js
+api/ebay-login-url.js
+api/google-drive-status.js
+api/google-drive-auth-url.js
+api/google-drive-upload-backup.js
+
 CHATGPT_PROMPT.md
 PRODUKTBESCHAFFUNG_DOKU.md
 PRODUKTBESCHAFFUNG_STATUS_CHATGPT.md
