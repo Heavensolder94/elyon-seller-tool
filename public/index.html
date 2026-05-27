@@ -3423,7 +3423,7 @@ function deriveSuppliersFromProducts(){
   return Array.from(map.values());
 }
 function getInventorySyncRecords(){
-  return Array.isArray(products) ? products : [];
+  return Array.isArray(products) ? products.filter(isMeaningfulInventoryProductRecord) : [];
 }
 function getSupplierSyncRecords(){
   const stored = loadStoredArray('elyonSuppliers');
@@ -3695,6 +3695,46 @@ function mapGoogleSheetInventoryRecord(record, index){
     updatedAt: createdAt
   });
 }
+function isMeaningfulInventorySheetRecord(record){
+  if(!record || typeof record !== 'object') return false;
+  return [
+    sheetRecordField(record, ['Artikel-ID', 'ArtikelId', 'SKU', 'sku']),
+    sheetRecordField(record, ['Bezeichnung', 'Produktname', 'Name', 'Titel', 'Artikelname']),
+    sheetRecordField(record, ['Ebay Link', 'eBay Link', 'Ebay URL']),
+    sheetRecordField(record, ['Lieferant', 'Supplier']),
+    sheetRecordField(record, ['Typ', 'Kategorie', 'Category']),
+    sheetRecordField(record, ['Preis EK', 'EK', 'Einkaufspreis']),
+    sheetRecordField(record, ['Preis VK (ebay)', 'Preis VK', 'VK', 'Verkaufspreis']),
+    sheetRecordField(record, ['Stock', 'Bestand']),
+    sheetRecordField(record, ['Hinweise', 'Notizen', 'Notiz'])
+  ].some(function(value){
+    return String(value === undefined || value === null ? '' : value).trim() !== '';
+  });
+}
+function isMeaningfulInventoryProductRecord(product){
+  if(!product || typeof product !== 'object') return false;
+  const rawName = String(product.name || product.title || '').trim();
+  const hasIdentity = !!String(product.sku || product.articleId || product.ebayLink || product.ebayUrl || '').trim();
+  const hasContent = [
+    product.type,
+    product.category,
+    product.buy,
+    product.ship,
+    product.sell,
+    product.stock,
+    product.supplierName,
+    product.supplier,
+    product.delivery,
+    product.deliveryTime,
+    product.shipFrom,
+    product.shippingFrom,
+    product.notes
+  ].some(function(value){
+    return String(value === undefined || value === null ? '' : value).trim() !== '';
+  });
+  if(rawName && rawName !== 'Importiertes Produkt') return true;
+  return hasIdentity || hasContent;
+}
 function mapGoogleSheetSupplierRecord(record, index){
   const supplierId = sheetRecordField(record, ['Supplier-ID', 'SupplierId', 'ID']);
   const name = sheetRecordField(record, ['Supplier', 'Name', 'Suppliername']) || ('Supplier ' + (index + 1));
@@ -3728,9 +3768,10 @@ function mapGoogleSheetCostRecord(record, index){
   };
 }
 function replaceInventoryFromSheetRecords(records){
-  const next = Array.isArray(records) ? records.map(mapGoogleSheetInventoryRecord).filter(function(item){
-    return !!String(item.sku || item.articleId || item.name || '').trim();
-  }) : [];
+  const next = Array.isArray(records) ? records
+    .filter(isMeaningfulInventorySheetRecord)
+    .map(mapGoogleSheetInventoryRecord)
+    .filter(isMeaningfulInventoryProductRecord) : [];
   products = normalizeProductsCollection(next);
   save();
   return products;
@@ -5467,6 +5508,15 @@ function buildImportDraftFromRows(rows,sourceLabel){
 
   normalizedRows.forEach(function(obj, index){
     const normalizedObj = createNormalizedImportRow(obj);
+    const importedName = String(firstImportValue(normalizedObj, ['Bezeichnung','Name','Titel','Produktname','Artikelname','Produkt','Artikel','Artikelbezeichnung']) || '').trim();
+    const importedArticleId = String(firstImportValue(normalizedObj, ['SKU','Sku','sku','Artikel-ID','Artikel ID','Artikelnummer','Artikel Nummer','Artikel-Nr.','Artikel-Nr','Artikel Nr','ArtikelNr']) || '').trim();
+    const importedEbayLink = String(firstImportValue(normalizedObj, ['Ebay Link','eBay Link','eBay URL','Link','URL']) || '').trim();
+    const importedSupplier = String(firstImportValue(normalizedObj, ['Lieferanten-ID','Lieferanten Id','Supplier ID','Supplier','Anbieter-ID','Lieferant']) || '').trim();
+    const importedBuy = normalizeImportNumber(firstImportValue(normalizedObj, ['EK','Preis EK','Einkaufspreis','Kosten','Preis Einkauf']));
+    const importedSell = normalizeImportNumber(firstImportValue(normalizedObj, ['VK','Preis VK (ebay)','Preis VK','Verkaufspreis','Verkaufspreis eBay','Ebay Preis']));
+    if(!importedName && !importedArticleId && !importedEbayLink && !importedSupplier && importedBuy === 0 && importedSell === 0){
+      return;
+    }
 
     let sku = String(firstImportValue(normalizedObj, ['SKU','Sku','sku','Artikel-ID','Artikel ID','Artikelnummer','Artikel Nummer','Artikel-Nr.','Artikel-Nr','Artikel Nr','ArtikelNr']) || '').trim().toUpperCase();
     let importStatus = 'bereit';
@@ -5481,7 +5531,7 @@ function buildImportDraftFromRows(rows,sourceLabel){
     }
     seenInImport.add(sku);
 
-    const name = String(firstImportValue(normalizedObj, ['Bezeichnung','Name','Titel','Produktname','Artikelname','Produkt','Artikel','Artikelbezeichnung']) || '').trim() || 'Importiertes Produkt';
+    const name = importedName || 'Importiertes Produkt';
     const supplierId = String(firstImportValue(normalizedObj, ['Lieferanten-ID','Lieferanten Id','Supplier ID','Supplier','Anbieter-ID']) || '').trim();
     const ebayItemId = String(firstImportValue(normalizedObj, ['eBay-Artikelnummer','eBay Artikelnummer','eBay Nummer','eBay-ID']) || '').trim();
     const supplierLink = String(firstImportValue(normalizedObj, ['Lieferanten-Link','Lieferanten Link','Link','URL']) || '').trim();
