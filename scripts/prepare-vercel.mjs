@@ -15,6 +15,7 @@ const mobileModuleScripts = [
   "mobile-brain-v2.js",
   "mobile-push-v1.js",
   "mobile-agents-v1.js",
+  "mobile-bootstrap.js",
 ];
 
 function injectMobileScripts(html) {
@@ -40,6 +41,7 @@ const filesToMirror = [
   ["mobile-brain-v2.js", "public/mobile-brain-v2.js"],
   ["mobile-push-v1.js", "public/mobile-push-v1.js"],
   ["mobile-agents-v1.js", "public/mobile-agents-v1.js"],
+  ["mobile-bootstrap.js", "public/mobile-bootstrap.js"],
   ["manifest.json", "public/manifest.json"],
 ];
 
