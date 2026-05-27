@@ -245,7 +245,14 @@ function ensureHeaderRow_(sheet, fallbackHeaders) {
     sheet.getRange(1, 1, 1, fallbackHeaders.length).setValues([fallbackHeaders]);
     return fallbackHeaders.slice();
   }
-  return row;
+  const normalized = row.map(function(header, index) {
+    if (header) return header;
+    return index < fallbackHeaders.length ? String(fallbackHeaders[index] || "").trim() : "";
+  });
+  if (normalized.some(function(header, index) { return header !== row[index]; })) {
+    sheet.getRange(1, 1, 1, normalized.length).setValues([normalized]);
+  }
+  return normalized;
 }
 
 function buildExistingRowIndex_(sheet, keyIndex, width) {

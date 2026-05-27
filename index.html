@@ -3823,6 +3823,20 @@ function mapGoogleSheetCostRecord(record, index){
     created: todayInputDate()
   };
 }
+function isMeaningfulGoogleSheetSaleRecord(record){
+  if(!record || typeof record !== 'object') return false;
+  const dateValue = sheetRecordField(record, ['Datum', 'Date', 'createdAt', 'created']);
+  const product = sheetRecordField(record, ['Produkt', 'Bezeichnung', 'Product', 'name', 'title']);
+  const saleValue = sheetNumber(sheetRecordField(record, ['Verkauf (€)', 'Verkaufspreis', 'Preis VK (ebay)', 'Preis VK', 'VK', 'Preis', 'Umsatz']));
+  const costValue = sheetNumber(sheetRecordField(record, ['Einkauf (€)', 'Preis EK', 'EK', 'Cost', 'Einkaufspreis']));
+  const profitValue = sheetNumber(sheetRecordField(record, ['Gewinn (€)', 'Gewinn', 'Profit']));
+  const hasValidDate = !!sheetRecordDate(dateValue);
+  const hasProduct = !!String(product || '').trim();
+  const hasNumbers = [saleValue, costValue, profitValue].some(function(value){
+    return Number.isFinite(Number(value)) && Number(value) !== 0;
+  });
+  return hasValidDate || hasProduct || hasNumbers;
+}
 function replaceInventoryFromSheetRecords(records){
   const next = Array.isArray(records) ? records
     .filter(isMeaningfulInventorySheetRecord)
@@ -3874,7 +3888,7 @@ async function loadFromGoogleSheet(type){
   }
 }
 function replaceSalesFromSheetRecords(records){
-  const next = Array.isArray(records) ? records.map(mapGoogleSheetSaleRecord).filter(function(item){
+  const next = Array.isArray(records) ? records.filter(isMeaningfulGoogleSheetSaleRecord).map(mapGoogleSheetSaleRecord).filter(function(item){
     return !!String(item.productId || item.articleId || item.id || '').trim() || !!String(item.product || '').trim();
   }) : [];
   sales = next;
