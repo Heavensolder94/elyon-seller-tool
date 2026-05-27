@@ -13,6 +13,11 @@ import {
   uploadBackupToDrive,
   validateBackupData,
 } from "../lib/google-drive.js";
+import {
+  getGoogleDriveTokenStoreDescription,
+  readGoogleDriveToken,
+  writeGoogleDriveToken,
+} from "../lib/google-drive-token-store.js";
 
 function readBody(req) {
   if (req.body && typeof req.body === "object") return req.body;
@@ -45,30 +50,46 @@ function getRequestedAction(req, body) {
   return path || "status";
 }
 
+async function getStoredRefreshToken(req) {
+  const cookieToken = getRefreshTokenCookie(req);
+  if (cookieToken) return { refreshToken: cookieToken, source: "cookie" };
+
+  const stored = await readGoogleDriveToken();
+  const refreshToken = stored?.refresh_token || stored?.refreshToken || "";
+  return { refreshToken, source: refreshToken ? "token-store" : "none", stored };
+}
+
 async function handleStatus(req, res) {
   try {
     if (req.method !== "GET" && req.method !== "POST") {
       return res.status(405).json({ ok: false, error: "Nur GET oder POST erlaubt." });
     }
 
-    const refreshToken = getRefreshTokenCookie(req);
+    const tokenResult = await getStoredRefreshToken(req);
     const meta = getLastBackupMeta(req);
+    const store = getGoogleDriveTokenStoreDescription();
 
-    if (!refreshToken) {
+    if (!tokenResult.refreshToken) {
       return res.status(200).json({
         ok: true,
         connected: false,
         service: "Google Drive",
         error: "Nicht verbunden. Bitte Google Drive verbinden.",
+        tokenSource: tokenResult.source,
+        store_mode: store.mode,
+        store_target: store.key || store.path || null,
         ...meta,
       });
     }
 
-    const tokenData = await refreshGoogleAccessToken(refreshToken);
+    const tokenData = await refreshGoogleAccessToken(tokenResult.refreshToken);
     return res.status(200).json({
       ok: true,
       connected: true,
       service: "Google Drive",
+      tokenSource: tokenResult.source,
+      store_mode: store.mode,
+      store_target: store.key || store.path || null,
       tokenType: tokenData.token_type || "Bearer",
       scope: tokenData.scope || null,
       expiresIn: tokenData.expires_in || null,
@@ -76,11 +97,14 @@ async function handleStatus(req, res) {
     });
   } catch (error) {
     const meta = getLastBackupMeta(req);
+    const store = getGoogleDriveTokenStoreDescription();
     return res.status(200).json({
       ok: true,
       connected: false,
       service: "Google Drive",
       error: error.message || "Google Drive Status konnte nicht geprueft werden.",
+      store_mode: store.mode,
+      store_target: store.key || store.path || null,
       ...meta,
     });
   }
@@ -192,6 +216,17 @@ async function handleCallback(req, res) {
       });
     }
 
+    const storeResult = await writeGoogleDriveToken({
+      refresh_token: tokenData.refresh_token,
+      access_token: tokenData.access_token || null,
+      token_type: tokenData.token_type || null,
+      expires_in: tokenData.expires_in || null,
+      scope: tokenData.scope || null,
+      saved_at: new Date().toISOString(),
+      source: "oauth-code-grant",
+    });
+    const store = getGoogleDriveTokenStoreDescription();
+
     const headers = buildCookieHeaders(req, [
       {
         name: "elyon_google_drive_refresh_token",
@@ -225,6 +260,10 @@ async function handleCallback(req, res) {
       service: "Google Drive",
       connected: true,
       message: "Google Drive verbunden.",
+      stored: storeResult.ok,
+      storage_error: storeResult.ok ? null : storeResult.error,
+      store_mode: store.mode,
+      store_target: store.key || store.path || null,
     });
   } catch (error) {
     const headers = buildCookieHeaders(req, [
@@ -255,11 +294,12 @@ async function handleUploadBackup(req, res) {
       return res.status(405).json({ ok: false, error: "Nur POST erlaubt." });
     }
 
-    const refreshToken = getRefreshTokenCookie(req);
-    if (!refreshToken) {
+    const tokenResult = await getStoredRefreshToken(req);
+    if (!tokenResult.refreshToken) {
       return res.status(401).json({
         ok: false,
         error: "Google Drive ist nicht verbunden. Bitte zuerst verbinden.",
+        tokenSource: tokenResult.source,
       });
     }
 
@@ -278,7 +318,7 @@ async function handleUploadBackup(req, res) {
     const requestedName = String(body.fileName || body.filename || "").trim();
     const fileName = requestedName || formatDriveBackupFilename(normalized.exportedAt);
     const result = await uploadBackupToDrive({
-      refreshToken,
+      refreshToken: tokenResult.refreshToken,
       backup: normalized,
       fileName,
     });
@@ -318,6 +358,7 @@ async function handleUploadBackup(req, res) {
       ok: true,
       service: "Google Drive",
       connected: true,
+      tokenSource: tokenResult.source,
       file: result.file,
       fileName: result.fileName,
       uploadedAt: result.uploadedAt,
