@@ -3494,36 +3494,32 @@ function getCostSyncRecords(){
 function mapProductToSheetRow(product){
   const p = product || {};
   const calc = calcProductSafe(p) || {};
-  const totalCost = (sheetNumber(p.buy) || 0) + (sheetNumber(p.ship) || 0);
+  const buy = sheetNumber(p.buy);
+  const ship = sheetNumber(p.ship);
+  const totalCost = (buy || 0) + (ship || 0);
+  const targetProfit = sheetNumber(p.targetProfit ?? appSettings.profit);
+  const recommendedPrice = sheetNumber(p.recommendedPrice ?? calc.recommendedPrice);
+  const fee = sheetNumber(p.fee ?? appSettings.fees);
+  const profit = sheetNumber(p.profit ?? calc.profit);
   return [
-    sheetText(p.id || p.articleId || p.sku || ''),
-    sheetText(p.name || p.title || 'Unbenanntes Produkt'),
+    sheetText(p.articleId || p.sku || p.id || ''),
+    sheetText(p.name || p.title || p.productName || 'Unbenanntes Produkt'),
     sheetText(p.type || p.category || 'Produkt'),
-    sheetNumber(p.buy),
-    sheetNumber(p.ship),
+    buy,
+    ship,
     totalCost,
     sheetNumber(p.sell),
-    sheetNumber(p.fee ?? appSettings.fees),
-    sheetNumber(calc.profit),
-    sheetNumber(p.targetProfit ?? appSettings.profit),
-    sheetNumber(calc.recommendedPrice),
+    fee,
+    profit,
+    targetProfit,
+    recommendedPrice,
     sheetText(p.shipFrom || p.shippingFrom || ''),
     sheetText(p.stock || p.qty || ''),
     sheetText(normalizeProductStatus(p.productStatus || p.status || 'Draft', 'Draft')),
     sheetText(p.supplierName || p.supplier || p.supplierId || ''),
     sheetText(p.delivery || p.deliveryTime || ''),
-    sheetText(p.shipFrom || p.shippingFrom || ''),
-    sheetText(p.carrier || ''),
-    sheetText(p.returnFlag || 'no'),
-    sheetText(p.shipDate || ''),
     sheetText(p.ebayLink || p.ebayUrl || p.ebayItemId || ''),
     sheetText(p.notes || ''),
-    sheetText(p.productStatus || p.status || 'Draft'),
-    sheetNumber(p.listingScore || 0),
-    sheetText(Array.isArray(p.issues) ? p.issues.join(' | ') : sheetText(p.issues || '')),
-    sheetText(p.createdAt || ''),
-    sheetText(p.updatedAt || ''),
-    sheetText(p.lastCheckedAt || ''),
   ];
 }
 function mapSupplierToSheetRow(supplier){
@@ -3718,7 +3714,12 @@ function mapGoogleSheetSaleRecord(record, index){
 }
 function mapGoogleSheetInventoryRecord(record, index){
   const articleId = sheetRecordField(record, ['Artikel-ID', 'ArtikelId', 'SKU', 'sku']);
-  const name = sheetRecordField(record, ['Bezeichnung', 'Produktname', 'Name', 'Titel', 'Artikelname']) || 'Importiertes Produkt';
+  const primaryName = sheetRecordField(record, ['Bezeichnung']);
+  const fallbackName = sheetRecordField(record, ['Produktname', 'Name', 'Titel', 'Artikelname', 'Produkt']);
+  const resolvedPrimaryName = String(primaryName || '').trim();
+  const resolvedFallbackName = String(fallbackName || '').trim();
+  const resolvedArticleId = String(articleId || '').trim();
+  const name = (resolvedPrimaryName && resolvedPrimaryName !== resolvedArticleId ? resolvedPrimaryName : (resolvedFallbackName || resolvedPrimaryName)) || 'Importiertes Produkt';
   const type = sheetRecordField(record, ['Typ', 'Kategorie', 'Category']) || 'Produkt';
   const createdAt = new Date().toISOString();
   return normalizeProductRecord({
