@@ -2448,8 +2448,21 @@ function normalizeProductRecord(product){
   const lastCheckedAt = p.lastCheckedAt ? parseLooseDateIso(p.lastCheckedAt, '') : '';
   const created = p.created || new Date(createdAt).toLocaleDateString('de-DE');
   const updated = p.updated || new Date(updatedAt).toLocaleDateString('de-DE');
+  const name = String(p.name || p.title || p.productName || '').trim();
+  const title = String(p.title || p.name || p.productName || '').trim();
   return {
     ...p,
+    name,
+    title,
+    sku: String(p.sku || p.articleId || '').trim(),
+    articleId: String(p.articleId || p.sku || '').trim(),
+    supplierName: String(p.supplierName || p.supplier || '').trim(),
+    supplier: String(p.supplier || p.supplierName || '').trim(),
+    type: String(p.type || p.category || '').trim(),
+    category: String(p.category || p.type || '').trim(),
+    ebayLink: String(p.ebayLink || p.ebayUrl || '').trim(),
+    ebayUrl: String(p.ebayUrl || p.ebayLink || '').trim(),
+    notes: String(p.notes || '').trim(),
     productStatus: status,
     status,
     listingScore,
@@ -7685,7 +7698,7 @@ function render(){
 
   const list=$('list'); if(!list) return;
   const search=($('search')?.value||'').toLowerCase(), filter=$('filter')?.value||'all', sort=$('sort')?.value||'score';
-  let items=[...products].filter(p=>(p.name||'').toLowerCase().includes(search));
+  let items=[...products].filter(p=>String(p.name || '').toLowerCase().includes(search));
   items=items.filter(p=>{
     const st=statusFromScore(calcProduct(p).score).key;
     const ai = getProductAiDecision(p);
