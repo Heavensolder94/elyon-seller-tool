@@ -1,5 +1,11 @@
 .vercel/
 api/elyon/
+
+# Hobby-plan protection: prepared beta endpoints stay in GitHub but are not deployed as extra Serverless Functions.
+api/mobile-summary.js
+api/feature-flags.js
+api/product-vision.js
+
 CHATGPT_PROMPT.md
 PRODUKTBESCHAFFUNG_DOKU.md
 PRODUKTBESCHAFFUNG_STATUS_CHATGPT.md
