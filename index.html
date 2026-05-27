@@ -5195,10 +5195,34 @@ function firstImportValue(obj, keys){
   }
   return '';
 }
+function normalizeImportHeader(value){
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/ä/g,'ae')
+    .replace(/ö/g,'oe')
+    .replace(/ü/g,'ue')
+    .replace(/ß/g,'ss')
+    .replace(/[()[\]._-]+/g,' ')
+    .replace(/[^a-z0-9\s]/g,' ')
+    .replace(/\s+/g,' ')
+    .trim();
+}
+function createNormalizedImportRow(obj){
+  const raw = obj && typeof obj === 'object' ? obj : {};
+  const next = {};
+  Object.keys(raw).forEach(function(key){
+    const original = String(key || '').trim();
+    const normalized = normalizeImportHeader(original);
+    if(original && !Object.prototype.hasOwnProperty.call(next, original)) next[original] = raw[key];
+    if(normalized && !Object.prototype.hasOwnProperty.call(next, normalized)) next[normalized] = raw[key];
+  });
+  return next;
+}
 function buildImportDraftFromRows(rows,sourceLabel){
   const normalizedRows = Array.isArray(rows) ? rows.filter(function(row){
     if(!row || typeof row !== 'object') return false;
-    return Object.values(row).some(function(value){
+    return Object.values(createNormalizedImportRow(row)).some(function(value){
       return String(value === undefined || value === null ? '' : value).trim() !== '';
     });
   }) : [];
@@ -5210,10 +5234,7 @@ function buildImportDraftFromRows(rows,sourceLabel){
   const draft = [];
 
   normalizedRows.forEach(function(obj, index){
-    const normalizedObj = {};
-    Object.keys(obj).forEach(function(key){
-      normalizedObj[String(key || '').trim()] = obj[key];
-    });
+    const normalizedObj = createNormalizedImportRow(obj);
 
     let sku = String(firstImportValue(normalizedObj, ['SKU','Sku','sku','Artikel-ID','Artikel ID','Artikelnummer','Artikel Nummer','Artikel-Nr.','Artikel-Nr','Artikel Nr','ArtikelNr']) || '').trim().toUpperCase();
     let importStatus = 'bereit';
@@ -5228,7 +5249,7 @@ function buildImportDraftFromRows(rows,sourceLabel){
     }
     seenInImport.add(sku);
 
-    const name = String(firstImportValue(normalizedObj, ['Name','Bezeichnung','Titel','Produktname','Produkt','Artikel','Artikelbezeichnung']) || '').trim() || 'Importiertes Produkt';
+    const name = String(firstImportValue(normalizedObj, ['Bezeichnung','Name','Titel','Produktname','Artikelname','Produkt','Artikel','Artikelbezeichnung']) || '').trim() || 'Importiertes Produkt';
     const supplierId = String(firstImportValue(normalizedObj, ['Lieferanten-ID','Lieferanten Id','Supplier ID','Supplier','Anbieter-ID']) || '').trim();
     const ebayItemId = String(firstImportValue(normalizedObj, ['eBay-Artikelnummer','eBay Artikelnummer','eBay Nummer','eBay-ID']) || '').trim();
     const supplierLink = String(firstImportValue(normalizedObj, ['Lieferanten-Link','Lieferanten Link','Link','URL']) || '').trim();
