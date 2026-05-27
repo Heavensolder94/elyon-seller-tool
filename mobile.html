@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#020617" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Elyon" />
+  <link rel="manifest" href="/manifest.json" />
+  <title>Elyon Mobile Command Center</title>
+  <style>
+    :root {
+      --bg: #020617;
+      --bg-soft: #07111f;
+      --card: rgba(15, 23, 42, 0.78);
+      --card-strong: rgba(15, 23, 42, 0.96);
+      --line: rgba(148, 163, 184, 0.18);
+      --line-strong: rgba(96, 165, 250, 0.38);
+      --text: #e5e7eb;
+      --muted: #94a3b8;
+      --blue: #38bdf8;
+      --blue-strong: #2563eb;
+      --green: #22c55e;
+      --amber: #f59e0b;
+      --red: #ef4444;
+      --violet: #8b5cf6;
+      --shadow: 0 24px 70px rgba(0, 0, 0, 0.44);
+      --radius: 24px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      min-height: 100vh;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 12% -8%, rgba(59, 130, 246, 0.48), transparent 34%),
+        radial-gradient(circle at 95% 6%, rgba(139, 92, 246, 0.30), transparent 34%),
+        linear-gradient(180deg, #020617 0%, #08111f 48%, #020617 100%);
+      overflow-x: hidden;
+    }
+
+    button, input, textarea {
+      font: inherit;
+    }
+
+    button {
+      border: 0;
+      cursor: pointer;
+    }
+
+    .phone-shell {
+      width: min(100%, 430px);
+      min-height: 100vh;
+      margin: 0 auto;
+      padding: calc(18px + env(safe-area-inset-top)) 16px calc(96px + env(safe-area-inset-bottom));
+      position: relative;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 950;
+      letter-spacing: -0.03em;
+      font-size: 19px;
+    }
+
+    .logo {
+      width: 34px;
+      height: 34px;
+      border-radius: 14px;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(135deg, rgba(56,189,248,.22), rgba(37,99,235,.72));
+      border: 1px solid rgba(125, 211, 252, 0.25);
+      box-shadow: 0 12px 32px rgba(37, 99, 235, 0.28);
+    }
+
+    .icon-button {
+      width: 42px;
+      height: 42px;
+      border-radius: 16px;
+      background: rgba(15, 23, 42, 0.74);
+      border: 1px solid var(--line);
+      color: var(--text);
+      display: grid;
+      place-items: center;
+      box-shadow: 0 10px 28px rgba(0,0,0,.25);
+    }
+
+    .screen {
+      display: none;
+      animation: rise .22s ease-out;
+    }
+
+    .screen.active {
+      display: block;
+    }
+
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .eyebrow {
+      color: #93c5fd;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: .12em;
+      font-weight: 900;
+      margin-bottom: 8px;
+    }
+
+    h1 {
+      font-size: 29px;
+      line-height: 1.04;
+      letter-spacing: -0.06em;
+      margin-bottom: 8px;
+    }
+
+    h2 {
+      font-size: 18px;
+      letter-spacing: -0.03em;
+      margin: 22px 0 12px;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.55;
+      margin-bottom: 18px;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .card {
+      background: linear-gradient(180deg, rgba(15, 23, 42, .88), rgba(15, 23, 42, .62));
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(20px);
+    }
+
+    .metric {
+      padding: 16px;
+      min-height: 120px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .metric::after {
+      content: "";
+      position: absolute;
+      inset: auto -30px -50px auto;
+      width: 110px;
+      height: 110px;
+      background: radial-gradient(circle, rgba(56,189,248,.22), transparent 68%);
+    }
+
+    .metric span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 10px;
+    }
+
+    .metric strong {
+      display: block;
+      font-size: 23px;
+      letter-spacing: -0.05em;
+      margin-bottom: 8px;
+    }
+
+    .trend {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      color: #86efac;
+      font-size: 12px;
+      font-weight: 850;
+    }
+
+    .mini-chart {
+      height: 36px;
+      margin-top: 12px;
+      border-radius: 14px;
+      background:
+        linear-gradient(135deg, transparent 6%, rgba(56,189,248,.28) 6% 12%, transparent 12% 22%, rgba(56,189,248,.45) 22% 29%, transparent 29% 40%, rgba(56,189,248,.35) 40% 48%, transparent 48% 62%, rgba(56,189,248,.50) 62% 70%, transparent 70%),
+        rgba(2, 6, 23, .38);
+      border: 1px solid rgba(56,189,248,.16);
+    }
+
+    .quick-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .quick-action {
+      min-height: 92px;
+      padding: 15px;
+      border-radius: 22px;
+      background: rgba(15, 23, 42, .74);
+      border: 1px solid var(--line);
+      color: var(--text);
+      text-align: left;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      box-shadow: 0 16px 42px rgba(0,0,0,.22);
+    }
+
+    .quick-action b {
+      font-size: 14px;
+      line-height: 1.25;
+    }
+
+    .quick-action .qa-icon {
+      width: 34px;
+      height: 34px;
+      border-radius: 14px;
+      display: grid;
+      place-items: center;
+      color: #bfdbfe;
+      background: rgba(37, 99, 235, .18);
+      border: 1px solid rgba(96, 165, 250, .22);
+    }
+
+    .status-list, .settings-list, .order-list, .notice-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .status-row, .settings-row {
+      padding: 14px 15px;
+      border-radius: 18px;
+      background: rgba(15, 23, 42, .66);
+      border: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .status-name, .settings-name {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 850;
+      font-size: 14px;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--green);
+      box-shadow: 0 0 0 4px rgba(34,197,94,.10);
+    }
+
+    .dot.warn { background: var(--amber); box-shadow: 0 0 0 4px rgba(245,158,11,.10); }
+    .dot.bad { background: var(--red); box-shadow: 0 0 0 4px rgba(239,68,68,.10); }
+
+    .badge {
+      font-size: 11px;
+      font-weight: 950;
+      padding: 6px 9px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.06);
+      color: #cbd5e1;
+      white-space: nowrap;
+    }
+
+    .badge.green { color: #86efac; background: rgba(34,197,94,.12); border-color: rgba(34,197,94,.22); }
+    .badge.blue { color: #93c5fd; background: rgba(59,130,246,.12); border-color: rgba(59,130,246,.24); }
+    .badge.amber { color: #fde68a; background: rgba(245,158,11,.12); border-color: rgba(245,158,11,.24); }
+    .badge.violet { color: #ddd6fe; background: rgba(139,92,246,.14); border-color: rgba(139,92,246,.26); }
+    .badge.red { color: #fecaca; background: rgba(239,68,68,.13); border-color: rgba(239,68,68,.25); }
+
+    .scan-frame {
+      min-height: 350px;
+      padding: 18px;
+      border-radius: 30px;
+      background:
+        linear-gradient(180deg, rgba(15, 23, 42, .28), rgba(2, 6, 23, .90)),
+        radial-gradient(circle at center, rgba(56,189,248,.20), transparent 54%);
+      border: 1px solid var(--line-strong);
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: var(--shadow);
+    }
+
+    .scan-frame::before, .scan-frame::after {
+      content: "";
+      position: absolute;
+      width: 76px;
+      height: 76px;
+      border-color: var(--blue);
+      border-style: solid;
+      opacity: .95;
+    }
+
+    .scan-frame::before {
+      top: 22px;
+      left: 22px;
+      border-width: 4px 0 0 4px;
+      border-radius: 18px 0 0 0;
+    }
+
+    .scan-frame::after {
+      bottom: 22px;
+      right: 22px;
+      border-width: 0 4px 4px 0;
+      border-radius: 0 0 18px 0;
+    }
+
+    .product-box {
+      width: 210px;
+      height: 160px;
+      border-radius: 22px;
+      background: linear-gradient(135deg, #f8fafc, #cbd5e1);
+      color: #0f172a;
+      padding: 18px;
+      transform: rotate(-7deg);
+      box-shadow: 0 26px 60px rgba(0,0,0,.38);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      font-weight: 950;
+    }
+
+    .product-box small {
+      color: #334155;
+      font-weight: 800;
+    }
+
+    .input-card {
+      margin-top: 14px;
+      padding: 15px;
+    }
+
+    .field {
+      width: 100%;
+      border-radius: 18px;
+      border: 1px solid rgba(148,163,184,.20);
+      background: rgba(2, 6, 23, .58);
+      color: var(--text);
+      padding: 14px 15px;
+      outline: none;
+      margin-bottom: 12px;
+    }
+
+    .primary {
+      width: 100%;
+      padding: 15px 16px;
+      border-radius: 18px;
+      background: linear-gradient(135deg, #2563eb, #38bdf8);
+      color: white;
+      font-weight: 950;
+      box-shadow: 0 18px 42px rgba(37,99,235,.34);
+    }
+
+    .analysis-card {
+      margin-top: 14px;
+      padding: 18px;
+    }
+
+    .analysis-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 15px;
+    }
+
+    .analysis-title {
+      font-size: 18px;
+      font-weight: 950;
+      letter-spacing: -0.03em;
+    }
+
+    .data-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 10px;
+      margin: 14px 0;
+    }
+
+    .data-cell {
+      padding: 12px;
+      border-radius: 16px;
+      background: rgba(2, 6, 23, .44);
+      border: 1px solid rgba(255,255,255,.08);
+    }
+
+    .data-cell span {
+      display: block;
+      color: var(--muted);
+      font-size: 11px;
+      margin-bottom: 6px;
+    }
+
+    .data-cell strong {
+      font-size: 15px;
+      letter-spacing: -0.02em;
+    }
+
+    .order-card {
+      padding: 13px;
+      border-radius: 22px;
+      background: rgba(15, 23, 42, .72);
+      border: 1px solid var(--line);
+      display: grid;
+      grid-template-columns: 56px 1fr auto;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .thumb {
+      width: 56px;
+      height: 56px;
+      border-radius: 18px;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(135deg, rgba(255,255,255,.92), rgba(203,213,225,.72));
+      color: #0f172a;
+      font-size: 24px;
+    }
+
+    .order-title {
+      font-weight: 950;
+      letter-spacing: -0.02em;
+      font-size: 14px;
+      margin-bottom: 3px;
+    }
+
+    .order-meta {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.38;
+    }
+
+    .tabs-row {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding-bottom: 6px;
+      margin-bottom: 12px;
+    }
+
+    .chip {
+      padding: 9px 12px;
+      border-radius: 999px;
+      background: rgba(15,23,42,.68);
+      border: 1px solid var(--line);
+      color: #cbd5e1;
+      font-size: 12px;
+      font-weight: 850;
+      white-space: nowrap;
+    }
+
+    .chip.active {
+      background: rgba(37,99,235,.28);
+      border-color: rgba(96,165,250,.34);
+      color: #bfdbfe;
+    }
+
+    .chat-card {
+      padding: 16px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .bubble {
+      max-width: 86%;
+      padding: 13px 14px;
+      border-radius: 20px;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .bubble.user {
+      justify-self: end;
+      background: linear-gradient(135deg, rgba(37,99,235,.92), rgba(14,165,233,.82));
+      color: white;
+      border-bottom-right-radius: 7px;
+    }
+
+    .bubble.ai {
+      background: rgba(2,6,23,.58);
+      border: 1px solid var(--line);
+      border-bottom-left-radius: 7px;
+    }
+
+    .recommend-card {
+      padding: 13px;
+      border-radius: 18px;
+      background: rgba(255,255,255,.045);
+      border: 1px solid rgba(255,255,255,.08);
+      display: grid;
+      grid-template-columns: 1fr 44px;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .quick-prompts {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .chat-input {
+      position: sticky;
+      bottom: calc(82px + env(safe-area-inset-bottom));
+      margin-top: 14px;
+      display: grid;
+      grid-template-columns: 1fr 48px;
+      gap: 10px;
+      padding: 10px;
+      background: rgba(15, 23, 42, .76);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      backdrop-filter: blur(18px);
+      box-shadow: var(--shadow);
+    }
+
+    .chat-input input {
+      border: 0;
+      outline: 0;
+      background: transparent;
+      color: var(--text);
+      padding: 0 6px;
+    }
+
+    .send {
+      width: 48px;
+      height: 48px;
+      border-radius: 18px;
+      background: linear-gradient(135deg, #2563eb, #38bdf8);
+      color: white;
+      font-weight: 950;
+    }
+
+    .chart-card {
+      padding: 18px;
+    }
+
+    .chart-area {
+      height: 170px;
+      border-radius: 22px;
+      background:
+        linear-gradient(to top, rgba(148,163,184,.08) 1px, transparent 1px) 0 0 / 100% 34px,
+        linear-gradient(135deg, transparent 10%, rgba(56,189,248,.12) 10% 22%, transparent 22% 38%, rgba(56,189,248,.34) 38% 48%, transparent 48% 63%, rgba(56,189,248,.48) 63% 74%, transparent 74%),
+        rgba(2,6,23,.46);
+      border: 1px solid rgba(56,189,248,.16);
+      margin: 14px 0;
+    }
+
+    .profile-card {
+      padding: 16px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .avatar {
+      width: 58px;
+      height: 58px;
+      border-radius: 22px;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(135deg, rgba(56,189,248,.24), rgba(139,92,246,.26));
+      border: 1px solid rgba(255,255,255,.12);
+      font-size: 25px;
+    }
+
+    .bottom-nav {
+      position: fixed;
+      left: 50%;
+      bottom: calc(12px + env(safe-area-inset-bottom));
+      transform: translateX(-50%);
+      width: min(calc(100% - 24px), 408px);
+      height: 72px;
+      padding: 8px;
+      border-radius: 26px;
+      background: rgba(2, 6, 23, .82);
+      border: 1px solid rgba(148,163,184,.18);
+      backdrop-filter: blur(24px);
+      box-shadow: 0 22px 70px rgba(0,0,0,.52);
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      z-index: 50;
+    }
+
+    .nav-item {
+      color: var(--muted);
+      background: transparent;
+      border-radius: 20px;
+      display: grid;
+      place-items: center;
+      gap: 3px;
+      font-size: 10px;
+      font-weight: 850;
+    }
+
+    .nav-item strong {
+      font-size: 18px;
+      line-height: 1;
+    }
+
+    .nav-item.active {
+      color: #7dd3fc;
+      background: rgba(37, 99, 235, .18);
+    }
+
+    .notice-card {
+      padding: 14px;
+      border-radius: 20px;
+      border: 1px solid rgba(255,255,255,.10);
+      background: rgba(15,23,42,.66);
+    }
+
+    .notice-card b {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 14px;
+    }
+
+    .notice-card p {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    @media (min-width: 860px) {
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 26px calc(50% - 237px);
+        border-radius: 48px;
+        border: 1px solid rgba(255,255,255,.10);
+        pointer-events: none;
+        box-shadow: inset 0 0 0 10px rgba(255,255,255,.02), 0 40px 120px rgba(0,0,0,.50);
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="phone-shell">
+    <header class="topbar">
+      <button class="icon-button" aria-label="Menü">☰</button>
+      <div class="brand"><span class="logo">🪽</span> Elyon</div>
+      <button class="icon-button" aria-label="Benachrichtigungen">🔔</button>
+    </header>
+
+    <section id="home" class="screen active">
+      <div class="eyebrow">Command Center</div>
+      <h1>Guten Morgen,<br>Raoul 👋</h1>
+      <p class="subtitle">Dein mobiler Überblick für Produkte, Orders, KI-Agenten und Systemstatus.</p>
+
+      <div class="grid-2">
+        <article class="card metric">
+          <span>Umsatz heute</span>
+          <strong>0,00 €</strong>
+          <em class="trend">↗ Demo</em>
+          <div class="mini-chart"></div>
+        </article>
+        <article class="card metric">
+          <span>Gewinn heute</span>
+          <strong>0,00 €</strong>
+          <em class="trend">↗ Demo</em>
+          <div class="mini-chart"></div>
+        </article>
+        <article class="card metric">
+          <span>Offene Orders</span>
+          <strong>0</strong>
+          <em class="trend">📦 bereit</em>
+        </article>
+        <article class="card metric">
+          <span>Nachrichten</span>
+          <strong>0</strong>
+          <em class="trend">💬 sauber</em>
+        </article>
+      </div>
+
+      <h2>Schnellaktionen</h2>
+      <div class="quick-grid">
+        <button class="quick-action" data-target="scan"><span class="qa-icon">📷</span><b>Produkt scannen</b></button>
+        <button class="quick-action" data-target="scan"><span class="qa-icon">🔗</span><b>Produkt importieren</b></button>
+        <button class="quick-action" data-target="brain"><span class="qa-icon">🤖</span><b>KI-Agent fragen</b></button>
+        <button class="quick-action" data-target="orders"><span class="qa-icon">📦</span><b>Bestellungen prüfen</b></button>
+      </div>
+
+      <h2>System Status</h2>
+      <div class="status-list">
+        <div class="status-row"><span class="status-name"><i class="dot"></i> eBay API</span><span class="badge green">Aktiv</span></div>
+        <div class="status-row"><span class="status-name"><i class="dot"></i> Google Drive</span><span class="badge green">Aktiv</span></div>
+        <div class="status-row"><span class="status-name"><i class="dot warn"></i> CJ Dropshipping</span><span class="badge amber">Prüfen</span></div>
+        <div class="status-row"><span class="status-name"><i class="dot"></i> OpenAI / KI</span><span class="badge green">Bereit</span></div>
+      </div>
+    </section>
+
+    <section id="scan" class="screen">
+      <div class="eyebrow">Produkt Radar</div>
+      <h1>Produkt scannen</h1>
+      <p class="subtitle">Kamera und Barcode sind als UI vorbereitet. Die echte Anbindung kann später über Browser-APIs ergänzt werden.</p>
+
+      <div class="scan-frame">
+        <div class="product-box">
+          <small>Demo Produkt</small>
+          <span>Wireless<br>Organizer</span>
+          <small>Scan Preview</small>
+        </div>
+      </div>
+
+      <div class="card input-card">
+        <input class="field" id="productUrl" placeholder="Produktlink einfügen…" />
+        <button class="primary" id="analyzeBtn">Produkt analysieren</button>
+      </div>
+
+      <article class="card analysis-card" id="analysisCard">
+        <div class="analysis-head">
+          <div>
+            <div class="analysis-title">Mobile Organizer Tasche</div>
+            <p class="order-meta">Demo-Analyse · Mockdaten</p>
+          </div>
+          <span class="badge green">Potenzial hoch</span>
+        </div>
+        <div class="data-grid">
+          <div class="data-cell"><span>VK</span><strong>24,99 €</strong></div>
+          <div class="data-cell"><span>EK</span><strong>9,40 €</strong></div>
+          <div class="data-cell"><span>Gewinn</span><strong>6,80 €</strong></div>
+        </div>
+        <div class="status-list">
+          <div class="status-row"><span class="status-name">Konkurrenz</span><span class="badge amber">Mittel</span></div>
+          <div class="status-row"><span class="status-name">Risiko</span><span class="badge green">Niedrig</span></div>
+          <div class="status-row"><span class="status-name">Lieferzeit</span><span class="badge blue">7–12 Tage</span></div>
+        </div>
+      </article>
+    </section>
+
+    <section id="orders" class="screen">
+      <div class="eyebrow">Order Center</div>
+      <h1>Bestellungen</h1>
+      <p class="subtitle">Demo-Karten für spätere eBay/CJ-Live-Daten.</p>
+      <div class="tabs-row">
+        <button class="chip active">Alle</button>
+        <button class="chip">Offen</button>
+        <button class="chip">Versendet</button>
+        <button class="chip">Retouren</button>
+      </div>
+      <div class="order-list">
+        <article class="order-card"><div class="thumb">🎧</div><div><div class="order-title">Bluetooth Kopfhörer</div><p class="order-meta">Max Mustermann · 29,99 €<br>SKU: ELY-AUD-001</p></div><span class="badge green">Neu</span></article>
+        <article class="order-card"><div class="thumb">⌚</div><div><div class="order-title">Smart Watch Band</div><p class="order-meta">Anna Schmidt · 14,99 €<br>SKU: ELY-ACC-014</p></div><span class="badge blue">Bezahlt</span></article>
+        <article class="order-card"><div class="thumb">👟</div><div><div class="order-title">Sneaker Organizer</div><p class="order-meta">Tom Becker · 19,99 €<br>SKU: ELY-HOME-072</p></div><span class="badge violet">Versendet</span></article>
+        <article class="order-card"><div class="thumb">📱</div><div><div class="order-title">Handyhalterung</div><p class="order-meta">Lisa Müller · 11,99 €<br>SKU: ELY-MOB-009</p></div><span class="badge red">Retoure</span></article>
+      </div>
+    </section>
+
+    <section id="brain" class="screen">
+      <div class="eyebrow">Elyon Brain</div>
+      <h1>KI-Assistent</h1>
+      <p class="subtitle">Mobiler Chat für Produktideen, Risikoanalyse, Listings und Tagesfokus.</p>
+      <div class="card chat-card">
+        <div class="bubble user">Welche Produkte haben gerade Potenzial?</div>
+        <div class="bubble ai">Ich habe deine Demo-Daten geprüft. Drei Kandidaten wirken interessant:</div>
+        <div class="recommend-card"><div><b>1. Stanley IceFlow Tumbler</b><p class="order-meta">Potenzial: Sehr hoch · Gewinn: 18,45 €</p></div><span>🥤</span></div>
+        <div class="recommend-card"><div><b>2. Mini Power Bank</b><p class="order-meta">Potenzial: Hoch · Gewinn: 7,90 €</p></div><span>🔋</span></div>
+        <div class="recommend-card"><div><b>3. Kabel Organizer</b><p class="order-meta">Potenzial: Stabil · Gewinn: 4,20 €</p></div><span>🔌</span></div>
+      </div>
+      <div class="quick-prompts">
+        <button class="chip">Listings prüfen</button>
+        <button class="chip">Preisänderungen</button>
+        <button class="chip">Tagesfokus</button>
+        <button class="chip">Risiko anzeigen</button>
+      </div>
+      <div class="chat-input">
+        <input placeholder="Frag mich etwas…" />
+        <button class="send">➤</button>
+      </div>
+    </section>
+
+    <section id="more" class="screen">
+      <div class="eyebrow">Einstellungen</div>
+      <h1>Mehr</h1>
+      <article class="card profile-card">
+        <div class="avatar">R</div>
+        <div><b>Raoul</b><p class="order-meta">Elyon Account · Mobile PWA</p></div>
+        <span class="badge blue">Pro</span>
+      </article>
+
+      <h2>Verbindungen</h2>
+      <div class="status-list">
+        <div class="status-row"><span class="status-name">🛒 eBay</span><span class="badge green">Verbunden</span></div>
+        <div class="status-row"><span class="status-name">☁️ Google Drive</span><span class="badge green">Verbunden</span></div>
+        <div class="status-row"><span class="status-name">📦 CJ Dropshipping</span><span class="badge amber">Warnung</span></div>
+        <div class="status-row"><span class="status-name">🤖 OpenAI</span><span class="badge green">Bereit</span></div>
+      </div>
+
+      <h2>App Einstellungen</h2>
+      <div class="settings-list">
+        <div class="settings-row"><span class="settings-name">🔔 Benachrichtigungen</span><span>›</span></div>
+        <div class="settings-row"><span class="settings-name">⚙️ Automatisierungen</span><span>›</span></div>
+        <div class="settings-row"><span class="settings-name">🔌 API & Integrationen</span><span>›</span></div>
+        <div class="settings-row"><span class="settings-name">💾 Meine Daten</span><span>›</span></div>
+      </div>
+
+      <h2>Benachrichtigungen</h2>
+      <div class="notice-list">
+        <div class="notice-card"><b>🛒 Neuer Verkauf</b><p>Demo: Ein neuer Verkauf würde hier als Push/Inbox-Event erscheinen.</p></div>
+        <div class="notice-card"><b>📈 Preisänderung</b><p>Demo: Konkurrenzpreis gefallen. Später mit echter eBay-Prüfung.</p></div>
+      </div>
+    </section>
+  </main>
+
+  <nav class="bottom-nav" aria-label="Mobile Navigation">
+    <button class="nav-item active" data-target="home"><strong>⌂</strong>Home</button>
+    <button class="nav-item" data-target="scan"><strong>⌗</strong>Scan</button>
+    <button class="nav-item" data-target="orders"><strong>▣</strong>Orders</button>
+    <button class="nav-item" data-target="brain"><strong>✣</strong>Brain</button>
+    <button class="nav-item" data-target="more"><strong>☰</strong>Mehr</button>
+  </nav>
+
+  <script>
+    const screens = [...document.querySelectorAll('.screen')];
+    const navItems = [...document.querySelectorAll('.nav-item')];
+    const actionButtons = [...document.querySelectorAll('[data-target]')];
+
+    function openScreen(target) {
+      screens.forEach((screen) => screen.classList.toggle('active', screen.id === target));
+      navItems.forEach((item) => item.classList.toggle('active', item.dataset.target === target));
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    actionButtons.forEach((button) => {
+      button.addEventListener('click', () => openScreen(button.dataset.target));
+    });
+
+    document.getElementById('analyzeBtn')?.addEventListener('click', () => {
+      const card = document.getElementById('analysisCard');
+      card?.animate([
+        { transform: 'scale(.985)', opacity: .72 },
+        { transform: 'scale(1)', opacity: 1 }
+      ], { duration: 220, easing: 'ease-out' });
+    });
+  </script>
+</body>
+</html>
