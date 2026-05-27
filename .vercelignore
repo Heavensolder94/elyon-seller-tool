@@ -6,6 +6,16 @@ api/mobile-summary.js
 api/feature-flags.js
 api/product-vision.js
 
+# Consolidated routes: functionality stays available through central functions and vercel.json rewrites.
+# CJ status is handled by api/cj/search.js?action=status.
+api/cj/status.js
+
+# Mobile feature flags are handled locally by mobile-flags.js to avoid an extra Serverless Function.
+api/mobile-features.js
+
+# Google Sheets sync readiness is handled through api/env-check.js and the existing frontend settings.
+api/google-sheets-sync-settings.js
+
 # Nonessential / compatibility API files stay in GitHub but are excluded from Hobby deployments.
 # Important live routes are handled through consolidated functions and vercel.json rewrites.
 api/ai-router.js
