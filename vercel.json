@@ -63,7 +63,7 @@
     },
     {
       "source": "/api/ai-router",
-      "destination": "/api/ai-router"
+      "destination": "/api/ai?action=router"
     },
     {
       "source": "/api/elyon/products",
