@@ -57,12 +57,21 @@ function missing(flags) {
   return Object.entries(flags).filter(([, value]) => !value).map(([key]) => key);
 }
 
+function hasEbayOrderScope() {
+  const scopes = String(process.env.EBAY_SCOPES || "");
+  return /sell\.fulfillment|sell\.inventory|sell\.account|sell\.marketing|sell\.analytics/i.test(scopes);
+}
+
 function buildEnvReadiness() {
+  const hasEbayTokenStore =
+    envFlag("EBAY_TOKEN_STORE_URL") && envFlag("EBAY_TOKEN_STORE_TOKEN");
+
   const ebay = {
     EBAY_CLIENT_ID: envFlag("EBAY_CLIENT_ID"),
     EBAY_CLIENT_SECRET: envFlag("EBAY_CLIENT_SECRET"),
     EBAY_REDIRECT_URI_OR_RUNAME: envFlag("EBAY_REDIRECT_URI") || envFlag("EBAY_RUNAME"),
-    EBAY_REFRESH_TOKEN_OR_STORE: envFlag("EBAY_REFRESH_TOKEN") || envFlag("UPSTASH_REDIS_REST_URL") || envFlag("KV_REST_API_URL"),
+    EBAY_REFRESH_TOKEN_OR_STORE: envFlag("EBAY_REFRESH_TOKEN") || hasEbayTokenStore || envFlag("UPSTASH_REDIS_REST_URL") || envFlag("KV_REST_API_URL"),
+    EBAY_SELL_SCOPES_FOR_ORDERS: hasEbayOrderScope(),
   };
 
   const googleDrive = {
@@ -88,14 +97,14 @@ function buildEnvReadiness() {
   };
 
   const upstash = {
-    UPSTASH_REDIS_REST_URL: envFlag("UPSTASH_REDIS_REST_URL"),
-    UPSTASH_REDIS_REST_TOKEN: envFlag("UPSTASH_REDIS_REST_TOKEN"),
+    EBAY_TOKEN_STORE_URL_OR_UPSTASH_REDIS_REST_URL: envFlag("EBAY_TOKEN_STORE_URL") || envFlag("UPSTASH_REDIS_REST_URL") || envFlag("KV_REST_API_URL"),
+    EBAY_TOKEN_STORE_TOKEN_OR_UPSTASH_REDIS_REST_TOKEN: envFlag("EBAY_TOKEN_STORE_TOKEN") || envFlag("UPSTASH_REDIS_REST_TOKEN") || envFlag("KV_REST_API_TOKEN"),
   };
 
   return { ebay, googleDrive, cj, openai, deepseek, qwen, upstash };
 }
 
-function summarizeService({ key, name, envFlags, routeProbe, liveProbe, liveLabel }) {
+function summarizeService({ key, name, envFlags, routeProbe, liveProbe, liveLabel, forceState, forceDetail }) {
   const missingEnv = missing(envFlags);
   const envReady = missingEnv.length === 0;
   const routeOk = routeProbe ? routeProbe.routeOk : false;
@@ -103,8 +112,9 @@ function summarizeService({ key, name, envFlags, routeProbe, liveProbe, liveLabe
   let state = "bad";
   if (envReady && routeOk && liveOk) state = "ok";
   else if (routeOk || envReady) state = "warn";
+  if (forceState) state = forceState;
 
-  const detail = liveProbe?.data?.error || routeProbe?.data?.error || liveProbe?.error || routeProbe?.error || null;
+  const detail = forceDetail || liveProbe?.data?.error || routeProbe?.data?.error || liveProbe?.error || routeProbe?.error || null;
 
   return {
     key,
@@ -139,10 +149,20 @@ export default async function handler(req, res) {
     probe(req, "/api/cj/status"),
   ]);
 
+  const ebayOrdersForbidden = ebayOrders.status === 403;
+  const ebayState = ebayOrders.ok ? "ok" : ebayToken.ok ? "warn" : undefined;
+  const ebayDetail = ebayOrdersForbidden
+    ? "eBay Token funktioniert, aber Orders sind gesperrt. Bitte EBAY_SCOPES erweitern und eBay OAuth neu verbinden."
+    : null;
+
+  const googleData = googleDrive.data || {};
+  const googleState = googleData.connected === false ? "warn" : undefined;
+  const googleDetail = googleData.connected === false ? "Google Drive OAuth ist vorbereitet, aber noch nicht verbunden." : null;
+
   const services = [
     summarizeService({ key: "env", name: "ENV Check", envFlags: {}, routeProbe: envCheck, liveProbe: envCheck, liveLabel: "System" }),
-    summarizeService({ key: "ebay", name: "eBay", envFlags: env.ebay, routeProbe: ebayStatus, liveProbe: ebayOrders.ok ? ebayOrders : ebayToken, liveLabel: ebayOrders.ok ? "Orders live" : "Token/OAuth" }),
-    summarizeService({ key: "googleDrive", name: "Google Drive", envFlags: env.googleDrive, routeProbe: googleDrive, liveProbe: googleDrive, liveLabel: "OAuth/Status" }),
+    summarizeService({ key: "ebay", name: "eBay", envFlags: env.ebay, routeProbe: ebayStatus, liveProbe: ebayOrders.ok ? ebayOrders : ebayToken, liveLabel: ebayOrders.ok ? "Orders live" : "Token/OAuth", forceState: ebayState, forceDetail: ebayDetail }),
+    summarizeService({ key: "googleDrive", name: "Google Drive", envFlags: env.googleDrive, routeProbe: googleDrive, liveProbe: googleDrive, liveLabel: "OAuth/Status", forceState: googleState, forceDetail: googleDetail }),
     summarizeService({ key: "cj", name: "CJ Dropshipping", envFlags: env.cj, routeProbe: cjStatus, liveProbe: cjStatus, liveLabel: "Status" }),
     summarizeService({ key: "openai", name: "OpenAI", envFlags: env.openai, routeProbe: envCheck, liveProbe: envCheck, liveLabel: "Key vorhanden" }),
     summarizeService({ key: "deepseek", name: "DeepSeek", envFlags: env.deepseek, routeProbe: envCheck, liveProbe: envCheck, liveLabel: "Key vorhanden" }),
@@ -158,6 +178,12 @@ export default async function handler(req, res) {
     ok: true,
     checkedAt: new Date().toISOString(),
     summary: { total: services.length, ok: okCount, warn: warnCount, bad: badCount },
+    nextActions: {
+      ebayOrders: ebayOrdersForbidden
+        ? "In Vercel EBAY_SCOPES um sell.fulfillment erweitern, danach /api/ebay/login-url öffnen und eBay neu autorisieren."
+        : null,
+      googleDrive: googleData.connected === false ? "Google Drive OAuth Flow erneut starten." : null,
+    },
     services,
     probes: {
       envCheck,
