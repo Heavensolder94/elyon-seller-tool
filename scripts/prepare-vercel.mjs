@@ -15,6 +15,7 @@ const filesToMirror = [
   ["elyon-soul.css", "public/elyon-soul.css"],
   ["elyon-soul.js", "public/elyon-soul.js"],
   ["mobile.html", "public/mobile.html"],
+  ["mobile-live.js", "public/mobile-live.js"],
   ["manifest.json", "public/manifest.json"],
 ];
 
