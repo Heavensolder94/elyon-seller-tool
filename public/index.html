@@ -1439,6 +1439,7 @@ Land"></textarea>
       </div>
       <div class="row" style="margin-top:10px">
         <button id="syncSalesGoogleSheetsBtn" class="secondary full" type="button">Verkäufe synchronisieren</button>
+        <button id="clearLocalSalesGoogleSheetsBtn" class="secondary full" type="button">Lokale Verkäufe leeren</button>
       </div>
       <div class="row" style="margin-top:10px">
         <button id="syncInventoryGoogleSheetsBtn" class="secondary full" type="button">Inventar synchronisieren</button>
@@ -4068,6 +4069,14 @@ function syncSalesToGoogleSheet(){
 }
 function syncSalesToGoogleSheetShortcut(){
   return syncSalesToGoogleSheet();
+}
+function clearLocalSalesGoogleSheets(){
+  if(!confirm('Lokale Verkäufe im Browser wirklich löschen? Google Sheets bleibt unverändert.')) return;
+  sales = [];
+  localStorage.removeItem('elyonSales');
+  saveSales();
+  renderGoogleSheetsSyncStatus();
+  setHTML('googleSheetsSyncResult', '<p>✅ Lokale Verkäufe wurden gelöscht. Google Sheets wurde nicht verändert.</p>');
 }
 function syncCostsToGoogleSheet(){
   return runGoogleSheetsSyncTask('costs', function(){
@@ -10254,6 +10263,7 @@ function bindEvents(){
   bind('syncInventoryGoogleSheetsBtn','click',syncInventoryToGoogleSheet);
   bind('syncSuppliersGoogleSheetsBtn','click',syncSuppliersToGoogleSheet);
   bind('syncSalesGoogleSheetsBtn','click',syncSalesToGoogleSheet);
+  bind('clearLocalSalesGoogleSheetsBtn','click',clearLocalSalesGoogleSheets);
   bind('syncSalesGoogleSheetsShortcutBtn','click',syncSalesToGoogleSheetShortcut);
   bind('syncCostsGoogleSheetsBtn','click',syncCostsToGoogleSheet);
   bind('syncAllGoogleSheetsBtn','click',syncAllToGoogleSheet);
