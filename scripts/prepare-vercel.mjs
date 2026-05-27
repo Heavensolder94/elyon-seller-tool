@@ -14,6 +14,8 @@ const filesToMirror = [
   ["ai-agent-engine.js", "public/ai-agent-engine.js"],
   ["elyon-soul.css", "public/elyon-soul.css"],
   ["elyon-soul.js", "public/elyon-soul.js"],
+  ["mobile.html", "public/mobile.html"],
+  ["manifest.json", "public/manifest.json"],
 ];
 
 for (const [source, destination] of filesToMirror) {
@@ -31,4 +33,4 @@ const envStatus = {
 };
 
 console.log("Google env status:", JSON.stringify(envStatus));
-console.log("Prepared Vercel static output.");
+console.log("Prepared Vercel static output, including mobile PWA files.");
