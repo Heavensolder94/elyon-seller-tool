@@ -16,6 +16,7 @@ const filesToMirror = [
   ["elyon-soul.js", "public/elyon-soul.js"],
   ["mobile.html", "public/mobile.html"],
   ["mobile-live.js", "public/mobile-live.js"],
+  ["mobile-flags.js", "public/mobile-flags.js"],
   ["manifest.json", "public/manifest.json"],
 ];
 
