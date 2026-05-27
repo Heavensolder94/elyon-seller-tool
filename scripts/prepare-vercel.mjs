@@ -17,6 +17,7 @@ const filesToMirror = [
   ["mobile.html", "public/mobile.html"],
   ["mobile-live.js", "public/mobile-live.js"],
   ["mobile-flags.js", "public/mobile-flags.js"],
+  ["mobile-scanner-v2.js", "public/mobile-scanner-v2.js"],
   ["manifest.json", "public/manifest.json"],
 ];
 
