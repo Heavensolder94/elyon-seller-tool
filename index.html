@@ -1431,7 +1431,7 @@ Land"></textarea>
       </div>
       <div class="row">
         <button id="saveGoogleSheetsSyncBtn" class="secondary full" type="button">Sync-Einstellungen speichern</button>
-        <button id="syncAllGoogleSheetsBtn" class="full" type="button">Alles synchronisieren</button>
+        <button id="syncAllGoogleSheetsBtn" class="full" type="button">Alles ins Sheet senden</button>
       </div>
       <div class="row" style="margin-top:10px">
         <button id="loadAllGoogleSheetsBtn" class="secondary full" type="button">Alles aus Google Sheets laden</button>
@@ -3974,10 +3974,25 @@ const GOOGLE_SHEETS_SYNC_BUTTONS = [
   { id: 'syncSalesGoogleSheetsBtn', label: 'Verkäufe synchronisieren' },
   { id: 'syncSalesGoogleSheetsShortcutBtn', label: 'Verkäufe synchronisieren' },
   { id: 'syncCostsGoogleSheetsBtn', label: 'Laufende Kosten synchronisieren' },
-  { id: 'syncAllGoogleSheetsBtn', label: 'Alles synchronisieren' },
+  { id: 'syncAllGoogleSheetsBtn', label: 'Alles ins Sheet senden' },
   { id: 'loadAllGoogleSheetsBtn', label: 'Alles aus Google Sheets laden' },
   { id: 'reconcileAllGoogleSheetsBtn', label: 'Alles abgleichen' },
 ];
+function formatGoogleSheetsSendSummary(label, result){
+  const inserted = Number(result.inserted || result.added || result.created || 0);
+  const updated = Number(result.updated || 0);
+  const processed = Number(result.processed || result.received || result.records || 0);
+  const zeroHint = processed === 0
+    ? '<p class="hint" style="margin-top:8px">Keine lokalen Datensätze gefunden. Für Google Sheets → Tool bitte <strong>Alles aus Google Sheets laden</strong> oder <strong>Alles abgleichen</strong> nutzen.</p>'
+    : '';
+  return {
+    inserted: inserted,
+    updated: updated,
+    processed: processed,
+    html: '<p>✅ <strong>' + escapeHtml(label) + '</strong>: ' + processed + ' lokale Datensätze ins Sheet gesendet, ' + inserted + ' neu, ' + updated + ' aktualisiert.</p>' + zeroHint,
+    listItem: '<li><strong>' + escapeHtml(label) + ':</strong> ' + processed + ' lokale Datensätze ins Sheet gesendet, ' + inserted + ' neu, ' + updated + ' aktualisiert' + (processed === 0 ? ' <span class="hint">(keine lokalen Daten; nutze Laden oder Abgleichen)</span>' : '') + '</li>'
+  };
+}
 function setGoogleSheetsSyncButtonsLoading(isLoading, activeId){
   GOOGLE_SHEETS_SYNC_BUTTONS.forEach(function(button){
     const el = $(button.id);
@@ -3994,10 +4009,8 @@ async function runGoogleSheetsSyncTask(type, runner, buttonId){
   setHTML('googleSheetsSyncResult', '<p>' + escapeHtml(label) + ' wird synchronisiert...</p>');
   try{
     const result = await runner();
-    const inserted = Number(result.inserted || result.added || result.created || 0);
-    const updated = Number(result.updated || 0);
-    const processed = Number(result.processed || result.received || result.records || 0);
-    setHTML('googleSheetsSyncResult', '<p>✅ <strong>' + escapeHtml(label) + '</strong>: ' + processed + ' Datensätze gesendet, ' + inserted + ' neu, ' + updated + ' aktualisiert.</p>');
+    const summary = formatGoogleSheetsSendSummary(label, result);
+    setHTML('googleSheetsSyncResult', summary.html);
     return result;
   }catch(error){
     const message = error && error.message ? error.message : 'Unbekannter Sync-Fehler';
@@ -4039,19 +4052,16 @@ async function syncAllToGoogleSheet(){
   ];
   const summary = [];
   setGoogleSheetsSyncButtonsLoading(true, 'syncAllGoogleSheetsBtn');
-  setHTML('googleSheetsSyncResult', '<p>Alle Rubriken werden synchronisiert...</p>');
+  setHTML('googleSheetsSyncResult', '<p>Alle lokalen Rubriken werden ins Google Sheet gesendet...</p>');
   for(const task of tasks){
     try{
       const result = await task.run();
-      const inserted = Number(result.inserted || result.added || result.created || 0);
-      const updated = Number(result.updated || 0);
-      const processed = Number(result.processed || result.received || result.records || 0);
-      summary.push('<li><strong>' + getSyncTypeLabel(task.type) + ':</strong> ' + processed + ' Datensätze gesendet, ' + inserted + ' neu, ' + updated + ' aktualisiert</li>');
+      summary.push(formatGoogleSheetsSendSummary(getSyncTypeLabel(task.type), result).listItem);
     }catch(error){
       summary.push('<li><strong>' + getSyncTypeLabel(task.type) + ':</strong> ⚠️ ' + escapeHtml(error && error.message ? error.message : 'Fehler') + '</li>');
     }
   }
-  setHTML('googleSheetsSyncResult', '<h3>Sync abgeschlossen</h3><ul>' + summary.join('') + '</ul>');
+  setHTML('googleSheetsSyncResult', '<h3>Senden abgeschlossen</h3><ul>' + summary.join('') + '</ul><p class="hint" style="margin-top:10px">Wenn du Daten aus Google Sheets ins Tool holen willst, nutze <strong>Alles aus Google Sheets laden</strong> oder <strong>Alles abgleichen</strong>.</p>');
   setGoogleSheetsSyncButtonsLoading(false, '');
   return summary;
 }
