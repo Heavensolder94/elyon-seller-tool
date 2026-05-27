@@ -58,6 +58,10 @@
       "destination": "/api/agent-engine?action=ai-workflow"
     },
     {
+      "source": "/api/product-vision",
+      "destination": "/api/agent-engine?action=ai-workflow"
+    },
+    {
       "source": "/api/ai-router",
       "destination": "/api/ai?action=router"
     },
