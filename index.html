@@ -1434,6 +1434,10 @@ Land"></textarea>
         <button id="syncAllGoogleSheetsBtn" class="full" type="button">Alles synchronisieren</button>
       </div>
       <div class="row" style="margin-top:10px">
+        <button id="loadAllGoogleSheetsBtn" class="secondary full" type="button">Alles aus Google Sheets laden</button>
+        <button id="reconcileAllGoogleSheetsBtn" class="secondary full" type="button">Alles abgleichen</button>
+      </div>
+      <div class="row" style="margin-top:10px">
         <button id="syncSalesGoogleSheetsBtn" class="secondary full" type="button">Verkäufe synchronisieren</button>
       </div>
       <div class="row" style="margin-top:10px">
@@ -1443,6 +1447,15 @@ Land"></textarea>
       <div class="row" style="margin-top:10px">
  <button id="syncSalesGoogleSheetsBtn" class="secondary full" type="button">InventarTracker synchronisieren</button>
         <button id="syncCostsGoogleSheetsBtn" class="secondary full" type="button">Laufende Kosten synchronisieren</button>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <label style="display:flex;gap:8px;align-items:center;flex:1"><input id="googleSheetsAutoSyncEnabled" type="checkbox"> Auto-Abgleich aktivieren</label>
+        <select id="googleSheetsAutoSyncInterval" style="flex:1">
+          <option value="5">alle 5 Minuten</option>
+          <option value="15" selected>alle 15 Minuten</option>
+          <option value="30">alle 30 Minuten</option>
+          <option value="60">stündlich</option>
+        </select>
       </div>
       <div id="googleSheetsSyncStatus" class="output-box" style="margin-top:14px"><p>Nicht verbunden</p></div>
       <div id="googleSheetsSyncResult" class="output-box" style="margin-top:14px"><p>Noch keine Synchronisierung ausgeführt.</p></div>
@@ -3174,6 +3187,13 @@ const GOOGLE_SHEETS_SYNC_TYPES = {
   sales: 'sales',
   costs: 'costs',
 };
+const GOOGLE_SHEETS_AUTO_SYNC_KEYS = {
+  enabled: 'elyon_google_sheets_auto_sync_enabled',
+  intervalMinutes: 'elyon_google_sheets_auto_sync_interval_minutes',
+  lastRunAt: 'elyon_google_sheets_auto_sync_last_run_at',
+};
+let googleSheetsAutoSyncTimer = null;
+let googleSheetsAutoSyncInFlight = false;
 function sheetText(value){
   if(value === null || value === undefined) return '';
   if(value instanceof Date) return value.toISOString();
@@ -3317,15 +3337,32 @@ function renderGoogleSheetsMetric(label, timestamp, errorText){
   const detail = errorText ? ('Fehler: ' + String(errorText)) : ('Letzter Sync: ' + (timestamp || 'Noch nie'));
   return '<div class="metric"><small>' + String(label || 'Sync') + '</small><strong class="' + metricClass + '">' + (timestamp || 'Noch nie') + '</strong><p class="hint" style="margin-top:8px">' + detail + '</p></div>';
 }
+function getGoogleSheetsAutoSyncSettings(){
+  return {
+    enabled: localStorage.getItem(GOOGLE_SHEETS_AUTO_SYNC_KEYS.enabled) === 'yes',
+    intervalMinutes: Math.max(5, parseInt(localStorage.getItem(GOOGLE_SHEETS_AUTO_SYNC_KEYS.intervalMinutes) || '15', 10) || 15),
+    lastRunAt: localStorage.getItem(GOOGLE_SHEETS_AUTO_SYNC_KEYS.lastRunAt) || ''
+  };
+}
+function saveGoogleSheetsAutoSyncSettings(){
+  const enabled = !!($('googleSheetsAutoSyncEnabled') && $('googleSheetsAutoSyncEnabled').checked);
+  const intervalMinutes = Math.max(5, parseInt(($('googleSheetsAutoSyncInterval') && $('googleSheetsAutoSyncInterval').value) || '15', 10) || 15);
+  localStorage.setItem(GOOGLE_SHEETS_AUTO_SYNC_KEYS.enabled, enabled ? 'yes' : 'no');
+  localStorage.setItem(GOOGLE_SHEETS_AUTO_SYNC_KEYS.intervalMinutes, String(intervalMinutes));
+  scheduleGoogleSheetsAutoSync();
+}
 function renderGoogleSheetsSyncStatus(){
   const config = getGoogleSheetsSyncConfig();
   const connected = !!(config.url && config.token);
   const statusText = connected ? 'Google Sheets Sync eingerichtet' : 'Nicht verbunden';
   const statusClass = connected ? 'good' : 'bad';
+  const autoSync = getGoogleSheetsAutoSyncSettings();
   const lastInventory = formatSyncTimestamp(localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.inventoryAt));
   const lastSupplier = formatSyncTimestamp(localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.supplierAt));
   const lastSales = formatSyncTimestamp(localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.salesAt));
   const lastCosts = formatSyncTimestamp(localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.costsAt));
+  safe('googleSheetsAutoSyncEnabled', el => { el.checked = autoSync.enabled; });
+  safe('googleSheetsAutoSyncInterval', el => { el.value = String(autoSync.intervalMinutes); });
   setHTML('googleSheetsSyncStatus',
     '<div class="score-top"><span class="status ' + statusClass + '">' + statusText + '</span><span class="score-number">' + (connected ? 'SYNC' : 'OFF') + '</span></div>' +
     '<div class="dashboard" style="margin-top:16px">' +
@@ -3334,8 +3371,9 @@ function renderGoogleSheetsSyncStatus(){
       renderGoogleSheetsMetric('Verkäufe', lastSales, '') +
       renderGoogleSheetsMetric('Laufende Kosten', lastCosts, '') +
     '</div>' +
-    '<div class="output-box" style="margin-top:14px"><p>' + (connected ? 'Sync bereit. URL und Token werden lokal verschlüsselt gespeichert.' : 'Trage URL und Token ein, um die Google Sheets Sync zu aktivieren.') + '</p></div>'
+    '<div class="output-box" style="margin-top:14px"><p>' + (connected ? 'Sync bereit. URL und Token werden lokal verschlüsselt gespeichert.' : 'Trage URL und Token ein, um die Google Sheets Sync zu aktivieren.') + '</p><p class="hint" style="margin-top:8px">Auto-Abgleich: ' + (autoSync.enabled ? ('aktiv, alle ' + autoSync.intervalMinutes + ' Minuten') : 'aus') + (autoSync.lastRunAt ? ' · letzter Lauf: ' + formatSyncTimestamp(autoSync.lastRunAt) : '') + '</p></div>'
   );
+  scheduleGoogleSheetsAutoSync();
 }
 async function saveGoogleSheetsSyncSettings(){
   const url = $('googleSheetsSyncUrl') ? $('googleSheetsSyncUrl').value.trim() : '';
@@ -3347,6 +3385,7 @@ async function saveGoogleSheetsSyncSettings(){
   }
   await setStoredGoogleSheetsSyncUrl(url);
   await setStoredGoogleSheetsSyncToken(token);
+  saveGoogleSheetsAutoSyncSettings();
   renderGoogleSheetsSyncStatus();
   setHTML('googleSheetsSyncResult', '<p>Sync-Einstellungen gespeichert.</p>');
   alert('Google Sheets Sync-Einstellungen gespeichert.');
@@ -3622,6 +3661,98 @@ function mapGoogleSheetSaleRecord(record, index){
     updatedAt: createdAt,
   };
 }
+function mapGoogleSheetInventoryRecord(record, index){
+  const articleId = sheetRecordField(record, ['Artikel-ID', 'ArtikelId', 'SKU', 'sku']);
+  const name = sheetRecordField(record, ['Bezeichnung', 'Produktname', 'Name', 'Titel', 'Artikelname']) || 'Importiertes Produkt';
+  const type = sheetRecordField(record, ['Typ', 'Kategorie', 'Category']) || 'Produkt';
+  const createdAt = new Date().toISOString();
+  return normalizeProductRecord({
+    id: articleId || ('sheet-product-' + index + '-' + Date.now()),
+    articleId: articleId || '',
+    sku: articleId || '',
+    name: name,
+    title: name,
+    type: type,
+    category: type,
+    buy: sheetNumber(sheetRecordField(record, ['Preis EK', 'EK', 'Einkaufspreis'])),
+    ship: sheetNumber(sheetRecordField(record, ['Versand mind.', 'Versand', 'Versandkosten'])),
+    sell: sheetNumber(sheetRecordField(record, ['Preis VK (ebay)', 'Preis VK', 'VK', 'Verkaufspreis'])),
+    fee: sheetNumber(sheetRecordField(record, ['Ebay gebühren', 'Ebay Gebühren', 'eBay Gebühren'])) || appSettings.fees,
+    targetProfit: sheetNumber(sheetRecordField(record, ['Zielgewinn'])) || appSettings.profit,
+    stock: sheetRecordField(record, ['Stock', 'Bestand']),
+    supplierName: sheetRecordField(record, ['Lieferant', 'Supplier']),
+    supplier: sheetRecordField(record, ['Lieferant', 'Supplier']),
+    delivery: sheetRecordField(record, ['Versandzeit', 'Lieferzeit']),
+    deliveryTime: sheetRecordField(record, ['Versandzeit', 'Lieferzeit']),
+    shipFrom: sheetRecordField(record, ['Versand ab', 'Versandland', 'Lagerland']),
+    shippingFrom: sheetRecordField(record, ['Versand ab', 'Versandland', 'Lagerland']),
+    ebayLink: sheetRecordField(record, ['Ebay Link', 'eBay Link', 'Ebay URL']),
+    ebayUrl: sheetRecordField(record, ['Ebay Link', 'eBay Link', 'Ebay URL']),
+    notes: sheetRecordField(record, ['Hinweise', 'Notizen', 'Notiz']),
+    productStatus: normalizeProductStatus(sheetRecordField(record, ['Status']) || 'Draft', 'Draft'),
+    status: normalizeProductStatus(sheetRecordField(record, ['Status']) || 'Draft', 'Draft'),
+    createdAt: createdAt,
+    updatedAt: createdAt
+  });
+}
+function mapGoogleSheetSupplierRecord(record, index){
+  const supplierId = sheetRecordField(record, ['Supplier-ID', 'SupplierId', 'ID']);
+  const name = sheetRecordField(record, ['Supplier', 'Name', 'Suppliername']) || ('Supplier ' + (index + 1));
+  return {
+    id: supplierId || ('supplier-' + index + '-' + Date.now()),
+    supplierId: supplierId || '',
+    name: name,
+    supplierName: name,
+    status: sheetRecordField(record, ['Status']) || 'Aktiv',
+    categories: sheetRecordField(record, ['Kategorie', 'Kategorien', 'Category']),
+    type: sheetRecordField(record, ['Kategorie', 'Kategorien', 'Category']),
+    website: sheetRecordField(record, ['Website', 'URL']),
+    region: sheetRecordField(record, ['Standort', 'Land', 'Region']),
+    notes: sheetRecordField(record, ['Notiz', 'Notizen', 'Hinweise'])
+  };
+}
+function mapGoogleSheetCostRecord(record, index){
+  const name = sheetRecordField(record, ['Name', 'Kostenname']) || ('Kosten ' + (index + 1));
+  const amount = sheetNumber(sheetRecordField(record, ['Betrag', 'Kostenbetrag', 'Amount']));
+  return {
+    id: 'cost-' + index + '-' + Date.now(),
+    name: name,
+    category: name,
+    interval: sheetRecordField(record, ['Intervall', 'Interval']),
+    amount: amount,
+    value: amount,
+    note: sheetRecordField(record, ['Notiz', 'Notizen', 'Hinweise']),
+    notes: sheetRecordField(record, ['Notiz', 'Notizen', 'Hinweise']),
+    status: sheetRecordField(record, ['Status']) || 'aktiv',
+    created: todayInputDate()
+  };
+}
+function replaceInventoryFromSheetRecords(records){
+  const next = Array.isArray(records) ? records.map(mapGoogleSheetInventoryRecord).filter(function(item){
+    return !!String(item.sku || item.articleId || item.name || '').trim();
+  }) : [];
+  products = normalizeProductsCollection(next);
+  save();
+  return products;
+}
+function replaceSuppliersFromSheetRecords(records){
+  const next = Array.isArray(records) ? records.map(mapGoogleSheetSupplierRecord).filter(function(item){
+    return !!String(item.name || item.supplierId || '').trim();
+  }) : [];
+  suppliers = next;
+  localStorage.setItem('elyonSuppliers', JSON.stringify(suppliers));
+  renderSupplierCards();
+  refreshSourceProviderOptions();
+  return suppliers;
+}
+function replaceCostsFromSheetRecords(records){
+  const next = Array.isArray(records) ? records.map(mapGoogleSheetCostRecord).filter(function(item){
+    return !!String(item.name || item.category || '').trim();
+  }) : [];
+  runningCosts = next;
+  localStorage.setItem('elyonCosts', JSON.stringify(runningCosts));
+  return runningCosts;
+}
 async function loadFromGoogleSheet(type){
   const config = getGoogleSheetsSyncConfig();
   if(!config.url) throw new Error('Google Apps Script Web-App URL fehlt.');
@@ -3672,6 +3803,53 @@ async function loadSalesFromGoogleSheet(){
     throw error;
   }
 }
+async function loadInventoryFromGoogleSheet(){
+  setHTML('googleSheetsSyncResult', '<p>Inventar wird aus Google Sheets geladen...</p>');
+  const data = await loadFromGoogleSheet('inventory');
+  const next = replaceInventoryFromSheetRecords(Array.isArray(data.records) ? data.records : []);
+  setGoogleSheetsSyncTimestamp('inventory', data.syncedAt || new Date().toISOString());
+  renderGoogleSheetsSyncStatus();
+  setHTML('googleSheetsSyncResult', '<p>✅ <strong>Inventar</strong>: ' + next.length + ' Datensätze aus Google Sheets geladen.</p>');
+  return next;
+}
+async function loadSuppliersFromGoogleSheet(){
+  setHTML('googleSheetsSyncResult', '<p>Supplier werden aus Google Sheets geladen...</p>');
+  const data = await loadFromGoogleSheet('suppliers');
+  const next = replaceSuppliersFromSheetRecords(Array.isArray(data.records) ? data.records : []);
+  setGoogleSheetsSyncTimestamp('suppliers', data.syncedAt || new Date().toISOString());
+  renderGoogleSheetsSyncStatus();
+  setHTML('googleSheetsSyncResult', '<p>✅ <strong>Supplier</strong>: ' + next.length + ' Datensätze aus Google Sheets geladen.</p>');
+  return next;
+}
+async function loadCostsFromGoogleSheet(){
+  setHTML('googleSheetsSyncResult', '<p>Laufende Kosten werden aus Google Sheets geladen...</p>');
+  const data = await loadFromGoogleSheet('costs');
+  const next = replaceCostsFromSheetRecords(Array.isArray(data.records) ? data.records : []);
+  setGoogleSheetsSyncTimestamp('costs', data.syncedAt || new Date().toISOString());
+  renderGoogleSheetsSyncStatus();
+  setHTML('googleSheetsSyncResult', '<p>✅ <strong>Laufende Kosten</strong>: ' + next.length + ' Datensätze aus Google Sheets geladen.</p>');
+  return next;
+}
+async function loadAllFromGoogleSheet(){
+  const tasks = [
+    { type:'inventory', run: loadInventoryFromGoogleSheet },
+    { type:'suppliers', run: loadSuppliersFromGoogleSheet },
+    { type:'sales', run: loadSalesFromGoogleSheet },
+    { type:'costs', run: loadCostsFromGoogleSheet }
+  ];
+  const summary = [];
+  setGoogleSheetsSyncButtonsLoading(true, 'loadAllGoogleSheetsBtn');
+  for(const task of tasks){
+    try{
+      const result = await task.run();
+      summary.push('<li><strong>' + getSyncTypeLabel(task.type) + ':</strong> ' + (Array.isArray(result) ? result.length : 0) + ' geladen</li>');
+    }catch(error){
+      summary.push('<li><strong>' + getSyncTypeLabel(task.type) + ':</strong> ⚠️ ' + escapeHtml(error && error.message ? error.message : 'Fehler') + '</li>');
+    }
+  }
+  setGoogleSheetsSyncButtonsLoading(false, '');
+  setHTML('googleSheetsSyncResult', '<h3>Laden abgeschlossen</h3><ul>' + summary.join('') + '</ul>');
+}
 function buildSyncRows(type, records){
   const list = Array.isArray(records) ? records : [];
   if(type === 'inventory') return list.map(mapProductToSheetRow);
@@ -3717,6 +3895,8 @@ const GOOGLE_SHEETS_SYNC_BUTTONS = [
   { id: 'syncSalesGoogleSheetsShortcutBtn', label: 'Verkäufe synchronisieren' },
   { id: 'syncCostsGoogleSheetsBtn', label: 'Laufende Kosten synchronisieren' },
   { id: 'syncAllGoogleSheetsBtn', label: 'Alles synchronisieren' },
+  { id: 'loadAllGoogleSheetsBtn', label: 'Alles aus Google Sheets laden' },
+  { id: 'reconcileAllGoogleSheetsBtn', label: 'Alles abgleichen' },
 ];
 function setGoogleSheetsSyncButtonsLoading(isLoading, activeId){
   GOOGLE_SHEETS_SYNC_BUTTONS.forEach(function(button){
@@ -3794,6 +3974,43 @@ async function syncAllToGoogleSheet(){
   setHTML('googleSheetsSyncResult', '<h3>Sync abgeschlossen</h3><ul>' + summary.join('') + '</ul>');
   setGoogleSheetsSyncButtonsLoading(false, '');
   return summary;
+}
+async function reconcileAllGoogleSheets(options){
+  const silent = !!(options && options.silent);
+  if(googleSheetsAutoSyncInFlight) return;
+  googleSheetsAutoSyncInFlight = true;
+  const summary = [];
+  if(!silent){
+    setGoogleSheetsSyncButtonsLoading(true, 'reconcileAllGoogleSheetsBtn');
+    setHTML('googleSheetsSyncResult', '<p>Bidirektionaler Abgleich läuft...</p>');
+  }
+  try{
+    await loadInventoryFromGoogleSheet(); summary.push('<li><strong>Inventar:</strong> geladen</li>');
+    await loadSuppliersFromGoogleSheet(); summary.push('<li><strong>Supplier:</strong> geladen</li>');
+    await loadSalesFromGoogleSheet(); summary.push('<li><strong>Verkäufe:</strong> geladen</li>');
+    await loadCostsFromGoogleSheet(); summary.push('<li><strong>Laufende Kosten:</strong> geladen</li>');
+    const syncSummary = await syncAllToGoogleSheet();
+    localStorage.setItem(GOOGLE_SHEETS_AUTO_SYNC_KEYS.lastRunAt, new Date().toISOString());
+    renderGoogleSheetsSyncStatus();
+    if(!silent){
+      setHTML('googleSheetsSyncResult', '<h3>Abgleich abgeschlossen</h3><ul>' + summary.join('') + syncSummary.join('') + '</ul>');
+    }
+  }finally{
+    googleSheetsAutoSyncInFlight = false;
+    if(!silent) setGoogleSheetsSyncButtonsLoading(false, '');
+  }
+}
+function scheduleGoogleSheetsAutoSync(){
+  if(googleSheetsAutoSyncTimer){
+    clearInterval(googleSheetsAutoSyncTimer);
+    googleSheetsAutoSyncTimer = null;
+  }
+  const settings = getGoogleSheetsAutoSyncSettings();
+  const config = getGoogleSheetsSyncConfig();
+  if(!settings.enabled || !config.url || !config.token) return;
+  googleSheetsAutoSyncTimer = setInterval(function(){
+    reconcileAllGoogleSheets({ silent:true }).catch(function(){});
+  }, settings.intervalMinutes * 60 * 1000);
 }
 function backendProductItems(data){
   if(Array.isArray(data)) return data;
@@ -9910,6 +10127,10 @@ function bindEvents(){
   bind('syncSalesGoogleSheetsShortcutBtn','click',syncSalesToGoogleSheetShortcut);
   bind('syncCostsGoogleSheetsBtn','click',syncCostsToGoogleSheet);
   bind('syncAllGoogleSheetsBtn','click',syncAllToGoogleSheet);
+  bind('loadAllGoogleSheetsBtn','click',loadAllFromGoogleSheet);
+  bind('reconcileAllGoogleSheetsBtn','click',function(){ reconcileAllGoogleSheets({ silent:false }); });
+  bind('googleSheetsAutoSyncEnabled','change',saveGoogleSheetsAutoSyncSettings);
+  bind('googleSheetsAutoSyncInterval','change',saveGoogleSheetsAutoSyncSettings);
   bind('backupSettings','click',exportSettings);
   bind('fullBackupExport','click',exportFullBackup);
   bind('fullBackupImportBtn','click',()=>safe('fullBackupImport',el=>el.click()));
