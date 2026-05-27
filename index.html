@@ -3201,6 +3201,9 @@ const GOOGLE_SHEETS_SYNC_ERROR_KEYS = {
 };
 let googleSheetsAutoSyncTimer = null;
 let googleSheetsAutoSyncInFlight = false;
+function queueGoogleSheetsSyncSettingsCloudSave(){
+  return Promise.resolve();
+}
 function getGoogleSheetsSyncError(type){
   const key = GOOGLE_SHEETS_SYNC_ERROR_KEYS[type];
   return key ? String(localStorage.getItem(key) || '') : '';
