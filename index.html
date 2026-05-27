@@ -5432,26 +5432,64 @@ function openLocalCsvImport(){
 function showGoogleSheetImport(){
   safe('googleSheetImportBox',function(el){ el.classList.toggle('hidden'); });
 }
-function googleSheetCsvUrl(input){
-  const url = String(input || '').trim();
-  if(!url) throw new Error('Bitte Google-Sheets-Link einfügen.');
-  let match = url.match(/\/spreadsheets\/d\/([^/]+)/);
-  if(!match) throw new Error('Das sieht nicht wie ein gültiger Google-Sheets-Link aus.');
-  const id = match[1];
-  let gid = '0';
-  const gidMatch = url.match(/[?&#]gid=([0-9]+)/);
-  if(gidMatch) gid = gidMatch[1];
-  return 'https://docs.google.com/spreadsheets/d/' + id + '/export?format=csv&gid=' + gid;
+function parseGoogleSheetLink(input){
+  const raw = String(input || '').trim();
+  if(!raw) throw new Error('Bitte Google-Sheets-Link einfügen.');
+  let parsed;
+  try{
+    parsed = new URL(raw);
+  }catch(err){
+    throw new Error('Das sieht nicht wie ein gültiger Google-Sheets-Link aus.');
+  }
+  const standardMatch = parsed.pathname.match(/\/spreadsheets\/d\/([^/]+)/);
+  const publishedMatch = parsed.pathname.match(/\/spreadsheets\/d\/e\/([^/]+)/);
+  if(!standardMatch && !publishedMatch) throw new Error('Das sieht nicht wie ein gültiger Google-Sheets-Link aus.');
+  const gid = parsed.searchParams.get('gid') || ((parsed.hash || '').match(/gid=([0-9]+)/) || [])[1] || '0';
+  if(publishedMatch){
+    return { kind:'published', publishedId:publishedMatch[1], gid:gid };
+  }
+  return { kind:'standard', spreadsheetId:standardMatch[1], gid:gid };
+}
+function googleSheetCsvCandidates(input){
+  const parsed = parseGoogleSheetLink(input);
+  if(parsed.kind === 'published'){
+    const base = 'https://docs.google.com/spreadsheets/d/e/' + parsed.publishedId + '/pub';
+    return [
+      base + '?output=csv',
+      base + '?gid=' + parsed.gid + '&single=true&output=csv',
+      base + '?gid=' + parsed.gid + '&output=csv'
+    ].filter(function(value,index,list){ return list.indexOf(value) === index; });
+  }
+  return [
+    'https://docs.google.com/spreadsheets/d/' + parsed.spreadsheetId + '/export?format=csv&gid=' + parsed.gid,
+    'https://docs.google.com/spreadsheets/d/' + parsed.spreadsheetId + '/gviz/tq?tqx=out:csv&gid=' + parsed.gid,
+    'https://docs.google.com/spreadsheets/d/' + parsed.spreadsheetId + '/pub?output=csv&gid=' + parsed.gid
+  ].filter(function(value,index,list){ return list.indexOf(value) === index; });
 }
 async function loadGoogleSheetCSV(){
   try{
     const input = $('googleSheetUrl') ? $('googleSheetUrl').value : '';
-    const csvUrl = googleSheetCsvUrl(input);
-    const response = await fetch(csvUrl);
-    if(!response.ok) throw new Error('Google Sheet konnte nicht geladen werden. Prüfe, ob es öffentlich freigegeben ist.');
-    const text = await response.text();
-    if(!text || !text.trim()) throw new Error('Keine CSV-Daten erhalten.');
-    if(text.toLowerCase().includes('<html')) throw new Error('Google hat keine CSV-Daten geliefert. Sheet wahrscheinlich nicht öffentlich freigegeben.');
+    const candidates = googleSheetCsvCandidates(input);
+    let text = '';
+    let lastError = '';
+    for(let i=0;i<candidates.length;i++){
+      try{
+        const response = await fetch(candidates[i]);
+        if(!response.ok){
+          lastError = 'HTTP ' + response.status;
+          continue;
+        }
+        const nextText = await response.text();
+        if(nextText && nextText.trim() && !nextText.toLowerCase().includes('<html')){
+          text = nextText;
+          break;
+        }
+        lastError = 'Keine CSV-Daten geliefert';
+      }catch(fetchErr){
+        lastError = fetchErr && fetchErr.message ? fetchErr.message : 'Unbekannter Ladefehler';
+      }
+    }
+    if(!text) throw new Error('Google Sheet konnte nicht geladen werden. Prüfe, ob es öffentlich freigegeben ist. ' + (lastError ? 'Details: ' + lastError : ''));
     const draft = csvToImportDraft(text,'Google Sheets');
     safe('csvImportMenu',function(el){ el.classList.add('hidden'); });
     showCsvImportPreview(draft);
