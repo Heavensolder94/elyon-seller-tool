@@ -56,26 +56,36 @@
     }).join("");
   }
 
-  async function loadMobileSummary() {
-    const response = await safeJson('/api/mobile-summary');
-    if (!response.ok || !response.data?.ok) return;
+  async function loadMobileLiveData() {
+    const [healthRes, ordersRes, driveRes] = await Promise.all([
+      safeJson('/api/mobile-health'),
+      safeJson('/api/ebay/orders?days=7'),
+      safeJson('/api/google-drive/status'),
+    ]);
 
-    const { metrics = {}, services = [], orders = [], source = {}, googleDrive = {} } = response.data;
+    const services = healthRes.data?.services || [];
+    const summary = healthRes.data?.summary || {};
+    const orders = ordersRes.data?.orders || [];
+    const revenue7d = orders.reduce((sum, order) => sum + orderTotal(order), 0);
+    const profitEstimate = revenue7d * 0.22;
+    const openOrders = orders.filter((order) => {
+      const status = String(order?.orderFulfillmentStatus || order?.status || '').toLowerCase();
+      return !status.includes('fulfilled') && !status.includes('complete') && !status.includes('cancel');
+    }).length;
 
-    if ($('todayRevenue')) $('todayRevenue').textContent = normalizeMoney(metrics.revenue7d);
-    if ($('todayProfit')) $('todayProfit').textContent = normalizeMoney(metrics.estimatedProfit7d);
-    if ($('openOrders')) $('openOrders').textContent = String(metrics.openOrders ?? metrics.orders7d ?? orders.length ?? 0);
-    if ($('healthScore')) $('healthScore').textContent = `${metrics.healthOk || 0}/${metrics.healthTotal || services.length || 0}`;
-    if ($('healthTrend')) $('healthTrend').textContent = metrics.healthWarn || metrics.healthBad ? 'Prüfen' : 'Alles live';
-    if ($('revenueTrend')) $('revenueTrend').textContent = source.ordersLive ? 'eBay live · 7 Tage' : 'Fallback';
+    if ($('todayRevenue')) $('todayRevenue').textContent = normalizeMoney(revenue7d);
+    if ($('todayProfit')) $('todayProfit').textContent = normalizeMoney(profitEstimate);
+    if ($('openOrders')) $('openOrders').textContent = String(openOrders || orders.length || 0);
+    if ($('healthScore')) $('healthScore').textContent = `${summary.ok || 0}/${summary.total || services.length || 0}`;
+    if ($('healthTrend')) $('healthTrend').textContent = summary.warn || summary.bad ? 'Prüfen' : 'Alles live';
+    if ($('revenueTrend')) $('revenueTrend').textContent = ordersRes.ok ? 'eBay live · 7 Tage' : 'Fallback';
     if ($('profitTrend')) $('profitTrend').textContent = 'Schätzung · 22%';
-    if ($('ordersSubtitle')) $('ordersSubtitle').textContent = source.ordersLive ? 'Live eBay Orders der letzten 7 Tage.' : 'Orders-Fallback aktiv.';
+    if ($('ordersSubtitle')) $('ordersSubtitle').textContent = ordersRes.ok ? 'Live eBay Orders der letzten 7 Tage.' : 'Orders-Fallback aktiv.';
 
     renderServices(services);
     renderOrders(orders);
 
-    const driveConnected = Boolean(googleDrive?.connected);
-    document.body.dataset.googleDrive = driveConnected ? 'connected' : 'disconnected';
+    document.body.dataset.googleDrive = driveRes.data?.connected ? 'connected' : 'disconnected';
   }
 
   async function askRealBrain(question) {
@@ -110,12 +120,12 @@
   }
 
   window.ElyonMobileLive = {
-    refresh: loadMobileSummary,
+    refresh: loadMobileLiveData,
   };
 
   document.addEventListener('DOMContentLoaded', () => {
-    loadMobileSummary();
+    loadMobileLiveData();
     enhanceBrain();
-    setInterval(loadMobileSummary, 60_000);
+    setInterval(loadMobileLiveData, 60_000);
   });
 })();
