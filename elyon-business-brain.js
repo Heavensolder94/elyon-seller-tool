@@ -476,7 +476,16 @@
     const runningCosts = sumBy(dataset.costs, (item) => item.amount ?? item.cost ?? item.price ?? item.value);
     const ebayFees = sumBy(dataset.orders, (order) => order.fees);
     const returnsReserve = Math.round((dataset.returns.length + dataset.shopifyReturns.length) * 7.5);
-    const safetyReserve = clamp(Math.round((supplierCosts + runningCosts) * safetyFactor), 50, 5000);
+    const hasFinancialBase = [
+      ordersRevenue,
+      supplierCosts,
+      runningCosts,
+      ebayFees,
+      sumBy(dataset.invoices, (item) => item.total ?? item.amount ?? item.value),
+      dataset.returns.length,
+      dataset.shopifyReturns.length,
+    ].some((value) => safeNumber(value, 0) > 0);
+    const safetyReserve = hasFinancialBase ? clamp(Math.round((supplierCosts + runningCosts) * safetyFactor), 50, 5000) : 0;
     const growthBudget = Math.max(0, Math.round(ordersRevenue * growthFactor));
     const reservedCapital = supplierCosts + returnsReserve + safetyReserve;
     const liquidityBase = sumBy(dataset.invoices, (item) => item.total ?? item.amount ?? item.value) + ordersRevenue;
@@ -492,7 +501,9 @@
     let status = "healthy";
     const warnings = [];
     const criticalLiquidityThreshold = getSensitivityThreshold(moduleSetting, 70, 100, 140);
-    if (freeLiquidity < criticalLiquidityThreshold) {
+    if (!hasFinancialBase) {
+      status = "healthy";
+    } else if (freeLiquidity < criticalLiquidityThreshold) {
       status = "critical";
       warnings.push("Liquiditaet zu niedrig");
     } else if (freeLiquidity < safetyReserve || openSupplierCosts > freeLiquidity) {
