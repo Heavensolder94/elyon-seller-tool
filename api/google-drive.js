@@ -15,7 +15,9 @@ import {
 } from "../lib/google-drive.js";
 import {
   getGoogleDriveTokenStoreDescription,
+  readGoogleDriveOAuthState,
   readGoogleDriveToken,
+  writeGoogleDriveOAuthState,
   writeGoogleDriveToken,
 } from "../lib/google-drive-token-store.js";
 
@@ -57,6 +59,45 @@ async function getStoredRefreshToken(req) {
   const stored = await readGoogleDriveToken();
   const refreshToken = stored?.refresh_token || stored?.refreshToken || "";
   return { refreshToken, source: refreshToken ? "token-store" : "none", stored };
+}
+
+async function createGoogleOAuthStart(req, res, { json = false } = {}) {
+  const state = globalThis.crypto && typeof globalThis.crypto.randomUUID === "function"
+    ? globalThis.crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+  const storeResult = await writeGoogleDriveOAuthState(state, {
+    origin: getOrigin(req),
+    userAgent: String(req.headers["user-agent"] || ""),
+  });
+  const authUrl = getGoogleAuthUrl(state);
+
+  setResponseCookies(req, res, [
+    {
+      name: "elyon_google_drive_oauth_state",
+      value: state,
+      maxAge: 10 * 60,
+      httpOnly: true,
+      sameSite: "Lax",
+    },
+  ]);
+
+  if (json) {
+    return res.status(200).json({
+      ok: true,
+      service: "Google Drive",
+      authUrl,
+      state,
+      stateStored: storeResult.ok,
+      stateStoreError: storeResult.ok ? null : storeResult.error,
+      redirectUri: String(process.env.GOOGLE_REDIRECT_URI || ""),
+      origin: getOrigin(req),
+    });
+  }
+
+  res.statusCode = 302;
+  res.setHeader("Location", authUrl);
+  return res.end("Weiterleitung zu Google OAuth...");
 }
 
 async function handleStatus(req, res) {
@@ -116,29 +157,7 @@ async function handleAuthUrl(req, res) {
       return res.status(405).json({ ok: false, error: "Nur GET oder POST erlaubt." });
     }
 
-    const state = globalThis.crypto && typeof globalThis.crypto.randomUUID === "function"
-      ? globalThis.crypto.randomUUID()
-      : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-
-    const authUrl = getGoogleAuthUrl(state);
-    setResponseCookies(req, res, [
-      {
-        name: "elyon_google_drive_oauth_state",
-        value: state,
-        maxAge: 10 * 60,
-        httpOnly: true,
-        sameSite: "Lax",
-      },
-    ]);
-
-    return res.status(200).json({
-      ok: true,
-      service: "Google Drive",
-      authUrl,
-      state,
-      redirectUri: String(process.env.GOOGLE_REDIRECT_URI || ""),
-      origin: getOrigin(req),
-    });
+    return createGoogleOAuthStart(req, res, { json: true });
   } catch (error) {
     return res.status(500).json({
       ok: false,
@@ -153,24 +172,7 @@ async function handleStart(req, res) {
       return res.status(405).json({ ok: false, error: "Nur GET erlaubt." });
     }
 
-    const state = globalThis.crypto && typeof globalThis.crypto.randomUUID === "function"
-      ? globalThis.crypto.randomUUID()
-      : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-
-    const authUrl = getGoogleAuthUrl(state);
-    setResponseCookies(req, res, [
-      {
-        name: "elyon_google_drive_oauth_state",
-        value: state,
-        maxAge: 10 * 60,
-        httpOnly: true,
-        sameSite: "Lax",
-      },
-    ]);
-
-    res.statusCode = 302;
-    res.setHeader("Location", authUrl);
-    return res.end("Weiterleitung zu Google OAuth...");
+    return createGoogleOAuthStart(req, res, { json: false });
   } catch (error) {
     return res.status(500).json({
       ok: false,
@@ -191,12 +193,20 @@ async function handleCallback(req, res) {
       return res.status(400).json({ ok: false, error: "Google OAuth code fehlt." });
     }
 
-    const expectedState = getOAuthStateCookie(req);
-    if (!expectedState) {
-      return res.status(400).json({ ok: false, error: "OAuth state fehlt oder ist abgelaufen. Bitte Login neu starten." });
-    }
-    if (state && state !== expectedState) {
-      return res.status(400).json({ ok: false, error: "OAuth state stimmt nicht. Bitte Login neu starten." });
+    const expectedCookieState = getOAuthStateCookie(req);
+    const storedState = await readGoogleDriveOAuthState(state);
+    const stateIsValid = Boolean(
+      (expectedCookieState && state && state === expectedCookieState) ||
+      (storedState && storedState.state === state)
+    );
+
+    if (!stateIsValid) {
+      return res.status(400).json({
+        ok: false,
+        error: "OAuth state fehlt oder ist abgelaufen. Bitte Login neu starten.",
+        cookieState: Boolean(expectedCookieState),
+        serverState: Boolean(storedState),
+      });
     }
 
     const tokenData = await exchangeGoogleCode(code);
@@ -264,6 +274,7 @@ async function handleCallback(req, res) {
       storage_error: storeResult.ok ? null : storeResult.error,
       store_mode: store.mode,
       store_target: store.key || store.path || null,
+      stateSource: storedState ? "server-store" : "cookie",
     });
   } catch (error) {
     const headers = buildCookieHeaders(req, [
