@@ -162,7 +162,7 @@ function buildApiRoute(pathname, query) {
     { match: /^\/api\/cj\/search$/, module: "api/cj/search.js" },
     { match: /^\/api\/elyon-soul$/, module: "api/elyon-soul.js" },
     { match: /^\/api\/agent-engine$/, module: "api/agent-engine.js" },
-    { match: /^\/api\/ai-router$/, module: "api/ai-router.js" },
+    { match: /^\/api\/ai-router$/, module: "api/ai.js" },
     { match: /^\/api\/ai(?:\/(listing-optimizer|product-search))?$/, module: "api/ai.js" },
     { match: /^\/api\/google-drive(?:\/(status|auth-url|upload-backup|oauth\/start|oauth\/callback))?$/, module: "api/google-drive.js" },
     { match: /^\/api\/ebay(?:\/(status|login-url|search|competition|exchange-token|token))?$/, module: "api/ebay/index.js" },
@@ -175,6 +175,9 @@ function buildApiRoute(pathname, query) {
     const nextQuery = { ...query };
     if (route.module === "api/ai.js" && match[1]) {
       nextQuery.task = match[1];
+    }
+    if (route.module === "api/ai.js" && clean === "/api/ai-router") {
+      nextQuery.task = "router";
     }
     if (route.module === "api/google-drive.js" && match[1]) {
       nextQuery.action = match[1].split("/").pop();
