@@ -1,8 +1,6 @@
-import OpenAI from "openai";
+import { routeAIRequest } from "../lib/ai-provider-router.js";
 
-const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+const OPENAI_RESPONSES_ENDPOINT = "https://api.openai.com/v1/responses";
 
 const DEFAULT_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
 
@@ -75,6 +73,78 @@ function extractOutputText(data) {
   }
 
   return "";
+}
+
+function parseJsonObjectFromText(value) {
+  if (!value) return null;
+  if (typeof value === "object") return value;
+  const text = String(value || "").trim();
+  if (!text) return null;
+
+  const candidates = [
+    text,
+    text.replace(/^```(?:json)?/i, "").replace(/```$/i, "").trim(),
+  ];
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  if (start >= 0 && end > start) {
+    candidates.push(text.slice(start, end + 1));
+  }
+
+  for (const candidate of candidates) {
+    try {
+      const parsed = JSON.parse(candidate);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) return parsed;
+    } catch {
+      // Providers sometimes wrap JSON in Markdown. Try the next candidate.
+    }
+  }
+  return null;
+}
+
+function withStructuredTaskResult(result) {
+  if (!result || !result.ok || result.task !== "product_decision") return result;
+  const parsed = parseJsonObjectFromText(result.result || result.content);
+  if (!parsed) return result;
+  return {
+    ...result,
+    result: parsed,
+  };
+}
+
+async function createOpenAIResponse(payload) {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    const error = new Error("OPENAI_API_KEY fehlt.");
+    error.status = 500;
+    throw error;
+  }
+
+  const response = await fetch(OPENAI_RESPONSES_ENDPOINT, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const rawText = await response.text();
+  let data = null;
+  try {
+    data = rawText ? JSON.parse(rawText) : null;
+  } catch {
+    data = null;
+  }
+
+  if (!response.ok) {
+    const error = new Error(readText(data?.error?.message || data?.message || rawText || "OpenAI request failed."));
+    error.status = response.status || 500;
+    error.details = data;
+    throw error;
+  }
+
+  return data;
 }
 
 function buildSimplePrompt(task, prompt, body) {
@@ -317,7 +387,7 @@ function buildListingOptimizerSchema() {
 }
 
 async function callJsonOpenAI({ prompt, schema, name, description, maxOutputTokens }) {
-  const response = await client.responses.create({
+  const response = await createOpenAIResponse({
     model: DEFAULT_MODEL,
     input: prompt,
     text: {
@@ -418,9 +488,46 @@ async function handleListingOptimizer(req, res, body) {
   }
 }
 
+async function handleCentralAiRouter(req, res, body) {
+  if (req.method !== "POST") {
+    return res.status(405).json({
+      ok: false,
+      provider: "local",
+      fallbackUsed: true,
+      task: "",
+      content: "",
+      usage: null,
+      error: {
+        code: "METHOD_NOT_ALLOWED",
+        message: "Nur POST erlaubt.",
+        type: "unknown",
+      },
+    });
+  }
+
+  const result = await routeAIRequest({
+    provider: body.provider,
+    task: body.task,
+    messages: body.messages,
+    prompt: body.prompt,
+    model: body.model,
+    temperature: typeof body.temperature === "number" ? body.temperature : undefined,
+    maxTokens: typeof body.maxTokens === "number" ? body.maxTokens : undefined,
+    allowFallback: body.allowFallback,
+    context: body.context,
+    safety: body.safety,
+  });
+
+  return res.status(result.ok ? 200 : 400).json(withStructuredTaskResult(result));
+}
+
 export default async function handler(req, res) {
   const body = readBody(req);
   const task = readText(body.task || req.query?.task || req.query?.action || req.query?.endpoint || "");
+
+  if (task === "router") {
+    return handleCentralAiRouter(req, res, body);
+  }
 
   if (task === "product-search") {
     return handleProductSearch(req, res, body);
@@ -441,7 +548,7 @@ export default async function handler(req, res) {
 
   try {
     const model = chooseModel(task);
-    const response = await client.responses.create({
+    const response = await createOpenAIResponse({
       model,
       input: buildSimplePrompt(task, prompt, body),
     });
@@ -450,7 +557,7 @@ export default async function handler(req, res) {
       ok: true,
       task,
       modelUsed: model,
-      result: response.output_text,
+      result: extractOutputText(response),
     });
   } catch (error) {
     return res.status(500).json({
