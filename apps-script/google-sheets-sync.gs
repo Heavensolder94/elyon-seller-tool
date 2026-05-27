@@ -1,3 +1,5 @@
+const AUTHORITATIVE_SPREADSHEET_ID = "1-PhVpyF44kxE09uRtwEKnGn9XBtStbp4wSWxeJ_zASI";
+
 const SHEET_CONFIG = {
   inventory: {
     sheetName: "Inventar",
@@ -65,7 +67,7 @@ const HEADERS_BY_TYPE = {
     "Status"
   ]
 };
-const SCRIPT_BUILD = "2026-05-27-bidirectional-sync-v1";
+const SCRIPT_BUILD = "2026-05-28-inventartracker-source-lock";
 
 function doPost(e) {
   const lock = LockService.getScriptLock();
@@ -159,6 +161,9 @@ function getExpectedToken_() {
 }
 
 function getSpreadsheet_() {
+  if (AUTHORITATIVE_SPREADSHEET_ID) {
+    return SpreadsheetApp.openById(AUTHORITATIVE_SPREADSHEET_ID);
+  }
   const active = SpreadsheetApp.getActiveSpreadsheet();
   if (active) return active;
   const props = PropertiesService.getScriptProperties();

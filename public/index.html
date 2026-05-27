@@ -3195,6 +3195,7 @@ const GOOGLE_SHEETS_SYNC_KEYS = {
   salesAt: 'elyon_last_sales_sync_at',
   costsAt: 'elyon_last_costs_sync_at',
 };
+const AUTHORITATIVE_GOOGLE_SHEET_ID = '1-PhVpyF44kxE09uRtwEKnGn9XBtStbp4wSWxeJ_zASI';
 const GOOGLE_SHEETS_SYNC_TYPES = {
   inventory: 'inventory',
   suppliers: 'suppliers',
@@ -3427,7 +3428,7 @@ function renderGoogleSheetsSyncStatus(){
       renderGoogleSheetsMetric('Verkäufe', lastSales, '') +
       renderGoogleSheetsMetric('Laufende Kosten', lastCosts, '') +
     '</div>' +
-    '<div class="output-box" style="margin-top:14px"><p>' + (connected ? 'Sync bereit. URL und Token werden lokal verschlüsselt gespeichert.' : 'Trage URL und Token ein, um die Google Sheets Sync zu aktivieren.') + '</p><p class="hint" style="margin-top:8px">Auto-Abgleich: ' + (autoSync.enabled ? ('aktiv, alle ' + autoSync.intervalMinutes + ' Minuten') : 'aus') + (autoSync.lastRunAt ? ' · letzter Lauf: ' + formatSyncTimestamp(autoSync.lastRunAt) : '') + '</p></div>'
+    '<div class="output-box" style="margin-top:14px"><p>' + (connected ? 'Sync bereit. URL und Token werden lokal verschlüsselt gespeichert.' : 'Trage URL und Token ein, um die Google Sheets Sync zu aktivieren.') + '</p><p class="hint" style="margin-top:8px">Autoritative Datei: InventarTracker (`' + AUTHORITATIVE_GOOGLE_SHEET_ID + '`)</p><p class="hint" style="margin-top:8px">Auto-Abgleich: ' + (autoSync.enabled ? ('aktiv, alle ' + autoSync.intervalMinutes + ' Minuten') : 'aus') + (autoSync.lastRunAt ? ' · letzter Lauf: ' + formatSyncTimestamp(autoSync.lastRunAt) : '') + '</p></div>'
   );
   scheduleGoogleSheetsAutoSync();
 }
