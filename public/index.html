@@ -786,6 +786,7 @@
         <div id="csvImportMenu" class="hidden" style="position:absolute;right:0;top:calc(100% + 8px);min-width:280px;background:rgba(15,23,42,.98);border:1px solid rgba(255,255,255,.14);border-radius:18px;padding:12px;z-index:1500;box-shadow:0 18px 50px rgba(0,0,0,.42)">
           <button class="secondary full" id="localCsvImportBtn" type="button">Lokale CSV/XLSX-Datei importieren</button>
           <button class="secondary full" id="googleCsvImportBtn" type="button" style="margin-top:8px">Von Google Sheets importieren</button>
+          <button class="secondary full" id="openImportMappingBtn" type="button" style="margin-top:8px">Import-Mapping öffnen</button>
           <div id="googleSheetImportBox" class="hidden" style="margin-top:10px">
             <input id="googleSheetUrl" placeholder="Google-Sheets-Link einfügen" style="margin-bottom:8px">
             <button class="secondary full" id="loadGoogleSheetBtn" type="button">Google Sheet laden</button>
@@ -2563,6 +2564,26 @@ PLZ Ort"></textarea>
       </div>
     </div>
   </div>
+  <div id="importMappingModal" class="hidden modal-backdrop" aria-hidden="true">
+    <div class="card modal-panel invoice-modal-panel">
+      <h2>Import-Mapping Board</h2>
+      <p class="hint">Ordne Tabellenspalten dem Tool und dem Elyon Brain zu. So versteht der Import besser, welche Datei-Spalten für Produktdaten, Supplier-Sicht und Brain-Analysen gedacht sind.</p>
+      <div class="output-box" style="margin-bottom:14px">
+        <p><strong>Was du hier steuerst:</strong></p>
+        <ul>
+          <li>Welche Spaltennamen aus deiner Tabelle erkannt werden</li>
+          <li>In welches Feld im Tool die Daten laufen</li>
+          <li>Welches Brain-Modul die Information schwerpunktmäßig nutzt</li>
+        </ul>
+      </div>
+      <div id="importMappingRoot" class="products"></div>
+      <div class="row" style="margin-top:14px">
+        <button type="button" id="saveImportMappingBtn" class="secondary full">Mapping speichern</button>
+        <button type="button" id="resetImportMappingBtn" class="secondary full">Mapping zurücksetzen</button>
+        <button type="button" id="closeImportMappingBtn" class="secondary full">Schließen</button>
+      </div>
+    </div>
+  </div>
 
   <div id="productReportModal" class="hidden modal-backdrop">
     <div class="card modal-panel invoice-modal-panel">
@@ -2869,6 +2890,29 @@ const brainModuleDefinitions = [
   { id:'simulationBrain', label:'Simulation Brain', description:'Testszenarien ohne Live-Aktion.', shortInfo:'Spielt Szenarien nur testweise durch, ohne etwas live auszufuehren.', longInfo:'Der Simulation Brain testet Was-waere-wenn-Faelle wie aggressive Skalierung, mehrere Retouren, steigende Supplierkosten oder verzoegerte Auszahlungen. So kannst du Risiken sehen, ohne reale Bestellungen, Nachrichten oder Preisaktionen auszufuehren.' },
   { id:'decisionBrain', label:'Decision Brain', description:'Vorbereitete Empfehlungen und Prioritaeten.', shortInfo:'Leitet aus allen Signalen konkrete Empfehlungen ab.', longInfo:'Der Decision Brain bereitet Entscheidungen wie Skalierung stoppen, Produkt testen, Supplier pruefen oder Cashflow stabilisieren als Empfehlung vor. Er hilft bei Priorisierung, trifft aber keine Live-Entscheidung selbst.' }
 ];
+const IMPORT_MAPPING_STORAGE_KEY = 'elyon_import_mapping_v1';
+const importMappingDefinitions = [
+  { id:'sku', label:'SKU / Artikel-ID', toolField:'sku', brain:'productBrain', aliases:['SKU','Sku','sku','Artikel-ID','Artikel ID','Artikelnummer','Artikel Nummer','Artikel-Nr.','Artikel-Nr','Artikel Nr','ArtikelNr'] },
+  { id:'name', label:'Produktname', toolField:'name', brain:'productBrain', aliases:['Name','Bezeichnung','Titel','Produktname','Produkt','Artikel','Artikelbezeichnung'] },
+  { id:'buy', label:'EK / Einkaufspreis', toolField:'buy', brain:'cashflowBrain', aliases:['EK','Preis EK','Einkaufspreis','Kosten','Preis Einkauf'] },
+  { id:'ship', label:'Versandkosten', toolField:'ship', brain:'cashflowBrain', aliases:['Versand','Versand mind.','Versand ab','Versandkosten','Shipping'] },
+  { id:'sell', label:'VK / Verkaufspreis', toolField:'sell', brain:'analyticsBrain', aliases:['VK','Preis VK (ebay)','Preis VK','Verkaufspreis','Verkaufspreis eBay','Ebay Preis'] },
+  { id:'fees', label:'eBay Gebühren', toolField:'fee', brain:'cashflowBrain', aliases:['Ebay gebühren','eBay gebühren','Ebay Gebühren','eBay Gebühren'] },
+  { id:'targetProfit', label:'Zielgewinn', toolField:'targetProfit', brain:'decisionBrain', aliases:['Zielgewinn','Gewinnziel'] },
+  { id:'supplierName', label:'Lieferant', toolField:'sourceProvider', brain:'supplierBrain', aliases:['Lieferant','Supplier','Anbieter'] },
+  { id:'supplierId', label:'Lieferanten-ID', toolField:'supplierId', brain:'supplierBrain', aliases:['Lieferanten-ID','Lieferanten Id','Supplier ID','Anbieter-ID'] },
+  { id:'supplierLink', label:'Lieferanten-Link', toolField:'supplierLink', brain:'supplierBrain', aliases:['Lieferanten-Link','Lieferanten Link','Link','URL'] },
+  { id:'supplierShippingTime', label:'Versandzeit / Lieferzeit', toolField:'sourceOnlineShipping', brain:'riskBrain', aliases:['Versandzeit','Lieferzeit Text','Shipping Time'] },
+  { id:'delivery', label:'Lieferzeit Tage', toolField:'delivery', brain:'riskBrain', aliases:['Lieferzeit','Lieferzeit Tage','Lieferzeit in Tagen','Tage'] },
+  { id:'competition', label:'Konkurrenz / Anbieterzahl', toolField:'competition', brain:'analyticsBrain', aliases:['Anbieter','Konkurrenz','Kategorie'] },
+  { id:'sales', label:'Verkäufe / Sales', toolField:'sales', brain:'analyticsBrain', aliases:['Verkäufe','Verkaeufe','Sales'] },
+  { id:'risk', label:'Risiko', toolField:'risk', brain:'riskBrain', aliases:['Risiko','Risk'] },
+  { id:'status', label:'Status / Typ', toolField:'status', brain:'decisionBrain', aliases:['Status','Typ'] },
+  { id:'priority', label:'Priorität', toolField:'priority', brain:'decisionBrain', aliases:['Priorität','Prioritaet','Priorität ','Prio'] },
+  { id:'listingScore', label:'Listing-Score', toolField:'listingScore', brain:'seoBrain', aliases:['Listing-Score','listingScore','Score'] },
+  { id:'issues', label:'Probleme / Issues', toolField:'issues', brain:'complianceBrain', aliases:['Issues','issue','Probleme','Prüfhinweise','Check Issues'] },
+  { id:'importHints', label:'Hinweise / Notizen', toolField:'sourceNote', brain:'memoryBrain', aliases:['Hinweise','Notizen','Notiz','Bemerkung'] }
+];
 function createDefaultBrainModuleSettings(){
   return brainModuleDefinitions.reduce((acc, module) => {
     acc[module.id] = { enabled:true, sensitivity:'normal', debugLevel:'medium' };
@@ -2888,6 +2932,45 @@ function normalizeBrainModuleSettings(saved){
     };
   });
   return next;
+}
+function createDefaultImportMappingSettings(){
+  return {
+    version: 1,
+    fields: importMappingDefinitions.reduce((acc, item) => {
+      acc[item.id] = {
+        aliases: item.aliases.slice(),
+        brain: item.brain
+      };
+      return acc;
+    }, {})
+  };
+}
+function normalizeImportMappingSettings(saved){
+  const defaults = createDefaultImportMappingSettings();
+  const source = saved && typeof saved === 'object' ? saved : {};
+  const sourceFields = source.fields && typeof source.fields === 'object' ? source.fields : {};
+  const next = { version: 1, fields: {} };
+  importMappingDefinitions.forEach(def => {
+    const item = sourceFields[def.id] && typeof sourceFields[def.id] === 'object' ? sourceFields[def.id] : {};
+    const aliases = Array.isArray(item.aliases) ? item.aliases : String(item.aliases || '').split(',').map(function(part){ return part.trim(); }).filter(Boolean);
+    next.fields[def.id] = {
+      aliases: aliases.length ? aliases : defaults.fields[def.id].aliases.slice(),
+      brain: brainModuleDefinitions.some(function(module){ return module.id === item.brain; }) ? item.brain : defaults.fields[def.id].brain
+    };
+  });
+  return next;
+}
+function loadImportMappingSettings(){
+  try{
+    return normalizeImportMappingSettings(JSON.parse(localStorage.getItem(IMPORT_MAPPING_STORAGE_KEY) || '{}'));
+  }catch(err){
+    return createDefaultImportMappingSettings();
+  }
+}
+function saveImportMappingSettings(settings){
+  const normalized = normalizeImportMappingSettings(settings);
+  localStorage.setItem(IMPORT_MAPPING_STORAGE_KEY, JSON.stringify(normalized));
+  return normalized;
 }
 const defaultSettings = {
   profit: 7,
@@ -5372,25 +5455,28 @@ function normalizeImportNumber(value){
   const num = parseFloat(cleaned);
   return Number.isFinite(num) ? num : 0;
 }
+function getImportMappingEntry(fieldId){
+  const settings = loadImportMappingSettings();
+  return settings.fields && settings.fields[fieldId] ? settings.fields[fieldId] : null;
+}
+function importAliases(fieldId, fallbackAliases){
+  const entry = getImportMappingEntry(fieldId);
+  const aliases = entry && Array.isArray(entry.aliases) ? entry.aliases : [];
+  return Array.from(new Set([].concat(aliases, fallbackAliases || []).map(function(item){ return String(item || '').trim(); }).filter(Boolean)));
+}
 function hasMeaningfulImportData(obj){
   const source = obj && typeof obj === 'object' ? obj : {};
-  const textKeys = [
-    'SKU','Sku','sku','Artikel-ID','Artikel ID','Artikelnummer','Artikel Nummer',
-    'Name','Bezeichnung','Titel','Produktname','Produkt','Artikel','Artikelbezeichnung',
-    'Lieferanten-ID','Lieferanten Id','Supplier ID','Supplier','Anbieter-ID',
-    'Lieferanten-Link','Lieferanten Link','Link','URL',
-    'Lieferant','Versandzeit','Hinweise','Notizen','Notiz','Bemerkung'
-  ];
-  const numberKeys = [
-    'EK','Preis EK','Einkaufspreis','Kosten','Preis Einkauf',
-    'Versand','Versand mind.','Versand ab','Versandkosten','Shipping',
-    'VK','Preis VK (ebay)','Preis VK','Verkaufspreis','Verkaufspreis eBay','Ebay Preis'
-  ];
-  const hasText = textKeys.some(function(key){
-    return String(source[key] === undefined || source[key] === null ? '' : source[key]).trim() !== '';
+  const textFields = ['sku','name','supplierId','supplierLink','supplierName','supplierShippingTime','importHints'];
+  const numberFields = ['buy','ship','sell'];
+  const hasText = textFields.some(function(fieldId){
+    return importAliases(fieldId, []).some(function(key){
+      return String(source[key] === undefined || source[key] === null ? '' : source[key]).trim() !== '';
+    });
   });
-  const hasNumber = numberKeys.some(function(key){
-    return normalizeImportNumber(source[key]) > 0;
+  const hasNumber = numberFields.some(function(fieldId){
+    return importAliases(fieldId, []).some(function(key){
+      return normalizeImportNumber(source[key]) > 0;
+    });
   });
   return hasText || hasNumber;
 }
@@ -5422,7 +5508,7 @@ function buildImportDraftFromRows(rows,sourceLabel){
       normalizedObj[String(key || '').trim()] = obj[key];
     });
 
-    let sku = String(firstImportValue(normalizedObj, ['SKU','Sku','sku','Artikel-ID','Artikel ID','Artikelnummer','Artikel Nummer','Artikel-Nr.','Artikel-Nr','Artikel Nr','ArtikelNr']) || '').trim().toUpperCase();
+    let sku = String(firstMappedImportValue(normalizedObj, 'sku', ['SKU','Sku','sku','Artikel-ID','Artikel ID','Artikelnummer','Artikel Nummer','Artikel-Nr.','Artikel-Nr','Artikel Nr','ArtikelNr']) || '').trim().toUpperCase();
     let importStatus = 'bereit';
     let importMessage = 'wird importiert';
 
@@ -5435,28 +5521,28 @@ function buildImportDraftFromRows(rows,sourceLabel){
     }
     seenInImport.add(sku);
 
-    const name = String(firstImportValue(normalizedObj, ['Name','Bezeichnung','Titel','Produktname','Produkt','Artikel','Artikelbezeichnung']) || '').trim() || 'Importiertes Produkt';
-    const supplierId = String(firstImportValue(normalizedObj, ['Lieferanten-ID','Lieferanten Id','Supplier ID','Supplier','Anbieter-ID']) || '').trim();
+    const name = String(firstMappedImportValue(normalizedObj, 'name', ['Name','Bezeichnung','Titel','Produktname','Produkt','Artikel','Artikelbezeichnung']) || '').trim() || 'Importiertes Produkt';
+    const supplierId = String(firstMappedImportValue(normalizedObj, 'supplierId', ['Lieferanten-ID','Lieferanten Id','Supplier ID','Supplier ID','Anbieter-ID']) || '').trim();
     const ebayItemId = String(firstImportValue(normalizedObj, ['eBay-Artikelnummer','eBay Artikelnummer','eBay Nummer','eBay-ID']) || '').trim();
-    const supplierLink = String(firstImportValue(normalizedObj, ['Lieferanten-Link','Lieferanten Link','Link','URL']) || '').trim();
-    const status = String(firstImportValue(normalizedObj, ['Status','Typ']) || 'Draft').trim() || 'Draft';
-    const priority = String(firstImportValue(normalizedObj, ['Priorität','Prioritaet','Priorität ','Prio']) || 'Normal').trim() || 'Normal';
-    const supplierName = String(firstImportValue(normalizedObj, ['Lieferant','Supplier','Anbieter']) || '').trim();
-    const supplierShippingTime = String(firstImportValue(normalizedObj, ['Versandzeit','Lieferzeit Text','Shipping Time']) || '').trim();
-    const importHints = String(firstImportValue(normalizedObj, ['Hinweise','Notizen','Notiz','Bemerkung']) || '').trim();
-    const buy = normalizeImportNumber(firstImportValue(normalizedObj, ['EK','Preis EK','Einkaufspreis','Kosten','Preis Einkauf']));
-    const ship = normalizeImportNumber(firstImportValue(normalizedObj, ['Versand','Versand mind.','Versand ab','Versandkosten','Shipping']));
-    const sell = normalizeImportNumber(firstImportValue(normalizedObj, ['VK','Preis VK (ebay)','Preis VK','Verkaufspreis','Verkaufspreis eBay','Ebay Preis']));
-    const delivery = normalizeImportNumber(firstImportValue(normalizedObj, ['Lieferzeit','Lieferzeit Tage','Lieferzeit in Tagen','Tage']));
-    const competition = normalizeImportNumber(firstImportValue(normalizedObj, ['Anbieter','Konkurrenz','Kategorie']));
-    const sales = normalizeImportNumber(firstImportValue(normalizedObj, ['Verkäufe','Verkaeufe','Sales']));
-    const risk = String(firstImportValue(normalizedObj, ['Risiko','Risk']) || 'low').trim() || 'low';
-    const productStatus = normalizeProductStatus(firstImportValue(normalizedObj, ['Produkt-Status','Product Status','productStatus','Status','Typ']) || 'Draft', 'Draft');
-    const listingScore = normalizeImportNumber(firstImportValue(normalizedObj, ['Listing-Score','listingScore','Score']));
-    const issuesRaw = firstImportValue(normalizedObj, ['Issues','issue','Probleme','Prüfhinweise','Check Issues']);
+    const supplierLink = String(firstMappedImportValue(normalizedObj, 'supplierLink', ['Lieferanten-Link','Lieferanten Link','Link','URL']) || '').trim();
+    const status = String(firstMappedImportValue(normalizedObj, 'status', ['Status','Typ']) || 'Draft').trim() || 'Draft';
+    const priority = String(firstMappedImportValue(normalizedObj, 'priority', ['Priorität','Prioritaet','Priorität ','Prio']) || 'Normal').trim() || 'Normal';
+    const supplierName = String(firstMappedImportValue(normalizedObj, 'supplierName', ['Lieferant','Supplier','Anbieter']) || '').trim();
+    const supplierShippingTime = String(firstMappedImportValue(normalizedObj, 'supplierShippingTime', ['Versandzeit','Lieferzeit Text','Shipping Time']) || '').trim();
+    const importHints = String(firstMappedImportValue(normalizedObj, 'importHints', ['Hinweise','Notizen','Notiz','Bemerkung']) || '').trim();
+    const buy = normalizeImportNumber(firstMappedImportValue(normalizedObj, 'buy', ['EK','Preis EK','Einkaufspreis','Kosten','Preis Einkauf']));
+    const ship = normalizeImportNumber(firstMappedImportValue(normalizedObj, 'ship', ['Versand','Versand mind.','Versand ab','Versandkosten','Shipping']));
+    const sell = normalizeImportNumber(firstMappedImportValue(normalizedObj, 'sell', ['VK','Preis VK (ebay)','Preis VK','Verkaufspreis','Verkaufspreis eBay','Ebay Preis']));
+    const delivery = normalizeImportNumber(firstMappedImportValue(normalizedObj, 'delivery', ['Lieferzeit','Lieferzeit Tage','Lieferzeit in Tagen','Tage']));
+    const competition = normalizeImportNumber(firstMappedImportValue(normalizedObj, 'competition', ['Anbieter','Konkurrenz','Kategorie']));
+    const sales = normalizeImportNumber(firstMappedImportValue(normalizedObj, 'sales', ['Verkäufe','Verkaeufe','Sales']));
+    const risk = String(firstMappedImportValue(normalizedObj, 'risk', ['Risiko','Risk']) || 'low').trim() || 'low';
+    const productStatus = normalizeProductStatus(firstImportValue(normalizedObj, ['Produkt-Status','Product Status','productStatus']) || status || 'Draft', 'Draft');
+    const listingScore = normalizeImportNumber(firstMappedImportValue(normalizedObj, 'listingScore', ['Listing-Score','listingScore','Score']));
+    const issuesRaw = firstMappedImportValue(normalizedObj, 'issues', ['Issues','issue','Probleme','Prüfhinweise','Check Issues']);
     const notesParts = [];
-    const eBayFees = firstImportValue(normalizedObj, ['Ebay gebühren','eBay gebühren','Ebay Gebühren','eBay Gebühren']);
-    const targetProfit = normalizeImportNumber(firstImportValue(normalizedObj, ['Zielgewinn','Gewinnziel']));
+    const eBayFees = firstMappedImportValue(normalizedObj, 'fees', ['Ebay gebühren','eBay gebühren','Ebay Gebühren','eBay Gebühren']);
+    const targetProfit = normalizeImportNumber(firstMappedImportValue(normalizedObj, 'targetProfit', ['Zielgewinn','Gewinnziel']));
     const recommendedPrice = firstImportValue(normalizedObj, ['Emph. Zielpreis','Empf. Zielpreis','Empfohlener Zielpreis','Zielpreis']);
     if(String(firstImportValue(normalizedObj, ['Typ']) || '').trim()) notesParts.push('Typ: ' + String(firstImportValue(normalizedObj, ['Typ'])));
     if(String(eBayFees || '').trim()) notesParts.push('eBay Gebühren: ' + String(eBayFees));
@@ -5517,6 +5603,62 @@ function triggerBrainRefresh(reason){
       window.ElyonBusinessBrain.dispatchBrainEvent('elyon:brain-updated', { source: reason || 'tool-update' });
     }
   }catch(err){}
+}
+function renderImportMappingBoard(){
+  const root = $('importMappingRoot');
+  if(!root) return;
+  const settings = loadImportMappingSettings();
+  root.innerHTML = importMappingDefinitions.map(function(def){
+    const current = settings.fields[def.id] || { aliases:def.aliases.slice(), brain:def.brain };
+    const brainOptions = brainModuleDefinitions.map(function(module){
+      return '<option value="' + module.id + '"' + (current.brain === module.id ? ' selected' : '') + '>' + module.label + '</option>';
+    }).join('');
+    return '<article class="product-card small-card">' +
+      '<div>' +
+        '<div class="product-title">' + escapeHtml(def.label) + '</div>' +
+        '<div class="muted">Tool-Feld: ' + escapeHtml(def.toolField) + '</div>' +
+        '<label>Spaltennamen aus deiner Datei</label>' +
+        '<textarea id="importMappingAliases_' + def.id + '" style="min-height:88px">' + escapeHtml((current.aliases || []).join(', ')) + '</textarea>' +
+      '</div>' +
+      '<div class="score-wrap">' +
+        '<label>Brain-Modul</label>' +
+        '<select id="importMappingBrain_' + def.id + '">' + brainOptions + '</select>' +
+        '<div class="pill-row" style="margin-top:8px"><span class="pill">Quelle -> Tool -> Brain</span></div>' +
+      '</div>' +
+    '</article>';
+  }).join('');
+}
+function openImportMappingModal(){
+  renderImportMappingBoard();
+  safe('csvImportMenu',function(el){ el.classList.add('hidden'); });
+  safe('importMappingModal',function(el){ el.classList.remove('hidden'); el.setAttribute('aria-hidden','false'); });
+}
+function closeImportMappingModal(){
+  safe('importMappingModal',function(el){ el.classList.add('hidden'); el.setAttribute('aria-hidden','true'); });
+}
+function collectImportMappingFromForm(){
+  return normalizeImportMappingSettings({
+    version: 1,
+    fields: importMappingDefinitions.reduce(function(acc, def){
+      acc[def.id] = {
+        aliases: String($('importMappingAliases_' + def.id)?.value || '').split(',').map(function(part){ return part.trim(); }).filter(Boolean),
+        brain: $('importMappingBrain_' + def.id)?.value || def.brain
+      };
+      return acc;
+    }, {})
+  });
+}
+function saveImportMappingFromModal(){
+  const next = saveImportMappingSettings(collectImportMappingFromForm());
+  renderImportMappingBoard();
+  alert('Import-Mapping gespeichert. Neue Importe nutzen jetzt diese Spaltenzuordnung.');
+  triggerBrainRefresh('import-mapping-save');
+  return next;
+}
+function resetImportMappingModal(){
+  saveImportMappingSettings(createDefaultImportMappingSettings());
+  renderImportMappingBoard();
+  alert('Import-Mapping auf Standard zurückgesetzt.');
 }
 function csvToImportDraft(text,sourceLabel){
   const cleanText = String(text || '').trim();
@@ -5711,6 +5853,9 @@ async function findReachableLocalAppUrl(){
     }catch(err){}
   }
   return '';
+}
+function firstMappedImportValue(obj, fieldId, fallbackAliases){
+  return firstImportValue(obj, importAliases(fieldId, fallbackAliases || []));
 }
 async function ensureGoogleSheetImportContext(){
   if(!isFileProtocolApp()) return true;
@@ -10407,9 +10552,13 @@ function bindEvents(){
   bind('importBtn','click',toggleCsvImportMenu);
   bind('localCsvImportBtn','click',openLocalCsvImport);
   bind('googleCsvImportBtn','click',showGoogleSheetImport);
+  bind('openImportMappingBtn','click',openImportMappingModal);
   bind('loadGoogleSheetBtn','click',loadGoogleSheetCSV);
   bind('confirmCsvImportBtn','click',confirmCsvImport);
   bind('cancelCsvImportBtn','click',cancelCsvImport);
+  bind('saveImportMappingBtn','click',saveImportMappingFromModal);
+  bind('resetImportMappingBtn','click',resetImportMappingModal);
+  bind('closeImportMappingBtn','click',closeImportMappingModal);
   bind('csvImport','change',importCSV);
   bind('exportBtn','click',exportCSV);
   bind('clearBtn','click',clearAll);
