@@ -3349,7 +3349,19 @@ function saveGoogleSheetsAutoSyncSettings(){
   const intervalMinutes = Math.max(5, parseInt(($('googleSheetsAutoSyncInterval') && $('googleSheetsAutoSyncInterval').value) || '15', 10) || 15);
   localStorage.setItem(GOOGLE_SHEETS_AUTO_SYNC_KEYS.enabled, enabled ? 'yes' : 'no');
   localStorage.setItem(GOOGLE_SHEETS_AUTO_SYNC_KEYS.intervalMinutes, String(intervalMinutes));
+  renderGoogleSheetsSyncStatus();
   scheduleGoogleSheetsAutoSync();
+  if(enabled){
+    localStorage.setItem(GOOGLE_SHEETS_AUTO_SYNC_KEYS.lastRunAt, new Date().toISOString());
+    renderGoogleSheetsSyncStatus();
+    setHTML('googleSheetsSyncResult', '<p>Auto-Abgleich aktiviert. Erster Abgleich startet jetzt...</p>');
+    reconcileAllGoogleSheets({ silent:false }).catch(function(error){
+      const message = error && error.message ? error.message : 'Auto-Abgleich konnte nicht gestartet werden.';
+      setHTML('googleSheetsSyncResult', '<p>⚠️ ' + escapeHtml(message) + '</p>');
+    });
+  }else{
+    setHTML('googleSheetsSyncResult', '<p>Auto-Abgleich deaktiviert.</p>');
+  }
 }
 function renderGoogleSheetsSyncStatus(){
   const config = getGoogleSheetsSyncConfig();
