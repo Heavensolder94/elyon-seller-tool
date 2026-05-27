@@ -5025,6 +5025,88 @@ function prepareProductForEbayDraft(id){
   refreshEbayListingDraftPreview();
   toast('Produkt in den eBay-Draft übernommen.');
 }
+function prepareBrowserImportForEbayDraft(importId){
+  const item = browserImports.find(function(entry){ return String(entry.id) === String(importId); });
+  if(!item){
+    alert('Browser Import nicht gefunden.');
+    return;
+  }
+  const existing = normalizeEbayListingDraftRecord(latestEbayListingDraft || loadStoredEbayListingDraft() || {});
+  const imageList = [item.image].concat(Array.isArray(item.images) ? item.images : []).map(function(src){
+    return String(src || '').trim();
+  }).filter(Boolean);
+  const shippingText = item.shipping && typeof item.shipping === 'object'
+    ? [item.shipping.cost, item.shipping.deliveryTime, item.shipping.shipsFrom, item.shipping.text].filter(Boolean).join(' · ')
+    : '';
+  const itemSpecifics = item.productDetails && typeof item.productDetails === 'object'
+    ? Object.entries(item.productDetails).slice(0, 12).map(function(entry){
+        return String(entry[0] || '') + ': ' + String(entry[1] || '');
+      }).join(' | ')
+    : '';
+  const nextDraft = normalizeEbayListingDraftRecord({
+    ...existing,
+    source: 'browser-import',
+    importId: String(item.id),
+    productStatus: 'Draft',
+    status: 'Draft',
+    supplier: String(item.supplier || item.linkedSupplierName || item.linkedSupplierId || '').trim(),
+    supplierLink: String(item.url || '').trim(),
+    category: String(item.category || '').trim(),
+    images: imageList,
+    itemSpecifics: itemSpecifics,
+    briefing: {
+      ...(existing.briefing || {}),
+      mainKeyword: String(item.category || item.title || '').trim(),
+      name: String(item.title || 'Browser Import').trim(),
+      feature: [
+        item.rating ? 'Rating ' + item.rating : '',
+        item.reviewsCount ? 'Bewertungen ' + item.reviewsCount : '',
+        item.soldCount ? 'Verkäufe ' + item.soldCount : '',
+        item.availability ? 'Verfügbarkeit ' + item.availability : ''
+      ].filter(Boolean).join(', '),
+      use: 'eBay Listing',
+      pain: 'Aus Browser Import übernommen',
+      tone: existing.briefing && existing.briefing.tone ? existing.briefing.tone : 'neutral',
+      keywords: [item.category, item.supplier, item.domain].filter(Boolean).join(', '),
+      mode: existing.briefing && existing.briefing.mode ? existing.briefing.mode : 'hybrid',
+      supplier: String(item.supplier || item.linkedSupplierName || item.linkedSupplierId || '').trim(),
+      supplierLink: String(item.url || '').trim(),
+      shipping: shippingText,
+      category: String(item.category || '').trim(),
+      itemSpecifics: itemSpecifics,
+      images: imageList
+    },
+    draft: {
+      ...(existing.draft || {}),
+      title: String(item.title || 'eBay Listing Entwurf').trim(),
+      description: String(item.description || 'Beschreibung aus Browser Import übernehmen und ergänzen.').trim(),
+      notes: [
+        item.price ? 'Preis: ' + [item.price, item.currency].filter(Boolean).join(' ') : '',
+        shippingText ? 'Versand: ' + shippingText : '',
+        item.supplier ? 'Supplier: ' + item.supplier : '',
+        item.url ? 'Produktlink: ' + item.url : '',
+        item.category ? 'Kategorie: ' + item.category : '',
+        itemSpecifics ? 'Artikelmerkmale: ' + itemSpecifics : '',
+        imageList.length ? 'Bilder: ' + imageList.join(', ') : ''
+      ].filter(Boolean).join('\n')
+    },
+    generated: {
+      ...(existing.generated || {}),
+      title: String(item.title || 'eBay Listing Entwurf').trim(),
+      description: String(item.description || '').trim(),
+      keywords: [item.category, item.supplier, item.domain].filter(Boolean).join(', '),
+      titleVariants: existing.generated && existing.generated.titleVariants ? existing.generated.titleVariants : ''
+    },
+    updatedAt: new Date().toISOString()
+  });
+  applyEbayListingDraftToForm(nextDraft);
+  latestEbayListingDraft = nextDraft;
+  persistEbayListingDraft(nextDraft);
+  showTab('ebayListingTab');
+  genCalc();
+  refreshEbayListingDraftPreview();
+  toast('Browser Import in den eBay-Draft übernommen.');
+}
 function removeProduct(id){ products=products.filter(p=>p.id!==id); save(); }
 function duplicateProduct(id){ const o=products.find(p=>p.id===id); if(!o) return; products.push({...o,id:Date.now(),name:o.name+' Kopie',created:new Date().toLocaleDateString('de-DE')}); save(); }
 function toggleShopifyCandidate(id){
@@ -6365,7 +6447,7 @@ function productCardHTML(p,small=false){
   html += '</div>';
   html += '<div class="actions">';
   html += '<button class="secondary" id="' + getProductAiUiId('productAiBtn', p.id) + '" onclick="triggerProductDecision(' + JSON.stringify(String(p.id)) + ')">KI prüfen</button>';
-  html += '<button class="secondary" onclick="prepareProductForEbayDraft(' + JSON.stringify(String(p.id)) + ')">Für eBay vorbereiten</button>';
+  html += '<button class="secondary" onclick="prepareProductForEbayDraft(\'' + escapeHtml(String(p.id)) + '\')">Für eBay vorbereiten</button>';
   html += '<button class="secondary" onclick="editProduct(' + p.id + ')">Bearbeiten</button>';
   html += '<button class="secondary" onclick="toggleShopifyCandidate(' + p.id + ')">' + shopifyText + '</button>';
   html += '<button class="secondary" onclick="duplicateProduct(' + p.id + ')">Duplizieren</button>';
@@ -6394,6 +6476,7 @@ function kanbanProductCardHTML(p){
   html += '<div class="pill-row"><span class="status ' + lifecycle.cls + '">' + escapeHtml(lifecycle.label) + '</span>' + renderProductAiTinyBadge(p) + '<span class="pill">' + escapeHtml(p.sourceProvider || 'browser-import') + '</span></div>';
   html += '</div>';
   html += '<div class="kanban-mini-actions">';
+  html += '<button class="secondary" onclick="prepareProductForEbayDraft(\'' + escapeHtml(String(p.id)) + '\')">eBay</button>';
   html += '<button class="secondary" onclick="editProduct(' + p.id + ')">Bearbeiten</button>';
   html += '<button class="secondary" id="' + getProductAiUiId('productAiBtn', p.id) + '" onclick="triggerProductDecision(' + JSON.stringify(String(p.id)) + ')">KI prüfen</button>';
   html += '<button class="secondary" onclick="toggleProductView()">Liste</button>';
@@ -7034,6 +7117,7 @@ function renderBrowserImports(){
       '</div></div>' +
       '<div class="actions">' +
         '<button type="button" data-browser-action="board" data-browser-id="' + escapeHtml(item.id) + '">Ins Produktboard übernehmen</button>' +
+        '<button type="button" class="secondary" data-browser-action="draft" data-browser-id="' + escapeHtml(item.id) + '">Für eBay vorbereiten</button>' +
         '<button type="button" class="secondary" data-browser-action="link" data-browser-id="' + escapeHtml(item.id) + '">Mit Supplier verknüpfen</button>' +
         '<button type="button" class="secondary" data-browser-action="risk" data-browser-id="' + escapeHtml(item.id) + '">Risiko prüfen</button>' +
         '<button type="button" class="secondary" data-browser-action="margin" data-browser-id="' + escapeHtml(item.id) + '">Marge kalkulieren</button>' +
@@ -7048,6 +7132,11 @@ function renderBrowserImports(){
       const action = btn.getAttribute('data-browser-action');
       const item = browserImports.find(entry => String(entry.id) === String(id));
       if(!item) return;
+
+      if(action === 'draft'){
+        prepareBrowserImportForEbayDraft(id);
+        return;
+      }
 
       if(action === 'board'){
         const itemShippingText = item.shipping && typeof item.shipping === 'object' ? [item.shipping.cost, item.shipping.deliveryTime, item.shipping.shipsFrom, item.shipping.text].filter(Boolean).join(' · ') : '';
