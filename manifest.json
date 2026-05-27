@@ -1,0 +1,22 @@
+{
+  "name": "Elyon Mobile Command Center",
+  "short_name": "Elyon",
+  "start_url": "/mobile.html",
+  "display": "standalone",
+  "background_color": "#020617",
+  "theme_color": "#020617",
+  "orientation": "portrait-primary",
+  "description": "Mobiles Elyon Dashboard für Produkte, Orders, KI-Agenten und Analytics.",
+  "icons": [
+    {
+      "src": "https://cdn.jsdelivr.net/gh/twitter/twemoji@latest/assets/72x72/1f54a.png",
+      "sizes": "72x72",
+      "type": "image/png"
+    },
+    {
+      "src": "https://cdn.jsdelivr.net/gh/twitter/twemoji@latest/assets/72x72/1f54a.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    }
+  ]
+}
