@@ -5721,9 +5721,9 @@ function prepareProductForEbayDraft(id){
       ...(existing.briefing || {}),
       mainKeyword: String(product.mainKeyword || product.keyword || product.sourceOnlineCategory || product.name || '').trim(),
       name: title,
-      feature: featureParts.join(', '),
-      use: String(product.audience || product.use || 'eBay Listing').trim(),
-      pain: String(product.sourceNote || product.notes || 'Aus Produktliste übernommen').trim(),
+      feature: sanitizeImportedFeatureText(featureParts.join(', ')),
+      use: sanitizeImportedUseText(product.audience || product.use || '', product.sourceOnlineCategory) || 'Produktanwendung prüfen',
+      pain: sanitizeImportedPainText(product.sourceNote || product.notes || ''),
       tone: existing.briefing && existing.briefing.tone ? existing.briefing.tone : 'neutral',
       keywords: keywordParts.join(', '),
       mode: existing.briefing && existing.briefing.mode ? existing.briefing.mode : 'hybrid',
@@ -5734,7 +5734,7 @@ function prepareProductForEbayDraft(id){
       shipping: Number(product.ship || 0) || 0,
       buy: Number(product.buy || 0) || 0,
       category: String(product.sourceOnlineCategory || '').trim(),
-      itemSpecifics: itemSpecifics,
+      itemSpecifics: sanitizeImportedList(splitDetailText(itemSpecifics), 8).join(' | '),
       images: imageList,
       deliveryTime: Number(product.delivery || 0) || 0
     },
@@ -5794,22 +5794,21 @@ function prepareBrowserImportForEbayDraft(importId){
       ...(existing.briefing || {}),
       mainKeyword: String(item.category || item.title || '').trim(),
       name: String(item.title || 'Browser Import').trim(),
-      feature: [
+      feature: sanitizeImportedFeatureText([
         item.rating ? 'Rating ' + item.rating : '',
         item.reviewsCount ? 'Bewertungen ' + item.reviewsCount : '',
-        item.soldCount ? 'Verkäufe ' + item.soldCount : '',
-        item.availability ? 'Verfügbarkeit ' + item.availability : ''
-      ].filter(Boolean).join(', '),
-      use: 'eBay Listing',
-      pain: 'Aus Browser Import übernommen',
+        item.soldCount ? 'Verkäufe ' + item.soldCount : ''
+      ].filter(Boolean).join(', ')),
+      use: sanitizeImportedUseText('', item.category) || 'Produktanwendung prüfen',
+      pain: sanitizeImportedPainText(item.description || ''),
       tone: existing.briefing && existing.briefing.tone ? existing.briefing.tone : 'neutral',
       keywords: [item.category, item.supplier, item.domain].filter(Boolean).join(', '),
       mode: existing.briefing && existing.briefing.mode ? existing.briefing.mode : 'hybrid',
       supplier: String(item.supplier || item.linkedSupplierName || item.linkedSupplierId || '').trim(),
       supplierLink: String(item.url || '').trim(),
-      shipping: shippingText,
-      category: String(item.category || '').trim(),
-      itemSpecifics: itemSpecifics,
+      shipping: sanitizeShippingSummary(shippingText),
+      category: sanitizeImportedField(item.category || ''),
+      itemSpecifics: sanitizeImportedList(splitDetailText(itemSpecifics), 8).join(' | '),
       images: imageList
     },
     draft: {
@@ -9103,6 +9102,38 @@ function cleanImportedSentence(value){
     .replace(/\s*\.\s*/g, '. ')
     .trim();
 }
+function isTechnicalImportNoise(value){
+  const text = cleanImportedSentence(value).toLowerCase();
+  if(!text) return true;
+  return /chrome_extension|browser import|aus browser import übernommen|aus produktliste übernommen|pick-up points|kurierdienst|courier|kostenloser versand|lieferung:|dhl paket hermes|,etc\.?|supplier:|quelle\s+chrome|verfügbarkeit\s/i.test(text);
+}
+function sanitizeImportedField(value){
+  const text = cleanImportedSentence(value);
+  if(!text || isTechnicalImportNoise(text)) return '';
+  return text;
+}
+function sanitizeImportedList(values, limit){
+  return Array.from(new Set((Array.isArray(values) ? values : []).map(sanitizeImportedField).filter(Boolean))).slice(0, limit || 10);
+}
+function sanitizeImportedUseText(value, category){
+  const text = sanitizeImportedField(value);
+  if(!text || /^ebay listing$/i.test(text)) return category ? 'Einsatzbereich ' + category : '';
+  return text;
+}
+function sanitizeImportedPainText(value){
+  const text = sanitizeImportedField(value);
+  if(!text) return '';
+  if(/aus browser import übernommen|aus produktliste übernommen/i.test(String(value || '').toLowerCase())) return '';
+  return text;
+}
+function sanitizeImportedFeatureText(value){
+  return sanitizeImportedList(String(value || '').split(','), 6).join(', ');
+}
+function sanitizeShippingSummary(value){
+  const text = cleanImportedSentence(value);
+  if(!text || isTechnicalImportNoise(text)) return '';
+  return text.slice(0, 120).trim();
+}
 function toSentenceCase(value){
   const text = cleanImportedSentence(value);
   if(!text) return '';
@@ -9243,30 +9274,30 @@ function collectImportedDescriptionContext(){
   ].map(function(value){
     return String(value || '').trim();
   }).filter(Boolean);
-  const sourceDescription = sourceDescriptionCandidates.find(function(text){
-    return text.length >= 80 && !/übernehmen und ergänzen|browser import|produktliste übernommen/i.test(text);
+  const sourceDescription = sourceDescriptionCandidates.map(sanitizeImportedField).find(function(text){
+    return text.length >= 40;
   }) || '';
-  const detailParts = Array.from(new Set(
+  const detailParts = sanitizeImportedList(
     []
       .concat(splitDetailText(briefing.itemSpecifics))
-      .concat(splitDetailText(draft.itemSpecifics))
-      .slice(0, 10)
-  ));
+      .concat(splitDetailText(draft.itemSpecifics)),
+    10
+  );
   const keywordParts = Array.from(new Set(
     String(briefing.keywords || generated.keywords || '')
       .split(',')
-      .map(function(part){ return String(part || '').trim(); })
+      .map(function(part){ return sanitizeImportedField(part); })
       .filter(Boolean)
   )).slice(0, 8);
   return {
     sourceDescription: sourceDescription,
     detailParts: detailParts,
     keywordParts: keywordParts,
-    shipping: String(briefing.shipping || draft.shipping || '').trim(),
+    shipping: sanitizeShippingSummary(briefing.shipping || draft.shipping || ''),
     deliveryTime: String(briefing.deliveryTime || draft.delivery || '').trim(),
-    supplier: String(briefing.supplier || draft.supplier || '').trim(),
-    category: String(briefing.category || draft.category || '').trim(),
-    notes: String(draft.draft && draft.draft.notes ? draft.draft.notes : '').trim(),
+    supplier: sanitizeImportedField(briefing.supplier || draft.supplier || ''),
+    category: sanitizeImportedField(briefing.category || draft.category || ''),
+    notes: sanitizeImportedField(draft.draft && draft.draft.notes ? draft.draft.notes : ''),
     price: briefing.price || draft.sell || '',
     imageCount: Array.isArray(draft.images) ? draft.images.filter(Boolean).length : 0
   };
