@@ -57,6 +57,14 @@ function normalizeList(value) {
   return Array.from(new Set(list.map((item) => readText(item)).filter(Boolean)));
 }
 
+function normalizeProvider(value) {
+  const provider = readText(value).toLowerCase();
+  if (provider === "openai" || provider === "deepseek" || provider === "qwen" || provider === "local") {
+    return provider;
+  }
+  return "";
+}
+
 function extractOutputText(data) {
   if (typeof data?.output_text === "string" && data.output_text.trim()) {
     return data.output_text.trim();
@@ -408,6 +416,57 @@ async function callJsonOpenAI({ prompt, schema, name, description, maxOutputToke
   }
 }
 
+async function callStructuredAI({ task, prompt, schema, name, description, maxOutputTokens, provider, model }) {
+  const normalizedProvider = normalizeProvider(provider);
+  if (!normalizedProvider || normalizedProvider === "openai") {
+    const parsed = await callJsonOpenAI({ prompt, schema, name, description, maxOutputTokens });
+    return {
+      parsed,
+      provider: "openai",
+      model: DEFAULT_MODEL,
+      fallbackUsed: false,
+    };
+  }
+
+  const routeResult = await routeAIRequest({
+    provider: normalizedProvider,
+    task,
+    prompt,
+    model,
+    maxTokens: maxOutputTokens,
+    allowFallback: true,
+    safety: {
+      securityMode: true,
+      sandboxMode: true,
+      autonomyLocked: true,
+      requiresLiveAction: false,
+      userApproved: false,
+    },
+  });
+
+  if (!routeResult?.ok) {
+    const error = new Error(readText(routeResult?.error?.message || "Strukturierte KI-Anfrage fehlgeschlagen."));
+    error.status = 500;
+    error.details = routeResult?.error || routeResult || null;
+    throw error;
+  }
+
+  const parsed = parseJsonObjectFromText(routeResult.result || routeResult.content);
+  if (!parsed) {
+    const error = new Error(`${normalizedProvider} lieferte kein valides JSON.`);
+    error.status = 500;
+    error.details = routeResult;
+    throw error;
+  }
+
+  return {
+    parsed,
+    provider: routeResult.provider || normalizedProvider,
+    model: routeResult.model || readText(model),
+    fallbackUsed: routeResult.fallbackUsed === true,
+  };
+}
+
 async function handleProductSearch(req, res, body) {
   if (req.method !== "POST") {
     return jsonError(res, 405, "Nur POST erlaubt.", "METHOD_NOT_ALLOWED");
@@ -462,20 +521,26 @@ async function handleListingOptimizer(req, res, body) {
   }
 
   try {
-    const result = await callJsonOpenAI({
+    const aiResult = await callStructuredAI({
+      task: "listing-optimizer",
       prompt: buildListingOptimizerPrompt(payload),
       schema: buildListingOptimizerSchema(),
       name: "listing_optimizer_v1",
       description: "Strukturierte eBay-Listing-Ausgabe fuer Elyon Seller Tool",
       maxOutputTokens: 1400,
+      provider: body.provider,
+      model: body.model,
     });
+    const result = aiResult.parsed;
 
     return res.status(200).json({
       ok: true,
       source: "ai-listing-optimizer",
       task: "listing-optimizer",
       mode: payload.mode,
-      model: DEFAULT_MODEL,
+      provider: aiResult.provider,
+      model: aiResult.model || DEFAULT_MODEL,
+      fallbackUsed: aiResult.fallbackUsed,
       ...normalizeListingOptimizerResult(result),
     });
   } catch (error) {
