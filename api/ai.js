@@ -88,15 +88,19 @@ function parseJsonObjectFromText(value) {
   if (typeof value === "object") return value;
   const text = String(value || "").trim();
   if (!text) return null;
+  const unfenced = text
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/i, "")
+    .trim();
 
   const candidates = [
     text,
-    text.replace(/^```(?:json)?/i, "").replace(/```$/i, "").trim(),
+    unfenced,
   ];
-  const start = text.indexOf("{");
-  const end = text.lastIndexOf("}");
+  const start = unfenced.indexOf("{");
+  const end = unfenced.lastIndexOf("}");
   if (start >= 0 && end > start) {
-    candidates.push(text.slice(start, end + 1));
+    candidates.push(unfenced.slice(start, end + 1));
   }
 
   for (const candidate of candidates) {
@@ -106,6 +110,29 @@ function parseJsonObjectFromText(value) {
     } catch {
       // Providers sometimes wrap JSON in Markdown. Try the next candidate.
     }
+  }
+  return null;
+}
+
+function buildStructuredTextFallback(task, rawText) {
+  const text = readText(rawText);
+  if (!text) return null;
+  if (task === "listing-optimizer") {
+    return {
+      title: "",
+      subtitle: "",
+      bulletPoints: [],
+      description: text.slice(0, 4000),
+      seoKeywords: [],
+      riskWarnings: ["KI lieferte Freitext statt JSON. Inhalt wurde sicher als Beschreibungsvorschlag übernommen."],
+      score: {
+        title: 35,
+        seo: 35,
+        description: text ? 55 : 0,
+        risk: 45,
+        total: 42,
+      },
+    };
   }
   return null;
 }
@@ -453,6 +480,16 @@ async function callStructuredAI({ task, prompt, schema, name, description, maxOu
 
   const parsed = parseJsonObjectFromText(routeResult.result || routeResult.content);
   if (!parsed) {
+    const fallbackParsed = buildStructuredTextFallback(task, routeResult.result || routeResult.content);
+    if (fallbackParsed) {
+      return {
+        parsed: fallbackParsed,
+        provider: routeResult.provider || normalizedProvider,
+        model: routeResult.model || readText(model),
+        fallbackUsed: true,
+        parseRecovered: true,
+      };
+    }
     const error = new Error(`${normalizedProvider} lieferte kein valides JSON.`);
     error.status = 500;
     error.details = routeResult;
@@ -541,6 +578,7 @@ async function handleListingOptimizer(req, res, body) {
       provider: aiResult.provider,
       model: aiResult.model || DEFAULT_MODEL,
       fallbackUsed: aiResult.fallbackUsed,
+      parseRecovered: aiResult.parseRecovered === true,
       ...normalizeListingOptimizerResult(result),
     });
   } catch (error) {

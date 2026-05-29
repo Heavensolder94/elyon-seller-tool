@@ -1,4 +1,5 @@
 import { applyCors } from "../../lib/api-cors.js";
+import { normalizeBrowserImport, normalizeBrowserImportList } from "../../lib/browser-import-normalizer.js";
 
 function json(res, status, body) {
   return res.status(status).json(body);
@@ -147,60 +148,8 @@ function resolveSupplier(domain, supplier) {
   return { linkedSupplierId: found.id, linkedSupplierName: found.name };
 }
 
-function normalizeImport(product = {}) {
-  const now = new Date().toISOString();
-  const url = toText(product.url || "");
-  const domain = normalizeDomain(product.domain || (url ? (() => {
-    try {
-      return new URL(url).hostname;
-    } catch {
-      return "";
-    }
-  })() : ""));
-  const supplier = toText(product.supplier || "");
-  const supplierMatch = resolveSupplier(domain, supplier);
-  const linkedSupplierId = toText(product.linkedSupplierId || supplierMatch.linkedSupplierId);
-  const rawTitle = sanitizeProductTitle(product.title || product.name || "");
-  const rawDescription = sanitizeProductDescription(product.description || product.productDescription || product.summary || "");
-  const blocked = isHumanVerificationText(product.title || product.name || "") || isHumanVerificationText(product.description || product.productDescription || product.summary || "");
-  const priceParts = normalizePrice(product.price || "", product.currency || "");
-  const images = normalizeImages(product.image, product.images);
-  return {
-    id: toText(product.id || url || `${now}-${Math.random().toString(36).slice(2, 10)}`),
-    title: rawTitle || "Unbekanntes Produkt",
-    price: priceParts.price,
-    currency: priceParts.currency,
-    image: images[0] || "",
-    images,
-    description: rawDescription,
-    variants: toArray(product.variants).slice(0, 50),
-    shipping: toObject(product.shipping),
-    rating: toText(product.rating || ""),
-    reviewsCount: toText(product.reviewsCount || ""),
-    soldCount: toText(product.soldCount || ""),
-    productDetails: toObject(product.productDetails),
-    availability: cleanAvailability(product.availability || ""),
-    category: toText(product.category || ""),
-    supplierInfo: toObject(product.supplierInfo),
-    complianceRisks: toArray(product.complianceRisks).map(toText).filter(Boolean).slice(0, 20),
-    url,
-    supplier: supplier || supplierMatch.linkedSupplierName || "",
-    domain,
-    detectedAt: toText(product.detectedAt || now) || now,
-    source: "chrome_extension",
-    status: blocked ? "blocked" : (toText(product.status || "new") || "new"),
-    notes: toText(product.notes || ""),
-    score: toText(product.score || ""),
-    linkedSupplierId,
-    linkedSupplierName: supplierMatch.linkedSupplierName || "",
-    importedAt: toText(product.importedAt || now) || now,
-    updatedAt: toText(product.updatedAt || now) || now,
-    blockedByHumanVerification: blocked
-  };
-}
-
 function normalizeList(list) {
-  return Array.isArray(list) ? list.map(normalizeImport) : [];
+  return normalizeBrowserImportList(list);
 }
 
 function readStore() {
@@ -297,7 +246,7 @@ function browserImportFromProduct(product = {}) {
     }
   }
 
-  return normalizeImport({
+  return normalizeBrowserImport({
     id: product.browserImportId || product.id || sourceUrl,
     title: product.sourceOnlineTitle || product.title || product.name || "",
     price: product.sourceOnlinePrice || product.price || "",
@@ -361,7 +310,7 @@ async function savePersistentStore(items) {
 }
 
 function upsertImport(list, incoming) {
-  const item = normalizeImport(incoming);
+  const item = normalizeBrowserImport(incoming);
   const existingIndex = list.findIndex((entry) => entry.url && entry.url === item.url);
   if (existingIndex >= 0) {
     const current = list[existingIndex];
@@ -434,7 +383,9 @@ export default async function handler(req, res) {
     route: "/api/extension/import-product",
     status: result.status,
     productId: result.product.id,
+    browserImport: result.product,
     linkedSupplierId: result.product.linkedSupplierId || "",
+    warnings: result.product.warnings || [],
     message: result.status === "duplicate"
       ? "Browser Import war bereits vorhanden."
       : result.status === "updated"
