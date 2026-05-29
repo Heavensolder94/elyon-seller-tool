@@ -588,7 +588,7 @@ async function handleCentralAiRouter(req, res, body) {
 
 export default async function handler(req, res) {
   const body = readBody(req);
-  const task = readText(body.task || req.query?.task || req.query?.action || req.query?.endpoint || "");
+  const task = readText(req.query?.task || req.query?.action || req.query?.endpoint || body.task || "");
 
   if (task === "router") {
     return handleCentralAiRouter(req, res, body);
