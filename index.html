@@ -1291,6 +1291,7 @@
         </div>
         <div class="top-actions">
           <button class="secondary" id="browserImportsRefreshBtn" type="button">Browser Imports aktualisieren</button>
+          <button class="secondary" id="browserImportsTestBtn" type="button">Test-Browser-Import erzeugen</button>
           <button class="secondary" id="browserImportsOpenBtn" type="button">Import-Tab öffnen</button>
         </div>
       </div>
@@ -2735,40 +2736,72 @@ function normalizeEbayListingDraftRecord(draft){
 function normalizeBrowserImportRecord(item){
   const nowIso = new Date().toISOString();
   const source = {...(item || {})};
-  const url = String(source.url || '').trim();
-  const domain = String(source.domain || '').trim();
-  const images = normalizeBrowserImportImages(source.image, source.images);
-  const availability = cleanAvailabilityText(source.availability || '');
-  const priceParts = normalizeBrowserImportPrice(source.price || '', source.currency || '');
+  const ep = source.elyonProduct && typeof source.elyonProduct === 'object' ? source.elyonProduct : {};
+  const identity = ep.identity && typeof ep.identity === 'object' ? ep.identity : {};
+  const content = ep.content && typeof ep.content === 'object' ? ep.content : {};
+  const media = ep.media && typeof ep.media === 'object' ? ep.media : {};
+  const pricing = ep.pricing && typeof ep.pricing === 'object' ? ep.pricing : {};
+  const avail = ep.availability && typeof ep.availability === 'object' ? ep.availability : {};
+  const supplierObj = ep.supplier && typeof ep.supplier === 'object' ? ep.supplier : {};
+  const reviews = ep.reviews && typeof ep.reviews === 'object' ? ep.reviews : {};
+  const risk = ep.risk && typeof ep.risk === 'object' ? ep.risk : {};
+  const variantsObj = ep.variants && typeof ep.variants === 'object' ? ep.variants : {};
+  const url = String(source.url || ep.meta?.sourceUrl || '').trim();
+  const domain = String(source.domain || ep.meta?.sourceDomain || '').trim();
+  const images = normalizeBrowserImportImages(source.image || media.mainImage, source.images || media.images);
+  const availability = cleanAvailabilityText(source.availability || avail.stockText || avail.deliveryText || '');
+  const priceParts = normalizeBrowserImportPrice(source.price || pricing.currentPrice || pricing.priceText || '', source.currency || pricing.currency || '');
   const importedAt = parseLooseDateIso(source.importedAt || source.detectedAt || nowIso, nowIso);
   const updatedAt = parseLooseDateIso(source.updatedAt || importedAt, importedAt);
+  const descriptionCandidates = Array.from(new Set([].concat(
+    Array.isArray(source.descriptionCandidates) ? source.descriptionCandidates : [],
+    Array.isArray(content.descriptionCandidates) ? content.descriptionCandidates : [],
+    [content.longDescription, content.shortDescription, source.description]
+  ).filter(Boolean))).slice(0,20);
+  const variants = Array.isArray(source.variants) ? source.variants : Array.isArray(variantsObj.variantItems) ? variantsObj.variantItems : [];
+  const productDetails = source.productDetails && typeof source.productDetails === 'object' ? source.productDetails : (content.productDetails && typeof content.productDetails === 'object' ? content.productDetails : (content.specifications && typeof content.specifications === 'object' ? content.specifications : {}));
+  const complianceRisks = Array.from(new Set([].concat(
+    Array.isArray(source.complianceRisks) ? source.complianceRisks : [],
+    Array.isArray(risk.warningTexts) ? risk.warningTexts : []
+  ).filter(Boolean))).slice(0,50);
+  const warnings = Array.from(new Set([].concat(
+    Array.isArray(source.warnings) ? source.warnings : [],
+    Array.isArray(source.raw?.extractionWarnings) ? source.raw.extractionWarnings : [],
+    Array.isArray(ep.raw?.extractionWarnings) ? ep.raw.extractionWarnings : []
+  ).filter(Boolean))).slice(0,50);
   return {
     ...source,
     id: String(source.id || url || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`),
-    title: cleanBrowserImportTitle(source.title || 'Unbekanntes Produkt', domain),
+    source: source.source || 'chrome-extension',
+    title: cleanBrowserImportTitle(source.title || identity.title || 'Nicht erkannt', domain),
     price: priceParts.price,
     currency: priceParts.currency,
     image: images[0] || '',
     images,
-    description: String(source.description || source.productDescription || source.summary || '').trim(),
-    variants: Array.isArray(source.variants) ? source.variants.slice(0,50) : [],
+    description: String(source.description || content.longDescription || content.shortDescription || source.productDescription || source.summary || '').trim(),
+    descriptionCandidates,
+    descriptionSource: String(source.descriptionSource || '').trim(),
+    variants: variants.slice(0,100),
     shipping: source.shipping && typeof source.shipping === 'object' ? source.shipping : {},
-    rating: String(source.rating || '').trim(),
-    reviewsCount: String(source.reviewsCount || '').trim(),
+    rating: String(source.rating || reviews.ratingValue || '').trim(),
+    reviewsCount: String(source.reviewsCount || reviews.reviewsCount || '').trim(),
     soldCount: String(source.soldCount || '').trim(),
-    productDetails: source.productDetails && typeof source.productDetails === 'object' ? source.productDetails : {},
+    productDetails,
     availability,
-    category: String(source.category || '').trim(),
+    category: String(source.category || identity.category || ep.marketplace?.marketplaceCategory || '').trim(),
     supplierInfo: source.supplierInfo && typeof source.supplierInfo === 'object' ? source.supplierInfo : {},
-    complianceRisks: Array.isArray(source.complianceRisks) ? source.complianceRisks.filter(Boolean).slice(0,20) : [],
+    complianceRisks,
+    elyonProduct: ep,
+    raw: source.raw && typeof source.raw === 'object' ? source.raw : {},
     url,
-    supplier: String(source.supplier || '').trim(),
+    supplier: String(source.supplier || supplierObj.supplierName || supplierObj.storeName || '').trim(),
     domain,
-    status: String(source.status || 'new').trim() || 'new',
+    status: String(source.status || 'draft').trim() || 'draft',
     notes: String(source.notes || '').trim(),
-    score: String(source.score || '').trim(),
     linkedSupplierId: String(source.linkedSupplierId || '').trim(),
     linkedSupplierName: String(source.linkedSupplierName || '').trim(),
+    errorState: source.errorState && typeof source.errorState === 'object' ? source.errorState : {},
+    warnings,
     importedAt,
     updatedAt
   };
@@ -2905,6 +2938,60 @@ function formatDayRange(range){
   if(!range) return '';
   if(Math.abs(range.max - range.min) < 0.0001) return Math.round(range.min) + ' Tage';
   return Math.round(range.min) + '–' + Math.round(range.max) + ' Tage';
+}
+function extractBrowserImportCommercials(item){
+  const source = item && typeof item === 'object' ? item : {};
+  const variants = Array.isArray(source.variants) ? source.variants.filter(function(entry){
+    return entry && typeof entry === 'object';
+  }) : [];
+  const variantBuyValues = variants.map(function(entry){
+    return normalizeImportNumber(firstVariantValue(entry, ['buy','cost','purchasePrice','purchase_price','price','supplierPrice','supplyPrice','variantPrice']));
+  }).filter(function(value){ return value > 0; });
+  const variantShipValues = variants.map(function(entry){
+    return normalizeImportNumber(firstVariantValue(entry, ['ship','shipping','shippingCost','shipping_cost','shippingPrice','freight']));
+  }).filter(function(value){ return value >= 0; });
+  const variantDeliveryValues = variants.map(function(entry){
+    return normalizeImportNumber(firstVariantValue(entry, ['delivery','deliveryDays','delivery_days','shippingDays','lieferzeit','deliveryTime']));
+  }).filter(function(value){ return value > 0; });
+
+  const buy = normalizeImportNumber(
+    source.buy ||
+    source.cost ||
+    source.purchasePrice ||
+    source.purchase_price ||
+    source.supplierPrice ||
+    source.supplyPrice ||
+    source.supplierInfo?.price ||
+    source.supplierInfo?.cost
+  ) || (variantBuyValues.length ? Math.min.apply(null, variantBuyValues) : 0);
+
+  const ship = normalizeImportNumber(
+    source.shipping?.cost ||
+    source.shipping?.price ||
+    source.shipping?.amount ||
+    source.ship ||
+    source.shippingCost ||
+    source.shipping_cost ||
+    source.shippingPrice
+  ) || (variantShipValues.length ? Math.min.apply(null, variantShipValues) : 0);
+
+  const sell = normalizeImportNumber(
+    source.sell ||
+    source.salePrice ||
+    source.sale_price ||
+    source.listingPrice ||
+    source.offerPrice ||
+    source.price
+  );
+
+  const delivery = normalizeImportNumber(
+    source.shipping?.deliveryTime ||
+    source.shipping?.deliveryDays ||
+    source.delivery ||
+    source.deliveryDays
+  ) || (variantDeliveryValues.length ? Math.min.apply(null, variantDeliveryValues) : 0);
+
+  return { buy, ship, sell, delivery };
 }
 function variantScanState(product, variants){
   const productData = product && typeof product === 'object' ? product : {};
@@ -5807,12 +5894,21 @@ function nextImportSku(existingSkuSet){
 function normalizeImportNumber(value){
   const text = String(value === undefined || value === null ? '' : value).trim();
   if(!text) return 0;
-  const cleaned = text
+  let cleaned = text
     .replace(/\s+/g,'')
     .replace(/[€$]/g,'')
-    .replace(/\./g,'')
-    .replace(/,/g,'.')
-    .replace(/[^0-9.\-]/g,'');
+    .replace(/[^0-9,.\-]/g,'');
+  const hasComma = cleaned.includes(',');
+  const hasDot = cleaned.includes('.');
+  if(hasComma && hasDot){
+    if(cleaned.lastIndexOf(',') > cleaned.lastIndexOf('.')){
+      cleaned = cleaned.replace(/\./g,'').replace(/,/g,'.');
+    }else{
+      cleaned = cleaned.replace(/,/g,'');
+    }
+  }else if(hasComma){
+    cleaned = cleaned.replace(/,/g,'.');
+  }
   const num = parseFloat(cleaned);
   return Number.isFinite(num) ? num : 0;
 }
@@ -8170,6 +8266,55 @@ function toggleBrowserImportSection(button){
   const section = button && button.closest ? button.closest('.browser-import-section') : null;
   if(section) section.classList.toggle('open');
 }
+function browserImportJsonBlock(value){
+  return '<pre style="white-space:pre-wrap;overflow:auto;max-height:320px">' + escapeHtml(JSON.stringify(value || {}, null, 2)) + '</pre>';
+}
+function openBrowserImportDetails(id){
+  const item = browserImports.find(entry => String(entry.id) === String(id));
+  if(!item){ alert('Browser Import nicht gefunden.'); return; }
+  let modal = $('browserImportDetailModal');
+  if(!modal){
+    modal = document.createElement('div');
+    modal.id = 'browserImportDetailModal';
+    modal.className = 'modal-backdrop hidden';
+    modal.innerHTML = '<div class="card modal-panel" style="max-width:980px;width:min(96vw,980px)"><div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start"><div><h2 id="browserImportDetailTitle">Browser Import</h2><p class="hint" id="browserImportDetailSubtitle">Nur Anzeige und Vorbereitung. Keine Live-Aktion.</p></div><button type="button" class="secondary" id="browserImportDetailClose">Schließen</button></div><div id="browserImportDetailBody"></div></div>';
+    document.body.appendChild(modal);
+    $('browserImportDetailClose')?.addEventListener('click', () => modal.classList.add('hidden'));
+    modal.addEventListener('click', event => { if(event.target === modal) modal.classList.add('hidden'); });
+  }
+  const variants = Array.isArray(item.variants) ? item.variants : [];
+  const details = item.productDetails && typeof item.productDetails === 'object' ? item.productDetails : {};
+  const warnings = Array.isArray(item.warnings) ? item.warnings : [];
+  const descCandidates = Array.isArray(item.descriptionCandidates) ? item.descriptionCandidates : [];
+  safe('browserImportDetailTitle', el => el.textContent = item.title || 'Browser Import');
+  safe('browserImportDetailSubtitle', el => el.textContent = [item.domain || 'Domain nicht erkannt', item.url || 'URL nicht erkannt'].join(' · '));
+  safe('browserImportDetailBody', el => {
+    el.innerHTML =
+      '<details open class="form-accordion"><summary>Übersicht</summary><div class="accordion-body"><div class="pill-row">' +
+      '<span class="pill">Preis: ' + escapeHtml([item.price || 'Nicht erkannt', item.currency].filter(Boolean).join(' ')) + '</span>' +
+      '<span class="pill">Supplier: ' + escapeHtml(item.supplier || 'Nicht erkannt') + '</span>' +
+      '<span class="pill">Status: ' + escapeHtml(item.status || 'draft') + '</span>' +
+      '<span class="pill">Varianten: ' + variants.length + '</span>' +
+      '<span class="pill">Details: ' + Object.keys(details).length + '</span>' +
+      '</div></div></details>' +
+      '<details class="form-accordion" open><summary>Beschreibung</summary><div class="accordion-body">' +
+      (item.description ? '<p>' + escapeHtml(item.description) + '</p>' : '<div class="empty">Keine Beschreibung</div>') +
+      (descCandidates.length ? '<h3>Beschreibungskandidaten</h3><ul>' + descCandidates.map(text => '<li>' + escapeHtml(text) + '</li>').join('') + '</ul>' : '') +
+      '</div></details>' +
+      '<details class="form-accordion"><summary>Varianten</summary><div class="accordion-body">' +
+      (variants.length ? browserImportJsonBlock(variants) : '<div class="empty">Keine Varianten</div>') +
+      '</div></details>' +
+      '<details class="form-accordion"><summary>Produktdetails</summary><div class="accordion-body">' +
+      (Object.keys(details).length ? browserImportJsonBlock(details) : '<div class="empty">Keine Produktdetails</div>') +
+      '</div></details>' +
+      '<details class="form-accordion"><summary>Rohdaten</summary><div class="accordion-body"><button type="button" class="secondary copy-btn" id="browserImportCopyJsonBtn">JSON kopieren</button>' + browserImportJsonBlock({browserImport:item, elyonProduct:item.elyonProduct || {}, raw:item.raw || {}}) + '</div></details>' +
+      '<details class="form-accordion"><summary>Fehler/Warnungen</summary><div class="accordion-body">' +
+      (warnings.length ? '<ul>' + warnings.map(text => '<li>' + escapeHtml(text) + '</li>').join('') + '</ul>' : '<div class="empty">Keine Warnungen</div>') +
+      '</div></details>';
+    $('browserImportCopyJsonBtn')?.addEventListener('click', () => navigator.clipboard?.writeText(JSON.stringify(item, null, 2)).then(() => alert('JSON kopiert.')).catch(() => alert('JSON konnte nicht kopiert werden.')));
+  });
+  modal.classList.remove('hidden');
+}
 function upsertBrowserImportItem(item){
   const nextItem = normalizeBrowserImportRecord(item);
   const existingIndex = browserImports.findIndex(entry => String(entry.url || '') === String(nextItem.url || ''));
@@ -8202,13 +8347,20 @@ function renderBrowserImports(){
     const availabilityText = String(item.availability || '').slice(0, 180);
     const detailRows = Object.entries(item.productDetails || {}).slice(0,12).map(([key,value]) => '<li><strong>' + escapeHtml(key) + ':</strong> ' + escapeHtml(String(value || '')) + '</li>').join('');
     const variantRows = (item.variants || []).slice(0,12).map(variant => '<span class="pill">' + escapeHtml(typeof variant === 'string' ? variant : (variant.label || variant.name || JSON.stringify(variant))) + '</span>').join('');
+    const hasDescription = Boolean(item.description);
+    const hasDetails = Boolean(item.productDetails && Object.keys(item.productDetails).length);
+    const warnings = Array.isArray(item.warnings) ? item.warnings : [];
     const extraRows = [
       item.category ? '<span class="pill">Kategorie: ' + escapeHtml(item.category) + '</span>' : '',
       availabilityText ? '<span class="pill">Verfügbarkeit: ' + escapeHtml(availabilityText) + (String(item.availability || '').length > 180 ? '…' : '') + '</span>' : '',
       item.rating ? '<span class="pill">Rating: ' + escapeHtml(item.rating) + '</span>' : '',
       item.reviewsCount ? '<span class="pill">Bewertungen: ' + escapeHtml(item.reviewsCount) + '</span>' : '',
       item.soldCount ? '<span class="pill">Verkäufe: ' + escapeHtml(item.soldCount) + '</span>' : '',
-      shippingText ? '<span class="pill">Versand: ' + escapeHtml(shippingText) + '</span>' : ''
+      shippingText ? '<span class="pill">Versand: ' + escapeHtml(shippingText) + '</span>' : '',
+      '<span class="pill">Varianten: ' + ((item.variants || []).length || 'Keine Varianten') + '</span>',
+      '<span class="pill">' + (hasDescription ? 'Beschreibung vorhanden' : 'Keine Beschreibung') + '</span>',
+      '<span class="pill">' + (hasDetails ? 'Produktdetails vorhanden' : 'Keine Produktdetails') + '</span>',
+      warnings.length ? '<span class="pill bad">Warnungen: ' + warnings.length + '</span>' : ''
     ].filter(Boolean).join('');
     const complianceRows = (item.complianceRisks || []).map(risk => '<span class="pill bad">' + escapeHtml(risk) + '</span>').join('');
     const galleryRows = imageList.slice(0,6).map(src => '<img src="' + escapeHtml(src) + '" alt="" referrerpolicy="no-referrer" loading="lazy" onerror="this.remove()" style="width:46px;height:46px;object-fit:cover;border-radius:10px;border:1px solid rgba(255,255,255,.12)">').join('');
@@ -8236,6 +8388,7 @@ function renderBrowserImports(){
       '</div></div>' +
       '<div class="actions">' +
         '<button type="button" data-browser-action="board" data-browser-id="' + escapeHtml(item.id) + '">Ins Produktboard übernehmen</button>' +
+        '<button type="button" class="secondary" data-browser-action="details" data-browser-id="' + escapeHtml(item.id) + '">Details öffnen</button>' +
         '<button type="button" class="secondary" data-browser-action="draft" data-browser-id="' + escapeHtml(item.id) + '">Für eBay vorbereiten</button>' +
         '<button type="button" class="secondary" data-browser-action="link" data-browser-id="' + escapeHtml(item.id) + '">Mit Supplier verknüpfen</button>' +
         '<button type="button" class="secondary" data-browser-action="risk" data-browser-id="' + escapeHtml(item.id) + '">Risiko prüfen</button>' +
@@ -8252,6 +8405,11 @@ function renderBrowserImports(){
       const item = browserImports.find(entry => String(entry.id) === String(id));
       if(!item) return;
 
+      if(action === 'details'){
+        openBrowserImportDetails(id);
+        return;
+      }
+
       if(action === 'draft'){
         prepareBrowserImportForEbayDraft(id);
         return;
@@ -8259,12 +8417,16 @@ function renderBrowserImports(){
 
       if(action === 'board'){
         const itemShippingText = item.shipping && typeof item.shipping === 'object' ? [item.shipping.cost, item.shipping.deliveryTime, item.shipping.shipsFrom, item.shipping.text].filter(Boolean).join(' · ') : '';
+        const commercial = extractBrowserImportCommercials(item);
         const product = normalizeProductRecord({
           id: Date.now(),
           name: item.title || 'Browser Import',
           supplier: item.supplier || '',
           supplierId: item.linkedSupplierId || '',
           supplierLink: item.url || '',
+          buy: commercial.buy,
+          ship: commercial.ship,
+          sell: commercial.sell,
           sourceProvider: 'browser-import',
           sourceType: 'chrome_extension',
           sourceDomain: item.domain || '',
@@ -8272,7 +8434,7 @@ function renderBrowserImports(){
           description: item.description || '',
           sales: item.soldCount || '',
           competition: item.reviewsCount || '',
-          delivery: item.shipping?.deliveryTime || '',
+          delivery: commercial.delivery || item.shipping?.deliveryTime || '',
           risk: (item.complianceRisks || []).length ? 'high' : 'low',
           productStatus: 'Draft',
           status: 'Draft',
@@ -8294,6 +8456,8 @@ function renderBrowserImports(){
           sourceOnlineCompliance: (item.complianceRisks || []).join(', '),
           sourceOnlineCheckedAt: item.importedAt || new Date().toISOString()
         });
+        const duplicate = products.find(p => String(p.supplierLink || '') === String(product.supplierLink || '') || String(p.name || '').trim().toLowerCase() === String(product.name || '').trim().toLowerCase());
+        if(duplicate && !confirm('Ein ähnliches Produkt existiert bereits im Produktboard. Trotzdem als neuen Draft übernehmen?')) return;
         products = [product, ...products.filter(p => String(p.sku || '') !== String(product.sku || '') || String(p.name || '') !== String(product.name || ''))];
         save();
         showTab('productListTab');
@@ -8385,12 +8549,69 @@ async function hydrateBrowserImportsFromBackend(){
     browserImports = items;
     saveBrowserImports();
     renderBrowserImports();
-    if(badgeEl) badgeEl.textContent = browserImports.length ? `${browserImports.length} Browser Imports · Server aktualisiert` : 'Keine Browser Imports auf dem Server';
+    if(badgeEl){
+      if(data?.storage && data.storage.configured === false){
+        badgeEl.textContent = browserImports.length
+          ? `${browserImports.length} Browser Imports · Server-Speicherung nicht aktiv – lokal/mock`
+          : 'Server-Speicherung nicht aktiv – Import nur lokal/mock.';
+      }else{
+        badgeEl.textContent = browserImports.length ? `${browserImports.length} Browser Imports · Server aktualisiert` : 'Keine Browser Imports auf dem Server';
+      }
+    }
   }catch(err){
     console.warn('Browser Imports konnten nicht geladen werden', err);
     if(box && !browserImports.length) box.innerHTML = '<div class="empty">Browser Imports konnten nicht geladen werden.</div>';
     renderBrowserImports();
     if(badgeEl) badgeEl.textContent = 'Browser Imports konnten nicht geladen werden';
+  }
+}
+async function createTestBrowserImport(){
+  const now = new Date().toISOString();
+  const sample = normalizeBrowserImportRecord({
+    id:'elyon-test-browser-import',
+    source:'chrome-extension',
+    status:'draft',
+    importedAt:now,
+    updatedAt:now,
+    title:'Elyon Test Browser Import - Variantenprodukt',
+    price:'19,99',
+    currency:'EUR',
+    image:'https://placehold.co/640x640/png?text=Elyon+Test',
+    images:['https://placehold.co/640x640/png?text=Elyon+Test','https://placehold.co/640x640/png?text=Variante'],
+    url:'https://example.com/elyon-test-browser-import',
+    domain:'example.com',
+    supplier:'Test Supplier',
+    description:'Vollständige Testbeschreibung fuer Browser Imports. Keine Live-Aktion.',
+    descriptionCandidates:['Kurzbeschreibung Testprodukt','Lange Beschreibung mit Material, Lieferumfang und Nutzen.'],
+    descriptionSource:'debug-test',
+    shipping:{cost:'2,99 EUR',deliveryTime:'7-10 Tage',shipsFrom:'EU'},
+    availability:'Auf Lager',
+    category:'Test > Gadgets',
+    rating:'4.7',
+    reviewsCount:'128',
+    soldCount:'500+',
+    variants:[{label:'Schwarz / M',price:'19,99',currency:'EUR',image:'https://placehold.co/320x320/png?text=Schwarz'},{label:'Weiss / L',price:'21,99',currency:'EUR',image:'https://placehold.co/320x320/png?text=Weiss'}],
+    productDetails:{Material:'ABS',Gewicht:'250g',Lieferumfang:'Produkt, Anleitung'},
+    complianceRisks:['CE pruefen'],
+    warnings:['Testdatensatz - keine Live-Aktion'],
+    raw:{debug:true}
+  });
+  try{
+    const response = await fetch('/api/extension/import-product', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({product:sample, source:'chrome-extension', mode:'draft', safety:{liveAction:false, listingCreated:false, orderCreated:false, messageSent:false, reviewRequired:true, manualApprovalRequired:true}})
+    });
+    const data = await response.json().catch(() => null);
+    if(!response.ok || !data?.ok) throw new Error(data?.message || data?.error || 'Testimport fehlgeschlagen');
+    upsertBrowserImportItem(data.browserImport || data.product || sample);
+    browserImportsStorage = data.storage || browserImportsStorage;
+    renderBrowserImports();
+    alert(data.message || 'Test-Browser-Import erzeugt.');
+  }catch(err){
+    upsertBrowserImportItem({...sample, errorState:{message:err.message || String(err)}, warnings:[...(sample.warnings || []),'Server nicht erreichbar - lokal/mock gespeichert']});
+    renderBrowserImports();
+    alert('Test-Browser-Import lokal erzeugt. Backend nicht erreichbar.');
   }
 }
 function render(){
@@ -8812,6 +9033,225 @@ function buildAdvancedDescription(product, feature, use, pain, tone, type, lengt
   lines.push('Jetzt bestellen und bequem liefern lassen.');
   return lines.join(line);
 }
+function splitDetailText(value){
+  return String(value || '')
+    .split(/\||\n|;/)
+    .map(function(part){ return String(part || '').trim(); })
+    .filter(Boolean);
+}
+function cleanImportedSentence(value){
+  return String(value || '')
+    .replace(/\s+/g, ' ')
+    .replace(/\s*\.\s*/g, '. ')
+    .trim();
+}
+function toSentenceCase(value){
+  const text = cleanImportedSentence(value);
+  if(!text) return '';
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+function splitDescriptionIntoSentences(value){
+  return String(value || '')
+    .split(/(?<=[.!?])\s+/)
+    .map(cleanImportedSentence)
+    .filter(function(part){
+      return part && part.length >= 20;
+    });
+}
+function pickImportedHighlights(context){
+  const highlights = [];
+  context.detailParts.forEach(function(part){
+    const text = cleanImportedSentence(part);
+    if(text && text.length >= 4 && text.length <= 140 && !highlights.includes(text)){
+      highlights.push(text);
+    }
+  });
+  splitDescriptionIntoSentences(context.sourceDescription).forEach(function(sentence){
+    if(highlights.length >= 6) return;
+    if(sentence.length <= 180 && !highlights.includes(sentence)){
+      highlights.push(sentence);
+    }
+  });
+  return highlights.slice(0, 6);
+}
+function looksLikeKeyValue(text){
+  return /^[^:]{2,40}:\s*.+$/.test(String(text || '').trim());
+}
+function normalizeHighlightBullet(text){
+  const clean = cleanImportedSentence(text).replace(/[.:;]+\s*$/,'');
+  if(!clean) return '';
+  if(looksLikeKeyValue(clean)){
+    const index = clean.indexOf(':');
+    const label = clean.slice(0, index).trim();
+    const value = clean.slice(index + 1).trim();
+    if(!label || !value) return '';
+    return toSentenceCase(label) + ': ' + value;
+  }
+  return toSentenceCase(clean);
+}
+function buildImportedBullets(context, fallbackFeatures){
+  const bullets = [];
+  pickImportedHighlights(context).forEach(function(item){
+    const bullet = normalizeHighlightBullet(item);
+    if(bullet && !bullets.includes(bullet)) bullets.push(bullet);
+  });
+  if(context.detailParts.length){
+    context.detailParts.forEach(function(item){
+      if(bullets.length >= 6) return;
+      const bullet = normalizeHighlightBullet(item);
+      if(bullet && !bullets.includes(bullet)) bullets.push(bullet);
+    });
+  }
+  if(!bullets.length && fallbackFeatures){
+    fallbackFeatures.split(',').map(function(part){ return normalizeHighlightBullet(part); }).filter(Boolean).slice(0,4).forEach(function(item){
+      if(!bullets.includes(item)) bullets.push(item);
+    });
+  }
+  return bullets.slice(0, 6);
+}
+function buildImportedSpecificText(context){
+  const specifics = [];
+  if(context.category) specifics.push('Kategorie: ' + context.category);
+  if(context.shipping) specifics.push('Versand: ' + context.shipping);
+  if(context.deliveryTime) specifics.push('Lieferzeit: ' + context.deliveryTime);
+  if(context.price) specifics.push('Preisbasis im Draft: ' + context.price);
+  if(context.supplier) specifics.push('Quelle: ' + context.supplier);
+  return specifics.slice(0, 4);
+}
+function buildImportedDescriptionFromFacts(product, feature, use, pain, type, length, scope, notice, context){
+  const line = String.fromCharCode(10);
+  const name = product || 'Dieses Produkt';
+  const targetUse = buildFallbackUseText(use, context);
+  const fallbackFeatures = buildFallbackFeatureText(feature, context) || 'Produktdaten aus dem Import';
+  const fallbackPain = buildFallbackPainText(pain, context) || 'Diese Beschreibung wurde aus den importierten Produktdaten zusammengestellt.';
+  const specifics = buildImportedSpecificText(context);
+  const bullets = buildImportedBullets(context, fallbackFeatures);
+  const packageScope = scope || (bullets.length ? bullets.slice(0, 3).join(' | ') : 'Lieferumfang vor Veröffentlichung anhand der Quelldaten prüfen.');
+  const importantNotice = notice || 'Importdaten und Artikeldetails vor Veröffentlichung auf Varianten, Maße, Kompatibilität und Lieferumfang prüfen.';
+  let intro = name + ' für ' + targetUse + '.';
+  if(type === 'benefit') intro = name + ' für Käufer, die gezielt etwas für ' + targetUse + ' suchen.';
+  if(type === 'trust') intro = name + ' mit sachlicher Beschreibung auf Basis der importierten Produktdaten.';
+  if(type === 'simple') intro = name + ' klar beschrieben und auf das Wesentliche reduziert.';
+
+  const lines = [];
+  lines.push(intro);
+  lines.push('');
+  lines.push('Highlights:');
+  if(bullets.length){
+    bullets.slice(0, length === 'long' ? 6 : length === 'short' ? 3 : 4).forEach(function(item){ lines.push('✓ ' + item); });
+  }else{
+    lines.push('✓ ' + toSentenceCase(fallbackFeatures));
+  }
+  if(specifics.length){
+    lines.push('');
+    lines.push('Wichtige Angaben:');
+    specifics.forEach(function(item){ lines.push('• ' + item); });
+  }
+  lines.push('');
+  lines.push('Beschreibung:');
+  lines.push('Geeignet für ' + targetUse + '. ' + fallbackPain);
+  if(context.sourceDescription && length !== 'short'){
+    lines.push('');
+    lines.push('Weitere Produktinfos:');
+    splitDescriptionIntoSentences(context.sourceDescription).slice(0, length === 'long' ? 3 : 2).forEach(function(sentence){
+      lines.push(sentence);
+    });
+  }
+  if(length === 'long'){
+    lines.push('');
+    lines.push('Vor dem Kauf bitte beachten:');
+    lines.push('Bitte gleiche Varianten, Maße, Material, Lieferumfang und eventuelle Kompatibilitätsangaben mit der Quelle ab, damit das eBay-Listing sauber und eindeutig bleibt.');
+  }
+  lines.push('');
+  lines.push('Lieferumfang / Hinweis:');
+  lines.push(packageScope);
+  lines.push('');
+  lines.push('Wichtiger Hinweis:');
+  lines.push(importantNotice);
+  lines.push('');
+  lines.push('Bitte Produktdetails vor dem Kauf prüfen.');
+  return lines.join(line);
+}
+function collectImportedDescriptionContext(){
+  const draft = latestEbayListingDraft || loadStoredEbayListingDraft() || {};
+  const briefing = draft && draft.briefing ? draft.briefing : {};
+  const generated = draft && draft.generated ? draft.generated : {};
+  const sourceDescriptionCandidates = [
+    getInputValue('listingBody'),
+    generated.description,
+    draft.draft && draft.draft.description ? draft.draft.description : '',
+    briefing.itemSpecifics,
+    draft.itemSpecifics
+  ].map(function(value){
+    return String(value || '').trim();
+  }).filter(Boolean);
+  const sourceDescription = sourceDescriptionCandidates.find(function(text){
+    return text.length >= 80 && !/übernehmen und ergänzen|browser import|produktliste übernommen/i.test(text);
+  }) || '';
+  const detailParts = Array.from(new Set(
+    []
+      .concat(splitDetailText(briefing.itemSpecifics))
+      .concat(splitDetailText(draft.itemSpecifics))
+      .slice(0, 10)
+  ));
+  const keywordParts = Array.from(new Set(
+    String(briefing.keywords || generated.keywords || '')
+      .split(',')
+      .map(function(part){ return String(part || '').trim(); })
+      .filter(Boolean)
+  )).slice(0, 8);
+  return {
+    sourceDescription: sourceDescription,
+    detailParts: detailParts,
+    keywordParts: keywordParts,
+    shipping: String(briefing.shipping || draft.shipping || '').trim(),
+    deliveryTime: String(briefing.deliveryTime || draft.delivery || '').trim(),
+    supplier: String(briefing.supplier || draft.supplier || '').trim(),
+    category: String(briefing.category || draft.category || '').trim(),
+    notes: String(draft.draft && draft.draft.notes ? draft.draft.notes : '').trim(),
+    price: briefing.price || draft.sell || '',
+    imageCount: Array.isArray(draft.images) ? draft.images.filter(Boolean).length : 0
+  };
+}
+function buildFallbackFeatureText(feature, context){
+  const parts = [];
+  if(feature) parts.push(feature);
+  if(context.category) parts.push('Kategorie ' + context.category);
+  if(context.detailParts.length) parts.push(context.detailParts.slice(0, 4).join(', '));
+  if(context.keywordParts.length) parts.push('Relevante Stichworte: ' + context.keywordParts.slice(0, 4).join(', '));
+  return parts.filter(Boolean).join(', ');
+}
+function buildFallbackUseText(use, context){
+  if(use) return use;
+  if(context.category) return 'den Einsatzbereich ' + context.category;
+  return 'den vorgesehenen Alltagsgebrauch';
+}
+function buildFallbackPainText(pain, context){
+  if(pain) return pain;
+  const parts = [];
+  if(context.sourceDescription) parts.push(context.sourceDescription.slice(0, 240));
+  if(context.deliveryTime) parts.push('Lieferzeit laut Import: ' + context.deliveryTime);
+  if(context.shipping) parts.push('Versandinfo: ' + context.shipping);
+  if(context.detailParts.length) parts.push('Wichtige Merkmale: ' + context.detailParts.slice(0, 3).join(', '));
+  return parts.join(' | ');
+}
+function buildImportedDescriptionFallback(product, feature, use, pain, tone, type, length, scope, notice){
+  const context = collectImportedDescriptionContext();
+  if(context.sourceDescription || context.detailParts.length || context.category || context.shipping){
+    return buildImportedDescriptionFromFacts(product, feature, use, pain, type, length, scope, notice, context);
+  }
+  return buildAdvancedDescription(
+    product,
+    buildFallbackFeatureText(feature, context) || 'Produktdaten aus Import und Artikeldetails',
+    buildFallbackUseText(use, context),
+    buildFallbackPainText(pain, context) || 'Die originale Produktbeschreibung war im Import unvollständig. Diese Beschreibung wurde aus Titel, Kategorie, Artikeldetails und Lieferhinweisen aufgebaut.',
+    tone,
+    type,
+    length,
+    scope || (context.detailParts.length ? 'Importierte Merkmale: ' + context.detailParts.slice(0, 5).join(', ') : 'Lieferumfang vor Veröffentlichung anhand der Quelldaten prüfen.'),
+    notice || 'Keine verlässliche Originalbeschreibung importiert. Maße, Varianten, Kompatibilität und Lieferumfang bitte manuell prüfen.'
+  );
+}
 function descriptionGeneratorCalc(){
   const product = $('gName') && $('gName').value.trim() ? $('gName').value.trim() : 'Produkt';
   const feature = $('gFeature') && $('gFeature').value.trim() ? $('gFeature').value.trim() : '';
@@ -8822,7 +9262,7 @@ function descriptionGeneratorCalc(){
   const length = $('descLength') ? $('descLength').value : 'normal';
   const scope = $('descScope') && $('descScope').value.trim() ? $('descScope').value.trim() : '';
   const notice = $('descNotice') && $('descNotice').value.trim() ? $('descNotice').value.trim() : '';
-  const text = buildAdvancedDescription(product, feature, use, pain, tone, type, length, scope, notice);
+  const text = buildImportedDescriptionFallback(product, feature, use, pain, tone, type, length, scope, notice);
   const safeText = text.replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
   let html = '';
   html += '<div class="output-box"><h3>Fertige Beschreibung</h3><p id="separateDescriptionValue">' + safeText + '</p>';
@@ -9334,6 +9774,7 @@ function buildAiTitlePrompt(){
   ].join('\n');
 }
 function buildAiDescriptionPrompt(){
+  const context = collectImportedDescriptionContext();
   const product = $('gName') && $('gName').value.trim() ? $('gName').value.trim() : 'Produkt';
   const feature = $('gFeature') && $('gFeature').value.trim() ? $('gFeature').value.trim() : '';
   const use = $('gUse') && $('gUse').value.trim() ? $('gUse').value.trim() : '';
@@ -9344,11 +9785,36 @@ function buildAiDescriptionPrompt(){
   const scope = $('descScope') && $('descScope').value.trim() ? $('descScope').value.trim() : '';
   const notice = $('descNotice') && $('descNotice').value.trim() ? $('descNotice').value.trim() : '';
   return [
-    'Erstelle eine ausfuehrliche, seriöse eBay-Beschreibung.',
-    'Nutze Bulletpoints, klare Vorteile und sichere Formulierungen.',
+    'Erstelle eine verkaufsstarke, aber seriöse eBay-Beschreibung auf Deutsch.',
+    'Nutze zuerst echte Importdaten und Produktmerkmale, nicht allgemeine Füllsätze.',
+    'Schreibe scanbar, ebay-tauglich und klar.',
+    'Baue 4 bis 6 Bulletpoints ein, danach eine kompakte Beschreibung und am Ende einen kurzen Hinweis.',
+    'Wenn Importdaten unvollständig sind, formuliere vorsichtig und erfinde keine Fakten.',
+    'Keine Marken erfinden. Keine Zertifikate erfinden. Keine Heilversprechen. Keine unrealistischen Lieferaussagen.',
     '',
     'Produktdaten:',
-    JSON.stringify({ product, feature, use, pain, tone, type, length, scope, notice }, null, 2)
+    JSON.stringify({
+      product,
+      feature,
+      use,
+      pain,
+      tone,
+      type,
+      length,
+      scope,
+      notice,
+      importedContext: {
+        sourceDescription: context.sourceDescription,
+        detailParts: context.detailParts,
+        keywordParts: context.keywordParts,
+        shipping: context.shipping,
+        deliveryTime: context.deliveryTime,
+        supplier: context.supplier,
+        category: context.category,
+        notes: context.notes,
+        imageCount: context.imageCount
+      }
+    }, null, 2)
   ].join('\n');
 }
 function buildAiTagsPrompt(){
@@ -9428,6 +9894,25 @@ function renderAiDescriptionTaskResult(data){
   html += '<div class="output-box"><h3>SEO-Keywords</h3><p>' + escapeHtml(keywords.join(', ') || 'Keine Keywords erzeugt.') + '</p></div>';
   html += '<div class="output-box"><h3>Risiko-Hinweise</h3><ul>' + (warnings.length ? warnings.map(function(item){ return '<li>' + escapeHtml(item) + '</li>'; }).join('') : '<li>Keine Risiko-Hinweise gemeldet.</li>') + '</ul></div>';
   setHTML('descGenResult', html);
+  if(description){
+    setInputValue('listingBody', description);
+    refreshEbayListingDraftPreview();
+  }
+}
+function renderAiDescriptionRouterResult(data){
+  const provider = data && data.provider ? String(data.provider) : 'KI';
+  const model = data && data.model ? String(data.model) : '';
+  const text = String(data && data.content ? data.content : '').trim();
+  const safeText = escapeHtml(text || 'Keine KI-Beschreibung erzeugt.');
+  let html = '';
+  html += '<div class="output-box"><h3>KI Beschreibung</h3><p id="aiDescriptionRouterValue">' + safeText + '</p><div class="copy-row"><button class="secondary copy-btn" data-copy="aiDescriptionRouterValue">Beschreibung kopieren</button></div></div>';
+  html += '<div class="output-box"><h3>Quelle</h3><p>' + escapeHtml(provider + (model ? ' · ' + model : '')) + '</p></div>';
+  html += '<div class="output-box"><h3>Hinweis</h3><p>Die KI hat den Text aus deinen Formular- und Importdaten formuliert. Fakten bitte vor dem Veröffentlichen prüfen.</p></div>';
+  setHTML('descGenResult', html);
+  if(text){
+    setInputValue('listingBody', text);
+    refreshEbayListingDraftPreview();
+  }
 }
 function renderAiTagsTaskResult(data){
   const payload = data && data.result ? data.result : data;
@@ -9485,7 +9970,11 @@ async function executeCentralAiTask(config){
     if(task === 'title'){
       renderAiTitleTaskResult(data);
     }else if(task === 'description'){
-      renderAiDescriptionTaskResult(data);
+      if(data && (data.content || data.provider)){
+        renderAiDescriptionRouterResult(data);
+      }else{
+        renderAiDescriptionTaskResult(data);
+      }
     }else if(task === 'tags'){
       renderAiTagsTaskResult(data);
     }else if(task === 'product_score'){
@@ -9608,11 +10097,15 @@ async function runAiListingOptimizer(mode){
     regenerate: 'aiRegenerateBtn',
     check: 'aiCheckBtn',
   };
+  const defaults = getGlobalAiDefaults();
   const payload = readListingOptimizerInput();
   payload.mode = mode;
   payload.requestedMode = mode;
   payload.product.currentTitle = getGeneratedTitle();
   payload.product.currentDescription = getGeneratedDescription();
+  payload.provider = defaults.provider;
+  payload.model = defaults.model;
+  payload.allowFallback = defaults.allowFallback;
   incrementAiUsage();
   setAiButtonsLoading(true, buttons[mode] || buttons.regenerate);
   setHTML('aiResult', '<div class="empty">KI-Analyse läuft...</div>');
@@ -11129,6 +11622,7 @@ function bindEvents(){
   bind('killFilterBtn','click',()=>setProductFilter('kill'));
   bind('toggleViewBtn','click',toggleProductView);
   bind('browserImportsRefreshBtn','click',()=>hydrateBrowserImportsFromBackend());
+  bind('browserImportsTestBtn','click',()=>createTestBrowserImport());
   bind('browserImportsOpenBtn','click',()=>showTab('productListTab'));
   bind('researchBtn','click',runResearchCheck);
   bind('legalBtn','click',legalCheck);
@@ -11178,7 +11672,12 @@ function bindEvents(){
     task:'description',
     prompt: buildAiDescriptionPrompt(),
     buttonId:'aiDescBtn',
-    resultId:'descGenResult'
+    resultId:'descGenResult',
+    extra:{
+      provider:'deepseek',
+      model:'deepseek-v4-flash',
+      allowFallback:true
+    }
   }));
   bind('aiScoreBtn','click',()=>openAiBillingWarning({
     task:'product_score',
