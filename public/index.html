@@ -2844,6 +2844,164 @@ function parseJsonArrayField(value){
     return [];
   }
 }
+function firstVariantValue(source, keys){
+  const item = source && typeof source === 'object' ? source : {};
+  for(let i=0;i<keys.length;i++){
+    const key = keys[i];
+    if(item[key] !== undefined && item[key] !== null && String(item[key]).trim() !== '') return item[key];
+  }
+  return '';
+}
+function variantNumberValue(source, keys, fallback){
+  const raw = firstVariantValue(source, keys);
+  if(String(raw || '').trim() !== '') return normalizeImportNumber(raw);
+  return Number(fallback || 0) || 0;
+}
+function variantTextValue(source, keys, fallback){
+  const raw = firstVariantValue(source, keys);
+  if(String(raw || '').trim() !== '') return String(raw).trim();
+  return String(fallback || '').trim();
+}
+function collectProductVariants(product){
+  const productData = product && typeof product === 'object' ? product : {};
+  const buckets = [
+    Array.isArray(productData.variants) ? productData.variants : [],
+    Array.isArray(productData.platformVariants) ? productData.platformVariants : [],
+    Array.isArray(productData.aliexpressVariants) ? productData.aliexpressVariants : [],
+    parseJsonArrayField(productData.sourceOnlineVariants)
+  ];
+  const seen = new Set();
+  const merged = [];
+  buckets.forEach(function(list){
+    list.filter(function(item){ return item && typeof item === 'object'; }).forEach(function(item){
+      const dedupeKey = JSON.stringify([
+        variantTextValue(item, ['sku','variantSku','productSku','id','variantId'], ''),
+        firstVariantValue(item, ['title','name','variantName','color','size']),
+        firstVariantValue(item, ['buy','cost','purchasePrice','purchase_price','price','supplierPrice','supplyPrice','variantPrice']),
+        firstVariantValue(item, ['ship','shipping','shippingCost','shipping_cost','shippingPrice','freight']),
+        firstVariantValue(item, ['sell','salePrice','sale_price','listingPrice','offerPrice'])
+      ]);
+      if(seen.has(dedupeKey)) return;
+      seen.add(dedupeKey);
+      merged.push(item);
+    });
+  });
+  return merged.slice(0, 100);
+}
+function summarizeNumberRange(values){
+  const nums = values.filter(function(value){ return Number.isFinite(value); });
+  if(!nums.length) return null;
+  return { min: Math.min.apply(null, nums), max: Math.max.apply(null, nums) };
+}
+function formatEuroRange(range, mode){
+  if(!range) return '';
+  if(Math.abs(range.max - range.min) < 0.0001){
+    return mode === 'ab' ? ('ab ' + euro(range.min)) : euro(range.min);
+  }
+  if(mode === 'ab') return 'ab ' + euro(range.min);
+  return euro(range.min) + '–' + euro(range.max);
+}
+function formatDayRange(range){
+  if(!range) return '';
+  if(Math.abs(range.max - range.min) < 0.0001) return Math.round(range.min) + ' Tage';
+  return Math.round(range.min) + '–' + Math.round(range.max) + ' Tage';
+}
+function variantScanState(product, variants){
+  const productData = product && typeof product === 'object' ? product : {};
+  const statusText = String(productData.variantScanStatus || productData.sourceOnlineStatus || productData.sourceAnalysisStatus || '').toLowerCase();
+  const hasScanFlag = !!(
+    productData.variantScanCompleted ||
+    productData.variantsScanned ||
+    productData.variantScanAt ||
+    productData.sourceOnlineCheckedAt ||
+    statusText.includes('verified') ||
+    statusText.includes('scanned') ||
+    statusText.includes('voll') ||
+    statusText.includes('variant')
+  );
+  if(!variants.length){
+    return { label:'nicht gescannt', cls:'muted', hint:'' };
+  }
+  const completeCount = variants.filter(function(item){
+    return item.buyKnown && item.shipKnown;
+  }).length;
+  if(completeCount === variants.length){
+    return { label:'vollständig', cls:'ok', hint: hasScanFlag ? 'Variantenscan durchgeführt' : '' };
+  }
+  if(hasScanFlag){
+    return { label:'teilweise', cls:'warn', hint:'Variantenscan durchgeführt' };
+  }
+  return { label:'teilweise', cls:'warn', hint:'Variantenscan empfohlen' };
+}
+function summarizeVariantCommercials(product, calc){
+  const productData = product && typeof product === 'object' ? product : {};
+  const feePercent = +productData.fee || appSettings.fees || 0;
+  const bufferPercent = +productData.riskBuffer || appSettings.buffer || 0;
+  const variants = collectProductVariants(productData).map(function(variant){
+    const buyRaw = firstVariantValue(variant, ['buy','cost','purchasePrice','purchase_price','price','supplierPrice','supplyPrice','variantPrice']);
+    const shipRaw = firstVariantValue(variant, ['ship','shipping','shippingCost','shipping_cost','shippingPrice','freight']);
+    const sellRaw = firstVariantValue(variant, ['sell','salePrice','sale_price','listingPrice','offerPrice']);
+    const deliveryRaw = firstVariantValue(variant, ['delivery','deliveryDays','delivery_days','shippingDays','lieferzeit','deliveryTime']);
+    const buyKnown = String(buyRaw || '').trim() !== '';
+    const shipKnown = String(shipRaw || '').trim() !== '';
+    const sellKnown = String(sellRaw || '').trim() !== '';
+    const deliveryKnown = String(deliveryRaw || '').trim() !== '';
+    const buy = buyKnown ? normalizeImportNumber(buyRaw) : normalizeImportNumber(productData.buy);
+    const ship = shipKnown ? normalizeImportNumber(shipRaw) : normalizeImportNumber(productData.ship);
+    const sell = sellKnown ? normalizeImportNumber(sellRaw) : normalizeImportNumber(productData.sell);
+    const delivery = deliveryKnown ? normalizeImportNumber(deliveryRaw) : normalizeImportNumber(productData.delivery);
+    const totalCost = buy + ship;
+    const fee = sell * (feePercent / 100);
+    const buffer = sell * (bufferPercent / 100);
+    const profit = sellKnown ? (sell - totalCost - fee - buffer) : null;
+    return {
+      buy, ship, sell, delivery, totalCost, profit,
+      buyKnown, shipKnown, sellKnown, deliveryKnown,
+      sku: variantTextValue(variant, ['sku','variantSku','productSku','id','variantId'], '')
+    };
+  }).filter(function(item){
+    return item.sku || item.buyKnown || item.shipKnown || item.sellKnown || item.deliveryKnown || item.buy > 0 || item.ship > 0 || item.sell > 0 || item.delivery > 0;
+  });
+  return {
+    variants,
+    buyRange: summarizeNumberRange(variants.filter(function(item){ return item.buyKnown || item.buy > 0; }).map(function(item){ return item.buy; })),
+    shipRange: summarizeNumberRange(variants.filter(function(item){ return item.shipKnown || item.ship > 0; }).map(function(item){ return item.ship; })),
+    totalRange: summarizeNumberRange(variants.filter(function(item){ return (item.buyKnown || item.buy > 0) && (item.shipKnown || item.ship >= 0); }).map(function(item){ return item.totalCost; })),
+    sellRange: summarizeNumberRange(variants.filter(function(item){ return item.sellKnown || item.sell > 0; }).map(function(item){ return item.sell; })),
+    profitRange: summarizeNumberRange(variants.filter(function(item){ return Number.isFinite(item.profit); }).map(function(item){ return item.profit; })),
+    deliveryRange: summarizeNumberRange(variants.filter(function(item){ return item.deliveryKnown || item.delivery > 0; }).map(function(item){ return item.delivery; })),
+    scanState: variantScanState(productData, variants),
+    incompleteCount: variants.filter(function(item){ return !item.buyKnown || !item.shipKnown; }).length,
+    fallbackCalc: calc
+  };
+}
+function getProductCommercialChips(product, calc){
+  const productData = product || {};
+  const variantSummary = summarizeVariantCommercials(productData, calc);
+  if(!variantSummary.variants.length){
+    const marginPercent = (+productData.sell || 0) > 0 ? Math.round(((calc.profit / (+productData.sell || 0)) * 1000)) / 10 : 0;
+    const chips = [
+      '<span class="pill">EK: ' + euro(+productData.buy || 0) + '</span>',
+      (+productData.ship || 0) > 0 ? '<span class="pill">Versand: ' + euro(+productData.ship || 0) + '</span>' : '',
+      '<span class="pill">Kosten: ' + euro(calc.totalCost) + '</span>',
+      '<span class="pill">Marge: ' + marginPercent.toFixed(1) + '%</span>'
+    ];
+    return chips.filter(Boolean).join('');
+  }
+  const chips = [
+    '<span class="pill">Varianten: ' + variantSummary.variants.length + '</span>',
+    variantSummary.buyRange ? '<span class="pill">EK: ' + formatEuroRange(variantSummary.buyRange, 'range') + '</span>' : '',
+    variantSummary.shipRange ? '<span class="pill">Versand: ' + formatEuroRange(variantSummary.shipRange, 'range') + '</span>' : '',
+    variantSummary.totalRange ? '<span class="pill">Kosten: ' + formatEuroRange(variantSummary.totalRange, 'range') + '</span>' : '',
+    variantSummary.sellRange ? '<span class="pill">VK: ' + formatEuroRange(variantSummary.sellRange, 'ab') + '</span>' : '',
+    variantSummary.profitRange ? '<span class="pill">Gewinn: ' + formatEuroRange(variantSummary.profitRange, 'range') + '</span>' : '',
+    variantSummary.deliveryRange ? '<span class="pill">Lieferzeit: ' + formatDayRange(variantSummary.deliveryRange) + '</span>' : '',
+    '<span class="status ' + variantSummary.scanState.cls + '">Variantenstatus: ' + variantSummary.scanState.label + '</span>',
+    variantSummary.scanState.hint ? '<span class="pill">' + escapeHtml(variantSummary.scanState.hint) + '</span>' : '',
+    variantSummary.incompleteCount > 0 && !variantSummary.scanState.hint ? '<span class="pill">Varianten teilweise erkannt</span>' : ''
+  ];
+  return chips.filter(Boolean).join('');
+}
 function normalizeBrowserImportsCollection(list){
   return Array.isArray(list) ? list.map(normalizeBrowserImportRecord) : [];
 }
@@ -7408,7 +7566,7 @@ function productCardHTML(p,small=false){
     html += '<div class="product-title">' + escapeHtml((p.priority || 'Normal') + ' · ' + p.name) + '</div>';
   }
   html += '<div class="muted">Status: ' + escapeHtml(lifecycle.label) + ' · Erstellt: ' + (p.created || '') + ' · ' + s.text + shopifyInfo + '</div>';
-  html += '<div class="pill-row"><span class="status ' + lifecycle.cls + '">' + escapeHtml(lifecycle.label) + '</span>' + returnCompactPillsForProduct(p,c) + '<span class="pill">Netto: ' + euro(net) + '</span><span class="status '+health.cls+'">'+health.label+'</span>' + (p.sourceProvider ? '<span class="pill">Quelle: ' + escapeHtml(p.sourceProvider) + '</span>' : '') + (p.sourceRisk ? '<span class="status ' + riskClass(p.sourceRisk) + '">Supplier: ' + escapeHtml(p.sourceRisk) + '</span>' : '') + '</div>';
+  html += '<div class="pill-row"><span class="status ' + lifecycle.cls + '">' + escapeHtml(lifecycle.label) + '</span>' + returnCompactPillsForProduct(p,c) + getProductCommercialChips(p,c) + '<span class="pill">Netto: ' + euro(net) + '</span><span class="status '+health.cls+'">'+health.label+'</span>' + (p.sourceProvider ? '<span class="pill">Quelle: ' + escapeHtml(p.sourceProvider) + '</span>' : '') + (p.sourceRisk ? '<span class="status ' + riskClass(p.sourceRisk) + '">Supplier: ' + escapeHtml(p.sourceRisk) + '</span>' : '') + '</div>';
   html += renderProductAiMiniCard(p);
   html += detailHtml;
   html += '</div>';
@@ -7451,7 +7609,7 @@ function kanbanProductCardHTML(p){
   html += '<div class="kanban-mini-body">';
   html += '<div class="kanban-mini-title">' + escapeHtml(p.name || 'Browser Import') + '</div>';
   html += '<div class="kanban-mini-meta"><span>' + escapeHtml(price || 'Preis offen') + '</span><span>Score ' + c.score + '</span></div>';
-  html += '<div class="pill-row"><span class="status ' + lifecycle.cls + '">' + escapeHtml(lifecycle.label) + '</span>' + renderProductAiTinyBadge(p) + '<span class="pill">' + escapeHtml(p.sourceProvider || 'browser-import') + '</span></div>';
+  html += '<div class="pill-row"><span class="status ' + lifecycle.cls + '">' + escapeHtml(lifecycle.label) + '</span>' + renderProductAiTinyBadge(p) + getProductCommercialChips(p,c) + '<span class="pill">' + escapeHtml(p.sourceProvider || 'browser-import') + '</span></div>';
   html += '</div>';
   html += '<div class="kanban-mini-actions">';
   html += '<button class="secondary" onclick="prepareProductForEbayDraft(\'' + escapeHtml(String(p.id)) + '\')">eBay</button>';
@@ -10917,7 +11075,7 @@ function bindEvents(){
   bind('mainMenu','change',e=>{
     const value = e.target.value;
     if(!value){
-      resetMainMenuSelection();
+      showTab('productSearchTab');
       return;
     }
     if(value === 'importTab'){ openImportCheck(); return; }
@@ -10926,6 +11084,22 @@ function bindEvents(){
     if(value === 'listingCheckTab'){ openListingCheck(); return; }
     if(value === 'productStatusTab'){ openProductStatus(); return; }
     showTab(value);
+  });
+  safe('mainMenu', el => {
+    if(el.dataset.fileMenuFallbackReady === 'yes') return;
+    el.dataset.fileMenuFallbackReady = 'yes';
+    const openFileFallback = event => {
+      if(location.protocol !== 'file:') return;
+      if(el.value) return;
+      event.preventDefault();
+      showTab('productSearchTab');
+    };
+    el.addEventListener('mousedown', openFileFallback);
+    el.addEventListener('keydown', event => {
+      if(location.protocol !== 'file:') return;
+      if(event.key !== 'Enter' && event.key !== ' ') return;
+      openFileFallback(event);
+    });
   });
   bind('importBtn','click',toggleCsvImportMenu);
   bind('localCsvImportBtn','click',openLocalCsvImport);
