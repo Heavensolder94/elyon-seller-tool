@@ -13,6 +13,7 @@ import {
   uploadBackupToDrive,
   validateBackupData,
 } from "../lib/google-drive.js";
+import { applyCors } from "../lib/api-cors.js";
 
 function readBody(req) {
   if (req.body && typeof req.body === "object") return req.body;
@@ -615,6 +616,8 @@ async function handleUploadBackup(req, res) {
 }
 
 export default async function handler(req, res) {
+  if (applyCors(req, res, ["GET", "POST", "OPTIONS"])) return;
+
   const body = readBody(req);
   const action = getRequestedAction(req, body);
 

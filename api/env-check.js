@@ -1,3 +1,5 @@
+import { applyCors } from "../lib/api-cors.js";
+
 function safeJsonParse(text) {
   try {
     return text ? JSON.parse(text) : null;
@@ -257,6 +259,8 @@ async function handleGoogleSheetsSync(req, res) {
 }
 
 export default async function handler(req, res) {
+  if (applyCors(req, res, ["GET", "POST", "OPTIONS"])) return;
+
   if (req.query?.action === "health") {
     return res.status(200).json(buildHealthPayload());
   }

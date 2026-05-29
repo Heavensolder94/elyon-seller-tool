@@ -1,10 +1,12 @@
 import { copyFile, mkdir } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { loadLocalEnv } from "./load-env.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const appRoot = path.resolve(scriptDir, "..");
 const publicRoot = path.join(appRoot, "public");
+const loadedEnvFile = loadLocalEnv();
 
 await import("./check-layout.mjs");
 
@@ -31,4 +33,7 @@ const envStatus = {
 };
 
 console.log("Google env status:", JSON.stringify(envStatus));
+if (loadedEnvFile) {
+  console.log(`Loaded local env from: ${loadedEnvFile}`);
+}
 console.log("Prepared Vercel static output.");

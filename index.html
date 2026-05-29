@@ -1618,7 +1618,7 @@ Land"></textarea>
         <div class="metric"><small>Modus</small><strong>Lesen zuerst</strong></div>
       </div>
       <div class="row">
-        <button id="apiOpenSettingsBtn" class="secondary full" type="button">⚙️ Integrationen einrichten</button>
+        <button id="apiOpenSettingsBtn" class="secondary full" type="button" onclick="openIntegrations()">⚙️ Integrationen einrichten</button>
         <button id="testBackendBtn" class="secondary full" type="button">Backend-Verbindung prüfen</button>
       </div>
       <div id="backendTestResult" class="output-box"><p>Backend noch nicht geprüft.</p></div>
@@ -3004,6 +3004,14 @@ const listingItems = ['Titel enthält Hauptkeyword','Produktbilder vorhanden','B
 const $ = id => document.getElementById(resolveTabId(id)) || document.getElementById(id);
 const safe = (id, fn) => { const el = $(id); if (el) fn(el); };
 const n = id => { const el = $(id); return el ? (parseFloat(String(el.value || '0').replace(',', '.')) || 0) : 0; };
+function runSafeUiStep(label, fn){
+  try{
+    return fn();
+  }catch(error){
+    console.error('[UI step failed]', label, error);
+    return null;
+  }
+}
 function euro(v){ return (Number(v)||0).toLocaleString('de-DE',{style:'currency',currency:'EUR'}); }
 function setHTML(id, html){ safe(id, el => { el.innerHTML = html; }); }
 const TAB_ALIASES = {
@@ -3420,6 +3428,9 @@ function escapeHtml(value){
     .replace(/>/g,'&gt;')
     .replace(/"/g,'&quot;')
     .replace(/'/g,'&#39;');
+}
+function escapeInlineJsArg(value){
+  return escapeHtml(JSON.stringify(String(value == null ? '' : value)));
 }
 function renderDebugKeyValue(label,value){
   if(value === undefined || value === null || value === '') return '';
@@ -4578,11 +4589,11 @@ function clearProductForm(){
 function addProduct(){
   const formData=readProductForm();
   const sku=String(formData.sku||'').trim().toUpperCase();
-  if(sku && products.some(p=>String(p.sku||'').trim().toUpperCase()===sku && p.id!==editingProductId)){
+  if(sku && products.some(p=>String(p.sku||'').trim().toUpperCase()===sku && String(p.id)!==String(editingProductId))){
     if(!confirm('Diese SKU existiert bereits. Trotzdem speichern?')) return;
   }
   if(editingProductId){
-    products=products.map(p=>p.id===editingProductId?normalizeProductRecord({...p,...formData,updated:new Date().toLocaleDateString('de-DE'),updatedAt:new Date().toISOString()}):p);
+    products=products.map(p=>String(p.id)===String(editingProductId)?normalizeProductRecord({...p,...formData,updated:new Date().toLocaleDateString('de-DE'),updatedAt:new Date().toISOString()}):p);
   }else{
     products.push(normalizeProductRecord({id:Date.now(),...formData,created:new Date().toLocaleDateString('de-DE'),createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()}));
   }
@@ -5542,14 +5553,14 @@ function prepareBrowserImportForEbayDraft(importId){
   refreshEbayListingDraftPreview();
   toast('Browser Import in den eBay-Draft übernommen.');
 }
-function removeProduct(id){ products=products.filter(p=>p.id!==id); save(); }
-function duplicateProduct(id){ const o=products.find(p=>p.id===id); if(!o) return; products.push({...o,id:Date.now(),name:o.name+' Kopie',created:new Date().toLocaleDateString('de-DE')}); save(); }
+function removeProduct(id){ products=products.filter(p=>String(p.id)!==String(id)); save(); }
+function duplicateProduct(id){ const o=products.find(p=>String(p.id)===String(id)); if(!o) return; products.push({...o,id:Date.now(),name:o.name+' Kopie',created:new Date().toLocaleDateString('de-DE')}); save(); }
 function toggleShopifyCandidate(id){
-  products = products.map(p => p.id === id ? {...p, shopifyCandidate: !p.shopifyCandidate, shopifyMarkedAt: !p.shopifyCandidate ? new Date().toLocaleDateString('de-DE') : ''} : p);
+  products = products.map(p => String(p.id) === String(id) ? {...p, shopifyCandidate: !p.shopifyCandidate, shopifyMarkedAt: !p.shopifyCandidate ? new Date().toLocaleDateString('de-DE') : ''} : p);
   save();
 }
 function stopProduct(id){
-  products = products.map(p => p.id === id ? normalizeProductRecord({...p,productStatus:'Archiviert',status:'Archiviert',stoppedAt:new Date().toLocaleDateString('de-DE'),updatedAt:new Date().toISOString()}) : p);
+  products = products.map(p => String(p.id) === String(id) ? normalizeProductRecord({...p,productStatus:'Archiviert',status:'Archiviert',stoppedAt:new Date().toLocaleDateString('de-DE'),updatedAt:new Date().toISOString()}) : p);
   save();
 }
 function clearAll(){ if(confirm('Wirklich alle Produkte löschen?')){ products=[]; save(); } }
@@ -5654,7 +5665,13 @@ function getImportMappingEntry(fieldId){
 function importAliases(fieldId, fallbackAliases){
   const entry = getImportMappingEntry(fieldId);
   const aliases = entry && Array.isArray(entry.aliases) ? entry.aliases : [];
-  return Array.from(new Set([].concat(aliases, fallbackAliases || []).map(function(item){ return String(item || '').trim(); }).filter(Boolean)));
+  return Array.from(new Set([].concat(aliases, fallbackAliases || []).reduce(function(list, item){
+    const raw = String(item || '').trim();
+    const normalized = normalizeImportHeader(raw);
+    if(raw) list.push(raw);
+    if(normalized) list.push(normalized);
+    return list;
+  }, []).filter(Boolean)));
 }
 function hasMeaningfulImportData(obj){
   const source = obj && typeof obj === 'object' ? obj : {};
@@ -5682,40 +5699,139 @@ function firstImportValue(obj, keys){
   }
   return '';
 }
+function normalizeImportHeader(value){
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/ä/g,'ae')
+    .replace(/ö/g,'oe')
+    .replace(/ü/g,'ue')
+    .replace(/ß/g,'ss')
+    .replace(/[()[\]._-]+/g,' ')
+    .replace(/[^a-z0-9\s]/g,' ')
+    .replace(/\s+/g,' ')
+    .trim();
+}
+function createNormalizedImportRow(obj){
+  const raw = obj && typeof obj === 'object' ? obj : {};
+  const next = {};
+  Object.keys(raw).forEach(function(key){
+    const original = String(key || '').trim();
+    const normalized = normalizeImportHeader(original);
+    if(original && !Object.prototype.hasOwnProperty.call(next, original)) next[original] = raw[key];
+    if(normalized && !Object.prototype.hasOwnProperty.call(next, normalized)) next[normalized] = raw[key];
+  });
+  return next;
+}
+function uniqueNormalizedImportHeaders(headers){
+  return Array.from(new Set((Array.isArray(headers) ? headers : []).map(function(item){
+    return normalizeImportHeader(item);
+  }).filter(Boolean)));
+}
+const IMPORT_SHEET_TYPES = {
+  inventory: {
+    label: 'Inventar',
+    headers: ['artikel id','bezeichnung','typ','preis ek','versand mind','preisgesamt ek','preis vk ebay','ebay gebuehren','gewinn','zielgewinn','emph zielpreis','versand ab','stock','status','lieferant','versandzeit','ebay link','hinweise']
+  },
+  suppliers: {
+    label: 'SupplierListe',
+    headers: ['supplier','status','kategorie','website','standort']
+  },
+  sales: {
+    label: 'Sales & Klarna',
+    headers: ['datum','produkt','verkauf','einkauf','gewinn','klarna 50','status']
+  },
+  costs: {
+    label: 'Laufende Kosten',
+    headers: ['name','intervall','betrag','notiz','status']
+  }
+};
+function detectImportSheetType(headers, sourceLabel){
+  const normalized = uniqueNormalizedImportHeaders(headers);
+  const source = normalizeImportHeader(sourceLabel);
+  let bestKey = 'unknown';
+  let bestScore = 0;
+  Object.keys(IMPORT_SHEET_TYPES).forEach(function(key){
+    const expected = IMPORT_SHEET_TYPES[key].headers;
+    const score = expected.filter(function(item){ return normalized.includes(item); }).length;
+    if(score > bestScore){
+      bestScore = score;
+      bestKey = key;
+    }
+  });
+  if(source.includes('inventar')) return { key:'inventory', label:IMPORT_SHEET_TYPES.inventory.label, confidence:bestScore };
+  if(source.includes('supplierliste')) return { key:'suppliers', label:IMPORT_SHEET_TYPES.suppliers.label, confidence:bestScore };
+  if(source.includes('sales klarna') || source.includes('sales') || source.includes('klarna')) return { key:'sales', label:IMPORT_SHEET_TYPES.sales.label, confidence:bestScore };
+  if(source.includes('laufende kosten')) return { key:'costs', label:IMPORT_SHEET_TYPES.costs.label, confidence:bestScore };
+  if(bestKey === 'unknown' || bestScore < 2) return { key:'unknown', label:'Unbekannt', confidence:bestScore };
+  return { key:bestKey, label:IMPORT_SHEET_TYPES[bestKey].label, confidence:bestScore };
+}
+function collectImportDiagnostics(rows, headers, sourceLabel){
+  const detected = detectImportSheetType(headers, sourceLabel);
+  const normalizedHeaders = uniqueNormalizedImportHeaders(headers);
+  const fieldIds = ['sku','name','supplierId','supplierLink','status','priority','supplierName','supplierShippingTime','importHints','buy','ship','sell','delivery','competition','sales','risk','listingScore','issues','fees','targetProfit'];
+  const mappedFields = {};
+  const recognizedHeaders = [];
+  fieldIds.forEach(function(fieldId){
+    const aliases = importAliases(fieldId, []).map(function(item){ return normalizeImportHeader(item); }).filter(Boolean);
+    const matches = normalizedHeaders.filter(function(header){ return aliases.includes(header); });
+    if(matches.length){
+      mappedFields[fieldId] = matches;
+      matches.forEach(function(header){
+        if(!recognizedHeaders.includes(header)) recognizedHeaders.push(header);
+      });
+    }
+  });
+  const unmatchedHeaders = normalizedHeaders.filter(function(header){ return !recognizedHeaders.includes(header); });
+  return {
+    sheetType: detected.label,
+    sheetTypeKey: detected.key,
+    rawHeaders: Array.isArray(headers) ? headers.slice() : [],
+    normalizedHeaders: normalizedHeaders,
+    mappedFields: mappedFields,
+    unrecognizedHeaders: unmatchedHeaders,
+    skippedEmptyRows: 0,
+    importedRows: 0,
+    duplicateCandidates: 0,
+    totalRows: Array.isArray(rows) ? rows.length : 0
+  };
+}
 function buildImportDraftFromRows(rows,sourceLabel){
-  const normalizedRows = Array.isArray(rows) ? rows.filter(function(row){
-    if(!row || typeof row !== 'object') return false;
-    return hasMeaningfulImportData(row);
+  const rawRows = Array.isArray(rows) ? rows.filter(function(row){
+    return !!(row && typeof row === 'object');
   }) : [];
+  const rawHeaders = rawRows.length ? Object.keys(rawRows[0]) : [];
+  const diagnostics = collectImportDiagnostics(rawRows, rawHeaders, sourceLabel);
+  const normalizedRows = rawRows.filter(function(row){
+    return hasMeaningfulImportData(createNormalizedImportRow(row));
+  });
+  diagnostics.skippedEmptyRows = rawRows.length - normalizedRows.length;
+  diagnostics.importedRows = normalizedRows.length;
 
   if(normalizedRows.length < 1) throw new Error('CSV enthält keine Produktdaten.');
 
   const existingSkuSet = new Set(products.map(function(p){ return String(p.sku || '').trim().toUpperCase(); }).filter(Boolean));
+  const existingNameSet = new Set(products.map(function(p){ return normalizeImportHeader(p.name || ''); }).filter(Boolean));
+  const existingEbayLinkSet = new Set(products.map(function(p){ return String(p.supplierLink || p.ebayLink || '').trim().toLowerCase(); }).filter(Boolean));
   const seenInImport = new Set();
+  const seenNames = new Set();
+  const seenEbayLinks = new Set();
   const draft = [];
 
   normalizedRows.forEach(function(obj, index){
-    const normalizedObj = {};
-    Object.keys(obj).forEach(function(key){
-      normalizedObj[String(key || '').trim()] = obj[key];
-    });
+    const normalizedObj = createNormalizedImportRow(obj);
 
     let sku = String(firstMappedImportValue(normalizedObj, 'sku', ['SKU','Sku','sku','Artikel-ID','Artikel ID','Artikelnummer','Artikel Nummer','Artikel-Nr.','Artikel-Nr','Artikel Nr','ArtikelNr']) || '').trim().toUpperCase();
     let importStatus = 'bereit';
     let importMessage = 'wird importiert';
-
-    if(!sku){
-      sku = nextImportSku(existingSkuSet);
-      importMessage = 'SKU automatisch erstellt';
-    }else if(existingSkuSet.has(sku) || seenInImport.has(sku)){
-      importStatus = 'skip';
-      importMessage = 'existiert bereits';
-    }
-    seenInImport.add(sku);
-
-    const name = String(firstMappedImportValue(normalizedObj, 'name', ['Name','Bezeichnung','Titel','Produktname','Produkt','Artikel','Artikelbezeichnung']) || '').trim() || 'Importiertes Produkt';
+    const nameCandidates = diagnostics.sheetTypeKey === 'inventory'
+      ? ['Bezeichnung','Produktname','Name','Titel','Artikelname','Produkt','Artikel','Artikelbezeichnung']
+      : ['Name','Bezeichnung','Titel','Produktname','Artikelname','Produkt','Artikel','Artikelbezeichnung'];
+    const resolvedName = String(firstMappedImportValue(normalizedObj, 'name', nameCandidates) || '').trim();
+    const name = resolvedName || 'Importiertes Produkt';
     const supplierId = String(firstMappedImportValue(normalizedObj, 'supplierId', ['Lieferanten-ID','Lieferanten Id','Supplier ID','Supplier ID','Anbieter-ID']) || '').trim();
     const ebayItemId = String(firstImportValue(normalizedObj, ['eBay-Artikelnummer','eBay Artikelnummer','eBay Nummer','eBay-ID']) || '').trim();
+    const ebayLink = String(firstImportValue(normalizedObj, ['Ebay Link','eBay Link','Ebay URL','eBay URL']) || '').trim();
     const supplierLink = String(firstMappedImportValue(normalizedObj, 'supplierLink', ['Lieferanten-Link','Lieferanten Link','Link','URL']) || '').trim();
     const status = String(firstMappedImportValue(normalizedObj, 'status', ['Status','Typ']) || 'Draft').trim() || 'Draft';
     const priority = String(firstMappedImportValue(normalizedObj, 'priority', ['Priorität','Prioritaet','Priorität ','Prio']) || 'Normal').trim() || 'Normal';
@@ -5736,6 +5852,31 @@ function buildImportDraftFromRows(rows,sourceLabel){
     const eBayFees = firstMappedImportValue(normalizedObj, 'fees', ['Ebay gebühren','eBay gebühren','Ebay Gebühren','eBay Gebühren']);
     const targetProfit = normalizeImportNumber(firstMappedImportValue(normalizedObj, 'targetProfit', ['Zielgewinn','Gewinnziel']));
     const recommendedPrice = firstImportValue(normalizedObj, ['Emph. Zielpreis','Empf. Zielpreis','Empfohlener Zielpreis','Zielpreis']);
+    const duplicateKeys = [];
+    const normalizedName = normalizeImportHeader(resolvedName);
+    const normalizedEbayLink = ebayLink.toLowerCase();
+    const hasPrimaryProductIdentity = Boolean(sku || resolvedName || supplierId || supplierLink || ebayLink);
+    if(!hasPrimaryProductIdentity){
+      importStatus = 'skip';
+      importMessage = 'Platzhalter-/Restzeile ohne Produktkennung wird übersprungen';
+      diagnostics.skippedEmptyRows++;
+    }
+    if(sku && (existingSkuSet.has(sku) || seenInImport.has(sku))) duplicateKeys.push('Artikel-ID');
+    if(normalizedEbayLink && (existingEbayLinkSet.has(normalizedEbayLink) || seenEbayLinks.has(normalizedEbayLink))) duplicateKeys.push('Ebay Link');
+    if(normalizedName && (existingNameSet.has(normalizedName) || seenNames.has(normalizedName))) duplicateKeys.push('Bezeichnung');
+    if(!sku && hasPrimaryProductIdentity){
+      sku = nextImportSku(existingSkuSet);
+      importMessage = 'SKU automatisch erstellt';
+    }
+    if(duplicateKeys.length){
+      importStatus = 'skip';
+      importMessage = 'mögliches Duplikat über ' + duplicateKeys.join(', ');
+      diagnostics.duplicateCandidates++;
+    }
+    seenInImport.add(sku);
+    if(normalizedName) seenNames.add(normalizedName);
+    if(normalizedEbayLink) seenEbayLinks.add(normalizedEbayLink);
+
     if(String(firstImportValue(normalizedObj, ['Typ']) || '').trim()) notesParts.push('Typ: ' + String(firstImportValue(normalizedObj, ['Typ'])));
     if(String(eBayFees || '').trim()) notesParts.push('eBay Gebühren: ' + String(eBayFees));
     if(String(firstImportValue(normalizedObj, ['Gewinn']) || '').trim()) notesParts.push('Gewinn: ' + String(firstImportValue(normalizedObj, ['Gewinn'])));
@@ -5778,12 +5919,19 @@ function buildImportDraftFromRows(rows,sourceLabel){
       created: new Date().toLocaleDateString('de-DE'),
       importSource: sourceLabel || 'CSV'
     };
+    if(ebayLink) product.ebayLink = ebayLink;
     if(notesParts.length){
       product.notes = [product.notes].concat(notesParts).filter(Boolean).join(' | ');
     }
     draft.push({product:normalizeProductRecord(product),status:importStatus,message:importMessage});
   });
-
+  diagnostics.importedRows = draft.filter(function(item){ return item.status !== 'skip'; }).length;
+  draft.importDiagnostics = diagnostics;
+  console.log('[Elyon Import] raw CSV headers:', diagnostics.rawHeaders);
+  console.log('[Elyon Import] normalized headers:', diagnostics.normalizedHeaders);
+  console.log('[Elyon Import] mapping result:', diagnostics.mappedFields);
+  console.log('[Elyon Import] first parsed row:', normalizedRows[0] || null);
+  console.log('[Elyon Import] first imported object:', draft[0] ? draft[0].product : null);
   return draft;
 }
 function triggerBrainRefresh(reason){
@@ -5888,10 +6036,21 @@ function xlsxToImportDraft(arrayBuffer,sourceLabel){
 }
 function showCsvImportPreview(draft){
   pendingCsvImport = Array.isArray(draft) ? draft : [];
+  pendingCsvImport.importDiagnostics = draft && draft.importDiagnostics ? draft.importDiagnostics : null;
   const ready = pendingCsvImport.filter(function(item){ return item.status !== 'skip'; }).length;
   const skipped = pendingCsvImport.filter(function(item){ return item.status === 'skip'; }).length;
+  const diagnostics = pendingCsvImport.importDiagnostics;
   let html = '';
   html += '<div class="dashboard"><div class="metric"><small>Gefunden</small><strong>'+pendingCsvImport.length+'</strong></div><div class="metric"><small>Import bereit</small><strong>'+ready+'</strong></div><div class="metric"><small>Übersprungen</small><strong>'+skipped+'</strong></div><div class="metric"><small>Modus</small><strong>Vorschau</strong></div></div>';
+  if(diagnostics){
+    html += '<div class="output-box" style="margin:14px 0"><p><strong>Diagnose</strong></p>' +
+      '<p>Erkannter Sheet-Typ: <strong>' + escapeHtml(diagnostics.sheetType || 'Unbekannt') + '</strong></p>' +
+      '<p>Importierte Zeilen: <strong>' + Number(diagnostics.importedRows || 0) + '</strong> · Übersprungene leere Zeilen: <strong>' + Number(diagnostics.skippedEmptyRows || 0) + '</strong> · Mögliche Duplikate: <strong>' + Number(diagnostics.duplicateCandidates || 0) + '</strong></p>' +
+      '<p>Erkannte Header: ' + escapeHtml((diagnostics.rawHeaders || []).join(', ') || 'Keine') + '</p>' +
+      '<p>Gemappte Felder: ' + escapeHtml(Object.keys(diagnostics.mappedFields || {}).map(function(key){ return key + ' <- ' + diagnostics.mappedFields[key].join(', '); }).join(' | ') || 'Keine') + '</p>' +
+      '<p>Nicht erkannte Felder: ' + escapeHtml((diagnostics.unrecognizedHeaders || []).join(', ') || 'Keine') + '</p>' +
+    '</div>';
+  }
   if(!pendingCsvImport.length){
     html += '<p>Keine importierbaren Produkte gefunden.</p>';
   }else{
@@ -7267,12 +7426,12 @@ function productCardHTML(p,small=false){
   html += '<div class="actions">';
   html += '<button class="secondary" id="' + getProductAiUiId('productAiBtn', p.id) + '" onclick="triggerProductDecision(' + JSON.stringify(String(p.id)) + ')">KI prüfen</button>';
   html += '<button class="' + (ebayReady ? '' : 'secondary') + '" onclick="prepareProductForEbayDraft(\'' + escapeHtml(String(p.id)) + '\')">' + (ebayReady ? 'eBay Listing vorbereiten' : 'Für eBay vorbereiten') + '</button>';
-  html += '<button class="secondary" onclick="editProduct(' + p.id + ')">Bearbeiten</button>';
-  html += '<button class="secondary" onclick="toggleShopifyCandidate(' + p.id + ')">' + shopifyText + '</button>';
-  html += '<button class="secondary" onclick="duplicateProduct(' + p.id + ')">Duplizieren</button>';
-  html += '<button class="secondary" onclick="productDecisionReport(' + p.id + ')">📄 Bericht erstellen</button>';
-  html += '<button class="danger" onclick="stopProduct(' + p.id + ')">Archivieren</button>';
-  html += '<button class="danger" onclick="removeProduct(' + p.id + ')">Löschen</button>';
+  html += '<button class="secondary" onclick="editProduct(' + escapeInlineJsArg(p.id) + ')">Bearbeiten</button>';
+  html += '<button class="secondary" onclick="toggleShopifyCandidate(' + escapeInlineJsArg(p.id) + ')">' + shopifyText + '</button>';
+  html += '<button class="secondary" onclick="duplicateProduct(' + escapeInlineJsArg(p.id) + ')">Duplizieren</button>';
+  html += '<button class="secondary" onclick="productDecisionReport(' + escapeInlineJsArg(p.id) + ')">📄 Bericht erstellen</button>';
+  html += '<button class="danger" onclick="stopProduct(' + escapeInlineJsArg(p.id) + ')">Archivieren</button>';
+  html += '<button class="danger" onclick="removeProduct(' + escapeInlineJsArg(p.id) + ')">Löschen</button>';
   html += '</div>';
   html += '</article>';
   return html;
@@ -7296,10 +7455,10 @@ function kanbanProductCardHTML(p){
   html += '</div>';
   html += '<div class="kanban-mini-actions">';
   html += '<button class="secondary" onclick="prepareProductForEbayDraft(\'' + escapeHtml(String(p.id)) + '\')">eBay</button>';
-  html += '<button class="secondary" onclick="editProduct(' + p.id + ')">Bearbeiten</button>';
+  html += '<button class="secondary" onclick="editProduct(' + escapeInlineJsArg(p.id) + ')">Bearbeiten</button>';
   html += '<button class="secondary" id="' + getProductAiUiId('productAiBtn', p.id) + '" onclick="triggerProductDecision(' + JSON.stringify(String(p.id)) + ')">KI prüfen</button>';
   html += '<button class="secondary" onclick="toggleProductView()">Liste</button>';
-  html += '<button class="danger" onclick="removeProduct(' + p.id + ')">Löschen</button>';
+  html += '<button class="danger" onclick="removeProduct(' + escapeInlineJsArg(p.id) + ')">Löschen</button>';
   html += '</div>';
   html += '</article>';
   return html;
@@ -10711,8 +10870,6 @@ function makeSettingsDropdowns(){
 }
 function bindEvents(){
   document.body.classList.remove('print-invoice');
-  makeSettingsDropdowns();
-  bindProductAiDelegation();
   bind('settingsBtn','click',openIntegrations);
   bind('startLauncherBtn','click',openStartLauncher);
   bind('closeStartLauncherBtn','click',closeStartLauncher);
@@ -10754,6 +10911,8 @@ function bindEvents(){
   bind('launcherReturns','click',openReturnsCenter);
   bind('launcherBackup','click',exportFullBackup);
   bind('returnsBtn','click',()=>showTab('returnsTab'));
+  runSafeUiStep('makeSettingsDropdowns', makeSettingsDropdowns);
+  runSafeUiStep('bindProductAiDelegation', bindProductAiDelegation);
   bind('shopifyMenu','change',e=>showShopifyTool(e.target.value));
   bind('mainMenu','change',e=>{
     const value = e.target.value;
@@ -11105,40 +11264,48 @@ function runSelfTests(){
   console.assert(typeof handleInvoiceModalClick === 'function', 'Rechnungsmodal Klickhandler sollte existieren');
 }
 document.addEventListener('DOMContentLoaded',()=>{
-  initListing();
-  bindEvents();
-  applySettings();
-  applyInvoiceSettings();
-  refreshGoogleSheetsSyncSettingsForm().then(renderGoogleSheetsSyncStatus);
-  renderAiUsageStatus();
-  refreshAiDashboardStatus();
-  refreshAiButtonStates();
-  const storedEbayDraft = loadStoredEbayListingDraft();
+  runSafeUiStep('initListing', initListing);
+  runSafeUiStep('bindEvents', bindEvents);
+  runSafeUiStep('applySettings', applySettings);
+  runSafeUiStep('applyInvoiceSettings', applyInvoiceSettings);
+  runSafeUiStep('refreshGoogleSheetsSyncSettingsForm', ()=>{
+    const task = refreshGoogleSheetsSyncSettingsForm();
+    if(task && typeof task.then === 'function'){
+      task.then(renderGoogleSheetsSyncStatus).catch(error=>{
+        console.error('[UI step failed]', 'renderGoogleSheetsSyncStatus', error);
+      });
+    }
+    return task;
+  });
+  runSafeUiStep('renderAiUsageStatus', renderAiUsageStatus);
+  runSafeUiStep('refreshAiDashboardStatus', refreshAiDashboardStatus);
+  runSafeUiStep('refreshAiButtonStates', refreshAiButtonStates);
+  const storedEbayDraft = runSafeUiStep('loadStoredEbayListingDraft', loadStoredEbayListingDraft);
   if(storedEbayDraft){
     latestEbayListingDraft = storedEbayDraft;
-    applyEbayListingDraftToForm(storedEbayDraft);
-    renderEbayListingDraftPreview(storedEbayDraft, 'Gespeicherter Draft geladen.');
+    runSafeUiStep('applyEbayListingDraftToForm', ()=>applyEbayListingDraftToForm(storedEbayDraft));
+    runSafeUiStep('renderEbayListingDraftPreview:stored', ()=>renderEbayListingDraftPreview(storedEbayDraft, 'Gespeicherter Draft geladen.'));
   }else{
-    renderEbayListingDraftPreview(null);
+    runSafeUiStep('renderEbayListingDraftPreview:empty', ()=>renderEbayListingDraftPreview(null));
   }
-  showTab('dashboardTab');
-  resetMenusToLabNames();
-  safe('toggleViewBtn',el=>el.textContent=productViewMode==='list'?'Kanban-Ansicht':'Listen-Ansicht');
-  render();
-  renderReturns();
-  renderShopifyReturns();
-  renderReturnsOverview();
-  renderSales();
-  renderSaleProductOptions();
-  updateSalePreview();
-  renderIntegrationStatus();
-  refreshSourceProviderOptions();
-  renderSupplierCards();
-  renderBrowserImports();
-  hydrateBrowserImportsFromBackend();
-  setSourcingWorkflowStep('1', null, false);
-  if(localStorage.getItem('elyonShowStartLauncher') !== 'no') openStartLauncher();
-  runSelfTests();
+  runSafeUiStep('showTab:dashboard', ()=>showTab('dashboardTab'));
+  runSafeUiStep('resetMenusToLabNames', resetMenusToLabNames);
+  runSafeUiStep('updateToggleViewButton', ()=>safe('toggleViewBtn',el=>el.textContent=productViewMode==='list'?'Kanban-Ansicht':'Listen-Ansicht'));
+  runSafeUiStep('render', render);
+  runSafeUiStep('renderReturns', renderReturns);
+  runSafeUiStep('renderShopifyReturns', renderShopifyReturns);
+  runSafeUiStep('renderReturnsOverview', renderReturnsOverview);
+  runSafeUiStep('renderSales', renderSales);
+  runSafeUiStep('renderSaleProductOptions', renderSaleProductOptions);
+  runSafeUiStep('updateSalePreview', updateSalePreview);
+  runSafeUiStep('renderIntegrationStatus', renderIntegrationStatus);
+  runSafeUiStep('refreshSourceProviderOptions', refreshSourceProviderOptions);
+  runSafeUiStep('renderSupplierCards', renderSupplierCards);
+  runSafeUiStep('renderBrowserImports', renderBrowserImports);
+  runSafeUiStep('hydrateBrowserImportsFromBackend', hydrateBrowserImportsFromBackend);
+  runSafeUiStep('setSourcingWorkflowStep', ()=>setSourcingWorkflowStep('1', null, false));
+  if(localStorage.getItem('elyonShowStartLauncher') !== 'no') runSafeUiStep('openStartLauncher', openStartLauncher);
+  runSafeUiStep('runSelfTests', runSelfTests);
 });
   async function searchEbayCompetitionLegacyA(){
   const input = document.getElementById('ebayCompetitionKeyword');

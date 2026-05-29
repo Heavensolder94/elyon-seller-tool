@@ -1,3 +1,5 @@
+import { applyCors } from "../lib/api-cors.js";
+
 const STORE_URL = process.env.ELYON_AGENT_RUNTIME_STORE_URL || "";
 const STORE_TOKEN = process.env.ELYON_AGENT_RUNTIME_STORE_TOKEN || "";
 const STORE_KEY = process.env.ELYON_AGENT_RUNTIME_KEY || "elyon:agent-runtime";
@@ -99,6 +101,8 @@ function buildNextRuntime(runtime, req) {
 }
 
 export default async function handler(req, res) {
+  if (applyCors(req, res, ["GET", "POST", "OPTIONS"])) return;
+
   try {
     if (req?.query?.action === "ai-workflow") {
       if (req.method === "GET") {

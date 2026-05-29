@@ -1,4 +1,5 @@
 import { readToken, writeToken, getTokenStoreDescription } from "../../lib/ebay-token-store.js";
+import { applyCors } from "../../lib/api-cors.js";
 
 const SANDBOX_AUTH_URL = "https://auth.sandbox.ebay.com/oauth2/authorize";
 const PRODUCTION_AUTH_URL = "https://auth.ebay.com/oauth2/authorize";
@@ -55,6 +56,12 @@ function buildDebugPayload(extra = {}) {
     timestamp: new Date().toISOString(),
     ...extra,
   };
+}
+
+function maskSecret(value, visible = 12) {
+  const text = String(value || "");
+  if (!text) return null;
+  return `${text.slice(0, Math.max(0, visible))}...`;
 }
 
 function makeState() {
@@ -284,15 +291,19 @@ async function handleExchangeToken(req, res) {
     environment,
     token_type: data.token_type,
     expires_in: data.expires_in,
-    access_token: data.access_token,
-    refresh_token: data.refresh_token,
+    access_token: data.access_token ? "[stored securely]" : null,
+    refresh_token: data.refresh_token ? "[stored securely]" : null,
+    access_token_preview: maskSecret(data.access_token),
+    refresh_token_preview: maskSecret(data.refresh_token),
+    has_access_token: Boolean(data.access_token),
+    has_refresh_token: Boolean(data.refresh_token),
     scope: data.scope,
     stored: storeResult.ok,
     storage_path: storeResult.ok ? storeResult.path : null,
     storage_error: storeResult.ok ? null : storeResult.error,
     store_mode: storeDescription.mode,
     store_target: storeDescription.key || storeDescription.path || null,
-    stored_token_preview: storedToken?.refresh_token ? `${String(storedToken.refresh_token).slice(0, 12)}...` : null,
+    stored_token_preview: maskSecret(storedToken?.refresh_token),
   });
 }
 
@@ -350,8 +361,8 @@ async function handleToken(req, res) {
     environment,
     token_type: data.token_type || null,
     expires_in: data.expires_in || null,
-    access_token_preview: data.access_token ? `${String(data.access_token).slice(0, 12)}...` : null,
-    stored_refresh_token_preview: String(refreshToken).slice(0, 12) + "...",
+    access_token_preview: maskSecret(data.access_token),
+    stored_refresh_token_preview: maskSecret(refreshToken),
     scope: data.scope || null,
     requested_scopes: data.requested_scopes || [],
     has_orders_scope: hasOrdersScope(data.scope || data.requested_scopes?.join(" ")),
@@ -506,6 +517,8 @@ async function handleOrders(req, res) {
 }
 
 export default async function handler(req, res) {
+  if (applyCors(req, res, ["GET", "POST", "OPTIONS"])) return;
+
   try {
     const action = getRequestedAction(req);
     if (action === "status") return handleStatus(req, res);

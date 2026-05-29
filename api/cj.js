@@ -1,3 +1,5 @@
+import { applyCors } from "../lib/api-cors.js";
+
 function jsonError(res, status, error, details) {
   return res.status(status).json({
     ok: false,
@@ -343,6 +345,12 @@ function extractCjIdentifiers(sourceUrl) {
 
 function extractDetailPayload(data) {
   if (!data || typeof data !== "object") return null;
+  if (Array.isArray(data.data?.productList)) return data.data.productList[0] || null;
+  if (Array.isArray(data.data?.content)) {
+    const firstContent = data.data.content[0];
+    if (Array.isArray(firstContent?.productList)) return firstContent.productList[0] || null;
+    if (firstContent && typeof firstContent === "object") return firstContent;
+  }
   if (Array.isArray(data.data)) return data.data[0] || null;
   if (data.data && typeof data.data === "object") return data.data;
   if (data.result && typeof data.result === "object" && !Array.isArray(data.result)) return data.result;
@@ -621,6 +629,14 @@ function normalizeCjApiAnalysisResult({ url, supplier, domain, product, identifi
     ...base,
     mode: "cj-api",
     source: "cj-api",
+    name: product?.title || "",
+    productName: product?.title || "",
+    productNameEn: product?.title || "",
+    productImage: product?.image || "",
+    sellPrice: product?.price || "",
+    supplierName: product?.supplierName || "",
+    categoryName: product?.category || "",
+    shippingCountries: Array.isArray(product?.shippingCountries) ? product.shippingCountries : [],
     images: Array.isArray(product?.images) ? product.images : [],
     variants: Array.isArray(product?.variants) ? product.variants : [],
     identifiers,
@@ -1060,6 +1076,8 @@ async function parseUpstreamResponse(response) {
 }
 
 export default async function handler(req, res) {
+  if (applyCors(req, res, ["GET", "POST", "OPTIONS"])) return;
+
   const action = readText(req.query.action || req.query.endpoint || "search");
 
   if (action === "source-analyze") {

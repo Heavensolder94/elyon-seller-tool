@@ -1,3 +1,5 @@
+import { applyCors } from "../../lib/api-cors.js";
+
 function json(res, status, body) {
   return res.status(status).json(body);
 }
@@ -384,6 +386,8 @@ function deleteImport(list, incoming) {
 }
 
 export default async function handler(req, res) {
+  if (applyCors(req, res, ["GET", "POST", "DELETE", "OPTIONS"])) return;
+
   res.setHeader("Cache-Control", "no-store");
 
   if (req.method === "GET") {
