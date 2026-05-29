@@ -583,6 +583,32 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return;
     }
 
+    if (message?.type === "ELYON_OPEN_SOUL_SCOUT") {
+      await chrome.tabs.create({ url: chrome.runtime.getURL("options/agents.html") });
+      sendResponse({ ok: true, opened: "agents" });
+      return;
+    }
+
+    if (message?.type === "ELYON_CHECK_SOUL_GUARD") {
+      const agent = SOUL_AGENTS.find((entry) => entry.id === "soul-guard");
+      if (!agent) {
+        sendResponse({ ok: false, error: "Soul Guard not found" });
+        return;
+      }
+      const workflows = await prepareAgentWorkflow(agent, {
+        title: "Soul Guard Prüfung vorbereitet",
+        notes: "Sicherheitsprüfung vorbereitet. Keine Live-Aktion."
+      });
+      sendResponse({ ok: true, workflows, lastWorkflow: workflows[0], security, message: "Soul Guard Prüfung vorbereitet." });
+      return;
+    }
+
+    if (message?.type === "ELYON_OPEN_SECURITY_CENTER") {
+      await chrome.tabs.create({ url: chrome.runtime.getURL("options/options.html") });
+      sendResponse({ ok: true, opened: "security" });
+      return;
+    }
+
     if (message?.type === "ELYON_SCAN_TABS") {
       const tabs = await chrome.tabs.query({});
       const researchMemory = await loadResearchMemory();

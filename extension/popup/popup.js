@@ -10,6 +10,16 @@ let confirmResolve = null;
 let suppressBackendStatusUntil = 0;
 let lastVariantResult = null;
 
+function escapeHtml(value) {
+  if (value == null) return "";
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function setActionLog(message, kind = "info") {
   const el = document.getElementById("actionLog");
   if (!el) return;
@@ -412,10 +422,10 @@ function renderResearchList(items) {
       return `
         <div class="research-item">
           <div class="research-top">
-            <div class="research-title">${item.title || "Ohne Titel"}</div>
-            <span class="${getBadgeClass(badgeText)}">${badgeText}</span>
+            <div class="research-title">${escapeHtml(item.title || "Ohne Titel")}</div>
+            <span class="${escapeHtml(getBadgeClass(badgeText))}">${escapeHtml(badgeText)}</span>
           </div>
-          <div class="research-meta">${item.domain || item.url || "-"}</div>
+          <div class="research-meta">${escapeHtml(item.domain || item.url || "-")}</div>
         </div>
       `;
     })
@@ -434,12 +444,12 @@ function renderAgents(security) {
       <div class="agent-item">
         <div class="agent-row">
           <div>
-            <div class="agent-name">${agent.name}</div>
-            <div class="agent-role">${agent.role}</div>
+            <div class="agent-name">${escapeHtml(agent.name)}</div>
+            <div class="agent-role">${escapeHtml(agent.role)}</div>
           </div>
-          <span class="badge badge-${status}">${getAgentStatusLabel(agent, security)}</span>
+          <span class="badge badge-${escapeHtml(status)}">${escapeHtml(getAgentStatusLabel(agent, security))}</span>
         </div>
-        <div class="agent-desc">${agent.description}</div>
+        <div class="agent-desc">${escapeHtml(agent.description)}</div>
       </div>
     `;
   }).join("");
@@ -467,9 +477,9 @@ function renderTabHunter(summary, tabs) {
   listEl.innerHTML = items
     .map((tab) => `
       <div class="tab-hunter-item">
-        <div class="tab-hunter-title">${tab.title || "Ohne Titel"}</div>
-        <div class="tab-hunter-meta">${tab.marketplace || "-"} | ${tab.domain || "-"} | ${tab.saved ? "bereits gespeichert" : "neu"}</div>
-        <div class="tab-hunter-meta">${tab.url || "-"}</div>
+        <div class="tab-hunter-title">${escapeHtml(tab.title || "Ohne Titel")}</div>
+        <div class="tab-hunter-meta">${escapeHtml(tab.marketplace || "-")} | ${escapeHtml(tab.domain || "-")} | ${escapeHtml(tab.saved ? "bereits gespeichert" : "neu")}</div>
+        <div class="tab-hunter-meta">${escapeHtml(tab.url || "-")}</div>
         <div class="actions-inline">
           <button type="button" data-tab-open="${tab.id}">Oeffnen</button>
           <button type="button" data-tab-save="${tab.id}">Speichern</button>

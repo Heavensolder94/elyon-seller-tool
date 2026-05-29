@@ -5,6 +5,16 @@ function badgeClass(status) {
   return `badge badge-${String(status || "locked").toLowerCase()}`;
 }
 
+function escapeHtml(value) {
+  if (value == null) return "";
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 async function sendBackgroundMessage(payload) {
   try {
     return await chrome.runtime.sendMessage(payload);
@@ -37,6 +47,8 @@ function renderWorkflowState(workflows = []) {
 
 async function load() {
   const security = await getSecurityState();
+  const storage = await chrome.storage.local.get("elyon_current_product").catch(() => ({}));
+  const currentProduct = storage?.elyon_current_product || {};
   document.getElementById("agentState").textContent = security.aiEnabled ? "KI aktiv" : "KI-Verbindung nicht aktiv";
   const workflowsResult = await sendBackgroundMessage({ type: "ELYON_AGENT_WORKFLOWS_LIST" });
   renderWorkflowState(Array.isArray(workflowsResult?.workflows) ? workflowsResult.workflows : []);
@@ -47,19 +59,19 @@ async function load() {
       <article class="card">
         <div class="top">
           <div>
-            <div class="name">${agent.name}</div>
-            <div class="role">${agent.role}</div>
+            <div class="name">${escapeHtml(agent.name)}</div>
+            <div class="role">${escapeHtml(agent.role)}</div>
           </div>
-          <span class="${badgeClass(status)}">${getAgentStatusLabel(agent, security)}</span>
+          <span class="${escapeHtml(badgeClass(status))}">${escapeHtml(getAgentStatusLabel(agent, security))}</span>
         </div>
-        <div class="desc">${agent.description}</div>
-        <div class="meta">Mode: ${getAgentModeLabel(agent, security)}</div>
-        <div class="meta">Status: ${status}</div>
+        <div class="desc">${escapeHtml(agent.description)}</div>
+        <div class="meta">Mode: ${escapeHtml(getAgentModeLabel(agent, security))}</div>
+        <div class="meta">Status: ${escapeHtml(status)}</div>
         <div class="buttons">
-          <button type="button" data-open="${agent.id}">Agent öffnen</button>
-          <button type="button" data-prompt="${agent.id}">Prompt anzeigen</button>
-          <button type="button" data-guardrails="${agent.id}">Guardrails anzeigen</button>
-          <button type="button" data-prepare="${agent.id}">Analyse vorbereiten</button>
+          <button type="button" data-open="${escapeHtml(agent.id)}">Agent öffnen</button>
+          <button type="button" data-prompt="${escapeHtml(agent.id)}">Prompt anzeigen</button>
+          <button type="button" data-guardrails="${escapeHtml(agent.id)}">Guardrails anzeigen</button>
+          <button type="button" data-prepare="${escapeHtml(agent.id)}">Analyse vorbereiten</button>
         </div>
       </article>
     `;
@@ -87,15 +99,22 @@ async function load() {
     button.addEventListener("click", async () => {
       const agent = SOUL_AGENTS.find((entry) => entry.id === button.getAttribute("data-prepare"));
       if (!agent) return;
-      const result = await sendBackgroundMessage({
-        type: "ELYON_PREPARE_AGENT_WORKFLOW",
-        agentId: agent.id,
-        context: { title: `${agent.name} vorbereitet` }
-      });
+      const result = await sendBackgroundMessage(agent.id === "soul-scout"
+        ? {
+            type: "ELYON_RUN_AGENT_ANALYSIS",
+            agentId: agent.id,
+            product: currentProduct,
+            context: { title: `${agent.name}: ${currentProduct.title || "Analyse"}`, url: currentProduct.url || "", notes: "Aus Agenten-Optionen gestartet. Keine Live-Aktion." }
+          }
+        : {
+            type: "ELYON_PREPARE_AGENT_WORKFLOW",
+            agentId: agent.id,
+            context: { title: `${agent.name} vorbereitet` }
+          });
       if (result?.ok) {
-        document.getElementById("agentState").textContent = "Workflow vorbereitet";
+        document.getElementById("agentState").textContent = result.preparedOnly ? "Workflow vorbereitet" : "Analyse vorbereitet";
         renderWorkflowState(result.workflows || []);
-        alert(`${agent.name}\n\nWorkflow vorbereitet\nKeine Live-Aktion\nNur Vorschau / Sandbox`);
+        alert(`${agent.name}\n\n${result.message || "Workflow vorbereitet"}\nKeine Live-Aktion\nNur Vorschau / Sandbox`);
       } else {
         alert(result?.error || "Workflow konnte nicht vorbereitet werden");
       }

@@ -2,6 +2,16 @@ function badgeClass(status) {
   return `badge badge-${String(status || "new").toLowerCase()}`;
 }
 
+function escapeHtml(value) {
+  if (value == null) return "";
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 async function readResearch() {
   const response = await chrome.runtime.sendMessage({ type: "ELYON_RESEARCH_LIST" });
   return Array.isArray(response?.researchMemory) ? response.researchMemory : [];
@@ -19,27 +29,27 @@ function render(items) {
       <article class="item">
         <div class="top">
           <div>
-            <div class="title">${item.title || "Ohne Titel"}</div>
-            <div class="meta">${item.domain || "-"} · ${item.url || "-"}</div>
+            <div class="title">${escapeHtml(item.title || "Ohne Titel")}</div>
+            <div class="meta">${escapeHtml(item.domain || "-")} · ${escapeHtml(item.url || "-")}</div>
           </div>
-          <span class="${badgeClass(item.status)}">${item.status || "new"}</span>
+          <span class="${escapeHtml(badgeClass(item.status))}">${escapeHtml(item.status || "new")}</span>
         </div>
         <div class="meta">
-          Preis: ${item.price || "-"} · Währung: ${item.currency || "-"} · Score: ${item.score || "-"}<br />
-          Notizen: ${item.notes || "-"}<br />
-          Erkannt: ${item.detectedAt || "-"}<br />
-          Aktualisiert: ${item.updatedAt || "-"}
+          Preis: ${escapeHtml(item.price || "-")} · Währung: ${escapeHtml(item.currency || "-")} · Score: ${escapeHtml(item.score || "-")}<br />
+          Notizen: ${escapeHtml(item.notes || "-")}<br />
+          Erkannt: ${escapeHtml(item.detectedAt || "-")}<br />
+          Aktualisiert: ${escapeHtml(item.updatedAt || "-")}
         </div>
         <div class="row-actions">
-          <input type="text" placeholder="Notiz hinzufügen" data-note-input="${item.id}" />
-          <button type="button" data-note-save="${item.id}">Notiz speichern</button>
+          <input type="text" placeholder="Notiz hinzufügen" data-note-input="${escapeHtml(item.id)}" />
+          <button type="button" data-note-save="${escapeHtml(item.id)}">Notiz speichern</button>
         </div>
         <div class="row-actions">
-          <button type="button" data-status="${item.id}:reviewed">Reviewed</button>
-          <button type="button" data-status="${item.id}:winner">Winner</button>
-          <button type="button" data-status="${item.id}:risky">Risky</button>
-          <button type="button" data-status="${item.id}:rejected">Rejected</button>
-          <button type="button" data-delete="${item.id}">Löschen</button>
+          <button type="button" data-status="${escapeHtml(item.id)}:reviewed">Reviewed</button>
+          <button type="button" data-status="${escapeHtml(item.id)}:winner">Winner</button>
+          <button type="button" data-status="${escapeHtml(item.id)}:risky">Risky</button>
+          <button type="button" data-status="${escapeHtml(item.id)}:rejected">Rejected</button>
+          <button type="button" data-delete="${escapeHtml(item.id)}">Löschen</button>
         </div>
       </article>
     `
@@ -61,7 +71,7 @@ function render(items) {
   root.querySelectorAll("[data-note-save]").forEach((button) => {
     button.addEventListener("click", async () => {
       const id = button.getAttribute("data-note-save");
-      const input = root.querySelector(`[data-note-input="${id}"]`);
+      const input = root.querySelector(`[data-note-input="${CSS.escape(id)}"]`);
       await chrome.runtime.sendMessage({ type: "ELYON_RESEARCH_UPDATE", id, patch: { notes: input?.value || "" } });
       await load();
     });

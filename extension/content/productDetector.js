@@ -16,6 +16,26 @@ function safeText(value) {
   return text.trim().replace(/\s+/g, " ");
 }
 
+function escapeHtml(value) {
+  if (value == null) return "";
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function safeHttpUrl(value) {
+  try {
+    const url = new URL(String(value || ""), location.href);
+    if (url.protocol !== "http:" && url.protocol !== "https:") return "";
+    return url.toString();
+  } catch {
+    return "";
+  }
+}
+
 function decodeHtmlEntities(value) {
   const text = safeText(value);
   if (!text) return "";
@@ -2421,8 +2441,9 @@ function renderOverlay(product) {
   if (previousShell) {
     lastOverlayScrollTop = previousShell.scrollTop || 0;
   }
-  const imageMarkup = product.image
-    ? `<div class="elyon-image-wrap"><img class="elyon-image" src="${product.image}" alt="Produktbild" loading="lazy" referrerpolicy="no-referrer" /><a class="elyon-image-link" href="${product.image}" target="_blank" rel="noreferrer">Bild öffnen</a></div>`
+  const safeImage = safeHttpUrl(product.image);
+  const imageMarkup = safeImage
+    ? `<div class="elyon-image-wrap"><img class="elyon-image" src="${escapeHtml(safeImage)}" alt="Produktbild" loading="lazy" referrerpolicy="no-referrer" /><a class="elyon-image-link" href="${escapeHtml(safeImage)}" target="_blank" rel="noreferrer noopener">Bild öffnen</a></div>`
     : `<strong>-</strong>`;
   const descInfo = product.description
     ? `Beschreibung erkannt · ${String(product.description).length} Zeichen`
@@ -2440,16 +2461,16 @@ function renderOverlay(product) {
         </div>
       </div>
       <div class="elyon-overlay-card">
-        <div class="elyon-field"><span>Title</span><strong>${product.title || "-"}</strong></div>
-        <div class="elyon-field"><span>Price</span><strong>${product.price || "-"}</strong></div>
+        <div class="elyon-field"><span>Title</span><strong>${escapeHtml(product.title || "-")}</strong></div>
+        <div class="elyon-field"><span>Price</span><strong>${escapeHtml(product.price || "-")}</strong></div>
         <div class="elyon-field"><span>Image</span>${imageMarkup}</div>
-        <div class="elyon-field"><span>URL</span><strong>${product.url || "-"}</strong></div>
-        <div class="elyon-field"><span>Supplier</span><strong>${product.supplier || "-"}</strong></div>
-        <div class="elyon-field"><span>Domain</span><strong>${product.domain || "-"}</strong></div>
-        <div class="elyon-field"><span>Currency</span><strong>${product.currency || "-"}</strong></div>
-        <div class="elyon-field"><span>Description</span><strong>${product.description || "-"}</strong></div>
-        <div class="elyon-field"><span>Status</span><strong data-elyon-status>${descInfo}</strong></div>
-        <div class="elyon-field"><span>Detected</span><strong>${product.detectedAt || "-"}</strong></div>
+        <div class="elyon-field"><span>URL</span><strong>${escapeHtml(product.url || "-")}</strong></div>
+        <div class="elyon-field"><span>Supplier</span><strong>${escapeHtml(product.supplier || "-")}</strong></div>
+        <div class="elyon-field"><span>Domain</span><strong>${escapeHtml(product.domain || "-")}</strong></div>
+        <div class="elyon-field"><span>Currency</span><strong>${escapeHtml(product.currency || "-")}</strong></div>
+        <div class="elyon-field"><span>Description</span><strong>${escapeHtml(product.description || "-")}</strong></div>
+        <div class="elyon-field"><span>Status</span><strong data-elyon-status>${escapeHtml(descInfo)}</strong></div>
+        <div class="elyon-field"><span>Detected</span><strong>${escapeHtml(product.detectedAt || "-")}</strong></div>
       </div>
       <div class="elyon-overlay-actions">
         <button type="button" data-elyon-action="save">Zu Elyon speichern</button>

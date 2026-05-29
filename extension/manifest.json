@@ -30,7 +30,7 @@
     "*://*.vidaxl.de/*",
     "*://*.vidaxl.com/*",
     "*://*.dropshippingxl.com/*",
-    "*://*.vercel.app/*"
+    "https://elyonsellertool.vercel.app/*"
   ],
   "content_scripts": [
     {

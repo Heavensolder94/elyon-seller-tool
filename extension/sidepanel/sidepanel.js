@@ -5,8 +5,17 @@ function safe(value, fallback = "-") {
   return String(value);
 }
 
+function escapeHtml(value) {
+  return safe(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function card(label, value) {
-  return `<div class="card"><div class="label">${label}</div><div class="value">${safe(value)}</div></div>`;
+  return `<div class="card"><div class="label">${escapeHtml(label)}</div><div class="value">${escapeHtml(value)}</div></div>`;
 }
 
 async function sendMessage(payload) {
