@@ -14,7 +14,7 @@ function normalizeEnvironment(value) {
 }
 
 function getRedirectUri() {
-  return process.env.EBAY_REDIRECT_URI || process.env.EBAY_RUNAME || "";
+  return process.env.EBAY_RUNAME || process.env.EBAY_REDIRECT_URI || "";
 }
 
 function getScopes() {

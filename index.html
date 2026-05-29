@@ -3749,7 +3749,15 @@ function openEbayReconnectLink(url){
     alert('Kein eBay-Reconnect-Link verfügbar. Bitte Backend URL oder /api/ebay/login-url prüfen.');
     return;
   }
-  window.open(safeUrl, '_blank', 'noopener');
+  let popup = null;
+  try{
+    popup = window.open(safeUrl, '_blank', 'noopener');
+  }catch(err){
+    popup = null;
+  }
+  if(!popup){
+    window.location.href = safeUrl;
+  }
 }
 async function openEbayReconnectFlow(){
   const backendUrl = getBackendUrl();
@@ -3761,6 +3769,7 @@ async function openEbayReconnectFlow(){
     localStorage.setItem('elyonIntegrations', JSON.stringify(integrationSettings));
     renderIntegrationStatus();
     renderEbayReconnectStatusPanel();
+    alert('Bitte zuerst die Backend URL speichern. Danach kann eBay neu verbunden werden.');
     return;
   }
   try{
@@ -3783,8 +3792,11 @@ async function openEbayReconnectFlow(){
     localStorage.setItem('elyonIntegrations', JSON.stringify(integrationSettings));
     renderIntegrationStatus();
     renderEbayReconnectStatusPanel();
+    alert(integrationSettings.ebayOrdersHint || 'Reconnect-Link konnte nicht geladen werden.');
   }
 }
+window.openEbayReconnectLink = openEbayReconnectLink;
+window.openEbayReconnectFlow = openEbayReconnectFlow;
 function normalizeBackendUrl(url){
   let out = String(url || '').trim();
   if(out && !out.startsWith('http://') && !out.startsWith('https://')){
