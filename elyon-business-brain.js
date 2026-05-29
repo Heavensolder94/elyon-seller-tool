@@ -2151,6 +2151,28 @@
       .concat(memoryState.cashflowPatterns.slice(-2))
       .concat(memoryState.riskDevelopments.slice(-2))
     ).slice(0, 8);
+    const v1StatusItems = [
+      {
+        title: "Funktioniert",
+        tone: "good",
+        detail: "Produktimport, Product Brain, Risk Brain, Analytics Brain, Forecast Brain und Brain-Recalc arbeiten bereits mit lokalen Tool-Daten.",
+      },
+      {
+        title: "Verbunden",
+        tone: "info",
+        detail: `${safeNumber(connectedAgents.length)} Agenten-Kontexte vorbereitet, ${safeNumber(connectedBrains.length)} Mini-Brains angebunden und Google-Sheet-Daten nutzbar.`,
+      },
+      {
+        title: "Vorbereitet",
+        tone: "warn",
+        detail: "Simulationen, Memory, Compliance-, SEO- und Support-Sicht sind sichtbar und im Brain Center eingebunden, aber noch ausbaubar.",
+      },
+      {
+        title: "Fehlt noch",
+        tone: "bad",
+        detail: "Vollstaendiges Cashflow-Board mit Kapital/Fixkosten, klare Echt-vs-Test-Datentrennung und tiefere 1:1-Finanzlogik aus Tabellen.",
+      },
+    ];
     const debugVisible = text(preferences.debugLevel).toLowerCase() !== "off";
 
     root.innerHTML = `
@@ -2262,6 +2284,15 @@
                   ${memoryTags.map((item) => `<span class="brain-memory-tag">${escapeHtml(item)}</span>`).join("") || `<span class="brain-memory-tag">Noch keine Muster gespeichert</span>`}
                 </div>
                 <p class="brain-panel-copy">Letztes Lernen: ${escapeHtml(formatRelativeTime(memoryState.lastLearnedAt))}</p>
+              </section>
+              <section class="brain-panel">
+                <div class="brain-panel-head">
+                  <h4>V1-Statusampel</h4>
+                  <span class="brain-badge info">Ehrlicher Stand</span>
+                </div>
+                <div class="brain-list compact">
+                  ${v1StatusItems.map((item) => `<article class="brain-list-item"><strong>${escapeHtml(item.title)}</strong><p>${escapeHtml(item.detail)}</p><span class="brain-badge ${item.tone}">${escapeHtml(item.title)}</span></article>`).join("")}
+                </div>
               </section>
               <section class="brain-panel">
                 <div class="brain-panel-head">
