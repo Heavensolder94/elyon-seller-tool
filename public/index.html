@@ -2759,7 +2759,15 @@ function normalizeBrowserImportRecord(item){
     Array.isArray(content.descriptionCandidates) ? content.descriptionCandidates : [],
     [content.longDescription, content.shortDescription, source.description]
   ).filter(Boolean))).slice(0,20);
-  const variants = Array.isArray(source.variants) ? source.variants : Array.isArray(variantsObj.variantItems) ? variantsObj.variantItems : [];
+  const variants = Array.isArray(source.variants)
+    ? source.variants
+    : Array.isArray(source.platformVariants?.variantItems)
+      ? source.platformVariants.variantItems
+      : Array.isArray(source.aliexpressVariants?.variantItems)
+        ? source.aliexpressVariants.variantItems
+        : Array.isArray(variantsObj.variantItems)
+          ? variantsObj.variantItems
+          : parseJsonArrayField(source.sourceOnlineVariants);
   const productDetails = source.productDetails && typeof source.productDetails === 'object' ? source.productDetails : (content.productDetails && typeof content.productDetails === 'object' ? content.productDetails : (content.specifications && typeof content.specifications === 'object' ? content.specifications : {}));
   const complianceRisks = Array.from(new Set([].concat(
     Array.isArray(source.complianceRisks) ? source.complianceRisks : [],
@@ -2898,10 +2906,20 @@ function variantTextValue(source, keys, fallback){
 }
 function collectProductVariants(product){
   const productData = product && typeof product === 'object' ? product : {};
+  const nestedVariants = productData.variants && typeof productData.variants === 'object' && !Array.isArray(productData.variants)
+    ? (Array.isArray(productData.variants.variantItems) ? productData.variants.variantItems : [])
+    : [];
+  const platformVariants = Array.isArray(productData.platformVariants)
+    ? productData.platformVariants
+    : (productData.platformVariants && typeof productData.platformVariants === 'object' && Array.isArray(productData.platformVariants.variantItems) ? productData.platformVariants.variantItems : []);
+  const aliexpressVariants = Array.isArray(productData.aliexpressVariants)
+    ? productData.aliexpressVariants
+    : (productData.aliexpressVariants && typeof productData.aliexpressVariants === 'object' && Array.isArray(productData.aliexpressVariants.variantItems) ? productData.aliexpressVariants.variantItems : []);
   const buckets = [
     Array.isArray(productData.variants) ? productData.variants : [],
-    Array.isArray(productData.platformVariants) ? productData.platformVariants : [],
-    Array.isArray(productData.aliexpressVariants) ? productData.aliexpressVariants : [],
+    nestedVariants,
+    platformVariants,
+    aliexpressVariants,
     parseJsonArrayField(productData.sourceOnlineVariants)
   ];
   const seen = new Set();
@@ -3008,18 +3026,21 @@ function variantScanState(product, variants){
     statusText.includes('variant')
   );
   if(!variants.length){
-    return { label:'nicht gescannt', cls:'muted', hint:'' };
+    return { label:'nicht gescannt', cls:'info', hint:'' };
   }
   const completeCount = variants.filter(function(item){
-    return item.buyKnown && item.shipKnown;
+    return item.buyKnown && item.shipKnown && (item.sellKnown || item.sell > 0 || !(+productData.sell > 0));
   }).length;
   if(completeCount === variants.length){
-    return { label:'vollständig', cls:'ok', hint: hasScanFlag ? 'Variantenscan durchgeführt' : '' };
+    return { label:'vollständig', cls:'good', hint: hasScanFlag ? 'Variantenscan durchgeführt' : '' };
   }
   if(hasScanFlag){
     return { label:'teilweise', cls:'warn', hint:'Variantenscan durchgeführt' };
   }
-  return { label:'teilweise', cls:'warn', hint:'Variantenscan empfohlen' };
+  const hasMissingCommercials = variants.some(function(item){
+    return !item.buyKnown || !item.shipKnown;
+  });
+  return { label:'teilweise', cls:'warn', hint: hasMissingCommercials ? 'Variantenscan empfohlen' : 'Varianten teilweise erkannt' };
 }
 function summarizeVariantCommercials(product, calc){
   const productData = product && typeof product === 'object' ? product : {};
@@ -3045,10 +3066,14 @@ function summarizeVariantCommercials(product, calc){
     return {
       buy, ship, sell, delivery, totalCost, profit,
       buyKnown, shipKnown, sellKnown, deliveryKnown,
+      name: variantTextValue(variant, ['label','name','title','variantName','variantLabel'], ''),
       sku: variantTextValue(variant, ['sku','variantSku','productSku','id','variantId'], '')
     };
   }).filter(function(item){
-    return item.sku || item.buyKnown || item.shipKnown || item.sellKnown || item.deliveryKnown || item.buy > 0 || item.ship > 0 || item.sell > 0 || item.delivery > 0;
+    return item.sku || item.name || item.buyKnown || item.shipKnown || item.sellKnown || item.deliveryKnown || item.buy > 0 || item.ship > 0 || item.sell > 0 || item.delivery > 0;
+  });
+  const hasPartialData = variants.some(function(item){
+    return !item.buyKnown || !item.shipKnown || !item.sellKnown || !item.deliveryKnown;
   });
   return {
     variants,
@@ -3060,6 +3085,7 @@ function summarizeVariantCommercials(product, calc){
     deliveryRange: summarizeNumberRange(variants.filter(function(item){ return item.deliveryKnown || item.delivery > 0; }).map(function(item){ return item.delivery; })),
     scanState: variantScanState(productData, variants),
     incompleteCount: variants.filter(function(item){ return !item.buyKnown || !item.shipKnown; }).length,
+    hasPartialData,
     fallbackCalc: calc
   };
 }
@@ -3072,6 +3098,8 @@ function getProductCommercialChips(product, calc){
       '<span class="pill">EK: ' + euro(+productData.buy || 0) + '</span>',
       (+productData.ship || 0) > 0 ? '<span class="pill">Versand: ' + euro(+productData.ship || 0) + '</span>' : '',
       '<span class="pill">Kosten: ' + euro(calc.totalCost) + '</span>',
+      (+productData.sell || 0) > 0 ? '<span class="pill">VK: ' + euro(+productData.sell || 0) + '</span>' : '',
+      '<span class="pill">Gewinn: ' + euro(calc.profit) + '</span>',
       '<span class="pill">Marge: ' + marginPercent.toFixed(1) + '%</span>'
     ];
     return chips.filter(Boolean).join('');
@@ -3086,9 +3114,25 @@ function getProductCommercialChips(product, calc){
     variantSummary.deliveryRange ? '<span class="pill">Lieferzeit: ' + formatDayRange(variantSummary.deliveryRange) + '</span>' : '',
     '<span class="status ' + variantSummary.scanState.cls + '">Variantenstatus: ' + variantSummary.scanState.label + '</span>',
     variantSummary.scanState.hint ? '<span class="pill">' + escapeHtml(variantSummary.scanState.hint) + '</span>' : '',
-    variantSummary.incompleteCount > 0 && !variantSummary.scanState.hint ? '<span class="pill">Varianten teilweise erkannt</span>' : ''
+    variantSummary.hasPartialData && !variantSummary.scanState.hint ? '<span class="pill">Varianten teilweise erkannt</span>' : ''
   ];
   return chips.filter(Boolean).join('');
+}
+function renderVariantSummaryRows(product, calc){
+  const productData = product || {};
+  const summary = summarizeVariantCommercials(productData, calc || calcProduct(productData));
+  if(!summary.variants.length) return '';
+  const rows = [
+    '<li><strong>Varianten:</strong> ' + summary.variants.length + '</li>',
+    summary.buyRange ? '<li><strong>EK:</strong> ' + escapeHtml(formatEuroRange(summary.buyRange, summary.buyRange.min === summary.buyRange.max ? 'range' : 'ab')) + '</li>' : '',
+    summary.shipRange ? '<li><strong>Versand:</strong> ' + escapeHtml(formatEuroRange(summary.shipRange, summary.shipRange.min === summary.shipRange.max ? 'range' : 'ab')) + '</li>' : '',
+    summary.totalRange ? '<li><strong>Kosten:</strong> ' + escapeHtml(formatEuroRange(summary.totalRange, summary.totalRange.min === summary.totalRange.max ? 'range' : 'ab')) + '</li>' : '',
+    summary.sellRange ? '<li><strong>VK:</strong> ' + escapeHtml(formatEuroRange(summary.sellRange, 'ab')) + '</li>' : '',
+    summary.profitRange ? '<li><strong>Gewinn:</strong> ' + escapeHtml(formatEuroRange(summary.profitRange, summary.profitRange.min === summary.profitRange.max ? 'range' : 'ab')) + '</li>' : '',
+    summary.deliveryRange ? '<li><strong>Lieferzeit:</strong> ' + escapeHtml(formatDayRange(summary.deliveryRange)) + '</li>' : '',
+    '<li><strong>Status:</strong> ' + escapeHtml(summary.scanState.label) + (summary.scanState.hint ? ' · ' + escapeHtml(summary.scanState.hint) : '') + '</li>'
+  ].filter(Boolean).join('');
+  return rows ? '<ul>' + rows + '</ul>' : '';
 }
 function normalizeBrowserImportsCollection(list){
   return Array.isArray(list) ? list.map(normalizeBrowserImportRecord) : [];
@@ -8283,7 +8327,8 @@ function openBrowserImportDetails(id){
     $('browserImportDetailClose')?.addEventListener('click', () => modal.classList.add('hidden'));
     modal.addEventListener('click', event => { if(event.target === modal) modal.classList.add('hidden'); });
   }
-  const variants = Array.isArray(item.variants) ? item.variants : [];
+  const variants = collectProductVariants(item);
+  const variantSummary = summarizeVariantCommercials(item, {profit:0,totalCost:0});
   const details = item.productDetails && typeof item.productDetails === 'object' ? item.productDetails : {};
   const warnings = Array.isArray(item.warnings) ? item.warnings : [];
   const descCandidates = Array.isArray(item.descriptionCandidates) ? item.descriptionCandidates : [];
@@ -8296,8 +8341,11 @@ function openBrowserImportDetails(id){
       '<span class="pill">Supplier: ' + escapeHtml(item.supplier || 'Nicht erkannt') + '</span>' +
       '<span class="pill">Status: ' + escapeHtml(item.status || 'draft') + '</span>' +
       '<span class="pill">Varianten: ' + variants.length + '</span>' +
+      (variants.length ? '<span class="status ' + variantSummary.scanState.cls + '">Variantenstatus: ' + escapeHtml(variantSummary.scanState.label) + '</span>' : '') +
       '<span class="pill">Details: ' + Object.keys(details).length + '</span>' +
-      '</div></div></details>' +
+      '</div>' +
+      (variants.length ? '<div class="output-box" style="margin-top:12px"><h3>Varianten-Auswertung</h3>' + renderVariantSummaryRows(item, {profit:0,totalCost:0}) + '</div>' : '') +
+      '</div></details>' +
       '<details class="form-accordion" open><summary>Beschreibung</summary><div class="accordion-body">' +
       (item.description ? '<p>' + escapeHtml(item.description) + '</p>' : '<div class="empty">Keine Beschreibung</div>') +
       (descCandidates.length ? '<h3>Beschreibungskandidaten</h3><ul>' + descCandidates.map(text => '<li>' + escapeHtml(text) + '</li>').join('') + '</ul>' : '') +
@@ -8341,13 +8389,14 @@ function renderBrowserImports(){
   }
   box.innerHTML = browserImports.slice(0, 20).map(item => {
     const linked = item.linkedSupplierName || item.linkedSupplierId || '-';
+    const variantSummary = summarizeVariantCommercials(item, {profit:0,totalCost:0});
     const imageList = [item.image].concat(Array.isArray(item.images) ? item.images : []).filter(Boolean);
     const mainImage = imageList[0] || '';
     const imageHtml = mainImage ? '<img src="' + escapeHtml(mainImage) + '" alt="" referrerpolicy="no-referrer" loading="lazy" onerror="this.remove()" style="width:72px;height:72px;object-fit:cover;border-radius:14px;border:1px solid rgba(255,255,255,.12);background:rgba(2,6,23,.4)">' : '<div class="empty" style="width:72px;min-height:72px;padding:10px">Kein Bild</div>';
     const shippingText = item.shipping && typeof item.shipping === 'object' ? [item.shipping.cost, item.shipping.deliveryTime, item.shipping.shipsFrom, item.shipping.text].filter(Boolean).join(' · ') : '';
     const availabilityText = String(item.availability || '').slice(0, 180);
     const detailRows = Object.entries(item.productDetails || {}).slice(0,12).map(([key,value]) => '<li><strong>' + escapeHtml(key) + ':</strong> ' + escapeHtml(String(value || '')) + '</li>').join('');
-    const variantRows = (item.variants || []).slice(0,12).map(variant => '<span class="pill">' + escapeHtml(typeof variant === 'string' ? variant : (variant.label || variant.name || JSON.stringify(variant))) + '</span>').join('');
+    const variantRows = variantSummary.variants.slice(0,12).map(variant => '<span class="pill">' + escapeHtml(typeof variant === 'string' ? variant : (variant.label || variant.name || variant.sku || JSON.stringify(variant))) + '</span>').join('');
     const hasDescription = Boolean(item.description);
     const hasDetails = Boolean(item.productDetails && Object.keys(item.productDetails).length);
     const warnings = Array.isArray(item.warnings) ? item.warnings : [];
@@ -8358,7 +8407,15 @@ function renderBrowserImports(){
       item.reviewsCount ? '<span class="pill">Bewertungen: ' + escapeHtml(item.reviewsCount) + '</span>' : '',
       item.soldCount ? '<span class="pill">Verkäufe: ' + escapeHtml(item.soldCount) + '</span>' : '',
       shippingText ? '<span class="pill">Versand: ' + escapeHtml(shippingText) + '</span>' : '',
-      '<span class="pill">Varianten: ' + ((item.variants || []).length || 'Keine Varianten') + '</span>',
+      variantSummary.variants.length ? '<span class="pill">Varianten: ' + variantSummary.variants.length + '</span>' : '<span class="pill">Keine Varianten</span>',
+      variantSummary.buyRange ? '<span class="pill">EK: ' + escapeHtml(formatEuroRange(variantSummary.buyRange, variantSummary.buyRange.min === variantSummary.buyRange.max ? 'range' : 'ab')) + '</span>' : '',
+      variantSummary.shipRange ? '<span class="pill">Versand-Spanne: ' + escapeHtml(formatEuroRange(variantSummary.shipRange, variantSummary.shipRange.min === variantSummary.shipRange.max ? 'range' : 'ab')) + '</span>' : '',
+      variantSummary.totalRange ? '<span class="pill">Kosten: ' + escapeHtml(formatEuroRange(variantSummary.totalRange, variantSummary.totalRange.min === variantSummary.totalRange.max ? 'range' : 'ab')) + '</span>' : '',
+      variantSummary.sellRange ? '<span class="pill">VK: ' + escapeHtml(formatEuroRange(variantSummary.sellRange, 'ab')) + '</span>' : '',
+      variantSummary.profitRange ? '<span class="pill">Gewinn: ' + escapeHtml(formatEuroRange(variantSummary.profitRange, variantSummary.profitRange.min === variantSummary.profitRange.max ? 'range' : 'ab')) + '</span>' : '',
+      variantSummary.deliveryRange ? '<span class="pill">Lieferzeit: ' + escapeHtml(formatDayRange(variantSummary.deliveryRange)) + '</span>' : '',
+      variantSummary.variants.length ? '<span class="status ' + variantSummary.scanState.cls + '">Variantenstatus: ' + escapeHtml(variantSummary.scanState.label) + '</span>' : '',
+      variantSummary.variants.length && variantSummary.scanState.hint ? '<span class="pill">' + escapeHtml(variantSummary.scanState.hint) + '</span>' : '',
       '<span class="pill">' + (hasDescription ? 'Beschreibung vorhanden' : 'Keine Beschreibung') + '</span>',
       '<span class="pill">' + (hasDetails ? 'Produktdetails vorhanden' : 'Keine Produktdetails') + '</span>',
       warnings.length ? '<span class="pill bad">Warnungen: ' + warnings.length + '</span>' : ''
@@ -8377,7 +8434,7 @@ function renderBrowserImports(){
           (extraRows ? '<div class="pill-row">' + extraRows + '</div>' : '') +
           (complianceRows ? '<div class="pill-row"><span class="pill">Compliance</span>' + complianceRows + '</div>' : '') +
           (galleryRows ? '<div class="browser-import-gallery">' + galleryRows + '</div>' : '') +
-          browserImportDisclosureHTML('Varianten anzeigen', variantRows ? '<div class="pill-row">' + variantRows + '</div>' : '') +
+          browserImportDisclosureHTML('Varianten anzeigen', (variantSummary.variants.length ? '<div class="output-box" style="margin-bottom:10px"><h3>Varianten-Auswertung</h3>' + renderVariantSummaryRows(item, {profit:0,totalCost:0}) + '</div>' : '') + (variantRows ? '<div class="pill-row">' + variantRows + '</div>' : '')) +
           browserImportDisclosureHTML('Produktdetails anzeigen', detailRows ? '<ul>' + detailRows + '</ul>' : '') +
           browserImportDisclosureHTML('Artikelbeschreibung anzeigen', item.description ? '<p>' + escapeHtml(item.description) + '</p>' : '') +
           '<div class="pill-row">' +
@@ -9616,6 +9673,18 @@ function proceedAiBillingAction(){
     executeAiProductSearch(mode);
     return;
   }
+  if(action === 'listing-title'){
+    runAiStructuredFieldOptimizer('title', mode);
+    return;
+  }
+  if(action === 'listing-tags'){
+    runAiStructuredFieldOptimizer('tags', mode);
+    return;
+  }
+  if(action === 'listing-description'){
+    runAiStructuredFieldOptimizer('description', mode);
+    return;
+  }
   runAiListingOptimizer(mode);
 }
 async function postJsonWithTimeout(url, payload, timeoutMs){
@@ -9854,7 +9923,7 @@ function buildAiProductScorePrompt(){
   ].join('\n');
 }
 function renderAiTitleTaskResult(data){
-  const payload = data && data.result ? data.result : data;
+  const payload = normalizeAiTaskPayload(data, 'title');
   const title = String(payload && payload.title ? payload.title : '').trim();
   const subtitle = String(payload && payload.subtitle ? payload.subtitle : '').trim();
   const keywords = uniqueCleanList(payload && payload.seoKeywords ? payload.seoKeywords : []);
@@ -9875,7 +9944,7 @@ function renderAiTitleTaskResult(data){
   setHTML('aiResult', html);
 }
 function renderAiDescriptionTaskResult(data){
-  const payload = data && data.result ? data.result : data;
+  const payload = normalizeAiTaskPayload(data, 'description');
   const description = String(payload && payload.description ? payload.description : '').trim();
   const bulletPoints = uniqueCleanList(payload && payload.bulletPoints ? payload.bulletPoints : []);
   const keywords = uniqueCleanList(payload && payload.seoKeywords ? payload.seoKeywords : []);
@@ -9916,7 +9985,7 @@ function renderAiDescriptionRouterResult(data){
   }
 }
 function renderAiTagsTaskResult(data){
-  const payload = data && data.result ? data.result : data;
+  const payload = normalizeAiTaskPayload(data, 'tags');
   const keywords = uniqueCleanList(payload && payload.seoKeywords ? payload.seoKeywords : []);
   const titleIdeas = uniqueCleanList(payload && payload.titleIdeas ? payload.titleIdeas : []);
   const warnings = uniqueCleanList(payload && payload.riskWarnings ? payload.riskWarnings : []);
@@ -9935,7 +10004,7 @@ function renderAiTagsTaskResult(data){
   setHTML('aiResult', html);
 }
 function renderAiProductScoreTaskResult(data){
-  const payload = data && data.result ? data.result : data;
+  const payload = normalizeAiTaskPayload(data, 'product_score');
   const summary = String(payload && payload.summary ? payload.summary : '').trim();
   const recommendation = String(payload && payload.recommendation ? payload.recommendation : '').trim();
   const warnings = uniqueCleanList(payload && payload.riskWarnings ? payload.riskWarnings : []);
@@ -9953,6 +10022,53 @@ function renderAiProductScoreTaskResult(data){
   html += '<div class="output-box"><h3>Empfehlung</h3><p>' + escapeHtml(recommendation || 'Keine Empfehlung erzeugt.') + '</p></div>';
   html += '<div class="output-box"><h3>Risiko-Hinweise</h3><ul>' + (warnings.length ? warnings.map(function(item){ return '<li>' + escapeHtml(item) + '</li>'; }).join('') : '<li>Keine Risiko-Hinweise gemeldet.</li>') + '</ul></div>';
   setHTML('researchResult', html);
+}
+function tryParseAiJsonText(value){
+  const text = String(value || '').trim();
+  if(!text) return null;
+  const candidates = [
+    text,
+    text.replace(/^```(?:json)?/i, '').replace(/```$/i, '').trim()
+  ];
+  const start = text.indexOf('{');
+  const end = text.lastIndexOf('}');
+  if(start >= 0 && end > start){
+    candidates.push(text.slice(start, end + 1));
+  }
+  for(let i=0;i<candidates.length;i++){
+    const candidate = candidates[i];
+    if(!candidate) continue;
+    try{
+      const parsed = JSON.parse(candidate);
+      if(parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed;
+    }catch(err){}
+  }
+  return null;
+}
+function linesToBulletPoints(text){
+  return String(text || '')
+    .split(/\r?\n/)
+    .map(function(line){ return line.replace(/^[-*•\d.)\s]+/, '').trim(); })
+    .filter(Boolean)
+    .slice(0, 6);
+}
+function normalizeAiTaskPayload(data, task){
+  const base = data && typeof data === 'object' ? data : {};
+  const directResult = base.result;
+  const parsedDirect = directResult && typeof directResult === 'object' && !Array.isArray(directResult) ? directResult : null;
+  const parsedText = tryParseAiJsonText(directResult || base.content || '');
+  const payload = parsedDirect || parsedText || base;
+  if(task === 'description' && (!payload || typeof payload !== 'object' || Array.isArray(payload) || (!payload.description && typeof directResult === 'string'))){
+    const rawText = String(directResult || base.content || '').trim();
+    return {
+      description: rawText,
+      bulletPoints: linesToBulletPoints(rawText),
+      seoKeywords: [],
+      riskWarnings: [],
+      score: { title: 0, seo: 0, description: rawText ? 75 : 0, risk: 0, total: rawText ? 75 : 0 }
+    };
+  }
+  return payload && typeof payload === 'object' ? payload : {};
 }
 async function executeCentralAiTask(config){
   const task = config && config.task ? config.task : '';
@@ -10119,6 +10235,56 @@ async function runAiListingOptimizer(mode){
     setHTML('aiResult', '<div class="empty">⚠️ ' + escapeHtml(message) + '</div>');
   }finally{
     setAiButtonsLoading(false, '', buttons[mode] || buttons.regenerate);
+  }
+}
+async function runAiStructuredFieldOptimizer(field, mode){
+  const defaults = getGlobalAiDefaults();
+  const payload = readListingOptimizerInput();
+  payload.mode = mode || 'regenerate';
+  payload.requestedMode = mode || 'regenerate';
+  payload.product.currentTitle = getGeneratedTitle();
+  payload.product.currentDescription = getGeneratedDescription();
+  payload.provider = defaults.provider;
+  payload.model = defaults.model;
+  payload.allowFallback = defaults.allowFallback;
+  const buttonMap = {
+    title: 'aiTitleBtn',
+    tags: 'aiTagsBtn',
+    description: 'aiDescBtn'
+  };
+  const resultMap = {
+    title: 'aiResult',
+    tags: 'aiResult',
+    description: 'descGenResult'
+  };
+  const loadingTextMap = {
+    title: 'KI-Titel läuft...',
+    tags: 'KI-SEO läuft...',
+    description: 'KI-Beschreibung läuft...'
+  };
+  const buttonId = buttonMap[field] || 'aiDescBtn';
+  const resultId = resultMap[field] || 'descGenResult';
+  incrementAiUsage();
+  setAiButtonsLoading(true, buttonId);
+  setHTML(resultId, '<div class="empty">' + escapeHtml(loadingTextMap[field] || 'KI läuft...') + '</div>');
+  try{
+    const data = await postJsonWithTimeout('/api/ai/listing-optimizer', payload, 30000);
+    if(field === 'title'){
+      renderAiTitleTaskResult(data);
+    }else if(field === 'tags'){
+      const payloadData = normalizeAiTaskPayload(data, 'tags');
+      if((!payloadData.titleIdeas || !payloadData.titleIdeas.length) && payloadData.title){
+        payloadData.titleIdeas = [payloadData.title].filter(Boolean);
+      }
+      renderAiTagsTaskResult(payloadData);
+    }else{
+      renderAiDescriptionTaskResult(data);
+    }
+  }catch(err){
+    const message = err && err.message ? err.message : 'Unbekannter KI-Fehler';
+    setHTML(resultId, '<div class="empty">⚠️ ' + escapeHtml(message) + '</div>');
+  }finally{
+    setAiButtonsLoading(false, '', buttonId);
   }
 }
 function copyTextById(id){
@@ -11783,27 +11949,16 @@ function bindEvents(){
   bind('aiSearchAnalyzeBtn','click',()=>startAiProductSearch('analyze'));
   bind('aiSearchBillingBtn','click',()=>openAiBillingWarning('product-search','improve'));
   bind('aiTitleBtn','click',()=>openAiBillingWarning({
-    task:'title',
-    prompt: buildAiTitlePrompt(),
-    buttonId:'aiTitleBtn',
-    resultId:'aiResult'
+    action:'listing-title',
+    mode:'regenerate'
   }));
   bind('aiTagsBtn','click',()=>openAiBillingWarning({
-    task:'tags',
-    prompt: buildAiTagsPrompt(),
-    buttonId:'aiTagsBtn',
-    resultId:'aiResult'
+    action:'listing-tags',
+    mode:'regenerate'
   }));
   bind('aiDescBtn','click',()=>openAiBillingWarning({
-    task:'description',
-    prompt: buildAiDescriptionPrompt(),
-    buttonId:'aiDescBtn',
-    resultId:'descGenResult',
-    extra:{
-      provider:'deepseek',
-      model:'deepseek-v4-flash',
-      allowFallback:true
-    }
+    action:'listing-description',
+    mode:'regenerate'
   }));
   bind('aiScoreBtn','click',()=>openAiBillingWarning({
     task:'product_score',
@@ -11962,6 +12117,7 @@ function runSelfTests(){
   console.assert(shortenTitle('Dies ist ein sehr langer Testtitel mit sehr vielen unnoetigen Worten und Begriffen fuer eBay Listings und Kunden').length <= 80, 'Titel-Kuerzung sollte maximal 80 Zeichen liefern');
   console.assert(typeof handleGeneratorClick === 'function', 'Generator Click Handler sollte existieren');
   console.assert(typeof descriptionGeneratorCalc === 'function', 'Beschreibungsgenerator sollte existieren');
+  console.assert(typeof runAiStructuredFieldOptimizer === 'function', 'Strukturierter KI-Feldflow sollte existieren');
   console.assert(!!$('descGenBtn'), 'Beschreibungsgenerator Button sollte existieren');
   console.assert(!!$('aiImproveBtn'), 'KI-Verbessern Button sollte existieren');
   console.assert(!!$('aiRegenerateBtn'), 'KI-Neugenerieren Button sollte existieren');
@@ -12023,6 +12179,31 @@ function runSelfTests(){
   console.assert(typeof getSmartListingCheckState === 'function', 'Smart Listing Check sollte existieren');
   console.assert(typeof markEbayReadyFromListing === 'function', 'eBay Ready Markierung sollte existieren');
   console.assert(typeof productHealth === 'function', 'Produkt-Gesundheitsstatus sollte existieren');
+  const noVariantsSummary = summarizeVariantCommercials({ buy:5, ship:2, sell:20 }, calcProduct({buy:5,ship:2,sell:20,fee:15,riskBuffer:5,sales:0,competition:0,delivery:0,risk:'low'}));
+  console.assert(noVariantsSummary.variants.length===0, 'Produkt ohne Varianten sollte keine Varianten-Auswertung haben');
+  const fullVariantsSummary = summarizeVariantCommercials({
+    platformVariants: {
+      variantItems: [
+        { sku:'v1', purchasePrice:'5,00', shippingCost:'2,00', salePrice:'19,99', deliveryDays:'7' },
+        { sku:'v2', purchasePrice:'7,00', shippingCost:'3,00', salePrice:'24,99', deliveryDays:'10' }
+      ]
+    },
+    variantScanCompleted:true,
+    fee:15,
+    riskBuffer:5
+  }, {profit:0,totalCost:0});
+  console.assert(fullVariantsSummary.variants.length===2 && fullVariantsSummary.scanState.label==='vollständig' && fullVariantsSummary.buyRange.min===5, 'Vollständige Varianten sollten korrekt ausgewertet werden');
+  const partialVariantsSummary = summarizeVariantCommercials({
+    aliexpressVariants: {
+      variantItems: [
+        { sku:'p1', purchasePrice:'8,00' },
+        { sku:'p2', shippingCost:'1,50' }
+      ]
+    },
+    fee:15,
+    riskBuffer:5
+  }, {profit:0,totalCost:0});
+  console.assert(partialVariantsSummary.variants.length===2 && partialVariantsSummary.scanState.label==='teilweise' && partialVariantsSummary.incompleteCount>0, 'Teilweise Variantendaten sollten als teilweise erkannt werden');
   console.assert(!!$('saleOrderNo'), 'Bestellnummer Feld im Verkaufslog sollte existieren');
   console.assert(!!$('saleFormCarrier'), 'Versanddienstleister im Verkaufsassistenten sollte existieren');
   console.assert(!!$('saleFormTrackingNo'), 'Trackingnummer im Verkaufsassistenten sollte existieren');
