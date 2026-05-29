@@ -1307,6 +1307,7 @@
       <div class="card">
         <h2>Haupt-Workflow</h2>
         <p class="hint">Trag links die Produktdaten ein. Die klare Linie ist: Briefing -> generieren -> Draft speichern -> manuell bei eBay nutzen.</p>
+        <div id="smartListingAssistant" class="output-box" style="margin-bottom:16px"><p>Smart-Assistent wird geladen.</p></div>
 
         <div class="briefing-section">
           <h3>1. Produktbasis</h3>
@@ -10187,6 +10188,128 @@ function getEbayListingDraftFromState(baseDraft){
   });
 }
 
+function getSmartListingAssistantState(){
+  const draft = latestEbayListingDraft || loadStoredEbayListingDraft() || {};
+  const context = collectImportedDescriptionContext();
+  const state = {
+    productName: getInputValue('gName') || String(draft.briefing?.name || '').trim(),
+    mainKeyword: getInputValue('gMainKeyword') || String(draft.briefing?.mainKeyword || '').trim(),
+    features: getInputValue('gFeature') || String(draft.briefing?.feature || '').trim(),
+    use: getInputValue('gUse') || String(draft.briefing?.use || '').trim(),
+    pain: getInputValue('gPain') || String(draft.briefing?.pain || '').trim(),
+    keywords: getInputValue('gKeywords') || String(draft.briefing?.keywords || '').trim(),
+    importedDetails: context.detailParts,
+    importedDescription: context.sourceDescription,
+    category: context.category,
+    shipping: context.shipping,
+    deliveryTime: context.deliveryTime,
+    supplier: context.supplier
+  };
+  const missing = [];
+  if(!state.productName) missing.push('Produktname');
+  if(!state.mainKeyword) missing.push('Hauptkeyword');
+  if(!state.features && !state.importedDetails.length) missing.push('Merkmale');
+  if(!state.use) missing.push('Zielgruppe/Nutzung');
+  const importedStrength =
+    (state.importedDescription ? 2 : 0) +
+    (state.importedDetails.length ? 2 : 0) +
+    (state.category ? 1 : 0) +
+    (state.shipping || state.deliveryTime ? 1 : 0);
+  let recommendation = 'Briefing ergänzen und dann Listing generieren.';
+  if(importedStrength >= 4 && missing.length <= 2){
+    recommendation = 'Importdaten sind stark genug für eine KI-Neugenerierung.';
+  }else if(importedStrength >= 2){
+    recommendation = 'Importdaten sind brauchbar. Vor dem Generieren noch 1 bis 2 Briefing-Felder schärfen.';
+  }else if(missing.length){
+    recommendation = 'Zu wenig klare Produktbasis. Erst Produktname, Keyword und Nutzung sauber setzen.';
+  }
+  return {
+    ...state,
+    missing,
+    importedStrength,
+    recommendation
+  };
+}
+
+function applySmartListingAutofill(){
+  const draft = latestEbayListingDraft || loadStoredEbayListingDraft() || {};
+  const context = collectImportedDescriptionContext();
+  const autoFeatureParts = Array.from(new Set(
+    []
+      .concat(context.detailParts.slice(0, 4))
+      .concat(context.category ? ['Kategorie ' + context.category] : [])
+      .concat(context.keywordParts.slice(0, 3))
+  )).filter(Boolean);
+  if(!getInputValue('gMainKeyword')){
+    setInputValue('gMainKeyword', String(draft.briefing?.mainKeyword || context.category || getInputValue('listingTitle') || '').trim());
+  }
+  if(!getInputValue('gName')){
+    setInputValue('gName', String(draft.briefing?.name || draft.draft?.title || draft.generated?.title || '').trim());
+  }
+  if(!getInputValue('gFeature') && autoFeatureParts.length){
+    setInputValue('gFeature', autoFeatureParts.join(', '));
+  }
+  if(!getInputValue('gUse')){
+    setInputValue('gUse', context.category ? 'Käufer für ' + context.category : 'eBay Listing');
+  }
+  if(!getInputValue('gPain')){
+    const painParts = [];
+    if(context.sourceDescription) painParts.push(context.sourceDescription.slice(0, 180));
+    if(context.deliveryTime) painParts.push('Lieferzeit: ' + context.deliveryTime);
+    if(context.shipping) painParts.push('Versand: ' + context.shipping);
+    setInputValue('gPain', painParts.join(' | ') || 'Importdaten prüfen und Nutzen für Käufer schärfen.');
+  }
+  if(!getInputValue('gKeywords') && context.keywordParts.length){
+    setInputValue('gKeywords', context.keywordParts.join(', '));
+  }
+}
+
+function renderSmartListingAssistant(){
+  const box = $('smartListingAssistant');
+  if(!box) return;
+  const state = getSmartListingAssistantState();
+  const strengthLabel = state.importedStrength >= 4 ? 'stark' : state.importedStrength >= 2 ? 'mittel' : 'schwach';
+  const strengthClass = state.importedStrength >= 4 ? 'good' : state.importedStrength >= 2 ? 'warn' : 'bad';
+  const missingHtml = state.missing.length
+    ? '<p><strong>Fehlt noch:</strong> ' + escapeHtml(state.missing.join(', ')) + '</p>'
+    : '<p><strong>Briefing:</strong> bereit für Generierung.</p>';
+  const importHtml = [
+    state.category ? 'Kategorie: ' + state.category : '',
+    state.supplier ? 'Quelle: ' + state.supplier : '',
+    state.deliveryTime ? 'Lieferzeit: ' + state.deliveryTime : ''
+  ].filter(Boolean).join(' · ');
+  box.innerHTML =
+    '<h3>Smart-Assistent</h3>' +
+    '<p><span class="status ' + strengthClass + '">Importdaten ' + escapeHtml(strengthLabel) + '</span></p>' +
+    '<p>' + escapeHtml(state.recommendation) + '</p>' +
+    missingHtml +
+    '<p><strong>Import-Kontext:</strong> ' + escapeHtml(importHtml || 'Noch kein starker Import-Kontext erkannt.') + '</p>' +
+    '<div class="quick-actions" style="margin-top:12px">' +
+      '<button class="secondary" id="smartListingAutofillBtn" type="button">Felder smart füllen</button>' +
+      '<button class="secondary" id="smartListingGenerateBtn" type="button">Smart generieren</button>' +
+    '</div>';
+  bind('smartListingAutofillBtn','click',function(){
+    applySmartListingAutofill();
+    refreshEbayListingDraftPreview();
+    renderSmartListingAssistant();
+    toast('Briefing smart vorbefüllt.');
+  });
+  bind('smartListingGenerateBtn','click',function(){
+    applySmartListingAutofill();
+    refreshEbayListingDraftPreview();
+    const defaults = getGlobalAiDefaults();
+    if(defaults.provider === 'local'){
+      genCalc();
+      descriptionGeneratorCalc();
+      toast('Smart-Generierung lokal gestartet.');
+      renderSmartListingAssistant();
+      return;
+    }
+    openAiBillingWarning('listing','regenerate');
+    renderSmartListingAssistant();
+  });
+}
+
 function renderEbayListingDraftPreview(draft, statusMessage){
   const statusBox = $('listingDraftStatus');
   const previewBox = $('listingDraftPreview');
@@ -10291,6 +10414,7 @@ function loadEbayListingDraft(){
   latestEbayListingDraft = normalizeEbayListingDraftRecord(draft);
   applyEbayListingDraftToForm(latestEbayListingDraft);
   renderEbayListingDraftPreview(latestEbayListingDraft, 'Draft geladen.');
+  renderSmartListingAssistant();
   render();
   toast('Draft geladen.');
 }
@@ -10356,6 +10480,7 @@ function copyEbayListingDraft(){
 function refreshEbayListingDraftPreview(){
   latestEbayListingDraft = getEbayListingDraftFromState(latestEbayListingDraft || loadStoredEbayListingDraft() || {});
   renderEbayListingDraftPreview(latestEbayListingDraft, 'Arbeitsstand aktualisiert.');
+  renderSmartListingAssistant();
 }
 
 function showGenPanel(panelId, button){
@@ -11549,6 +11674,7 @@ function bindEvents(){
   bind('syncSalesGoogleSheetsShortcutBtn','click',syncSalesToGoogleSheetShortcut);
   bind('syncCostsGoogleSheetsBtn','click',syncCostsToGoogleSheet);
   bind('syncAllGoogleSheetsBtn','click',syncAllToGoogleSheet);
+  renderSmartListingAssistant();
   bind('backupSettings','click',exportSettings);
   bind('fullBackupExport','click',exportFullBackup);
   bind('fullBackupImportBtn','click',()=>safe('fullBackupImport',el=>el.click()));
