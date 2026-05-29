@@ -71,6 +71,22 @@ function makeState() {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
+function buildEbayAuthUrl(environment, state = makeState()) {
+  const clientId = process.env.EBAY_CLIENT_ID || "";
+  const redirectUri = getRedirectUri();
+  if (!clientId || !redirectUri) return "";
+
+  const url = new URL(environment === "sandbox" ? SANDBOX_AUTH_URL : PRODUCTION_AUTH_URL);
+  url.searchParams.set("client_id", clientId);
+  url.searchParams.set("redirect_uri", redirectUri);
+  url.searchParams.set("response_type", "code");
+  url.searchParams.set("scope", getScopes().join(" "));
+  url.searchParams.set("locale", "de-DE");
+  url.searchParams.set("prompt", "login");
+  url.searchParams.set("state", state);
+  return url.toString();
+}
+
 function getEbayTokenEndpoint(environment) {
   return environment === "sandbox"
     ? "https://api.sandbox.ebay.com/identity/v1/oauth2/token"
@@ -146,16 +162,7 @@ async function handleLoginUrl(req, res) {
     });
   }
 
-  const url = new URL(environment === "sandbox" ? SANDBOX_AUTH_URL : PRODUCTION_AUTH_URL);
-  url.searchParams.set("client_id", clientId);
-  url.searchParams.set("redirect_uri", redirectUri);
-  url.searchParams.set("response_type", "code");
-  url.searchParams.set("scope", getScopes().join(" "));
-  url.searchParams.set("locale", "de-DE");
-  url.searchParams.set("prompt", "login");
-  url.searchParams.set("state", state);
-
-  return res.status(200).json({ ok: true, environment, state, authUrl: url.toString() });
+  return res.status(200).json({ ok: true, environment, state, authUrl: buildEbayAuthUrl(environment, state) });
 }
 
 async function handleSearch(req, res) {
@@ -425,10 +432,18 @@ async function handleOrders(req, res) {
     refreshed = await getAccessTokenFromRefreshToken(environment, refreshToken);
   } catch (error) {
     const statusCode = Number(error?.httpStatus) || 500;
+    const ebayErrorCode = String(error?.payload?.error || "").trim().toLowerCase();
+    const reauthRequired = ebayErrorCode === "invalid_scope";
     return res.status(statusCode).json({
       ok: false,
       error: error.message || "eBay Token konnte nicht erneuert werden.",
-      reason: statusCode === 401 ? "expired_or_invalid_refresh_token" : "token_refresh_failed",
+      reason: reauthRequired
+        ? "orders_scope_reauth_required"
+        : statusCode === 401
+          ? "expired_or_invalid_refresh_token"
+          : "token_refresh_failed",
+      action_required: reauthRequired ? "eBay Login mit Orders-/Fulfillment-Scope neu verbinden und neuen Code austauschen." : "",
+      reconnect_url: reauthRequired ? buildEbayAuthUrl(environment) : "",
       debug: buildDebugPayload({
         environment,
         ebay_status: statusCode,
