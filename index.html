@@ -1660,6 +1660,22 @@ Land"></textarea>
     </div>
 
     <div class="card" style="margin-top:20px">
+      <h2>eBay Verbindung & Orders-Scope</h2>
+      <p class="hint">Hier prüfst du, ob eBay grundsätzlich erreichbar ist und ob dein Orders-/Fulfillment-Scope für Bestellungen ausreicht. Es wird nur der OAuth-Reconnect vorbereitet, keine Live-Aktion.</p>
+      <div class="dashboard">
+        <div class="metric"><small>eBay Status</small><strong id="ebayReconnectStatusMain">Nicht geprüft</strong></div>
+        <div class="metric"><small>Orders Scope</small><strong id="ebayOrdersScopeStatusMain">Unbekannt</strong></div>
+        <div class="metric"><small>Reconnect</small><strong id="ebayReconnectActionMain">Bereit bei Bedarf</strong></div>
+        <div class="metric"><small>Modus</small><strong>Lesen zuerst</strong></div>
+      </div>
+      <div class="row">
+        <button id="ebayStatusCheckBtn" class="secondary full" type="button">eBay Status prüfen</button>
+        <button id="ebayReconnectBtn" class="secondary full" type="button">eBay neu verbinden</button>
+      </div>
+      <div id="ebayReconnectResultMain" class="output-box" style="margin-top:14px"><p>eBay noch nicht geprüft.</p></div>
+    </div>
+
+    <div class="card" style="margin-top:20px">
       <h2>3. 📦 eBay Bestellungen importieren</h2>
       <p class="hint">Liest Bestellungen über dein Backend und zeigt eine Vorschau. Importiert wird erst nach deiner Bestätigung in den Verkaufsassistenten.</p>
       <div class="row">
@@ -2087,6 +2103,10 @@ Land"></textarea>
             <button id="setEbayConnectPlanBtn" class="secondary full">eBay API prüfen</button>
             <button id="setCjConnectPlanBtn" class="secondary full">CJ API prüfen</button>
           </div>
+          <div class="row" style="margin-top:10px">
+            <button id="setEbayReconnectBtn" class="secondary full">eBay neu verbinden</button>
+          </div>
+          <div id="ebayReconnectResultSettings" class="output-box" style="margin-top:10px"><p>Reconnect-Hinweise erscheinen hier, wenn der Orders-Scope fehlt.</p></div>
           <button id="resetIntegrationSettingsBtn" class="danger full" style="margin-top:10px">Integrationen zurücksetzen</button>
           <div id="settingsIntegrationResult" class="output-box"><p>Hier prüfst du, ob dein Vercel-Backend, eBay und CJ technisch erreichbar sind. API-Keys und Secrets bleiben ausschließlich in Vercel Environment Variables, nicht in dieser HTML-Datei.</p></div>
 
@@ -3638,6 +3658,9 @@ function saveIntegrationSettings(){
   integrationSettings.backendUrl = (modalInput && modalInput.value.trim()) || (tabInput && tabInput.value.trim()) || '';
   integrationSettings.backendCheck = 'unknown';
   integrationSettings.ebayCheck = 'unknown';
+  integrationSettings.ebayOrdersScope = 'unknown';
+  integrationSettings.ebayOrdersHint = '';
+  integrationSettings.ebayReconnectUrl = '';
   integrationSettings.cjCheck = 'unknown';
   localStorage.setItem('elyonIntegrations', JSON.stringify(integrationSettings));
   renderIntegrationStatus();
@@ -3656,6 +3679,7 @@ function renderIntegrationStatus(){
   safe('setIntEbayStatus', el => el.textContent = ebayStatus);
   safe('intCjStatus', el => el.textContent = cjStatus);
   safe('setIntCjStatus', el => el.textContent = cjStatus);
+  renderEbayReconnectStatusPanel();
 }
 function integrationStatusText(service, state){
   if(state === 'ok'){
@@ -3663,12 +3687,103 @@ function integrationStatusText(service, state){
     if(service === 'ebay') return 'eBay API erreichbar';
     return 'CJ API erreichbar';
   }
+  if(state === 'reauth'){
+    if(service === 'ebay') return 'Reconnect nötig';
+    return 'Aktion nötig';
+  }
   if(state === 'error'){
     if(service === 'backend') return 'Backend nicht erreichbar';
     if(service === 'ebay') return 'eBay API nicht erreichbar';
     return 'CJ API nicht erreichbar';
   }
   return 'Nicht geprüft';
+}
+function getStoredEbayReconnectUrl(){
+  return String((integrationSettings && integrationSettings.ebayReconnectUrl) || '').trim();
+}
+function renderEbayReconnectStatusPanel(){
+  const reconnectUrl = getStoredEbayReconnectUrl();
+  const ebayState = String((integrationSettings && integrationSettings.ebayCheck) || 'unknown');
+  const ordersState = String((integrationSettings && integrationSettings.ebayOrdersScope) || 'unknown');
+  const ordersHint = String((integrationSettings && integrationSettings.ebayOrdersHint) || '').trim();
+  const ebayLabel = integrationStatusText('ebay', ebayState);
+  const ordersLabel = ordersState === 'ok'
+    ? 'Bestellungen lesbar'
+    : ordersState === 'reauth'
+      ? 'Reconnect nötig'
+      : ordersState === 'error'
+        ? 'Prüfen'
+        : 'Unbekannt';
+  const reconnectLabel = reconnectUrl ? 'Reconnect bereit' : 'Bereit bei Bedarf';
+  safe('ebayReconnectStatusMain', el => el.textContent = ebayLabel);
+  safe('ebayOrdersScopeStatusMain', el => el.textContent = ordersLabel);
+  safe('ebayReconnectActionMain', el => el.textContent = reconnectLabel);
+  let html = '<p>eBay noch nicht geprüft.</p>';
+  if(ebayState === 'ok' && ordersState === 'ok'){
+    html = '<p>✅ eBay verbunden. Orders-Scope ist lesbar.</p><p class="hint">Status, Search und Orders können lesend genutzt werden.</p>';
+  }else if(ordersState === 'reauth'){
+    html = '<p>⚠️ <strong>eBay muss neu verbunden werden, damit Bestellungen gelesen werden können.</strong></p>' +
+      '<p class="hint">' + escapeHtml(ordersHint || 'Der aktuelle Refresh Token hat keinen nutzbaren Orders-/Fulfillment-Scope.') + '</p>' +
+      buildEbayReconnectActionHtml(reconnectUrl, 'eBay neu verbinden');
+    if(!reconnectUrl){
+      html += '<p class="hint">Reconnect-Link fehlt. Bitte Backend-URL oder /api/ebay/login-url prüfen.</p>';
+    }
+  }else if(ebayState === 'ok'){
+    html = '<p>eBay API erreichbar.</p><p class="hint">Orders-Scope noch nicht geprüft.</p>';
+  }else if(ebayState === 'error'){
+    html = '<p>⚠️ eBay API derzeit nicht erreichbar.</p><p class="hint">Bitte Backend und eBay-Status prüfen.</p>';
+  }
+  setHTML('ebayReconnectResultMain', html);
+  setHTML('ebayReconnectResultSettings', html);
+}
+async function getEbayReconnectUrlFromBackend(){
+  const data = await fetchBackendJSON('/api/ebay/login-url');
+  if(!data || !data.ok || !data.authUrl){
+    throw new Error((data && (data.error || data.message)) ? (data.error || data.message) : 'Kein eBay Reconnect-Link vom Backend erhalten.');
+  }
+  return String(data.authUrl || '').trim();
+}
+function openEbayReconnectLink(url){
+  const safeUrl = String(url || '').trim();
+  if(!safeUrl){
+    alert('Kein eBay-Reconnect-Link verfügbar. Bitte Backend URL oder /api/ebay/login-url prüfen.');
+    return;
+  }
+  window.open(safeUrl, '_blank', 'noopener');
+}
+async function openEbayReconnectFlow(){
+  const backendUrl = getBackendUrl();
+  if(!backendUrl){
+    integrationSettings.ebayCheck = integrationSettings.ebayCheck === 'ok' ? 'ok' : 'reauth';
+    integrationSettings.ebayOrdersScope = 'reauth';
+    integrationSettings.ebayOrdersHint = 'Bitte zuerst die Backend URL speichern.';
+    integrationSettings.ebayReconnectUrl = '';
+    localStorage.setItem('elyonIntegrations', JSON.stringify(integrationSettings));
+    renderIntegrationStatus();
+    renderEbayReconnectStatusPanel();
+    return;
+  }
+  try{
+    const reconnectUrl = getStoredEbayReconnectUrl() || await getEbayReconnectUrlFromBackend();
+    integrationSettings.backendUrl = backendUrl;
+    integrationSettings.ebayReconnectUrl = reconnectUrl;
+    if(integrationSettings.ebayCheck !== 'ok') integrationSettings.ebayCheck = 'reauth';
+    integrationSettings.ebayOrdersScope = 'reauth';
+    integrationSettings.ebayOrdersHint = integrationSettings.ebayOrdersHint || 'eBay neu verbinden, damit Bestellungen gelesen werden können.';
+    localStorage.setItem('elyonIntegrations', JSON.stringify(integrationSettings));
+    renderIntegrationStatus();
+    renderEbayReconnectStatusPanel();
+    openEbayReconnectLink(reconnectUrl);
+  }catch(err){
+    integrationSettings.backendUrl = backendUrl;
+    integrationSettings.ebayCheck = integrationSettings.ebayCheck === 'ok' ? 'ok' : 'reauth';
+    integrationSettings.ebayOrdersScope = 'reauth';
+    integrationSettings.ebayOrdersHint = err && err.message ? err.message : 'Reconnect-Link konnte nicht geladen werden.';
+    integrationSettings.ebayReconnectUrl = '';
+    localStorage.setItem('elyonIntegrations', JSON.stringify(integrationSettings));
+    renderIntegrationStatus();
+    renderEbayReconnectStatusPanel();
+  }
 }
 function normalizeBackendUrl(url){
   let out = String(url || '').trim();
@@ -3727,6 +3842,11 @@ function renderDebugKeyValue(label,value){
   const text = typeof value === 'string' ? value : JSON.stringify(value);
   return '<p class="hint"><strong>'+escapeHtml(label)+':</strong> '+escapeHtml(text)+'</p>';
 }
+function buildEbayReconnectActionHtml(url, label){
+  const safeUrl = String(url || '').trim();
+  if(!safeUrl) return '';
+  return '<div class="row" style="margin-top:10px"><button type="button" class="secondary full" onclick="openEbayReconnectLink('+escapeInlineJsArg(safeUrl)+')">'+escapeHtml(label || 'eBay neu verbinden')+'</button></div>';
+}
 function buildEbayOrdersErrorHtml(err){
   const reason = err && err.reason ? String(err.reason) : '';
   const data = err && err.data ? err.data : {};
@@ -3754,8 +3874,13 @@ function buildEbayOrdersErrorHtml(err){
   html += renderDebugKeyValue('eBay Status', debug.ebay_status || '');
   html += renderDebugKeyValue('eBay Details', data.details || debug.ebay_error || '');
   html += renderDebugKeyValue('Aktion nötig', data.action_required || '');
+  if(reason === 'orders_scope_reauth_required'){
+    html += '<p><strong>eBay muss neu verbunden werden, damit Bestellungen gelesen werden können.</strong></p>';
+  }
   if(data && data.reconnect_url){
-    html += '<p><a href="'+escapeHtml(String(data.reconnect_url))+'" target="_blank" rel="noopener">eBay neu verbinden</a></p>';
+    html += buildEbayReconnectActionHtml(data.reconnect_url, 'eBay neu verbinden');
+  }else if(reason === 'orders_scope_reauth_required'){
+    html += '<p class="hint">Reconnect-Link fehlt. Bitte Backend-URL oder /api/ebay/login-url prüfen.</p>';
   }
   html += '<p class="hint">Erwartete Backend-Route: /api/ebay/orders?days=7&status=all</p>';
   return html;
@@ -3799,26 +3924,58 @@ function prepareEbayIntegration(){
   if(!backendUrl){
     setHTML('ebayIntegrationResult','<p>Bitte zuerst die Backend URL speichern.</p>');
     setHTML('settingsIntegrationResult','<p>Bitte zuerst die Backend URL speichern.</p>');
+    integrationSettings.ebayCheck = 'reauth';
+    integrationSettings.ebayOrdersScope = 'reauth';
+    integrationSettings.ebayOrdersHint = 'Bitte zuerst die Backend URL speichern.';
+    integrationSettings.ebayReconnectUrl = '';
+    localStorage.setItem('elyonIntegrations', JSON.stringify(integrationSettings));
+    renderIntegrationStatus();
     return;
   }
   integrationSettings.backendUrl = backendUrl;
   integrationSettings.ebayCheck = 'unknown';
+  integrationSettings.ebayOrdersScope = 'unknown';
+  integrationSettings.ebayOrdersHint = '';
   localStorage.setItem('elyonIntegrations', JSON.stringify(integrationSettings));
   renderIntegrationStatus();
   setHTML('ebayIntegrationResult','<p>eBay API wird geprüft...</p>');
   setHTML('settingsIntegrationResult','<p>eBay API wird geprüft...</p>');
-  fetchBackendJSON('/api/ebay/status').then(function(data){
+  fetchBackendJSON('/api/ebay/status').then(async function(data){
     if(!data || data.ok !== true){
       throw new Error((data && (data.error || data.message)) ? (data.error || data.message) : 'eBay Route antwortet nicht mit ok:true');
     }
     integrationSettings.ebayCheck = 'ok';
+    let html = '<p>eBay API erreichbar.</p><p class="hint">Route geprüft: /api/ebay/status</p>';
+    try{
+      await fetchBackendJSON('/api/ebay/orders?days=1&status=all');
+      integrationSettings.ebayOrdersScope = 'ok';
+      integrationSettings.ebayOrdersHint = 'Orders-Scope ist lesbar.';
+      integrationSettings.ebayReconnectUrl = '';
+      html += '<p class="hint">Orders-Scope: lesbar.</p>';
+    }catch(scopeErr){
+      if(scopeErr && scopeErr.reason === 'orders_scope_reauth_required'){
+        integrationSettings.ebayCheck = 'reauth';
+        integrationSettings.ebayOrdersScope = 'reauth';
+        integrationSettings.ebayOrdersHint = 'eBay neu verbinden, damit Bestellungen gelesen werden können.';
+        integrationSettings.ebayReconnectUrl = scopeErr.data && scopeErr.data.reconnect_url ? String(scopeErr.data.reconnect_url) : '';
+        html += '<p class="hint">Orders-Scope: Reconnect nötig.</p>' + buildEbayReconnectActionHtml(integrationSettings.ebayReconnectUrl, 'eBay neu verbinden');
+        if(!integrationSettings.ebayReconnectUrl){
+          html += '<p class="hint">Reconnect-Link fehlt. Bitte Backend-URL oder /api/ebay/login-url prüfen.</p>';
+        }
+      }else{
+        integrationSettings.ebayOrdersScope = 'error';
+        integrationSettings.ebayOrdersHint = scopeErr && scopeErr.message ? scopeErr.message : 'Orders-Scope konnte nicht geprüft werden.';
+        html += '<p class="hint">Orders-Scope konnte nicht sauber geprüft werden.</p>';
+      }
+    }
     localStorage.setItem('elyonIntegrations', JSON.stringify(integrationSettings));
     renderIntegrationStatus();
-    const html = '<p>eBay API erreichbar.</p><p class="hint">Route geprüft: /api/ebay/status</p>';
     setHTML('ebayIntegrationResult',html);
     setHTML('settingsIntegrationResult',html);
   }).catch(function(err){
     integrationSettings.ebayCheck = 'error';
+    integrationSettings.ebayOrdersScope = 'error';
+    integrationSettings.ebayOrdersHint = err && err.message ? err.message : 'eBay API nicht erreichbar';
     localStorage.setItem('elyonIntegrations', JSON.stringify(integrationSettings));
     renderIntegrationStatus();
     const msg = err && err.message ? err.message : 'eBay API nicht erreichbar';
@@ -3870,6 +4027,8 @@ function resetIntegrationSettings(){
   setHTML('settingsIntegrationResult','<p>Integrationen wurden zurückgesetzt. Backend, eBay und CJ sind wieder nicht geprüft.</p>');
   setHTML('backendTestResult','<p>Backend noch nicht geprüft.</p>');
   setHTML('ebayIntegrationResult','<p>eBay API noch nicht geprüft.</p>');
+  setHTML('ebayReconnectResultMain','<p>eBay noch nicht geprüft.</p>');
+  setHTML('ebayReconnectResultSettings','<p>Reconnect-Hinweise erscheinen hier, wenn der Orders-Scope fehlt.</p>');
   setHTML('cjIntegrationResult','<p>CJ API noch nicht geprüft.</p>');
   setHTML('cjSearchResult','<p>Noch keine CJ Suche.</p>');
   setHTML('ebayCompetitionResult','<p>Noch keine eBay Konkurrenzprüfung.</p>');
@@ -4792,9 +4951,23 @@ async function previewEbayOrders(){
   try{
     const data = await fetchBackendJSON('/api/ebay/orders?days=' + encodeURIComponent(days) + '&status=' + encodeURIComponent(status));
     const orders = backendOrderItems(data);
+    integrationSettings.ebayCheck = 'ok';
+    integrationSettings.ebayOrdersScope = 'ok';
+    integrationSettings.ebayOrdersHint = '';
+    integrationSettings.ebayReconnectUrl = '';
+    localStorage.setItem('elyonIntegrations', JSON.stringify(integrationSettings));
+    renderIntegrationStatus();
     if(!orders.length){ setHTML('ebayOrdersImportResult','<p>Keine Bestellungen gefunden oder Backend liefert keine Order-Liste.</p>'); return; }
     showEbayOrdersPreview(orders);
   }catch(err){
+    if(err && err.reason === 'orders_scope_reauth_required'){
+      integrationSettings.ebayCheck = 'reauth';
+      integrationSettings.ebayOrdersScope = 'reauth';
+      integrationSettings.ebayOrdersHint = err.message || 'eBay muss neu verbunden werden, damit Bestellungen gelesen werden können.';
+      integrationSettings.ebayReconnectUrl = err.data && err.data.reconnect_url ? String(err.data.reconnect_url) : '';
+      localStorage.setItem('elyonIntegrations', JSON.stringify(integrationSettings));
+      renderIntegrationStatus();
+    }
     setHTML('ebayOrdersImportResult',buildEbayOrdersErrorHtml(err));
     syncEbayOrdersImportPanels();
   }
@@ -12036,10 +12209,13 @@ function bindEvents(){
   bind('saveIntegrationSettingsBtn','click',saveIntegrationSettings);
   bind('testBackendBtn','click',testBackendConnection);
   bind('ebayConnectPlanBtn','click',prepareEbayIntegration);
+  bind('ebayStatusCheckBtn','click',prepareEbayIntegration);
+  bind('ebayReconnectBtn','click',openEbayReconnectFlow);
   bind('cjConnectPlanBtn','click',prepareCjIntegration);
   bind('setSaveIntegrationSettingsBtn','click',saveIntegrationSettings);
   bind('setTestBackendBtn','click',testBackendConnection);
   bind('setEbayConnectPlanBtn','click',prepareEbayIntegration);
+  bind('setEbayReconnectBtn','click',openEbayReconnectFlow);
   bind('setCjConnectPlanBtn','click',prepareCjIntegration);
   bind('resetIntegrationSettingsBtn','click',resetIntegrationSettings);
   bind('apiOpenSettingsBtn','click',openIntegrations);
