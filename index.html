@@ -1652,7 +1652,7 @@ Land"></textarea>
         <button id="syncSuppliersGoogleSheetsBtn" class="secondary full" type="button">Supplier Liste synchronisieren</button>
       </div>
       <div class="row" style="margin-top:10px">
- <button id="syncSalesGoogleSheetsBtn" class="secondary full" type="button">InventarTracker synchronisieren</button>
+ <button id="syncInventoryTrackerGoogleSheetsBtn" class="secondary full" type="button">InventarTracker synchronisieren</button>
         <button id="syncCostsGoogleSheetsBtn" class="secondary full" type="button">Laufende Kosten synchronisieren</button>
       </div>
       <div id="googleSheetsSyncStatus" class="output-box" style="margin-top:14px"><p>Nicht verbunden</p></div>
@@ -11029,6 +11029,7 @@ function importFullBackup(e){
         if(data.googleSheetsSync.lastCostsSyncAt !== undefined) localStorage.setItem(GOOGLE_SHEETS_SYNC_KEYS.costsAt, String(data.googleSheetsSync.lastCostsSyncAt || ''));
       }
       localStorage.setItem('elyonProducts',JSON.stringify(products));
+      localStorage.setItem('elyonBrowserImports',JSON.stringify(browserImports));
       localStorage.setItem('elyonSales',JSON.stringify(sales));
       localStorage.setItem('elyonSuppliers',JSON.stringify(suppliers));
       localStorage.setItem('elyonCosts',JSON.stringify(runningCosts));
@@ -11868,6 +11869,7 @@ function bindEvents(){
   bind('syncInventoryGoogleSheetsBtn','click',syncInventoryToGoogleSheet);
   bind('syncSuppliersGoogleSheetsBtn','click',syncSuppliersToGoogleSheet);
   bind('syncSalesGoogleSheetsBtn','click',syncSalesToGoogleSheet);
+  bind('syncInventoryTrackerGoogleSheetsBtn','click',syncInventoryToGoogleSheet);
   bind('syncSalesGoogleSheetsShortcutBtn','click',syncSalesToGoogleSheetShortcut);
   bind('syncCostsGoogleSheetsBtn','click',syncCostsToGoogleSheet);
   bind('syncAllGoogleSheetsBtn','click',syncAllToGoogleSheet);

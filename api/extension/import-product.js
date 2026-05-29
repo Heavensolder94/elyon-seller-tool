@@ -1,5 +1,8 @@
 import { applyCors } from "../../lib/api-cors.js";
 import { normalizeBrowserImport, normalizeBrowserImportList } from "../../lib/browser-import-normalizer.js";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 function json(res, status, body) {
   return res.status(status).json(body);
@@ -152,6 +155,68 @@ function normalizeList(list) {
   return normalizeBrowserImportList(list);
 }
 
+function toTimestamp(value) {
+  const time = new Date(toText(value)).getTime();
+  return Number.isFinite(time) ? time : 0;
+}
+
+function latestImportTimestamp(items) {
+  return normalizeList(items).reduce((latest, item) => {
+    return Math.max(
+      latest,
+      toTimestamp(item.updatedAt),
+      toTimestamp(item.importedAt),
+      toTimestamp(item.detectedAt)
+    );
+  }, 0);
+}
+
+function shouldPreferLocalFallback(remoteItems, localItems) {
+  const remote = normalizeList(remoteItems);
+  const local = normalizeList(localItems);
+  if (!local.length) return false;
+  if (!remote.length) return true;
+  const remoteLatest = latestImportTimestamp(remote);
+  const localLatest = latestImportTimestamp(local);
+  if (localLatest > remoteLatest) return true;
+  if (local.length > remote.length && localLatest >= remoteLatest) return true;
+  return false;
+}
+
+function mergeImportLists(remoteItems, localItems) {
+  const byKey = new Map();
+  const append = (entry) => {
+    const item = normalizeBrowserImport(entry);
+    const key = toText(item.url || item.id || `${item.title}|${item.importedAt}`);
+    if (!key) return;
+    const current = byKey.get(key);
+    if (!current) {
+      byKey.set(key, item);
+      return;
+    }
+    const currentStamp = Math.max(
+      toTimestamp(current.updatedAt),
+      toTimestamp(current.importedAt),
+      toTimestamp(current.detectedAt)
+    );
+    const nextStamp = Math.max(
+      toTimestamp(item.updatedAt),
+      toTimestamp(item.importedAt),
+      toTimestamp(item.detectedAt)
+    );
+    if (nextStamp >= currentStamp) {
+      byKey.set(key, { ...current, ...item });
+    }
+  };
+
+  normalizeList(remoteItems).forEach(append);
+  normalizeList(localItems).forEach(append);
+
+  return Array.from(byKey.values()).sort((a, b) => {
+    return latestImportTimestamp([b]) - latestImportTimestamp([a]);
+  });
+}
+
 function readStore() {
   const raw = globalThis.__elyonBrowserImports;
   return Array.isArray(raw) ? normalizeList(raw) : [];
@@ -162,17 +227,49 @@ function writeStore(next) {
   return globalThis.__elyonBrowserImports;
 }
 
+function getLocalFallbackPath() {
+  if (process.env.ELYON_BROWSER_IMPORTS_PATH) return process.env.ELYON_BROWSER_IMPORTS_PATH;
+  const moduleDir = dirname(fileURLToPath(import.meta.url));
+  return join(moduleDir, "../../data/browser-imports.json");
+}
+
+async function ensureDirectoryFor(filePath) {
+  await mkdir(dirname(filePath), { recursive: true });
+}
+
+async function readLocalFallbackStore() {
+  const filePath = getLocalFallbackPath();
+  try {
+    const raw = await readFile(filePath, "utf8");
+    const parsed = JSON.parse(raw);
+    return normalizeList(Array.isArray(parsed) ? parsed : []);
+  } catch {
+    return [];
+  }
+}
+
+async function writeLocalFallbackStore(items) {
+  const filePath = getLocalFallbackPath();
+  try {
+    await ensureDirectoryFor(filePath);
+    await writeFile(filePath, JSON.stringify(normalizeList(items), null, 2), "utf8");
+    return { ok: true, path: filePath };
+  } catch (error) {
+    return { ok: false, path: filePath, error: error?.message || "Lokales Speichern fehlgeschlagen." };
+  }
+}
+
 function getStorageInfo(persisted = false) {
   const config = getRedisConfig();
   const configured = Boolean(config.url && config.token);
   return {
     configured,
     persisted: Boolean(persisted),
-    mode: configured ? "server_persistent" : "server_memory",
+    mode: configured ? "server_persistent" : "server_memory_with_file_fallback",
     source: config.source,
     message: configured
       ? "Serverseitige Persistenz aktiv."
-      : "Serverseitig aktiv, aber ohne persistente Storage-Umgebung. Bitte Vercel Storage/Upstash verbinden."
+      : "Serverseitig aktiv. Ohne Upstash wird ein lokaler Dateifallback genutzt."
   };
 }
 
@@ -202,6 +299,39 @@ async function redisCommand(command) {
   return response.json().catch(() => null);
 }
 
+async function readPersistentValue(key) {
+  const { url, token } = getRedisConfig();
+  if (!url || !token) return null;
+  const response = await fetch(`${url.replace(/\/$/, "")}/get/${encodeURIComponent(key)}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: "application/json",
+    },
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(`Redis REST ${response.status}`);
+  return data?.result ?? null;
+}
+
+async function writePersistentValue(key, payload) {
+  const { url, token } = getRedisConfig();
+  if (!url || !token) return { ok: false, error: "Redis nicht konfiguriert." };
+  const response = await fetch(`${url.replace(/\/$/, "")}/set/${encodeURIComponent(key)}`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    return { ok: false, error: data?.error || data?.message || `Redis REST ${response.status}` };
+  }
+  return { ok: true };
+}
+
 function parseStoredList(raw) {
   if (Array.isArray(raw)) return raw;
   if (Array.isArray(raw?.value)) return raw.value;
@@ -218,8 +348,8 @@ function parseStoredList(raw) {
 }
 
 async function readPersistentList(key) {
-  const data = await redisCommand(["GET", key]);
-  return normalizeList(parseStoredList(data?.result));
+  const value = await readPersistentValue(key);
+  return normalizeList(parseStoredList(value));
 }
 
 function browserImportFromProduct(product = {}) {
@@ -273,39 +403,61 @@ function browserImportFromProduct(product = {}) {
 async function loadPersistentStore() {
   const { url, token } = getRedisConfig();
   if (!url || !token) {
+    const localFallback = await readLocalFallbackStore();
+    if (localFallback.length) {
+      writeStore(localFallback);
+      return localFallback;
+    }
     return readStore();
   }
 
   try {
     let normalized = await readPersistentList("elyon_browser_imports");
+    const localFallback = await readLocalFallbackStore();
+    if (localFallback.length) {
+      normalized = mergeImportLists(normalized, localFallback);
+    }
+    if (shouldPreferLocalFallback(normalized, localFallback)) {
+      await writePersistentValue("elyon_browser_imports", normalized).catch(() => null);
+    }
     if (!normalized.length) {
       const recovered = (await readPersistentList("elyon_products"))
         .map(browserImportFromProduct)
         .filter(Boolean);
       if (recovered.length) {
         normalized = recovered;
-        await redisCommand(["SET", "elyon_browser_imports", JSON.stringify(normalized)]);
+        await writePersistentValue("elyon_browser_imports", normalized);
       }
+    }
+    if (!normalized.length && localFallback.length) {
+      writeStore(localFallback);
+      return localFallback;
     }
     writeStore(normalized);
     return normalized;
   } catch {
+    const localFallback = await readLocalFallbackStore();
+    if (localFallback.length) {
+      writeStore(localFallback);
+      return localFallback;
+    }
     return readStore();
   }
 }
 
 async function savePersistentStore(items) {
   const normalized = writeStore(items);
+  const localFallback = await writeLocalFallbackStore(normalized);
   const { url, token } = getRedisConfig();
   if (!url || !token) {
-    return { persisted: false, items: normalized };
+    return { persisted: localFallback.ok, items: normalized, localFallback };
   }
 
   try {
-    await redisCommand(["SET", "elyon_browser_imports", JSON.stringify(normalized)]);
-    return { persisted: true, items: normalized };
+    const remote = await writePersistentValue("elyon_browser_imports", normalized);
+    return { persisted: remote.ok || localFallback.ok, items: normalized, localFallback, remote };
   } catch {
-    return { persisted: false, items: normalized };
+    return { persisted: localFallback.ok, items: normalized, localFallback };
   }
 }
 
