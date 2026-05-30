@@ -741,8 +741,29 @@ const START_TARGETS_BY_TAB = {
   invoiceTab: 'invoice',
   shopifyTab: 'shopify'
 };
+const initializedLazyTabs = new Set();
 function resolveTabId(tabId){
   return TAB_ALIASES[tabId] || tabId;
+}
+function ensureLazyTabReady(tabId){
+  if(initializedLazyTabs.has(tabId)) return;
+  if(tabId === 'ordersTab'){
+    runSafeUiStep('lazy:renderSales', renderSales);
+    runSafeUiStep('lazy:renderSaleProductOptions', renderSaleProductOptions);
+    runSafeUiStep('lazy:updateSalePreview', updateSalePreview);
+  }else if(tabId === 'returnsTab'){
+    runSafeUiStep('lazy:renderReturns', renderReturns);
+    runSafeUiStep('lazy:renderShopifyReturns', renderShopifyReturns);
+    runSafeUiStep('lazy:renderReturnsOverview', renderReturnsOverview);
+  }else if(tabId === 'settingsTab'){
+    runSafeUiStep('lazy:renderIntegrationStatus', renderIntegrationStatus);
+    runSafeUiStep('lazy:refreshSourceProviderOptions', refreshSourceProviderOptions);
+    runSafeUiStep('lazy:renderSupplierCards', renderSupplierCards);
+    runSafeUiStep('lazy:loadSupplierStatuses', function(){ return loadSupplierStatuses(true); });
+  }else if(tabId === 'productListTab'){
+    runSafeUiStep('lazy:renderBrowserImports', renderBrowserImports);
+  }
+  initializedLazyTabs.add(tabId);
 }
 function showTab(tabId){
   const resolvedId = resolveTabId(tabId);
@@ -750,6 +771,7 @@ function showTab(tabId){
   if(!target){ console.warn('Tab nicht gefunden:', tabId); return; }
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   target.classList.add('active');
+  ensureLazyTabReady(resolvedId);
   safe('mainMenu', menu => { if([...menu.options].some(o => o.value === resolvedId && !o.disabled)) menu.value = resolvedId; });
   const startTarget = START_TARGETS_BY_TAB[resolvedId];
   if(startTarget) localStorage.setItem('elyonLastStartTarget', startTarget);
@@ -8231,8 +8253,7 @@ function buildAiDescriptionPrompt(){
         imageCount: context.imageCount
       }
     }, null, 2)
-  ].join('
-');
+  ].join('\n');
 }
 function buildAiTagsPrompt(){
   const main = $('gMainKeyword') && $('gMainKeyword').value.trim() ? $('gMainKeyword').value.trim() : '';
@@ -10604,6 +10625,14 @@ function runSelfTests(){
   console.assert(typeof closeInvoiceModal === 'function', 'Rechnungsmodal schließen sollte existieren');
   console.assert(typeof handleInvoiceModalClick === 'function', 'Rechnungsmodal Klickhandler sollte existieren');
 }
+function runDeferredStartupStep(label, fn, delay){
+  const schedule = typeof window.requestIdleCallback === 'function'
+    ? (callback)=>window.requestIdleCallback(callback, { timeout: Math.max(400, delay || 0) })
+    : (callback)=>window.setTimeout(callback, delay || 0);
+  schedule(()=>{
+    runSafeUiStep(label, fn);
+  });
+}
 document.addEventListener('DOMContentLoaded',()=>{
   runSafeUiStep('initListing', initListing);
   runSafeUiStep('bindEvents', bindEvents);
@@ -10634,22 +10663,11 @@ document.addEventListener('DOMContentLoaded',()=>{
   runSafeUiStep('updateToggleViewButton', ()=>safe('toggleViewBtn',el=>el.textContent=productViewMode==='list'?'Kanban-Ansicht':'Listen-Ansicht'));
   runSafeUiStep('render', render);
   runSafeUiStep('renderProductApiStatus', renderProductApiStatus);
-  runSafeUiStep('loadProductsFromApi', ()=>loadProductsFromApi({silent:true}));
-  runSafeUiStep('renderReturns', renderReturns);
-  runSafeUiStep('renderShopifyReturns', renderShopifyReturns);
-  runSafeUiStep('renderReturnsOverview', renderReturnsOverview);
-  runSafeUiStep('renderSales', renderSales);
-  runSafeUiStep('renderSaleProductOptions', renderSaleProductOptions);
-  runSafeUiStep('updateSalePreview', updateSalePreview);
-  runSafeUiStep('renderIntegrationStatus', renderIntegrationStatus);
-  runSafeUiStep('refreshSourceProviderOptions', refreshSourceProviderOptions);
-  runSafeUiStep('renderSupplierCards', renderSupplierCards);
-  runSafeUiStep('loadSupplierStatuses', function(){ return loadSupplierStatuses(true); });
-  runSafeUiStep('renderBrowserImports', renderBrowserImports);
-  runSafeUiStep('hydrateBrowserImportsFromBackend', hydrateBrowserImportsFromBackend);
   runSafeUiStep('setSourcingWorkflowStep', ()=>setSourcingWorkflowStep('1', null, false));
-  if(localStorage.getItem('elyonShowStartLauncher') !== 'no') runSafeUiStep('openStartLauncher', openStartLauncher);
-  runSafeUiStep('runSelfTests', runSelfTests);
+  if(localStorage.getItem('elyonShowStartLauncher') !== 'no') runDeferredStartupStep('openStartLauncher', openStartLauncher, 120);
+  runDeferredStartupStep('loadProductsFromApi', ()=>loadProductsFromApi({silent:true}), 180);
+  runDeferredStartupStep('hydrateBrowserImportsFromBackend', hydrateBrowserImportsFromBackend, 260);
+  runDeferredStartupStep('runSelfTests', runSelfTests, 900);
 });
   async function searchEbayCompetitionLegacyA(){
   const input = document.getElementById('ebayCompetitionKeyword');
