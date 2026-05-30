@@ -2121,6 +2121,18 @@ async function syncAllToGoogleSheet(){
   setGoogleSheetsSyncButtonsLoading(false, '');
   return summary;
 }
+window.setGoogleSheetsSyncTokenVisibility = setGoogleSheetsSyncTokenVisibility;
+window.saveGoogleSheetsSyncSettings = saveGoogleSheetsSyncSettings;
+window.syncInventoryToGoogleSheet = syncInventoryToGoogleSheet;
+window.syncSuppliersToGoogleSheet = syncSuppliersToGoogleSheet;
+window.syncSalesToGoogleSheet = syncSalesToGoogleSheet;
+window.syncCostsToGoogleSheet = syncCostsToGoogleSheet;
+window.syncAllToGoogleSheet = syncAllToGoogleSheet;
+window.saveIntegrationSettings = saveIntegrationSettings;
+window.testBackendConnection = testBackendConnection;
+window.prepareEbayIntegration = prepareEbayIntegration;
+window.prepareCjIntegration = prepareCjIntegration;
+window.resetIntegrationSettings = resetIntegrationSettings;
 function backendProductItems(data){
   if(Array.isArray(data)) return data;
   if(Array.isArray(data.products)) return data.products;
@@ -2994,6 +3006,21 @@ function renderSourcingRiskVisual(analysis){
 function getSourceBackendUrl(){
   const storedBackend = localStorage.getItem('backendUrl') || localStorage.getItem('elyonBackendUrl') || '';
   return getBackendUrl() || normalizeBackendUrl(storedBackend) || 'https://elyonsellertool.vercel.app';
+}
+function getPreferredApiBaseUrl(){
+  const fromSettings = typeof getBackendUrl === 'function' ? getBackendUrl() : '';
+  const stored = normalizeBackendUrl(localStorage.getItem('backendUrl') || localStorage.getItem('elyonBackendUrl') || '');
+  const sameOrigin = (window.location && /^https?:$/i.test(window.location.protocol)) ? normalizeBackendUrl(window.location.origin) : '';
+  return fromSettings || stored || sameOrigin || 'https://elyonsellertool.vercel.app';
+}
+function resolveApiRequestUrl(url){
+  const raw = String(url || '').trim();
+  if(!raw) return raw;
+  if(/^https?:\/\//i.test(raw)) return raw;
+  if(raw.startsWith('/api/')){
+    return getPreferredApiBaseUrl() + raw;
+  }
+  return raw;
 }
 function hasOnlineProductData(online){
   if(!online || !online.ok) return false;
@@ -7942,10 +7969,11 @@ function proceedAiBillingAction(){
   runAiListingOptimizer(mode);
 }
 async function postJsonWithTimeout(url, payload, timeoutMs){
+  const requestUrl = resolveApiRequestUrl(url);
   const controller = new AbortController();
   const timeoutId = setTimeout(function(){ controller.abort(); }, timeoutMs || 30000);
   try{
-    const response = await fetch(url, {
+    const response = await fetch(requestUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

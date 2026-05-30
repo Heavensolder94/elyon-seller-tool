@@ -2130,18 +2130,18 @@ Land"></textarea>
           <label>Backend URL</label>
           <input id="setIntBackendUrl" placeholder="z. B. http://localhost:3000 oder https://dein-server.de">
           <div class="row">
-            <button id="setSaveIntegrationSettingsBtn" class="secondary full">Backend speichern</button>
-            <button id="setTestBackendBtn" class="secondary full">Backend-Verbindung prüfen</button>
+            <button id="setSaveIntegrationSettingsBtn" class="secondary full" type="button" onclick="elyonSaveIntegrationSettings()">Backend speichern</button>
+            <button id="setTestBackendBtn" class="secondary full" type="button" onclick="elyonTestBackendConnection()">Backend-Verbindung prüfen</button>
           </div>
           <div class="row" style="margin-top:10px">
-            <button id="setEbayConnectPlanBtn" class="secondary full">eBay API prüfen</button>
-            <button id="setCjConnectPlanBtn" class="secondary full">CJ API prüfen</button>
+            <button id="setEbayConnectPlanBtn" class="secondary full" type="button" onclick="elyonPrepareEbayIntegration()">eBay API prüfen</button>
+            <button id="setCjConnectPlanBtn" class="secondary full" type="button" onclick="elyonPrepareCjIntegration()">CJ API prüfen</button>
           </div>
           <div class="row" style="margin-top:10px">
-            <button id="setEbayReconnectBtn" class="secondary full">eBay neu verbinden</button>
+            <button id="setEbayReconnectBtn" class="secondary full" type="button" onclick="openEbayReconnectFlow()">eBay neu verbinden</button>
           </div>
           <div id="ebayReconnectResultSettings" class="output-box" style="margin-top:10px"><p>Reconnect-Hinweise erscheinen hier, wenn der Orders-Scope fehlt.</p></div>
-          <button id="resetIntegrationSettingsBtn" class="danger full" style="margin-top:10px">Integrationen zurücksetzen</button>
+          <button id="resetIntegrationSettingsBtn" class="danger full" style="margin-top:10px" type="button" onclick="elyonResetIntegrationSettings()">Integrationen zurücksetzen</button>
           <div id="settingsIntegrationResult" class="output-box"><p>Hier prüfst du, ob dein Vercel-Backend, eBay und CJ technisch erreichbar sind. API-Keys und Secrets bleiben ausschließlich in Vercel Environment Variables, nicht in dieser HTML-Datei.</p></div>
 
           <div class="settings-section" style="margin-top:14px">
@@ -2772,6 +2772,218 @@ PLZ Ort"></textarea>
       window.openIntegrations();
       document.getElementById("aiDashboardModal")?.classList.remove("hidden");
     };
+    function elyonNormalizeBackendUrl(url) {
+      let value = String(url || "").trim();
+      if (value && !/^https?:\/\//i.test(value)) value = `https://${value}`;
+      while (value.endsWith("/")) value = value.slice(0, -1);
+      return value;
+    }
+    function elyonCurrentBackendBase() {
+      const modal = document.getElementById("setIntBackendUrl")?.value?.trim() || "";
+      const tab = document.getElementById("intBackendUrl")?.value?.trim() || "";
+      const stored = localStorage.getItem("elyonBackendUrl") || localStorage.getItem("backendUrl") || localStorage.getItem("elyonFallbackBackendUrl") || "https://elyonsellertool.vercel.app";
+      return elyonNormalizeBackendUrl(modal || tab || stored);
+    }
+    async function elyonJsonFetch(url, options = {}) {
+      const response = await fetch(url, {
+        method: options.method || "GET",
+        headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+        body: options.body ? JSON.stringify(options.body) : undefined
+      });
+      let data = {};
+      try {
+        data = await response.json();
+      } catch (error) {
+        data = {};
+      }
+      if (!response.ok || data?.ok === false) {
+        throw new Error(String(data?.error || data?.message || `HTTP ${response.status}`));
+      }
+      return data;
+    }
+    function elyonSetIntegrationStatus(kind, text) {
+      const ids = {
+        backend: ["setIntBackendStatus", "intBackendStatus"],
+        ebay: ["setIntEbayStatus", "intEbayStatus"],
+        cj: ["setIntCjStatus", "intCjStatus"]
+      };
+      (ids[kind] || []).forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = text;
+      });
+    }
+    function elyonLoadStoredArray(key) {
+      try {
+        const value = JSON.parse(localStorage.getItem(key) || "[]");
+        return Array.isArray(value) ? value : [];
+      } catch (error) {
+        return [];
+      }
+    }
+    function elyonGoogleSyncRecords(type) {
+      if (type === "inventory") {
+        return elyonLoadStoredArray("elyonProducts").map((p = {}) => ({
+          "Artikel-ID": p.id || p.articleId || p.sku || "",
+          "Bezeichnung": p.name || p.title || "",
+          "Typ": p.type || p.category || "Produkt",
+          "Preis EK": Number(p.buy || 0),
+          "Versand mind.": Number(p.ship || 0),
+          "PreisGesamt EK": Number((p.buy || 0)) + Number((p.ship || 0)),
+          "Preis VK (ebay)": Number(p.sell || 0),
+          "Ebay gebühren": Number(p.fee ?? p.fees ?? 0),
+          "Gewinn": Number(p.profit || 0),
+          "Zielgewinn": Number(p.targetProfit || 0),
+          "Emph. Zielpreis": Number(p.recommendedPrice || 0),
+          "Versand ab": p.shipFrom || p.shippingFrom || "",
+          "Stock": p.stock || p.qty || "",
+          "Status": p.productStatus || p.status || "Draft",
+          "Lieferant": p.supplierName || p.supplier || "",
+          "Versandzeit": p.delivery || p.deliveryTime || "",
+          "Ebay Link": p.ebayLink || p.ebayUrl || "",
+          "Hinweise": p.notes || ""
+        }));
+      }
+      if (type === "suppliers") {
+        return elyonLoadStoredArray("elyonSuppliers").map((s = {}) => ({
+          "Supplier-ID": s.supplierId || s.id || "",
+          "Name": s.name || s.supplierName || "",
+          "Plattform": s.platform || "",
+          "Website": s.website || s.url || "",
+          "Kontakt": s.contact || "",
+          "Versandländer": s.shippingCountries || "",
+          "Versandzeit": s.delivery || s.deliveryTime || "",
+          "Rückgabe möglich": s.returnsPossible || "",
+          "Zahlungsart": s.paymentType || "",
+          "Bewertung": s.rating || "",
+          "Status": s.status || "aktiv",
+          "Notizen": s.notes || ""
+        }));
+      }
+      if (type === "sales") {
+        return elyonLoadStoredArray("elyonSales").map((s = {}) => ({
+          "Order-ID": s.orderNo || s.orderId || s.id || "",
+          "Artikel-ID": s.articleId || s.productId || s.sku || "",
+          "Datum": s.createdAt || s.created || "",
+          "Produkt": s.product || s.name || s.title || "",
+          "Typ": s.type || s.category || "Produkt",
+          "Menge": Number(s.qty || s.quantity || 1),
+          "Plattform": s.platform || "eBay",
+          "Verkaufspreis": Number(s.price ?? s.sell ?? 0),
+          "Preis EK": Number(s.cost ?? s.buy ?? 0),
+          "Versandkosten": Number(s.ship ?? s.shipping ?? 0),
+          "Gebühren": Number(s.fees ?? s.fee ?? 0),
+          "Gesamt EK": Number(s.totalCost ?? ((s.cost ?? s.buy ?? 0) + (s.ship ?? s.shipping ?? 0))),
+          "Gewinn": Number(s.profit ?? 0),
+          "Zielgewinn": Number(s.targetProfit ?? 0),
+          "Empf. Zielpreis": Number(s.recommendedPrice ?? 0),
+          "Status": s.status || "Bezahlt",
+          "Versandstatus": s.shippingStatus || "",
+          "Trackingnummer": s.trackingNo || "",
+          "Käufer-Referenz": s.buyerRef || "",
+          "Kundenname": s.customerName || "",
+          "E-Mail": s.customerEmail || "",
+          "Telefon": s.customerPhone || "",
+          "Lieferant": s.supplierName || s.supplier || "",
+          "Versandzeit": s.delivery || s.deliveryTime || "",
+          "Versand ab": s.shipFrom || s.shippingFrom || "",
+          "Versanddienstleister": s.carrier || "",
+          "Retoure": s.returnFlag || "no",
+          "Versanddatum": s.shipDate || "",
+          "eBay Link": s.ebayLink || s.ebayUrl || "",
+          "Hinweise": s.note || s.notes || ""
+        }));
+      }
+      if (type === "costs") {
+        return elyonLoadStoredArray("elyonCosts").map((c = {}) => ({
+          "Name": c.id || c.costId || c.name || "",
+          "Interval": c.interval || c.repeatInterval || "",
+          "Betrag": Number(c.amount ?? c.value ?? 0),
+          "Notiz": c.description || c.note || c.notes || ""
+        }));
+      }
+      return [];
+    }
+    window.elyonSaveIntegrationSettings = async function () {
+      const input = document.getElementById("setIntBackendUrl") || document.getElementById("intBackendUrl");
+      const value = elyonNormalizeBackendUrl(input?.value?.trim() || "");
+      if (!value) {
+        const html = "<p>Bitte zuerst eine Backend URL eintragen.</p>";
+        const box = document.getElementById("settingsIntegrationResult");
+        if (box) box.innerHTML = html;
+        return;
+      }
+      localStorage.setItem("elyonFallbackBackendUrl", value);
+      localStorage.setItem("elyonBackendUrl", value);
+      localStorage.setItem("backendUrl", value);
+      try {
+        const integrations = JSON.parse(localStorage.getItem("elyonIntegrations") || "{}");
+        integrations.backendUrl = value;
+        integrations.backendCheck = "unknown";
+        localStorage.setItem("elyonIntegrations", JSON.stringify(integrations));
+      } catch (error) {}
+      ["setIntBackendUrl", "intBackendUrl"].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.value = value;
+      });
+      elyonSetIntegrationStatus("backend", "Nicht geprüft");
+      const html = `<p>Backend URL gespeichert: <strong>${value}</strong></p>`;
+      const box = document.getElementById("settingsIntegrationResult");
+      if (box) box.innerHTML = html;
+    };
+    window.elyonTestBackendConnection = async function () {
+      const value = elyonCurrentBackendBase();
+      const box = document.getElementById("settingsIntegrationResult");
+      if (!value) {
+        if (box) box.innerHTML = "<p>Bitte zuerst eine Backend URL eintragen.</p>";
+        return;
+      }
+      if (box) box.innerHTML = `<p>Prüfe Backend: <strong>${value}</strong></p><p>Ping wird geprüft...</p>`;
+      try {
+        await elyonJsonFetch(`${value}/api/ping`);
+        elyonSetIntegrationStatus("backend", "Backend erreichbar");
+        if (box) box.innerHTML = `<h3>Backend-Test</h3><p>Ping: <strong>Backend erreichbar</strong></p><p class="hint">Route geprüft: /api/ping</p>`;
+      } catch (error) {
+        elyonSetIntegrationStatus("backend", "Backend nicht erreichbar");
+        if (box) box.innerHTML = `<h3>Backend-Test</h3><p>Ping: <strong>Backend nicht erreichbar</strong></p><p class="hint">${String(error?.message || error)}</p><p class="hint">Route geprüft: /api/ping</p>`;
+      }
+    };
+    window.elyonPrepareEbayIntegration = async function () {
+      const value = elyonCurrentBackendBase();
+      const box = document.getElementById("settingsIntegrationResult");
+      if (box) box.innerHTML = "<p>eBay API wird geprüft...</p>";
+      try {
+        await elyonJsonFetch(`${value}/api/ebay/status`);
+        elyonSetIntegrationStatus("ebay", "eBay API erreichbar");
+        if (box) box.innerHTML = `<p>eBay API erreichbar.</p><p class="hint">Route geprüft: ${value}/api/ebay/status</p>`;
+      } catch (error) {
+        elyonSetIntegrationStatus("ebay", "eBay API nicht erreichbar");
+        if (box) box.innerHTML = `<p>eBay API nicht erreichbar.</p><p class="hint">${String(error?.message || error)}</p>`;
+      }
+    };
+    window.elyonPrepareCjIntegration = async function () {
+      const value = elyonCurrentBackendBase();
+      const box = document.getElementById("settingsIntegrationResult");
+      if (box) box.innerHTML = "<p>CJ API wird geprüft...</p>";
+      try {
+        await elyonJsonFetch(`${value}/api/cj/status`);
+        elyonSetIntegrationStatus("cj", "CJ API erreichbar");
+        if (box) box.innerHTML = `<p>CJ API erreichbar.</p><p class="hint">Route geprüft: ${value}/api/cj/status</p>`;
+      } catch (error) {
+        elyonSetIntegrationStatus("cj", "CJ API nicht erreichbar");
+        if (box) box.innerHTML = `<p>CJ API nicht erreichbar.</p><p class="hint">${String(error?.message || error)}</p>`;
+      }
+    };
+    window.elyonResetIntegrationSettings = async function () {
+      localStorage.removeItem("elyonFallbackBackendUrl");
+      localStorage.removeItem("elyonBackendUrl");
+      localStorage.removeItem("backendUrl");
+      localStorage.removeItem("elyonIntegrations");
+      elyonSetIntegrationStatus("backend", "Nicht geprüft");
+      elyonSetIntegrationStatus("ebay", "Nicht geprüft");
+      elyonSetIntegrationStatus("cj", "Nicht geprüft");
+      const box = document.getElementById("settingsIntegrationResult");
+      if (box) box.innerHTML = "<p>Integrationen wurden lokal zurückgesetzt.</p>";
+    };
     window.elyonGoogleSheetsSyncSave = async function () {
       const url = document.getElementById("googleSheetsSyncUrl")?.value?.trim() || "";
       const token = document.getElementById("googleSheetsSyncToken")?.value?.trim() || "";
@@ -2779,19 +2991,29 @@ PLZ Ort"></textarea>
         fallbackGoogleSheetsResult("<p>Bitte Web-App URL und Sync Token eintragen.</p>");
         return;
       }
-      if (typeof window.saveGoogleSheetsSyncSettings === "function") {
-        try {
-          await window.saveGoogleSheetsSyncSettings();
-          return;
-        } catch (error) {
-          fallbackGoogleSheetsResult(`<p>⚠️ <strong>Speichern</strong>: ${String(error?.message || error)}</p>`);
-          return;
-        }
-      }
+      const backendBase = elyonCurrentBackendBase();
       localStorage.setItem("elyonGoogleSheetsSyncUrlFallback", url);
       localStorage.setItem("elyonGoogleSheetsSyncTokenFallback", token);
-      fallbackGoogleSheetsStatus("<p>Sync bereit. URL und Token lokal gesetzt.</p>");
-      fallbackGoogleSheetsResult("<p>Sync-Einstellungen gespeichert.</p>");
+      try {
+        await elyonJsonFetch(`${backendBase}/api/google-sheets-sync-settings`, {
+          method: "POST",
+          body: {
+            settings: {
+              url,
+              token,
+              lastInventorySyncAt: localStorage.getItem("elyon_last_inventory_sync_at") || "",
+              lastSupplierSyncAt: localStorage.getItem("elyon_last_supplier_sync_at") || "",
+              lastSalesSyncAt: localStorage.getItem("elyon_last_sales_sync_at") || "",
+              lastCostsSyncAt: localStorage.getItem("elyon_last_costs_sync_at") || "",
+              lastSalesLoadAt: localStorage.getItem("elyon_last_sales_load_at") || ""
+            }
+          }
+        });
+        fallbackGoogleSheetsStatus("<p>Google Sheets Sync eingerichtet.</p>");
+        fallbackGoogleSheetsResult("<p>Sync-Einstellungen gespeichert.</p>");
+      } catch (error) {
+        fallbackGoogleSheetsResult(`<p>⚠️ <strong>Speichern</strong>: ${String(error?.message || error)}</p>`);
+      }
     };
     window.elyonGoogleSheetsSyncRun = async function (type) {
       const runMap = {
@@ -2813,7 +3035,55 @@ PLZ Ort"></textarea>
           return;
         }
       }
-      fallbackGoogleSheetsResult("<p>⚠️ Sync lokal vorbereitet, aber die Backend-Syncfunktion ist derzeit nicht verfügbar.</p>");
+      const backendBase = elyonCurrentBackendBase();
+      const typeMap = { inventoryTracker: "sales" };
+      const syncType = typeMap[type] || type;
+      const token = document.getElementById("googleSheetsSyncToken")?.value?.trim() || localStorage.getItem("elyonGoogleSheetsSyncTokenFallback") || "";
+      const syncUrl = document.getElementById("googleSheetsSyncUrl")?.value?.trim() || localStorage.getItem("elyonGoogleSheetsSyncUrlFallback") || "";
+      if (!token || !syncUrl) {
+        fallbackGoogleSheetsResult("<p>Bitte zuerst Web-App URL und Sync Token speichern.</p>");
+        return;
+      }
+      try {
+        fallbackGoogleSheetsResult("<p>Synchronisierung wird gestartet...</p>");
+        if (syncType === "all") {
+          const parts = [];
+          for (const singleType of ["inventory", "suppliers", "sales", "costs"]) {
+            const data = await elyonJsonFetch(`${backendBase}/api/google-sheets-sync`, {
+              method: "POST",
+              body: {
+                url: syncUrl,
+                payload: {
+                  token,
+                  action: "upsertRecords",
+                  type: singleType,
+                  records: elyonGoogleSyncRecords(singleType)
+                }
+              }
+            });
+            parts.push(`<li><strong>${singleType}</strong>: ${Number(data.processed || 0)} gesendet, ${Number(data.inserted || 0)} neu, ${Number(data.updated || 0)} aktualisiert.</li>`);
+          }
+          fallbackGoogleSheetsStatus("<p>Google Sheets Sync eingerichtet.</p>");
+          fallbackGoogleSheetsResult(`<h3>Sync abgeschlossen</h3><ul>${parts.join("")}</ul>`);
+          return;
+        }
+        const data = await elyonJsonFetch(`${backendBase}/api/google-sheets-sync`, {
+          method: "POST",
+          body: {
+            url: syncUrl,
+            payload: {
+              token,
+              action: "upsertRecords",
+              type: syncType,
+              records: elyonGoogleSyncRecords(syncType)
+            }
+          }
+        });
+        fallbackGoogleSheetsStatus("<p>Google Sheets Sync eingerichtet.</p>");
+        fallbackGoogleSheetsResult(`<p>✅ <strong>${syncType}</strong>: ${Number(data.processed || 0)} Datensätze gesendet, ${Number(data.inserted || 0)} neu, ${Number(data.updated || 0)} aktualisiert.</p>`);
+      } catch (error) {
+        fallbackGoogleSheetsResult(`<p>⚠️ <strong>Sync</strong>: ${String(error?.message || error)}</p>`);
+      }
     };
     window.openStartLauncher = typeof window.openStartLauncher === "function" ? window.openStartLauncher : function () {
       document.getElementById("startLauncherModal")?.classList.remove("hidden");
