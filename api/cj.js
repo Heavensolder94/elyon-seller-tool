@@ -269,6 +269,14 @@ function uniqueStrings(values) {
   return out;
 }
 
+function getCjAuthMode(env = process.env) {
+  const accessTokenConfigured = Boolean(readText(env.CJ_ACCESS_TOKEN));
+  const apiKeyConfigured = Boolean(readText(env.CJ_API_KEY));
+  if (accessTokenConfigured) return "access-token";
+  if (apiKeyConfigured) return "api-key-exchange";
+  return "missing";
+}
+
 function toArray(value) {
   if (Array.isArray(value)) return value;
   if (typeof value === "string" && value.trim()) {
@@ -1228,6 +1236,47 @@ async function getCjAccessToken() {
   return getCjAccessTokenFromEnv(process.env);
 }
 
+async function validateCjToken() {
+  const apiKeyConfigured = Boolean(readText(process.env.CJ_API_KEY));
+  const accessTokenConfigured = Boolean(readText(process.env.CJ_ACCESS_TOKEN));
+  const authMode = getCjAuthMode(process.env);
+
+  if (!apiKeyConfigured && !accessTokenConfigured) {
+    return {
+      apiKeyConfigured,
+      accessTokenConfigured,
+      authMode,
+      tokenValid: false,
+      tokenStatus: "missing",
+      message: "Weder CJ_API_KEY noch CJ_ACCESS_TOKEN sind konfiguriert.",
+    };
+  }
+
+  try {
+    const client = createCjApiClient(process.env);
+    await client.globalWarehouseList();
+    return {
+      apiKeyConfigured,
+      accessTokenConfigured,
+      authMode,
+      tokenValid: true,
+      tokenStatus: getCjTokenStatus(process.env),
+      message: accessTokenConfigured
+        ? "CJ Access Token ist konfiguriert und valide."
+        : "CJ API Key ist konfiguriert und konnte erfolgreich ein Access Token erzeugen.",
+    };
+  } catch (error) {
+    return {
+      apiKeyConfigured,
+      accessTokenConfigured,
+      authMode,
+      tokenValid: false,
+      tokenStatus: error?.details?.tokenStatus || getCjTokenStatus(process.env),
+      message: error?.message || "CJ Token konnte nicht validiert werden.",
+    };
+  }
+}
+
 async function parseUpstreamResponse(response) {
   const contentType = String(response.headers.get("content-type") || "").toLowerCase();
   const rawText = await response.text();
@@ -1267,12 +1316,17 @@ export default async function handler(req, res) {
   }
 
   if (action === "status") {
+    const status = await validateCjToken();
     return res.status(200).json({
       ok: true,
       service: "CJ",
       source: "cj",
-      tokenConfigured: Boolean(readText(process.env.CJ_ACCESS_TOKEN) || readText(process.env.CJ_API_KEY)),
-      tokenStatus: getCjTokenStatus(process.env),
+      apiKeyConfigured: status.apiKeyConfigured,
+      accessTokenConfigured: status.accessTokenConfigured,
+      authMode: status.authMode,
+      tokenValid: status.tokenValid,
+      tokenStatus: status.tokenStatus,
+      message: status.message,
     });
   }
 
