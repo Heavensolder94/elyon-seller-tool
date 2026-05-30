@@ -800,10 +800,10 @@
   </section>
 
   <div class="tabs">
-    <button id="dashboardBtn" class="secondary">🏠 Dashboard</button>
-    <button id="ordersBtn" class="secondary">📦 Bestellungen</button>
-    <button id="returnsBtn" class="secondary">↩️ Retouren</button>
-    <select id="mainMenu" class="menu-select" aria-label="eBay Lab auswählen">
+    <button id="dashboardBtn" class="secondary" type="button" onclick="showDashboard()">🏠 Dashboard</button>
+    <button id="ordersBtn" class="secondary" type="button" onclick="openOrders()">📦 Bestellungen</button>
+    <button id="returnsBtn" class="secondary" type="button" onclick="openReturnsCenter()">↩️ Retouren</button>
+    <select id="mainMenu" class="menu-select" aria-label="eBay Lab auswählen" onchange="if(this.value==='importTab'){openImportCheck();}else if(this.value==='marketCheckTab'){openMarketCheck();}else if(this.value==='financeTab'){openFinanceTool();}else if(this.value==='listingCheckTab'){openListingCheck();}else if(this.value==='productStatusTab'){openProductStatus();}else{showTab(this.value);}">
       <option value="productSearchTab" selected>🧭 Produkt-Pipeline</option>
       <option value="dashboardTab">1. 🏠 Dashboard</option>
       <option value="productSearchTab">2. 🧭 Produktbeschaffung</option>
@@ -821,7 +821,7 @@
       <option value="listingCheckTab">14. Listing-Check</option>
       <option value="productStatusTab">15. Produkt-Status</option>
     </select>
-    <select id="shopifyMenu" class="menu-select" aria-label="Shopify Bereich auswählen">
+    <select id="shopifyMenu" class="menu-select" aria-label="Shopify Bereich auswählen" onchange="showShopifyTool(this.value)">
       <option value="shopifyTab">🟢 Shopify Lab</option>
       <option value="shopifyPageSection">1. Shopify Produktseiten-Generator</option>
       <option value="shopifyAdSection">2. Ad-Break-even-Rechner</option>
@@ -2654,10 +2654,59 @@ PLZ Ort"></textarea>
   </div>
 </main>
 
+<script>
+  (function () {
+    const TAB_ALIAS_MAP = {
+      marketCheckTab: "productAnalysisTab",
+      listingCheckTab: "checklistTab",
+      productStatusTab: "productListTab"
+    };
+
+    function fallbackResolveTabId(tabId) {
+      return TAB_ALIAS_MAP[tabId] || tabId;
+    }
+
+    function fallbackShowTab(tabId) {
+      const resolvedId = fallbackResolveTabId(tabId);
+      const target = document.getElementById(resolvedId);
+      if (!target) return false;
+
+      document.querySelectorAll(".tab").forEach((section) => {
+        section.classList.remove("active");
+      });
+      target.classList.add("active");
+
+      const mainMenu = document.getElementById("mainMenu");
+      if (mainMenu && Array.from(mainMenu.options).some((option) => option.value === tabId || option.value === resolvedId)) {
+        mainMenu.value = Array.from(mainMenu.options).some((option) => option.value === tabId) ? tabId : resolvedId;
+      }
+      return true;
+    }
+
+    window.showTab = typeof window.showTab === "function" ? window.showTab : fallbackShowTab;
+    window.showDashboard = typeof window.showDashboard === "function" ? window.showDashboard : function () {
+      window.showTab("dashboardTab");
+    };
+    window.openOrders = typeof window.openOrders === "function" ? window.openOrders : function () {
+      window.showTab("ordersTab");
+    };
+    window.openReturnsCenter = typeof window.openReturnsCenter === "function" ? window.openReturnsCenter : function () {
+      window.showTab("returnsTab");
+    };
+    window.showShopifyTool = typeof window.showShopifyTool === "function" ? window.showShopifyTool : function (sectionId) {
+      window.showTab("shopifyTab");
+      document.querySelectorAll(".shopify-tool").forEach((panel) => panel.classList.remove("active"));
+      if (sectionId && sectionId !== "shopifyTab") {
+        const panel = document.getElementById(sectionId);
+        if (panel) panel.classList.add("active");
+      }
+    };
+  })();
+</script>
 <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<script defer src="elyon-app.js"></script>
-<script defer src="elyon-business-brain.js"></script>
-<script defer src="elyon-soul.js"></script>
+<script defer src="public/elyon-app.js"></script>
+<script defer src="public/elyon-business-brain.js"></script>
+<script defer src="public/elyon-soul.js"></script>
 </body>
 </html>
 
