@@ -1,5 +1,7 @@
 import { applyCors } from "../lib/api-cors.js";
 
+const EXPECTED_GOOGLE_SHEETS_SCRIPT_BUILD = "2026-05-18-sales-ssot-v1";
+
 function safeJsonParse(text) {
   try {
     return text ? JSON.parse(text) : null;
@@ -20,6 +22,66 @@ function buildUrlWithParams(baseUrl, params) {
     }
   });
   return url.toString();
+}
+
+function buildGoogleSheetsHtmlError(response, text) {
+  const preview = String(text || "").trim().slice(0, 240).toLowerCase();
+  const finalUrl = response?.url || "";
+  const finalHost = (() => {
+    try {
+      return finalUrl ? new URL(finalUrl).host : "";
+    } catch {
+      return "";
+    }
+  })();
+
+  if (response?.status === 404) {
+    return {
+      ok: false,
+      error: "Die Apps-Script-Web-App-URL ist ungültig oder das Deployment existiert nicht mehr.",
+      diagnostics: {
+        reason: "deployment_not_found",
+        status: response?.status || 0,
+        finalHost,
+      },
+    };
+  }
+
+  if (preview.includes("accounts.google.com") || preview.includes("anmelden") || preview.includes("sign in")) {
+    return {
+      ok: false,
+      error: "Die Apps-Script-Web-App verlangt eine Anmeldung. Bitte Deployment auf 'Jeder' bzw. öffentlich zugänglich stellen.",
+      diagnostics: {
+        reason: "google_login_required",
+        status: response?.status || 0,
+        finalHost,
+      },
+    };
+  }
+
+  return {
+    ok: false,
+    error: "Die Apps-Script-Web-App liefert HTML statt JSON. Bitte URL und Deployment prüfen.",
+    diagnostics: {
+      reason: "html_instead_of_json",
+      status: response?.status || 0,
+      finalHost,
+    },
+  };
+}
+
+function buildGoogleSheetsBuildMismatch(data, response) {
+  return {
+    ok: false,
+    error: `Veraltete Apps-Script-Web-App aktiv. Erwartet wird Build ${EXPECTED_GOOGLE_SHEETS_SCRIPT_BUILD}, empfangen wurde ${data.build}. Bitte die aktuelle Web-App neu bereitstellen und die gespeicherte /exec-URL aktualisieren.`,
+    diagnostics: {
+      reason: "outdated_apps_script_build",
+      expectedBuild: EXPECTED_GOOGLE_SHEETS_SCRIPT_BUILD,
+      actualBuild: data.build,
+      status: response?.status || 200,
+      finalUrl: response?.url || "",
+    },
+  };
 }
 
 function listMissing(requiredFlags) {
@@ -224,10 +286,7 @@ async function handleGoogleSheetsSync(req, res) {
     const text = await response.text();
     const trimmed = String(text || "").trim().toLowerCase();
     if (trimmed.startsWith("<!doctype html") || trimmed.startsWith("<html")) {
-      return res.status(502).json({
-        ok: false,
-        error: "Die Apps-Script-Web-App liefert HTML statt JSON. Bitte Web-App neu bereitstellen."
-      });
+      return res.status(response.status === 404 ? 404 : 502).json(buildGoogleSheetsHtmlError(response, text));
     }
 
     const data = safeJsonParse(text);
@@ -240,6 +299,16 @@ async function handleGoogleSheetsSync(req, res) {
               error: text.slice(0, 240) || `HTTP ${response.status}`
             }
       );
+    }
+
+    if (
+      data &&
+      typeof data === "object" &&
+      data.ok !== false &&
+      data.build &&
+      data.build !== EXPECTED_GOOGLE_SHEETS_SCRIPT_BUILD
+    ) {
+      return res.status(409).json(buildGoogleSheetsBuildMismatch(data, response));
     }
 
     return res.status(200).json(

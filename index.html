@@ -4182,11 +4182,58 @@ function setGoogleSheetsSyncTokenVisibility(visible){
   }
 }
 async function refreshGoogleSheetsSyncSettingsForm(){
+  try{
+    const cloudState = await postJsonWithTimeout('/api/google-sheets-sync-settings', {
+      method: 'GET'
+    }, 15000);
+    const cloudSettings = cloudState && cloudState.ok && cloudState.settings && typeof cloudState.settings === 'object'
+      ? cloudState.settings
+      : null;
+    if(cloudSettings){
+      if(cloudSettings.url) await setStoredGoogleSheetsSyncUrl(String(cloudSettings.url || ''));
+      if(cloudSettings.token) await setStoredGoogleSheetsSyncToken(String(cloudSettings.token || ''));
+      if(cloudSettings.lastInventorySyncAt !== undefined) localStorage.setItem(GOOGLE_SHEETS_SYNC_KEYS.inventoryAt, String(cloudSettings.lastInventorySyncAt || ''));
+      if(cloudSettings.lastSupplierSyncAt !== undefined) localStorage.setItem(GOOGLE_SHEETS_SYNC_KEYS.supplierAt, String(cloudSettings.lastSupplierSyncAt || ''));
+      if(cloudSettings.lastSalesSyncAt !== undefined) localStorage.setItem(GOOGLE_SHEETS_SYNC_KEYS.salesAt, String(cloudSettings.lastSalesSyncAt || ''));
+      if(cloudSettings.lastCostsSyncAt !== undefined) localStorage.setItem(GOOGLE_SHEETS_SYNC_KEYS.costsAt, String(cloudSettings.lastCostsSyncAt || ''));
+    }
+  }catch(error){
+    console.warn('Google Sheets Sync Cloud-Load fehlgeschlagen:', error);
+  }
   const url = await getStoredGoogleSheetsSyncUrl();
   const token = await getStoredGoogleSheetsSyncToken();
   safe('googleSheetsSyncUrl', el => el.value = url);
   safe('googleSheetsSyncToken', el => el.value = token);
   setGoogleSheetsSyncTokenVisibility(false);
+}
+let googleSheetsSyncSettingsCloudSaveTimer = null;
+async function saveGoogleSheetsSyncSettingsToCloud(){
+  const config = getGoogleSheetsSyncConfig();
+  if(!config.url || !config.token) return;
+  try{
+    await postJsonWithTimeout('/api/google-sheets-sync-settings', {
+      settings: {
+        url: config.url,
+        token: config.token,
+        lastInventorySyncAt: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.inventoryAt) || '',
+        lastSupplierSyncAt: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.supplierAt) || '',
+        lastSalesSyncAt: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.salesAt) || '',
+        lastCostsSyncAt: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.costsAt) || '',
+        lastSalesLoadAt: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.salesLoadAt) || ''
+      }
+    }, 15000);
+  }catch(error){
+    console.warn('Google Sheets Sync Cloud-Save fehlgeschlagen:', error);
+  }
+}
+function queueGoogleSheetsSyncSettingsCloudSave(){
+  if(googleSheetsSyncSettingsCloudSaveTimer){
+    clearTimeout(googleSheetsSyncSettingsCloudSaveTimer);
+  }
+  googleSheetsSyncSettingsCloudSaveTimer = setTimeout(function(){
+    googleSheetsSyncSettingsCloudSaveTimer = null;
+    void saveGoogleSheetsSyncSettingsToCloud();
+  }, 350);
 }
 function setGoogleSheetsSyncTimestamp(type, iso){
   const map = {
@@ -4235,6 +4282,7 @@ async function saveGoogleSheetsSyncSettings(){
   }
   await setStoredGoogleSheetsSyncUrl(url);
   await setStoredGoogleSheetsSyncToken(token);
+  await saveGoogleSheetsSyncSettingsToCloud();
   renderGoogleSheetsSyncStatus();
   setHTML('googleSheetsSyncResult', '<p>Sync-Einstellungen gespeichert.</p>');
   alert('Google Sheets Sync-Einstellungen gespeichert.');
