@@ -1,6 +1,7 @@
 import { applyCors } from "../../lib/api-cors.js";
 import { normalizeBrowserImport, normalizeBrowserImportList } from "../../lib/browser-import-normalizer.js";
 import { normalizeSupplierProduct } from "../../lib/supplier-product-normalizer.js";
+import { enrichCjProductWithVariants, extractCjIdentifiers } from "../cj.js";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -40,6 +41,13 @@ function toArray(value) {
 
 function toObject(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+
+function mergeDebug(base, extra) {
+  return {
+    ...(base && typeof base === "object" ? base : {}),
+    ...(extra && typeof extra === "object" ? extra : {}),
+  };
 }
 
 function isHumanVerificationText(value) {
@@ -463,7 +471,7 @@ async function savePersistentStore(items) {
 }
 
 function upsertImport(list, incoming) {
-  const item = normalizeBrowserImport(incoming);
+  const item = incoming;
   const existingIndex = list.findIndex((entry) => entry.url && entry.url === item.url);
   if (existingIndex >= 0) {
     const current = list[existingIndex];
@@ -474,6 +482,75 @@ function upsertImport(list, incoming) {
     return { next, status: changed ? "updated" : "duplicate", product: merged };
   }
   return { next: [item, ...list], status: "saved", product: item };
+}
+
+async function enrichBrowserImportForCj(incoming = {}) {
+  const normalized = normalizeBrowserImport(incoming);
+  const sourceUrl = toText(normalized.url || incoming.url || incoming.sourceUrl);
+  const supplierText = toText(normalized.supplier || incoming.supplier);
+  const isCj = /cjdropshipping/i.test(`${sourceUrl} ${supplierText}`);
+  if (!isCj) return normalized;
+
+  const identifiers = extractCjIdentifiers(sourceUrl);
+  if (!identifiers.pid && !identifiers.productSku && !identifiers.variantSku) {
+    return {
+      ...normalized,
+      debug: mergeDebug(normalized.debug, {
+        cjApiUsed: false,
+        variantGroupingMethod: normalized.debug?.variantGroupingMethod || "browser-import-fallback",
+      }),
+    };
+  }
+
+  try {
+    const enriched = await enrichCjProductWithVariants({
+      pid: identifiers.pid,
+      productSku: identifiers.productSku,
+      variantSku: identifiers.variantSku,
+      title: normalized.title,
+      price: normalized.price,
+      currency: normalized.currency,
+      image: normalized.image,
+      images: normalized.images,
+      description: normalized.description,
+      category: normalized.category,
+      variants: [],
+    }, identifiers);
+
+    const variantGroups = Array.isArray(enriched.variantGroups) ? enriched.variantGroups : normalized.variants;
+    const nextDebug = mergeDebug(normalized.debug, {
+      cjApiUsed: Array.isArray(enriched.variants) && enriched.variants.length > 0,
+      cjVariantCount: Array.isArray(enriched.variantItems) ? enriched.variantItems.length : 0,
+      cjVariantKeys: Array.isArray(enriched.cjVariantKeys) ? enriched.cjVariantKeys.join(" | ") : "",
+      cjProductKeyEn: toText(enriched.cjProductKeyEn || enriched.productKeyEn),
+      variantGroupingMethod: toText(enriched.variantGroupingMethod || "browser-import-fallback"),
+    });
+
+    return normalizeBrowserImport({
+      ...normalized,
+      supplier: "CJ Dropshipping",
+      description: normalized.description || enriched.description || "",
+      category: normalized.category || enriched.category || "",
+      image: normalized.image || enriched.image || "",
+      images: normalized.images && normalized.images.length ? normalized.images : enriched.images,
+      variants: variantGroups,
+      rawVariants: Array.isArray(enriched.variantItems) ? enriched.variantItems : normalized.rawVariants,
+      variantSource: nextDebug.cjApiUsed ? "cj-api+browser-import" : "browser-import",
+      debug: nextDebug,
+      supplierImportDebug: nextDebug,
+      sourceUrl,
+      url: sourceUrl,
+      cj: enriched,
+    });
+  } catch {
+    return {
+      ...normalized,
+      debug: mergeDebug(normalized.debug, {
+        cjApiUsed: false,
+        variantGroupingMethod: normalized.debug?.variantGroupingMethod || "browser-import-fallback",
+      }),
+    };
+  }
 }
 
 function deleteImport(list, incoming) {
@@ -528,7 +605,8 @@ export default async function handler(req, res) {
   const body = normalizeBody(req.body);
   const incoming = body.product || body.item || body.data || body || {};
   const current = await loadPersistentStore();
-  const result = upsertImport(current, incoming);
+  const enrichedIncoming = await enrichBrowserImportForCj(incoming);
+  const result = upsertImport(current, enrichedIncoming);
   const persisted = await savePersistentStore(result.next);
 
   return json(res, 200, {

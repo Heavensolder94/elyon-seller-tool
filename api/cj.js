@@ -268,6 +268,102 @@ function uniqueStrings(values) {
   return out;
 }
 
+function toArray(value) {
+  if (Array.isArray(value)) return value;
+  if (typeof value === "string" && value.trim()) {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
+function splitCjKey(value) {
+  return readText(value)
+    .split(/\s*[-/|>]+\s*/)
+    .map((item) => cleanText(item))
+    .filter(Boolean);
+}
+
+function normalizeCjGroupName(value, fallbackIndex = 0) {
+  const text = cleanText(value).replace(/[:：]\s*$/, "");
+  if (!text) return `Variant ${fallbackIndex + 1}`;
+  if (/color|colour|farbe/i.test(text)) return "Color";
+  if (/size|gr[oö]sse|größe/i.test(text)) return "Size";
+  if (/material/i.test(text)) return "Material";
+  if (/style/i.test(text)) return "Style";
+  return text;
+}
+
+function normalizeCjInventories(inventories) {
+  const list = Array.isArray(inventories) ? inventories : [];
+  return list.slice(0, 50).map((entry, index) => ({
+    vid: firstNonEmpty(entry?.vid, entry?.variantId, `inventory-${index + 1}`),
+    warehouseName: firstNonEmpty(entry?.warehouseName, entry?.areaName, entry?.locationName),
+    inventory: firstNonEmpty(entry?.inventory, entry?.quantity, entry?.stock),
+  })).filter((entry) => entry.vid || entry.warehouseName || entry.inventory);
+}
+
+function inventoryCountFromInventories(inventories) {
+  const values = normalizeCjInventories(inventories)
+    .map((entry) => Number.parseFloat(String(entry.inventory).replace(/[^\d.-]/g, "")))
+    .filter((entry) => Number.isFinite(entry));
+  return values.length ? values.reduce((sum, entry) => sum + entry, 0) : 0;
+}
+
+function buildCjVariantItems(variants) {
+  const list = Array.isArray(variants) ? variants : [];
+  return list.slice(0, 500).map((item, index) => {
+    const optionValues = splitCjKey(firstNonEmpty(item?.variantKey, item?.variantStandard, item?.title));
+    const inventories = normalizeCjInventories(item?.inventories || item?.inventoryList || []);
+    return {
+      sku: firstNonEmpty(item?.variantSku, item?.sku, item?.productSku),
+      optionValues,
+      price: firstNonEmpty(item?.variantSellPrice, item?.sellPrice, item?.price),
+      weight: firstNonEmpty(item?.variantWeight, item?.weight),
+      image: firstNonEmpty(item?.variantImage, item?.image),
+      inventory: String(inventoryCountFromInventories(item?.inventories || item?.inventoryList || []) || firstNonEmpty(item?.inventory, item?.stock, item?.quantity) || ""),
+      inventories,
+      vid: firstNonEmpty(item?.vid, item?.variantId, `variant-${index + 1}`),
+      variantKey: firstNonEmpty(item?.variantKey, item?.title),
+      variantStandard: firstNonEmpty(item?.variantStandard),
+    };
+  }).filter((item) => item.sku || item.optionValues.length || item.vid);
+}
+
+function buildCjVariantGroups(productKeyEn, variants) {
+  const names = splitCjKey(productKeyEn);
+  const items = buildCjVariantItems(variants);
+  const groups = new Map();
+
+  names.forEach((name, index) => {
+    groups.set(normalizeCjGroupName(name, index), new Set());
+  });
+
+  items.forEach((item) => {
+    item.optionValues.forEach((value, index) => {
+      const groupName = normalizeCjGroupName(names[index] || `Variant ${index + 1}`, index);
+      if (!groups.has(groupName)) groups.set(groupName, new Set());
+      if (value) groups.get(groupName).add(value);
+    });
+  });
+
+  const variantGroups = Array.from(groups.entries()).map(([name, options]) => ({
+    name,
+    options: Array.from(options).filter(Boolean).slice(0, 200),
+  })).filter((group) => group.options.length);
+
+  return {
+    variantGroups,
+    variantItems: items,
+    cjVariantKeys: uniqueStrings(items.map((item) => item.variantKey).filter(Boolean)).slice(0, 200),
+    variantGroupingMethod: names.length ? "productKeyEn+variantKey" : (items.some((item) => item.optionValues.length) ? "variantKey-only" : "unavailable"),
+  };
+}
+
 function slugToKeywords(value) {
   const raw = readText(value)
     .replace(/[-_+/]+/g, " ")
@@ -366,6 +462,10 @@ function normalizeCjVariants(input) {
     price: firstNonEmpty(item?.sellPrice, item?.price, item?.variantSellPrice),
     image: firstNonEmpty(item?.variantImage, item?.image),
     stock: firstNonEmpty(item?.inventory, item?.stock, item?.quantity),
+    variantKey: firstNonEmpty(item?.variantKey, item?.variantStandard),
+    variantWeight: firstNonEmpty(item?.variantWeight, item?.weight),
+    inventories: normalizeCjInventories(item?.inventories || item?.inventoryList || []),
+    vid: firstNonEmpty(item?.vid, item?.variantId),
   })).filter((item) => item.variantSku || item.title || item.price || item.image);
 }
 
@@ -376,9 +476,10 @@ function normalizeCjDetailProduct(product, identifiers = {}) {
   const title = firstNonEmpty(product?.productNameEn, product?.productName, product?.name, product?.title);
   const description = cleanText(firstNonEmpty(product?.description, product?.productDescription, product?.descriptionEn));
   const category = cleanText(firstNonEmpty(product?.categoryName, product?.category, product?.googleCategoryName));
-  const image = firstNonEmpty(product?.productImage, product?.image, product?.coverImage);
+  const image = firstNonEmpty(product?.bigImage, product?.productImage, product?.image, product?.coverImage);
   const images = uniqueStrings(
     []
+      .concat(Array.isArray(product?.productImageSet) ? product.productImageSet : [])
       .concat(Array.isArray(product?.productImages) ? product.productImages : [])
       .concat(Array.isArray(product?.images) ? product.images : [])
       .concat(image ? [image] : [])
@@ -386,6 +487,7 @@ function normalizeCjDetailProduct(product, identifiers = {}) {
   const variants = normalizeCjVariants(
     product?.variants || product?.variantList || product?.skuList || product?.productVariants || []
   );
+  const grouped = buildCjVariantGroups(firstNonEmpty(product?.productKeyEn, product?.variantKeyEn), variants);
   const shippingCountries = uniqueStrings(product?.shippingCountryCodes || product?.shipToCountries || []);
   const shippingText = shippingCountries.length ? shippingCountries.join(", ") : "";
   const price = firstNonEmpty(product?.sellPrice, product?.price, product?.nowPrice, variants[0]?.price);
@@ -406,6 +508,14 @@ function normalizeCjDetailProduct(product, identifiers = {}) {
     description,
     category,
     variants,
+    variantGroups: grouped.variantGroups,
+    variantItems: grouped.variantItems,
+    cjVariantKeys: grouped.cjVariantKeys,
+    cjProductKeyEn: firstNonEmpty(product?.productKeyEn, product?.variantKeyEn),
+    variantGroupingMethod: grouped.variantGroupingMethod,
+    bigImage: firstNonEmpty(product?.bigImage, image),
+    productImageSet: uniqueStrings(Array.isArray(product?.productImageSet) ? product.productImageSet : []),
+    productKeyEn: firstNonEmpty(product?.productKeyEn, product?.variantKeyEn),
     supplierName: firstNonEmpty(product?.supplierName),
     supplierId: firstNonEmpty(product?.supplierId),
     shippingCountries,
@@ -488,6 +598,49 @@ async function fetchCjProductByIdentifiers(identifiers) {
     message: "CJ API konnte keine Produktdaten laden.",
     identifiers,
     errors,
+  };
+}
+
+async function fetchCjVariantList(pid, token) {
+  const cleanPid = readText(pid);
+  if (!cleanPid) return [];
+  const attempts = [
+    { path: "/product/variant/queryByPid", method: "GET", query: { pid: cleanPid } },
+    { path: "/product/variant/queryByPid", method: "POST", body: { pid: cleanPid } },
+    { path: "/product/variant/query", method: "GET", query: { pid: cleanPid } },
+    { path: "/product/variant/query", method: "POST", body: { pid: cleanPid } },
+  ];
+  for (const attempt of attempts) {
+    try {
+      const { response, data } = await cjApiRequest(attempt.path, { method: attempt.method, token, query: attempt.query, body: attempt.body });
+      if (!response.ok || data?.result === false || !data) continue;
+      const list = extractProductList(data)
+        .concat(Array.isArray(data?.data?.variants) ? data.data.variants : [])
+        .concat(Array.isArray(data?.data?.variantList) ? data.data.variantList : [])
+        .concat(Array.isArray(data?.data) ? data.data : []);
+      const normalized = normalizeCjVariants(list);
+      if (normalized.length) return normalized;
+    } catch {
+      // Keep browser-import fallback path intact when the variant endpoint is unavailable.
+    }
+  }
+  return [];
+}
+
+async function enrichCjProductWithVariants(product, identifiers = {}, token = "") {
+  const baseProduct = product && typeof product === "object" ? { ...product } : {};
+  const activeToken = token || await getCjAccessToken();
+  const currentVariants = Array.isArray(baseProduct.variants) ? baseProduct.variants : [];
+  const variantList = currentVariants.length ? currentVariants : await fetchCjVariantList(baseProduct.pid || identifiers.pid, activeToken);
+  const grouped = buildCjVariantGroups(firstNonEmpty(baseProduct.productKeyEn, baseProduct.cjProductKeyEn), variantList);
+  return {
+    ...baseProduct,
+    variants: variantList,
+    variantGroups: grouped.variantGroups,
+    variantItems: grouped.variantItems,
+    cjVariantKeys: grouped.cjVariantKeys,
+    cjProductKeyEn: firstNonEmpty(baseProduct.productKeyEn, baseProduct.cjProductKeyEn),
+    variantGroupingMethod: grouped.variantGroupingMethod,
   };
 }
 
@@ -1015,9 +1168,12 @@ async function fetchCjProductsWithAccessToken(query) {
 }
 
 async function getCjAccessToken() {
+  const existingToken = readText(process.env.CJ_ACCESS_TOKEN);
+  if (existingToken) return existingToken;
+
   const apiKey = process.env.CJ_API_KEY;
   if (!apiKey) {
-    throw new Error("CJ_API_KEY fehlt in Vercel.");
+    throw new Error("CJ_ACCESS_TOKEN oder CJ_API_KEY fehlt in Vercel.");
   }
 
   const response = await fetch("https://developers.cjdropshipping.com/api2.0/v1/authentication/getAccessToken", {
@@ -1075,6 +1231,15 @@ async function parseUpstreamResponse(response) {
   return { rawText, data: null };
 }
 
+export {
+  buildCjVariantGroups,
+  extractCjIdentifiers,
+  fetchCjProductByIdentifiers,
+  enrichCjProductWithVariants,
+  getCjAccessToken,
+  normalizeCjDetailProduct,
+};
+
 export default async function handler(req, res) {
   if (applyCors(req, res, ["GET", "POST", "OPTIONS"])) return;
 
@@ -1126,7 +1291,7 @@ export default async function handler(req, res) {
         source: action === "detail" ? "cj-detail" : "cj-product",
         status: 200,
         identifiers: result.identifiers || identifiers,
-        product: result.product,
+        product: await enrichCjProductWithVariants(result.product, result.identifiers || identifiers),
       });
     } catch (error) {
       return jsonError(res, 502, error?.message || "CJ Detail Fehler", {

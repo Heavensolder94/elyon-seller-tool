@@ -5540,6 +5540,11 @@ function renderSupplierImportDebugBlock(data, extra){
     ['Duplicates Removed', debug.duplicatesRemoved],
     ['Variant Source', debug.variantSource],
     ['Variants Found', debug.variantsFound],
+    ['CJ API Used', debug.cjApiUsed],
+    ['CJ Variant Count', debug.cjVariantCount],
+    ['CJ Variant Keys', debug.cjVariantKeys],
+    ['CJ ProductKeyEn', debug.cjProductKeyEn],
+    ['Grouping Method', debug.variantGroupingMethod],
     ['Variantengruppen', extras.variantGroupCount],
     ['Bilder', extras.imageCount]
   ].filter(function(row){

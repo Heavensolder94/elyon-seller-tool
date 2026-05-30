@@ -32,6 +32,15 @@ function normalizeStatus(value) {
   return text;
 }
 
+function mergeDebug(...values) {
+  return values.reduce((acc, value) => {
+    if (value && typeof value === "object" && !Array.isArray(value)) {
+      Object.assign(acc, value);
+    }
+    return acc;
+  }, {});
+}
+
 export function normalizeProduct(product = {}) {
   const now = new Date().toISOString();
   const sanitizedImport = sanitizeSupplierProductImport(product, product.supplier || product.sourceProvider || product.supplierId || "");
@@ -77,7 +86,7 @@ export function normalizeProduct(product = {}) {
     supplierLink: toText(product.supplierLink || product.url),
     sourceProvider: toText(product.sourceProvider || normalizedSupplier.supplier || product.supplierId),
     supplierProduct: normalizedSupplier,
-    supplierImportDebug: sanitizedImport.debug || {},
+    supplierImportDebug: mergeDebug(product.supplierImportDebug, product.debug, sanitizedImport.debug, normalizedSupplier.debug),
     sourceUrl: toText(product.sourceUrl || normalizedSupplier.sourceUrl || product.supplierLink || product.url),
     currency: toText(product.currency || normalizedSupplier.currency || product.sourceOnlineCurrency),
     description: toText(product.description || normalizedSupplier.description || product.sourceOnlineDescription),
