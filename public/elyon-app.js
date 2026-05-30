@@ -5526,9 +5526,34 @@ function browserImportField(label, value){
   if(!text) return '';
   return '<div class="browser-import-field"><small>' + escapeHtml(label) + '</small><strong>' + escapeHtml(text) + '</strong></div>';
 }
+function renderSupplierImportDebugBlock(data, extra){
+  const debug = data && typeof data === 'object' ? data : null;
+  if(!debug) return '';
+  const extras = extra && typeof extra === 'object' ? extra : {};
+  const fields = [
+    ['Supplier', debug.supplierDetected],
+    ['Importpfad', debug.extractorUsed],
+    ['Description Source', debug.descriptionSource],
+    ['Original Length', debug.originalDescriptionLength],
+    ['Cleaned Length', debug.cleanedDescriptionLength],
+    ['Noise Removed', debug.removedNoiseLines !== undefined ? debug.removedNoiseLines : debug.noiseRemoved],
+    ['Duplicates Removed', debug.duplicatesRemoved],
+    ['Variant Source', debug.variantSource],
+    ['Variants Found', debug.variantsFound],
+    ['Variantengruppen', extras.variantGroupCount],
+    ['Bilder', extras.imageCount]
+  ].filter(function(row){
+    return row[1] !== undefined && row[1] !== null && String(row[1]).trim() !== '';
+  });
+  if(!fields.length) return '';
+  return '<details class="form-accordion" style="margin-top:12px"><summary>Import Debug</summary><div class="accordion-body"><div class="browser-import-grid">' + fields.map(function(row){
+    return browserImportField(row[0], row[1]);
+  }).join('') + '</div></div></details>';
+}
 function renderBrowserProductImportPanel(p){
   if(!p.sourceOnlineTitle && !p.sourceOnlineImage && !p.sourceOnlineDescription && !p.sourceOnlinePrice && !p.sourceOnlineCategory && !p.sourceOnlineShipping) return '';
   const importImages = parseJsonArrayField(p.sourceOnlineImages);
+  const importVariantGroups = parseImportVariantGroups(p.sourceOnlineVariants || p.variants || []);
   const image = String(p.sourceOnlineImage || importImages[0] || '').trim();
   const imageHtml = image
     ? '<img class="browser-product-image" src="' + escapeHtml(image) + '" alt="" referrerpolicy="no-referrer" loading="lazy" onerror="this.remove()">'
@@ -5550,6 +5575,7 @@ function renderBrowserProductImportPanel(p){
   html += '<div class="product-title browser-product-title">' + escapeHtml(p.sourceOnlineTitle || p.name || 'Importiertes Produkt') + '</div>';
   if(p.supplierLink) html += '<a class="browser-product-url" href="' + escapeHtml(p.supplierLink) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(p.supplierLink) + '</a>';
   html += '<div class="browser-import-grid">' + fields + '</div>';
+  html += renderSupplierImportDebugBlock(p.supplierImportDebug || p.debug, { variantGroupCount: importVariantGroups.length, imageCount: importImages.length });
   html += '</div></div>';
   if(p.sourceOnlineDescription) html += '<details class="output-box browser-import-description"><summary>Artikelbeschreibung anzeigen</summary><p>' + escapeHtml(p.sourceOnlineDescription) + '</p></details>';
   if(importImages.length > 1) html += '<div class="browser-import-gallery" style="margin-top:12px">' + importImages.slice(1,7).map(src => '<img src="' + escapeHtml(src) + '" alt="" referrerpolicy="no-referrer" loading="lazy" onerror="this.remove()" style="width:52px;height:52px;object-fit:cover;border-radius:12px;border:1px solid rgba(255,255,255,.12)">').join('') + '</div>';
@@ -5831,6 +5857,7 @@ function productCardHTML(p,small=false){
   const shopifyText = p.shopifyCandidate ? 'Shopify entfernen' : 'Für Shopify merken';
   const shopifyInfo = p.shopifyCandidate ? ' · Shopify-Kandidat seit ' + (p.shopifyMarkedAt || 'markiert') : '';
   const imageList = parseJsonArrayField(p.sourceOnlineImages);
+  const importVariantGroups = parseImportVariantGroups(p.sourceOnlineVariants || p.variants || []);
   const productImage = String(p.sourceOnlineImage || imageList[0] || '').trim();
   const reviewItems = normalizeIssueList(p.reviewItems || p.issues);
   const warnings = normalizeIssueList(p.warnings);
@@ -5865,6 +5892,7 @@ function productCardHTML(p,small=false){
   if(p.notes){
     detailHtml += '<div class="output-box"><h3>Notizen</h3><p>' + p.notes + '</p></div>';
   }
+  detailHtml += renderSupplierImportDebugBlock(p.supplierImportDebug || p.debug, { variantGroupCount: importVariantGroups.length, imageCount: imageList.length });
   detailHtml += '</details>';
 
   let html = '';
@@ -6513,6 +6541,10 @@ function openBrowserImportDetails(id){
   const details = item.productDetails && typeof item.productDetails === 'object' ? item.productDetails : {};
   const warnings = Array.isArray(item.warnings) ? item.warnings : [];
   const descCandidates = Array.isArray(item.descriptionCandidates) ? item.descriptionCandidates : [];
+  const debugBlock = renderSupplierImportDebugBlock(item.supplierImportDebug || item.debug, {
+    variantGroupCount: parseImportVariantGroups(item.sourceOnlineVariants || item.variants || []).length,
+    imageCount: Array.isArray(item.images) ? item.images.length : 0
+  });
   safe('browserImportDetailTitle', el => el.textContent = item.title || 'Browser Import');
   safe('browserImportDetailSubtitle', el => el.textContent = [item.domain || 'Domain nicht erkannt', item.url || 'URL nicht erkannt'].join(' · '));
   safe('browserImportDetailBody', el => {
@@ -6530,6 +6562,7 @@ function openBrowserImportDetails(id){
       '<details class="form-accordion" open><summary>Beschreibung</summary><div class="accordion-body">' +
       (item.description ? '<p>' + escapeHtml(item.description) + '</p>' : '<div class="empty">Keine Beschreibung</div>') +
       (descCandidates.length ? '<h3>Beschreibungskandidaten</h3><ul>' + descCandidates.map(text => '<li>' + escapeHtml(text) + '</li>').join('') + '</ul>' : '') +
+      debugBlock +
       '</div></details>' +
       '<details class="form-accordion"><summary>Varianten</summary><div class="accordion-body">' +
       (variants.length ? browserImportJsonBlock(variants) : '<div class="empty">Keine Varianten</div>') +
