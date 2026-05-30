@@ -169,6 +169,8 @@ function buildApiRoute(pathname, query) {
     { match: /^\/api\/ai(?:\/(listing-optimizer|product-search))?$/, module: "api/ai.js" },
     { match: /^\/api\/google-drive(?:\/(status|auth-url|upload-backup|import-sheet-csv|oauth\/start|oauth\/callback))?$/, module: "api/google-drive.js" },
     { match: /^\/api\/ebay(?:\/(status|login-url|search|competition|exchange-token|token|orders))?$/, module: "api/ebay/index.js" },
+    { match: /^\/api\/products$/, module: "api/products/index.js" },
+    { match: /^\/api\/products\/ebay-draft$/, module: "api/products/ebay-draft.js" },
     { match: /^\/api\/extension\/import-product$/, module: "api/extension/import-product.js" },
     { match: /^\/api\/elyon\/products$/, module: "api/extension/import-product.js" },
   ];

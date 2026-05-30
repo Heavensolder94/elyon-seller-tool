@@ -1249,12 +1249,17 @@
     <div class="card">
       <h2>Produkt-Board</h2>
       <p class="hint">Suchen, filtern, Gewinner erkennen und zwischen Liste/Kanban wechseln. Archivieren oder Löschen erfolgt direkt am Produkt, nicht über die Filterbuttons.</p>
+      <div class="output-box" style="margin-top:0;margin-bottom:16px">
+        <p><strong>Sicherheits-Hinweis:</strong> Keine automatische Bestellung. Kein automatisches eBay-Posting.</p>
+        <p class="hint" id="productApiStatus">Product API wird geprüft.</p>
+      </div>
       <div class="quick-actions">
         <button class="secondary" id="newProductBtn">+ Neues Produkt</button>
         <button class="secondary" id="winnerFilterBtn">🔥 Nur starke Kandidaten</button>
         <button class="secondary" id="shopifyFilterBtn">🟢 Shopify-Kandidaten</button>
         <button class="secondary" id="killFilterBtn">🗑️ Archivierte anzeigen</button>
         <button class="secondary" id="toggleViewBtn">Kanban-Ansicht</button>
+        <button class="secondary" type="button" onclick="reloadProductsFromApi()">Neu laden</button>
       </div>
       <div class="toolbar">
         <input id="search" placeholder="Produkt suchen...">
@@ -1281,6 +1286,7 @@
         </select>
       </div>
       <div id="list" class="products"></div>
+      <div id="productApiDraftPreview" class="output-box" style="margin-top:16px"><p>Noch keine eBay-Draft-Vorschau geladen.</p></div>
     </div>
     <div class="card" style="margin-top:16px">
       <div class="start-focus-head">
@@ -3160,6 +3166,14 @@ function normalizeBrowserImportsCollection(list){
 let products = normalizeProductsCollection(loadStoredArray("elyonProducts"));
 let browserImports = normalizeBrowserImportsCollection(loadStoredArray("elyonBrowserImports"));
 let browserImportsStorage = {mode:'server_unknown', message:'Serverstatus wird geladen.'};
+const PRODUCT_API_ENDPOINT = '/api/products';
+const PRODUCT_API_DRAFT_ENDPOINT = '/api/products/ebay-draft';
+let productApiState = {
+  source:'local_fallback',
+  reachable:false,
+  lastLoadedAt:'',
+  lastError:'',
+};
 let returns = loadStoredArray("elyonReturns");
 let shopifyReturns = loadStoredArray("elyonShopifyReturns");
 let sales = loadStoredArray("elyonSales");
@@ -3616,7 +3630,11 @@ function startQuickAction(action){
   }
   if(action === 'return') openReturnsCenter();
 }
-function save(){ products = normalizeProductsCollection(products); localStorage.setItem('elyonProducts', JSON.stringify(products)); render(); renderReturnProductOptions(); triggerBrainRefresh('products-save'); }
+function saveLocalProductsOnly(){
+  products = normalizeProductsCollection(products);
+  localStorage.setItem('elyonProducts', JSON.stringify(products));
+}
+function save(){ saveLocalProductsOnly(); render(); renderReturnProductOptions(); triggerBrainRefresh('products-save'); }
 function saveReturns(){ localStorage.setItem('elyonReturns', JSON.stringify(returns)); renderReturns(); renderReturnsOverview(); render(); triggerBrainRefresh('returns-save'); }
 function saveShopifyReturns(){ localStorage.setItem('elyonShopifyReturns', JSON.stringify(shopifyReturns)); renderShopifyReturns(); renderReturnsOverview(); }
 function saveSales(){ localStorage.setItem('elyonSales', JSON.stringify(sales)); renderSales(); render(); triggerBrainRefresh('sales-save'); }
@@ -5883,6 +5901,7 @@ function saveProductEditModal(){
   });
   products = products.map(item => String(item.id) === String(product.id) ? next : item);
   save();
+  syncProductToApi(next,{silent:true});
   closeProductEditModal();
 }
 function editProduct(id){
@@ -6080,15 +6099,29 @@ function prepareBrowserImportForEbayDraft(importId){
   refreshEbayListingDraftPreview();
   toast('Browser Import in den eBay-Draft übernommen.');
 }
-function removeProduct(id){ products=products.filter(p=>String(p.id)!==String(id)); save(); }
-function duplicateProduct(id){ const o=products.find(p=>String(p.id)===String(id)); if(!o) return; products.push({...o,id:Date.now(),name:o.name+' Kopie',created:new Date().toLocaleDateString('de-DE')}); save(); }
+async function removeProduct(id){
+  if(!confirm('Produkt wirklich löschen?')) return;
+  await deleteProductViaApi(id);
+}
+async function duplicateProduct(id){
+  const o=products.find(p=>String(p.id)===String(id));
+  if(!o) return;
+  const copy = normalizeProductRecord({...o,id:Date.now(),name:o.name+' Kopie',created:new Date().toLocaleDateString('de-DE'),updatedAt:new Date().toISOString()});
+  products.push(copy);
+  save();
+  await syncProductToApi(copy,{successMessage:'Produktkopie über Product API gespeichert.'});
+}
 function toggleShopifyCandidate(id){
   products = products.map(p => String(p.id) === String(id) ? {...p, shopifyCandidate: !p.shopifyCandidate, shopifyMarkedAt: !p.shopifyCandidate ? new Date().toLocaleDateString('de-DE') : ''} : p);
   save();
+  const current = products.find(p => String(p.id) === String(id));
+  if(current) syncProductToApi(current,{silent:true});
 }
 function stopProduct(id){
   products = products.map(p => String(p.id) === String(id) ? normalizeProductRecord({...p,productStatus:'Archiviert',status:'Archiviert',stoppedAt:new Date().toLocaleDateString('de-DE'),updatedAt:new Date().toISOString()}) : p);
   save();
+  const current = products.find(p => String(p.id) === String(id));
+  if(current) syncProductToApi(current,{silent:true});
 }
 function clearAll(){ if(confirm('Wirklich alle Produkte löschen?')){ products=[]; save(); } }
 function downloadCSV(rows,name){ const csv=rows.map(r=>r.map(cell=>'"'+String((cell !== undefined && cell !== null) ? cell : '').replaceAll('"','""')+'"').join(';')).join('\n'); const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}); const link=document.createElement('a'); link.href=URL.createObjectURL(blob); link.download=name; link.click(); }
@@ -7902,12 +7935,204 @@ function renderProductAiTinyBadge(product){
   return '<span class="status ' + cls + '" title="' + escapeHtml(title) + '">' + escapeHtml(label + score) + '</span>';
 }
 
+function normalizeProductApiItem(product){
+  const normalized = normalizeProductRecord(product || {});
+  const buyPrice = Number(product && (product.buyPrice ?? product.buy)) || 0;
+  const salePrice = Number(product && (product.salePrice ?? product.sell)) || 0;
+  const shippingCost = Number(product && (product.shippingCost ?? product.ship)) || 0;
+  const suggestedSalePrice = Number(product && (product.suggestedSalePrice ?? product.recommendedPrice ?? product.suggestedPrice)) || 0;
+  const profitRaw = Number(product && product.profit);
+  const safeProfit = Number.isFinite(profitRaw) ? profitRaw : (salePrice - buyPrice - shippingCost);
+  const marginRaw = Number(product && product.margin);
+  const safeMargin = Number.isFinite(marginRaw) ? marginRaw : (salePrice > 0 ? (safeProfit / salePrice) * 100 : 0);
+  const readinessRaw = Number(product && (product.readinessScore ?? product.listingScore ?? product.score));
+  return normalizeProductRecord({
+    ...normalized,
+    title: product && (product.title || product.name || normalized.name) || normalized.name,
+    name: product && (product.name || product.title || normalized.name) || normalized.name,
+    sourceProvider: product && (product.source || product.sourceProvider || product.supplier || product.supplierId || normalized.sourceProvider) || normalized.sourceProvider,
+    sourceOnlineImage: product && (product.image || product.sourceOnlineImage || normalized.sourceOnlineImage) || normalized.sourceOnlineImage,
+    sourceOnlineImages: JSON.stringify(Array.isArray(product && product.images) ? product.images : parseJsonArrayField(normalized.sourceOnlineImages)),
+    buy: buyPrice || normalized.buy || 0,
+    sell: salePrice || normalized.sell || 0,
+    ship: shippingCost || normalized.ship || 0,
+    suggestedSalePrice,
+    apiProfit: Math.round(safeProfit * 100) / 100,
+    apiMargin: Math.round(safeMargin * 100) / 100,
+    listingScore: Number.isFinite(readinessRaw) ? readinessRaw : normalized.listingScore,
+    reviewItems: normalizeIssueList(product && (product.reviewItems ?? product.issues)),
+    warnings: normalizeIssueList(product && (product.warnings ?? product.complianceRisks)),
+    productStatus: String(product && (product.status || product.productStatus) || normalized.productStatus || 'Draft'),
+    status: String(product && (product.status || product.productStatus) || normalized.status || 'Draft'),
+    apiSyncedAt: new Date().toISOString(),
+  });
+}
+
+function productApiStatusMeta(status){
+  const raw = String(status || '').trim().toLowerCase();
+  if(raw === 'ready_for_manual_listing') return {cls:'good', label:'ready_for_manual_listing'};
+  if(raw === 'needs_review') return {cls:'warn', label:'needs_review'};
+  if(raw === 'not_ready') return {cls:'bad', label:'not_ready'};
+  return {cls:'info', label:String(status || 'unbekannt') || 'unbekannt'};
+}
+
+function renderProductApiStatus(){
+  const message = productApiState.reachable
+    ? 'Product API aktiv · Quelle: ' + productApiState.source + (productApiState.lastLoadedAt ? ' · Letztes Laden: ' + new Date(productApiState.lastLoadedAt).toLocaleString('de-DE') : '')
+    : 'Product API nicht erreichbar · localStorage-Fallback aktiv' + (productApiState.lastError ? ' · ' + productApiState.lastError : '');
+  safe('productApiStatus', el => { el.textContent = message; });
+}
+
+function renderProductApiDraftPreview(payload, message){
+  const box = $('productApiDraftPreview');
+  if(!box) return;
+  const draft = payload && payload.draft ? payload.draft : null;
+  if(!draft){
+    box.innerHTML = '<p>' + escapeHtml(message || 'Noch keine eBay-Draft-Vorschau geladen.') + '</p>';
+    return;
+  }
+  box.innerHTML =
+    '<h3>eBay Draft Vorschau</h3>' +
+    '<p class="hint">' + escapeHtml(message || 'Nur Vorschau. Keine Veröffentlichung.') + '</p>' +
+    '<p><strong>Titel:</strong><br>' + escapeHtml(draft.draft?.title || draft.generated?.title || 'Kein Titel') + '</p>' +
+    '<p><strong>Beschreibung:</strong><br>' + escapeHtml(draft.draft?.description || draft.generated?.description || 'Keine Beschreibung').replace(/\n/g,'<br>') + '</p>' +
+    '<p><strong>Status:</strong> ' + escapeHtml(String(draft.status || draft.productStatus || 'Draft')) + '</p>' +
+    '<p><strong>Safety:</strong> Keine automatische Bestellung. Kein automatisches eBay-Posting.</p>';
+}
+
+async function loadProductsFromApi(options){
+  const config = options && typeof options === 'object' ? options : {};
+  try{
+    const response = await fetch(PRODUCT_API_ENDPOINT,{method:'GET',headers:{Accept:'application/json'}});
+    if(!response.ok) throw new Error('HTTP ' + response.status);
+    const data = await response.json();
+    const items = Array.isArray(data && data.items) ? data.items.map(normalizeProductApiItem) : [];
+    products = normalizeProductsCollection(items);
+    saveLocalProductsOnly();
+    productApiState = {source:'api', reachable:true, lastLoadedAt:new Date().toISOString(), lastError:''};
+    renderProductApiStatus();
+    render();
+    if(!config.silent) toast('/api/products geladen.');
+    return items;
+  }catch(error){
+    products = normalizeProductsCollection(loadStoredArray('elyonProducts'));
+    productApiState = {source:'local_fallback', reachable:false, lastLoadedAt:'', lastError:error && error.message ? error.message : 'API Fehler'};
+    renderProductApiStatus();
+    render();
+    if(!config.silent) toast('Product API nicht erreichbar. localStorage-Fallback aktiv.');
+    return products;
+  }
+}
+
+async function reloadProductsFromApi(){
+  return loadProductsFromApi();
+}
+window.reloadProductsFromApi = reloadProductsFromApi;
+
+async function syncProductToApi(product, options){
+  const config = options && typeof options === 'object' ? options : {};
+  const record = normalizeProductApiItem(product);
+  try{
+    const response = await fetch(PRODUCT_API_ENDPOINT,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Accept':'application/json'},
+      body: JSON.stringify({
+        product:{
+          ...record,
+          source: record.sourceProvider || '',
+          image: record.sourceOnlineImage || '',
+          images: parseJsonArrayField(record.sourceOnlineImages),
+          buyPrice: Number(record.buy || 0),
+          salePrice: Number(record.sell || 0),
+          suggestedSalePrice: Number(record.suggestedSalePrice || 0),
+          shippingCost: Number(record.ship || 0),
+          profit: Number(record.apiProfit ?? 0),
+          margin: Number(record.apiMargin ?? 0),
+          readinessScore: Number(record.listingScore || 0),
+          reviewItems: normalizeIssueList(record.reviewItems),
+          warnings: normalizeIssueList(record.warnings),
+          status: record.productStatus || record.status || 'Draft',
+        }
+      })
+    });
+    if(!response.ok) throw new Error('HTTP ' + response.status);
+    const data = await response.json();
+    const saved = data && data.product ? normalizeProductApiItem(data.product) : record;
+    products = products.map(item => String(item.id) === String(saved.id) ? normalizeProductRecord({...item,...saved}) : item);
+    saveLocalProductsOnly();
+    productApiState = {source:'api', reachable:true, lastLoadedAt:new Date().toISOString(), lastError:''};
+    renderProductApiStatus();
+    render();
+    if(!config.silent && config.successMessage) toast(config.successMessage);
+    return saved;
+  }catch(error){
+    productApiState = {source:'local_fallback', reachable:false, lastLoadedAt:'', lastError:error && error.message ? error.message : 'API Fehler'};
+    renderProductApiStatus();
+    if(!config.silent) toast('Product API Speichern fehlgeschlagen. Lokale Daten bleiben erhalten.');
+    return null;
+  }
+}
+
+async function applySuggestedSalePrice(id){
+  const product = products.find(item => String(item.id) === String(id));
+  if(!product) return;
+  const suggested = Number(product.suggestedSalePrice || 0);
+  if(!(suggested > 0)){
+    toast('Kein Preisvorschlag vorhanden.');
+    return;
+  }
+  const next = normalizeProductRecord({...product,sell:suggested,salePrice:suggested,updatedAt:new Date().toISOString()});
+  products = products.map(item => String(item.id) === String(id) ? next : item);
+  save();
+  await syncProductToApi(next,{successMessage:'Preisvorschlag übernommen und per Product API gespeichert.'});
+}
+window.applySuggestedSalePrice = applySuggestedSalePrice;
+
+async function previewProductEbayDraft(id){
+  try{
+    const response = await fetch(PRODUCT_API_DRAFT_ENDPOINT + '?id=' + encodeURIComponent(String(id)),{method:'GET',headers:{Accept:'application/json'}});
+    if(!response.ok) throw new Error('HTTP ' + response.status);
+    const data = await response.json();
+    renderProductApiDraftPreview(data,'Draft über /api/products/ebay-draft geladen. Keine Veröffentlichung.');
+    if(data && data.draft){
+      latestEbayListingDraft = normalizeEbayListingDraftRecord(data.draft);
+      applyEbayListingDraftToForm(latestEbayListingDraft);
+      refreshEbayListingDraftPreview();
+    }
+    toast('eBay Draft Vorschau geladen.');
+  }catch(error){
+    renderProductApiDraftPreview(null,'Draft-Vorschau konnte nicht geladen werden.');
+    toast('eBay Draft Vorschau fehlgeschlagen.');
+  }
+}
+window.previewProductEbayDraft = previewProductEbayDraft;
+
+async function deleteProductViaApi(id){
+  const existing = products.find(item => String(item.id) === String(id));
+  products = products.filter(item => String(item.id) !== String(id));
+  save();
+  try{
+    const response = await fetch(PRODUCT_API_ENDPOINT + '?id=' + encodeURIComponent(String(id)),{method:'DELETE',headers:{Accept:'application/json'}});
+    if(!response.ok) throw new Error('HTTP ' + response.status);
+    productApiState = {source:'api', reachable:true, lastLoadedAt:new Date().toISOString(), lastError:''};
+    renderProductApiStatus();
+    toast('Produkt über Product API gelöscht.');
+  }catch(error){
+    if(existing) products = [existing].concat(products);
+    save();
+    productApiState = {source:'local_fallback', reachable:false, lastLoadedAt:'', lastError:error && error.message ? error.message : 'API Fehler'};
+    renderProductApiStatus();
+    toast('Löschen über Product API fehlgeschlagen. Lokaler Stand wurde wiederhergestellt.');
+  }
+}
+
 function productCardHTML(p,small=false){
   const c = calcProduct(p);
   const s = statusFromScore(c.score);
   const ebayReady = c.score >= 65;
   const health = productHealth(p);
   const lifecycle = productStatusMeta(p.productStatus || p.status || 'Draft');
+  const apiStatus = productApiStatusMeta(p.productStatus || p.status || 'Draft');
   const ss = getSalesStatsForProduct(p.id);
   const rs = getReturnStatsForProduct(p.id);
   const net = ss.profit - rs.loss;
@@ -7915,9 +8140,16 @@ function productCardHTML(p,small=false){
   const cardClass = (small ? 'product-card small-card' : 'product-card') + (isBrowserImport ? ' browser-product-card' : '');
   const shopifyText = p.shopifyCandidate ? 'Shopify entfernen' : 'Für Shopify merken';
   const shopifyInfo = p.shopifyCandidate ? ' · Shopify-Kandidat seit ' + (p.shopifyMarkedAt || 'markiert') : '';
+  const imageList = parseJsonArrayField(p.sourceOnlineImages);
+  const productImage = String(p.sourceOnlineImage || imageList[0] || '').trim();
+  const reviewItems = normalizeIssueList(p.reviewItems || p.issues);
+  const warnings = normalizeIssueList(p.warnings);
   let detailHtml = '';
   detailHtml += '<details class="details-box">';
   detailHtml += '<summary>Details anzeigen</summary>';
+  if(reviewItems.length || warnings.length){
+    detailHtml += '<div class="output-box"><h3>Warnungen & Review</h3><p>' + escapeHtml((warnings.length ? 'Warnungen: ' + warnings.join(' | ') : 'Warnungen: keine') + '\n' + (reviewItems.length ? 'Review Items: ' + reviewItems.join(' | ') : 'Review Items: keine')).replace(/\n/g,'<br>') + '</p></div>';
+  }
   detailHtml += '<div class="pill-row">' + returnPillsForProduct(p,c) + '</div>';
   if(p.sourceProvider || p.sourceRisk || p.sourceType || p.sourceDomain){
     detailHtml += '<div class="output-box"><h3>Produktbeschaffung</h3><p>Quelle: ' + escapeHtml(p.sourceProvider || p.supplierId || 'offen') + '\nTyp: ' + escapeHtml(p.sourceType || 'offen') + '\nRisiko: ' + escapeHtml(p.sourceRisk || 'offen') + '\nDomain: ' + escapeHtml(p.sourceDomain || 'offen') + '\nAnalyse: ' + escapeHtml(p.sourceAnalysisStatus || 'offen') + (p.sourceNote ? '\nHinweis: ' + escapeHtml(p.sourceNote) : '') + '</p></div>';
@@ -7935,6 +8167,9 @@ function productCardHTML(p,small=false){
   let html = '';
   html += '<article class="' + cardClass + '">';
   html += '<div class="' + (isBrowserImport ? 'browser-product-main' : '') + '">';
+  if(productImage && !isBrowserImport){
+    html += '<div class="browser-product-head" style="margin-bottom:12px"><img class="browser-product-image" src="' + escapeHtml(productImage) + '" alt="" referrerpolicy="no-referrer" loading="lazy" onerror="this.remove()"><div>';
+  }
   if(isBrowserImport && (p.sourceOnlineImage || parseJsonArrayField(p.sourceOnlineImages)[0])){
     const thumb = p.sourceOnlineImage || parseJsonArrayField(p.sourceOnlineImages)[0];
     html += '<div class="browser-product-head" style="margin-bottom:12px"><img class="browser-product-image" src="' + escapeHtml(thumb) + '" alt="" referrerpolicy="no-referrer" loading="lazy" onerror="this.remove()"><div>';
@@ -7943,8 +8178,11 @@ function productCardHTML(p,small=false){
   }else{
     html += '<div class="product-title">' + escapeHtml((p.priority || 'Normal') + ' · ' + p.name) + '</div>';
   }
+  if(productImage && !isBrowserImport){
+    html += '<div class="muted">Bild aus Produktdaten geladen.</div></div></div>';
+  }
   html += '<div class="muted">Status: ' + escapeHtml(lifecycle.label) + ' · Erstellt: ' + (p.created || '') + ' · ' + s.text + shopifyInfo + '</div>';
-  html += '<div class="pill-row"><span class="status ' + lifecycle.cls + '">' + escapeHtml(lifecycle.label) + '</span>' + returnCompactPillsForProduct(p,c) + getProductCommercialChips(p,c) + '<span class="pill">Netto: ' + euro(net) + '</span><span class="status '+health.cls+'">'+health.label+'</span>' + (p.sourceProvider ? '<span class="pill">Quelle: ' + escapeHtml(p.sourceProvider) + '</span>' : '') + (p.sourceRisk ? '<span class="status ' + riskClass(p.sourceRisk) + '">Supplier: ' + escapeHtml(p.sourceRisk) + '</span>' : '') + '</div>';
+  html += '<div class="pill-row"><span class="status ' + lifecycle.cls + '">' + escapeHtml(lifecycle.label) + '</span><span class="status ' + apiStatus.cls + '">' + escapeHtml(apiStatus.label) + '</span>' + returnCompactPillsForProduct(p,c) + getProductCommercialChips(p,c) + '<span class="pill">Quelle: ' + escapeHtml(p.sourceProvider || p.supplierId || 'offen') + '</span><span class="pill">EK: ' + euro(p.buy) + '</span><span class="pill">VK: ' + euro(p.sell) + '</span><span class="pill">Vorschlag: ' + euro(p.suggestedSalePrice || c.recommendedPrice || 0) + '</span><span class="pill">Versand: ' + euro(p.ship) + '</span><span class="pill">Gewinn: ' + euro(Number.isFinite(Number(p.apiProfit)) ? Number(p.apiProfit) : c.profit) + '</span><span class="pill">Marge: ' + Math.round((Number.isFinite(Number(p.apiMargin)) ? Number(p.apiMargin) : c.margin) * 10) / 10 + '%</span><span class="pill">Readiness: ' + (p.listingScore || 0) + '/100</span><span class="pill">Netto: ' + euro(net) + '</span><span class="status '+health.cls+'">'+health.label+'</span>' + (p.sourceRisk ? '<span class="status ' + riskClass(p.sourceRisk) + '">Supplier: ' + escapeHtml(p.sourceRisk) + '</span>' : '') + '</div>';
   html += renderProductAiMiniCard(p);
   html += detailHtml;
   html += '</div>';
@@ -7960,8 +8198,11 @@ function productCardHTML(p,small=false){
   }
   html += '</div>';
   html += '<div class="actions">';
+  html += '<button class="secondary" onclick="applySuggestedSalePrice(' + escapeInlineJsArg(p.id) + ')">Preisvorschlag übernehmen</button>';
+  html += '<button class="secondary" onclick="previewProductEbayDraft(' + escapeInlineJsArg(p.id) + ')">eBay Draft erstellen</button>';
   html += '<button class="secondary" id="' + getProductAiUiId('productAiBtn', p.id) + '" onclick="triggerProductDecision(' + JSON.stringify(String(p.id)) + ')">KI prüfen</button>';
   html += '<button class="' + (ebayReady ? '' : 'secondary') + '" onclick="prepareProductForEbayDraft(\'' + escapeHtml(String(p.id)) + '\')">' + (ebayReady ? 'eBay Listing vorbereiten' : 'Für eBay vorbereiten') + '</button>';
+  html += '<button class="secondary" onclick="reloadProductsFromApi()">Neu laden</button>';
   html += '<button class="secondary" onclick="editProduct(' + escapeInlineJsArg(p.id) + ')">Bearbeiten</button>';
   html += '<button class="secondary" onclick="toggleShopifyCandidate(' + escapeInlineJsArg(p.id) + ')">' + shopifyText + '</button>';
   html += '<button class="secondary" onclick="duplicateProduct(' + escapeInlineJsArg(p.id) + ')">Duplizieren</button>';
@@ -12539,6 +12780,8 @@ document.addEventListener('DOMContentLoaded',()=>{
   runSafeUiStep('resetMenusToLabNames', resetMenusToLabNames);
   runSafeUiStep('updateToggleViewButton', ()=>safe('toggleViewBtn',el=>el.textContent=productViewMode==='list'?'Kanban-Ansicht':'Listen-Ansicht'));
   runSafeUiStep('render', render);
+  runSafeUiStep('renderProductApiStatus', renderProductApiStatus);
+  runSafeUiStep('loadProductsFromApi', ()=>loadProductsFromApi({silent:true}));
   runSafeUiStep('renderReturns', renderReturns);
   runSafeUiStep('renderShopifyReturns', renderShopifyReturns);
   runSafeUiStep('renderReturnsOverview', renderReturnsOverview);
