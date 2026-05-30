@@ -3,20 +3,33 @@ import { routeAIRequest } from "../lib/ai-provider-router.js";
 const OPENAI_RESPONSES_ENDPOINT = "https://api.openai.com/v1/responses";
 
 const DEFAULT_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
+const DEFAULT_REASONING_MODEL = process.env.OPENAI_REASONING_MODEL || "gpt-4o";
 
 const MODEL_BY_TASK = {
-  category: DEFAULT_MODEL,
-  tags: DEFAULT_MODEL,
-  title: DEFAULT_MODEL,
-  description: DEFAULT_MODEL,
-  product_score: DEFAULT_MODEL,
-  assistant: DEFAULT_MODEL,
-  "product-search": DEFAULT_MODEL,
-  "listing-optimizer": DEFAULT_MODEL,
+  category: process.env.OPENAI_MODEL_CATEGORY || DEFAULT_MODEL,
+  tags: process.env.OPENAI_MODEL_TAGS || DEFAULT_MODEL,
+  title: process.env.OPENAI_MODEL_TITLE || DEFAULT_MODEL,
+  description: process.env.OPENAI_MODEL_DESCRIPTION || DEFAULT_REASONING_MODEL,
+  product_score: process.env.OPENAI_MODEL_PRODUCT_SCORE || DEFAULT_REASONING_MODEL,
+  assistant: process.env.OPENAI_MODEL_ASSISTANT || DEFAULT_MODEL,
+  "product-search": process.env.OPENAI_MODEL_PRODUCT_SEARCH || DEFAULT_REASONING_MODEL,
+  "listing-optimizer": process.env.OPENAI_MODEL_LISTING_OPTIMIZER || DEFAULT_REASONING_MODEL,
 };
 
 function chooseModel(task) {
   return MODEL_BY_TASK[task] || DEFAULT_MODEL;
+}
+
+function normalizeOpenAIModelName(value) {
+  const model = readText(value).toLowerCase();
+  if (!model) return "";
+  if (model === "openai-mini") return "gpt-4o-mini";
+  if (model === "openai-standard") return "gpt-4o";
+  return readText(value);
+}
+
+function resolveOpenAIModel(task, requestedModel) {
+  return normalizeOpenAIModelName(requestedModel) || chooseModel(task);
 }
 
 function jsonError(res, status, error, details) {
@@ -310,6 +323,7 @@ function buildListingOptimizerPayload(body) {
 
   return {
     mode,
+    targetField: readText(body?.targetField),
     product: {
       mainKeyword: readText(product.mainKeyword),
       productName: readText(product.productName),
@@ -365,6 +379,66 @@ function normalizeListingOptimizerResult(rawResult) {
 }
 
 function buildListingOptimizerPrompt(payload) {
+  if (payload?.targetField === "description") {
+    return [
+      "Du bist Deutschlands bester eBay-Listing-Copywriter.",
+      "Deine Aufgabe ist es, aus vorhandenen Produktdaten eine hochwertige, professionelle und verkaufsstarke eBay-Produktbeschreibung zu erstellen.",
+      "Antworte ausschliesslich als valides JSON und sonst mit nichts.",
+      "",
+      "Wichtige Regeln:",
+      "- Schreibe die Beschreibung ausschliesslich auf Deutsch.",
+      "- Schreibe fuer echte Kaeufer.",
+      "- Schreibe natuerlich, klar und menschlich.",
+      "- Vermeide KI-Sprache, Floskeln, leeres Marketing und Wiederholungen.",
+      "- Erfinde niemals Produktmerkmale.",
+      "- Nutze nur Informationen, die tatsaechlich vorhanden sind.",
+      "- Technische Rohdaten, Importreste, HTML-Reste, API-Felder, Quellnamen, Systembegriffe oder Lieferlogistik duerfen niemals sichtbar werden.",
+      "- Begriffe wie Browser Import, chrome_extension, source, raw, API, Courier, Pick-up, Tracking, Lieferfenster oder aehnliche technische Reste duerfen nicht im Text erscheinen.",
+      "- Wenn Daten unklar oder unvollstaendig sind, formuliere allgemein, aber professionell.",
+      "- Mache keine unrealistischen Lieferzeitversprechen, keine Heilversprechen und keine falschen Markenversprechen.",
+      "",
+      "Ziel der Beschreibung:",
+      "- Vertrauen aufbauen.",
+      "- Das Produkt verstaendlich machen.",
+      "- Den Nutzen klar zeigen.",
+      "- Die Kaufentscheidung erleichtern.",
+      "",
+      "Stil:",
+      "- professionell",
+      "- hochwertig",
+      "- vertrauenswuerdig",
+      "- modern",
+      "- leicht verstaendlich",
+      "- kundenorientiert",
+      "- serioes",
+      "- angenehm lesbar",
+      "",
+      "Erwartete Struktur fuer das Feld description:",
+      "1. Kurze Einleitung mit 2 bis 4 Saetzen.",
+      "2. Abschnitt 'Highlights auf einen Blick' mit 4 bis 8 echten, lesbaren Bulletpoints je nach Datenlage.",
+      "3. Abschnitt 'Warum dieses Produkt?' mit klarem Nutzen und Kaufargumenten.",
+      "4. Abschnitt 'Ideal fuer' mit konkreter Zielgruppe oder Einsatzbereich, sofern aus den Daten ableitbar.",
+      "5. Abschnitt 'Lieferumfang' nur wenn verlaessliche Daten vorhanden sind.",
+      "6. Kurzer vertrauensvoller Abschluss ohne Druckverkauf, Fake-Rabatte oder kuenstliche Verknappung.",
+      "",
+      "SEO:",
+      "- Verwende wichtige Produktbegriffe natuerlich im Text.",
+      "- Kein Keyword-Spam.",
+      "- Keine Suchwort-Listen.",
+      "",
+      "JSON-Regeln:",
+      "- Gib ein valides JSON passend zum Schema zurueck.",
+      "- Das Feld description soll den vollstaendigen Verkaufstext enthalten.",
+      "- Das Feld bulletPoints soll 4 bis 8 kurze, saubere Highlights enthalten, passend zur Beschreibung.",
+      "- title und subtitle nur vorsichtig verbessern; wenn keine bessere sichere Variante ableitbar ist, uebernimm vorhandene Werte oder gib leere Strings zurueck.",
+      "- seoKeywords nur aus tatsaechlich vorhandenen Produktbegriffen ableiten.",
+      "- riskWarnings nur nennen, wenn wirklich Risiken oder Datenluecken erkennbar sind.",
+      "",
+      "Produktdaten:",
+      JSON.stringify(payload, null, 2),
+    ].join("\n");
+  }
+
   return [
     "Du bist ein professioneller eBay Listing Optimizer fuer einen deutschen Online-Shop.",
     "Erstelle verkaufsstarke, aber seriöse eBay-Titel und Beschreibungen.",
@@ -421,9 +495,9 @@ function buildListingOptimizerSchema() {
   };
 }
 
-async function callJsonOpenAI({ prompt, schema, name, description, maxOutputTokens }) {
+async function callJsonOpenAI({ prompt, schema, name, description, maxOutputTokens, model }) {
   const response = await createOpenAIResponse({
-    model: DEFAULT_MODEL,
+    model: model || DEFAULT_MODEL,
     input: prompt,
     text: {
       format: schema,
@@ -446,11 +520,12 @@ async function callJsonOpenAI({ prompt, schema, name, description, maxOutputToke
 async function callStructuredAI({ task, prompt, schema, name, description, maxOutputTokens, provider, model }) {
   const normalizedProvider = normalizeProvider(provider);
   if (!normalizedProvider || normalizedProvider === "openai") {
-    const parsed = await callJsonOpenAI({ prompt, schema, name, description, maxOutputTokens });
+    const resolvedModel = resolveOpenAIModel(task, model);
+    const parsed = await callJsonOpenAI({ prompt, schema, name, description, maxOutputTokens, model: resolvedModel });
     return {
       parsed,
       provider: "openai",
-      model: DEFAULT_MODEL,
+      model: resolvedModel,
       fallbackUsed: false,
     };
   }
@@ -515,12 +590,14 @@ async function handleProductSearch(req, res, body) {
   }
 
   try {
+    const resolvedModel = resolveOpenAIModel("product-search", body.model);
     const result = await callJsonOpenAI({
       prompt: buildProductSearchPrompt(payload),
       schema: buildProductSearchSchema(),
       name: "product_search_optimizer_v1",
       description: "Strukturierte Produktsuche-Analyse fuer Elyon Seller Tool",
       maxOutputTokens: 1200,
+      model: resolvedModel,
     });
 
     return res.status(200).json({
@@ -528,7 +605,7 @@ async function handleProductSearch(req, res, body) {
       source: "ai-product-search",
       task: "product-search",
       mode: payload.mode,
-      model: DEFAULT_MODEL,
+      model: resolvedModel,
       ...normalizeProductSearchResult(result),
     });
   } catch (error) {
@@ -650,7 +727,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const model = chooseModel(task);
+    const model = resolveOpenAIModel(task, body.model);
     const response = await createOpenAIResponse({
       model,
       input: buildSimplePrompt(task, prompt, body),

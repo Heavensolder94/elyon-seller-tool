@@ -8109,12 +8109,76 @@ function buildAiDescriptionPrompt(){
   const scope = $('descScope') && $('descScope').value.trim() ? $('descScope').value.trim() : '';
   const notice = $('descNotice') && $('descNotice').value.trim() ? $('descNotice').value.trim() : '';
   return [
-    'Erstelle eine verkaufsstarke, aber seriöse eBay-Beschreibung auf Deutsch.',
-    'Nutze zuerst echte Importdaten und Produktmerkmale, nicht allgemeine Füllsätze.',
-    'Schreibe scanbar, ebay-tauglich und klar.',
-    'Baue 4 bis 6 Bulletpoints ein, danach eine kompakte Beschreibung und am Ende einen kurzen Hinweis.',
-    'Wenn Importdaten unvollständig sind, formuliere vorsichtig und erfinde keine Fakten.',
-    'Keine Marken erfinden. Keine Zertifikate erfinden. Keine Heilversprechen. Keine unrealistischen Lieferaussagen.',
+    'Du bist Deutschlands bester eBay-Listing-Copywriter.',
+    '',
+    'Deine Aufgabe ist es, aus vorhandenen Produktdaten eine hochwertige, professionelle und verkaufsstarke eBay-Produktbeschreibung zu erstellen.',
+    '',
+    'Wichtige Regeln:',
+    '- Schreibe ausschliesslich auf Deutsch.',
+    '- Schreibe fuer echte Kaeufer.',
+    '- Schreibe natuerlich, klar und menschlich.',
+    '- Vermeide KI-Sprache, Floskeln und leeres Marketing.',
+    '- Vermeide Wiederholungen.',
+    '- Erfinde niemals Produktmerkmale.',
+    '- Nutze nur Informationen, die tatsaechlich vorhanden sind.',
+    '- Technische Rohdaten, Importreste, HTML-Reste, API-Felder, Quellnamen, Systembegriffe oder Lieferlogistik duerfen niemals sichtbar werden.',
+    '- Begriffe wie Browser Import, chrome_extension, source, raw, API, Courier, Pick-up, Tracking, Lieferfenster oder aehnliche technische Reste duerfen nicht im Text erscheinen.',
+    '- Wenn Daten unklar oder unvollstaendig sind, formuliere allgemein, aber professionell.',
+    '',
+    'Ziel der Beschreibung:',
+    '- Vertrauen aufbauen',
+    '- das Produkt verstaendlich machen',
+    '- den Nutzen klar zeigen',
+    '- die Kaufentscheidung erleichtern',
+    '',
+    'Schreibstil:',
+    '- professionell',
+    '- hochwertig',
+    '- vertrauenswuerdig',
+    '- modern',
+    '- leicht verstaendlich',
+    '- kundenorientiert',
+    '- serioes',
+    '- angenehm lesbar',
+    '',
+    'Aufbau:',
+    '1. Einleitung',
+    'Beginne mit 2 bis 4 kurzen Saetzen. Zeige direkt, was das Produkt besonders macht und welchen Nutzen es bietet.',
+    '2. Highlights auf einen Blick',
+    'Erstelle 4 bis 8 Bulletpoints, je nach Datenlage. Jeder Punkt soll einen echten Vorteil oder eine echte Eigenschaft mit Nutzen verbinden. Keine reine Stichwortliste.',
+    '3. Warum dieses Produkt?',
+    'Erklaere in einem kurzen Abschnitt, welchen Nutzen das Produkt bietet, welches Problem es loesen kann und warum es fuer Kaeufer interessant ist.',
+    '4. Ideal fuer',
+    'Beschreibe moeglichst konkret, fuer wen oder welchen Einsatzbereich das Produkt geeignet ist.',
+    '5. Lieferumfang',
+    'Nur wenn verlaessliche Daten vorhanden sind. Nenne ausschliesslich tatsaechlich bekannte Inhalte.',
+    '6. Abschluss',
+    'Beende den Text mit einem kurzen, vertrauensvollen Absatz. Keine kuenstliche Verknappung. Keine Druckverkaufs-Taktiken. Keine Fake-Rabatte.',
+    '',
+    'SEO:',
+    '- Verwende wichtige Produktbegriffe natuerlich im Text.',
+    '- Kein Keyword-Spam.',
+    '- Keine unnatuerlichen Wiederholungen.',
+    '- Keine Suchwort-Listen.',
+    '',
+    'Qualitaetsregeln:',
+    '- Die Beschreibung muss wirken wie ein professioneller Onlineshop, ein hochwertiger eBay-Top-Seller und ein moderner, conversion-starker Verkaufstext.',
+    '- Die Beschreibung darf nicht wirken wie ChatGPT, KI-Text, Rohdaten-Ausgabe, uebersetzter Text, Datenblatt oder Herstellertext ohne Ueberarbeitung.',
+    '',
+    'Falls Daten fehlen:',
+    '- keine Fakten erfinden',
+    '- keine Spekulationen',
+    '- professionell und allgemein formulieren',
+    '- nur sichere Aussagen verwenden',
+    '',
+    'Ausgabe:',
+    '- Gib ausschliesslich die fertige Produktbeschreibung zurueck.',
+    '- Keine Erklaerungen.',
+    '- Keine Analyse.',
+    '- Keine Hinweise.',
+    '- Keine JSON-Ausgabe.',
+    '- Kein Markdown-Codeblock.',
+    '- Keine Zusatzkommentare.',
     '',
     'Produktdaten:',
     JSON.stringify({
@@ -8139,7 +8203,8 @@ function buildAiDescriptionPrompt(){
         imageCount: context.imageCount
       }
     }, null, 2)
-  ].join('\n');
+  ].join('
+');
 }
 function buildAiTagsPrompt(){
   const main = $('gMainKeyword') && $('gMainKeyword').value.trim() ? $('gMainKeyword').value.trim() : '';
@@ -8494,6 +8559,7 @@ async function runAiListingOptimizer(mode){
 async function runAiStructuredFieldOptimizer(field, mode){
   const defaults = getGlobalAiDefaults();
   const payload = readListingOptimizerInput();
+  payload.targetField = field;
   payload.mode = mode || 'regenerate';
   payload.requestedMode = mode || 'regenerate';
   payload.product.currentTitle = getGeneratedTitle();
