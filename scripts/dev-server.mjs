@@ -216,29 +216,29 @@ function staticCandidates(pathname) {
   const base = clean.replace(/^\/+/, "");
   const candidates = new Set();
 
-  candidates.add(path.join(appRoot, base));
   candidates.add(path.join(publicRoot, base));
+  candidates.add(path.join(appRoot, base));
 
   if (!path.extname(base)) {
-    candidates.add(path.join(appRoot, base, "index.html"));
     candidates.add(path.join(publicRoot, base, "index.html"));
-    candidates.add(path.join(appRoot, `${base}.html`));
+    candidates.add(path.join(appRoot, base, "index.html"));
     candidates.add(path.join(publicRoot, `${base}.html`));
+    candidates.add(path.join(appRoot, `${base}.html`));
   }
 
   if (clean === "/index.html") {
-    candidates.add(path.join(appRoot, "index.html"));
     candidates.add(path.join(publicRoot, "index.html"));
+    candidates.add(path.join(appRoot, "index.html"));
   }
 
   if (clean === "/ebay-callback" || clean === "/ebay-callback/") {
-    candidates.add(path.join(appRoot, "ebay-accepted.html"));
     candidates.add(path.join(publicRoot, "ebay-accepted.html"));
+    candidates.add(path.join(appRoot, "ebay-accepted.html"));
   }
 
   if (clean === "/ebay-declined" || clean === "/ebay-declined/") {
-    candidates.add(path.join(appRoot, "ebay-declined.html"));
     candidates.add(path.join(publicRoot, "ebay-declined.html"));
+    candidates.add(path.join(appRoot, "ebay-declined.html"));
   }
 
   return Array.from(candidates);
