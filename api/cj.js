@@ -1288,7 +1288,7 @@ async function issueCjAccessToken() {
   const apiKeyConfigured = Boolean(readText(process.env.CJ_API_KEY));
   const accessTokenConfigured = Boolean(readText(process.env.CJ_ACCESS_TOKEN));
   const authMode = getCjAuthMode(process.env);
-  if (!apiKeyConfigured && !accessTokenConfigured) {
+  if (!apiKeyConfigured) {
     return {
       ok: false,
       tokenReceived: false,
@@ -1299,16 +1299,14 @@ async function issueCjAccessToken() {
   }
 
   try {
-    await getCjAccessToken();
+    await getCjAccessTokenFromEnv(process.env, { forceRefresh: true });
     const meta = getCachedCjTokenMeta();
     return {
       ok: true,
-      tokenReceived: meta.tokenReceived || accessTokenConfigured,
+      tokenReceived: meta.tokenReceived,
       expiresIn: meta.expiresIn,
-      message: accessTokenConfigured
-        ? "Vorhandener CJ Access Token ist backendseitig aktiv."
-        : "Neuer CJ Access Token wurde backendseitig erzeugt.",
-      authMode,
+      message: "Neuer CJ Access Token wurde backendseitig erzeugt.",
+      authMode: apiKeyConfigured ? "api-key-exchange" : authMode,
     };
   } catch (error) {
     return {
