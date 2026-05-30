@@ -777,12 +777,12 @@
       <p class="subtitle">Ein lokales Dashboard für Produktideen, Kalkulation, Konkurrenz, Recht/Risiko, Zielpreise, Testbudget und Listing-Checkliste.</p>
     </div>
     <div class="top-actions">
-      <button id="settingsBtn" class="secondary">⚙️ Einstellungen</button>
-      <button id="startLauncherBtn" class="secondary">🚀 Schnellstartmenü</button>
+      <button id="settingsBtn" class="secondary" type="button" onclick="openIntegrations()">⚙️ Einstellungen</button>
+      <button id="startLauncherBtn" class="secondary" type="button" onclick="openStartLauncher()">🚀 Schnellstartmenü</button>
       <button id="undoBtn" class="secondary hidden">↩️ Rückgängig</button>
       <input id="csvImport" class="hidden" type="file" accept=".csv,.xlsx,.xls">
       <div style="position:relative;display:inline-block">
-        <button class="secondary" id="importBtn" type="button">CSV/XLSX importieren</button>
+        <button class="secondary" id="importBtn" type="button" onclick="toggleCsvImportMenu()">CSV/XLSX importieren</button>
         <div id="csvImportMenu" class="hidden" style="position:absolute;right:0;top:calc(100% + 8px);min-width:280px;background:rgba(15,23,42,.98);border:1px solid rgba(255,255,255,.14);border-radius:18px;padding:12px;z-index:1500;box-shadow:0 18px 50px rgba(0,0,0,.42)">
           <button class="secondary full" id="localCsvImportBtn" type="button">Lokale CSV/XLSX-Datei importieren</button>
           <button class="secondary full" id="googleCsvImportBtn" type="button" style="margin-top:8px">Von Google Sheets importieren</button>
@@ -794,8 +794,8 @@
           </div>
         </div>
       </div>
-      <button class="secondary" id="exportBtn">CSV exportieren</button>
-      <button class="danger" id="clearBtn">Alles löschen</button>
+      <button class="secondary" id="exportBtn" type="button" onclick="exportCSV()">CSV exportieren</button>
+      <button class="danger" id="clearBtn" type="button" onclick="clearAll()">Alles löschen</button>
     </div>
   </section>
 
@@ -838,7 +838,7 @@
           <h2>Welchen Bereich willst du betreten?</h2>
           <p class="hint">Wähle deinen Arbeitsmodus. Du kannst später jederzeit oben über „Schnellstartmenü“ zurück.</p>
         </div>
-        <button id="closeStartLauncherBtn" class="secondary">✕</button>
+        <button id="closeStartLauncherBtn" class="secondary" type="button" onclick="closeStartLauncher()">✕</button>
       </div>
       <div class="start-focus-box">
         <div class="start-focus-head">
@@ -853,7 +853,7 @@
             <small id="startRecommendationEyebrow">Nächster sinnvoller Schritt</small>
             <h4 id="startRecommendationTitle">Lade Empfehlung ...</h4>
             <p id="startRecommendationText">Wir zeigen dir hier die beste nächste Aktion anhand deiner aktuellen Daten.</p>
-            <button id="startRecommendedBtn" class="secondary full" type="button">Jetzt öffnen</button>
+            <button id="startRecommendedBtn" class="secondary full" type="button" onclick="openStartTarget(this.dataset.startTarget || 'ebay')">Jetzt öffnen</button>
           </div>
         </div>
         <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:12px">
@@ -880,36 +880,36 @@
               <small>Neue eBay-Bestellungen</small>
               <h4 id="startOrdersTitle">0 neue Bestellungen</h4>
             </div>
-            <button id="startOpenOrdersBtn" class="secondary" type="button">Bestellungen öffnen</button>
+            <button id="startOpenOrdersBtn" class="secondary" type="button" onclick="openOrders()">Bestellungen öffnen</button>
           </div>
           <div id="startRecentOrders" class="start-orders-list"></div>
         </div>
       </div>
       <div class="start-launcher-grid">
-        <button class="secondary start-card" id="enterEbayAreaBtn">
+        <button class="secondary start-card" id="enterEbayAreaBtn" type="button" onclick="enterStartArea('ebay')">
           <strong>📦 Bestellungen</strong>
           <span>Dein Arbeitsbereich für Verkäufe, Versand, Rechnungen und Retouren im Tagesgeschäft.</span>
         </button>
-        <button class="secondary start-card" id="enterShopifyAreaBtn">
+        <button class="secondary start-card" id="enterShopifyAreaBtn" type="button" onclick="enterStartArea('shopify')">
           <strong>🟢 Shopify Vorbereitung</strong>
           <span>Dein Zukunftsbereich für Produktseiten, Ads, Landingpage-Checks und Store-Potenzial.</span>
         </button>
-        <button class="secondary start-card" id="enterBackofficeAreaBtn">
+        <button class="secondary start-card" id="enterBackofficeAreaBtn" type="button" onclick="enterStartArea('backoffice')">
           <strong>⚙️ Backoffice & Setup</strong>
           <span>Dein Verwaltungsbereich für Einstellungen, Backup, Rechnungen, Integrationen und Backend.</span>
         </button>
       </div>
       <div class="start-quick-row">
-        <button class="secondary" id="startQuickProduct">+ Produkt prüfen</button>
-        <button class="secondary" id="startQuickSale">💰 Verkauf öffnen</button>
-        <button class="secondary" id="startQuickShipping">🚚 Versand prüfen</button>
-        <button class="secondary" id="startQuickInvoice">🧾 Rechnungen</button>
-        <button class="secondary" id="startQuickReturn">↩️ Retouren</button>
+        <button class="secondary" id="startQuickProduct" type="button" onclick="startQuickAction('product')">+ Produkt prüfen</button>
+        <button class="secondary" id="startQuickSale" type="button" onclick="startQuickAction('sale')">💰 Verkauf öffnen</button>
+        <button class="secondary" id="startQuickShipping" type="button" onclick="startQuickAction('shipping')">🚚 Versand prüfen</button>
+        <button class="secondary" id="startQuickInvoice" type="button" onclick="startQuickAction('invoice')">🧾 Rechnungen</button>
+        <button class="secondary" id="startQuickReturn" type="button" onclick="startQuickAction('return')">↩️ Retouren</button>
       </div>
       <div class="start-launcher-footer">
         <p class="hint">⚠️ Daten werden aktuell lokal im Browser gespeichert. GitHub/Vercel speichern nur den Code. Exportiere regelmäßig ein Backup.</p>
         <div class="row">
-          <button id="startBackupNowBtn" class="secondary full">💾 Backup jetzt exportieren</button>
+          <button id="startBackupNowBtn" class="secondary full" type="button" onclick="exportFullBackup()">💾 Backup jetzt exportieren</button>
           <label class="checkrow" style="margin:0"><input type="checkbox" id="showStartLauncherAgain" checked> <span>Beim Start anzeigen</span></label>
         </div>
       </div>
@@ -970,12 +970,12 @@
       <h2>🚀 Schnellstart</h2>
       <p class="hint">Direkt in deinen häufigsten Arbeitsweg springen, ohne den Umweg über das Menü.</p>
       <div class="launcher-grid">
-        <button class="secondary launcher-btn" id="launcherNewProduct"><strong>📦 Neues Produkt prüfen</strong><small>Zum Produktformular springen</small></button>
-        <button class="secondary launcher-btn" id="launcherBoard"><strong>🧭 Produkt-Board öffnen</strong><small>Produkte, Filter & Kanban</small></button>
-        <button class="secondary launcher-btn" id="launcherGenerator"><strong>✍️ Listing erstellen</strong><small>Titel, SEO & Beschreibung</small></button>
-        <button class="secondary launcher-btn" id="launcherSales"><strong>💰 Verkauf & Rechnung</strong><small>Bestellung, Status, Gewinn und Beleg</small></button>
-        <button class="secondary launcher-btn" id="launcherReturns"><strong>↩️ Retouren prüfen</strong><small>eBay / Shopify Rückgaben</small></button>
-        <button class="secondary launcher-btn" id="launcherBackup"><strong>💾 Backup sichern</strong><small>Komplette Daten exportieren</small></button>
+        <button class="secondary launcher-btn" id="launcherNewProduct" type="button" onclick="scrollToProductForm()"><strong>📦 Neues Produkt prüfen</strong><small>Zum Produktformular springen</small></button>
+        <button class="secondary launcher-btn" id="launcherBoard" type="button" onclick="openProductBoard()"><strong>🧭 Produkt-Board öffnen</strong><small>Produkte, Filter & Kanban</small></button>
+        <button class="secondary launcher-btn" id="launcherGenerator" type="button" onclick="openGenerator()"><strong>✍️ Listing erstellen</strong><small>Titel, SEO & Beschreibung</small></button>
+        <button class="secondary launcher-btn" id="launcherSales" type="button" onclick="openSalesAssistant()"><strong>💰 Verkauf & Rechnung</strong><small>Bestellung, Status, Gewinn und Beleg</small></button>
+        <button class="secondary launcher-btn" id="launcherReturns" type="button" onclick="openReturnsCenter()"><strong>↩️ Retouren prüfen</strong><small>eBay / Shopify Rückgaben</small></button>
+        <button class="secondary launcher-btn" id="launcherBackup" type="button" onclick="exportFullBackup()"><strong>💾 Backup sichern</strong><small>Komplette Daten exportieren</small></button>
       </div>
     </div>
 
@@ -1282,7 +1282,7 @@
         <p class="hint" id="productApiStatus">Product API wird geprüft.</p>
       </div>
       <div class="quick-actions">
-        <button class="secondary" id="newProductBtn">+ Neues Produkt</button>
+        <button class="secondary" id="newProductBtn" type="button" onclick="scrollToProductForm()">+ Neues Produkt</button>
         <button class="secondary" id="winnerFilterBtn">🔥 Nur starke Kandidaten</button>
         <button class="secondary" id="shopifyFilterBtn">🟢 Shopify-Kandidaten</button>
         <button class="secondary" id="killFilterBtn">🗑️ Archivierte anzeigen</button>
@@ -2065,7 +2065,7 @@ Land"></textarea>
           </div>
         </div>
         <div class="row" style="margin-top:10px">
-          <button id="openAiDashboardBtn" class="secondary full" type="button">KI-Dashboard öffnen</button>
+          <button id="openAiDashboardBtn" class="secondary full" type="button" onclick="openAiDashboard()">KI-Dashboard öffnen</button>
         </div>
       </div>
 
@@ -2196,7 +2196,7 @@ PLZ Ort"></textarea>
       </div>
 
       <button id="saveSettings" class="full">Einstellungen speichern</button>
-      <button id="closeSettings" class="secondary full" style="margin-top:10px">Schließen</button>
+      <button id="closeSettings" class="secondary full" type="button" onclick="document.getElementById('settingsModal')?.classList.add('hidden')" style="margin-top:10px">Schließen</button>
     </div>
   </div>
 
@@ -2683,6 +2683,48 @@ PLZ Ort"></textarea>
       return true;
     }
 
+    function fallbackMakeSettingsDropdowns() {
+      const modal = document.getElementById("settingsModal");
+      if (!modal || modal.dataset.fallbackDropdownsReady === "yes") return;
+
+      modal.querySelectorAll(".settings-section:not(.settings-dropdown)").forEach((section) => {
+        const heading = section.querySelector("h3");
+        if (!heading) return;
+
+        const details = document.createElement("details");
+        details.className = "settings-section settings-dropdown";
+
+        const summary = document.createElement("summary");
+        summary.textContent = heading.textContent.trim();
+
+        const content = document.createElement("div");
+        content.className = "settings-dropdown-content";
+
+        Array.from(section.childNodes).forEach((node) => {
+          if (node !== heading) {
+            content.appendChild(node);
+          }
+        });
+
+        details.appendChild(summary);
+        details.appendChild(content);
+        section.replaceWith(details);
+      });
+
+      modal.querySelectorAll(".settings-dropdown").forEach((dropdown) => {
+        if (dropdown.dataset.fallbackBound === "yes") return;
+        dropdown.dataset.fallbackBound = "yes";
+        dropdown.addEventListener("toggle", () => {
+          if (!dropdown.open) return;
+          modal.querySelectorAll(".settings-dropdown").forEach((other) => {
+            if (other !== dropdown) other.open = false;
+          });
+        });
+      });
+
+      modal.dataset.fallbackDropdownsReady = "yes";
+    }
+
     window.showTab = typeof window.showTab === "function" ? window.showTab : fallbackShowTab;
     window.showDashboard = typeof window.showDashboard === "function" ? window.showDashboard : function () {
       window.showTab("dashboardTab");
@@ -2692,6 +2734,76 @@ PLZ Ort"></textarea>
     };
     window.openReturnsCenter = typeof window.openReturnsCenter === "function" ? window.openReturnsCenter : function () {
       window.showTab("returnsTab");
+    };
+    window.openProductBoard = typeof window.openProductBoard === "function" ? window.openProductBoard : function () {
+      window.showTab("productListTab");
+    };
+    window.openGenerator = typeof window.openGenerator === "function" ? window.openGenerator : function () {
+      window.showTab("ebayListingTab");
+    };
+    window.openSalesAssistant = typeof window.openSalesAssistant === "function" ? window.openSalesAssistant : function () {
+      window.showTab("ordersTab");
+    };
+    window.scrollToProductForm = typeof window.scrollToProductForm === "function" ? window.scrollToProductForm : function () {
+      window.showTab("productSearchTab");
+      const el = document.getElementById("productFormCard");
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    };
+    window.openIntegrations = typeof window.openIntegrations === "function" ? window.openIntegrations : function () {
+      fallbackMakeSettingsDropdowns();
+      const modal = document.getElementById("settingsModal");
+      modal?.classList.remove("hidden");
+      const dropdowns = modal ? modal.querySelectorAll(".settings-dropdown") : [];
+      dropdowns.forEach((dropdown, index) => {
+        dropdown.open = index === 0;
+      });
+    };
+    window.openAiDashboard = typeof window.openAiDashboard === "function" ? window.openAiDashboard : function () {
+      window.openIntegrations();
+      document.getElementById("aiDashboardModal")?.classList.remove("hidden");
+    };
+    window.openStartLauncher = typeof window.openStartLauncher === "function" ? window.openStartLauncher : function () {
+      document.getElementById("startLauncherModal")?.classList.remove("hidden");
+    };
+    window.closeStartLauncher = typeof window.closeStartLauncher === "function" ? window.closeStartLauncher : function () {
+      document.getElementById("startLauncherModal")?.classList.add("hidden");
+    };
+    window.toggleCsvImportMenu = typeof window.toggleCsvImportMenu === "function" ? window.toggleCsvImportMenu : function () {
+      document.getElementById("csvImportMenu")?.classList.toggle("hidden");
+    };
+    window.enterStartArea = typeof window.enterStartArea === "function" ? window.enterStartArea : function (area) {
+      window.closeStartLauncher();
+      if (area === "shopify") {
+        window.showShopifyTool("shopifyPageSection");
+        return;
+      }
+      if (area === "backoffice") {
+        window.openIntegrations();
+        return;
+      }
+      window.openOrders();
+    };
+    window.startQuickAction = typeof window.startQuickAction === "function" ? window.startQuickAction : function (action) {
+      window.closeStartLauncher();
+      if (action === "product") return window.scrollToProductForm();
+      if (action === "sale") return window.openSalesAssistant();
+      if (action === "shipping") return window.showTab("automationTab");
+      if (action === "invoice") return window.showTab("invoiceTab");
+      if (action === "return") return window.openReturnsCenter();
+      window.openOrders();
+    };
+    window.openStartTarget = typeof window.openStartTarget === "function" ? window.openStartTarget : function (target) {
+      if (target === "product") return window.startQuickAction("product");
+      if (target === "sale") return window.startQuickAction("sale");
+      if (target === "shipping") return window.startQuickAction("shipping");
+      if (target === "invoice") return window.startQuickAction("invoice");
+      if (target === "return") return window.startQuickAction("return");
+      if (target === "shopify") return window.enterStartArea("shopify");
+      if (target === "backoffice") return window.enterStartArea("backoffice");
+      if (target === "finance") return window.showTab("financeTab");
+      if (target === "listing") return window.showTab("checklistTab");
+      if (target === "productStatus") return window.showTab("productListTab");
+      window.openOrders();
     };
     window.showShopifyTool = typeof window.showShopifyTool === "function" ? window.showShopifyTool : function (sectionId) {
       window.showTab("shopifyTab");
