@@ -1672,22 +1672,22 @@ Land"></textarea>
       <label>Sync Token</label>
       <div class="row" style="gap:8px; align-items:center">
         <input id="googleSheetsSyncToken" type="password" placeholder="Dein Sync-Token" style="flex:1">
-        <button id="googleSheetsSyncToggleTokenVisibilityBtn" class="secondary" type="button" aria-label="Token anzeigen" title="Token anzeigen" style="min-width:30px; width:30px; height:30px; padding:0; font-size:11px; line-height:1">👁</button>
+        <button id="googleSheetsSyncToggleTokenVisibilityBtn" class="secondary" type="button" onclick="setGoogleSheetsSyncTokenVisibility(document.getElementById('googleSheetsSyncToken')?.type !== 'text')" aria-label="Token anzeigen" title="Token anzeigen" style="min-width:30px; width:30px; height:30px; padding:0; font-size:11px; line-height:1">👁</button>
       </div>
       <div class="row">
-        <button id="saveGoogleSheetsSyncBtn" class="secondary full" type="button">Sync-Einstellungen speichern</button>
-        <button id="syncAllGoogleSheetsBtn" class="full" type="button">Alles synchronisieren</button>
+        <button id="saveGoogleSheetsSyncBtn" class="secondary full" type="button" onclick="elyonGoogleSheetsSyncSave()">Sync-Einstellungen speichern</button>
+        <button id="syncAllGoogleSheetsBtn" class="full" type="button" onclick="elyonGoogleSheetsSyncRun('all')">Alles synchronisieren</button>
       </div>
       <div class="row" style="margin-top:10px">
-        <button id="syncSalesGoogleSheetsBtn" class="secondary full" type="button">Verkäufe synchronisieren</button>
+        <button id="syncSalesGoogleSheetsBtn" class="secondary full" type="button" onclick="elyonGoogleSheetsSyncRun('sales')">Verkäufe synchronisieren</button>
       </div>
       <div class="row" style="margin-top:10px">
-        <button id="syncInventoryGoogleSheetsBtn" class="secondary full" type="button">Inventar synchronisieren</button>
-        <button id="syncSuppliersGoogleSheetsBtn" class="secondary full" type="button">Supplier Liste synchronisieren</button>
+        <button id="syncInventoryGoogleSheetsBtn" class="secondary full" type="button" onclick="elyonGoogleSheetsSyncRun('inventory')">Inventar synchronisieren</button>
+        <button id="syncSuppliersGoogleSheetsBtn" class="secondary full" type="button" onclick="elyonGoogleSheetsSyncRun('suppliers')">Supplier Liste synchronisieren</button>
       </div>
       <div class="row" style="margin-top:10px">
- <button id="syncInventoryTrackerGoogleSheetsBtn" class="secondary full" type="button">InventarTracker synchronisieren</button>
-        <button id="syncCostsGoogleSheetsBtn" class="secondary full" type="button">Laufende Kosten synchronisieren</button>
+ <button id="syncInventoryTrackerGoogleSheetsBtn" class="secondary full" type="button" onclick="elyonGoogleSheetsSyncRun('inventoryTracker')">InventarTracker synchronisieren</button>
+        <button id="syncCostsGoogleSheetsBtn" class="secondary full" type="button" onclick="elyonGoogleSheetsSyncRun('costs')">Laufende Kosten synchronisieren</button>
       </div>
       <div id="googleSheetsSyncStatus" class="output-box" style="margin-top:14px"><p>Nicht verbunden</p></div>
       <div id="googleSheetsSyncResult" class="output-box" style="margin-top:14px"><p>Noch keine Synchronisierung ausgeführt.</p></div>
@@ -2725,6 +2725,16 @@ PLZ Ort"></textarea>
       modal.dataset.fallbackDropdownsReady = "yes";
     }
 
+    function fallbackGoogleSheetsResult(html) {
+      const box = document.getElementById("googleSheetsSyncResult");
+      if (box) box.innerHTML = html;
+    }
+
+    function fallbackGoogleSheetsStatus(html) {
+      const box = document.getElementById("googleSheetsSyncStatus");
+      if (box) box.innerHTML = html;
+    }
+
     window.showTab = typeof window.showTab === "function" ? window.showTab : fallbackShowTab;
     window.showDashboard = typeof window.showDashboard === "function" ? window.showDashboard : function () {
       window.showTab("dashboardTab");
@@ -2761,6 +2771,49 @@ PLZ Ort"></textarea>
     window.openAiDashboard = typeof window.openAiDashboard === "function" ? window.openAiDashboard : function () {
       window.openIntegrations();
       document.getElementById("aiDashboardModal")?.classList.remove("hidden");
+    };
+    window.elyonGoogleSheetsSyncSave = async function () {
+      const url = document.getElementById("googleSheetsSyncUrl")?.value?.trim() || "";
+      const token = document.getElementById("googleSheetsSyncToken")?.value?.trim() || "";
+      if (!url || !token) {
+        fallbackGoogleSheetsResult("<p>Bitte Web-App URL und Sync Token eintragen.</p>");
+        return;
+      }
+      if (typeof window.saveGoogleSheetsSyncSettings === "function") {
+        try {
+          await window.saveGoogleSheetsSyncSettings();
+          return;
+        } catch (error) {
+          fallbackGoogleSheetsResult(`<p>⚠️ <strong>Speichern</strong>: ${String(error?.message || error)}</p>`);
+          return;
+        }
+      }
+      localStorage.setItem("elyonGoogleSheetsSyncUrlFallback", url);
+      localStorage.setItem("elyonGoogleSheetsSyncTokenFallback", token);
+      fallbackGoogleSheetsStatus("<p>Sync bereit. URL und Token lokal gesetzt.</p>");
+      fallbackGoogleSheetsResult("<p>Sync-Einstellungen gespeichert.</p>");
+    };
+    window.elyonGoogleSheetsSyncRun = async function (type) {
+      const runMap = {
+        all: "syncAllToGoogleSheet",
+        sales: "syncSalesToGoogleSheet",
+        inventory: "syncInventoryToGoogleSheet",
+        inventoryTracker: "syncInventoryToGoogleSheet",
+        suppliers: "syncSuppliersToGoogleSheet",
+        costs: "syncCostsToGoogleSheet"
+      };
+      const fnName = runMap[type] || "";
+      if (fnName && typeof window[fnName] === "function") {
+        fallbackGoogleSheetsResult("<p>Synchronisierung wird gestartet...</p>");
+        try {
+          await window[fnName]();
+          return;
+        } catch (error) {
+          fallbackGoogleSheetsResult(`<p>⚠️ <strong>Sync</strong>: ${String(error?.message || error)}</p>`);
+          return;
+        }
+      }
+      fallbackGoogleSheetsResult("<p>⚠️ Sync lokal vorbereitet, aber die Backend-Syncfunktion ist derzeit nicht verfügbar.</p>");
     };
     window.openStartLauncher = typeof window.openStartLauncher === "function" ? window.openStartLauncher : function () {
       document.getElementById("startLauncherModal")?.classList.remove("hidden");
