@@ -1503,6 +1503,11 @@ const GOOGLE_SHEETS_SYNC_KEYS = {
   supplierAt: 'elyon_last_supplier_sync_at',
   salesAt: 'elyon_last_sales_sync_at',
   costsAt: 'elyon_last_costs_sync_at',
+  salesLoadAt: 'elyon_last_sales_load_at',
+  autoEnabled: 'elyon_google_sync_auto_enabled',
+  autoIntervalMinutes: 'elyon_google_sync_auto_interval_minutes',
+  autoType: 'elyon_google_sync_auto_type',
+  autoLastRunAt: 'elyon_google_sync_auto_last_run_at',
 };
 const GOOGLE_SHEETS_SYNC_TYPES = {
   inventory: 'inventory',
@@ -1510,6 +1515,8 @@ const GOOGLE_SHEETS_SYNC_TYPES = {
   sales: 'sales',
   costs: 'costs',
 };
+const GOOGLE_SHEETS_AUTO_SYNC_MINUTES_DEFAULT = 15;
+let googleSheetsAutoSyncTimer = null;
 function sheetText(value){
   if(value === null || value === undefined) return '';
   if(value instanceof Date) return value.toISOString();
@@ -1619,6 +1626,106 @@ function getGoogleSheetsSyncConfig(){
     token: formToken,
   };
 }
+function getGoogleSheetsAutoSyncSettings(){
+  const enabled = !!($('googleSheetsAutoSyncEnabled') && $('googleSheetsAutoSyncEnabled').checked);
+  const intervalText = $('googleSheetsAutoSyncInterval') ? $('googleSheetsAutoSyncInterval').value.trim() : '';
+  const intervalValue = Number(intervalText);
+  const intervalMinutes = Number.isFinite(intervalValue) && intervalValue > 0
+    ? Math.max(1, Math.round(intervalValue))
+    : GOOGLE_SHEETS_AUTO_SYNC_MINUTES_DEFAULT;
+  const type = $('googleSheetsAutoSyncType') && $('googleSheetsAutoSyncType').value
+    ? $('googleSheetsAutoSyncType').value
+    : 'all';
+  return { enabled, intervalMinutes, type };
+}
+function setGoogleSheetsAutoSyncSettings(settings){
+  const next = settings && typeof settings === 'object' ? settings : {};
+  const intervalValue = Number(next.intervalMinutes);
+  const intervalMinutes = Number.isFinite(intervalValue) && intervalValue > 0
+    ? Math.max(1, Math.round(intervalValue))
+    : GOOGLE_SHEETS_AUTO_SYNC_MINUTES_DEFAULT;
+  safe('googleSheetsAutoSyncEnabled', el => {
+    el.checked = Boolean(next.enabled);
+  });
+  safe('googleSheetsAutoSyncInterval', el => {
+    el.value = String(intervalMinutes);
+  });
+  safe('googleSheetsAutoSyncType', el => {
+    el.value = String(next.type || 'all');
+  });
+}
+function persistGoogleSheetsAutoSyncSettings(settings){
+  const next = settings && typeof settings === 'object' ? settings : getGoogleSheetsAutoSyncSettings();
+  localStorage.setItem(GOOGLE_SHEETS_SYNC_KEYS.autoEnabled, next.enabled ? 'true' : 'false');
+  localStorage.setItem(GOOGLE_SHEETS_SYNC_KEYS.autoIntervalMinutes, String(next.intervalMinutes || GOOGLE_SHEETS_AUTO_SYNC_MINUTES_DEFAULT));
+  localStorage.setItem(GOOGLE_SHEETS_SYNC_KEYS.autoType, String(next.type || 'all'));
+}
+function readStoredGoogleSheetsAutoSyncSettings(){
+  return {
+    enabled: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.autoEnabled) === 'true',
+    intervalMinutes: Number(localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.autoIntervalMinutes) || GOOGLE_SHEETS_AUTO_SYNC_MINUTES_DEFAULT),
+    type: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.autoType) || 'all',
+  };
+}
+function getGoogleSheetsAutoSyncTask(type){
+  if(type === 'sales') return syncSalesToGoogleSheet;
+  if(type === 'inventory') return syncInventoryToGoogleSheet;
+  if(type === 'suppliers') return syncSuppliersToGoogleSheet;
+  if(type === 'costs') return syncCostsToGoogleSheet;
+  return syncAllToGoogleSheet;
+}
+function updateGoogleSheetsAutoSyncButton(){
+  const button = $('toggleGoogleSheetsAutoSyncBtn');
+  const enabled = !!($('googleSheetsAutoSyncEnabled') && $('googleSheetsAutoSyncEnabled').checked);
+  if(!button) return;
+  button.textContent = enabled ? 'Auto-Sync stoppen' : 'Auto-Sync starten';
+}
+function stopGoogleSheetsAutoSync(){
+  if(googleSheetsAutoSyncTimer){
+    clearInterval(googleSheetsAutoSyncTimer);
+    googleSheetsAutoSyncTimer = null;
+  }
+}
+async function runGoogleSheetsAutoSyncNow(reason){
+  const settings = getGoogleSheetsAutoSyncSettings();
+  const runTask = getGoogleSheetsAutoSyncTask(settings.type);
+  try{
+    await runTask();
+    localStorage.setItem(GOOGLE_SHEETS_SYNC_KEYS.autoLastRunAt, new Date().toISOString());
+    renderGoogleSheetsSyncStatus();
+    queueGoogleSheetsSyncSettingsCloudSave();
+  }catch(error){
+    console.warn('Google Sheets Auto-Sync fehlgeschlagen (' + String(reason || 'interval') + '):', error);
+  }
+}
+function startGoogleSheetsAutoSync(){
+  stopGoogleSheetsAutoSync();
+  const settings = getGoogleSheetsAutoSyncSettings();
+  persistGoogleSheetsAutoSyncSettings(settings);
+  updateGoogleSheetsAutoSyncButton();
+  if(!settings.enabled) return;
+  googleSheetsAutoSyncTimer = setInterval(function(){
+    void runGoogleSheetsAutoSyncNow('interval');
+  }, settings.intervalMinutes * 60 * 1000);
+}
+async function toggleGoogleSheetsAutoSync(){
+  const enabledInput = $('googleSheetsAutoSyncEnabled');
+  if(!enabledInput) return;
+  enabledInput.checked = !enabledInput.checked;
+  const settings = getGoogleSheetsAutoSyncSettings();
+  persistGoogleSheetsAutoSyncSettings(settings);
+  updateGoogleSheetsAutoSyncButton();
+  renderGoogleSheetsSyncStatus();
+  await saveGoogleSheetsSyncSettingsToCloud();
+  if(settings.enabled){
+    startGoogleSheetsAutoSync();
+    void runGoogleSheetsAutoSyncNow('enabled');
+    alert('Google Sheets Auto-Sync gestartet.');
+    return;
+  }
+  stopGoogleSheetsAutoSync();
+  alert('Google Sheets Auto-Sync gestoppt.');
+}
 function setGoogleSheetsSyncTokenVisibility(visible){
   const input = $('googleSheetsSyncToken');
   const button = $('googleSheetsSyncToggleTokenVisibilityBtn');
@@ -1644,20 +1751,28 @@ async function refreshGoogleSheetsSyncSettingsForm(){
       if(cloudSettings.lastSupplierSyncAt !== undefined) localStorage.setItem(GOOGLE_SHEETS_SYNC_KEYS.supplierAt, String(cloudSettings.lastSupplierSyncAt || ''));
       if(cloudSettings.lastSalesSyncAt !== undefined) localStorage.setItem(GOOGLE_SHEETS_SYNC_KEYS.salesAt, String(cloudSettings.lastSalesSyncAt || ''));
       if(cloudSettings.lastCostsSyncAt !== undefined) localStorage.setItem(GOOGLE_SHEETS_SYNC_KEYS.costsAt, String(cloudSettings.lastCostsSyncAt || ''));
+      if(cloudSettings.autoSyncEnabled !== undefined) localStorage.setItem(GOOGLE_SHEETS_SYNC_KEYS.autoEnabled, cloudSettings.autoSyncEnabled ? 'true' : 'false');
+      if(cloudSettings.autoSyncIntervalMinutes !== undefined) localStorage.setItem(GOOGLE_SHEETS_SYNC_KEYS.autoIntervalMinutes, String(cloudSettings.autoSyncIntervalMinutes || GOOGLE_SHEETS_AUTO_SYNC_MINUTES_DEFAULT));
+      if(cloudSettings.autoSyncType !== undefined) localStorage.setItem(GOOGLE_SHEETS_SYNC_KEYS.autoType, String(cloudSettings.autoSyncType || 'all'));
+      if(cloudSettings.autoLastRunAt !== undefined) localStorage.setItem(GOOGLE_SHEETS_SYNC_KEYS.autoLastRunAt, String(cloudSettings.autoLastRunAt || ''));
     }
   }catch(error){
     console.warn('Google Sheets Sync Cloud-Load fehlgeschlagen:', error);
   }
   const url = await getStoredGoogleSheetsSyncUrl();
   const token = await getStoredGoogleSheetsSyncToken();
+  setGoogleSheetsAutoSyncSettings(readStoredGoogleSheetsAutoSyncSettings());
   safe('googleSheetsSyncUrl', el => el.value = url);
   safe('googleSheetsSyncToken', el => el.value = token);
   setGoogleSheetsSyncTokenVisibility(false);
+  updateGoogleSheetsAutoSyncButton();
+  startGoogleSheetsAutoSync();
 }
 let googleSheetsSyncSettingsCloudSaveTimer = null;
 async function saveGoogleSheetsSyncSettingsToCloud(){
   const config = getGoogleSheetsSyncConfig();
   if(!config.url || !config.token) return;
+  const autoSyncSettings = getGoogleSheetsAutoSyncSettings();
   try{
     await postJsonWithTimeout('/api/google-sheets-sync-settings', {
       settings: {
@@ -1667,7 +1782,11 @@ async function saveGoogleSheetsSyncSettingsToCloud(){
         lastSupplierSyncAt: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.supplierAt) || '',
         lastSalesSyncAt: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.salesAt) || '',
         lastCostsSyncAt: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.costsAt) || '',
-        lastSalesLoadAt: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.salesLoadAt) || ''
+        lastSalesLoadAt: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.salesLoadAt) || '',
+        autoSyncEnabled: autoSyncSettings.enabled,
+        autoSyncIntervalMinutes: autoSyncSettings.intervalMinutes,
+        autoSyncType: autoSyncSettings.type,
+        autoLastRunAt: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.autoLastRunAt) || ''
       }
     }, 15000);
   }catch(error){
@@ -1705,6 +1824,10 @@ function renderGoogleSheetsSyncStatus(){
   const connected = !!(config.url && config.token);
   const statusText = connected ? 'Google Sheets Sync eingerichtet' : 'Nicht verbunden';
   const statusClass = connected ? 'good' : 'bad';
+  const autoSyncSettings = getGoogleSheetsAutoSyncSettings();
+  const autoSyncLabel = autoSyncSettings.enabled ? ('Alle ' + autoSyncSettings.intervalMinutes + ' Min.') : 'Deaktiviert';
+  const autoSyncHint = autoSyncSettings.enabled ? '' : 'Auto-Sync ist aus';
+  const autoLastRun = formatSyncTimestamp(localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.autoLastRunAt));
   const lastInventory = formatSyncTimestamp(localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.inventoryAt));
   const lastSupplier = formatSyncTimestamp(localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.supplierAt));
   const lastSales = formatSyncTimestamp(localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.salesAt));
@@ -1712,6 +1835,7 @@ function renderGoogleSheetsSyncStatus(){
   setHTML('googleSheetsSyncStatus',
     '<div class="score-top"><span class="status ' + statusClass + '">' + statusText + '</span><span class="score-number">' + (connected ? 'SYNC' : 'OFF') + '</span></div>' +
     '<div class="dashboard" style="margin-top:16px">' +
+      renderGoogleSheetsMetric('Auto-Sync', autoSyncLabel, autoSyncHint) +
       renderGoogleSheetsMetric('Inventar', lastInventory, '') +
       renderGoogleSheetsMetric('Supplier', lastSupplier, '') +
       renderGoogleSheetsMetric('Verkäufe', lastSales, '') +
@@ -1730,7 +1854,9 @@ async function saveGoogleSheetsSyncSettings(){
   }
   await setStoredGoogleSheetsSyncUrl(url);
   await setStoredGoogleSheetsSyncToken(token);
+  persistGoogleSheetsAutoSyncSettings(getGoogleSheetsAutoSyncSettings());
   await saveGoogleSheetsSyncSettingsToCloud();
+  startGoogleSheetsAutoSync();
   renderGoogleSheetsSyncStatus();
   setHTML('googleSheetsSyncResult', '<p>Sync-Einstellungen gespeichert.</p>');
   alert('Google Sheets Sync-Einstellungen gespeichert.');
@@ -2065,6 +2191,7 @@ function buildSyncRows(type, records){
   return [];
 }
 function getSyncTypeLabel(type){
+  if(type === 'all') return 'Alles';
   if(type === 'inventory') return 'Inventar';
   if(type === 'suppliers') return 'Supplier Liste';
   if(type === 'sales') return 'Verkäufe';
@@ -9368,6 +9495,10 @@ function exportFullBackup(){
       lastSupplierSyncAt: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.supplierAt) || '',
       lastSalesSyncAt: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.salesAt) || '',
       lastCostsSyncAt: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.costsAt) || '',
+      autoSyncEnabled: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.autoEnabled) === 'true',
+      autoSyncIntervalMinutes: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.autoIntervalMinutes) || String(GOOGLE_SHEETS_AUTO_SYNC_MINUTES_DEFAULT),
+      autoSyncType: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.autoType) || 'all',
+      autoLastRunAt: localStorage.getItem(GOOGLE_SHEETS_SYNC_KEYS.autoLastRunAt) || '',
     }
   };
   downloadJSON(data,'elyon-komplett-backup.json');
@@ -9401,7 +9532,14 @@ function importFullBackup(e){
         if(data.googleSheetsSync.lastSupplierSyncAt !== undefined) localStorage.setItem(GOOGLE_SHEETS_SYNC_KEYS.supplierAt, String(data.googleSheetsSync.lastSupplierSyncAt || ''));
         if(data.googleSheetsSync.lastSalesSyncAt !== undefined) localStorage.setItem(GOOGLE_SHEETS_SYNC_KEYS.salesAt, String(data.googleSheetsSync.lastSalesSyncAt || ''));
         if(data.googleSheetsSync.lastCostsSyncAt !== undefined) localStorage.setItem(GOOGLE_SHEETS_SYNC_KEYS.costsAt, String(data.googleSheetsSync.lastCostsSyncAt || ''));
+        if(data.googleSheetsSync.autoSyncEnabled !== undefined) localStorage.setItem(GOOGLE_SHEETS_SYNC_KEYS.autoEnabled, data.googleSheetsSync.autoSyncEnabled ? 'true' : 'false');
+        if(data.googleSheetsSync.autoSyncIntervalMinutes !== undefined) localStorage.setItem(GOOGLE_SHEETS_SYNC_KEYS.autoIntervalMinutes, String(data.googleSheetsSync.autoSyncIntervalMinutes || GOOGLE_SHEETS_AUTO_SYNC_MINUTES_DEFAULT));
+        if(data.googleSheetsSync.autoSyncType !== undefined) localStorage.setItem(GOOGLE_SHEETS_SYNC_KEYS.autoType, String(data.googleSheetsSync.autoSyncType || 'all'));
+        if(data.googleSheetsSync.autoLastRunAt !== undefined) localStorage.setItem(GOOGLE_SHEETS_SYNC_KEYS.autoLastRunAt, String(data.googleSheetsSync.autoLastRunAt || ''));
       }
+      setGoogleSheetsAutoSyncSettings(readStoredGoogleSheetsAutoSyncSettings());
+      updateGoogleSheetsAutoSyncButton();
+      startGoogleSheetsAutoSync();
       localStorage.setItem('elyonProducts',JSON.stringify(products));
       localStorage.setItem('elyonBrowserImports',JSON.stringify(browserImports));
       localStorage.setItem('elyonSales',JSON.stringify(sales));
@@ -10236,6 +10374,21 @@ function bindEvents(){
   bind('saveSettings','click',saveSettings);
   bind('resetSettings','click',resetSettings);
   bind('saveGoogleSheetsSyncBtn','click',saveGoogleSheetsSyncSettings);
+  bind('toggleGoogleSheetsAutoSyncBtn','click',toggleGoogleSheetsAutoSync);
+  bind('googleSheetsAutoSyncEnabled','change',()=>{
+    persistGoogleSheetsAutoSyncSettings(getGoogleSheetsAutoSyncSettings());
+    updateGoogleSheetsAutoSyncButton();
+    renderGoogleSheetsSyncStatus();
+  });
+  bind('googleSheetsAutoSyncInterval','change',()=>{
+    persistGoogleSheetsAutoSyncSettings(getGoogleSheetsAutoSyncSettings());
+    startGoogleSheetsAutoSync();
+    renderGoogleSheetsSyncStatus();
+  });
+  bind('googleSheetsAutoSyncType','change',()=>{
+    persistGoogleSheetsAutoSyncSettings(getGoogleSheetsAutoSyncSettings());
+    renderGoogleSheetsSyncStatus();
+  });
   bind('googleSheetsSyncToggleTokenVisibilityBtn','click',()=>{
     const input = $('googleSheetsSyncToken');
     setGoogleSheetsSyncTokenVisibility(!(input && input.type === 'text'));

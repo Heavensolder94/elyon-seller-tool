@@ -1679,6 +1679,29 @@ Land"></textarea>
         <button id="syncAllGoogleSheetsBtn" class="full" type="button" onclick="elyonGoogleSheetsSyncRun('all')">Alles synchronisieren</button>
       </div>
       <div class="row" style="margin-top:10px">
+        <div style="flex:1">
+          <label for="googleSheetsAutoSyncInterval">Auto-Sync Intervall (Minuten)</label>
+          <input id="googleSheetsAutoSyncInterval" type="number" min="1" step="1" placeholder="15">
+        </div>
+        <div style="flex:1">
+          <label for="googleSheetsAutoSyncType">Auto-Sync Bereich</label>
+          <select id="googleSheetsAutoSyncType">
+            <option value="all">Alles</option>
+            <option value="sales">Verkäufe</option>
+            <option value="inventory">Inventar</option>
+            <option value="suppliers">Supplier Liste</option>
+            <option value="costs">Laufende Kosten</option>
+          </select>
+        </div>
+      </div>
+      <div class="row" style="margin-top:10px; align-items:end">
+        <label style="display:flex; align-items:center; gap:8px; flex:1; margin:0">
+          <input id="googleSheetsAutoSyncEnabled" type="checkbox">
+          <span>Auto-Sync aktivieren</span>
+        </label>
+        <button id="toggleGoogleSheetsAutoSyncBtn" class="secondary full" type="button">Auto-Sync starten</button>
+      </div>
+      <div class="row" style="margin-top:10px">
         <button id="syncSalesGoogleSheetsBtn" class="secondary full" type="button" onclick="elyonGoogleSheetsSyncRun('sales')">Verkäufe synchronisieren</button>
       </div>
       <div class="row" style="margin-top:10px">
