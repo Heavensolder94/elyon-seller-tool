@@ -78,6 +78,10 @@
       "destination": "/api/cj?action=status"
     },
     {
+      "source": "/api/cj/auth",
+      "destination": "/api/cj?action=auth"
+    },
+    {
       "source": "/api/cj/search",
       "destination": "/api/cj?action=search"
     },

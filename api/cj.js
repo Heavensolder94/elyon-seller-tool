@@ -1,5 +1,5 @@
 import { applyCors } from "../lib/api-cors.js";
-import { createCjApiClient, getCjAccessTokenFromEnv, getCjTokenStatus } from "../lib/cj-api-client.js";
+import { createCjApiClient, getCachedCjTokenMeta, getCjAccessTokenFromEnv, getCjTokenStatus } from "../lib/cj-api-client.js";
 
 function jsonError(res, status, error, details) {
   return res.status(status).json({
@@ -1240,6 +1240,7 @@ async function validateCjToken() {
   const apiKeyConfigured = Boolean(readText(process.env.CJ_API_KEY));
   const accessTokenConfigured = Boolean(readText(process.env.CJ_ACCESS_TOKEN));
   const authMode = getCjAuthMode(process.env);
+  const cachedMeta = getCachedCjTokenMeta();
 
   if (!apiKeyConfigured && !accessTokenConfigured) {
     return {
@@ -1248,6 +1249,8 @@ async function validateCjToken() {
       authMode,
       tokenValid: false,
       tokenStatus: "missing",
+      tokenReceived: cachedMeta.tokenReceived,
+      expiresIn: cachedMeta.expiresIn,
       message: "Weder CJ_API_KEY noch CJ_ACCESS_TOKEN sind konfiguriert.",
     };
   }
@@ -1261,6 +1264,8 @@ async function validateCjToken() {
       authMode,
       tokenValid: true,
       tokenStatus: getCjTokenStatus(process.env),
+      tokenReceived: true,
+      expiresIn: getCachedCjTokenMeta().expiresIn,
       message: accessTokenConfigured
         ? "CJ Access Token ist konfiguriert und valide."
         : "CJ API Key ist konfiguriert und konnte erfolgreich ein Access Token erzeugen.",
@@ -1272,7 +1277,46 @@ async function validateCjToken() {
       authMode,
       tokenValid: false,
       tokenStatus: error?.details?.tokenStatus || getCjTokenStatus(process.env),
+      tokenReceived: cachedMeta.tokenReceived,
+      expiresIn: cachedMeta.expiresIn,
       message: error?.message || "CJ Token konnte nicht validiert werden.",
+    };
+  }
+}
+
+async function issueCjAccessToken() {
+  const apiKeyConfigured = Boolean(readText(process.env.CJ_API_KEY));
+  const accessTokenConfigured = Boolean(readText(process.env.CJ_ACCESS_TOKEN));
+  const authMode = getCjAuthMode(process.env);
+  if (!apiKeyConfigured && !accessTokenConfigured) {
+    return {
+      ok: false,
+      tokenReceived: false,
+      expiresIn: 0,
+      message: "CJ_API_KEY fehlt in der Server-Umgebung.",
+      authMode,
+    };
+  }
+
+  try {
+    await getCjAccessToken();
+    const meta = getCachedCjTokenMeta();
+    return {
+      ok: true,
+      tokenReceived: meta.tokenReceived || accessTokenConfigured,
+      expiresIn: meta.expiresIn,
+      message: accessTokenConfigured
+        ? "Vorhandener CJ Access Token ist backendseitig aktiv."
+        : "Neuer CJ Access Token wurde backendseitig erzeugt.",
+      authMode,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      tokenReceived: false,
+      expiresIn: 0,
+      message: error?.message || "CJ Access Token konnte nicht erzeugt werden.",
+      authMode,
     };
   }
 }
@@ -1327,6 +1371,16 @@ export default async function handler(req, res) {
       tokenValid: status.tokenValid,
       tokenStatus: status.tokenStatus,
       message: status.message,
+    });
+  }
+
+  if (action === "auth") {
+    const issued = await issueCjAccessToken();
+    return res.status(issued.ok ? 200 : 502).json({
+      ok: issued.ok,
+      tokenReceived: issued.tokenReceived,
+      expiresIn: issued.expiresIn,
+      message: issued.message,
     });
   }
 
