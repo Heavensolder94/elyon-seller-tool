@@ -5541,9 +5541,12 @@ function renderSupplierImportDebugBlock(data, extra){
     ['Variant Source', debug.variantSource],
     ['Variants Found', debug.variantsFound],
     ['CJ API Used', debug.cjApiUsed],
+    ['CJ Endpoint', debug.cjEndpointUsed],
+    ['CJ Token Status', debug.cjTokenStatus],
     ['CJ Variant Count', debug.cjVariantCount],
     ['CJ Variant Keys', debug.cjVariantKeys],
     ['CJ ProductKeyEn', debug.cjProductKeyEn],
+    ['CJ Inventory Loaded', debug.cjInventoryLoaded],
     ['Grouping Method', debug.variantGroupingMethod],
     ['Variantengruppen', extras.variantGroupCount],
     ['Bilder', extras.imageCount]

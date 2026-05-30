@@ -497,6 +497,9 @@ async function enrichBrowserImportForCj(incoming = {}) {
       ...normalized,
       debug: mergeDebug(normalized.debug, {
         cjApiUsed: false,
+        cjEndpointUsed: "",
+        cjTokenStatus: "missing-or-fallback",
+        cjInventoryLoaded: false,
         variantGroupingMethod: normalized.debug?.variantGroupingMethod || "browser-import-fallback",
       }),
     };
@@ -520,9 +523,12 @@ async function enrichBrowserImportForCj(incoming = {}) {
     const variantGroups = Array.isArray(enriched.variantGroups) ? enriched.variantGroups : normalized.variants;
     const nextDebug = mergeDebug(normalized.debug, {
       cjApiUsed: Array.isArray(enriched.variants) && enriched.variants.length > 0,
+      cjEndpointUsed: "product/query+product/variant/query+inventory",
+      cjTokenStatus: "configured",
       cjVariantCount: Array.isArray(enriched.variantItems) ? enriched.variantItems.length : 0,
       cjVariantKeys: Array.isArray(enriched.cjVariantKeys) ? enriched.cjVariantKeys.join(" | ") : "",
       cjProductKeyEn: toText(enriched.cjProductKeyEn || enriched.productKeyEn),
+      cjInventoryLoaded: Boolean(enriched.cjInventoryLoaded),
       variantGroupingMethod: toText(enriched.variantGroupingMethod || "browser-import-fallback"),
     });
 
@@ -547,6 +553,9 @@ async function enrichBrowserImportForCj(incoming = {}) {
       ...normalized,
       debug: mergeDebug(normalized.debug, {
         cjApiUsed: false,
+        cjEndpointUsed: "",
+        cjTokenStatus: "fallback",
+        cjInventoryLoaded: false,
         variantGroupingMethod: normalized.debug?.variantGroupingMethod || "browser-import-fallback",
       }),
     };

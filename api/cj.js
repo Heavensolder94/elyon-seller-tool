@@ -1,4 +1,5 @@
 import { applyCors } from "../lib/api-cors.js";
+import { createCjApiClient, getCjAccessTokenFromEnv, getCjTokenStatus } from "../lib/cj-api-client.js";
 
 function jsonError(res, status, error, details) {
   return res.status(status).json({
@@ -550,11 +551,12 @@ async function cjApiRequest(path, { method = "GET", token, query, body } = {}) {
 }
 
 async function fetchCjProductByIdentifiers(identifiers) {
+  const client = createCjApiClient(process.env);
   const token = await getCjAccessToken();
   const attempts = [
-    identifiers?.pid ? { label: "pid", body: { pid: identifiers.pid } } : null,
-    identifiers?.productSku ? { label: "productSku", body: { productSku: identifiers.productSku } } : null,
-    identifiers?.variantSku ? { label: "variantSku", body: { variantSku: identifiers.variantSku } } : null,
+    identifiers?.pid ? { label: "pid", query: { pid: identifiers.pid } } : null,
+    identifiers?.productSku ? { label: "productSku", query: { productSku: identifiers.productSku } } : null,
+    identifiers?.variantSku ? { label: "variantSku", query: { variantSku: identifiers.variantSku } } : null,
   ].filter(Boolean);
 
   if (!attempts.length) {
@@ -569,12 +571,16 @@ async function fetchCjProductByIdentifiers(identifiers) {
 
   const errors = [];
   for (const attempt of attempts) {
-    const { response, rawText, data } = await cjApiRequest("/product/query", { method: "POST", token, body: attempt.body });
-    if (!response.ok || data?.result === false) {
+    let response;
+    let rawText;
+    let data;
+    try {
+      ({ response, rawText, data } = await client.productQuery(attempt.query, token));
+    } catch (error) {
       errors.push({
         identifier: attempt.label,
-        status: response.status,
-        message: data?.message || data?.error || rawText || "CJ product query failed",
+        status: error?.details?.upstreamStatus || 502,
+        message: error?.message || "CJ product query failed",
       });
       continue;
     }
@@ -604,27 +610,55 @@ async function fetchCjProductByIdentifiers(identifiers) {
 async function fetchCjVariantList(pid, token) {
   const cleanPid = readText(pid);
   if (!cleanPid) return [];
-  const attempts = [
-    { path: "/product/variant/queryByPid", method: "GET", query: { pid: cleanPid } },
-    { path: "/product/variant/queryByPid", method: "POST", body: { pid: cleanPid } },
-    { path: "/product/variant/query", method: "GET", query: { pid: cleanPid } },
-    { path: "/product/variant/query", method: "POST", body: { pid: cleanPid } },
-  ];
-  for (const attempt of attempts) {
-    try {
-      const { response, data } = await cjApiRequest(attempt.path, { method: attempt.method, token, query: attempt.query, body: attempt.body });
-      if (!response.ok || data?.result === false || !data) continue;
-      const list = extractProductList(data)
-        .concat(Array.isArray(data?.data?.variants) ? data.data.variants : [])
-        .concat(Array.isArray(data?.data?.variantList) ? data.data.variantList : [])
-        .concat(Array.isArray(data?.data) ? data.data : []);
-      const normalized = normalizeCjVariants(list);
-      if (normalized.length) return normalized;
-    } catch {
-      // Keep browser-import fallback path intact when the variant endpoint is unavailable.
-    }
+  try {
+    const client = createCjApiClient(process.env);
+    const { data } = await client.productVariantQuery({ pid: cleanPid }, token);
+    const list = extractProductList(data)
+      .concat(Array.isArray(data?.data?.variants) ? data.data.variants : [])
+      .concat(Array.isArray(data?.data?.variantList) ? data.data.variantList : [])
+      .concat(Array.isArray(data?.data) ? data.data : []);
+    const normalized = normalizeCjVariants(list);
+    if (normalized.length) return normalized;
+  } catch {
+    // Keep browser-import fallback path intact when the variant endpoint is unavailable.
   }
   return [];
+}
+
+async function fetchCjInventoryData({ pid = "", productSku = "" } = {}, token = "") {
+  const client = createCjApiClient(process.env);
+  const output = {
+    inventoryBySku: null,
+    inventoryByPid: null,
+    globalWarehouses: [],
+  };
+
+  if (readText(productSku)) {
+    try {
+      const { data } = await client.stockQueryBySku(productSku, token);
+      output.inventoryBySku = data?.data || null;
+    } catch {
+      output.inventoryBySku = null;
+    }
+  }
+
+  if (readText(pid)) {
+    try {
+      const { data } = await client.inventoryByPid(pid, token);
+      output.inventoryByPid = data?.data || null;
+    } catch {
+      output.inventoryByPid = null;
+    }
+  }
+
+  try {
+    const { data } = await client.globalWarehouseList(token);
+    output.globalWarehouses = Array.isArray(data?.data) ? data.data : [];
+  } catch {
+    output.globalWarehouses = [];
+  }
+
+  return output;
 }
 
 async function enrichCjProductWithVariants(product, identifiers = {}, token = "") {
@@ -632,6 +666,10 @@ async function enrichCjProductWithVariants(product, identifiers = {}, token = ""
   const activeToken = token || await getCjAccessToken();
   const currentVariants = Array.isArray(baseProduct.variants) ? baseProduct.variants : [];
   const variantList = currentVariants.length ? currentVariants : await fetchCjVariantList(baseProduct.pid || identifiers.pid, activeToken);
+  const inventory = await fetchCjInventoryData({
+    pid: baseProduct.pid || identifiers.pid,
+    productSku: baseProduct.productSku || identifiers.productSku,
+  }, activeToken);
   const grouped = buildCjVariantGroups(firstNonEmpty(baseProduct.productKeyEn, baseProduct.cjProductKeyEn), variantList);
   return {
     ...baseProduct,
@@ -641,32 +679,28 @@ async function enrichCjProductWithVariants(product, identifiers = {}, token = ""
     cjVariantKeys: grouped.cjVariantKeys,
     cjProductKeyEn: firstNonEmpty(baseProduct.productKeyEn, baseProduct.cjProductKeyEn),
     variantGroupingMethod: grouped.variantGroupingMethod,
+    cjInventoryLoaded: Boolean(inventory.inventoryBySku || inventory.inventoryByPid),
+    inventoryBySku: inventory.inventoryBySku,
+    inventoryByPid: inventory.inventoryByPid,
+    globalWarehouses: inventory.globalWarehouses,
   };
 }
 
 async function searchCjProductsByKeyword(keyword, token) {
   const normalizedKeyword = readText(keyword);
   if (!normalizedKeyword) return [];
-
-  const cjUrl = new URL("https://developers.cjdropshipping.com/api2.0/v1/product/listV2");
-  cjUrl.search = new URLSearchParams({
-    page: "1",
-    size: "10",
-    keyWord: normalizedKeyword,
-  }).toString();
-
-  const response = await fetch(cjUrl.toString(), {
-    method: "GET",
-    headers: {
-      "CJ-Access-Token": token,
-      "Content-Type": "application/json",
-      "Accept": "application/json",
-    },
-  });
-
-  const { rawText, data } = await parseUpstreamResponse(response);
-  if (!response.ok || data?.result === false || !data) return [];
-  return extractProductList(data).map(normalizeCjProduct);
+  try {
+    const client = createCjApiClient(process.env);
+    const { data } = await client.productListV2({
+      page: "1",
+      size: "10",
+      keyWord: normalizedKeyword,
+      features: "enable_description,enable_category",
+    }, token);
+    return extractProductList(data).map(normalizeCjProduct);
+  } catch {
+    return [];
+  }
 }
 
 function scoreCjSearchCandidate(product, identifiers) {
@@ -1168,51 +1202,7 @@ async function fetchCjProductsWithAccessToken(query) {
 }
 
 async function getCjAccessToken() {
-  const existingToken = readText(process.env.CJ_ACCESS_TOKEN);
-  if (existingToken) return existingToken;
-
-  const apiKey = process.env.CJ_API_KEY;
-  if (!apiKey) {
-    throw new Error("CJ_ACCESS_TOKEN oder CJ_API_KEY fehlt in Vercel.");
-  }
-
-  const response = await fetch("https://developers.cjdropshipping.com/api2.0/v1/authentication/getAccessToken", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ apiKey }),
-  });
-
-  const contentType = String(response.headers.get("content-type") || "").toLowerCase();
-  const rawText = await response.text();
-  let data = null;
-  if (rawText && contentType.includes("application/json")) {
-    try {
-      data = JSON.parse(rawText);
-    } catch (err) {
-      data = null;
-    }
-  }
-
-  if (!response.ok || data?.result === false) {
-    const message = data?.message || data?.error || rawText || "CJ Access Token konnte nicht erstellt werden.";
-    const error = new Error(message);
-    error.status = response.status || 502;
-    error.details = {
-      upstreamStatus: response.status,
-      upstreamStatusText: response.statusText || "",
-      upstreamBody: data || rawText || null,
-    };
-    throw error;
-  }
-
-  const token = data?.data?.accessToken;
-  if (!token) {
-    throw new Error("CJ Access Token fehlt in der CJ-Antwort.");
-  }
-
-  return token;
+  return getCjAccessTokenFromEnv(process.env);
 }
 
 async function parseUpstreamResponse(response) {
@@ -1259,6 +1249,7 @@ export default async function handler(req, res) {
       service: "CJ",
       source: "cj",
       tokenConfigured: Boolean(readText(process.env.CJ_ACCESS_TOKEN) || readText(process.env.CJ_API_KEY)),
+      tokenStatus: getCjTokenStatus(process.env),
     });
   }
 
@@ -1296,6 +1287,64 @@ export default async function handler(req, res) {
     } catch (error) {
       return jsonError(res, 502, error?.message || "CJ Detail Fehler", {
         identifiers,
+        ...(error?.details ? { upstream: error.details } : {}),
+      });
+    }
+  }
+
+  if (action === "variants") {
+    const pid = readText(req.query.pid || req.query.productId || "");
+    if (!pid) {
+      return jsonError(res, 400, "pid fehlt.", "QUERY_MISSING");
+    }
+    try {
+      const token = await getCjAccessToken();
+      const variants = await fetchCjVariantList(pid, token);
+      const productKeyEn = readText(req.query.productKeyEn || "");
+      const grouped = buildCjVariantGroups(productKeyEn, variants);
+      return res.status(200).json({
+        ok: true,
+        source: "cj-variants",
+        pid,
+        productKeyEn,
+        variantGroups: grouped.variantGroups,
+        variantItems: grouped.variantItems,
+        cjVariantKeys: grouped.cjVariantKeys,
+        cjVariantCount: grouped.variantItems.length,
+        variantGroupingMethod: grouped.variantGroupingMethod,
+        tokenStatus: getCjTokenStatus(process.env),
+      });
+    } catch (error) {
+      return jsonError(res, 502, error?.message || "CJ Varianten Fehler", {
+        tokenStatus: getCjTokenStatus(process.env),
+        ...(error?.details ? { upstream: error.details } : {}),
+      });
+    }
+  }
+
+  if (action === "inventory") {
+    const pid = readText(req.query.pid || req.query.productId || "");
+    const productSku = readText(req.query.productSku || req.query.sku || "");
+    if (!pid && !productSku) {
+      return jsonError(res, 400, "pid oder productSku fehlt.", "QUERY_MISSING");
+    }
+    try {
+      const token = await getCjAccessToken();
+      const inventory = await fetchCjInventoryData({ pid, productSku }, token);
+      return res.status(200).json({
+        ok: true,
+        source: "cj-inventory",
+        pid,
+        productSku,
+        tokenStatus: getCjTokenStatus(process.env),
+        inventoryBySku: inventory.inventoryBySku,
+        inventoryByPid: inventory.inventoryByPid,
+        globalWarehouses: inventory.globalWarehouses,
+        cjInventoryLoaded: Boolean(inventory.inventoryBySku || inventory.inventoryByPid),
+      });
+    } catch (error) {
+      return jsonError(res, 502, error?.message || "CJ Inventory Fehler", {
+        tokenStatus: getCjTokenStatus(process.env),
         ...(error?.details ? { upstream: error.details } : {}),
       });
     }
