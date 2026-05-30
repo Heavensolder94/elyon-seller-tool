@@ -5273,16 +5273,72 @@ function renderProductAiTinyBadge(product){
   return '<span class="status ' + cls + '" title="' + escapeHtml(title) + '">' + escapeHtml(label + score) + '</span>';
 }
 
+function getNestedProductValue(product, path){
+  if(!product || !path) return undefined;
+  return String(path).split('.').reduce(function(current, key){
+    if(current && typeof current === 'object' && Object.prototype.hasOwnProperty.call(current, key)){
+      return current[key];
+    }
+    return undefined;
+  }, product);
+}
+
+function firstProductValue(product, paths){
+  const list = Array.isArray(paths) ? paths : [];
+  for(let index = 0; index < list.length; index += 1){
+    const value = getNestedProductValue(product, list[index]);
+    if(value === undefined || value === null || value === '') continue;
+    return value;
+  }
+  return undefined;
+}
+
+function parseProductAmount(value){
+  if(typeof value === 'number') return Number.isFinite(value) ? value : null;
+  if(typeof value === 'string'){
+    const normalized = value
+      .trim()
+      .replace(/\s/g,'')
+      .replace(/€/g,'')
+      .replace(/\.(?=\d{3}(?:\D|$))/g,'')
+      .replace(',', '.');
+    if(!normalized) return null;
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  if(value && typeof value === 'object'){
+    if(Object.prototype.hasOwnProperty.call(value, 'amount')) return parseProductAmount(value.amount);
+    if(Object.prototype.hasOwnProperty.call(value, 'value')) return parseProductAmount(value.value);
+    if(Object.prototype.hasOwnProperty.call(value, 'price')) return parseProductAmount(value.price);
+  }
+  return null;
+}
+
+function resolveProductAmount(product, paths, fallbackValue){
+  const direct = parseProductAmount(firstProductValue(product, paths));
+  if(direct !== null) return direct;
+  const fallback = parseProductAmount(fallbackValue);
+  return fallback !== null ? fallback : null;
+}
+
+function formatResolvedEuro(value){
+  return value === null ? '—' : euro(value);
+}
+
+function formatResolvedPercent(value){
+  return value === null ? '—' : (Math.round(value * 10) / 10) + '%';
+}
+
 function normalizeProductApiItem(product){
   const normalized = normalizeProductRecord(product || {});
-  const buyPrice = Number(product && (product.buyPrice ?? product.buy)) || 0;
-  const salePrice = Number(product && (product.salePrice ?? product.sell)) || 0;
-  const shippingCost = Number(product && (product.shippingCost ?? product.ship)) || 0;
-  const suggestedSalePrice = Number(product && (product.suggestedSalePrice ?? product.recommendedPrice ?? product.suggestedPrice)) || 0;
-  const profitRaw = Number(product && product.profit);
-  const safeProfit = Number.isFinite(profitRaw) ? profitRaw : (salePrice - buyPrice - shippingCost);
-  const marginRaw = Number(product && product.margin);
-  const safeMargin = Number.isFinite(marginRaw) ? marginRaw : (salePrice > 0 ? (safeProfit / salePrice) * 100 : 0);
+  const buyPrice = resolveProductAmount(product, ['pricing.buyPrice','buyPrice','costPrice','purchasePrice','raw.price','raw.sourceOnlinePrice'], normalized.buy);
+  const salePrice = resolveProductAmount(product, ['pricing.salePrice','salePrice','sell'], normalized.sell);
+  const shippingCost = resolveProductAmount(product, ['pricing.shippingCost','shippingCost','ship'], normalized.ship);
+  const suggestedSalePrice = resolveProductAmount(product, ['pricing.suggestedSalePrice','suggestedSalePrice','recommendedPrice','suggestedPrice'], normalized.suggestedSalePrice);
+  const profitRaw = resolveProductAmount(product, ['pricing.profit','profit','apiProfit'], normalized.apiProfit);
+  const marginRaw = resolveProductAmount(product, ['pricing.marginPercent','marginPercent','margin','apiMargin'], normalized.apiMargin);
+  const safeProfit = profitRaw !== null ? profitRaw : ((salePrice !== null ? salePrice : 0) - (buyPrice !== null ? buyPrice : 0) - (shippingCost !== null ? shippingCost : 0));
+  const safeMargin = marginRaw !== null ? marginRaw : ((salePrice !== null && salePrice > 0) ? (safeProfit / salePrice) * 100 : null);
   const readinessRaw = Number(product && (product.readinessScore ?? product.listingScore ?? product.score));
   return normalizeProductRecord({
     ...normalized,
@@ -5291,12 +5347,12 @@ function normalizeProductApiItem(product){
     sourceProvider: product && (product.source || product.sourceProvider || product.supplier || product.supplierId || normalized.sourceProvider) || normalized.sourceProvider,
     sourceOnlineImage: product && (product.image || product.sourceOnlineImage || normalized.sourceOnlineImage) || normalized.sourceOnlineImage,
     sourceOnlineImages: JSON.stringify(Array.isArray(product && product.images) ? product.images : parseJsonArrayField(normalized.sourceOnlineImages)),
-    buy: buyPrice || normalized.buy || 0,
-    sell: salePrice || normalized.sell || 0,
-    ship: shippingCost || normalized.ship || 0,
-    suggestedSalePrice,
-    apiProfit: Math.round(safeProfit * 100) / 100,
-    apiMargin: Math.round(safeMargin * 100) / 100,
+    buy: buyPrice !== null ? buyPrice : (normalized.buy || 0),
+    sell: salePrice !== null ? salePrice : (normalized.sell || 0),
+    ship: shippingCost !== null ? shippingCost : (normalized.ship || 0),
+    suggestedSalePrice: suggestedSalePrice !== null ? suggestedSalePrice : (normalized.suggestedSalePrice || 0),
+    apiProfit: safeProfit !== null ? Math.round(safeProfit * 100) / 100 : normalized.apiProfit,
+    apiMargin: safeMargin !== null ? Math.round(safeMargin * 100) / 100 : normalized.apiMargin,
     listingScore: Number.isFinite(readinessRaw) ? readinessRaw : normalized.listingScore,
     reviewItems: normalizeIssueList(product && (product.reviewItems ?? product.issues)),
     warnings: normalizeIssueList(product && (product.warnings ?? product.complianceRisks)),
@@ -5482,6 +5538,19 @@ function productCardHTML(p,small=false){
   const productImage = String(p.sourceOnlineImage || imageList[0] || '').trim();
   const reviewItems = normalizeIssueList(p.reviewItems || p.issues);
   const warnings = normalizeIssueList(p.warnings);
+  const buyPrice = resolveProductAmount(p, ['pricing.buyPrice','buyPrice','costPrice','purchasePrice','raw.price','raw.sourceOnlinePrice'], p.buy);
+  const salePrice = resolveProductAmount(p, ['pricing.salePrice','salePrice','sell'], p.sell);
+  const suggestedSalePrice = resolveProductAmount(p, ['pricing.suggestedSalePrice','suggestedSalePrice','recommendedPrice','suggestedPrice'], p.suggestedSalePrice);
+  const shippingCost = resolveProductAmount(p, ['pricing.shippingCost','shippingCost','ship'], p.ship);
+  const directProfit = resolveProductAmount(p, ['pricing.profit','profit','apiProfit'], p.apiProfit);
+  const directMargin = resolveProductAmount(p, ['pricing.marginPercent','marginPercent','margin','apiMargin'], p.apiMargin);
+  const suggestionProfit = suggestedSalePrice !== null
+    ? suggestedSalePrice - (buyPrice !== null ? buyPrice : 0) - (shippingCost !== null ? shippingCost : 0)
+    : null;
+  const displayProfit = directProfit !== null ? directProfit : suggestionProfit;
+  const displayMargin = directMargin !== null
+    ? directMargin
+    : (suggestedSalePrice !== null && suggestedSalePrice > 0 && displayProfit !== null ? (displayProfit / suggestedSalePrice) * 100 : null);
   let detailHtml = '';
   detailHtml += '<details class="details-box">';
   detailHtml += '<summary>Details anzeigen</summary>';
@@ -5520,7 +5589,7 @@ function productCardHTML(p,small=false){
     html += '<div class="muted">Bild aus Produktdaten geladen.</div></div></div>';
   }
   html += '<div class="muted">Status: ' + escapeHtml(lifecycle.label) + ' · Erstellt: ' + (p.created || '') + ' · ' + s.text + shopifyInfo + '</div>';
-  html += '<div class="pill-row"><span class="status ' + lifecycle.cls + '">' + escapeHtml(lifecycle.label) + '</span><span class="status ' + apiStatus.cls + '">' + escapeHtml(apiStatus.label) + '</span>' + returnCompactPillsForProduct(p,c) + getProductCommercialChips(p,c) + '<span class="pill">Quelle: ' + escapeHtml(p.sourceProvider || p.supplierId || 'offen') + '</span><span class="pill">EK: ' + euro(p.buy) + '</span><span class="pill">VK: ' + euro(p.sell) + '</span><span class="pill">Vorschlag: ' + euro(p.suggestedSalePrice || c.recommendedPrice || 0) + '</span><span class="pill">Versand: ' + euro(p.ship) + '</span><span class="pill">Gewinn: ' + euro(Number.isFinite(Number(p.apiProfit)) ? Number(p.apiProfit) : c.profit) + '</span><span class="pill">Marge: ' + Math.round((Number.isFinite(Number(p.apiMargin)) ? Number(p.apiMargin) : c.margin) * 10) / 10 + '%</span><span class="pill">Readiness: ' + (p.listingScore || 0) + '/100</span><span class="pill">Netto: ' + euro(net) + '</span><span class="status '+health.cls+'">'+health.label+'</span>' + (p.sourceRisk ? '<span class="status ' + riskClass(p.sourceRisk) + '">Supplier: ' + escapeHtml(p.sourceRisk) + '</span>' : '') + '</div>';
+  html += '<div class="pill-row"><span class="status ' + lifecycle.cls + '">' + escapeHtml(lifecycle.label) + '</span><span class="status ' + apiStatus.cls + '">' + escapeHtml(apiStatus.label) + '</span>' + returnCompactPillsForProduct(p,c) + getProductCommercialChips(p,c) + '<span class="pill">Quelle: ' + escapeHtml(p.sourceProvider || p.supplierId || 'offen') + '</span><span class="pill">EK: ' + formatResolvedEuro(buyPrice) + '</span><span class="pill">VK: ' + formatResolvedEuro(salePrice) + '</span><span class="pill">Vorschlag: ' + formatResolvedEuro(suggestedSalePrice) + '</span><span class="pill">Versand: ' + formatResolvedEuro(shippingCost) + '</span><span class="pill">Gewinn: ' + formatResolvedEuro(displayProfit) + '</span><span class="pill">Marge: ' + formatResolvedPercent(displayMargin) + '</span><span class="pill">Readiness: ' + (p.listingScore || 0) + '/100</span><span class="pill">Netto: ' + euro(net) + '</span><span class="status '+health.cls+'">'+health.label+'</span>' + (p.sourceRisk ? '<span class="status ' + riskClass(p.sourceRisk) + '">Supplier: ' + escapeHtml(p.sourceRisk) + '</span>' : '') + '</div>';
   html += renderProductAiMiniCard(p);
   html += detailHtml;
   html += '</div>';
