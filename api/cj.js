@@ -574,8 +574,13 @@ async function fetchCjProductByIdentifiers(identifiers) {
     let response;
     let rawText;
     let data;
+    let endpoint;
+    let httpMethod;
+    let urlWithoutToken;
+    let responseStatus;
+    let responseMessage;
     try {
-      ({ response, rawText, data } = await client.productQuery(attempt.query, token));
+      ({ response, rawText, data, endpoint, httpMethod, urlWithoutToken, responseStatus, responseMessage } = await client.productQuery(attempt.query, token));
     } catch (error) {
       errors.push({
         identifier: attempt.label,
@@ -592,6 +597,14 @@ async function fetchCjProductByIdentifiers(identifiers) {
         identifier: attempt.label,
         identifiers,
         raw: data,
+        requestDebug: {
+          cjEndpointUsed: endpoint,
+          cjHttpMethod: httpMethod,
+          cjUrlWithoutToken: urlWithoutToken,
+          cjResponseStatus: responseStatus,
+          cjResponseMessage: responseMessage || data?.message || "",
+          cjTokenStatus: getCjTokenStatus(process.env),
+        },
         product: normalizeCjDetailProduct(detail, identifiers),
       };
     }
@@ -612,17 +625,25 @@ async function fetchCjVariantList(pid, token) {
   if (!cleanPid) return [];
   try {
     const client = createCjApiClient(process.env);
-    const { data } = await client.productVariantQuery({ pid: cleanPid }, token);
+    const result = await client.productVariantQuery({ pid: cleanPid }, token);
+    const { data } = result;
     const list = extractProductList(data)
       .concat(Array.isArray(data?.data?.variants) ? data.data.variants : [])
       .concat(Array.isArray(data?.data?.variantList) ? data.data.variantList : [])
       .concat(Array.isArray(data?.data) ? data.data : []);
     const normalized = normalizeCjVariants(list);
-    if (normalized.length) return normalized;
+    if (normalized.length) return { variants: normalized, requestDebug: {
+      cjEndpointUsed: result.endpoint,
+      cjHttpMethod: result.httpMethod,
+      cjUrlWithoutToken: result.urlWithoutToken,
+      cjResponseStatus: result.responseStatus,
+      cjResponseMessage: result.responseMessage || data?.message || "",
+      cjTokenStatus: getCjTokenStatus(process.env),
+    } };
   } catch {
     // Keep browser-import fallback path intact when the variant endpoint is unavailable.
   }
-  return [];
+  return { variants: [], requestDebug: null };
 }
 
 async function fetchCjInventoryData({ pid = "", productSku = "" } = {}, token = "") {
@@ -665,7 +686,8 @@ async function enrichCjProductWithVariants(product, identifiers = {}, token = ""
   const baseProduct = product && typeof product === "object" ? { ...product } : {};
   const activeToken = token || await getCjAccessToken();
   const currentVariants = Array.isArray(baseProduct.variants) ? baseProduct.variants : [];
-  const variantList = currentVariants.length ? currentVariants : await fetchCjVariantList(baseProduct.pid || identifiers.pid, activeToken);
+  const variantResult = currentVariants.length ? { variants: currentVariants, requestDebug: null } : await fetchCjVariantList(baseProduct.pid || identifiers.pid, activeToken);
+  const variantList = Array.isArray(variantResult?.variants) ? variantResult.variants : [];
   const inventory = await fetchCjInventoryData({
     pid: baseProduct.pid || identifiers.pid,
     productSku: baseProduct.productSku || identifiers.productSku,
@@ -680,6 +702,7 @@ async function enrichCjProductWithVariants(product, identifiers = {}, token = ""
     cjProductKeyEn: firstNonEmpty(baseProduct.productKeyEn, baseProduct.cjProductKeyEn),
     variantGroupingMethod: grouped.variantGroupingMethod,
     cjInventoryLoaded: Boolean(inventory.inventoryBySku || inventory.inventoryByPid),
+    cjVariantRequestDebug: variantResult?.requestDebug || null,
     inventoryBySku: inventory.inventoryBySku,
     inventoryByPid: inventory.inventoryByPid,
     globalWarehouses: inventory.globalWarehouses,
@@ -1277,15 +1300,35 @@ export default async function handler(req, res) {
         });
       }
 
+      const enrichedProduct = await enrichCjProductWithVariants(result.product, result.identifiers || identifiers);
+      const debug = {
+        ...(result.requestDebug || {}),
+        ...(enrichedProduct.cjVariantRequestDebug || {}),
+        cjVariantCount: Array.isArray(enrichedProduct.variantItems) ? enrichedProduct.variantItems.length : 0,
+        cjProductKeyEn: enrichedProduct.cjProductKeyEn || "",
+        cjVariantKeys: Array.isArray(enrichedProduct.cjVariantKeys) ? enrichedProduct.cjVariantKeys : [],
+        cjInventoryLoaded: Boolean(enrichedProduct.cjInventoryLoaded),
+        variantGroupingMethod: enrichedProduct.variantGroupingMethod || "",
+      };
       return res.status(200).json({
         ok: true,
         source: action === "detail" ? "cj-detail" : "cj-product",
         status: 200,
         identifiers: result.identifiers || identifiers,
-        product: await enrichCjProductWithVariants(result.product, result.identifiers || identifiers),
+        product: enrichedProduct,
+        variants: Array.isArray(enrichedProduct.variants) ? enrichedProduct.variants : [],
+        variantGroups: Array.isArray(enrichedProduct.variantGroups) ? enrichedProduct.variantGroups : [],
+        variantItems: Array.isArray(enrichedProduct.variantItems) ? enrichedProduct.variantItems : [],
+        debug,
       });
     } catch (error) {
       return jsonError(res, 502, error?.message || "CJ Detail Fehler", {
+        cjEndpointUsed: error?.details?.endpoint || "",
+        cjHttpMethod: error?.details?.httpMethod || "",
+        cjUrlWithoutToken: error?.details?.urlWithoutToken || "",
+        cjResponseStatus: error?.details?.upstreamStatus || 502,
+        cjResponseMessage: error?.details?.responseMessage || error?.message || "",
+        cjTokenStatus: error?.details?.tokenStatus || getCjTokenStatus(process.env),
         identifiers,
         ...(error?.details ? { upstream: error.details } : {}),
       });
@@ -1299,7 +1342,8 @@ export default async function handler(req, res) {
     }
     try {
       const token = await getCjAccessToken();
-      const variants = await fetchCjVariantList(pid, token);
+      const variantResult = await fetchCjVariantList(pid, token);
+      const variants = Array.isArray(variantResult?.variants) ? variantResult.variants : [];
       const productKeyEn = readText(req.query.productKeyEn || "");
       const grouped = buildCjVariantGroups(productKeyEn, variants);
       return res.status(200).json({
@@ -1307,15 +1351,28 @@ export default async function handler(req, res) {
         source: "cj-variants",
         pid,
         productKeyEn,
+        variants,
         variantGroups: grouped.variantGroups,
         variantItems: grouped.variantItems,
         cjVariantKeys: grouped.cjVariantKeys,
         cjVariantCount: grouped.variantItems.length,
         variantGroupingMethod: grouped.variantGroupingMethod,
         tokenStatus: getCjTokenStatus(process.env),
+        debug: {
+          ...(variantResult?.requestDebug || {}),
+          cjVariantCount: grouped.variantItems.length,
+          cjProductKeyEn: productKeyEn,
+          cjVariantKeys: grouped.cjVariantKeys,
+          variantGroupingMethod: grouped.variantGroupingMethod,
+        },
       });
     } catch (error) {
       return jsonError(res, 502, error?.message || "CJ Varianten Fehler", {
+        cjEndpointUsed: error?.details?.endpoint || "",
+        cjHttpMethod: error?.details?.httpMethod || "",
+        cjUrlWithoutToken: error?.details?.urlWithoutToken || "",
+        cjResponseStatus: error?.details?.upstreamStatus || 502,
+        cjResponseMessage: error?.details?.responseMessage || error?.message || "",
         tokenStatus: getCjTokenStatus(process.env),
         ...(error?.details ? { upstream: error.details } : {}),
       });
