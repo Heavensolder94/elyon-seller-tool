@@ -586,6 +586,25 @@ function getEmbeddedProductText() {
   return uniqueReadableList(values.map(limitDescription).filter((text) => safeText(text).length <= 6000), 4).join("\n\n");
 }
 
+function filterDescriptionByProductContext(values, title = getTitle(), max = 6) {
+  const titleWords = safeText(title)
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((word) => word.length >= 4)
+    .slice(0, 8);
+  const filtered = uniqueReadableList(values.filter(Boolean), 20).filter((entry) => {
+    const text = safeText(entry).toLowerCase();
+    if (!text || text.length < 40) return false;
+    if (/(track your order|customer service|contact us|privacy policy|return policy|shipping policy|company profile|about us|warehouse|why choose us|login|register|coupon|flash deals|recommended|related products|reviews?\s*\(|questions?\s*&\s*answers?|buyers show|wishlist|chat now)/i.test(text)) {
+      return false;
+    }
+    if (!titleWords.length) return true;
+    return titleWords.some((word) => text.includes(word))
+      || /material|feature|package|includes|specification|details|description|product/i.test(text);
+  });
+  return filtered.slice(0, max);
+}
+
 function getCjDescription() {
   const selectors = [
     "#product-detail",
@@ -611,11 +630,20 @@ function getCjDescription() {
     "[class*='tab-content']",
     "[class*='tabContent']"
   ];
-  const visibleText = collectDescriptionSelectorText(selectors, document, 14).join("\n\n");
-  const embeddedText = getEmbeddedProductText();
-  const combined = [visibleText, embeddedText]
-    .map(limitDescription)
-    .filter(Boolean)
+  const title = getTitle();
+  const visibleCandidates = filterDescriptionByProductContext(collectDescriptionSelectorText(selectors, document, 14), title, 6);
+  const headingCandidates = filterDescriptionByProductContext(sectionTextFromHeadingPatterns([
+    /^description$/i,
+    /^produktbeschreibung$/i,
+    /^artikelbeschreibung$/i,
+    /^product details$/i,
+    /^specifications?$/i,
+    /^features?$/i
+  ]), title, 4);
+  const embeddedCandidates = filterDescriptionByProductContext([getEmbeddedProductText()], title, 2)
+    .filter((text) => text.length <= 2500);
+  const combined = uniqueReadableList([...visibleCandidates, ...headingCandidates, ...embeddedCandidates], 8)
+    .filter((entry) => !/(track your order|customer service|contact us|company profile|recommended|related products|buyers show)/i.test(entry))
     .join("\n\n");
   return limitDescription(combined);
 }
@@ -1065,14 +1093,438 @@ function getAliExpressVariantContainers(root = document) {
     "[class*='Sku']",
     "[class*='variant']",
     "[class*='Variant']",
+    "[class*='sku-item']",
+    "[class*='SkuItem']",
+    "[class*='sku-property']",
+    "[class*='SkuProperty']",
+    "[class*='sku-content']",
+    "[class*='SkuContent']",
     "[data-pl*='sku']",
     "[data-pl*='variant']",
+    "[data-sku-col]",
+    "[data-sku-row]",
+    "[data-pl='sku-content']",
+    "[data-pl='sku-item']",
     "[class*='product-property']",
     "[class*='ProductProperty']"
   ];
   return Array.from(root.querySelectorAll(selectors.join(",")))
     .filter((node) => isVisibleElement(node) && safeText(node.textContent).length >= 2)
     .slice(0, 20);
+}
+
+function normalizeAliExpressVariantGroupName(value, fallbackIndex = 0) {
+  const text = safeText(decodeHtmlEntities(value))
+    .replace(/[:：]\s*$/, "")
+    .replace(/^(sku|product)\s+/i, "")
+    .trim();
+  if (!text) return `Variante ${fallbackIndex + 1}`;
+  if (/color|colour|farbe/i.test(text)) return "Color";
+  if (/size|gr[oö]sse|größe|format/i.test(text)) return "Size";
+  return text;
+}
+
+function mergeAliExpressVariantGroups(...groupSets) {
+  const merged = new Map();
+  groupSets.forEach((groupSet) => {
+    (Array.isArray(groupSet) ? groupSet : []).forEach((group, groupIndex) => {
+      const name = normalizeAliExpressVariantGroupName(group?.name, groupIndex);
+      if (!merged.has(name)) merged.set(name, { name, options: [] });
+      const target = merged.get(name);
+      const seenOptions = new Set(target.options.map((option) => `${safeText(option.label).toLowerCase()}|${option.image || ""}`));
+      (Array.isArray(group?.options) ? group.options : []).forEach((option) => {
+        const label = safeText(option?.label || option?.name || option?.value || option?.title);
+        const image = normalizeImageUrl(option?.image || option?.skuImage || option?.icon || "");
+        const key = `${label.toLowerCase()}|${image}`;
+        if (!label || seenOptions.has(key)) return;
+        seenOptions.add(key);
+        target.options.push({
+          label,
+          selected: option?.selected === true,
+          disabled: option?.disabled === true,
+          image: image || null,
+          price: option?.price ?? null,
+          originalPrice: option?.originalPrice ?? null,
+          currency: option?.currency || null,
+          shippingText: option?.shippingText || null,
+          deliveryText: option?.deliveryText || null,
+          stockText: option?.stockText || null,
+          _node: option?._node || null
+        });
+      });
+    });
+  });
+  return Array.from(merged.values()).filter((group) => group.options.length);
+}
+
+function safeJsonParse(value) {
+  if (!value || typeof value !== "string") return null;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
+}
+
+function extractBalancedJsonBlock(source, anchor) {
+  const text = String(source || "");
+  const startIndex = text.indexOf(anchor);
+  if (startIndex < 0) return "";
+  const braceStart = text.indexOf("{", startIndex);
+  if (braceStart < 0) return "";
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+  for (let index = braceStart; index < text.length; index += 1) {
+    const char = text[index];
+    if (inString) {
+      if (escape) {
+        escape = false;
+      } else if (char === "\\") {
+        escape = true;
+      } else if (char === "\"") {
+        inString = false;
+      }
+      continue;
+    }
+    if (char === "\"") {
+      inString = true;
+      continue;
+    }
+    if (char === "{") depth += 1;
+    if (char === "}") {
+      depth -= 1;
+      if (depth === 0) return text.slice(braceStart, index + 1);
+    }
+  }
+  return "";
+}
+
+function collectAliExpressVariantArrays(value, bucket = [], seen = new WeakSet()) {
+  if (!value || typeof value !== "object") return bucket;
+  if (seen.has(value)) return bucket;
+  seen.add(value);
+
+  if (Array.isArray(value)) {
+    const variantLike = value.filter((entry) => entry && typeof entry === "object");
+    const score = variantLike.filter((entry) => {
+      const keys = Object.keys(entry || {});
+      return keys.some((key) => /sku|spec|property|attr|value|option|title|name/i.test(key))
+        || safeText(entry?.skuPropertyName || entry?.skuAttrName || entry?.specName || entry?.propertyName)
+        || safeText(entry?.skuPropertyValues || entry?.values || entry?.options);
+    }).length;
+    if (variantLike.length && score >= Math.max(1, Math.ceil(variantLike.length / 2))) {
+      bucket.push(value);
+    }
+    value.forEach((entry) => collectAliExpressVariantArrays(entry, bucket, seen));
+    return bucket;
+  }
+
+  Object.values(value).forEach((entry) => collectAliExpressVariantArrays(entry, bucket, seen));
+  return bucket;
+}
+
+function buildAliExpressGroupsFromDataArrays(arrays = []) {
+  const groups = [];
+  arrays.forEach((array) => {
+    (Array.isArray(array) ? array : []).forEach((entry, index) => {
+      const rawName = entry?.skuPropertyName
+        || entry?.skuAttrName
+        || entry?.specName
+        || entry?.propertyName
+        || entry?.name
+        || entry?.title
+        || entry?.attrName
+        || entry?.label
+        || `Variante ${index + 1}`;
+      const name = normalizeAliExpressVariantGroupName(rawName, groups.length);
+      const rawValues = []
+        .concat(entry?.skuPropertyValues || [])
+        .concat(entry?.values || [])
+        .concat(entry?.options || [])
+        .concat(entry?.skuValues || [])
+        .concat(entry?.valueList || []);
+      const options = rawValues.map((value) => {
+        if (typeof value === "string") {
+          return {
+            label: safeText(decodeHtmlEntities(value)),
+            selected: false,
+            disabled: false,
+            image: null,
+            price: null,
+            originalPrice: null,
+            currency: null,
+            shippingText: null,
+            deliveryText: null,
+            stockText: null,
+            _node: null
+          };
+        }
+        const label = safeText(
+          value?.propertyValueDisplayName
+          || value?.propertyValueDefinitionName
+          || value?.skuPropertyValue
+          || value?.skuAttrValue
+          || value?.specValue
+          || value?.optionName
+          || value?.name
+          || value?.title
+          || value?.value
+        );
+        return {
+          label: decodeHtmlEntities(label),
+          selected: value?.selected === true || value?.isSelected === true,
+          disabled: value?.disabled === true || value?.isAvailable === false,
+          image: normalizeImageUrl(value?.skuPropertyImagePath || value?.imageUrl || value?.image || ""),
+          price: null,
+          originalPrice: null,
+          currency: null,
+          shippingText: null,
+          deliveryText: null,
+          stockText: null,
+          _node: null
+        };
+      }).filter((option) => option.label);
+      if (options.length) groups.push({ name, options });
+    });
+  });
+  return mergeAliExpressVariantGroups(groups);
+}
+
+function getAliExpressStateVariantGroups() {
+  const candidates = [];
+  if (window.__INITIAL_STATE__ && typeof window.__INITIAL_STATE__ === "object") candidates.push(window.__INITIAL_STATE__);
+  if (window.runParams && typeof window.runParams === "object") candidates.push(window.runParams);
+
+  const scriptTexts = Array.from(document.scripts || [])
+    .map((script) => script.textContent || "")
+    .filter((text) => /__INITIAL_STATE__|runParams|skuProperty|skuAttr|productSKUPropertyList|skuPropertyList/i.test(text))
+    .slice(0, 20);
+
+  scriptTexts.forEach((text) => {
+    const initialBlock = extractBalancedJsonBlock(text, "__INITIAL_STATE__");
+    const runParamsBlock = extractBalancedJsonBlock(text, "runParams");
+    const initialData = safeJsonParse(initialBlock);
+    const runParamsData = safeJsonParse(runParamsBlock);
+    if (initialData) candidates.push(initialData);
+    if (runParamsData) candidates.push(runParamsData);
+  });
+
+  const jsonLdProducts = extractJsonLdProducts();
+  if (jsonLdProducts.length) candidates.push(...jsonLdProducts);
+
+  const arrays = [];
+  candidates.forEach((candidate) => collectAliExpressVariantArrays(candidate, arrays));
+  return buildAliExpressGroupsFromDataArrays(arrays);
+}
+
+function normalizeCjVariantGroupName(value, fallbackIndex = 0) {
+  const text = safeText(decodeHtmlEntities(value))
+    .replace(/[:：]\s*$/, "")
+    .replace(/^(product|variant|option)\s+/i, "")
+    .trim();
+  if (!text) return `Variant ${fallbackIndex + 1}`;
+  if (/color|colour|farbe/i.test(text)) return "Color";
+  if (/size|gr[oö]sse|größe|format/i.test(text)) return "Size";
+  if (/material/i.test(text)) return "Material";
+  if (/style/i.test(text)) return "Style";
+  return text;
+}
+
+function mergeCjVariantGroups(...groupSets) {
+  const merged = new Map();
+  groupSets.forEach((groupSet) => {
+    (Array.isArray(groupSet) ? groupSet : []).forEach((group, groupIndex) => {
+      const name = normalizeCjVariantGroupName(group?.name, groupIndex);
+      if (!merged.has(name)) merged.set(name, { name, options: [] });
+      const target = merged.get(name);
+      const seen = new Set(target.options.map((option) => `${safeText(option.label).toLowerCase()}|${option.image || ""}`));
+      (Array.isArray(group?.options) ? group.options : []).forEach((option) => {
+        const label = safeText(option?.label || option?.name || option?.value || option?.title || option?.text);
+        const image = normalizeImageUrl(option?.image || option?.icon || option?.variantImage || "");
+        const key = `${label.toLowerCase()}|${image}`;
+        if (!label || seen.has(key)) return;
+        seen.add(key);
+        target.options.push({
+          label,
+          selected: option?.selected === true,
+          disabled: option?.disabled === true,
+          image: image || null,
+          price: option?.price ?? null,
+          originalPrice: option?.originalPrice ?? null,
+          currency: option?.currency || null,
+          shippingText: option?.shippingText || null,
+          deliveryText: option?.deliveryText || null,
+          stockText: option?.stockText || null,
+          _node: option?._node || null
+        });
+      });
+    });
+  });
+  return Array.from(merged.values()).filter((group) => group.options.length);
+}
+
+function collectCjVariantArrays(value, bucket = [], seen = new WeakSet()) {
+  if (!value || typeof value !== "object") return bucket;
+  if (seen.has(value)) return bucket;
+  seen.add(value);
+
+  if (Array.isArray(value)) {
+    const objects = value.filter((entry) => entry && typeof entry === "object");
+    const score = objects.filter((entry) => {
+      const keys = Object.keys(entry || {});
+      return keys.some((key) => /variant|option|spec|attr|property|value|sku/i.test(key))
+        || safeText(entry?.attributeName || entry?.specName || entry?.propertyName || entry?.variantName || entry?.name)
+        || Array.isArray(entry?.values || entry?.options || entry?.valueList || entry?.items || entry?.children || entry?.attributeValues);
+    }).length;
+    if (objects.length && score >= Math.max(1, Math.ceil(objects.length / 2))) bucket.push(value);
+    value.forEach((entry) => collectCjVariantArrays(entry, bucket, seen));
+    return bucket;
+  }
+
+  Object.values(value).forEach((entry) => collectCjVariantArrays(entry, bucket, seen));
+  return bucket;
+}
+
+function buildCjGroupsFromDataArrays(arrays = []) {
+  const groups = [];
+  arrays.forEach((array) => {
+    (Array.isArray(array) ? array : []).forEach((entry, index) => {
+      const item = entry && typeof entry === "object" ? entry : null;
+      if (!item) return;
+      const rawName = item.attributeName
+        || item.specName
+        || item.propertyName
+        || item.variantName
+        || item.name
+        || item.title
+        || item.label
+        || `Variant ${index + 1}`;
+      const optionsRaw = []
+        .concat(item.values || [])
+        .concat(item.options || [])
+        .concat(item.valueList || [])
+        .concat(item.items || [])
+        .concat(item.children || [])
+        .concat(item.attributeValues || []);
+      const options = optionsRaw.map((value) => {
+        if (typeof value === "string") {
+          return { label: safeText(decodeHtmlEntities(value)), selected: false, disabled: false, image: null, _node: null };
+        }
+        return {
+          label: safeText(
+            value?.label
+            || value?.value
+            || value?.name
+            || value?.title
+            || value?.text
+            || value?.variantValue
+            || value?.attributeValue
+            || value?.specValue
+            || value?.propertyValueDisplayName
+          ),
+          selected: value?.selected === true || value?.isSelected === true,
+          disabled: value?.disabled === true || value?.enabled === false || value?.isAvailable === false,
+          image: normalizeImageUrl(value?.image || value?.icon || value?.variantImage || ""),
+          _node: null
+        };
+      }).filter((option) => option.label);
+      if (options.length) groups.push({ name: normalizeCjVariantGroupName(rawName, groups.length), options });
+    });
+  });
+  return mergeCjVariantGroups(groups);
+}
+
+function getCjStateVariantGroups() {
+  const candidates = [];
+  const nextData = safeJsonParse(document.querySelector("#__NEXT_DATA__")?.textContent || "");
+  if (nextData) candidates.push(nextData);
+  if (window.__NEXT_DATA__ && typeof window.__NEXT_DATA__ === "object") candidates.push(window.__NEXT_DATA__);
+  if (window.__INITIAL_STATE__ && typeof window.__INITIAL_STATE__ === "object") candidates.push(window.__INITIAL_STATE__);
+  if (window.runParams && typeof window.runParams === "object") candidates.push(window.runParams);
+
+  Array.from(document.scripts || [])
+    .map((script) => script.textContent || "")
+    .filter((text) => /__NEXT_DATA__|variant|attribute|option|sku|spec/i.test(text))
+    .slice(0, 20)
+    .forEach((text) => {
+      const nextBlock = extractBalancedJsonBlock(text, "__NEXT_DATA__");
+      const initialBlock = extractBalancedJsonBlock(text, "__INITIAL_STATE__");
+      const runParamsBlock = extractBalancedJsonBlock(text, "runParams");
+      [nextBlock, initialBlock, runParamsBlock].forEach((block) => {
+        const parsed = safeJsonParse(block);
+        if (parsed) candidates.push(parsed);
+      });
+    });
+
+  const arrays = [];
+  candidates.forEach((candidate) => collectCjVariantArrays(candidate, arrays));
+  return buildCjGroupsFromDataArrays(arrays);
+}
+
+function getCjVariantGroups(root = document) {
+  const groups = [];
+  const seen = new Set();
+  const containers = Array.from(root.querySelectorAll([
+    "[class*='variant']",
+    "[class*='Variant']",
+    "[class*='sku']",
+    "[class*='Sku']",
+    "[class*='option']",
+    "[class*='Option']",
+    "[class*='attr']",
+    "[class*='Attr']",
+    "[class*='spec']",
+    "[class*='Spec']",
+    "[data-testid*='variant']"
+  ].join(",")))
+    .filter((node) => isVisibleElement(node) && safeText(node.textContent).length >= 2)
+    .slice(0, 24);
+
+  containers.forEach((container, index) => {
+    const title = safeText(
+      container.querySelector("label, legend, [class*='title'], [class*='name'], [class*='label']")?.textContent ||
+      container.getAttribute("aria-label") ||
+      container.previousElementSibling?.textContent ||
+      ""
+    ).replace(/[:：]\s*$/, "");
+
+    const optionNodes = Array.from(container.querySelectorAll("button, li, [role='button'], [role='option'], [aria-selected], [aria-checked], [class*='item'], [class*='option'], [class*='value'], img"))
+      .filter((node) => node !== container)
+      .filter((node) => node.tagName?.toLowerCase() === "option" || isVisibleElement(node))
+      .filter((node) => !isDangerousActionNode(node))
+      .filter((node) => getVariantOptionLabel(node) || getVariantOptionImage(node))
+      .slice(0, 80);
+    if (!optionNodes.length) return;
+
+    const options = [];
+    optionNodes.forEach((node) => {
+      const label = getVariantOptionLabel(node) || getVariantOptionImage(node);
+      const key = `${normalizeCjVariantGroupName(title, groups.length)}:${label}:${getVariantOptionImage(node)}`;
+      if (!label || seen.has(key)) return;
+      seen.add(key);
+      const selectedText = safeText([node.className, node.getAttribute("aria-pressed"), node.getAttribute("aria-selected"), node.getAttribute("selected"), node.getAttribute("aria-checked")].join(" ")).toLowerCase();
+      options.push({
+        label,
+        selected: /selected|active|current|checked|true/i.test(selectedText),
+        disabled: isDisabledVariantNode(node),
+        image: getVariantOptionImage(node) || null,
+        price: parsePriceNumber(getPrice()),
+        originalPrice: null,
+        currency: getCurrencyFromText(getPrice()) || null,
+        shippingText: getShipping().text || null,
+        deliveryText: getShipping().deliveryTime || null,
+        stockText: getAvailability() || null,
+        _node: node
+      });
+    });
+
+    if (options.length) {
+      groups.push({ name: normalizeCjVariantGroupName(title, groups.length), options });
+    }
+  });
+
+  return mergeCjVariantGroups(groups, getCjStateVariantGroups()).slice(0, 12);
 }
 
 function getGenericVariantContainers(root = document) {
@@ -1104,6 +1556,7 @@ function getGenericVariantContainers(root = document) {
 
 function getVariantGroupsForPlatform(platform = detectPlatform(), root = document) {
   if (platform === "aliexpress") return getAliExpressVariantGroups(root);
+  if (platform === "cjdropshipping") return getCjVariantGroups(root);
 
   const groups = [];
   const seen = new Set();
@@ -1155,6 +1608,15 @@ function getAliExpressVariantGroups(root = document) {
   const groups = [];
   const seen = new Set();
   const containers = getAliExpressVariantContainers(root);
+  const variantSelectorsUsed = [
+    "[class*='sku']",
+    "[class*='variant']",
+    "[data-pl*='sku']",
+    "[data-sku-col]",
+    "[data-sku-row]"
+  ];
+  const rawVariantGroups = [];
+  const rawVariantOptions = [];
 
   containers.forEach((container, index) => {
     const optionNodes = Array.from(container.querySelectorAll("button, li, [role='button'], [class*='item'], [class*='option'], [class*='value'], [data-sku-col], [data-sku-row]"))
@@ -1179,6 +1641,14 @@ function getAliExpressVariantGroups(root = document) {
       if (!label || seen.has(key)) return;
       seen.add(key);
       const selectedText = safeText([node.className, node.getAttribute("aria-pressed"), node.getAttribute("aria-selected")].join(" ")).toLowerCase();
+      rawVariantOptions.push({
+        groupIndex: index,
+        groupName: normalizeAliExpressVariantGroupName(title, groups.length),
+        label,
+        selectedSignals: selectedText,
+        disabled: isDisabledVariantNode(node),
+        image: getVariantOptionImage(node) || null
+      });
       options.push({
         label,
         selected: /selected|active|current|checked|true|sku-property-item-selected/i.test(selectedText),
@@ -1195,15 +1665,51 @@ function getAliExpressVariantGroups(root = document) {
     });
 
     if (options.length) {
-      groups.push({ name: title || `Variante ${groups.length + 1}`, options });
+      rawVariantGroups.push({
+        index,
+        title: normalizeAliExpressVariantGroupName(title, groups.length),
+        optionCount: options.length,
+        textSample: safeText(container.textContent).slice(0, 240)
+      });
+      groups.push({ name: normalizeAliExpressVariantGroupName(title, groups.length) || `Variante ${groups.length + 1}`, options });
     }
   });
 
-  return groups.slice(0, 8);
+  const stateGroups = getAliExpressStateVariantGroups();
+  const mergedGroups = mergeAliExpressVariantGroups(groups, stateGroups).slice(0, 8);
+  Object.defineProperties(mergedGroups, {
+    rawVariantGroups: {
+      value: rawVariantGroups.concat(stateGroups.map((group, index) => ({
+        index: rawVariantGroups.length + index,
+        title: group.name,
+        optionCount: Array.isArray(group.options) ? group.options.length : 0,
+        textSample: "state-data"
+      }))),
+      enumerable: false
+    },
+    rawVariantOptions: {
+      value: rawVariantOptions.concat(
+        stateGroups.flatMap((group, groupIndex) => (Array.isArray(group.options) ? group.options : []).map((option) => ({
+          groupIndex,
+          groupName: group.name,
+          label: option.label,
+          selectedSignals: option.selected ? "state-selected" : "",
+          disabled: option.disabled === true,
+          image: option.image || null
+        })))
+      ),
+      enumerable: false
+    },
+    variantSelectorsUsed: {
+      value: variantSelectorsUsed.concat(stateGroups.length ? ["window.__INITIAL_STATE__", "window.runParams", "application/ld+json"] : []),
+      enumerable: false
+    }
+  });
+  return mergedGroups;
 }
 
 function stripVariantNodes(groups) {
-  return groups.map((group) => ({
+  const stripped = groups.map((group) => ({
     name: group.name || null,
     options: (Array.isArray(group.options) ? group.options : []).map((option) => ({
       label: option.label || null,
@@ -1218,6 +1724,23 @@ function stripVariantNodes(groups) {
       stockText: option.stockText || null
     }))
   }));
+  if (Array.isArray(groups?.rawVariantGroups) || Array.isArray(groups?.rawVariantOptions) || Array.isArray(groups?.variantSelectorsUsed)) {
+    Object.defineProperties(stripped, {
+      rawVariantGroups: {
+        value: Array.isArray(groups.rawVariantGroups) ? groups.rawVariantGroups : [],
+        enumerable: false
+      },
+      rawVariantOptions: {
+        value: Array.isArray(groups.rawVariantOptions) ? groups.rawVariantOptions : [],
+        enumerable: false
+      },
+      variantSelectorsUsed: {
+        value: Array.isArray(groups.variantSelectorsUsed) ? groups.variantSelectorsUsed : [],
+        enumerable: false
+      }
+    });
+  }
+  return stripped;
 }
 
 function getSelectedAliExpressCombination(groups) {
@@ -1246,7 +1769,10 @@ function buildAliExpressVariantDebug(groups, variantItems, manualScanned, warnin
     autoScanned: false,
     manualScanned: manualScanned === true,
     warnings,
-    variantItemsCount: Array.isArray(variantItems) ? variantItems.length : 0
+    variantItemsCount: Array.isArray(variantItems) ? variantItems.length : 0,
+    rawVariantGroups: Array.isArray(groups.rawVariantGroups) ? groups.rawVariantGroups : [],
+    rawVariantOptions: Array.isArray(groups.rawVariantOptions) ? groups.rawVariantOptions : [],
+    variantSelectorsUsed: Array.isArray(groups.variantSelectorsUsed) ? groups.variantSelectorsUsed : []
   };
 }
 
