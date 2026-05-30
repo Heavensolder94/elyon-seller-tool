@@ -1,5 +1,6 @@
 import { applyCors } from "../../lib/api-cors.js";
 import { normalizeBrowserImport, normalizeBrowserImportList } from "../../lib/browser-import-normalizer.js";
+import { normalizeSupplierProduct } from "../../lib/supplier-product-normalizer.js";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -537,6 +538,7 @@ export default async function handler(req, res) {
     productId: result.product.id,
     browserImport: result.product,
     linkedSupplierId: result.product.linkedSupplierId || "",
+    supplierProduct: normalizeSupplierProduct(result.product),
     warnings: result.product.warnings || [],
     message: result.status === "duplicate"
       ? "Browser Import war bereits vorhanden."

@@ -1,3 +1,6 @@
+import { normalizeSupplierProduct } from "../../lib/supplier-product-normalizer.js";
+import { sanitizeSupplierProductImport } from "../../lib/supplier-import-sanitizer.js";
+
 function toText(value) {
   if (value === null || value === undefined) return "";
   return String(value).trim();
@@ -19,6 +22,10 @@ function toArray(value) {
   return [];
 }
 
+function looksLikeVariantGroups(value) {
+  return Array.isArray(value) && value.every((item) => item && typeof item === "object" && typeof item.name === "string" && Array.isArray(item.options));
+}
+
 function normalizeStatus(value) {
   const text = toText(value);
   if (!text) return "Draft";
@@ -27,6 +34,10 @@ function normalizeStatus(value) {
 
 export function normalizeProduct(product = {}) {
   const now = new Date().toISOString();
+  const sanitizedImport = sanitizeSupplierProductImport(product, product.supplier || product.sourceProvider || product.supplierId || "");
+  const normalizedSupplier = normalizeSupplierProduct(sanitizedImport, {
+    supplier: product.supplier || product.sourceProvider || product.supplierId || "",
+  });
   const images = Array.isArray(product.images)
     ? product.images
     : toArray(product.sourceOnlineImages || product.image || product.sourceOnlineImage);
@@ -64,6 +75,18 @@ export function normalizeProduct(product = {}) {
     source: toText(product.source || product.sourceProvider || product.supplier || product.supplierId),
     supplier: toText(product.supplier || product.sourceProvider || product.supplierId),
     supplierLink: toText(product.supplierLink || product.url),
+    sourceProvider: toText(product.sourceProvider || normalizedSupplier.supplier || product.supplierId),
+    supplierProduct: normalizedSupplier,
+    supplierImportDebug: sanitizedImport.debug || {},
+    sourceUrl: toText(product.sourceUrl || normalizedSupplier.sourceUrl || product.supplierLink || product.url),
+    currency: toText(product.currency || normalizedSupplier.currency || product.sourceOnlineCurrency),
+    description: toText(product.description || normalizedSupplier.description || product.sourceOnlineDescription),
+    variants: looksLikeVariantGroups(product.variants) ? product.variants : normalizedSupplier.variants,
+    shipping: product.shipping && typeof product.shipping === "object" ? product.shipping : normalizedSupplier.shipping,
+    category: toText(product.category || normalizedSupplier.category || product.sourceOnlineCategory),
+    importedAt: toText(product.importedAt || normalizedSupplier.importedAt || product.createdAt || now),
+    sourceOnlineDescription: toText(product.sourceOnlineDescription || normalizedSupplier.description),
+    sourceOnlineVariants: Array.isArray(product.sourceOnlineVariants) ? product.sourceOnlineVariants : JSON.stringify(normalizedSupplier.variants || []),
     buyPrice,
     salePrice,
     suggestedSalePrice,

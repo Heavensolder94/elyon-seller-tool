@@ -1205,6 +1205,34 @@
                 <button class="secondary full" type="button" id="analyzeSourceBtn">Artikel analysieren</button>
                 <div id="sourceAnalysisResult" class="empty" style="margin-top:12px">Noch keine Analyse.</div>
               </div>
+              <div class="briefing-section" style="margin-top:14px">
+                <h3>Supplier Suche vorbereiten</h3>
+                <p class="hint">APIs dienen nur für Suche, Vorschau und Link-Erkennung. Der finale Produktimport bleibt Browser-basiert.</p>
+                <div class="row">
+                  <div>
+                    <label>Supplier Suche</label>
+                    <select id="supplierSearchProvider">
+                      <option value="aliexpress">AliExpress</option>
+                      <option value="amazon">Amazon</option>
+                      <option value="cj">CJdropshipping</option>
+                      <option value="bigbuy">BigBuy</option>
+                      <option value="temu">Temu</option>
+                      <option value="alibaba">Alibaba</option>
+                      <option value="dropxl">DropXL</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label>Suchbegriff</label>
+                    <input id="supplierSearchQuery" placeholder="z. B. Organizer, LED Streifen, Küchenhelfer">
+                  </div>
+                </div>
+                <div class="row">
+                  <button class="secondary full" type="button" id="supplierStatusRefreshBtn">Supplier-Status laden</button>
+                  <button class="secondary full" type="button" id="supplierSearchBtn">Supplier-Suche starten</button>
+                </div>
+                <div id="supplierStatusResult" class="output-box" style="margin-top:12px"><p>Supplier-Status wird noch nicht angezeigt.</p></div>
+                <div id="supplierSearchResults" class="output-box" style="margin-top:12px"><p>Noch keine Supplier-Suche.</p></div>
+              </div>
               <div id="mySuppliersBlock" class="briefing-section" data-sourcing-panel="1" style="margin-top:14px">
                 <h3>Meine Supplier</h3>
                 <div id="mySuppliersList" class="output-box"><p>Noch keine eigenen Supplier gespeichert.</p></div>

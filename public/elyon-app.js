@@ -536,6 +536,8 @@ function normalizeBrowserImportsCollection(list){
 let products = normalizeProductsCollection(loadStoredArray("elyonProducts"));
 let browserImports = normalizeBrowserImportsCollection(loadStoredArray("elyonBrowserImports"));
 let browserImportsStorage = {mode:'server_unknown', message:'Serverstatus wird geladen.'};
+let supplierStatusItems = [];
+let latestSupplierSearchResponse = null;
 const PRODUCT_API_ENDPOINT = '/api/products';
 const PRODUCT_API_DRAFT_ENDPOINT = '/api/products/ebay-draft';
 let productApiState = {
@@ -2503,7 +2505,15 @@ function clearProductForm(){
   safe('cancelEditProductBtn',el=>el.classList.add('hidden'));
 }
 function addProduct(){
-  const formData=readProductForm();
+  let formData=readProductForm();
+  formData = sanitizeImportProductSource({
+    ...formData,
+    description: formData.sourceOnlineDescription || formData.notes || '',
+    sourceOnlineDescription: formData.sourceOnlineDescription || '',
+    variants: formData.sourceOnlineVariants || [],
+    sourceOnlineVariants: formData.sourceOnlineVariants || [],
+    extractorUsed: 'manual-form'
+  }, formData.sourceProvider || formData.supplierId || '');
   const sku=String(formData.sku||'').trim().toUpperCase();
   if(sku && products.some(p=>String(p.sku||'').trim().toUpperCase()===sku && String(p.id)!==String(editingProductId))){
     if(!confirm('Diese SKU existiert bereits. Trotzdem speichern?')) return;
@@ -2631,6 +2641,170 @@ function refreshSourceProviderOptions(){
     select.innerHTML = html;
     if([...select.options].some(function(o){ return o.value === current; })) select.value = current;
   });
+}
+function escapeAttr(value){
+  return escapeHtml(String(value || '').replace(/"/g, '&quot;'));
+}
+function normalizeSupplierSearchItem(item){
+  const source = item && typeof item === 'object' ? item : {};
+  return {
+    supplier: String(source.supplier || '').trim(),
+    sourceUrl: String(source.sourceUrl || source.url || '').trim(),
+    title: String(source.title || source.name || 'Nicht erkannt').trim(),
+    price: String(source.price || '').trim(),
+    currency: String(source.currency || '').trim(),
+    images: Array.isArray(source.images) ? source.images.filter(Boolean) : [],
+    description: String(source.description || '').trim(),
+    variants: Array.isArray(source.variants) ? source.variants : [],
+    shipping: source.shipping && typeof source.shipping === 'object' ? source.shipping : {},
+    sku: String(source.sku || '').trim(),
+    category: String(source.category || '').trim(),
+    importedAt: String(source.importedAt || new Date().toISOString()).trim()
+  };
+}
+function buildProductFromSupplierSearch(item){
+  const normalized = normalizeSupplierSearchItem(item);
+  return normalizeProductRecord({
+    id: Date.now() + '-' + Math.random().toString(36).slice(2, 8),
+    name: normalized.title || 'Unbenanntes Produkt',
+    title: normalized.title || 'Unbenanntes Produkt',
+    supplierId: normalized.supplier || '',
+    sourceProvider: normalized.supplier || '',
+    supplierLink: normalized.sourceUrl || '',
+    sourceUrl: normalized.sourceUrl || '',
+    sourceDomain: sourceDomain(normalized.sourceUrl || ''),
+    sourceType: 'supplier-search-preview',
+    sourceRisk: currentSourcingDraft.sourceRisk || '',
+    sourceOnlineTitle: normalized.title || '',
+    sourceOnlinePrice: normalized.price || '',
+    sourceOnlineCurrency: normalized.currency || '',
+    sourceOnlineImage: normalized.images[0] || '',
+    sourceOnlineImages: JSON.stringify(normalized.images || []),
+    sourceOnlineDescription: normalized.description || '',
+    sourceOnlineCategory: normalized.category || '',
+    sourceOnlineVariants: JSON.stringify(normalized.variants || []),
+    sourceOnlineShipping: normalized.shipping && typeof normalized.shipping === 'object' ? (normalized.shipping.deliveryText || normalized.shipping.deliveryTime || normalized.shipping.cost || '') : '',
+    sourceOnlineCheckedAt: normalized.importedAt || new Date().toISOString(),
+    category: normalized.category || '',
+    variants: normalized.variants || [],
+    shipping: normalized.shipping || {},
+    supplierProduct: normalized,
+    importedAt: normalized.importedAt || new Date().toISOString(),
+    description: normalized.description || '',
+    currency: normalized.currency || ''
+  });
+}
+function openBrowserSearchWindow(url){
+  const target = String(url || '').trim();
+  if(!target) return;
+  window.open(target, '_blank', 'noopener,noreferrer');
+}
+function renderSupplierStatusResult(){
+  const box = $('supplierStatusResult');
+  if(!box) return;
+  if(!supplierStatusItems.length){
+    box.innerHTML = '<p>Keine Supplier-Statusdaten geladen.</p>';
+    return;
+  }
+  box.innerHTML = supplierStatusItems.map(function(item){
+    const apiLabel = item.apiActive ? 'API aktiv' : 'nicht konfiguriert';
+    const browserLabel = item.browserImportActive ? 'Browser-Import aktiv' : 'Browser-Import aus';
+    const fallbackLabel = item.fallbackActive ? 'Fallback aktiv' : 'Fallback aus';
+    return '<article class="ai-product-card" style="margin-top:0;margin-bottom:10px">' +
+      '<div class="product-title">' + escapeHtml(item.name || item.supplierName || item.key) + '</div>' +
+      '<div class="pill-row">' +
+      '<span class="status ' + (item.apiActive ? 'good' : 'info') + '">' + escapeHtml(apiLabel) + '</span>' +
+      '<span class="status ' + (item.browserImportActive ? 'good' : 'info') + '">' + escapeHtml(browserLabel) + '</span>' +
+      '<span class="status ' + (item.fallbackActive ? 'warn' : 'info') + '">' + escapeHtml(fallbackLabel) + '</span>' +
+      '<span class="status ' + (!item.apiActive && !item.browserImportActive ? 'bad' : 'info') + '">' + escapeHtml(item.statusLabel || 'nicht konfiguriert') + '</span>' +
+      '</div>' +
+      '<p class="muted">Domains: ' + escapeHtml((item.domains || []).join(', ') || 'offen') + '</p>' +
+      '</article>';
+  }).join('');
+}
+async function loadSupplierStatuses(silent){
+  try{
+    const res = await fetch('/api/suppliers/status');
+    const data = await res.json();
+    supplierStatusItems = Array.isArray(data.items) ? data.items : [];
+    renderSupplierStatusResult();
+    if(!silent) toast('Supplier-Status aktualisiert.');
+  }catch(err){
+    if($('supplierStatusResult')) $('supplierStatusResult').innerHTML = '<p>Supplier-Status konnte nicht geladen werden.</p>';
+  }
+}
+function renderSupplierSearchResults(data){
+  latestSupplierSearchResponse = data || null;
+  const box = $('supplierSearchResults');
+  if(!box) return;
+  if(!data){
+    box.innerHTML = '<p>Noch keine Supplier-Suche.</p>';
+    return;
+  }
+  const items = Array.isArray(data.items) ? data.items : [];
+  let html = '<div class="pill-row">' +
+    '<span class="status ' + (data.status === 'api_active' ? 'good' : 'warn') + '">' + escapeHtml(data.statusLabel || data.status || 'Fallback aktiv') + '</span>' +
+    '<span class="pill">Supplier: ' + escapeHtml(data.supplierName || data.supplier || '-') + '</span>' +
+    '<span class="pill">Suchbegriff: ' + escapeHtml(data.query || '-') + '</span>' +
+    '</div>';
+  if(data.message) html += '<p class="muted" style="margin-top:10px">' + escapeHtml(data.message) + '</p>';
+  if(data.browserSearchUrl){
+    html += '<div class="copy-row" style="margin-top:10px"><button class="secondary copy-btn" type="button" id="supplierSearchBrowserOpenBtn">Suche im Browser öffnen</button></div>';
+  }
+  if(!items.length){
+    html += '<div class="empty" style="margin-top:12px">Keine API-Vorschau vorhanden. Browser-Suche bleibt der sichere Weg.</div>';
+    box.innerHTML = html;
+    if($('supplierSearchBrowserOpenBtn')) $('supplierSearchBrowserOpenBtn').onclick = function(){ openBrowserSearchWindow(data.browserSearchUrl); };
+    return;
+  }
+  html += items.map(function(item, index){
+    const normalized = normalizeSupplierSearchItem(item);
+    return '<article class="ai-product-card" style="margin-top:12px">' +
+      '<div class="product-title">' + escapeHtml(normalized.title || 'Supplier-Produkt') + '</div>' +
+      '<div class="pill-row">' +
+      '<span class="pill">Preis: ' + escapeHtml([normalized.price, normalized.currency].filter(Boolean).join(' ')) + '</span>' +
+      '<span class="pill">Kategorie: ' + escapeHtml(normalized.category || 'offen') + '</span>' +
+      '<span class="pill">Varianten: ' + escapeHtml(String((normalized.variants || []).length)) + '</span>' +
+      '</div>' +
+      (normalized.sourceUrl ? '<p class="muted" style="margin-top:8px">' + escapeHtml(normalized.sourceUrl) + '</p>' : '') +
+      '<div class="copy-row" style="margin-top:10px">' +
+      '<button class="secondary copy-btn" type="button" data-supplier-search-action="browser" data-supplier-search-index="' + escapeAttr(index) + '">Im Browser öffnen</button>' +
+      '<button class="secondary copy-btn" type="button" data-supplier-search-action="product" data-supplier-search-index="' + escapeAttr(index) + '">In Produktbereich speichern</button>' +
+      '</div>' +
+      '</article>';
+  }).join('');
+  box.innerHTML = html;
+  if($('supplierSearchBrowserOpenBtn')) $('supplierSearchBrowserOpenBtn').onclick = function(){ openBrowserSearchWindow(data.browserSearchUrl); };
+}
+async function runSupplierSearch(){
+  const supplier = getInputValue('supplierSearchProvider');
+  const query = getInputValue('supplierSearchQuery');
+  if(!supplier || !query){
+    renderSupplierSearchResults({ status:'fallback_active', statusLabel:'Fallback aktiv', supplierName:supplier || 'Supplier', query, items:[], message:'Bitte Supplier und Suchbegriff eintragen.' });
+    return;
+  }
+  setHTML('supplierSearchResults','<p>Supplier-Suche läuft...</p>');
+  try{
+    const res = await fetch('/api/suppliers/search?supplier=' + encodeURIComponent(supplier) + '&q=' + encodeURIComponent(query));
+    const data = await res.json();
+    renderSupplierSearchResults(data);
+    if(data && data.status !== 'api_active' && data.browserSearchUrl){
+      toast('API fehlt oder ist nicht aktiv. Browser-Suche steht bereit.');
+    }
+  }catch(err){
+    renderSupplierSearchResults({ status:'fallback_active', statusLabel:'Fallback aktiv', supplierName:supplier, query, items:[], message:'Suche fehlgeschlagen. Browser-Suche bitte manuell öffnen.' });
+  }
+}
+async function importSupplierSearchResult(index){
+  const items = Array.isArray(latestSupplierSearchResponse && latestSupplierSearchResponse.items) ? latestSupplierSearchResponse.items : [];
+  const item = items[index];
+  if(!item) return;
+  const product = buildProductFromSupplierSearch(item);
+  products = [product].concat(products);
+  save();
+  await syncProductToApi(product,{silent:true});
+  render();
+  toast('Supplier-Vorschau im Produktbereich gespeichert.');
 }
 function renderSupplierCards(){
   const list = getCustomSuppliers();
@@ -3597,6 +3771,125 @@ function normalizeImportNumber(value){
   const num = parseFloat(cleaned);
   return Number.isFinite(num) ? num : 0;
 }
+function cleanImportHtmlEntities(value){
+  return String(value || '')
+    .replace(/&amp;/gi, '&')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&#34;/g, '"')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&nbsp;/gi, ' ');
+}
+function cleanImportWhitespace(value){
+  return cleanImportHtmlEntities(value)
+    .replace(/\r/g, '\n')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+function importNoiseLine(line){
+  const value = String(line || '').trim().toLowerCase();
+  if(!value) return true;
+  return ['breadcrumb','home','header','footer','navigation','privacy','terms','policy','cookie','seller','verkaeufer','shop','store','login','sign in','wishlist','cart','warenkorb','buy now','add to cart','recommended','similar products','sponsored','customer reviews','questions','answers','share','follow','support','help center'].some(function(token){
+    return value.includes(token);
+  });
+}
+function sanitizeImportDescription(value){
+  const raw = cleanImportWhitespace(String(value || '').replace(/<[^>]+>/g, ' ').replace(/\{[\s\S]{20,}\}/g, ' ').replace(/\[[\s\S]{20,}\]/g, ' '));
+  if(!raw) return { text:'', noiseRemoved:0, duplicatesRemoved:0, originalLength:0, cleanedLength:0 };
+  const lines = raw.split(/\n+/).map(function(line){ return cleanImportWhitespace(line); }).filter(Boolean);
+  const seen = new Set();
+  const kept = [];
+  let noiseRemoved = 0;
+  let duplicatesRemoved = 0;
+  lines.forEach(function(line){
+    const key = line.toLowerCase();
+    if(importNoiseLine(line)){
+      noiseRemoved += 1;
+      return;
+    }
+    if(seen.has(key)){
+      duplicatesRemoved += 1;
+      return;
+    }
+    seen.add(key);
+    kept.push(line);
+  });
+  const text = kept.filter(function(line){ return line.length >= 25; }).slice(0, 12).join('\n\n').slice(0, 4000).trim();
+  return {
+    text,
+    noiseRemoved,
+    duplicatesRemoved,
+    originalLength: raw.length,
+    cleanedLength: text.length
+  };
+}
+function parseImportVariantGroups(value){
+  const list = Array.isArray(value) ? value : parseJsonArrayField(value);
+  const groups = new Map();
+  list.forEach(function(entry){
+    const item = entry && typeof entry === 'object' ? entry : {};
+    if(item.name && Array.isArray(item.options)){
+      const existing = groups.get(String(item.name).trim()) || new Set();
+      item.options.forEach(function(option){
+        const text = String((option && typeof option === 'object') ? (option.value || option.label || option.name || '') : (option || '')).trim();
+        if(text) existing.add(text);
+      });
+      groups.set(String(item.name).trim(), existing);
+      return;
+    }
+    [['Color', item.color || item.colour], ['Size', item.size], ['Style', item.style], ['Material', item.material], [item.groupName || item.variantGroup || item.attribute || item.type || item.name || '', item.option || item.value || item.label || item.title || item.variantName || '']].forEach(function(pair){
+      const groupName = String(pair[0] || '').trim();
+      const optionValue = String(pair[1] || '').trim();
+      if(!groupName || !optionValue) return;
+      const existing = groups.get(groupName) || new Set();
+      existing.add(optionValue);
+      groups.set(groupName, existing);
+    });
+  });
+  return Array.from(groups.entries()).map(function(entry){
+    return { name: entry[0], options: Array.from(entry[1]).filter(Boolean).slice(0, 100) };
+  }).filter(function(group){ return group.options.length; });
+}
+function sanitizeImportProductSource(rawProduct, supplierHint){
+  const source = rawProduct && typeof rawProduct === 'object' ? {...rawProduct} : {};
+  const supplierLink = String(source.supplierLink || source.url || '').trim();
+  const descriptionInfo = sanitizeImportDescription(source.description || source.sourceOnlineDescription || source.notes || '');
+  const variantGroups = parseImportVariantGroups(source.variants || source.sourceOnlineVariants || []);
+  const supplierDetected = (function(){
+    const link = supplierLink.toLowerCase();
+    if(link.includes('aliexpress')) return 'AliExpress';
+    if(link.includes('cjdropshipping')) return 'CJdropshipping';
+    if(link.includes('amazon.')) return 'Amazon';
+    if(link.includes('bigbuy')) return 'BigBuy';
+    if(link.includes('temu')) return 'Temu';
+    if(link.includes('alibaba')) return 'Alibaba';
+    if(link.includes('dropxl')) return 'DropXL';
+    if(link.includes('vidaxl') || link.includes('dropshippingxl')) return 'vidaXL';
+    return String(supplierHint || source.sourceProvider || source.supplierId || source.supplier || '').trim();
+  })();
+  return {
+    ...source,
+    supplierDetected,
+    description: descriptionInfo.text || source.description || '',
+    sourceOnlineDescription: descriptionInfo.text || source.sourceOnlineDescription || '',
+    variants: variantGroups,
+    sourceOnlineVariants: JSON.stringify(variantGroups),
+    supplierImportDebug: {
+      supplierDetected,
+      extractorUsed: String(source.extractorUsed || source.importSource || 'frontend-import').trim(),
+      descriptionSource: String(source.description || source.sourceOnlineDescription || source.notes || '').trim(),
+      variantSource: String(source.sourceOnlineVariants ? 'sourceOnlineVariants' : (source.variants ? 'variants' : 'none')).trim(),
+      variantsFound: variantGroups.reduce(function(sum, group){ return sum + group.options.length; }, 0),
+      noiseRemoved: descriptionInfo.noiseRemoved,
+      duplicatesRemoved: descriptionInfo.duplicatesRemoved,
+      originalDescriptionLength: descriptionInfo.originalLength,
+      cleanedDescriptionLength: descriptionInfo.cleanedLength
+    }
+  };
+}
 function getImportMappingEntry(fieldId){
   const settings = loadImportMappingSettings();
   return settings.fields && settings.fields[fieldId] ? settings.fields[fieldId] : null;
@@ -3822,7 +4115,7 @@ function buildImportDraftFromRows(rows,sourceLabel){
     if(String(targetProfit || '').trim()) notesParts.push('Zielgewinn: ' + String(targetProfit));
     if(String(recommendedPrice || '').trim()) notesParts.push('Empf. Zielpreis: ' + String(recommendedPrice));
 
-    const product = {
+    let product = {
       id: Date.now()+index,
       name: name,
       sku: sku,
@@ -3862,6 +4155,7 @@ function buildImportDraftFromRows(rows,sourceLabel){
     if(notesParts.length){
       product.notes = [product.notes].concat(notesParts).filter(Boolean).join(' | ');
     }
+    product = sanitizeImportProductSource(product, supplierName || supplierId || '');
     draft.push({product:normalizeProductRecord(product),status:importStatus,message:importMessage});
   });
   diagnostics.importedRows = draft.filter(function(item){ return item.status !== 'skip'; }).length;
@@ -3996,7 +4290,9 @@ function showCsvImportPreview(draft){
     html += '<div class="products">' + pendingCsvImport.slice(0,50).map(function(item){
       const p = item.product;
       const cls = item.status === 'skip' ? 'bad' : 'good';
-      return '<article class="product-card small-card"><div><div class="product-title">'+p.name+'</div><div class="muted">SKU: '+p.sku+' · '+item.message+'</div><div class="pill-row"><span class="pill">EK: '+euro(p.buy)+'</span><span class="pill">VK: '+euro(p.sell)+'</span><span class="pill">Lieferzeit: '+(p.delivery||0)+' Tage</span></div></div><div class="score-wrap"><span class="status '+cls+'">'+(item.status==='skip'?'wird übersprungen':'bereit')+'</span></div></article>';
+      const variantPreview = parseImportVariantGroups(p.sourceOnlineVariants || p.variants || []);
+      const debug = p.supplierImportDebug || {};
+      return '<article class="product-card small-card"><div><div class="product-title">'+p.name+'</div><div class="muted">SKU: '+p.sku+' · '+item.message+'</div><div class="pill-row"><span class="pill">EK: '+euro(p.buy)+'</span><span class="pill">VK: '+euro(p.sell)+'</span><span class="pill">Lieferzeit: '+(p.delivery||0)+' Tage</span><span class="pill">Varianten: '+variantPreview.length+'</span><span class="pill">Beschreibung: '+Number(debug.cleanedDescriptionLength || 0)+' Zeichen</span></div></div><div class="score-wrap"><span class="status '+cls+'">'+(item.status==='skip'?'wird übersprungen':'bereit')+'</span></div></article>';
     }).join('') + '</div>';
     if(pendingCsvImport.length > 50) html += '<p class="hint">Es werden nur die ersten 50 Einträge in der Vorschau angezeigt.</p>';
   }
@@ -9828,6 +10124,8 @@ function bindEvents(){
   bind('browserImportsRefreshBtn','click',()=>hydrateBrowserImportsFromBackend());
   bind('browserImportsTestBtn','click',()=>createTestBrowserImport());
   bind('browserImportsOpenBtn','click',()=>showTab('productListTab'));
+  bind('supplierStatusRefreshBtn','click',()=>loadSupplierStatuses(false));
+  bind('supplierSearchBtn','click',runSupplierSearch);
   bind('researchBtn','click',runResearchCheck);
   bind('legalBtn','click',legalCheck);
   bind('priceBtn','click',priceCalc);
@@ -9953,6 +10251,19 @@ function bindEvents(){
       if(btn.dataset.supplierAction === 'use') useSupplierAsSource(id);
       if(btn.dataset.supplierAction === 'edit') openSupplierForm(id);
       if(btn.dataset.supplierAction === 'disable') disableSupplier(id);
+    });
+  });
+  safe('supplierSearchResults', function(el){
+    el.addEventListener('click', function(event){
+      const btn = event.target.closest('[data-supplier-search-action]');
+      if(!btn) return;
+      const action = btn.dataset.supplierSearchAction;
+      const index = Number(btn.dataset.supplierSearchIndex || -1);
+      const items = Array.isArray(latestSupplierSearchResponse && latestSupplierSearchResponse.items) ? latestSupplierSearchResponse.items : [];
+      const item = items[index];
+      if(!item) return;
+      if(action === 'browser') openBrowserSearchWindow(item.sourceUrl || item.url || '');
+      if(action === 'product') importSupplierSearchResult(index);
     });
   });
   bind('ebayOrdersPreviewBtn','click',previewEbayOrders);
@@ -10198,6 +10509,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   runSafeUiStep('renderIntegrationStatus', renderIntegrationStatus);
   runSafeUiStep('refreshSourceProviderOptions', refreshSourceProviderOptions);
   runSafeUiStep('renderSupplierCards', renderSupplierCards);
+  runSafeUiStep('loadSupplierStatuses', function(){ return loadSupplierStatuses(true); });
   runSafeUiStep('renderBrowserImports', renderBrowserImports);
   runSafeUiStep('hydrateBrowserImportsFromBackend', hydrateBrowserImportsFromBackend);
   runSafeUiStep('setSourcingWorkflowStep', ()=>setSourcingWorkflowStep('1', null, false));
