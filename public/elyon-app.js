@@ -4131,10 +4131,23 @@ function sanitizeImportProductSource(rawProduct, supplierHint){
     sourceOnlineVariants: JSON.stringify(variantGroups),
     supplierImportDebug: {
       supplierDetected,
+      supplierRecognized: supplierDetected,
       extractorUsed: String(source.extractorUsed || source.importSource || 'frontend-import').trim(),
-      descriptionSource: String(source.description || source.sourceOnlineDescription || source.notes || '').trim(),
+      descriptionSource: String(source.descriptionSource || source.description || source.sourceOnlineDescription || source.notes || '').trim(),
       variantSource: String(source.sourceOnlineVariants ? 'sourceOnlineVariants' : (source.variants ? 'variants' : 'none')).trim(),
       variantsFound: variantGroups.reduce(function(sum, group){ return sum + group.options.length; }, 0),
+      jsonDataUsed: String(source.aliexpressJsonSourceUsed || source.jsonSourceUsed ? 'yes' : 'no'),
+      jsonSourceUsed: String(source.aliexpressJsonSourceUsed || source.jsonSourceUsed || '').trim(),
+      domOnlyUsed: String(source.aliexpressJsonSourceUsed || source.jsonSourceUsed ? 'no' : 'yes'),
+      rawVariantGroups: Array.isArray(source.rawVariantGroups) ? source.rawVariantGroups : [],
+      variantGroupsAfterSanitize: variantGroups,
+      amazonAsin: String(source.amazonAsin || source.asin || '').trim(),
+      amazonVariantSelectorsUsed: Array.isArray(source.amazonVariantSelectorsUsed) ? source.amazonVariantSelectorsUsed : [],
+      amazonVariantsFound: Number(source.amazonVariantsFound || 0),
+      aliexpressProductId: String(source.aliexpressProductId || source.productId || '').trim(),
+      aliexpressSkuSelectorsUsed: Array.isArray(source.aliexpressSkuSelectorsUsed) ? source.aliexpressSkuSelectorsUsed : [],
+      aliexpressJsonSourceUsed: String(source.aliexpressJsonSourceUsed || source.jsonSourceUsed || '').trim(),
+      aliexpressVariantsFound: Number(source.aliexpressVariantsFound || 0),
       noiseRemoved: descriptionInfo.noiseRemoved,
       duplicatesRemoved: descriptionInfo.duplicatesRemoved,
       originalDescriptionLength: descriptionInfo.originalLength,
@@ -5778,20 +5791,39 @@ function browserImportField(label, value){
   if(!text) return '';
   return '<div class="browser-import-field"><small>' + escapeHtml(label) + '</small><strong>' + escapeHtml(text) + '</strong></div>';
 }
+function browserImportDebugValue(value){
+  if(value === undefined || value === null) return '';
+  if(Array.isArray(value)) return value.map(function(item){
+    return typeof item === 'string' ? item : JSON.stringify(item);
+  }).filter(Boolean).join(' | ');
+  if(typeof value === 'object') return JSON.stringify(value);
+  return String(value).trim();
+}
 function renderSupplierImportDebugBlock(data, extra){
   const debug = data && typeof data === 'object' ? data : null;
   if(!debug) return '';
   const extras = extra && typeof extra === 'object' ? extra : {};
   const fields = [
-    ['Supplier', debug.supplierDetected],
+    ['Supplier erkannt', debug.supplierRecognized || debug.supplierDetected],
     ['Importpfad', debug.extractorUsed],
     ['Description Source', debug.descriptionSource],
+    ['JSON genutzt', debug.jsonDataUsed],
+    ['Nur DOM genutzt', debug.domOnlyUsed],
+    ['JSON Source', debug.jsonSourceUsed || debug.aliexpressJsonSourceUsed],
     ['Original Length', debug.originalDescriptionLength],
     ['Cleaned Length', debug.cleanedDescriptionLength],
     ['Noise Removed', debug.removedNoiseLines !== undefined ? debug.removedNoiseLines : debug.noiseRemoved],
     ['Duplicates Removed', debug.duplicatesRemoved],
     ['Variant Source', debug.variantSource],
     ['Variants Found', debug.variantsFound],
+    ['Raw Variant Groups', debug.rawVariantGroupsCount || browserImportDebugValue(debug.rawVariantGroups)],
+    ['Variant Groups After Sanitize', debug.variantGroupsAfterSanitizeCount || browserImportDebugValue(debug.variantGroupsAfterSanitize)],
+    ['Amazon ASIN', debug.amazonAsin],
+    ['Amazon Variant Selectors', browserImportDebugValue(debug.amazonVariantSelectorsUsed)],
+    ['Amazon Variants Found', debug.amazonVariantsFound],
+    ['AliExpress Product ID', debug.aliexpressProductId],
+    ['AliExpress SKU Selectors', browserImportDebugValue(debug.aliexpressSkuSelectorsUsed)],
+    ['AliExpress Variants Found', debug.aliexpressVariantsFound],
     ['CJ API Used', debug.cjApiUsed],
     ['CJ Endpoint', debug.cjEndpointUsed],
     ['CJ Token Status', debug.cjTokenStatus],
