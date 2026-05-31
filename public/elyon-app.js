@@ -729,6 +729,7 @@ const defaultSettings = {
   start: 'dashboardTab'
 };
 let appSettings = { ...defaultSettings, ...JSON.parse(localStorage.getItem('elyonSettings') || '{}') };
+const MARGIN_HUB_STORAGE_KEY = 'elyon_margin_hub_v1';
 appSettings.brainModuleSettings = normalizeBrainModuleSettings(appSettings.brainModuleSettings);
 const listingItems = ['Titel enthält Hauptkeyword','Produktbilder vorhanden','Beschreibung verständlich','Preis geprüft','Versandzeit realistisch','Rücknahmebedingungen klar','LUCID/Verpackung bedacht','WEEE/Batt geprüft, falls relevant','Markenrechte geprüft','Gewinn nach Gebühren positiv'];
 const $ = id => document.getElementById(resolveTabId(id)) || document.getElementById(id);
@@ -744,6 +745,198 @@ function runSafeUiStep(label, fn){
 }
 function euro(v){ return (Number(v)||0).toLocaleString('de-DE',{style:'currency',currency:'EUR'}); }
 function setHTML(id, html){ safe(id, el => { el.innerHTML = html; }); }
+function marginHubReadState(){
+  try{
+    const raw = JSON.parse(localStorage.getItem(MARGIN_HUB_STORAGE_KEY) || '{}');
+    return raw && typeof raw === 'object' ? raw : {};
+  }catch(_error){
+    return {};
+  }
+}
+function marginHubWriteState(next){
+  localStorage.setItem(MARGIN_HUB_STORAGE_KEY, JSON.stringify(next));
+}
+function getMarginHubTone(marginPercent){
+  if(!Number.isFinite(marginPercent) || marginPercent <= 0) return { cls:'bad', label:'🔴 Verlust / keine Marge' };
+  if(marginPercent < 15) return { cls:'warn', label:'🟡 Marge beobachten' };
+  return { cls:'good', label:'🟢 Starke Marge' };
+}
+function getPriceCalcSnapshot(input){
+  const cost = Number(input && input.cost) || 0;
+  const fees = Number(input && input.fees) || 0;
+  const profits = [1,2,3].map(index => Number(input && input['profit' + index]) || 0);
+  const round = input && input.round || 'none';
+  const targets = profits.map(function(profit){
+    const raw = (cost + profit) / (1 - fees / 100);
+    const final = roundPrice(raw, round);
+    return { profit, raw, final };
+  });
+  const breakEvenRaw = cost / (1 - fees / 100);
+  return {
+    cost,
+    fees,
+    round,
+    targets,
+    breakEvenRaw,
+    breakEvenRounded: roundPrice(breakEvenRaw, round)
+  };
+}
+function getFinanceSnapshot(input){
+  const revenue = Number(input && input.revenue) || 0;
+  const goods = Number(input && input.goods) || 0;
+  const fees = Number(input && input.fees) || 0;
+  const other = Number(input && input.other) || 0;
+  const profit = revenue - goods - fees - other;
+  const margin = revenue ? profit / revenue * 100 : 0;
+  return { revenue, goods, fees, other, totalCosts: goods + fees + other, profit, margin };
+}
+function getTrackingSnapshot(input){
+  const views = Number(input && input.views) || 0;
+  const sales = Number(input && input.sales) || 0;
+  const sell = Number(input && input.sell) || 0;
+  const cost = Number(input && input.cost) || 0;
+  const priceA = Number(input && input.priceA) || 0;
+  const priceB = Number(input && input.priceB) || 0;
+  const conversion = views ? sales / views * 100 : 0;
+  const profitPer = sell - cost;
+  const totalProfit = profitPer * sales;
+  return { views, sales, sell, cost, priceA, priceB, conversion, profitPer, totalProfit };
+}
+function renderMarginHubRecent(){
+  const state = marginHubReadState();
+  const items = Array.isArray(state.history) ? state.history : [];
+  const html = items.length ? '<div class="margin-hub-recent">' + items.map(function(item){
+    const tone = getMarginHubTone(Number(item.marginPercent));
+    return '<div class="margin-hub-recent-item"><strong>' + escapeHtml(item.name || 'Schnellrechnung') + '</strong><small>' + escapeHtml(item.createdAtLabel || item.createdAt || '') + '</small><div class="pill-row"><span class="pill">VK: ' + euro(item.sell) + '</span><span class="pill">Gewinn: ' + euro(item.profit) + '</span><span class="pill">Marge: ' + (Number(item.marginPercent || 0).toFixed(1)) + '%</span><span class="pill">ROI: ' + (Number(item.roiPercent || 0).toFixed(1)) + '%</span></div><div style="margin-top:8px"><span class="status ' + tone.cls + '">' + tone.label + '</span></div></div>';
+  }).join('') + '</div>' : 'Noch kein lokaler Verlauf.';
+  setHTML('marginHubRecent', items.length ? html : '<div class="empty">' + html + '</div>');
+}
+function saveMarginHubSnapshot(snapshot){
+  const state = marginHubReadState();
+  const history = Array.isArray(state.history) ? state.history : [];
+  history.unshift(snapshot);
+  marginHubWriteState({
+    inputs: snapshot.inputs,
+    results: snapshot.results,
+    lastCalculatedAt: snapshot.createdAt,
+    history: history.slice(0, 8)
+  });
+  renderMarginHubRecent();
+}
+function hydrateMarginHubState(){
+  const state = marginHubReadState();
+  const inputs = state.inputs || {};
+  safe('mhName', el => { el.value = inputs.name || ''; });
+  safe('mhBuy', el => { el.value = inputs.buy ?? ''; });
+  safe('mhShip', el => { el.value = inputs.ship ?? ''; });
+  safe('mhSell', el => { el.value = inputs.sell ?? ''; });
+  safe('mhFee', el => { el.value = inputs.fee ?? 15; });
+  safe('mhBuffer', el => { el.value = inputs.buffer ?? 5; });
+  safe('mhTargetProfit', el => { el.value = inputs.targetProfit ?? 7; });
+  safe('mhPreset', el => { el.value = inputs.preset || ''; });
+  if(state.results && state.lastCalculatedAt){
+    renderMarginHubResult(state.results, false);
+  }else{
+    renderMarginHubRecent();
+  }
+}
+function useMarginHubPreset(fee, buffer, presetValue){
+  safe('mhFee', el => { el.value = fee; });
+  safe('mhBuffer', el => { el.value = buffer; });
+  safe('mhPreset', el => { el.value = presetValue || ''; });
+}
+function pushMarginHubValuesToPriceTab(){
+  safe('pCost', el => { el.value = ((n('mhBuy') || 0) + (n('mhShip') || 0)) || ''; });
+  safe('pFees', el => { el.value = (n('mhFee') || 0) + (n('mhBuffer') || 0); });
+  safe('pProfit2', el => { el.value = n('mhTargetProfit') || 7; });
+}
+function renderMarginHubResult(result, persist){
+  const tone = getMarginHubTone(result.marginPercent);
+  safe('marginHubHealthBadge', el => { el.className = 'status ' + tone.cls; el.textContent = tone.label; });
+  const statusPercent = Math.max(0, Math.min(100, Number(result.marginPercent) || 0));
+  let html = '';
+  html += '<div class="margin-hub-kpis">';
+  html += '<div class="metric"><small>Gewinn</small><strong>' + euro(result.profit) + '</strong></div>';
+  html += '<div class="metric"><small>Marge</small><strong>' + (Number(result.marginPercent || 0).toFixed(1)) + '%</strong></div>';
+  html += '<div class="metric"><small>ROI</small><strong>' + (Number(result.roiPercent || 0).toFixed(1)) + '%</strong></div>';
+  html += '<div class="metric"><small>Break-even</small><strong>' + euro(result.breakEven) + '</strong></div>';
+  html += '</div>';
+  html += '<div class="margin-hub-meter"><span class="status ' + tone.cls + '">' + tone.label + '</span><div class="progress"><div class="bar" style="width:' + statusPercent + '%"></div></div><div class="pill-row"><span class="pill">eBay-Gebühren: ' + euro(result.fees) + '</span><span class="pill">Puffer: ' + euro(result.buffer) + '</span><span class="pill">Kosten gesamt: ' + euro(result.totalCost) + '</span><span class="pill">Empf. VK: ' + euro(result.recommendedPrice) + '</span></div></div>';
+  html += '<div class="dashboard" style="margin-top:16px"><div class="metric"><small>Verkaufspreis</small><strong>' + euro(result.sell) + '</strong></div><div class="metric"><small>Einkauf + Versand</small><strong>' + euro(result.baseCost) + '</strong></div><div class="metric"><small>Gebühren gesamt</small><strong>' + euro(result.costOverviewFees) + '</strong></div><div class="metric"><small>Zielgewinn</small><strong>' + euro(result.targetProfit) + '</strong></div></div>';
+  html += '<div class="output-box"><h3>eBay-Gebühren / Kostenübersicht</h3><ul><li>Produktkosten: ' + euro(result.buy) + '</li><li>Versandkosten: ' + euro(result.ship) + '</li><li>eBay-Gebühren (' + Number(result.feePercent || 0).toFixed(1) + '%): ' + euro(result.fees) + '</li><li>Risiko-Puffer (' + Number(result.bufferPercent || 0).toFixed(1) + '%): ' + euro(result.buffer) + '</li><li>Break-even laut Preislogik: ' + euro(result.breakEven) + '</li><li>Preis für Zielgewinn: ' + euro(result.recommendedPrice) + '</li><li>Product-Brain-ROI-Basis: Einkaufspreis ohne Versand</li></ul></div>';
+  setHTML('marginHubResult', html);
+  renderMarginHubRecent();
+  if(persist !== false){
+    const createdAt = new Date();
+    saveMarginHubSnapshot({
+      createdAt: createdAt.toISOString(),
+      createdAtLabel: createdAt.toLocaleString('de-DE'),
+      name: result.name,
+      sell: result.sell,
+      profit: result.profit,
+      marginPercent: result.marginPercent,
+      roiPercent: result.roiPercent,
+      inputs: result.inputs,
+      results: result
+    });
+  }
+}
+function marginHubCalc(){
+  const input = {
+    name: $('mhName')?.value.trim() || '',
+    buy: n('mhBuy'),
+    ship: n('mhShip'),
+    sell: n('mhSell'),
+    fee: n('mhFee') || appSettings.fees || 15,
+    riskBuffer: n('mhBuffer') || appSettings.buffer || 5,
+    targetProfit: n('mhTargetProfit') || appSettings.profit || 7,
+    preset: $('mhPreset')?.value || ''
+  };
+  const calc = calcProduct(input);
+  const priceSnapshot = getPriceCalcSnapshot({
+    cost: input.buy + input.ship,
+    fees: input.fee + input.riskBuffer,
+    profit1: input.targetProfit,
+    profit2: input.targetProfit,
+    profit3: input.targetProfit,
+    round: 'none'
+  });
+  const financeSnapshot = getFinanceSnapshot({
+    revenue: input.sell,
+    goods: input.buy + input.ship,
+    fees: calc.fee + calc.buffer,
+    other: 0
+  });
+  const roiPercent = input.buy > 0 ? (calc.profit / input.buy) * 100 : 0;
+  renderMarginHubResult({
+    name: input.name || 'Schnell-Margen-Rechner',
+    buy: input.buy,
+    ship: input.ship,
+    sell: input.sell,
+    feePercent: input.fee,
+    bufferPercent: input.riskBuffer,
+    fees: calc.fee,
+    buffer: calc.buffer,
+    profit: calc.profit,
+    marginPercent: financeSnapshot.margin,
+    roiPercent,
+    breakEven: priceSnapshot.breakEvenRounded,
+    recommendedPrice: calc.recommendedPrice,
+    targetProfit: input.targetProfit,
+    totalCost: financeSnapshot.totalCosts,
+    baseCost: input.buy + input.ship,
+    costOverviewFees: calc.fee + calc.buffer,
+    inputs: input
+  });
+}
+function clearMarginHub(){
+  ['mhName','mhBuy','mhShip','mhSell','mhTargetProfit'].forEach(function(id){ safe(id, el => { el.value = ''; }); });
+  safe('mhFee', el => { el.value = 15; });
+  safe('mhBuffer', el => { el.value = 5; });
+  safe('mhPreset', el => { el.value = ''; });
+  safe('marginHubHealthBadge', el => { el.className = 'status info'; el.textContent = 'Bereit'; });
+  setHTML('marginHubResult','<div class="empty">Noch keine Preis-&amp;-Marge-Berechnung.</div>');
+}
 const TAB_ALIASES = {
   homeTab: 'dashboardTab',
   productsTab: 'productSearchTab',
@@ -957,7 +1150,7 @@ const START_TARGET_META = {
   ebay:{kind:'area', area:'ebay', label:'Bestellungen', description:'Den operativen Bereich für Verkäufe, Versand und Rechnungen öffnen.', button:'Bestellungen öffnen'},
   shopify:{kind:'area', area:'shopify', label:'Shopify Vorbereitung', description:'Shopify-Lab und Store-Potenzial öffnen.', button:'Shopify öffnen'},
   backoffice:{kind:'area', area:'backoffice', label:'Backoffice & Setup', description:'Einstellungen, Backup und Integrationen öffnen.', button:'Backoffice öffnen'},
-  finance:{kind:'tab', tab:'financeTab', label:'Kalkulation', description:'Finanzübersicht und Marge prüfen.', button:'Kalkulation öffnen'},
+  finance:{kind:'tab', tab:'financeTab', label:'Umsatz & Kosten', description:'Umsatz, Kosten, Gewinn und Marge in einer kompakten Übersicht prüfen.', button:'Umsatz & Kosten öffnen'},
   listing:{kind:'tab', tab:'listingCheckTab', label:'Listing-Check', description:'Listing-Checkliste und Konformität prüfen.', button:'Listing-Check öffnen'},
   productStatus:{kind:'tab', tab:'productStatusTab', label:'Produkt-Status', description:'Produktstatus und offene To-dos ansehen.', button:'Status öffnen'},
   agents:{kind:'tab', tab:'virtualAgentsTab', label:'KI-Agenten', description:'Virtuelle Mitarbeiter und Automatisierung öffnen.', button:'Agenten öffnen'}
@@ -7248,7 +7441,7 @@ function scrollToProductForm(){ showTab('productSearchTab'); setTimeout(()=>{ co
 function runResearchCheck(){ const cost=n('rCost'),my=n('rMyPrice'),feePct=n('rFee'),bufPct=n('rBuffer'),low=n('rLow'),avg=n('rAvg'),sellers=n('rSellers'),sold=n('rSold'),delivery=n('rDelivery'),risk=$('rRisk')?.value||'low'; const profit=my-cost-my*(feePct/100)-my*(bufPct/100),breakEven=cost/(1-((feePct+bufPct)/100)); let score=0,reasons=[]; if(profit>=10){score+=28;reasons.push('starker Gewinn nach Gebühren');}else if(profit>=5){score+=18;reasons.push('brauchbarer Gewinn');}else if(profit>0){score+=7;reasons.push('Gewinn knapp');}else reasons.push('Verlust oder fast kein Gewinn'); if(avg&&my<=avg){score+=18;reasons.push('Preis am/unter Durchschnitt');}else if(avg){score+=6;reasons.push('Preis über Durchschnitt');} if(low&&my<=low*1.1){score+=8;reasons.push('nah am günstigsten Anbieter');}else if(low)reasons.push('deutlich teurer als günstigster Anbieter'); if(sold>=50){score+=20;reasons.push('Nachfrage stark');}else if(sold>=15){score+=12;reasons.push('Nachfrage vorhanden');}else reasons.push('Nachfrage schwach/unklar'); if(sellers>0&&sellers<=15){score+=14;reasons.push('Konkurrenz überschaubar');}else if(sellers<=40){score+=8;reasons.push('Konkurrenz mittel');}else reasons.push('viel Konkurrenz'); if(delivery>0&&delivery<=7){score+=8;reasons.push('Lieferzeit stark');}else if(delivery<=14){score+=4;reasons.push('Lieferzeit okay');}else reasons.push('Lieferzeit riskant'); if(risk==='low'){score+=8;reasons.push('Risiko niedrig');}else if(risk==='medium'){score+=3;reasons.push('Risiko mittel');}else{score-=12;reasons.push('hohes Risiko: WEEE/Batt prüfen');} score=Math.max(0,Math.min(100,Math.round(score))); const s=statusFromScore(score); setHTML('researchResult',`<div class="score-top"><span class="status ${s.cls}">${s.label}</span><span class="score-number">${score}/100</span></div><div class="progress"><div class="bar" style="width:${score}%"></div></div><div class="big-result">${euro(profit)}</div><div class="muted">Gewinn nach Gebühren & Puffer</div><div class="dashboard" style="margin-top:16px"><div class="metric"><small>Break-even</small><strong>${euro(breakEven)}</strong></div><div class="metric"><small>Dein Preis</small><strong>${euro(my)}</strong></div><div class="metric"><small>Ø Markt</small><strong>${euro(avg)}</strong></div><div class="metric"><small>Anbieter</small><strong>${sellers}</strong></div></div><div class="output-box"><h3>Warum?</h3><ul>${reasons.map(r=>`<li>${r}</li>`).join('')}</ul></div>`); }
 function legalCheck(){ let points=0,w=[]; if($('lBattery')?.checked){points+=25;w.push('Batterie/Akku: BattG/EPR prüfen.');} if($('lElectric')?.checked){points+=30;w.push('Elektrogerät: WEEE/EAR-Pflicht möglich.');} if($('lBrand')?.checked){points+=25;w.push('Marke/Logo: Markenrecht/Designrecht prüfen.');} if($('lCosmetic')?.checked){points+=25;w.push('Kosmetik/Lebensmittel/Medizin/Körperkontakt: hohe Anforderungen.');} if($('lFragile')?.checked){points+=10;w.push('Zerbrechlich/Retouren: mehr Puffer einplanen.');} if($('lPackaging')?.checked){w.push('Verpackung: LUCID/Duales System beachten.');} let cls=points>=50?'bad':points>=20?'warn':'good',label=points>=50?'🔴 Hochriskant':points>=20?'🟡 Prüfen':'🟢 Niedriges Risiko'; setHTML('legalResult',`<span class="status ${cls}">${label}</span><div class="output-box"><h3>Hinweise</h3><ul>${w.map(x=>`<li>${x}</li>`).join('')||'<li>Keine besonderen Warnungen.</li>'}</ul></div>`); }
 function roundPrice(v,type){ if(type==='x99') return Math.floor(v)+0.99; if(type==='x49') return Math.floor(v)+0.49; return v; }
-function priceCalc(){ const cost=n('pCost'),fees=n('pFees'),profits=[n('pProfit1'),n('pProfit2'),n('pProfit3')],round=$('pRound')?.value||'none'; const rows=profits.map(pr=>{const raw=(cost+pr)/(1-fees/100),final=roundPrice(raw,round);return`<div class="metric"><small>${euro(pr)} Gewinn</small><strong>${euro(final)}</strong></div>`;}).join(''); const be=cost/(1-fees/100); setHTML('priceResult',`<div class="metric"><small>Break-even</small><strong>${euro(roundPrice(be,round))}</strong></div><div class="mini-grid" style="margin-top:12px">${rows}</div>`); }
+function priceCalc(){ const snapshot=getPriceCalcSnapshot({cost:n('pCost'),fees:n('pFees'),profit1:n('pProfit1'),profit2:n('pProfit2'),profit3:n('pProfit3'),round:$('pRound')?.value||'none'}); const rows=snapshot.targets.map(target=>`<div class="metric"><small>${euro(target.profit)} Gewinn</small><strong>${euro(target.final)}</strong></div>`).join(''); setHTML('priceResult',`<div class="metric"><small>Break-even</small><strong>${euro(snapshot.breakEvenRounded)}</strong></div><div class="mini-grid" style="margin-top:12px">${rows}</div>`); }
 function budgetCalc(){ const budget=n('bBudget'),cost=n('bCost'),risk=n('bRisk'),qty=n('bQty')||1; const per=cost*qty,maxByBudget=cost?Math.floor(budget/per):0,maxByRisk=risk?Math.floor(budget/risk):maxByBudget; setHTML('budgetResult',`<div class="dashboard"><div class="metric"><small>Kosten je Produkt-Test</small><strong>${euro(per)}</strong></div><div class="metric"><small>Max. Tests</small><strong>${maxByBudget}</strong></div><div class="metric"><small>Risiko-Limit</small><strong>${maxByRisk}</strong></div><div class="metric"><small>Rest nach 1 Test</small><strong>${euro(budget-per)}</strong></div></div><div class="output-box"><h3>Empfehlung</h3><p>${per>budget?'Zu teuer für dein Testbudget.':'Klein testen, nicht direkt skalieren. Erst Daten sammeln.'}</p></div>`); }
 function initListing(){ const box=$('listingChecks'); if(!box) return; box.innerHTML=listingItems.map((x,i)=>`<div class="checkrow"><input type="checkbox" id="c${i}"><label for="c${i}">${x}</label></div>`).join(''); }
 function getSmartListingCheckState(){
@@ -7432,8 +7625,8 @@ function listingCheck(){
   updateCurrentListingDraftWithCheck(checkState);
 }
 function resetListing(){ listingItems.forEach((_,i)=>safe('c'+i,el=>el.checked=false)); setHTML('listingResult','<div class="empty">Noch nicht geprüft.</div>'); }
-function trackingCalc(){ const views=n('tViews'),sales=n('tSales'),sell=n('tSell'),cost=n('tCost'),a=n('tPriceA'),b=n('tPriceB'); const conv=views?sales/views*100:0, profitPer=sell-cost,totalProfit=profitPer*sales; let label='🔴 Schwach',cls='bad',msg='Noch kein Gewinner. Erst Daten sammeln oder Angebot verbessern.'; if(sales>=5&&conv>=2&&totalProfit>20){label='🟢 Gewinner-Kandidat';cls='good';msg='Produkt zeigt echte Stärke. Beobachten und vorsichtig skalieren.';} else if(sales>=1&&conv>=1){label='🟡 Test läuft';cls='warn';msg='Noch nicht sicher. Mehr Daten sammeln, Preis/Bilder/Titel testen.';} let ab=''; if(a&&b) ab=`Preis A: ${euro(a)} · Preis B: ${euro(b)} — beobachte, welcher Preis mehr Verkäufe bringt.`; setHTML('trackingResult',`<span class="status ${cls}">${label}</span><div class="dashboard" style="margin-top:16px"><div class="metric"><small>Conversion</small><strong>${conv.toFixed(2)}%</strong></div><div class="metric"><small>Gewinn/Stück</small><strong>${euro(profitPer)}</strong></div><div class="metric"><small>Gesamtgewinn</small><strong>${euro(totalProfit)}</strong></div><div class="metric"><small>Verkäufe</small><strong>${sales}</strong></div></div><div class="output-box"><h3>Bewertung</h3><p>${msg}\n${ab}</p></div>`); }
-function financeCalc(){ const revenue=n('fRevenue'),goods=n('fGoods'),fees=n('fFees'),other=n('fOther'); const profit=revenue-goods-fees-other, margin=revenue?profit/revenue*100:0, cls=profit>=0?'good':'bad'; setHTML('financeResult',`<span class="status ${cls}">${profit>=0?'🟢 Gewinn':'🔴 Verlust'}</span><div class="dashboard" style="margin-top:16px"><div class="metric"><small>Umsatz</small><strong>${euro(revenue)}</strong></div><div class="metric"><small>Kosten</small><strong>${euro(goods+fees+other)}</strong></div><div class="metric"><small>Gewinn</small><strong>${euro(profit)}</strong></div><div class="metric"><small>Marge</small><strong>${margin.toFixed(1)}%</strong></div></div><div class="output-box"><h3>Notiz</h3><p>${$('fNote')?.value||'Keine Notiz.'}</p></div>`); }
+function trackingCalc(){ const snapshot=getTrackingSnapshot({views:n('tViews'),sales:n('tSales'),sell:n('tSell'),cost:n('tCost'),priceA:n('tPriceA'),priceB:n('tPriceB')}); let label='🔴 Schwach',cls='bad',msg='Noch kein Gewinner. Erst Daten sammeln oder Angebot verbessern.'; if(snapshot.sales>=5&&snapshot.conversion>=2&&snapshot.totalProfit>20){label='🟢 Gewinner-Kandidat';cls='good';msg='Produkt zeigt echte Stärke. Beobachten und vorsichtig skalieren.';} else if(snapshot.sales>=1&&snapshot.conversion>=1){label='🟡 Test läuft';cls='warn';msg='Noch nicht sicher. Mehr Daten sammeln, Preis/Bilder/Titel testen.';} let ab=''; if(snapshot.priceA&&snapshot.priceB) ab=`Preis A: ${euro(snapshot.priceA)} · Preis B: ${euro(snapshot.priceB)} — beobachte, welcher Preis mehr Verkäufe bringt.`; setHTML('trackingResult',`<span class="status ${cls}">${label}</span><div class="dashboard" style="margin-top:16px"><div class="metric"><small>Conversion</small><strong>${snapshot.conversion.toFixed(2)}%</strong></div><div class="metric"><small>Gewinn/Stück</small><strong>${euro(snapshot.profitPer)}</strong></div><div class="metric"><small>Gesamtgewinn</small><strong>${euro(snapshot.totalProfit)}</strong></div><div class="metric"><small>Verkäufe</small><strong>${snapshot.sales}</strong></div></div><div class="output-box"><h3>Bewertung</h3><p>${msg}\n${ab}</p></div>`); }
+function financeCalc(){ const snapshot=getFinanceSnapshot({revenue:n('fRevenue'),goods:n('fGoods'),fees:n('fFees'),other:n('fOther')}); const cls=snapshot.profit>=0?'good':'bad'; setHTML('financeResult',`<span class="status ${cls}">${snapshot.profit>=0?'🟢 Gewinn':'🔴 Verlust'}</span><div class="dashboard" style="margin-top:16px"><div class="metric"><small>Umsatz</small><strong>${euro(snapshot.revenue)}</strong></div><div class="metric"><small>Kosten</small><strong>${euro(snapshot.totalCosts)}</strong></div><div class="metric"><small>Gewinn</small><strong>${euro(snapshot.profit)}</strong></div><div class="metric"><small>Marge</small><strong>${snapshot.margin.toFixed(1)}%</strong></div></div><div class="output-box"><h3>Notiz</h3><p>${$('fNote')?.value||'Keine Notiz.'}</p></div>`); }
 function warningCalc(){ let warnings=[],points=0; const profit=n('wProfit'),sellers=n('wSellers'),delivery=n('wDelivery'),ret=$('wReturn')?.value||'low'; if(profit<3){points+=25;warnings.push('Gewinn unter 3 €: sehr knapp, lohnt oft nicht.');} else if(profit<7){points+=10;warnings.push('Gewinn unter 7 €: nur testen, wenn Risiko niedrig ist.');} if(sellers>50){points+=20;warnings.push('Viele Anbieter: Preiskampf möglich.');} if(delivery>14){points+=20;warnings.push('Lieferzeit über 14 Tage: erhöhtes Kunden-/Retourenrisiko.');} if(ret==='high'){points+=20;warnings.push('Hohes Retourenrisiko: mehr Puffer nötig.');} else if(ret==='medium'){points+=10;warnings.push('Mittleres Retourenrisiko: vorsichtig kalkulieren.');} if($('wElectric')?.checked){points+=30;warnings.push('Elektro/Batterie/WEEE möglich: erst rechtlich klären.');} if($('wBrand')?.checked){points+=30;warnings.push('Marke/Logo/Designrecht möglich: nicht blind listen.');} const cls=points>=50?'bad':points>=20?'warn':'good', label=points>=50?'🔴 Stop / prüfen':points>=20?'🟡 Vorsicht':'🟢 Sieht okay aus'; setHTML('warningResult',`<span class="status ${cls}">${label}</span><div class="output-box"><h3>Warnungen</h3><ul>${warnings.map(w=>`<li>${w}</li>`).join('')||'<li>Keine starken Warnungen erkannt.</li>'}</ul></div>`); }
 function normalizeText(text){
   let output = String(text || '').trim();
@@ -10545,6 +10738,18 @@ function bindEvents(){
   bind('supplierSearchBtn','click',runSupplierSearch);
   bind('researchBtn','click',runResearchCheck);
   bind('legalBtn','click',legalCheck);
+  bind('marginHubCalcBtn','click',marginHubCalc);
+  bind('marginHubClearBtn','click',clearMarginHub);
+  bind('mhPreset','change',function(){
+    const value = $('mhPreset')?.value || '';
+    if(!value || !value.includes('|')) return;
+    const parts = value.split('|');
+    useMarginHubPreset(Number(parts[0]) || 0, Number(parts[1]) || 0, value);
+  });
+  bind('mhPresetStandardBtn','click',()=>useMarginHubPreset(15,5,'15|5'));
+  bind('mhPresetLeanBtn','click',()=>useMarginHubPreset(13,3,'13|3'));
+  bind('mhPresetSafeBtn','click',()=>useMarginHubPreset(17,5,'17|5'));
+  bind('mhUseTargetPriceBtn','click',pushMarginHubValuesToPriceTab);
   bind('priceBtn','click',priceCalc);
   bind('budgetBtn','click',budgetCalc);
   bind('listingBtn','click',listingCheck);
@@ -10716,6 +10921,7 @@ function bindEvents(){
   bind('orderStatusFilter','change',renderSales);
   bind('orderReturnFilter','change',renderSales);
   safe('salesList', el => el.addEventListener('click', handleSalesClick));
+  hydrateMarginHubState();
 }
 function runSelfTests(){
   console.assert(!!$('dashboardTab'), 'dashboardTab muss existieren');
