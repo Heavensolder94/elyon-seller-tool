@@ -192,6 +192,7 @@ function isGoogleSheetsSyncRequest(req) {
 
 function sanitizeGoogleSheetsSettings(input) {
   const source = input && typeof input === "object" ? input : {};
+  const intervalValue = Number(source.autoSyncIntervalMinutes);
   return {
     url: String(source.url || "").trim(),
     token: String(source.token || "").trim(),
@@ -200,6 +201,10 @@ function sanitizeGoogleSheetsSettings(input) {
     lastSalesSyncAt: String(source.lastSalesSyncAt || "").trim(),
     lastCostsSyncAt: String(source.lastCostsSyncAt || "").trim(),
     lastSalesLoadAt: String(source.lastSalesLoadAt || "").trim(),
+    autoSyncEnabled: Boolean(source.autoSyncEnabled),
+    autoSyncIntervalMinutes: Number.isFinite(intervalValue) && intervalValue > 0 ? Math.max(1, Math.round(intervalValue)) : 15,
+    autoSyncType: String(source.autoSyncType || "all").trim() || "all",
+    autoLastRunAt: String(source.autoLastRunAt || "").trim(),
   };
 }
 
