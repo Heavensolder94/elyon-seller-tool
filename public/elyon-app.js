@@ -1,4 +1,38 @@
 'use strict';
+function safeToast(type, message, eyebrow){
+  const normalizedType = String(type || 'info').trim().toLowerCase() || 'info';
+  const text = String(message || '');
+  try{
+    if(window.toast && typeof window.toast[normalizedType] === 'function'){
+      window.toast[normalizedType](text);
+      return;
+    }
+  }catch(e){}
+  try{
+    if(typeof window.toast === 'function'){
+      window.toast(text, eyebrow || 'Elyon');
+      return;
+    }
+  }catch(e){}
+  try{
+    console.log('[' + normalizedType + '] ' + text);
+  }catch(e){}
+}
+function toast(message, eyebrow){
+  safeToast('info', message, eyebrow);
+}
+toast.success = function(message, eyebrow){
+  safeToast('success', message, eyebrow);
+};
+toast.error = function(message, eyebrow){
+  safeToast('error', message, eyebrow);
+};
+toast.warning = function(message, eyebrow){
+  safeToast('warning', message, eyebrow);
+};
+toast.info = function(message, eyebrow){
+  safeToast('info', message, eyebrow);
+};
 function loadStoredArray(key){
   try{
     const raw = localStorage.getItem(key);
