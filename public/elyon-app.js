@@ -2341,6 +2341,12 @@ async function syncAllToGoogleSheet(){
   return summary;
 }
 window.setGoogleSheetsSyncTokenVisibility = setGoogleSheetsSyncTokenVisibility;
+window.getGoogleSheetsAutoSyncSettings = getGoogleSheetsAutoSyncSettings;
+window.persistGoogleSheetsAutoSyncSettings = persistGoogleSheetsAutoSyncSettings;
+window.updateGoogleSheetsAutoSyncButton = updateGoogleSheetsAutoSyncButton;
+window.startGoogleSheetsAutoSync = startGoogleSheetsAutoSync;
+window.toggleGoogleSheetsAutoSync = toggleGoogleSheetsAutoSync;
+window.renderGoogleSheetsSyncStatus = renderGoogleSheetsSyncStatus;
 window.saveGoogleSheetsSyncSettings = saveGoogleSheetsSyncSettings;
 window.syncInventoryToGoogleSheet = syncInventoryToGoogleSheet;
 window.syncSuppliersToGoogleSheet = syncSuppliersToGoogleSheet;

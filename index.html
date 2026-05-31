@@ -1681,11 +1681,11 @@ Land"></textarea>
       <div class="row" style="margin-top:10px">
         <div style="flex:1">
           <label for="googleSheetsAutoSyncInterval">Auto-Sync Intervall (Minuten)</label>
-          <input id="googleSheetsAutoSyncInterval" type="number" min="1" step="1" placeholder="15">
+          <input id="googleSheetsAutoSyncInterval" type="number" min="1" step="1" placeholder="15" onchange="elyonGoogleSheetsAutoSyncRefresh()">
         </div>
         <div style="flex:1">
           <label for="googleSheetsAutoSyncType">Auto-Sync Bereich</label>
-          <select id="googleSheetsAutoSyncType">
+          <select id="googleSheetsAutoSyncType" onchange="elyonGoogleSheetsAutoSyncRefresh()">
             <option value="all">Alles</option>
             <option value="sales">Verkäufe</option>
             <option value="inventory">Inventar</option>
@@ -1696,10 +1696,10 @@ Land"></textarea>
       </div>
       <div class="row" style="margin-top:10px; align-items:end">
         <label style="display:flex; align-items:center; gap:8px; flex:1; margin:0">
-          <input id="googleSheetsAutoSyncEnabled" type="checkbox">
+          <input id="googleSheetsAutoSyncEnabled" type="checkbox" onchange="elyonGoogleSheetsAutoSyncRefresh()">
           <span>Auto-Sync aktivieren</span>
         </label>
-        <button id="toggleGoogleSheetsAutoSyncBtn" class="secondary full" type="button">Auto-Sync starten</button>
+        <button id="toggleGoogleSheetsAutoSyncBtn" class="secondary full" type="button" onclick="elyonGoogleSheetsAutoSyncToggle()">Auto-Sync starten</button>
       </div>
       <div class="row" style="margin-top:10px">
         <button id="syncSalesGoogleSheetsBtn" class="secondary full" type="button" onclick="elyonGoogleSheetsSyncRun('sales')">Verkäufe synchronisieren</button>
@@ -3106,6 +3106,26 @@ PLZ Ort"></textarea>
         fallbackGoogleSheetsResult(`<p>✅ <strong>${syncType}</strong>: ${Number(data.processed || 0)} Datensätze gesendet, ${Number(data.inserted || 0)} neu, ${Number(data.updated || 0)} aktualisiert.</p>`);
       } catch (error) {
         fallbackGoogleSheetsResult(`<p>⚠️ <strong>Sync</strong>: ${String(error?.message || error)}</p>`);
+      }
+    };
+    window.elyonGoogleSheetsAutoSyncToggle = async function () {
+      if (typeof window.toggleGoogleSheetsAutoSync === "function") {
+        return window.toggleGoogleSheetsAutoSync();
+      }
+      fallbackGoogleSheetsResult("<p>Auto-Sync ist noch nicht bereit. Bitte Seite neu laden.</p>");
+    };
+    window.elyonGoogleSheetsAutoSyncRefresh = function () {
+      if (typeof window.persistGoogleSheetsAutoSyncSettings === "function" && typeof window.getGoogleSheetsAutoSyncSettings === "function") {
+        window.persistGoogleSheetsAutoSyncSettings(window.getGoogleSheetsAutoSyncSettings());
+      }
+      if (typeof window.updateGoogleSheetsAutoSyncButton === "function") {
+        window.updateGoogleSheetsAutoSyncButton();
+      }
+      if (typeof window.startGoogleSheetsAutoSync === "function") {
+        window.startGoogleSheetsAutoSync();
+      }
+      if (typeof window.renderGoogleSheetsSyncStatus === "function") {
+        window.renderGoogleSheetsSyncStatus();
       }
     };
     window.openStartLauncher = typeof window.openStartLauncher === "function" ? window.openStartLauncher : function () {
