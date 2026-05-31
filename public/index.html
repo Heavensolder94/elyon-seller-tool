@@ -3161,12 +3161,76 @@ PLZ Ort"></textarea>
     };
   })();
 </script>
+<style>
+  .toast {
+    position: fixed;
+    right: 18px;
+    bottom: 18px;
+    z-index: 50;
+    min-width: 260px;
+    max-width: min(420px, calc(100vw - 36px));
+    padding: 12px 14px;
+    border-radius: 16px;
+    background: rgba(10, 14, 27, 0.96);
+    border: 1px solid rgba(76, 141, 255, 0.22);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.38);
+    color: var(--text-main);
+    opacity: 0;
+    transform: translateY(12px);
+    pointer-events: none;
+    transition: opacity .18s ease, transform .18s ease;
+  }
+
+  .toast.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .toast .k {
+    color: var(--text-muted);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 6px;
+  }
+
+  .toast .v {
+    font-size: 13px;
+    line-height: 1.45;
+  }
+
+  @media (max-width: 900px) {
+    .toast {
+      right: 12px;
+      left: 12px;
+      max-width: none;
+      min-width: 0;
+    }
+  }
+</style>
 <div class="toast" id="actionToast" aria-live="polite" aria-atomic="true">
   <div class="k">Aktion</div>
   <div class="v" id="actionToastText">Bereit</div>
 </div>
+<script>
+  (function () {
+    function toast(message, eyebrow) {
+      const shell = document.getElementById('actionToast');
+      const text = document.getElementById('actionToastText');
+      if (!shell || !text) return;
+      const label = shell.querySelector('.k');
+      if (label) label.textContent = eyebrow || 'Elyon';
+      text.textContent = String(message || '');
+      shell.classList.add('show');
+      window.clearTimeout(toast.timer);
+      toast.timer = window.setTimeout(function () {
+        shell.classList.remove('show');
+      }, 2800);
+    }
+    window.toast = toast;
+  })();
+</script>
 <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<script defer src="elyon-ui.js"></script>
 <script defer src="elyon-app.js"></script>
 <script defer src="elyon-business-brain.js"></script>
 <script defer src="elyon-soul.js"></script>

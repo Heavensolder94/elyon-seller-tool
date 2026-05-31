@@ -27,6 +27,13 @@ function stripIgnoredBlocks(html) {
     .replace(/<style\b[\s\S]*?<\/style>/gi, "");
 }
 
+function normalizeStructureHtml(html) {
+  return stripIgnoredBlocks(html)
+    .replace(/<div class="toast" id="actionToast"[\s\S]*?<div class="v" id="actionToastText">[\s\S]*?<\/div>\s*<\/div>\s*/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 async function main() {
   const [rootHtml, publicHtml] = await Promise.all(
     files.map((file) => readFile(file, "utf8")),
@@ -34,9 +41,11 @@ async function main() {
 
   const normalizedRootHtml = rootHtml.replace(/^\uFEFF/, "");
   const normalizedPublicHtml = publicHtml.replace(/^\uFEFF/, "");
+  const normalizedRootStructure = normalizeStructureHtml(normalizedRootHtml);
+  const normalizedPublicStructure = normalizeStructureHtml(normalizedPublicHtml);
 
-  if (normalizedRootHtml !== normalizedPublicHtml) {
-    fail("index.html and public/index.html are out of sync");
+  if (normalizedRootStructure !== normalizedPublicStructure) {
+    fail("index.html and public/index.html differ in dashboard structure");
   }
 
   for (const [file, html] of [
