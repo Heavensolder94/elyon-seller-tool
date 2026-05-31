@@ -3010,6 +3010,9 @@ PLZ Ort"></textarea>
     window.elyonGoogleSheetsSyncSave = async function () {
       const url = document.getElementById("googleSheetsSyncUrl")?.value?.trim() || "";
       const token = document.getElementById("googleSheetsSyncToken")?.value?.trim() || "";
+      const autoSyncEnabled = !!document.getElementById("googleSheetsAutoSyncEnabled")?.checked;
+      const autoSyncIntervalMinutes = Math.max(1, Number(document.getElementById("googleSheetsAutoSyncInterval")?.value || 15) || 15);
+      const autoSyncType = document.getElementById("googleSheetsAutoSyncType")?.value || "all";
       if (!url || !token) {
         fallbackGoogleSheetsResult("<p>Bitte Web-App URL und Sync Token eintragen.</p>");
         return;
@@ -3017,6 +3020,9 @@ PLZ Ort"></textarea>
       const backendBase = elyonCurrentBackendBase();
       localStorage.setItem("elyonGoogleSheetsSyncUrlFallback", url);
       localStorage.setItem("elyonGoogleSheetsSyncTokenFallback", token);
+      localStorage.setItem("elyon_google_sync_auto_enabled", autoSyncEnabled ? "true" : "false");
+      localStorage.setItem("elyon_google_sync_auto_interval_minutes", String(autoSyncIntervalMinutes));
+      localStorage.setItem("elyon_google_sync_auto_type", autoSyncType);
       try {
         await elyonJsonFetch(`${backendBase}/api/google-sheets-sync-settings`, {
           method: "POST",
@@ -3028,7 +3034,11 @@ PLZ Ort"></textarea>
               lastSupplierSyncAt: localStorage.getItem("elyon_last_supplier_sync_at") || "",
               lastSalesSyncAt: localStorage.getItem("elyon_last_sales_sync_at") || "",
               lastCostsSyncAt: localStorage.getItem("elyon_last_costs_sync_at") || "",
-              lastSalesLoadAt: localStorage.getItem("elyon_last_sales_load_at") || ""
+              lastSalesLoadAt: localStorage.getItem("elyon_last_sales_load_at") || "",
+              autoSyncEnabled,
+              autoSyncIntervalMinutes,
+              autoSyncType,
+              autoLastRunAt: localStorage.getItem("elyon_google_sync_auto_last_run_at") || ""
             }
           }
         });
