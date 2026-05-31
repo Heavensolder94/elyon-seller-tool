@@ -1124,6 +1124,20 @@ function normalizeAliExpressVariantGroupName(value, fallbackIndex = 0) {
   return text;
 }
 
+function normalizeAmazonVariantGroupName(value, fallbackIndex = 0) {
+  const text = safeText(decodeHtmlEntities(value))
+    .replace(/[:ï¼š]\s*$/, "")
+    .replace(/^(choose|select)\s+/i, "")
+    .trim();
+  if (!text) return `Variant ${fallbackIndex + 1}`;
+  if (/color|colour|farbe/i.test(text)) return "Color";
+  if (/size|gr[oÃ¶]sse|grÃ¶ÃŸe|format/i.test(text)) return "Size";
+  if (/style|stil/i.test(text)) return "Style";
+  if (/model|modell/i.test(text)) return "Model";
+  if (/count|anzahl|pack|menge|quantity/i.test(text)) return "Count";
+  return text;
+}
+
 function mergeAliExpressVariantGroups(...groupSets) {
   const merged = new Map();
   groupSets.forEach((groupSet) => {
@@ -1293,8 +1307,13 @@ function buildAliExpressGroupsFromDataArrays(arrays = []) {
 
 function getAliExpressStateVariantGroups() {
   const candidates = [];
+  const jsonSourcesUsed = [];
   if (window.__INITIAL_STATE__ && typeof window.__INITIAL_STATE__ === "object") candidates.push(window.__INITIAL_STATE__);
-  if (window.runParams && typeof window.runParams === "object") candidates.push(window.runParams);
+  if (window.__INITIAL_STATE__ && typeof window.__INITIAL_STATE__ === "object") jsonSourcesUsed.push("window.__INITIAL_STATE__");
+  if (window.runParams && typeof window.runParams === "object") {
+    candidates.push(window.runParams);
+    jsonSourcesUsed.push("window.runParams");
+  }
 
   const scriptTexts = Array.from(document.scripts || [])
     .map((script) => script.textContent || "")
@@ -1306,16 +1325,30 @@ function getAliExpressStateVariantGroups() {
     const runParamsBlock = extractBalancedJsonBlock(text, "runParams");
     const initialData = safeJsonParse(initialBlock);
     const runParamsData = safeJsonParse(runParamsBlock);
-    if (initialData) candidates.push(initialData);
-    if (runParamsData) candidates.push(runParamsData);
+    if (initialData) {
+      candidates.push(initialData);
+      jsonSourcesUsed.push("embedded-script:__INITIAL_STATE__");
+    }
+    if (runParamsData) {
+      candidates.push(runParamsData);
+      jsonSourcesUsed.push("embedded-script:runParams");
+    }
   });
 
   const jsonLdProducts = extractJsonLdProducts();
-  if (jsonLdProducts.length) candidates.push(...jsonLdProducts);
+  if (jsonLdProducts.length) {
+    candidates.push(...jsonLdProducts);
+    jsonSourcesUsed.push("json-ld");
+  }
 
   const arrays = [];
   candidates.forEach((candidate) => collectAliExpressVariantArrays(candidate, arrays));
-  return buildAliExpressGroupsFromDataArrays(arrays);
+  const groups = buildAliExpressGroupsFromDataArrays(arrays);
+  Object.defineProperty(groups, "jsonSourcesUsed", {
+    value: uniqueList(jsonSourcesUsed, 20),
+    enumerable: false
+  });
+  return groups;
 }
 
 function normalizeCjVariantGroupName(value, fallbackIndex = 0) {
@@ -1554,7 +1587,177 @@ function getGenericVariantContainers(root = document) {
     .slice(0, 28);
 }
 
+function getAmazonVariantContainers(root = document) {
+  const selectors = [
+    "#twister",
+    "#twister_feature_div",
+    "#twisterContainer",
+    "#inline-twister-row-color_name",
+    "#inline-twister-row-size_name",
+    "#inline-twister-row-style_name",
+    "#inline-twister-row-configuration_name",
+    "#inline-twister-expander-content-color_name",
+    "#inline-twister-expander-content-size_name",
+    "#inline-twister-expander-content-style_name",
+    "[id^='variation_']",
+    "[id^='inline-twister-row-']",
+    "[id^='inline-twister-expander-content-']",
+    "[data-a-name='twister']",
+    "[data-defaultasin]",
+    "[data-csa-c-content-id*='twister']"
+  ];
+  return Array.from(root.querySelectorAll(selectors.join(",")))
+    .filter((node) => isVisibleElement(node) || node.id === "twister")
+    .slice(0, 20);
+}
+
+function getAmazonStateVariantGroups() {
+  const candidates = [];
+  const jsonLdProducts = extractJsonLdProducts();
+  if (jsonLdProducts.length) candidates.push(...jsonLdProducts);
+  if (window.__INITIAL_STATE__ && typeof window.__INITIAL_STATE__ === "object") candidates.push(window.__INITIAL_STATE__);
+
+  Array.from(document.scripts || [])
+    .map((script) => script.textContent || "")
+    .filter((text) => /twister|dimensionValuesDisplayData|variationValues|color_name|size_name|style_name/i.test(text))
+    .slice(0, 20)
+    .forEach((text) => {
+      const blocks = ["__INITIAL_STATE__", "twister"].map((anchor) => extractBalancedJsonBlock(text, anchor));
+      blocks.forEach((block) => {
+        const parsed = safeJsonParse(block);
+        if (parsed) candidates.push(parsed);
+      });
+    });
+
+  const groups = new Map();
+  const addOption = (groupName, optionValue) => {
+    const name = normalizeAmazonVariantGroupName(groupName, groups.size);
+    const option = safeText(optionValue);
+    if (!name || !option) return;
+    const existing = groups.get(name) || new Set();
+    existing.add(option);
+    groups.set(name, existing);
+  };
+
+  const visit = (value, seen = new WeakSet()) => {
+    if (!value || typeof value !== "object") return;
+    if (seen.has(value)) return;
+    seen.add(value);
+    if (Array.isArray(value)) {
+      value.forEach((entry) => visit(entry, seen));
+      return;
+    }
+    Object.entries(value).forEach(([key, entry]) => {
+      const normalizedKey = normalizeAmazonVariantGroupName(key, groups.size);
+      if (/(color|size|style|model|count|configuration)/i.test(key)) {
+        if (Array.isArray(entry)) {
+          entry.forEach((item) => {
+            if (typeof item === "string") addOption(normalizedKey, item);
+            else if (item && typeof item === "object") addOption(normalizedKey, item.displayString || item.value || item.text || item.name || item.title);
+          });
+        } else if (entry && typeof entry === "object") {
+          Object.values(entry).forEach((item) => {
+            if (typeof item === "string") addOption(normalizedKey, item);
+            else if (item && typeof item === "object") addOption(normalizedKey, item.displayString || item.value || item.text || item.name || item.title);
+          });
+        }
+      }
+      if (entry && typeof entry === "object") visit(entry, seen);
+    });
+  };
+  candidates.forEach((candidate) => visit(candidate));
+
+  return Array.from(groups.entries()).map(([name, options]) => ({
+    name,
+    options: Array.from(options).map((label) => ({
+      label,
+      selected: false,
+      disabled: false,
+      image: null,
+      price: parsePriceNumber(getPrice()),
+      originalPrice: null,
+      currency: getCurrencyFromText(getPrice()) || null,
+      shippingText: getShipping().text || null,
+      deliveryText: getShipping().deliveryTime || null,
+      stockText: getAvailability() || null,
+      _node: null
+    }))
+  })).filter((group) => group.options.length);
+}
+
+function getAmazonVariantGroups(root = document) {
+  const groups = [];
+  const seen = new Set();
+  const variantSelectorsUsed = [
+    "#twister",
+    "[id^='variation_']",
+    "[id^='inline-twister-row-']",
+    "[id^='inline-twister-expander-content-']",
+    ".a-button-toggle",
+    "li[title]",
+    "select option"
+  ];
+  const rawVariantGroups = [];
+  const containers = getAmazonVariantContainers(root);
+  containers.forEach((container, index) => {
+    const optionNodes = Array.from(container.querySelectorAll("button, li, select option, [role='radio'], [role='button'], img, span"))
+      .filter((node) => node !== container)
+      .filter((node) => node.tagName?.toLowerCase() === "option" || isVisibleElement(node))
+      .filter((node) => !isDangerousActionNode(node))
+      .filter((node) => getVariantOptionLabel(node) || getVariantOptionImage(node))
+      .slice(0, 80);
+    if (!optionNodes.length) return;
+    const rawTitle = safeText(
+      container.querySelector("label, legend, .a-form-label, [class*='title'], [class*='name'], .a-size-base")?.textContent ||
+      container.getAttribute("data-a-name") ||
+      container.getAttribute("aria-label") ||
+      container.id.replace(/^(inline-twister-row-|inline-twister-expander-content-|variation_)/, "").replace(/[_-]+/g, " ") ||
+      `Variant ${groups.length + 1}`
+    );
+    const title = normalizeAmazonVariantGroupName(rawTitle, groups.length);
+    const options = [];
+    optionNodes.forEach((node) => {
+      const label = getVariantOptionLabel(node) || getVariantOptionImage(node);
+      const key = `${index}:${title}:${label}:${getVariantOptionImage(node)}`;
+      if (!label || seen.has(key)) return;
+      seen.add(key);
+      const selectedText = safeText([node.className, node.getAttribute("aria-pressed"), node.getAttribute("aria-selected"), node.getAttribute("aria-checked"), node.getAttribute("selected")].join(" ")).toLowerCase();
+      options.push({
+        label,
+        selected: /selected|active|current|checked|true/i.test(selectedText),
+        disabled: isDisabledVariantNode(node),
+        image: getVariantOptionImage(node) || null,
+        price: parsePriceNumber(getPrice()),
+        originalPrice: null,
+        currency: getCurrencyFromText(getPrice()) || null,
+        shippingText: getShipping().text || null,
+        deliveryText: getShipping().deliveryTime || null,
+        stockText: getAvailability() || null,
+        _node: node
+      });
+    });
+    if (options.length) {
+      rawVariantGroups.push({ index, title, optionCount: options.length, textSample: safeText(container.textContent).slice(0, 240) });
+      groups.push({ name: title, options });
+    }
+  });
+
+  const mergedGroups = mergeAliExpressVariantGroups(groups, getAmazonStateVariantGroups()).slice(0, 10);
+  Object.defineProperties(mergedGroups, {
+    rawVariantGroups: {
+      value: rawVariantGroups,
+      enumerable: false
+    },
+    variantSelectorsUsed: {
+      value: variantSelectorsUsed,
+      enumerable: false
+    }
+  });
+  return mergedGroups;
+}
+
 function getVariantGroupsForPlatform(platform = detectPlatform(), root = document) {
+  if (platform === "amazon") return getAmazonVariantGroups(root);
   if (platform === "aliexpress") return getAliExpressVariantGroups(root);
   if (platform === "cjdropshipping") return getCjVariantGroups(root);
 
@@ -1703,6 +1906,10 @@ function getAliExpressVariantGroups(root = document) {
     variantSelectorsUsed: {
       value: variantSelectorsUsed.concat(stateGroups.length ? ["window.__INITIAL_STATE__", "window.runParams", "application/ld+json"] : []),
       enumerable: false
+    },
+    jsonSourcesUsed: {
+      value: Array.isArray(stateGroups.jsonSourcesUsed) ? stateGroups.jsonSourcesUsed : [],
+      enumerable: false
     }
   });
   return mergedGroups;
@@ -1736,6 +1943,10 @@ function stripVariantNodes(groups) {
       },
       variantSelectorsUsed: {
         value: Array.isArray(groups.variantSelectorsUsed) ? groups.variantSelectorsUsed : [],
+        enumerable: false
+      },
+      jsonSourcesUsed: {
+        value: Array.isArray(groups.jsonSourcesUsed) ? groups.jsonSourcesUsed : [],
         enumerable: false
       }
     });
@@ -2077,6 +2288,11 @@ function extractEbayItemId(details = {}) {
   return urlMatch?.[1] || details["Artikelnummer"] || details["Item number"] || details["eBay item number"] || null;
 }
 
+function extractAliExpressProductId(details = {}) {
+  const urlMatch = location.href.match(/\/item\/(\d+)\.html/i) || location.href.match(/[?&]productId=(\d+)/i);
+  return urlMatch?.[1] || details["Product ID"] || details["Produkt-ID"] || details.productId || details.productID || null;
+}
+
 function extractAmazonProduct(base = {}) {
   const details = getProductDetails();
   const descriptionData = getDescriptionData();
@@ -2086,12 +2302,19 @@ function extractAmazonProduct(base = {}) {
   const breadcrumbs = queryAllText(["#wayfinding-breadcrumbs_feature_div a", "nav[aria-label*='breadcrumb'] a"], document, 12);
   const sellerText = queryText(["#sellerProfileTriggerId", "#merchant-info", "#tabular-buybox-truncate-0", "[data-feature-name='shipsFromSoldBy']"]);
   const fulfilledText = queryText(["#merchant-info", "#tabular-buybox", "#mir-layout-DELIVERY_BLOCK-slot-PRIMARY_DELIVERY_MESSAGE_LARGE"]);
-  const variantGroups = stripVariantNodes(getVariantGroupsForPlatform("amazon"));
-  const selectedCombination = getSelectedAliExpressCombination(getVariantGroupsForPlatform("amazon"));
+  const amazonVariantGroupsWithMeta = getVariantGroupsForPlatform("amazon");
+  const variantGroups = stripVariantNodes(amazonVariantGroupsWithMeta);
+  const selectedCombination = getSelectedAliExpressCombination(amazonVariantGroupsWithMeta);
+  const amazonImages = uniqueList([
+    ...toArray(base.images),
+    normalizeImageUrl(Array.isArray(jsonLd.image) ? jsonLd.image[0] : jsonLd.image),
+    ...getImages()
+  ], 20);
 
   return {
     ...base,
     parserName: "extractAmazonProduct",
+    extractorUsed: "amazon-browser-import",
     title: base.title || jsonLd.name || getTitle(),
     brand: getBrandValue(jsonLd, details),
     asin: extractAsin(details),
@@ -2100,11 +2323,12 @@ function extractAmazonProduct(base = {}) {
     breadcrumbs,
     shortDescription: bullets[0] || pickMeta(["meta[name='description']", "meta[property='og:description']"]),
     longDescription: base.description || descriptionData.text || jsonLd.description || "",
+    descriptionSource: base.description ? "visible_dom" : descriptionData.source || "page_description_candidates",
     bulletPoints: bullets,
     productDetails: details,
     specifications: details,
     mainImage: base.image || normalizeImageUrl(Array.isArray(jsonLd.image) ? jsonLd.image[0] : jsonLd.image),
-    images: base.images,
+    images: amazonImages,
     currentPrice: base.price || getOfferValue(jsonLd, "price"),
     originalPrice: queryText([".basisPrice .a-offscreen", ".a-text-price .a-offscreen", "[data-a-strike='true'] .a-offscreen"]),
     currency: base.currency || getOfferValue(jsonLd, "priceCurrency"),
@@ -2119,6 +2343,10 @@ function extractAmazonProduct(base = {}) {
     variantGroups,
     selectedCombination,
     variants: base.variants,
+    rawVariantGroups: Array.isArray(variantGroups.rawVariantGroups) ? variantGroups.rawVariantGroups : [],
+    amazonAsin: extractAsin(details),
+    amazonVariantSelectorsUsed: Array.isArray(amazonVariantGroupsWithMeta.variantSelectorsUsed) ? amazonVariantGroupsWithMeta.variantSelectorsUsed : [],
+    amazonVariantsFound: variantGroups.reduce((sum, group) => sum + (Array.isArray(group.options) ? group.options.length : 0), 0),
     warningTexts: getComplianceRisks([base.title, base.description, Object.values(details).join(" ")].join(" "))
   };
 }
@@ -2129,13 +2357,17 @@ function extractAliExpressProduct(base = {}) {
   const details = getProductDetails();
   const descriptionData = getDescriptionData();
   const storeUrl = normalizeImageUrl("") || queryAttr(["a[href*='/store/']", "a[href*='store.aliexpress']"], "href");
-  const variantGroups = stripVariantNodes(getAliExpressVariantGroups());
-  const selectedCombination = getSelectedAliExpressCombination(getAliExpressVariantGroups());
+  const aliexpressVariantGroupsWithMeta = getAliExpressVariantGroups();
+  const variantGroups = stripVariantNodes(aliexpressVariantGroupsWithMeta);
+  const selectedCombination = getSelectedAliExpressCombination(aliexpressVariantGroupsWithMeta);
   return {
     ...base,
     parserName: "extractAliExpressProduct",
+    extractorUsed: "aliexpress-browser-import",
+    productId: extractAliExpressProductId(details),
     title: popupData.title || base.title,
     longDescription: popupData.description || base.description || descriptionData.text,
+    descriptionSource: popupData.description ? "visible_popup" : descriptionData.source || "page_description_candidates",
     bulletPoints: cleanTextArray(descriptionData.candidates, 8),
     productDetails: details,
     specifications: details,
@@ -2156,6 +2388,11 @@ function extractAliExpressProduct(base = {}) {
     variantGroups,
     selectedCombination,
     variantItems: base.variants,
+    rawVariantGroups: Array.isArray(variantGroups.rawVariantGroups) ? variantGroups.rawVariantGroups : [],
+    aliexpressProductId: extractAliExpressProductId(details),
+    aliexpressSkuSelectorsUsed: Array.isArray(aliexpressVariantGroupsWithMeta.variantSelectorsUsed) ? aliexpressVariantGroupsWithMeta.variantSelectorsUsed : [],
+    aliexpressJsonSourceUsed: Array.isArray(aliexpressVariantGroupsWithMeta.jsonSourcesUsed) ? aliexpressVariantGroupsWithMeta.jsonSourcesUsed.join(" | ") : "",
+    aliexpressVariantsFound: variantGroups.reduce((sum, group) => sum + (Array.isArray(group.options) ? group.options.length : 0), 0),
     warningTexts: getComplianceRisks([base.title, base.description, Object.values(details).join(" ")].join(" "))
   };
 }
@@ -2692,14 +2929,31 @@ function normalizeProductData(rawData = {}, platform = "generic") {
     product.raw.platformSpecificData.aliexpress = {
       variantGroups: product.variants.variantGroups,
       variantItems: product.variants.variantItems,
-      selectedCombination: product.variants.selectedCombination
+      selectedCombination: product.variants.selectedCombination,
+      aliexpressProductId: emptyToNull(rawData.aliexpressProductId || rawData.productId),
+      aliexpressSkuSelectorsUsed: cleanTextArray(rawData.aliexpressSkuSelectorsUsed, 30),
+      aliexpressJsonSourceUsed: emptyToNull(rawData.aliexpressJsonSourceUsed),
+      aliexpressVariantsFound: rawData.aliexpressVariantsFound ?? product.variants.variantItems.length
+    };
+  }
+  if (platform === "amazon") {
+    product.raw.platformSpecificData.amazon = {
+      variantGroups: product.variants.variantGroups,
+      variantItems: product.variants.variantItems,
+      selectedCombination: product.variants.selectedCombination,
+      amazonAsin: emptyToNull(rawData.amazonAsin || rawData.asin),
+      amazonVariantSelectorsUsed: cleanTextArray(rawData.amazonVariantSelectorsUsed, 30),
+      amazonVariantsFound: rawData.amazonVariantsFound ?? product.variants.variantItems.length
     };
   }
   product.raw.debugSelectors = {
     parser: rawData.parserName || "unknown",
     jsonLdProducts: extractJsonLdProducts().length,
-    descriptionSource: rawData.descriptionSource || "unknown"
+    descriptionSource: rawData.descriptionSource || "unknown",
+    extractorUsed: rawData.extractorUsed || rawData.parserName || "unknown"
   };
+  product.raw.rawVariantGroups = Array.isArray(rawData.rawVariantGroups) ? rawData.rawVariantGroups : [];
+  product.raw.variantGroupsAfterSanitize = product.variants.variantGroups;
   product.raw.extractionWarnings = buildExtractionWarnings(product);
   product.meta.confidenceScore = calculateConfidence(product);
   return product;
@@ -2719,10 +2973,14 @@ function buildExtractionDebug(elyonProduct) {
   return {
     platform: elyonProduct.meta.detectedPlatform,
     parser: elyonProduct.raw.debugSelectors.parser,
+    extractorUsed: elyonProduct.raw.debugSelectors.extractorUsed,
+    descriptionSource: elyonProduct.raw.debugSelectors.descriptionSource,
     confidenceScore: elyonProduct.meta.confidenceScore,
     foundFields,
     missingFields,
     extractionWarnings: elyonProduct.raw.extractionWarnings,
+    rawVariantGroups: Array.isArray(elyonProduct.raw.rawVariantGroups) ? elyonProduct.raw.rawVariantGroups : [],
+    variantGroupsAfterSanitize: Array.isArray(elyonProduct.raw.variantGroupsAfterSanitize) ? elyonProduct.raw.variantGroupsAfterSanitize : [],
     rawProduct: elyonProduct
   };
 }
@@ -2793,6 +3051,7 @@ function detectProduct() {
   return {
     ...legacyProduct,
     detectedPlatform: platform,
+    extractorUsed: rawPlatformProduct.extractorUsed || rawPlatformProduct.parserName || `${platform}-browser-import`,
     elyonProduct,
     extractionDebug
   };
