@@ -65,13 +65,13 @@
     function init(){document.querySelectorAll('[data-target]').forEach(b=>b.addEventListener('click',()=>openScreen(b.dataset.target)));$('menuBtn').onclick=openMenu;$('closeSheet').onclick=closeMenu;$('sheetBackdrop').onclick=closeMenu;$('refreshBtn').onclick=()=>{loadHealth();loadOrders();window.ElyonMobileLive?.refresh?.();renderModuleGrid();toast('Aktualisiert')};$('backupQuick').onclick=runBackup;$('cameraBtn').onclick=startCamera;$('stopCameraBtn').onclick=stopCamera;$('analyzeBtn').onclick=analyzeProduct;$('photoInput').onchange=e=>{const f=e.target.files?.[0];if(!f)return;const reader=new FileReader();reader.onload=()=>{currentImage=reader.result;$('photoPreview').src=currentImage;$('photoPreview').style.display='block';$('cameraPreview').style.display='none';$('scanPlaceholder').style.display='none';$('scannerOverlay').textContent='Foto geladen. Jetzt Produkt analysieren.'};reader.readAsDataURL(f)};$('brainSend').onclick=()=>{const q=$('brainInput').value.trim();if(!q)return;$('chatLog').insertAdjacentHTML('beforeend',`<div class="bubble user">${q.replace(/[<>]/g,'')}</div><div class="bubble ai">Ich prüfe das…</div>`);$('brainInput').value=''};document.querySelectorAll('[data-prompt]').forEach(b=>b.onclick=()=>{$('brainInput').value=b.dataset.prompt;$('brainSend').click()});document.querySelectorAll('[data-action]').forEach(b=>b.onclick=()=>{const a=b.dataset.action;if(a==='scanner')openScreen('scan');if(a==='brain')openScreen('brain');if(a==='orders'){openScreen('orders');loadOrders()}if(a==='health'){openScreen('more');loadHealth();renderModuleGrid()}if(a==='backup')runBackup();if(a==='install')toast('iPhone: Teilen → Zum Home-Bildschirm. Android: Browser-Menü → App installieren.')});$('settingsNotifications').onclick=()=>{enableFeature('pushFoundation');setTimeout(()=>{window.ElyonPushV1?.mount?.();toast('Benachrichtigungen geöffnet.')},250)};$('settingsAutomations').onclick=()=>{enableFeature('agentAutomation');setTimeout(()=>{window.ElyonAgentsV1?.mount?.();toast('Automatisierungen geöffnet.')},250)};$('settingsApi').onclick=()=>{loadHealth();window.ElyonMobileLive?.refresh?.();renderModuleGrid();toast('API & Integrationen geprüft.')};$('settingsData').onclick=()=>{const ideas=JSON.parse(localStorage.getItem('elyon_mobile_product_ideas')||'[]');const queue=JSON.parse(localStorage.getItem('elyon_mobile_agent_queue')||'[]');const notices=JSON.parse(localStorage.getItem('elyon_mobile_notifications')||'[]');toast(`Lokale Daten: ${ideas.length} Ideen, ${queue.length} Agent-Aufgaben, ${notices.length} Meldungen.`)};loadHealth();loadOrders();setTimeout(renderModuleGrid,600)}
     document.addEventListener('DOMContentLoaded',init);
   </script>  <!-- ELYON_MOBILE_MODULES -->
-  <script defer src="/mobile/mobile-live.js?v=1780517487621"></script>
-  <script defer src="/mobile/mobile-flags.js?v=1780517487621"></script>
-  <script defer src="/mobile/mobile-scanner-v2.js?v=1780517487621"></script>
-  <script defer src="/mobile/mobile-brain-v2.js?v=1780517487621"></script>
-  <script defer src="/mobile/mobile-push-v1.js?v=1780517487621"></script>
-  <script defer src="/mobile/mobile-agents-v1.js?v=1780517487621"></script>
-  <script defer src="/mobile/mobile-bootstrap.js?v=1780517487621"></script>
-  <script defer src="/mobile/mobile-more-ui.js?v=1780517487621"></script>
+  <script defer src="/mobile/mobile-live.js?v=1780517747708"></script>
+  <script defer src="/mobile/mobile-flags.js?v=1780517747708"></script>
+  <script defer src="/mobile/mobile-scanner-v2.js?v=1780517747708"></script>
+  <script defer src="/mobile/mobile-brain-v2.js?v=1780517747708"></script>
+  <script defer src="/mobile/mobile-push-v1.js?v=1780517747708"></script>
+  <script defer src="/mobile/mobile-agents-v1.js?v=1780517747708"></script>
+  <script defer src="/mobile/mobile-bootstrap.js?v=1780517747708"></script>
+  <script defer src="/mobile/mobile-more-ui.js?v=1780517747708"></script>
 </body>
 </html>

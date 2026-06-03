@@ -69,7 +69,7 @@ const mobileDestinationPath = path.join(publicRoot, "mobile.html");
 await mkdir(path.dirname(mobileDestinationPath), { recursive: true });
 const mobileHtml = await readFile(mobileSourcePath, "utf8");
 const mobileAppHtml = await readFile(mobileAppSourcePath, "utf8");
-await writeFile(mobileDestinationPath, injectMobileScripts(mobileHtml), "utf8");
+await writeFile(mobileDestinationPath, mobileHtml, "utf8");
 
 const mobilePublicRoot = path.join(publicRoot, "mobile");
 await mkdir(mobilePublicRoot, { recursive: true });
