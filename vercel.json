@@ -58,6 +58,14 @@
       "destination": "/api/env-check?action=health"
     },
     {
+      "source": "/api/mobile-health",
+      "destination": "/api/mobile-health"
+    },
+    {
+      "source": "/api/product-vision",
+      "destination": "/api/product-vision"
+    },
+    {
       "source": "/api/ai-workflow",
       "destination": "/api/agent-engine?action=ai-workflow"
     },

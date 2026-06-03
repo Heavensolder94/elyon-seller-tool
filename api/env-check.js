@@ -208,6 +208,24 @@ function sanitizeGoogleSheetsSettings(input) {
   };
 }
 
+function maskSecret(secret) {
+  const value = String(secret || "").trim();
+  if (!value) return "";
+  if (value.length <= 4) return "****";
+  return `${"*".repeat(Math.max(4, value.length - 4))}${value.slice(-4)}`;
+}
+
+function buildPublicGoogleSheetsSettings(input) {
+  const settings = sanitizeGoogleSheetsSettings(input);
+  const token = settings.token;
+  return {
+    ...settings,
+    token: "",
+    hasToken: Boolean(token),
+    tokenPreview: maskSecret(token),
+  };
+}
+
 async function handleGoogleSheetsSyncSettings(req, res) {
   const { getSettingsStoreDescription, readSettings, writeSettings } = await import("../lib/google-sheets-sync-settings-store.js");
 
@@ -215,7 +233,7 @@ async function handleGoogleSheetsSyncSettings(req, res) {
     const stored = await readSettings();
     return res.status(200).json({
       ok: true,
-      settings: stored ? sanitizeGoogleSheetsSettings(stored) : null,
+      settings: stored ? buildPublicGoogleSheetsSettings(stored) : null,
       store: getSettingsStoreDescription(),
     });
   }
@@ -233,7 +251,7 @@ async function handleGoogleSheetsSyncSettings(req, res) {
 
     return res.status(200).json({
       ok: true,
-      settings: payload,
+      settings: buildPublicGoogleSheetsSettings(payload),
       store: getSettingsStoreDescription(),
     });
   }

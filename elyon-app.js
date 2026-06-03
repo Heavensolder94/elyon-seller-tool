@@ -1973,7 +1973,6 @@ async function refreshGoogleSheetsSyncSettingsForm(){
       : null;
     if(cloudSettings){
       if(cloudSettings.url) await setStoredGoogleSheetsSyncUrl(String(cloudSettings.url || ''));
-      if(cloudSettings.token) await setStoredGoogleSheetsSyncToken(String(cloudSettings.token || ''));
       if(cloudSettings.lastInventorySyncAt !== undefined) localStorage.setItem(GOOGLE_SHEETS_SYNC_KEYS.inventoryAt, String(cloudSettings.lastInventorySyncAt || ''));
       if(cloudSettings.lastSupplierSyncAt !== undefined) localStorage.setItem(GOOGLE_SHEETS_SYNC_KEYS.supplierAt, String(cloudSettings.lastSupplierSyncAt || ''));
       if(cloudSettings.lastSalesSyncAt !== undefined) localStorage.setItem(GOOGLE_SHEETS_SYNC_KEYS.salesAt, String(cloudSettings.lastSalesSyncAt || ''));

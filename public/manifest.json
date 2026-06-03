@@ -1,7 +1,7 @@
 {
   "name": "Elyon Mobile Command Center",
   "short_name": "Elyon",
-  "start_url": "/mobile.html",
+  "start_url": "/mobile/index.html",
   "display": "standalone",
   "background_color": "#020617",
   "theme_color": "#020617",

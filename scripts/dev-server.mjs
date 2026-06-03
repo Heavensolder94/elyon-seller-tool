@@ -159,12 +159,15 @@ function buildApiRoute(pathname, query) {
     { match: /^\/api\/ping$/, module: "api/env-check.js" },
     { match: /^\/api\/health$/, module: "api/env-check.js" },
     { match: /^\/api\/env-check$/, module: "api/env-check.js" },
+    { match: /^\/api\/mobile-health$/, module: "api/mobile-health.js" },
+    { match: /^\/api\/product-vision$/, module: "api/product-vision.js" },
     { match: /^\/api\/google-sheets-sync$/, module: "api/env-check.js" },
     { match: /^\/api\/google-sheets-sync-settings$/, module: "api/env-check.js" },
     { match: /^\/api\/cj(?:\/(status|search|product|detail))?$/, module: "api/cj.js" },
     { match: /^\/api\/source\/analyze$/, module: "api/cj.js" },
     { match: /^\/api\/elyon-soul$/, module: "api/elyon-soul.js" },
     { match: /^\/api\/agent-engine$/, module: "api/agent-engine.js" },
+    { match: /^\/api\/ai-workflow$/, module: "api/agent-engine.js" },
     { match: /^\/api\/ai-router$/, module: "api/ai.js" },
     { match: /^\/api\/ai(?:\/(listing-optimizer|product-search))?$/, module: "api/ai.js" },
     { match: /^\/api\/google-drive(?:\/(status|auth-url|upload-backup|import-sheet-csv|oauth\/start|oauth\/callback))?$/, module: "api/google-drive.js" },
@@ -188,6 +191,9 @@ function buildApiRoute(pathname, query) {
     }
     if (route.module === "api/env-check.js" && /^\/api\/(?:ping|health)$/.test(clean)) {
       nextQuery.action = "health";
+    }
+    if (route.module === "api/agent-engine.js" && clean === "/api/ai-workflow") {
+      nextQuery.action = "ai-workflow";
     }
     if (route.module === "api/env-check.js" && clean === "/api/google-sheets-sync-settings") {
       nextQuery.action = "google-sheets-sync-settings";
