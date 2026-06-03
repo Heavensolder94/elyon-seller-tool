@@ -64,9 +64,11 @@ for (const [source, destination] of filesToMirror) {
 }
 
 const mobileSourcePath = path.join(appRoot, "mobile.html");
+const mobileAppSourcePath = path.join(appRoot, "mobile-app.html");
 const mobileDestinationPath = path.join(publicRoot, "mobile.html");
 await mkdir(path.dirname(mobileDestinationPath), { recursive: true });
 const mobileHtml = await readFile(mobileSourcePath, "utf8");
+const mobileAppHtml = await readFile(mobileAppSourcePath, "utf8");
 await writeFile(mobileDestinationPath, injectMobileScripts(mobileHtml), "utf8");
 
 const mobilePublicRoot = path.join(publicRoot, "mobile");
@@ -81,7 +83,7 @@ for (const file of mobileModuleScripts) {
 }
 
 const mobileFolderIndexPath = path.join(mobilePublicRoot, "index.html");
-await writeFile(mobileFolderIndexPath, injectMobileScripts(mobileHtml, "/mobile/"), "utf8");
+await writeFile(mobileFolderIndexPath, injectMobileScripts(mobileAppHtml, "/mobile/"), "utf8");
 
 const envStatus = {
   GOOGLE_CLIENT_ID: Boolean(process.env.GOOGLE_CLIENT_ID),

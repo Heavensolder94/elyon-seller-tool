@@ -87,7 +87,7 @@
       features: Object.fromEntries(Object.entries(flags || {}).map(([key, value]) => [key, Boolean(value?.enabled)])),
       safety: {
         mode: 'advisory-only',
-        note: 'Keine autonomen Live-Aktionen. Nur Analyse, Vorschläge und Aufgabenentwürfe.',
+        note: 'Keine autonomen Live-Aktionen. Nur Analyse, Vorschlaege und Aufgabenentwuerfe.',
       },
     };
   }
