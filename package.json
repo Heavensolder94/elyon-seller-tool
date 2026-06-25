@@ -7,9 +7,14 @@
     "prepare:web": "npm run check:layout && node scripts/prepare-vercel.mjs",
     "start": "node scripts/dev-server.mjs",
     "dev": "npm run start",
+    "launcher": "electron launcher/main.cjs",
+    "launcher:terminal": "node scripts/elyon-launcher.mjs",
     "build": "npm run prepare:web"
   },
   "dependencies": {
     "openai": "^4.0.0"
+  },
+  "devDependencies": {
+    "electron": "^31.0.0"
   }
 }
