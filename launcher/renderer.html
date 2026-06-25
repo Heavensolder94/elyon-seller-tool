@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Elyon Launcher</title>
+    <link rel="stylesheet" href="renderer.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero">
+        <div>
+          <p class="eyebrow">Elyon Business System</p>
+          <h1>🚀 Elyon Launcher</h1>
+          <p class="subtitle">Starte, synchronisiere und prüfe dein Elyon Seller Tool von einem Ort.</p>
+        </div>
+        <div class="badge" id="rootPath">Lade Projekt...</div>
+      </section>
+
+      <section class="grid">
+        <article class="card">
+          <h2>Status</h2>
+          <div class="status-list">
+            <div class="status-row"><span id="projectDot" class="dot"></span><span>Projektordner</span><strong id="projectText">...</strong></div>
+            <div class="status-row"><span id="envDot" class="dot"></span><span>API-Konfiguration</span><strong id="envText">...</strong></div>
+            <div class="status-row"><span id="modulesDot" class="dot"></span><span>Node-Pakete</span><strong id="modulesText">...</strong></div>
+          </div>
+          <button class="primary" id="refreshBtn">Status aktualisieren</button>
+        </article>
+
+        <article class="card actions">
+          <h2>Aktionen</h2>
+          <button id="startBtn">▶ Elyon starten</button>
+          <button id="syncBtn">⬇ GitHub synchronisieren</button>
+          <button id="installBtn">📦 Pakete installieren</button>
+          <button id="browserBtn">🌐 Browser öffnen</button>
+          <button id="folderBtn">📁 Projektordner öffnen</button>
+          <button id="stopBtn" class="danger">■ Server stoppen</button>
+        </article>
+      </section>
+
+      <section class="card console-card">
+        <div class="console-head">
+          <h2>Konsole</h2>
+          <button id="clearBtn" class="ghost">Leeren</button>
+        </div>
+        <pre id="console">Bereit. Klicke auf „Elyon starten“.\n</pre>
+      </section>
+    </main>
+    <script src="renderer.js"></script>
+  </body>
+</html>
