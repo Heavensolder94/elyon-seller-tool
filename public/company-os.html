@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Elyon Company OS 1.0</title>
+  <style>
+    :root{--bg:#020617;--panel:rgba(15,23,42,.78);--line:rgba(255,255,255,.12);--text:#e5e7eb;--muted:#94a3b8;--blue:#60a5fa;--green:#86efac;--yellow:#fde68a;--red:#fca5a5}*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at top left,rgba(59,130,246,.35),transparent 30%),linear-gradient(135deg,#020617,#111827);color:var(--text);font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;padding:28px}.shell{max-width:1280px;margin:0 auto}.hero{display:flex;justify-content:space-between;gap:20px;align-items:flex-end;margin-bottom:22px}.badge{display:inline-flex;border:1px solid var(--line);border-radius:999px;padding:8px 12px;background:rgba(255,255,255,.07);color:#bfdbfe;font-weight:800;font-size:13px}h1{font-size:clamp(34px,6vw,64px);line-height:1;letter-spacing:-.06em;margin:14px 0 10px}.subtitle{color:#cbd5e1;line-height:1.6;max-width:760px}.grid{display:grid;grid-template-columns:1.15fr .85fr;gap:18px;align-items:start}.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}.card,.metric,.department,.task{border:1px solid var(--line);background:var(--panel);border-radius:24px;padding:18px;box-shadow:0 24px 70px rgba(0,0,0,.28);backdrop-filter:blur(16px)}.metric small{display:block;color:var(--muted);font-size:12px;margin-bottom:7px}.metric strong{font-size:28px;letter-spacing:-.04em}.section-title{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}h2{margin:0;font-size:20px;letter-spacing:-.02em}h3{margin:0 0 7px;font-size:16px}.muted{color:var(--muted);font-size:13px;line-height:1.5}.departments{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.department{padding:16px}.dept-top{display:flex;justify-content:space-between;gap:10px;align-items:center}.pill{display:inline-flex;border:1px solid var(--line);border-radius:999px;background:rgba(255,255,255,.07);padding:5px 9px;font-size:12px;color:#cbd5e1;font-weight:800}.pill.green{color:var(--green);border-color:rgba(34,197,94,.3);background:rgba(34,197,94,.12)}.pill.yellow{color:var(--yellow);border-color:rgba(250,204,21,.3);background:rgba(250,204,21,.11)}.pill.red{color:var(--red);border-color:rgba(239,68,68,.3);background:rgba(239,68,68,.12)}.toolbar{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0}input,select,textarea{width:100%;padding:12px 13px;border-radius:15px;border:1px solid var(--line);background:rgba(2,6,23,.72);color:var(--text);outline:none;font-size:14px}textarea{min-height:90px;resize:vertical}.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}button{border:0;border-radius:15px;padding:12px 14px;background:linear-gradient(135deg,#3b82f6,#8b5cf6);color:#fff;font-weight:900;cursor:pointer}.secondary{background:rgba(255,255,255,.09);border:1px solid var(--line)}.task{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:start;padding:14px;margin-bottom:10px}.task strong{display:block;margin-bottom:4px}.task-actions{display:flex;gap:7px}.mini{font-size:12px;padding:8px 10px;border-radius:11px}.brief{font-size:15px;line-height:1.65;color:#e2e8f0;white-space:pre-wrap}.footer-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}@media(max-width:900px){body{padding:18px}.hero,.grid{display:block}.cards,.departments{grid-template-columns:1fr}.card{margin-bottom:16px}}
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <div>
+        <span class="badge">🏢 Elyon Company OS 1.0</span>
+        <h1>Virtuelle Firmenzentrale</h1>
+        <p class="subtitle">Dein schlankes Business-Cockpit fuer eBay, Dropshipping und Elyon Seller Tool. Du bist CEO; das System strukturiert Aufgaben, Chancen, Warnungen und Tagesfokus.</p>
+      </div>
+      <button onclick="resetDemo()" class="secondary">Demo-Daten zuruecksetzen</button>
+    </section>
+
+    <section class="cards">
+      <div class="metric"><small>Tagesfokus</small><strong id="focusMetric">0</strong></div>
+      <div class="metric"><small>Chancen</small><strong id="opportunityMetric">0</strong></div>
+      <div class="metric"><small>Warnungen</small><strong id="warningMetric">0</strong></div>
+      <div class="metric"><small>Offene Aufgaben</small><strong id="taskMetric">0</strong></div>
+    </section>
+
+    <section class="grid">
+      <div>
+        <div class="card">
+          <div class="section-title"><h2>🤖 CEO Assistant</h2><span class="pill green">aktiv</span></div>
+          <div class="brief" id="dailyBrief"></div>
+          <div class="footer-actions">
+            <button onclick="generateBrief()">Briefing aktualisieren</button>
+            <button class="secondary" onclick="exportState()">Export JSON</button>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:18px">
+          <div class="section-title"><h2>🏢 Abteilungen</h2><span class="pill">Version 1.0</span></div>
+          <div class="departments" id="departments"></div>
+        </div>
+      </div>
+
+      <aside>
+        <div class="card">
+          <div class="section-title"><h2>📋 Neue Aufgabe</h2></div>
+          <input id="taskTitle" placeholder="z.B. Erstes eBay-Listing vorbereiten" />
+          <div class="row">
+            <select id="taskDepartment"></select>
+            <select id="taskPriority"><option value="high">Hoch</option><option value="medium">Mittel</option><option value="low">Niedrig</option></select>
+          </div>
+          <button class="full" onclick="addTask()">Aufgabe speichern</button>
+        </div>
+
+        <div class="card" style="margin-top:18px">
+          <div class="section-title"><h2>🎯 Aufgaben</h2><span class="pill" id="taskCountPill">0 offen</span></div>
+          <div id="tasks"></div>
+        </div>
+      </aside>
+    </section>
+  </main>
+
+  <script>
+    const STORAGE_KEY = 'elyon_company_os_v1';
+    const departments = [
+      {id:'ceo', icon:'🤖', name:'CEO Assistant', desc:'Tagesfokus, Prioritaeten und Entscheidungsvorlagen'},
+      {id:'procurement', icon:'📦', name:'Einkauf', desc:'Produktideen, Lieferanten, Einkaufspreise und Versandkosten'},
+      {id:'sales', icon:'🛒', name:'Vertrieb / eBay', desc:'Listings, Preise, Status und Verkaufsworkflow'},
+      {id:'marketing', icon:'📈', name:'Marketing', desc:'SEO, Texte, Bundles und Social-Media-Ideen'},
+      {id:'finance', icon:'💰', name:'Finanzen', desc:'Gebuehren, Cashflow, Gewinn und Ausgaben'},
+      {id:'projects', icon:'📋', name:'Projekte', desc:'Roadmap, Aufgaben, Prioritaeten und Umsetzung'},
+      {id:'development', icon:'⚙️', name:'Entwicklung', desc:'Bugs, Features, APIs und Chrome Extension'}
+    ];
+    const seed = {
+      opportunities:[{title:'Erstes testfaehiges eBay-Produkt finden', score:72}],
+      warnings:[{title:'Keine automatische Bestellung ohne CEO-Freigabe'}],
+      tasks:[
+        {id:crypto.randomUUID(), title:'3 Produktideen fuer eBay sammeln', departmentId:'procurement', priority:'high', status:'today'},
+        {id:crypto.randomUUID(), title:'Marge fuer ein Produkt sauber berechnen', departmentId:'finance', priority:'high', status:'today'},
+        {id:crypto.randomUUID(), title:'Listing-Entwurf fuer ein Produkt vorbereiten', departmentId:'sales', priority:'medium', status:'open'}
+      ]
+    };
+    let state = loadState();
+    function loadState(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY)) || seed}catch{return seed}}
+    function save(){localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); render();}
+    function departmentName(id){return departments.find(d=>d.id===id)?.name || id}
+    function priorityPill(priority){return priority==='high'?'red':priority==='medium'?'yellow':'green'}
+    function render(){
+      document.getElementById('focusMetric').textContent = state.tasks.filter(t=>t.status==='today').length;
+      document.getElementById('opportunityMetric').textContent = state.opportunities.length;
+      document.getElementById('warningMetric').textContent = state.warnings.length;
+      document.getElementById('taskMetric').textContent = state.tasks.filter(t=>t.status!=='done').length;
+      document.getElementById('taskCountPill').textContent = state.tasks.filter(t=>t.status!=='done').length + ' offen';
+      document.getElementById('departments').innerHTML = departments.map(d=>`<article class="department"><div class="dept-top"><h3>${d.icon} ${d.name}</h3><span class="pill green">bereit</span></div><p class="muted">${d.desc}</p></article>`).join('');
+      document.getElementById('taskDepartment').innerHTML = departments.filter(d=>d.id!=='ceo').map(d=>`<option value="${d.id}">${d.name}</option>`).join('');
+      document.getElementById('tasks').innerHTML = state.tasks.filter(t=>t.status!=='done').map(t=>`<article class="task"><div><strong>${t.title}</strong><span class="muted">${departmentName(t.departmentId)}</span><div style="margin-top:8px"><span class="pill ${priorityPill(t.priority)}">${t.priority}</span> <span class="pill">${t.status}</span></div></div><div class="task-actions"><button class="mini secondary" onclick="markDone('${t.id}')">fertig</button></div></article>`).join('') || '<p class="muted">Keine offenen Aufgaben.</p>';
+      generateBrief(false);
+    }
+    function generateBrief(animate=true){
+      const today = state.tasks.filter(t=>t.status==='today' && t.status!=='done');
+      const high = state.tasks.filter(t=>t.priority==='high' && t.status!=='done');
+      const lines = [
+        'Guten Morgen Raoul.',
+        '',
+        `Heute im Fokus: ${today.length || high.length} wichtige Aufgabe(n).`,
+        `Neue Chancen: ${state.opportunities.length}. Warnungen: ${state.warnings.length}.`,
+        '',
+        'Empfehlung:',
+        high[0] ? `1. ${high[0].title}` : '1. Erstes Produkt fuer eBay pruefen.',
+        high[1] ? `2. ${high[1].title}` : '2. Marge und Versandkosten kontrollieren.',
+        high[2] ? `3. ${high[2].title}` : '3. Listing-Entwurf vorbereiten.',
+        '',
+        'CEO-Regel: Keine Bestellung, kein Listing und keine Kundennachricht ohne deine Freigabe.'
+      ];
+      document.getElementById('dailyBrief').textContent = lines.join('\n');
+    }
+    function addTask(){
+      const title = document.getElementById('taskTitle').value.trim();
+      if(!title) return;
+      state.tasks.unshift({id:crypto.randomUUID(), title, departmentId:document.getElementById('taskDepartment').value, priority:document.getElementById('taskPriority').value, status:'open'});
+      document.getElementById('taskTitle').value='';
+      save();
+    }
+    function markDone(id){state.tasks = state.tasks.map(t=>t.id===id?{...t,status:'done'}:t); save();}
+    function resetDemo(){localStorage.setItem(STORAGE_KEY, JSON.stringify(seed)); state = loadState(); render();}
+    function exportState(){
+      const blob = new Blob([JSON.stringify(state,null,2)], {type:'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href=url; a.download='elyon-company-os-v1.json'; a.click(); URL.revokeObjectURL(url);
+    }
+    render();
+  </script>
+</body>
+</html>
