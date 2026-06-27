@@ -30,46 +30,6 @@ function injectMobileScripts(html) {
   return cleaned.includes("</body>") ? cleaned.replace("</body>", `  ${scriptBlock}\n</body>`) : `${cleaned}\n${scriptBlock}\n`;
 }
 
-function injectCompanyOsPurpose(html) {
-  const purposeStyles = `
-    .purpose-card{background:linear-gradient(180deg,rgba(96,165,250,.16),rgba(139,92,246,.08));border:1px solid rgba(96,165,250,.26)}
-    .purpose-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
-    .purpose-box{padding:13px 14px;border-radius:17px;background:rgba(2,6,23,.42);border:1px solid rgba(255,255,255,.1)}
-    .purpose-box strong{display:block;margin-bottom:6px;color:#bfdbfe}
-    .purpose-list{display:grid;gap:7px;margin-top:12px;color:#e2e8f0;font-size:13px;line-height:1.45}
-    .purpose-question{margin-top:14px;padding:14px;border-radius:18px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.24);color:#bbf7d0;font-weight:900}
-    @media(max-width:980px){.purpose-grid{grid-template-columns:1fr}}
-  `;
-
-  const purposeCard = `
-          <div class="card span-12 purpose-card">
-            <h2>Warum gibt es Elyon Company OS?</h2>
-            <p class="muted">Elyon Company OS ist nicht einfach noch ein weiteres Tool. Es ist die virtuelle Firmenzentrale ueber deinem Seller Tool, damit dein Business nicht in ChatGPT-Chats, GitHub, eBay, Browser-Tabs und Kopfchaos zerfaellt.</p>
-            <div class="purpose-grid">
-              <div class="purpose-box">
-                <strong>Elyon Seller Tool</strong>
-                <p class="muted">Produkte, Listings, Import, KI, eBay, Lieferanten und technische Workflows.</p>
-              </div>
-              <div class="purpose-box">
-                <strong>Elyon Company OS</strong>
-                <p class="muted">Fokus, Aufgaben, Projekte, Entscheidungen, Prioritaeten, Warnungen und Cashflow.</p>
-              </div>
-            </div>
-            <div class="purpose-list">
-              <div>✅ Weniger Kopfchaos.</div>
-              <div>✅ Mehr Fokus.</div>
-              <div>✅ Schneller Produkte listen.</div>
-              <div>✅ Bessere Entscheidungen.</div>
-              <div>✅ Klarer Weg zum ersten Cashflow.</div>
-            </div>
-            <div class="purpose-question">Zentrale CEO-Frage: Was bringt mich heute naeher zum ersten Verkauf?</div>
-          </div>
-`;
-
-  const withStyles = html.replace("    @media(max-width:980px){", `${purposeStyles}\n\n    @media(max-width:980px){`);
-  return withStyles.replace('        <div class="grid">', `        <div class="grid">\n${purposeCard}`);
-}
-
 const filesToMirror = [
   ["elyon-clean.css", "public/elyon-clean.css"],
   ["elyon-ui.js", "public/elyon-ui.js"],
@@ -85,6 +45,7 @@ const filesToMirror = [
   ["mobile-bootstrap.js", "public/mobile-bootstrap.js"],
   ["mobile-more-ui.js", "public/mobile-more-ui.js"],
   ["manifest.json", "public/manifest.json"],
+  ["standalone/company-os-v1.html", "public/standalone/company-os-v1.html"],
 ];
 
 for (const [source, destination] of filesToMirror) {
@@ -93,12 +54,6 @@ for (const [source, destination] of filesToMirror) {
   await mkdir(path.dirname(destinationPath), { recursive: true });
   await copyFile(sourcePath, destinationPath);
 }
-
-const companyOsSourcePath = path.join(appRoot, "standalone/company-os-v1.html");
-const companyOsDestinationPath = path.join(publicRoot, "standalone/company-os-v1.html");
-await mkdir(path.dirname(companyOsDestinationPath), { recursive: true });
-const companyOsHtml = await readFile(companyOsSourcePath, "utf8");
-await writeFile(companyOsDestinationPath, injectCompanyOsPurpose(companyOsHtml), "utf8");
 
 const mobileSourcePath = path.join(appRoot, "mobile.html");
 const mobileDestinationPath = path.join(publicRoot, "mobile.html");
@@ -114,4 +69,4 @@ const envStatus = {
 };
 
 console.log("Google env status:", JSON.stringify(envStatus));
-console.log("Prepared Vercel static output, including mobile PWA files, module scripts, and standalone Company OS with purpose card.");
+console.log("Prepared Vercel static output, including mobile PWA files, module scripts, and Company OS Lite.");
