@@ -45,6 +45,7 @@ const filesToMirror = [
   ["mobile-bootstrap.js", "public/mobile-bootstrap.js"],
   ["mobile-more-ui.js", "public/mobile-more-ui.js"],
   ["manifest.json", "public/manifest.json"],
+  ["standalone/company-os-v1.html", "public/standalone/company-os-v1.html"],
 ];
 
 for (const [source, destination] of filesToMirror) {
@@ -68,4 +69,4 @@ const envStatus = {
 };
 
 console.log("Google env status:", JSON.stringify(envStatus));
-console.log("Prepared Vercel static output, including mobile PWA files and module scripts.");
+console.log("Prepared Vercel static output, including mobile PWA files, module scripts, and standalone Company OS.");
