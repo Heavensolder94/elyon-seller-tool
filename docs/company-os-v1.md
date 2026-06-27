@@ -10,6 +10,40 @@ Der Fokus liegt nicht auf maximaler Automatisierung, sondern auf einem sauberen 
 
 ---
 
+## Warum Company OS?
+
+Elyon Company OS ist nicht einfach noch ein weiteres Tool. Es ist die Schaltzentrale ueber dem eigentlichen Seller Tool.
+
+```text
+Elyon Seller Tool
+= Produkte, Listings, Import, KI, eBay, Lieferanten
+
+Elyon Company OS
+= Fokus, Aufgaben, Projekte, Entscheidungen, Prioritaeten, Cashflow
+```
+
+Der praktische Nutzen:
+
+```text
+Weniger Kopfchaos.
+Mehr Fokus.
+Schneller Produkte listen.
+Bessere Entscheidungen.
+Klarer Weg zum ersten Cashflow.
+```
+
+Company OS soll verhindern, dass der Aufbau des Tools wichtiger wird als der Aufbau des Business.
+
+Die zentrale Frage lautet jeden Tag:
+
+```text
+Was bringt mich heute naeher zum ersten Verkauf?
+```
+
+Dafuer buendelt Company OS Produktideen, Aufgaben, eBay-Listings, Projekte, Finanzen und Warnungen an einem Ort.
+
+---
+
 ## 1. Grundstruktur
 
 ```text
