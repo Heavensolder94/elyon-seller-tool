@@ -10,6 +10,14 @@ Sie ist bewusst vom Haupt-Tool getrennt, damit du sie ohne Codex, ohne Haupt-PC 
 standalone/company-os-v1.html
 ```
 
+Nach Merge und erfolgreichem Vercel-Deployment wird die Datei beim Build automatisch nach `public/standalone/company-os-v1.html` gespiegelt.
+
+Dann sollte sie hier erreichbar sein:
+
+```text
+https://elyon-seller-tool.vercel.app/standalone/company-os-v1.html
+```
+
 ## Ziel
 
 Company OS 1.0 soll dir helfen, dein Dropshipping- und eBay-Business wie eine kleine virtuelle Firma zu strukturieren.
@@ -30,7 +38,20 @@ Wichtig: Die App fuehrt nichts automatisch aus. Sie veroeffentlicht keine eBay-A
 
 ## Starten
 
-### Variante 1: Direkt lokal oeffnen
+### Variante 1: Online ueber Vercel
+
+Voraussetzung:
+
+1. Der Pull Request wurde in `main` gemerged.
+2. Vercel hat danach neu deployed.
+
+Dann oeffnen:
+
+```text
+https://elyon-seller-tool.vercel.app/standalone/company-os-v1.html
+```
+
+### Variante 2: Direkt lokal oeffnen
 
 1. Datei `standalone/company-os-v1.html` herunterladen.
 2. Datei doppelklicken.
@@ -38,7 +59,7 @@ Wichtig: Die App fuehrt nichts automatisch aus. Sie veroeffentlicht keine eBay-A
 
 Es ist kein Server noetig.
 
-### Variante 2: Im Repo oeffnen
+### Variante 3: Im Repo oeffnen
 
 Wenn das Repo auf deinem Laptop liegt:
 
@@ -262,6 +283,7 @@ Status:
 - lauffaehige Einzeldatei
 - lokale Speicherung
 - Export / Import
+- Vercel-Publishing vorbereitet ueber `scripts/prepare-vercel.mjs`
 - noch keine API-Anbindung
 - noch keine eBay-Automation
 - noch keine echte KI-Anbindung
