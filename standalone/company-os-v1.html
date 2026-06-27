@@ -3,619 +3,125 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Elyon Company OS 1.0</title>
+  <title>Elyon Company OS Lite</title>
   <style>
-    :root{
-      --bg1:#020617;
-      --bg2:#0f172a;
-      --card:rgba(15,23,42,.78);
-      --card2:rgba(2,6,23,.62);
-      --text:#e5e7eb;
-      --muted:#94a3b8;
-      --line:rgba(255,255,255,.12);
-      --blue:#60a5fa;
-      --violet:#8b5cf6;
-      --green:#22c55e;
-      --yellow:#facc15;
-      --red:#ef4444;
-    }
-
+    :root{--bg:#020617;--card:rgba(15,23,42,.82);--line:rgba(255,255,255,.12);--text:#e5e7eb;--muted:#94a3b8;--blue:#60a5fa;--green:#22c55e;--red:#ef4444;--yellow:#facc15}
     *{box-sizing:border-box;margin:0;padding:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
-
-    body{
-      min-height:100vh;
-      background:
-        radial-gradient(circle at top left,rgba(59,130,246,.32),transparent 34%),
-        radial-gradient(circle at top right,rgba(139,92,246,.22),transparent 36%),
-        linear-gradient(135deg,var(--bg1),var(--bg2) 52%,#111827);
-      color:var(--text);
-      padding:24px;
-    }
-
-    .app{max-width:1320px;margin:0 auto;display:grid;gap:18px}
-
-    .hero{
-      display:flex;
-      justify-content:space-between;
-      gap:18px;
-      align-items:flex-end;
-      padding:22px;
-      border:1px solid var(--line);
-      border-radius:28px;
-      background:rgba(255,255,255,.055);
-      box-shadow:0 24px 80px rgba(0,0,0,.32);
-      backdrop-filter:blur(18px);
-    }
-
-    .badge{display:inline-flex;gap:8px;align-items:center;margin-bottom:12px;padding:8px 12px;border-radius:999px;background:rgba(96,165,250,.12);border:1px solid rgba(96,165,250,.24);color:#bfdbfe;font-weight:800;font-size:13px}
-    h1{font-size:clamp(32px,5vw,56px);line-height:1;letter-spacing:-.06em;margin-bottom:10px}
-    .subtitle{max-width:760px;color:#cbd5e1;line-height:1.55;font-size:16px}
-    .hero-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}
-
-    button,.button-like{
-      border:0;
-      border-radius:15px;
-      padding:12px 15px;
-      background:linear-gradient(135deg,#3b82f6,#8b5cf6);
-      color:white;
-      font-weight:850;
-      font-size:14px;
-      cursor:pointer;
-      transition:.16s ease;
-      text-decoration:none;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      gap:8px;
-    }
-    button:hover,.button-like:hover{transform:translateY(-1px);filter:brightness(1.08)}
-    .secondary{background:rgba(255,255,255,.09);border:1px solid var(--line)}
-    .danger{background:rgba(239,68,68,.14);border:1px solid rgba(239,68,68,.35);color:#fecaca}
-    .success{background:rgba(34,197,94,.14);border:1px solid rgba(34,197,94,.35);color:#bbf7d0}
-
-    .nav{display:flex;gap:10px;flex-wrap:wrap;position:sticky;top:0;z-index:20;padding:10px 0;background:linear-gradient(180deg,rgba(2,6,23,.96),rgba(2,6,23,.64),transparent);backdrop-filter:blur(12px)}
-    .nav button{background:rgba(255,255,255,.08);border:1px solid var(--line);color:#dbeafe;padding:11px 13px}
-    .nav button.active{background:linear-gradient(135deg,#3b82f6,#8b5cf6);color:white}
-
-    .panel{display:none}
-    .panel.active{display:block}
-
-    .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:16px}
-    .card{background:var(--card);border:1px solid var(--line);border-radius:24px;padding:18px;box-shadow:0 20px 60px rgba(0,0,0,.25);backdrop-filter:blur(16px)}
-    .span-3{grid-column:span 3}.span-4{grid-column:span 4}.span-5{grid-column:span 5}.span-6{grid-column:span 6}.span-7{grid-column:span 7}.span-8{grid-column:span 8}.span-12{grid-column:span 12}
-    .card h2{font-size:20px;margin-bottom:8px;letter-spacing:-.03em}
-    .card h3{font-size:15px;margin:12px 0 8px;color:#bfdbfe}
-    .muted{color:var(--muted);font-size:13px;line-height:1.5}
-
-    .metric{padding:16px;border-radius:20px;background:rgba(255,255,255,.065);border:1px solid rgba(255,255,255,.1)}
-    .metric small{display:block;color:#94a3b8;font-size:12px;margin-bottom:7px}
-    .metric strong{font-size:28px;letter-spacing:-.04em}
-
-    .department-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
-    .department{padding:15px;border-radius:20px;background:rgba(2,6,23,.44);border:1px solid rgba(255,255,255,.1);display:grid;gap:8px}
-    .department-top{display:flex;justify-content:space-between;gap:10px;align-items:center}
-    .department b{font-size:15px}
-    .department span{font-size:22px}
-
-    .list{display:grid;gap:10px;margin-top:12px}
-    .item{padding:13px 14px;border-radius:17px;background:rgba(2,6,23,.46);border:1px solid rgba(255,255,255,.09);display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
-    .item-main{min-width:0;display:grid;gap:4px}
-    .item-main strong{line-height:1.32;overflow-wrap:anywhere}
-    .item-meta{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end;align-items:flex-start;flex:0 0 auto}
-
-    .pill{display:inline-flex;align-items:center;gap:6px;padding:6px 9px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.1);font-size:12px;color:#dbeafe;font-weight:750}
-    .prio-hoch,.prio-kritisch{color:#fecaca;background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.25)}
-    .prio-normal{color:#fde68a;background:rgba(250,204,21,.1);border-color:rgba(250,204,21,.22)}
-    .status-erledigt,.status-freigegeben,.status-aktiv{color:#bbf7d0;background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.25)}
-    .status-blockiert,.status-abgelehnt{color:#fecaca;background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.25)}
-
-    label{display:block;font-size:12px;color:#cbd5e1;margin:0 0 7px;font-weight:750}
-    input,select,textarea{width:100%;padding:12px 13px;border-radius:14px;border:1px solid rgba(255,255,255,.14);background:rgba(2,6,23,.62);color:var(--text);outline:none;font-size:14px;margin-bottom:12px}
-    input:focus,select:focus,textarea:focus{border-color:#60a5fa;box-shadow:0 0 0 4px rgba(96,165,250,.13)}
-    textarea{min-height:86px;resize:vertical}
-    .form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
-    .form-grid .full{grid-column:1/-1}
-    .action-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:4px}
-
-    .feed{display:grid;gap:10px;margin-top:12px;max-height:430px;overflow:auto;padding-right:3px}
-    .feed-entry{padding:12px 13px;border-radius:16px;background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.09)}
-    .feed-entry small{display:block;color:#94a3b8;margin-top:4px}
-
-    .brief{white-space:pre-wrap;line-height:1.55;padding:16px;border-radius:18px;background:rgba(2,6,23,.48);border:1px solid rgba(255,255,255,.1);margin-top:12px;color:#e2e8f0}
-    .empty{padding:18px;border-radius:18px;border:1px dashed rgba(255,255,255,.18);background:rgba(255,255,255,.04);color:#94a3b8;text-align:center;line-height:1.45}
-
-    .table-wrap{overflow:auto;margin-top:12px;border-radius:18px;border:1px solid rgba(255,255,255,.1)}
-    table{width:100%;border-collapse:collapse;min-width:720px;background:rgba(2,6,23,.36)}
-    th,td{text-align:left;padding:12px;border-bottom:1px solid rgba(255,255,255,.08);font-size:13px;vertical-align:top}
-    th{color:#bfdbfe;background:rgba(255,255,255,.05);font-size:12px;text-transform:uppercase;letter-spacing:.05em}
-    tr:last-child td{border-bottom:0}
-
-    .mini-note{margin-top:10px;color:#94a3b8;font-size:12px;line-height:1.45}
-
-    @media(max-width:980px){
-      body{padding:14px}
-      .hero{align-items:flex-start;flex-direction:column}
-      .hero-actions{justify-content:flex-start}
-      .span-3,.span-4,.span-5,.span-6,.span-7,.span-8,.span-12{grid-column:span 12}
-      .department-grid{grid-template-columns:1fr}
-      .form-grid{grid-template-columns:1fr}
-    }
+    body{min-height:100vh;background:radial-gradient(circle at top left,rgba(59,130,246,.28),transparent 32%),linear-gradient(135deg,#020617,#0f172a 55%,#111827);color:var(--text);padding:22px}
+    .app{max-width:980px;margin:0 auto;display:grid;gap:16px}
+    .hero,.card{background:var(--card);border:1px solid var(--line);border-radius:24px;padding:18px;box-shadow:0 18px 60px rgba(0,0,0,.28);backdrop-filter:blur(16px)}
+    .hero{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;flex-wrap:wrap}
+    .badge{display:inline-flex;padding:7px 10px;border-radius:999px;background:rgba(96,165,250,.12);border:1px solid rgba(96,165,250,.25);color:#bfdbfe;font-size:12px;font-weight:850;margin-bottom:10px}
+    h1{font-size:clamp(30px,6vw,48px);letter-spacing:-.055em;line-height:1;margin-bottom:8px}
+    h2{font-size:19px;letter-spacing:-.02em;margin-bottom:8px}.muted{color:var(--muted);font-size:13px;line-height:1.55}.lead{color:#cbd5e1;max-width:660px;line-height:1.55}
+    button,.file-label{border:0;border-radius:14px;padding:11px 13px;background:linear-gradient(135deg,#3b82f6,#8b5cf6);color:#fff;font-weight:850;cursor:pointer;font-size:14px;display:inline-flex;align-items:center;justify-content:center;gap:7px;text-decoration:none}.secondary{background:rgba(255,255,255,.09);border:1px solid var(--line)}.danger{background:rgba(239,68,68,.14);border:1px solid rgba(239,68,68,.32);color:#fecaca}.success{background:rgba(34,197,94,.14);border:1px solid rgba(34,197,94,.32);color:#bbf7d0}.actions{display:flex;gap:9px;flex-wrap:wrap}
+    .question{padding:14px;border-radius:18px;background:rgba(34,197,94,.11);border:1px solid rgba(34,197,94,.25);color:#bbf7d0;font-weight:900;line-height:1.45}
+    .metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.metric{padding:14px;border-radius:18px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.09)}.metric small{display:block;color:var(--muted);font-size:12px;margin-bottom:5px}.metric strong{font-size:24px;letter-spacing:-.03em}
+    .tabs{display:flex;gap:8px;flex-wrap:wrap}.tab-btn{background:rgba(255,255,255,.08);border:1px solid var(--line);color:#dbeafe}.tab-btn.active{background:linear-gradient(135deg,#3b82f6,#8b5cf6);color:white}.panel{display:none}.panel.active{display:block}
+    label{display:block;font-size:12px;font-weight:750;color:#cbd5e1;margin:0 0 6px}input,select,textarea{width:100%;padding:12px 13px;border-radius:14px;border:1px solid rgba(255,255,255,.14);background:rgba(2,6,23,.62);color:var(--text);font-size:14px;margin-bottom:10px;outline:none}textarea{min-height:82px;resize:vertical}.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}.list{display:grid;gap:9px;margin-top:12px}.item{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;padding:12px;border-radius:16px;background:rgba(2,6,23,.46);border:1px solid rgba(255,255,255,.09)}.item strong{display:block;line-height:1.35}.item small{display:block;margin-top:4px;color:#94a3b8;line-height:1.45}.item-actions{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end;flex:0 0 auto}.pill{display:inline-flex;padding:5px 8px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.1);font-size:12px;color:#dbeafe;font-weight:750}.empty{padding:16px;border:1px dashed rgba(255,255,255,.16);border-radius:16px;color:#94a3b8;text-align:center;line-height:1.45}.brief{white-space:pre-wrap;line-height:1.55;padding:14px;border-radius:16px;background:rgba(2,6,23,.46);border:1px solid rgba(255,255,255,.09);color:#e2e8f0;margin-top:10px;font-size:14px}
+    @media(max-width:760px){body{padding:14px}.metrics,.row{grid-template-columns:1fr}.item{flex-direction:column}.item-actions{justify-content:flex-start}}
   </style>
 </head>
 <body>
   <div class="app">
     <header class="hero">
       <div>
-        <div class="badge">🏢 Standalone Prototype · Elyon Company OS 1.0</div>
-        <h1>Elyon Company OS</h1>
-        <p class="subtitle">Virtuelle Firmenzentrale für dein Dropshipping- und eBay-Business. Du bleibst CEO, das System sortiert Aufgaben, Produkte, Projekte, Finanzen und Empfehlungen.</p>
+        <div class="badge">Elyon Company OS Lite</div>
+        <h1>Heute verkaufen.</h1>
+        <p class="lead">Ein schlankes Dashboard für Fokus, Produktideen und eBay-Listings. Nicht mehr System bauen — sondern den nächsten Verkauf vorbereiten.</p>
       </div>
-      <div class="hero-actions">
-        <button onclick="generateDailyBrief()">☀️ Daily Brief</button>
-        <button class="secondary" onclick="exportData()">⬇️ Export</button>
-        <label class="button-like secondary" for="importFile">⬆️ Import</label>
-        <input id="importFile" type="file" accept="application/json" style="display:none" onchange="importData(event)" />
+      <div class="actions">
+        <button onclick="makeBrief()">☀️ Brief</button>
+        <button class="secondary" onclick="exportData()">Export</button>
+        <label class="file-label secondary" for="importFile">Import</label>
+        <input id="importFile" type="file" accept="application/json" style="display:none" onchange="importData(event)">
       </div>
     </header>
 
-    <nav class="nav">
-      <button class="active" data-panel="dashboard" onclick="showPanel('dashboard',this)">Mission Control</button>
-      <button data-panel="tasks" onclick="showPanel('tasks',this)">Aufgaben</button>
-      <button data-panel="projects" onclick="showPanel('projects',this)">Projekte</button>
-      <button data-panel="products" onclick="showPanel('products',this)">Produkte</button>
-      <button data-panel="listings" onclick="showPanel('listings',this)">eBay Listings</button>
-      <button data-panel="finance" onclick="showPanel('finance',this)">Finanzen</button>
-      <button data-panel="settings" onclick="showPanel('settings',this)">CEO Regeln</button>
-    </nav>
+    <section class="card question">CEO-Frage: Was bringt mich heute näher zum ersten Verkauf?</section>
 
-    <main>
-      <section id="dashboard" class="panel active">
-        <div class="grid">
-          <div class="card span-3 metric"><small>Offene Aufgaben</small><strong id="metricTasks">0</strong></div>
-          <div class="card span-3 metric"><small>Produkte in Prüfung</small><strong id="metricProducts">0</strong></div>
-          <div class="card span-3 metric"><small>Listings bereit</small><strong id="metricListings">0</strong></div>
-          <div class="card span-3 metric"><small>Erwarteter Gewinn</small><strong id="metricProfit">0 €</strong></div>
+    <section class="metrics">
+      <div class="metric"><small>Offene Aufgaben</small><strong id="mTasks">0</strong></div>
+      <div class="metric"><small>Produktideen</small><strong id="mProducts">0</strong></div>
+      <div class="metric"><small>Listing-Entwürfe</small><strong id="mListings">0</strong></div>
+    </section>
 
-          <div class="card span-7">
-            <h2>🎯 Mission heute</h2>
-            <p class="muted">Die drei wichtigsten Schritte, damit du nicht im Tool hängen bleibst, sondern Richtung Verkauf gehst.</p>
-            <div id="todayFocus" class="list"></div>
-            <div class="action-row">
-              <button onclick="createSmartTasks()">✨ Tagesfokus erzeugen</button>
-              <button class="secondary" onclick="generateDailyBrief()">Briefing aktualisieren</button>
-            </div>
-          </div>
+    <section class="card">
+      <h2>🎯 Heute</h2>
+      <p class="muted">Maximal 3 Aufgaben. Alles andere ist Ablenkung.</p>
+      <div class="actions" style="margin-top:10px">
+        <button onclick="addDefaultFocus()">Tagesfokus erzeugen</button>
+        <button class="secondary" onclick="makeBrief()">Brief aktualisieren</button>
+      </div>
+      <div id="todayList" class="list"></div>
+      <div id="brief" class="brief">Klicke auf „Brief“, um eine kurze Lage zu sehen.</div>
+    </section>
 
-          <div class="card span-5">
-            <h2>☀️ CEO Daily Brief</h2>
-            <p class="muted">Lokales Briefing aus deinen gespeicherten Daten. Noch ohne externe KI/API.</p>
-            <div id="dailyBrief" class="brief">Klicke auf „Daily Brief“, um deine aktuelle Lage zusammenzufassen.</div>
-          </div>
+    <section class="card">
+      <div class="tabs">
+        <button class="tab-btn active" onclick="show('tasks',this)">Aufgaben</button>
+        <button class="tab-btn" onclick="show('products',this)">Produkte</button>
+        <button class="tab-btn" onclick="show('listings',this)">Listings</button>
+      </div>
+    </section>
 
-          <div class="card span-8">
-            <h2>🏢 Abteilungen</h2>
-            <p class="muted">Company OS 1.0 hält die Firma bewusst schlank: sechs Kernbereiche statt 30 Agenten.</p>
-            <div class="department-grid">
-              <div class="department"><div class="department-top"><b>📦 Einkauf</b><span id="deptProducts">0</span></div><p class="muted">Produkte, Lieferanten, Marge, Risiko.</p></div>
-              <div class="department"><div class="department-top"><b>🛒 eBay Vertrieb</b><span id="deptListings">0</span></div><p class="muted">Listings, Titel, Status, Veröffentlichung.</p></div>
-              <div class="department"><div class="department-top"><b>📈 Marketing</b><span id="deptMarketing">SEO</span></div><p class="muted">Keywords, Nutzen, Verkaufsargumente.</p></div>
-              <div class="department"><div class="department-top"><b>💰 Finanzen</b><span id="deptFinance">0 €</span></div><p class="muted">Gewinn, Gebühren, Cashflow.</p></div>
-              <div class="department"><div class="department-top"><b>📋 Projekte</b><span id="deptProjects">0</span></div><p class="muted">Roadmap und nächste Schritte.</p></div>
-              <div class="department"><div class="department-top"><b>⚙️ Entwicklung</b><span id="deptDev">0</span></div><p class="muted">Bugs, Features, Chrome Extension.</p></div>
-            </div>
-          </div>
+    <section id="tasks" class="panel active card">
+      <h2>Aufgabe</h2>
+      <input id="taskTitle" placeholder="z. B. 1 Produkt final prüfen">
+      <div class="row">
+        <select id="taskStatus"><option>Heute</option><option>Offen</option><option>Erledigt</option></select>
+        <select id="taskPrio"><option>Normal</option><option>Hoch</option><option>Kritisch</option></select>
+      </div>
+      <textarea id="taskNote" placeholder="Kurze Notiz"></textarea>
+      <button onclick="addTask()">Speichern</button>
+      <div id="taskList" class="list"></div>
+    </section>
 
-          <div class="card span-4">
-            <h2>🧠 Brain Feed</h2>
-            <p class="muted">Automatische Ereignisse, Empfehlungen und Warnungen.</p>
-            <div id="brainFeed" class="feed"></div>
-          </div>
-        </div>
-      </section>
+    <section id="products" class="panel card">
+      <h2>Produktidee</h2>
+      <input id="productName" placeholder="Produktname">
+      <input id="productSupplier" placeholder="Supplier / Quelle">
+      <div class="row">
+        <input id="productCost" type="number" step="0.01" placeholder="Kosten inkl. Versand">
+        <input id="productPrice" type="number" step="0.01" placeholder="Verkaufspreis">
+      </div>
+      <textarea id="productNote" placeholder="Risiko, Lieferzeit, Konkurrenz"></textarea>
+      <button onclick="addProduct()">Speichern</button>
+      <div id="productList" class="list"></div>
+    </section>
 
-      <section id="tasks" class="panel">
-        <div class="grid">
-          <div class="card span-5">
-            <h2>Neue Aufgabe</h2>
-            <div class="form-grid">
-              <div class="full"><label>Titel</label><input id="taskTitle" placeholder="z. B. Erstes eBay Listing fertigstellen" /></div>
-              <div><label>Abteilung</label><select id="taskDept"><option>Einkauf</option><option>eBay Vertrieb</option><option>Marketing</option><option>Finanzen</option><option>Projekte</option><option>Entwicklung</option></select></div>
-              <div><label>Priorität</label><select id="taskPrio"><option>Normal</option><option>Hoch</option><option>Kritisch</option><option>Niedrig</option></select></div>
-              <div><label>Status</label><select id="taskStatus"><option>Offen</option><option>Heute</option><option>In Arbeit</option><option>Blockiert</option><option>Erledigt</option></select></div>
-              <div><label>Fällig</label><input id="taskDue" type="date" /></div>
-              <div class="full"><label>Notiz</label><textarea id="taskNote" placeholder="Warum ist diese Aufgabe wichtig?"></textarea></div>
-            </div>
-            <button onclick="addTask()">Aufgabe speichern</button>
-          </div>
-          <div class="card span-7">
-            <h2>Aufgabenliste</h2>
-            <div id="taskList" class="list"></div>
-          </div>
-        </div>
-      </section>
-
-      <section id="projects" class="panel">
-        <div class="grid">
-          <div class="card span-5">
-            <h2>Neues Projekt</h2>
-            <label>Projektname</label><input id="projectName" placeholder="z. B. eBay Startphase" />
-            <label>Ziel</label><textarea id="projectGoal" placeholder="Was soll mit diesem Projekt erreicht werden?"></textarea>
-            <div class="form-grid">
-              <div><label>Status</label><select id="projectStatus"><option>Geplant</option><option>Aktiv</option><option>Pausiert</option><option>Erledigt</option></select></div>
-              <div><label>Priorität</label><select id="projectPrio"><option>Normal</option><option>Hoch</option><option>Kritisch</option><option>Niedrig</option></select></div>
-            </div>
-            <label>Nächster Schritt</label><input id="projectNext" placeholder="z. B. 3 Produkte prüfen" />
-            <button onclick="addProject()">Projekt speichern</button>
-          </div>
-          <div class="card span-7">
-            <h2>Projektübersicht</h2>
-            <div id="projectList" class="list"></div>
-          </div>
-        </div>
-      </section>
-
-      <section id="products" class="panel">
-        <div class="grid">
-          <div class="card span-5">
-            <h2>Produktchance erfassen</h2>
-            <label>Produktname</label><input id="productName" placeholder="z. B. Kabel Organizer" />
-            <label>Quelle / Supplier</label><input id="productSupplier" placeholder="CJ, AliExpress, Amazon, BigBuy ..." />
-            <label>Produkt-URL</label><input id="productUrl" placeholder="https://..." />
-            <div class="form-grid">
-              <div><label>Einkauf + Versand (€)</label><input id="productCost" type="number" step="0.01" placeholder="8.50" /></div>
-              <div><label>Verkaufspreis (€)</label><input id="productPrice" type="number" step="0.01" placeholder="19.99" /></div>
-              <div><label>Status</label><select id="productStatus"><option>Idee</option><option>Prüfen</option><option>Testen</option><option>Freigegeben</option><option>Abgelehnt</option><option>Gelistet</option></select></div>
-              <div><label>Risiko</label><select id="productRisk"><option>Niedrig</option><option>Normal</option><option>Hoch</option></select></div>
-            </div>
-            <label>Notiz</label><textarea id="productNote" placeholder="Konkurrenz, Lieferzeit, Varianten, Bauchgefühl ..."></textarea>
-            <button onclick="addProduct()">Produkt speichern</button>
-          </div>
-          <div class="card span-7">
-            <h2>Produktpipeline</h2>
-            <div id="productList" class="list"></div>
-          </div>
-        </div>
-      </section>
-
-      <section id="listings" class="panel">
-        <div class="grid">
-          <div class="card span-5">
-            <h2>eBay Listing vorbereiten</h2>
-            <label>Listing-Titel</label><input id="listingTitle" maxlength="80" placeholder="SEO Titel bis 80 Zeichen" />
-            <label>Produkt / Bezug</label><input id="listingProduct" placeholder="Produktname oder SKU" />
-            <div class="form-grid">
-              <div><label>Preis (€)</label><input id="listingPrice" type="number" step="0.01" /></div>
-              <div><label>Status</label><select id="listingStatus"><option>Entwurf</option><option>In Bearbeitung</option><option>Bereit zur Freigabe</option><option>Aktiv</option><option>Pausiert</option><option>Verkauft</option></select></div>
-            </div>
-            <label>Beschreibung / Verkaufsargument</label><textarea id="listingDesc"></textarea>
-            <button onclick="addListing()">Listing speichern</button>
-            <p class="mini-note">CEO-Regel: Veröffentlichen bleibt immer deine Freigabe. Dieses Tool erstellt nur Struktur und Entwürfe.</p>
-          </div>
-          <div class="card span-7">
-            <h2>Listing Pipeline</h2>
-            <div id="listingList" class="list"></div>
-          </div>
-        </div>
-      </section>
-
-      <section id="finance" class="panel">
-        <div class="grid">
-          <div class="card span-4">
-            <h2>Finanzeintrag</h2>
-            <label>Titel</label><input id="financeTitle" placeholder="z. B. Testbestellung / eBay Verkauf" />
-            <div class="form-grid">
-              <div><label>Typ</label><select id="financeType"><option>Einnahme</option><option>Ausgabe</option></select></div>
-              <div><label>Betrag (€)</label><input id="financeAmount" type="number" step="0.01" /></div>
-            </div>
-            <label>Notiz</label><textarea id="financeNote"></textarea>
-            <button onclick="addFinance()">Eintrag speichern</button>
-          </div>
-          <div class="card span-8">
-            <h2>Finanzübersicht</h2>
-            <div class="grid">
-              <div class="span-4 metric"><small>Einnahmen</small><strong id="incomeTotal">0 €</strong></div>
-              <div class="span-4 metric"><small>Ausgaben</small><strong id="expenseTotal">0 €</strong></div>
-              <div class="span-4 metric"><small>Saldo</small><strong id="balanceTotal">0 €</strong></div>
-            </div>
-            <div id="financeList" class="list"></div>
-          </div>
-        </div>
-      </section>
-
-      <section id="settings" class="panel">
-        <div class="grid">
-          <div class="card span-6">
-            <h2>CEO Freigaberegeln</h2>
-            <div class="list">
-              <div class="item"><div class="item-main"><strong>eBay Listing veröffentlichen</strong><span class="muted">Immer manuelle Freigabe durch Raoul.</span></div><span class="pill prio-kritisch">CEO</span></div>
-              <div class="item"><div class="item-main"><strong>Produkt final freigeben</strong><span class="muted">KI kann empfehlen, aber du entscheidest.</span></div><span class="pill prio-kritisch">CEO</span></div>
-              <div class="item"><div class="item-main"><strong>Lieferant wählen</strong><span class="muted">Lieferzeit, Preis, Risiko müssen geprüft werden.</span></div><span class="pill prio-hoch">CEO</span></div>
-              <div class="item"><div class="item-main"><strong>Kundennachricht senden</strong><span class="muted">Support-Texte nur als Entwurf.</span></div><span class="pill prio-hoch">CEO</span></div>
-              <div class="item"><div class="item-main"><strong>Geld ausgeben / Bestellung auslösen</strong><span class="muted">Keine automatische Zahlung in 1.0.</span></div><span class="pill prio-kritisch">CEO</span></div>
-            </div>
-          </div>
-          <div class="card span-6">
-            <h2>Datenverwaltung</h2>
-            <p class="muted">Diese Standalone-Version speichert lokal im Browser per localStorage. Für Laptop-Test reicht das. Später integrieren wir es in dein Elyon Tool und optional in Supabase/Upstash/Google Drive Backup.</p>
-            <div class="action-row" style="margin-top:16px">
-              <button class="secondary" onclick="exportData()">Daten exportieren</button>
-              <button class="danger" onclick="resetData()">Lokale Daten löschen</button>
-            </div>
-          </div>
-        </div>
-      </section>
-    </main>
+    <section id="listings" class="panel card">
+      <h2>eBay Listing</h2>
+      <input id="listingTitle" maxlength="80" placeholder="eBay-Titel">
+      <input id="listingProduct" placeholder="Produktbezug">
+      <textarea id="listingNote" placeholder="Beschreibung / Verkaufsargument"></textarea>
+      <button onclick="addListing()">Speichern</button>
+      <div id="listingList" class="list"></div>
+    </section>
   </div>
 
   <script>
-    const STORAGE_KEY = 'elyon_company_os_v1';
-
-    const defaultState = {
-      tasks: [],
-      projects: [],
-      products: [],
-      listings: [],
-      finance: [],
-      feed: [
-        {type:'System', text:'Company OS 1.0 gestartet. Standalone-Modus aktiv.', at:new Date().toISOString()}
-      ]
-    };
-
-    let state = loadState();
-
-    function loadState(){
-      try{
-        const saved = localStorage.getItem(STORAGE_KEY);
-        return saved ? JSON.parse(saved) : structuredClone(defaultState);
-      }catch(e){
-        return structuredClone(defaultState);
-      }
-    }
-
-    function saveState(){
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-      render();
-    }
-
-    function uid(){return Date.now().toString(36) + Math.random().toString(36).slice(2,8)}
-    function euro(n){return (Number(n)||0).toLocaleString('de-DE',{style:'currency',currency:'EUR'})}
-    function cls(v){return String(v||'').toLowerCase().replaceAll(' ','-').replaceAll('ü','ue').replaceAll('ä','ae').replaceAll('ö','oe')}
-
-    function showPanel(id, btn){
-      document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
-      document.getElementById(id).classList.add('active');
-      document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));
-      btn.classList.add('active');
-    }
-
-    function addFeed(type,text){
-      state.feed.unshift({type,text,at:new Date().toISOString()});
-      state.feed = state.feed.slice(0,80);
-    }
-
-    function addTask(){
-      const title = taskTitle.value.trim();
-      if(!title) return alert('Bitte Aufgabentitel eingeben.');
-      state.tasks.unshift({id:uid(),title,dept:taskDept.value,prio:taskPrio.value,status:taskStatus.value,due:taskDue.value,note:taskNote.value.trim(),created:new Date().toISOString()});
-      addFeed('Aufgabe', `Neue Aufgabe: ${title}`);
-      taskTitle.value=''; taskNote.value=''; taskDue.value=''; taskStatus.value='Offen'; taskPrio.value='Normal';
-      saveState();
-    }
-
-    function addProject(){
-      const name = projectName.value.trim();
-      if(!name) return alert('Bitte Projektnamen eingeben.');
-      state.projects.unshift({id:uid(),name,goal:projectGoal.value.trim(),status:projectStatus.value,prio:projectPrio.value,next:projectNext.value.trim(),created:new Date().toISOString()});
-      addFeed('Projekt', `Projekt angelegt: ${name}`);
-      projectName.value=''; projectGoal.value=''; projectNext.value=''; projectStatus.value='Geplant'; projectPrio.value='Normal';
-      saveState();
-    }
-
-    function addProduct(){
-      const name = productName.value.trim();
-      if(!name) return alert('Bitte Produktname eingeben.');
-      const cost = Number(productCost.value)||0;
-      const price = Number(productPrice.value)||0;
-      const profit = estimateProfit(price,cost);
-      state.products.unshift({id:uid(),name,supplier:productSupplier.value.trim(),url:productUrl.value.trim(),cost,price,profit,status:productStatus.value,risk:productRisk.value,note:productNote.value.trim(),created:new Date().toISOString()});
-      addFeed('Einkauf', `Produktchance gespeichert: ${name} (${euro(profit)} erwarteter Gewinn)`);
-      productName.value=''; productSupplier.value=''; productUrl.value=''; productCost.value=''; productPrice.value=''; productNote.value=''; productStatus.value='Idee'; productRisk.value='Niedrig';
-      saveState();
-    }
-
-    function addListing(){
-      const title = listingTitle.value.trim();
-      if(!title) return alert('Bitte Listing-Titel eingeben.');
-      state.listings.unshift({id:uid(),title,product:listingProduct.value.trim(),price:Number(listingPrice.value)||0,status:listingStatus.value,desc:listingDesc.value.trim(),created:new Date().toISOString()});
-      addFeed('eBay', `Listing-Entwurf gespeichert: ${title}`);
-      listingTitle.value=''; listingProduct.value=''; listingPrice.value=''; listingDesc.value=''; listingStatus.value='Entwurf';
-      saveState();
-    }
-
-    function addFinance(){
-      const title = financeTitle.value.trim();
-      if(!title) return alert('Bitte Titel eingeben.');
-      state.finance.unshift({id:uid(),title,type:financeType.value,amount:Number(financeAmount.value)||0,note:financeNote.value.trim(),created:new Date().toISOString()});
-      addFeed('Finanzen', `${financeType.value}: ${title} (${euro(financeAmount.value)})`);
-      financeTitle.value=''; financeAmount.value=''; financeNote.value=''; financeType.value='Einnahme';
-      saveState();
-    }
-
-    function estimateProfit(price,cost){
-      const ebayFee = price * 0.12;
-      const paymentFee = price * 0.03;
-      return price - cost - ebayFee - paymentFee;
-    }
-
-    function removeItem(collection,id){
-      state[collection] = state[collection].filter(x=>x.id!==id);
-      addFeed('System', `Eintrag aus ${collection} gelöscht.`);
-      saveState();
-    }
-
-    function markTaskDone(id){
-      const t = state.tasks.find(x=>x.id===id);
-      if(t){t.status='Erledigt'; addFeed('Aufgabe', `Erledigt: ${t.title}`); saveState();}
-    }
-
-    function createSmartTasks(){
-      const candidates = [];
-      if(state.products.filter(p=>['Idee','Prüfen','Testen'].includes(p.status)).length > 0){
-        candidates.push({title:'Beste Produktchance prüfen und GO/TEST/NO entscheiden',dept:'Einkauf',prio:'Hoch',status:'Heute',note:'Aus vorhandenen Produktideen die umsatznächste Chance auswählen.'});
-      }
-      if(state.listings.filter(l=>l.status==='Entwurf' || l.status==='In Bearbeitung').length > 0){
-        candidates.push({title:'Ein eBay Listing bis „Bereit zur Freigabe“ bringen',dept:'eBay Vertrieb',prio:'Hoch',status:'Heute',note:'Ziel: Ein Listing näher an Veröffentlichung bringen.'});
-      }
-      if(state.projects.filter(p=>p.status==='Aktiv' || p.status==='Geplant').length > 0){
-        candidates.push({title:'Nächsten Projektschritt erledigen',dept:'Projekte',prio:'Normal',status:'Heute',note:'Nicht planen, sondern einen kleinen Schritt ausführen.'});
-      }
-      if(candidates.length===0){
-        candidates.push({title:'3 Produktchancen erfassen',dept:'Einkauf',prio:'Hoch',status:'Heute',note:'Startaufgabe, damit die Pipeline gefüllt wird.'});
-        candidates.push({title:'Erstes eBay Listing als Entwurf anlegen',dept:'eBay Vertrieb',prio:'Hoch',status:'Heute',note:'Umsatz entsteht erst durch ein Listing.'});
-      }
-      candidates.slice(0,3).forEach(c=>state.tasks.unshift({id:uid(),...c,due:new Date().toISOString().slice(0,10),created:new Date().toISOString()}));
-      addFeed('CEO Assistant','Tagesfokus wurde automatisch erzeugt.');
-      saveState();
-    }
-
-    function generateDailyBrief(){
-      const openTasks = state.tasks.filter(t=>t.status!=='Erledigt');
-      const today = openTasks.filter(t=>t.status==='Heute').slice(0,3);
-      const productsInCheck = state.products.filter(p=>['Idee','Prüfen','Testen'].includes(p.status));
-      const readyListings = state.listings.filter(l=>l.status==='Bereit zur Freigabe');
-      const expectedProfit = state.products.reduce((sum,p)=>sum+(Number(p.profit)||0),0);
-      const warnings = [];
-      if(productsInCheck.length===0) warnings.push('Keine Produktpipeline vorhanden. Ohne Produktchancen gibt es nichts zu listen.');
-      if(state.listings.length===0) warnings.push('Noch kein eBay Listing angelegt. Umsatz kommt erst durch aktive Angebote.');
-      if(openTasks.filter(t=>t.prio==='Kritisch').length>0) warnings.push('Es gibt kritische Aufgaben, die nicht erledigt sind.');
-
-      const lines = [];
-      lines.push('Guten Morgen Raoul.');
-      lines.push('');
-      lines.push('Aktuelle Lage:');
-      lines.push(`- Offene Aufgaben: ${openTasks.length}`);
-      lines.push(`- Produkte in Prüfung: ${productsInCheck.length}`);
-      lines.push(`- Listings bereit zur Freigabe: ${readyListings.length}`);
-      lines.push(`- Erwarteter Produktgewinn: ${euro(expectedProfit)}`);
-      lines.push('');
-      lines.push('Heute solltest du:');
-      if(today.length){ today.forEach((t,i)=>lines.push(`${i+1}. ${t.title}`)); }
-      else { lines.push('1. Tagesfokus erzeugen'); lines.push('2. Eine Produktchance erfassen'); lines.push('3. Ein Listing vorbereiten'); }
-      lines.push('');
-      lines.push('Warnungen:');
-      if(warnings.length){ warnings.forEach(w=>lines.push(`- ${w}`)); }
-      else { lines.push('- Keine harten Warnungen. Fokus: Ein Schritt Richtung Verkauf.'); }
-      lines.push('');
-      lines.push('CEO Empfehlung:');
-      if(readyListings.length) lines.push('Prüfe zuerst ein bereites Listing und entscheide, ob es veröffentlicht werden kann.');
-      else if(productsInCheck.length) lines.push('Prüfe zuerst die stärkste Produktchance und mache daraus einen Listing-Entwurf.');
-      else lines.push('Fülle zuerst die Produktpipeline. Ohne Produkte keine Listings, ohne Listings kein Umsatz.');
-
-      dailyBrief.textContent = lines.join('\n');
-      addFeed('CEO Assistant','Daily Brief wurde aktualisiert.');
-      saveState();
-    }
-
-    function render(){
-      const openTasks = state.tasks.filter(t=>t.status!=='Erledigt');
-      const productsInCheck = state.products.filter(p=>['Idee','Prüfen','Testen'].includes(p.status));
-      const readyListings = state.listings.filter(l=>l.status==='Bereit zur Freigabe');
-      const expectedProfit = state.products.reduce((sum,p)=>sum+(Number(p.profit)||0),0);
-      const devTasks = state.tasks.filter(t=>t.dept==='Entwicklung' && t.status!=='Erledigt').length;
-      const income = state.finance.filter(f=>f.type==='Einnahme').reduce((s,f)=>s+(Number(f.amount)||0),0);
-      const expense = state.finance.filter(f=>f.type==='Ausgabe').reduce((s,f)=>s+(Number(f.amount)||0),0);
-
-      metricTasks.textContent = openTasks.length;
-      metricProducts.textContent = productsInCheck.length;
-      metricListings.textContent = readyListings.length;
-      metricProfit.textContent = euro(expectedProfit);
-      deptProducts.textContent = state.products.length;
-      deptListings.textContent = state.listings.length;
-      deptFinance.textContent = euro(income-expense);
-      deptProjects.textContent = state.projects.length;
-      deptDev.textContent = devTasks;
-      incomeTotal.textContent = euro(income);
-      expenseTotal.textContent = euro(expense);
-      balanceTotal.textContent = euro(income-expense);
-
-      renderToday(openTasks);
-      renderTasks();
-      renderProjects();
-      renderProducts();
-      renderListings();
-      renderFinance();
-      renderFeed();
-    }
-
-    function renderToday(openTasks){
-      const focus = openTasks.filter(t=>t.status==='Heute').slice(0,3);
-      todayFocus.innerHTML = focus.length ? focus.map(t=>itemHtml(t.title,t.note,[t.dept,t.prio],`<button class="success" onclick="markTaskDone('${t.id}')">Erledigt</button>`)).join('') : '<div class="empty">Noch kein Tagesfokus. Klicke auf „Tagesfokus erzeugen“.</div>';
-    }
-
-    function renderTasks(){
-      taskList.innerHTML = state.tasks.length ? state.tasks.map(t=>itemHtml(t.title,t.note || (t.due ? `Fällig: ${t.due}` : ''),[t.dept,t.status,t.prio],`<button class="success" onclick="markTaskDone('${t.id}')">✓</button><button class="danger" onclick="removeItem('tasks','${t.id}')">Löschen</button>`)).join('') : '<div class="empty">Noch keine Aufgaben.</div>';
-    }
-
-    function renderProjects(){
-      projectList.innerHTML = state.projects.length ? state.projects.map(p=>itemHtml(p.name,`${p.goal || 'Kein Ziel notiert.'}${p.next ? '\nNächster Schritt: '+p.next : ''}`,[p.status,p.prio],`<button class="danger" onclick="removeItem('projects','${p.id}')">Löschen</button>`)).join('') : '<div class="empty">Noch keine Projekte.</div>';
-    }
-
-    function renderProducts(){
-      productList.innerHTML = state.products.length ? state.products.map(p=>itemHtml(p.name,`${p.supplier || 'Kein Supplier'} · Kosten: ${euro(p.cost)} · Preis: ${euro(p.price)} · Gewinn: ${euro(p.profit)}${p.note ? '\n'+p.note : ''}`,[p.status,p.risk],`<button class="danger" onclick="removeItem('products','${p.id}')">Löschen</button>`)).join('') : '<div class="empty">Noch keine Produkte.</div>';
-    }
-
-    function renderListings(){
-      listingList.innerHTML = state.listings.length ? state.listings.map(l=>itemHtml(l.title,`${l.product || 'Kein Produktbezug'} · Preis: ${euro(l.price)}${l.desc ? '\n'+l.desc : ''}`,[l.status],`<button class="danger" onclick="removeItem('listings','${l.id}')">Löschen</button>`)).join('') : '<div class="empty">Noch keine Listings.</div>';
-    }
-
-    function renderFinance(){
-      financeList.innerHTML = state.finance.length ? state.finance.map(f=>itemHtml(f.title,`${f.type}: ${euro(f.amount)}${f.note ? '\n'+f.note : ''}`,[f.type],`<button class="danger" onclick="removeItem('finance','${f.id}')">Löschen</button>`)).join('') : '<div class="empty">Noch keine Finanzeinträge.</div>';
-    }
-
-    function renderFeed(){
-      brainFeed.innerHTML = state.feed.length ? state.feed.map(f=>`<div class="feed-entry"><strong>${escapeHtml(f.type)}</strong><p class="muted">${escapeHtml(f.text)}</p><small>${new Date(f.at).toLocaleString('de-DE')}</small></div>`).join('') : '<div class="empty">Noch kein Feed.</div>';
-    }
-
-    function itemHtml(title, body, pills=[], actions=''){
-      return `<div class="item"><div class="item-main"><strong>${escapeHtml(title)}</strong><span class="muted">${escapeHtml(body||'').replaceAll('\n','<br>')}</span></div><div class="item-meta">${pills.map(p=>`<span class="pill ${cls('status-'+p)} ${cls('prio-'+p)}">${escapeHtml(p)}</span>`).join('')}${actions}</div></div>`;
-    }
-
-    function escapeHtml(str){
-      return String(str ?? '').replace(/[&<>"]/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[s]));
-    }
-
-    function exportData(){
-      const blob = new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `elyon-company-os-v1-${new Date().toISOString().slice(0,10)}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-    }
-
-    function importData(event){
-      const file = event.target.files[0];
-      if(!file) return;
-      const reader = new FileReader();
-      reader.onload = () => {
-        try{
-          const imported = JSON.parse(reader.result);
-          state = {...structuredClone(defaultState), ...imported};
-          addFeed('System','Datenimport abgeschlossen.');
-          saveState();
-        }catch(e){alert('Import fehlgeschlagen. Datei ist kein gültiges JSON.');}
-      };
-      reader.readAsText(file);
-      event.target.value = '';
-    }
-
-    function resetData(){
-      if(!confirm('Wirklich alle lokalen Company-OS-Daten löschen?')) return;
-      state = structuredClone(defaultState);
-      saveState();
-    }
-
+    const KEY='elyon_company_os_lite_v1';
+    let state=load();
+    function base(){return{tasks:[],products:[],listings:[]}}
+    function load(){try{return JSON.parse(localStorage.getItem(KEY))||base()}catch(e){return base()}}
+    function save(){localStorage.setItem(KEY,JSON.stringify(state));render()}
+    function id(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
+    function euro(n){return(Number(n)||0).toLocaleString('de-DE',{style:'currency',currency:'EUR'})}
+    function esc(s){return String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+    function profit(p){const price=Number(p.price)||0,cost=Number(p.cost)||0;return price-cost-(price*.15)}
+    function show(name,btn){document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));document.getElementById(name).classList.add('active');document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active')}
+    function addTask(){const title=taskTitle.value.trim();if(!title)return alert('Aufgabe fehlt.');state.tasks.unshift({id:id(),title,status:taskStatus.value,prio:taskPrio.value,note:taskNote.value.trim()});taskTitle.value='';taskNote.value='';save()}
+    function addProduct(){const name=productName.value.trim();if(!name)return alert('Produkt fehlt.');state.products.unshift({id:id(),name,supplier:productSupplier.value.trim(),cost:Number(productCost.value)||0,price:Number(productPrice.value)||0,note:productNote.value.trim()});productName.value='';productSupplier.value='';productCost.value='';productPrice.value='';productNote.value='';save()}
+    function addListing(){const title=listingTitle.value.trim();if(!title)return alert('Titel fehlt.');state.listings.unshift({id:id(),title,product:listingProduct.value.trim(),note:listingNote.value.trim()});listingTitle.value='';listingProduct.value='';listingNote.value='';save()}
+    function done(id){const t=state.tasks.find(x=>x.id===id);if(t){t.status='Erledigt';save()}}
+    function del(type,id){state[type]=state[type].filter(x=>x.id!==id);save()}
+    function addDefaultFocus(){const add=[];if(!state.products.length)add.push('3 Produktideen erfassen');else add.push('Beste Produktidee prüfen');if(!state.listings.length)add.push('1 eBay Listing als Entwurf anlegen');else add.push('Bestes Listing fertig machen');add.push('Backup exportieren');add.slice(0,3).forEach(title=>state.tasks.unshift({id:id(),title,status:'Heute',prio:'Hoch',note:'Automatisch erzeugter Tagesfokus'}));save();makeBrief()}
+    function makeBrief(){const open=state.tasks.filter(t=>t.status!=='Erledigt');const today=open.filter(t=>t.status==='Heute').slice(0,3);const best=state.products.slice().sort((a,b)=>profit(b)-profit(a))[0];let lines=['Kurzlage:'];lines.push('- Offene Aufgaben: '+open.length);lines.push('- Produktideen: '+state.products.length);lines.push('- Listing-Entwürfe: '+state.listings.length);lines.push('');lines.push('Heute:');if(today.length)today.forEach((t,i)=>lines.push((i+1)+'. '+t.title));else lines.push('1. Tagesfokus erzeugen');lines.push('');lines.push('Empfehlung:');if(!state.products.length)lines.push('Erst 3 Produktideen erfassen.');else if(!state.listings.length)lines.push('Aus der besten Produktidee ein Listing bauen.');else lines.push('Ein Listing verkaufsfertig machen.');if(best)lines.push('\nBeste Produktidee grob: '+best.name+' ('+euro(profit(best))+' erwartet)');brief.textContent=lines.join('\n')}
+    function item(title,meta,type,id,actions=''){return `<div class="item"><div><strong>${esc(title)}</strong><small>${esc(meta||'')}</small></div><div class="item-actions">${actions}<button class="danger" onclick="del('${type}','${id}')">Löschen</button></div></div>`}
+    function render(){mTasks.textContent=state.tasks.filter(t=>t.status!=='Erledigt').length;mProducts.textContent=state.products.length;mListings.textContent=state.listings.length;const today=state.tasks.filter(t=>t.status==='Heute'&&t.status!=='Erledigt').slice(0,3);todayList.innerHTML=today.length?today.map(t=>item(t.title,t.note,'tasks',t.id,`<button class="success" onclick="done('${t.id}')">Erledigt</button>`)).join(''):'<div class="empty">Noch kein Tagesfokus.</div>';taskList.innerHTML=state.tasks.length?state.tasks.map(t=>item(t.title,`${t.status} · ${t.prio}${t.note?' · '+t.note:''}`,'tasks',t.id,`<button class="success" onclick="done('${t.id}')">✓</button>`)).join(''):'<div class="empty">Noch keine Aufgaben.</div>';productList.innerHTML=state.products.length?state.products.map(p=>item(p.name,`${p.supplier||'Keine Quelle'} · Gewinn grob: ${euro(profit(p))}${p.note?' · '+p.note:''}`,'products',p.id)).join(''):'<div class="empty">Noch keine Produktideen.</div>';listingList.innerHTML=state.listings.length?state.listings.map(l=>item(l.title,`${l.product||'Kein Produktbezug'}${l.note?' · '+l.note:''}`,'listings',l.id)).join(''):'<div class="empty">Noch keine Listings.</div>'}
+    function exportData(){const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='elyon-company-os-lite.json';a.click();URL.revokeObjectURL(a.href)}
+    function importData(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{state={...base(),...JSON.parse(r.result)};save();makeBrief()}catch(err){alert('Import fehlgeschlagen.')}};r.readAsText(f)}
     render();
   </script>
 </body>
