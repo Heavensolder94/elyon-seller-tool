@@ -18,6 +18,79 @@ Dann sollte sie hier erreichbar sein:
 https://elyon-seller-tool.vercel.app/standalone/company-os-v1.html
 ```
 
+## Kurzbeschreibung
+
+Elyon Company OS ist die virtuelle Firmenzentrale fuer dein Dropshipping- und eBay-Business.
+
+Es ist nicht einfach noch ein weiteres Tool, sondern die Schaltzentrale ueber deinen Arbeitsablaeufen:
+
+```text
+Elyon Seller Tool = Produkte, Listings, Import, KI, eBay, Lieferanten
+Elyon Company OS = Fokus, Aufgaben, Projekte, Entscheidungen, Prioritaeten, Cashflow
+```
+
+Der wichtigste Zweck:
+
+```text
+Weniger Kopfchaos.
+Mehr Fokus.
+Schneller Produkte listen.
+Bessere Entscheidungen.
+Klarer Weg zum ersten Cashflow.
+```
+
+Company OS soll dich jeden Tag zu der Frage zurueckholen:
+
+```text
+Was bringt mich heute naeher zum ersten Verkauf?
+```
+
+## Warum du es brauchst
+
+Beim Aufbau deines Business passieren schnell zu viele Dinge gleichzeitig:
+
+```text
+Produkt suchen
+-> Lieferant pruefen
+-> Marge berechnen
+-> eBay Listing bauen
+-> Beschreibung schreiben
+-> Preis setzen
+-> Aufgaben merken
+-> Tool weiterentwickeln
+-> Chrome Extension fixen
+-> Finanzen im Blick behalten
+```
+
+Ohne zentrale Struktur liegen diese Dinge verteilt in ChatGPT-Chats, GitHub, eBay, Notizen, Browser-Tabs und im Kopf.
+
+Elyon Company OS buendelt diese Arbeit an einem Ort und trennt klar:
+
+- Was ist nur eine Idee?
+- Was muss geprueft werden?
+- Was ist bereit fuer eBay?
+- Was blockiert Umsatz?
+- Was ist heute wirklich wichtig?
+- Welche Entscheidung braucht deine CEO-Freigabe?
+
+## Abgrenzung zum Elyon Seller Tool
+
+Das Elyon Seller Tool ist dein Werkzeug zum Verkaufen.
+
+Elyon Company OS ist die Firmenzentrale darueber.
+
+```text
+Elyon Seller Tool
+= Produktworkflow, Listing-Workflow, Import, KI, APIs, eBay, Lieferanten
+
+Elyon Company OS
+= Mission Control, Tagesfokus, Aufgaben, Projekte, Pipeline, Warnungen, CEO-Regeln
+```
+
+Company OS verhindert, dass du nur am Tool baust und den eigentlichen Business-Fortschritt aus den Augen verlierst.
+
+Das Ziel ist nicht mehr Software, sondern mehr Umsetzung.
+
 ## Ziel
 
 Company OS 1.0 soll dir helfen, dein Dropshipping- und eBay-Business wie eine kleine virtuelle Firma zu strukturieren.
