@@ -48,6 +48,19 @@ function normalizeImages(images) {
     .slice(0, 12);
 }
 
+function normalizeCategoryId(body) {
+  const explicit = cleanText(body?.categoryId || body?.ebayCategoryId || "", 32);
+  if (/^\d{2,12}$/.test(explicit)) return explicit;
+
+  const category = cleanText(body?.category || "", 80);
+  if (/^\d{2,12}$/.test(category)) return category;
+
+  const fallback = cleanText(process.env.EBAY_DEFAULT_CATEGORY_ID, 32);
+  if (/^\d{2,12}$/.test(fallback)) return fallback;
+
+  return "";
+}
+
 function makeSku(payload) {
   const rawTitle = cleanText(payload.title || "amazon", 32).replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toUpperCase();
   const stamp = new Date().toISOString().replace(/[-:.TZ]/g, "").slice(0, 14);
@@ -62,18 +75,26 @@ function validatePayload(body) {
   const shipping = parseMoney(body?.shipping);
   const quantity = Math.max(1, Math.min(Number(body?.quantity || 1) || 1, 999));
   const sourceUrl = cleanText(body?.sourceUrl || body?.url, 1000);
-  const categoryId = cleanText(body?.category || process.env.EBAY_DEFAULT_CATEGORY_ID, 32);
+  const categoryId = normalizeCategoryId(body || {});
+  const categorySuggestion = cleanText(body?.category, 120);
   const condition = normalizeCondition(body?.condition);
   const images = normalizeImages(body?.images);
   const notes = cleanText(body?.notes, 1000);
 
   if (!title) return { ok: false, status: 400, error: "Titel fehlt." };
   if (!price || price <= 0) return { ok: false, status: 400, error: "Preis fehlt." };
-  if (!categoryId) return { ok: false, status: 400, error: "eBay Kategorie fehlt. Bitte EBAY_DEFAULT_CATEGORY_ID in Vercel setzen oder Kategorie mitsenden." };
+  if (!categoryId) {
+    return {
+      ok: false,
+      status: 400,
+      error: "eBay Kategorie-ID fehlt. Bitte eine numerische categoryId mitsenden oder EBAY_DEFAULT_CATEGORY_ID in Vercel setzen.",
+      missing: ["EBAY_DEFAULT_CATEGORY_ID oder categoryId"]
+    };
+  }
 
   return {
     ok: true,
-    value: { title, description, price, shipping, quantity, sourceUrl, categoryId, condition, images, notes },
+    value: { title, description, price, shipping, quantity, sourceUrl, categoryId, categorySuggestion, condition, images, notes },
   };
 }
 
@@ -111,7 +132,10 @@ async function callEbayJson(url, options) {
 
   if (!response.ok) {
     const detail = data?.errors?.[0]?.message || data?.error_description || data?.message || data?.error || `eBay API Fehler HTTP ${response.status}`;
-    throw new Error(detail);
+    const error = new Error(detail);
+    error.status = response.status;
+    error.ebayResponse = data;
+    throw error;
   }
 
   return data || {};
@@ -126,7 +150,14 @@ export default async function handler(req, res) {
     const environment = normalizeEnvironment(req.query.environment || req.query.env);
     const validated = validatePayload(req.body || {});
     if (!validated.ok) {
-      return res.status(validated.status || 400).json({ ok: false, draftCreated: false, published: false, error: validated.error });
+      return res.status(validated.status || 400).json({
+        ok: false,
+        draftCreated: false,
+        published: false,
+        error: validated.error,
+        missing: validated.missing || [],
+        targetRoute: "/api/ebay/create-draft"
+      });
     }
 
     const stored = await readToken(environment);
@@ -153,6 +184,8 @@ export default async function handler(req, res) {
         draftCreated: false,
         published: false,
         error: `eBay Entwurf-Konfiguration fehlt: ${missingConfig.join(", ")}.`,
+        missing: missingConfig,
+        targetRoute: "/api/ebay/create-draft"
       });
     }
 
@@ -178,8 +211,12 @@ export default async function handler(req, res) {
       },
     };
 
-    if (product.sourceUrl || product.notes) {
-      inventoryPayload.product.aspects.ElyonHinweis = [cleanText(`${product.sourceUrl ? `Quelle: ${product.sourceUrl}` : ""} ${product.notes || ""}`, 500)];
+    const hintParts = [];
+    if (product.sourceUrl) hintParts.push(`Quelle: ${product.sourceUrl}`);
+    if (product.categorySuggestion && product.categorySuggestion !== product.categoryId) hintParts.push(`Kategorie-Vorschlag: ${product.categorySuggestion}`);
+    if (product.notes) hintParts.push(product.notes);
+    if (hintParts.length) {
+      inventoryPayload.product.aspects.ElyonHinweis = [cleanText(hintParts.join(" | "), 500)];
     }
 
     await callEbayJson(`${baseUrl}/inventory_item/${encodeURIComponent(sku)}`, {
@@ -233,6 +270,9 @@ export default async function handler(req, res) {
       published: false,
       offerId,
       sku,
+      categoryId: product.categoryId,
+      targetRoute: "/api/ebay/create-draft",
+      note: "Dies ist ein unveroeffentlichter Inventory-Offer-Entwurf. Es wurde nicht live veroeffentlicht.",
       message: "eBay-Entwurf erstellt. Es wurde nichts veröffentlicht.",
     });
   } catch (error) {
@@ -240,7 +280,9 @@ export default async function handler(req, res) {
       ok: false,
       draftCreated: false,
       published: false,
+      targetRoute: "/api/ebay/create-draft",
       error: error.message || "eBay-Entwurf konnte nicht erstellt werden.",
+      ebayResponse: error.ebayResponse || undefined,
     });
   }
 }
