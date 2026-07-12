@@ -1,0 +1,83 @@
+name: Build Elyon Navigator Windows
+
+on:
+  push:
+    branches:
+      - build/elyon-project-navigator-windows-v3
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout build branch
+        uses: actions/checkout@v4
+
+      - name: Restore desktop source archive
+        shell: pwsh
+        run: |
+          $parts = Get-ChildItem "$env:GITHUB_WORKSPACE\elyon-project-navigator-source\part*.txt" | Sort-Object Name
+          if ($parts.Count -ne 7) {
+            throw "Expected 7 source parts, found $($parts.Count)."
+          }
+          $base64 = ($parts | ForEach-Object { Get-Content -Raw $_.FullName }) -join ""
+          $archive = Join-Path $env:RUNNER_TEMP "elyon-project-navigator-source.zip"
+          [System.IO.File]::WriteAllBytes($archive, [Convert]::FromBase64String($base64))
+          $destination = Join-Path $env:GITHUB_WORKSPACE "windows-build"
+          New-Item -ItemType Directory -Path $destination -Force | Out-Null
+          Expand-Archive -Path $archive -DestinationPath $destination -Force
+          if (-not (Test-Path "$destination\elyon-project-navigator-desktop\package.json")) {
+            throw "Desktop source archive is incomplete."
+          }
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install build dependencies
+        working-directory: windows-build/elyon-project-navigator-desktop
+        run: npm install
+
+      - name: Build installer and portable EXE
+        working-directory: windows-build/elyon-project-navigator-desktop
+        run: npm run dist
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+
+      - name: Package Chrome Bridge
+        shell: pwsh
+        run: |
+          $project = "$env:GITHUB_WORKSPACE\windows-build\elyon-project-navigator-desktop"
+          Compress-Archive -Path "$project\extension\*" -DestinationPath "$project\dist\Elyon-Navigator-Bridge-v3.zip" -Force
+
+      - name: Write installation note
+        shell: pwsh
+        run: |
+          $dist = "$env:GITHUB_WORKSPACE\windows-build\elyon-project-navigator-desktop\dist"
+          @"
+          ELYON PROJECT NAVIGATOR – WINDOWS V3
+
+          1. Für die normale Installation die Datei mit 'nsis' im Namen starten.
+          2. Alternativ die Datei mit 'portable' im Namen direkt öffnen.
+          3. Elyon-Navigator-Bridge-v3.zip entpacken.
+          4. Chrome: chrome://extensions öffnen, Entwicklermodus aktivieren und den entpackten Bridge-Ordner laden.
+          5. Die Windows-App muss für direkte Übertragungen laufen. Optional in den Einstellungen 'Mit Windows starten' aktivieren.
+
+          Keine KI, kein Vercel und kein sichtbares PowerShell-Fenster erforderlich.
+          "@ | Set-Content -Path "$dist\INSTALLATION.txt" -Encoding UTF8
+
+      - name: Upload Windows package
+        uses: actions/upload-artifact@v4
+        with:
+          name: Elyon-Project-Navigator-Windows-v3
+          path: |
+            windows-build/elyon-project-navigator-desktop/dist/*.exe
+            windows-build/elyon-project-navigator-desktop/dist/Elyon-Navigator-Bridge-v3.zip
+            windows-build/elyon-project-navigator-desktop/dist/INSTALLATION.txt
+          if-no-files-found: error
+          retention-days: 30
