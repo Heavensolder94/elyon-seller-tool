@@ -108,6 +108,12 @@ jobs:
         with:
           node-version: 22
 
+      - name: Apply Electron build configuration
+        shell: pwsh
+        run: |
+          Copy-Item -LiteralPath "$env:GITHUB_WORKSPACE\elyon-project-navigator-source\build-package.json" -Destination "$env:GITHUB_WORKSPACE\windows-build\elyon-project-navigator-desktop\package.json" -Force
+          Get-Content -Raw "$env:GITHUB_WORKSPACE\windows-build\elyon-project-navigator-desktop\package.json" | ConvertFrom-Json | Out-Null
+
       - name: Install build dependencies
         working-directory: windows-build/elyon-project-navigator-desktop
         run: npm install
@@ -131,8 +137,8 @@ jobs:
           @"
           ELYON PROJECT NAVIGATOR – WINDOWS V3
 
-          1. Für die normale Installation die Datei mit 'nsis' im Namen starten.
-          2. Alternativ die Datei mit 'portable' im Namen direkt öffnen.
+          1. Für die normale Installation die Datei mit 'Setup' im Namen starten.
+          2. Alternativ die Datei mit 'Portable' im Namen direkt öffnen.
           3. Elyon-Navigator-Bridge-v3.zip entpacken.
           4. Chrome: chrome://extensions öffnen, Entwicklermodus aktivieren und den entpackten Bridge-Ordner laden.
           5. Die Windows-App muss für direkte Übertragungen laufen. Optional in den Einstellungen 'Mit Windows starten' aktivieren.
