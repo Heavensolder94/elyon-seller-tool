@@ -20,22 +20,71 @@ jobs:
       - name: Checkout build branch
         uses: actions/checkout@v4
 
-      - name: Restore desktop source archive
+      - name: Restore and verify desktop source archive
         shell: pwsh
         run: |
+          $ErrorActionPreference = "Stop"
+          $diag = Join-Path $env:RUNNER_TEMP "restore-diagnostics.txt"
+          $expectedPartHashes = @{
+            "part01.txt" = "28137f6ca2c50e36e1467e7c5ecce5b21efb02fcc1b55c16fb43498f40fe1661"
+            "part02.txt" = "10f9fb7fd96d01095c3b122cf2e5288f451e8e1e992e65ce5ead13b4d735f16a"
+            "part03.txt" = "ec7c0372095f1c8f3c0e103e4a358a94ff9b6abf77ea0c6d95fd063a3b087114"
+            "part04.txt" = "3881ecd8f14597253cdeb7ffaceccfb0f96c10276e82752ce3ad2bb9d8c3e332"
+            "part05.txt" = "8785cd07d5020b0cfa73b79cd05aded083a5f3500e38c3732ebfa95f9d4daa25"
+            "part06.txt" = "93d012864cd9ad69d9b7ab3dd684fc82549a6d189560845b5afe04312067aab0"
+            "part07.txt" = "36a22d433f5b86b86cdf0b383c329113b0d56d2cb51a5aea2e3933e5aa23efd3"
+          }
+
           $parts = Get-ChildItem "$env:GITHUB_WORKSPACE\elyon-project-navigator-source\part*.txt" | Sort-Object Name
+          "Parts found: $($parts.Count)" | Tee-Object -FilePath $diag
           if ($parts.Count -ne 7) {
             throw "Expected 7 source parts, found $($parts.Count)."
           }
-          $base64 = ($parts | ForEach-Object { Get-Content -Raw $_.FullName }) -join ""
+
+          $cleanParts = @()
+          foreach ($part in $parts) {
+            $clean = (Get-Content -Raw -LiteralPath $part.FullName) -replace "\s", ""
+            $bytes = [System.Text.Encoding]::ASCII.GetBytes($clean)
+            $stream = [System.IO.MemoryStream]::new($bytes)
+            $hash = (Get-FileHash -InputStream $stream -Algorithm SHA256).Hash.ToLowerInvariant()
+            $stream.Dispose()
+            "$($part.Name): length=$($clean.Length) sha256=$hash expected=$($expectedPartHashes[$part.Name])" | Tee-Object -FilePath $diag -Append
+            if ($hash -ne $expectedPartHashes[$part.Name]) {
+              throw "Checksum mismatch in $($part.Name)."
+            }
+            $cleanParts += $clean
+          }
+
+          $base64 = $cleanParts -join ""
+          "Combined base64 length: $($base64.Length)" | Tee-Object -FilePath $diag -Append
+          if ($base64.Length -ne 57748) {
+            throw "Unexpected combined source length: $($base64.Length)."
+          }
+
           $archive = Join-Path $env:RUNNER_TEMP "elyon-project-navigator-source.zip"
           [System.IO.File]::WriteAllBytes($archive, [Convert]::FromBase64String($base64))
+          $archiveHash = (Get-FileHash -Path $archive -Algorithm SHA256).Hash.ToLowerInvariant()
+          "Archive sha256: $archiveHash" | Tee-Object -FilePath $diag -Append
+          if ($archiveHash -ne "5b11b0ac8c59a9ebe1e635e9adfdabe8f465bc64b2d7dd2ac3f6046804ac2e60") {
+            throw "Source archive checksum mismatch."
+          }
+
           $destination = Join-Path $env:GITHUB_WORKSPACE "windows-build"
           New-Item -ItemType Directory -Path $destination -Force | Out-Null
           Expand-Archive -Path $archive -DestinationPath $destination -Force
           if (-not (Test-Path "$destination\elyon-project-navigator-desktop\package.json")) {
             throw "Desktop source archive is incomplete."
           }
+          "Source restored successfully." | Tee-Object -FilePath $diag -Append
+
+      - name: Upload restore diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Elyon-Navigator-Restore-Diagnostics
+          path: ${{ runner.temp }}/restore-diagnostics.txt
+          if-no-files-found: warn
+          retention-days: 7
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
