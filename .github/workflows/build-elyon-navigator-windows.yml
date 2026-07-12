@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - build/elyon-project-navigator-windows-v3
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
