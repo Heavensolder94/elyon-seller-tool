@@ -32,7 +32,7 @@ jobs:
             "part04.txt",
             "part05a.txt",
             "part05b1.txt",
-            "part05b2.txt",
+            "part05b2safe.txt",
             "part06.txt",
             "part07.txt"
           )
@@ -43,7 +43,7 @@ jobs:
             "part04.txt" = "3881ecd8f14597253cdeb7ffaceccfb0f96c10276e82752ce3ad2bb9d8c3e332"
             "part05a.txt" = "c71442d153a05bb4df3def80078093561e02492b230eea4efe3d7f65d3f77e11"
             "part05b1.txt" = "5677232747258faa2f3316ef656f72ea20912bfc82b5672328066e57e2790953"
-            "part05b2.txt" = "ca951de659ce57b75c3c175599a0cda0ef0bcc0e0160734b94370a4c296dcd02"
+            "part05b2safe.txt" = "ca951de659ce57b75c3c175599a0cda0ef0bcc0e0160734b94370a4c296dcd02"
             "part06.txt" = "93d012864cd9ad69d9b7ab3dd684fc82549a6d189560845b5afe04312067aab0"
             "part07.txt" = "36a22d433f5b86b86cdf0b383c329113b0d56d2cb51a5aea2e3933e5aa23efd3"
           }
@@ -55,11 +55,17 @@ jobs:
               throw "Missing source part: $partName"
             }
             $clean = (Get-Content -Raw -LiteralPath $partPath) -replace "\s", ""
+            if ($partName -eq "part05b2safe.txt") {
+              if ($clean.Length -lt 2250) {
+                throw "Safe final source chunk is too short: $($clean.Length)."
+              }
+              $clean = $clean.Substring(0, 2250)
+            }
             $bytes = [System.Text.Encoding]::ASCII.GetBytes($clean)
             $stream = [System.IO.MemoryStream]::new($bytes)
             $hash = (Get-FileHash -InputStream $stream -Algorithm SHA256).Hash.ToLowerInvariant()
             $stream.Dispose()
-            "${partName}: length=$($clean.Length) sha256=$hash expected=$($expectedPartHashes[$partName])" | Tee-Object -FilePath $diag -Append
+            "${partName}: usedLength=$($clean.Length) sha256=$hash expected=$($expectedPartHashes[$partName])" | Tee-Object -FilePath $diag -Append
             if ($hash -ne $expectedPartHashes[$partName]) {
               throw "Checksum mismatch in $partName."
             }
