@@ -25,32 +25,41 @@ jobs:
         run: |
           $ErrorActionPreference = "Stop"
           $diag = Join-Path $env:RUNNER_TEMP "restore-diagnostics.txt"
+          $partNames = @(
+            "part01.txt",
+            "part02.txt",
+            "part03.txt",
+            "part04.txt",
+            "part05a.txt",
+            "part05b.txt",
+            "part06.txt",
+            "part07.txt"
+          )
           $expectedPartHashes = @{
             "part01.txt" = "28137f6ca2c50e36e1467e7c5ecce5b21efb02fcc1b55c16fb43498f40fe1661"
             "part02.txt" = "10f9fb7fd96d01095c3b122cf2e5288f451e8e1e992e65ce5ead13b4d735f16a"
             "part03.txt" = "ec7c0372095f1c8f3c0e103e4a358a94ff9b6abf77ea0c6d95fd063a3b087114"
             "part04.txt" = "3881ecd8f14597253cdeb7ffaceccfb0f96c10276e82752ce3ad2bb9d8c3e332"
-            "part05.txt" = "8785cd07d5020b0cfa73b79cd05aded083a5f3500e38c3732ebfa95f9d4daa25"
+            "part05a.txt" = "c71442d153a05bb4df3def80078093561e02492b230eea4efe3d7f65d3f77e11"
+            "part05b.txt" = "b2088abd67df778e9d987d9960ffba117ed221b3c701d313cb8f70cfbea65b0d"
             "part06.txt" = "93d012864cd9ad69d9b7ab3dd684fc82549a6d189560845b5afe04312067aab0"
             "part07.txt" = "36a22d433f5b86b86cdf0b383c329113b0d56d2cb51a5aea2e3933e5aa23efd3"
           }
 
-          $parts = Get-ChildItem "$env:GITHUB_WORKSPACE\elyon-project-navigator-source\part*.txt" | Sort-Object Name
-          "Parts found: $($parts.Count)" | Tee-Object -FilePath $diag
-          if ($parts.Count -ne 7) {
-            throw "Expected 7 source parts, found $($parts.Count)."
-          }
-
           $cleanParts = @()
-          foreach ($part in $parts) {
-            $clean = (Get-Content -Raw -LiteralPath $part.FullName) -replace "\s", ""
+          foreach ($partName in $partNames) {
+            $partPath = Join-Path "$env:GITHUB_WORKSPACE\elyon-project-navigator-source" $partName
+            if (-not (Test-Path -LiteralPath $partPath)) {
+              throw "Missing source part: $partName"
+            }
+            $clean = (Get-Content -Raw -LiteralPath $partPath) -replace "\s", ""
             $bytes = [System.Text.Encoding]::ASCII.GetBytes($clean)
             $stream = [System.IO.MemoryStream]::new($bytes)
             $hash = (Get-FileHash -InputStream $stream -Algorithm SHA256).Hash.ToLowerInvariant()
             $stream.Dispose()
-            "$($part.Name): length=$($clean.Length) sha256=$hash expected=$($expectedPartHashes[$part.Name])" | Tee-Object -FilePath $diag -Append
-            if ($hash -ne $expectedPartHashes[$part.Name]) {
-              throw "Checksum mismatch in $($part.Name)."
+            "$partName: length=$($clean.Length) sha256=$hash expected=$($expectedPartHashes[$partName])" | Tee-Object -FilePath $diag -Append
+            if ($hash -ne $expectedPartHashes[$partName]) {
+              throw "Checksum mismatch in $partName."
             }
             $cleanParts += $clean
           }
