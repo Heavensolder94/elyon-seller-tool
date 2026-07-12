@@ -31,7 +31,8 @@ jobs:
             "part03.txt",
             "part04.txt",
             "part05a.txt",
-            "part05b.txt",
+            "part05b1.txt",
+            "part05b2.txt",
             "part06.txt",
             "part07.txt"
           )
@@ -41,7 +42,8 @@ jobs:
             "part03.txt" = "ec7c0372095f1c8f3c0e103e4a358a94ff9b6abf77ea0c6d95fd063a3b087114"
             "part04.txt" = "3881ecd8f14597253cdeb7ffaceccfb0f96c10276e82752ce3ad2bb9d8c3e332"
             "part05a.txt" = "c71442d153a05bb4df3def80078093561e02492b230eea4efe3d7f65d3f77e11"
-            "part05b.txt" = "b2088abd67df778e9d987d9960ffba117ed221b3c701d313cb8f70cfbea65b0d"
+            "part05b1.txt" = "5677232747258faa2f3316ef656f72ea20912bfc82b5672328066e57e2790953"
+            "part05b2.txt" = "ca951de659ce57b75c3c175599a0cda0ef0bcc0e0160734b94370a4c296dcd02"
             "part06.txt" = "93d012864cd9ad69d9b7ab3dd684fc82549a6d189560845b5afe04312067aab0"
             "part07.txt" = "36a22d433f5b86b86cdf0b383c329113b0d56d2cb51a5aea2e3933e5aa23efd3"
           }
