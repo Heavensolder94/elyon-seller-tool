@@ -57,7 +57,7 @@ jobs:
             $stream = [System.IO.MemoryStream]::new($bytes)
             $hash = (Get-FileHash -InputStream $stream -Algorithm SHA256).Hash.ToLowerInvariant()
             $stream.Dispose()
-            "$partName: length=$($clean.Length) sha256=$hash expected=$($expectedPartHashes[$partName])" | Tee-Object -FilePath $diag -Append
+            "${partName}: length=$($clean.Length) sha256=$hash expected=$($expectedPartHashes[$partName])" | Tee-Object -FilePath $diag -Append
             if ($hash -ne $expectedPartHashes[$partName]) {
               throw "Checksum mismatch in $partName."
             }
