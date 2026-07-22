@@ -10,13 +10,16 @@ function getRedirectUri() {
 }
 
 function getScopes() {
-  const fallback = [
+  const required = [
     "https://api.ebay.com/oauth/api_scope",
     "https://api.ebay.com/oauth/api_scope/sell.inventory",
     "https://api.ebay.com/oauth/api_scope/sell.account",
   ];
-  const raw = process.env.EBAY_SCOPES || fallback.join(" ");
-  return String(raw).split(/[\s,]+/).map(scope => scope.trim()).filter(Boolean);
+  const configured = String(process.env.EBAY_SCOPES || "")
+    .split(/[\s,]+/)
+    .map(scope => scope.trim())
+    .filter(Boolean);
+  return [...new Set([...required, ...configured])];
 }
 
 function makeState(source) {
