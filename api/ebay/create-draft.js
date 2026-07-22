@@ -17,8 +17,15 @@ function getInventoryBaseUrl(environment) {
 }
 
 function getScopes() {
-  const raw = process.env.EBAY_SCOPES || "https://api.ebay.com/oauth/api_scope https://api.ebay.com/oauth/api_scope/sell.inventory";
-  return String(raw).split(/[\s,]+/).map(scope => scope.trim()).filter(Boolean);
+  const required = [
+    "https://api.ebay.com/oauth/api_scope",
+    "https://api.ebay.com/oauth/api_scope/sell.inventory",
+  ];
+  const configured = String(process.env.EBAY_SCOPES || "")
+    .split(/[\s,]+/)
+    .map(scope => scope.trim())
+    .filter(Boolean);
+  return [...new Set([...required, ...configured])];
 }
 
 function cleanText(value, max = 5000) {
