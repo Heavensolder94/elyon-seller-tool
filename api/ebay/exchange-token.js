@@ -1,4 +1,5 @@
 import { writeToken } from "../../lib/ebay-token-store.js";
+import { readEbayOAuthState, verifyEbayOAuthState } from "../../lib/ebay-oauth-state.js";
 
 function normalizeEnvironment(value) {
   return String(value || process.env.EBAY_ENV || "production").toLowerCase() === "sandbox" ? "sandbox" : "production";
@@ -26,6 +27,14 @@ export default async function handler(req, res) {
     return res.status(405).json({ ok: false, connected: false, error: "Nur GET oder POST erlaubt." });
   }
 
+  res.setHeader("Cache-Control", "no-store");
+  const environment = normalizeEnvironment(req.method === "POST" ? req.body?.environment || req.body?.env : req.query.environment || req.query.env);
+  const state = readEbayOAuthState(req);
+  const verifiedState = verifyEbayOAuthState(state, { environment });
+  if (!verifiedState.ok) {
+    return res.status(403).json({ ok: false, connected: false, error: verifiedState.error, message: "eBay OAuth-State ist ungültig oder abgelaufen." });
+  }
+
   const code = getCode(req);
   if (!code) {
     return res.status(400).json({ ok: false, connected: false, error: "code fehlt." });
@@ -43,7 +52,6 @@ export default async function handler(req, res) {
     });
   }
 
-  const environment = normalizeEnvironment(req.method === "POST" ? req.body?.environment || req.body?.env : req.query.environment || req.query.env);
   const response = await fetch(getEbayTokenEndpoint(environment), {
     method: "POST",
     headers: {
@@ -76,9 +84,6 @@ export default async function handler(req, res) {
   const storeResult = await writeToken(environment, tokenRecord);
   const connected = Boolean(storeResult.ok && tokenRecord.refresh_token);
 
-  res.setHeader("Cache-Control", "no-store");
-
-  // Sicherheitsregel: Keine Tokens an Browser/Extension zurückgeben.
   return res.status(200).json({
     ok: connected,
     connected,
