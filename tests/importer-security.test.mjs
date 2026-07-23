@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseEbayMoney } from "../api/ebay/create-draft.js";
+import { parseEbayMoney } from "../lib/ebay-money.js";
 import { createEbayOAuthState, verifyEbayOAuthState } from "../lib/ebay-oauth-state.js";
 import { requireImporterAccess } from "../lib/importer-request-guard.js";
 
