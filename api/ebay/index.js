@@ -1,6 +1,7 @@
 import internalHandler from "../../internal/ebay/index.js";
 import { requireImporterAccess } from "../../lib/importer-request-guard.js";
 import { createEbayOAuthState, readEbayOAuthState, verifyEbayOAuthState } from "../../lib/ebay-oauth-state.js";
+import { readToken } from "../../lib/ebay-token-store.js";
 
 function text(value) {
   return String(value ?? "").trim();
@@ -20,6 +21,10 @@ function actionFrom(req) {
 function environmentFrom(req) {
   const raw = req?.method === "POST" ? req?.body?.environment || req?.body?.env : req?.query?.environment || req?.query?.env;
   return text(raw).toLowerCase() === "sandbox" ? "sandbox" : "production";
+}
+
+export function publicConnectionStatus(tokenRecord) {
+  return { connected: Boolean(tokenRecord?.refresh_token || tokenRecord?.access_token) };
 }
 
 function redactSecrets(value, seen = new WeakSet()) {
@@ -46,6 +51,17 @@ function redactSecrets(value, seen = new WeakSet()) {
 export default async function handler(req, res) {
   const action = actionFrom(req);
   const environment = environmentFrom(req);
+  res.setHeader("Cache-Control", "no-store");
+  res.setHeader("X-Content-Type-Options", "nosniff");
+
+  if (action === "status") {
+    try {
+      const tokenRecord = await readToken(environment);
+      return res.status(200).json(publicConnectionStatus(tokenRecord));
+    } catch {
+      return res.status(200).json({ connected: false });
+    }
+  }
 
   if (action === "login-url") {
     req.query = {
@@ -64,8 +80,6 @@ export default async function handler(req, res) {
 
   if (["token", "orders"].includes(action)) {
     if (!requireImporterAccess(req, res, { maxBodyBytes: 64 * 1024 })) return;
-  } else {
-    res.setHeader("Cache-Control", "no-store");
   }
 
   const originalJson = res.json.bind(res);
