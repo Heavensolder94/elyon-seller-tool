@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { parseEbayMoney } from "../lib/ebay-money.js";
 import { createEbayOAuthState, verifyEbayOAuthState } from "../lib/ebay-oauth-state.js";
 import { requireImporterAccess } from "../lib/importer-request-guard.js";
+import { publicConnectionStatus } from "../api/ebay/index.js";
 
 test("eBay money parser keeps international decimals", () => {
   assert.equal(parseEbayMoney("19.99"), 19.99);
@@ -42,4 +43,10 @@ test("importer guard rejects an invalid access token", () => {
     if (previous === undefined) delete process.env.AMAZON_IMPORTER_ACCESS_TOKEN;
     else process.env.AMAZON_IMPORTER_ACCESS_TOKEN = previous;
   }
+});
+
+test("public eBay status exposes only connected true or false", () => {
+  assert.deepEqual(publicConnectionStatus({ refresh_token: "secret-refresh-token", storage_path: "/private/path", access_token: "secret-access-token" }), { connected: true });
+  assert.deepEqual(publicConnectionStatus(null), { connected: false });
+  assert.deepEqual(Object.keys(publicConnectionStatus({ refresh_token: "x" })), ["connected"]);
 });
