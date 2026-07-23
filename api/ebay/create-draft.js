@@ -1,4 +1,4 @@
-import internalHandler from "./create-draft-internal.js";
+import internalHandler from "../../internal/ebay/create-draft.js";
 import { requireImporterAccess } from "../../lib/importer-request-guard.js";
 import { parseEbayMoney } from "../../lib/ebay-money.js";
 

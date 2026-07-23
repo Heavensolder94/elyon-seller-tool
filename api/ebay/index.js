@@ -1,4 +1,4 @@
-import internalHandler from "./index-internal.js";
+import internalHandler from "../../internal/ebay/index.js";
 import { requireImporterAccess } from "../../lib/importer-request-guard.js";
 import { createEbayOAuthState, readEbayOAuthState, verifyEbayOAuthState } from "../../lib/ebay-oauth-state.js";
 

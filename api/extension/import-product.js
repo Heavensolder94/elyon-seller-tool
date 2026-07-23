@@ -1,4 +1,4 @@
-import internalHandler from "./import-product-internal.js";
+import internalHandler from "../../internal/extension/import-product.js";
 import { requireImporterAccess } from "../../lib/importer-request-guard.js";
 
 export default async function handler(req, res) {
