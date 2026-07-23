@@ -1,3 +1,5 @@
+import { createEbayOAuthState } from "../../lib/ebay-oauth-state.js";
+
 const SANDBOX_AUTH_URL = "https://auth.sandbox.ebay.com/oauth2/authorize";
 const PRODUCTION_AUTH_URL = "https://auth.ebay.com/oauth2/authorize";
 
@@ -22,14 +24,6 @@ function getScopes() {
   return [...new Set([...required, ...configured])];
 }
 
-function makeState(source) {
-  const safeSource = String(source || "amazon-importer-extension").replace(/[^a-z0-9._:-]/gi, "").slice(0, 80) || "amazon-importer-extension";
-  const nonce = globalThis.crypto && typeof globalThis.crypto.randomUUID === "function"
-    ? globalThis.crypto.randomUUID()
-    : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  return `${safeSource}:${nonce}`;
-}
-
 export default async function handler(req, res) {
   if (req.method !== "GET") {
     return res.status(405).json({ ok: false, error: "Nur GET erlaubt." });
@@ -48,6 +42,12 @@ export default async function handler(req, res) {
     });
   }
 
+  let state;
+  try { state = createEbayOAuthState({ source, environment }); }
+  catch (error) {
+    return res.status(503).json({ ok: false, connected: false, error: error.message || "OAuth-State konnte nicht erstellt werden." });
+  }
+
   const url = new URL(environment === "sandbox" ? SANDBOX_AUTH_URL : PRODUCTION_AUTH_URL);
   url.searchParams.set("client_id", clientId);
   url.searchParams.set("redirect_uri", redirectUri);
@@ -55,7 +55,7 @@ export default async function handler(req, res) {
   url.searchParams.set("scope", getScopes().join(" "));
   url.searchParams.set("locale", "de-DE");
   url.searchParams.set("prompt", "login");
-  url.searchParams.set("state", makeState(source));
+  url.searchParams.set("state", state);
 
   res.statusCode = 302;
   res.setHeader("Location", url.toString());
