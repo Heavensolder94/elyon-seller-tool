@@ -68,7 +68,9 @@ const desktopSourcePath = path.join(appRoot, "index.html");
 const desktopDestinationPath = path.join(publicRoot, "index.html");
 await mkdir(path.dirname(desktopDestinationPath), { recursive: true });
 const desktopHtml = await readFile(desktopSourcePath, "utf8");
-await writeFile(desktopDestinationPath, injectDesktopSecurity(desktopHtml), "utf8");
+const securedDesktopHtml = injectDesktopSecurity(desktopHtml);
+await writeFile(desktopSourcePath, securedDesktopHtml, "utf8");
+await writeFile(desktopDestinationPath, securedDesktopHtml, "utf8");
 
 const mobileSourcePath = path.join(appRoot, "mobile.html");
 const mobileDestinationPath = path.join(publicRoot, "mobile.html");
