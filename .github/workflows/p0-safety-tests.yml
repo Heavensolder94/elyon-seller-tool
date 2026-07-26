@@ -15,4 +15,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - run: npm test
+      - name: Run security tests
+        run: npm test
+      - name: Verify production build
+        run: npm run build
