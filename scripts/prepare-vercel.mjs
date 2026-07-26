@@ -36,8 +36,7 @@ function injectDesktopSecurity(html) {
   const endMarker = "<!-- /ELYON_DESKTOP_SECURITY -->";
   const content = [
     '<script defer src="/seller-auth.js"></script>',
-    '<script defer src="/seller-product-master-sync.js"></script>',
-    '<script defer src="/seller-product-master-panel.js"></script>',
+    '<script defer src="/seller-product-master-v3.js"></script>',
   ].join("\n");
 
   return injectMarkedBlock(html, { startMarker, endMarker, content });
@@ -47,8 +46,7 @@ const filesToMirror = [
   ["elyon-clean.css", "public/elyon-clean.css"],
   ["elyon-ui.js", "public/elyon-ui.js"],
   ["seller-auth.js", "public/seller-auth.js"],
-  ["seller-product-master-sync.js", "public/seller-product-master-sync.js"],
-  ["seller-product-master-panel.js", "public/seller-product-master-panel.js"],
+  ["seller-product-master-v3.js", "public/seller-product-master-v3.js"],
   ["ai-agent-engine.js", "public/ai-agent-engine.js"],
   ["elyon-soul.css", "public/elyon-soul.css"],
   ["elyon-soul.js", "public/elyon-soul.js"],
@@ -92,4 +90,4 @@ const envStatus = {
 };
 
 console.log("Google/security env status:", JSON.stringify(envStatus));
-console.log("Prepared Vercel static output, including seller auth, visible Product Master panel, sync, mobile PWA files and module scripts.");
+console.log("Prepared Vercel static output, including seller auth, Product Master V3, mobile PWA files and module scripts.");
