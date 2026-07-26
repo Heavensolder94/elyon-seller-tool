@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { stripMarkedBlock } from "./html-injection.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const appRoot = path.resolve(scriptDir, "..");
@@ -20,8 +21,20 @@ function countMatches(text, pattern) {
   return matches ? matches.length : 0;
 }
 
+function stripGeneratedBlocks(html) {
+  return stripMarkedBlock(
+    stripMarkedBlock(
+      html,
+      "<!-- ELYON_DESKTOP_SECURITY -->",
+      "<!-- /ELYON_DESKTOP_SECURITY -->",
+    ),
+    "<!-- ELYON_MOBILE_MODULES -->",
+    "<!-- /ELYON_MOBILE_MODULES -->",
+  );
+}
+
 function stripIgnoredBlocks(html) {
-  return html
+  return stripGeneratedBlocks(html)
     .replace(/^\uFEFF/, "")
     .replace(/<script\b[\s\S]*?<\/script>/gi, "")
     .replace(/<style\b[\s\S]*?<\/style>/gi, "");
@@ -34,8 +47,10 @@ async function main() {
 
   const normalizedRootHtml = rootHtml.replace(/^\uFEFF/, "");
   const normalizedPublicHtml = publicHtml.replace(/^\uFEFF/, "");
+  const comparableRootHtml = stripGeneratedBlocks(normalizedRootHtml).trimEnd();
+  const comparablePublicHtml = stripGeneratedBlocks(normalizedPublicHtml).trimEnd();
 
-  if (normalizedRootHtml !== normalizedPublicHtml) {
+  if (comparableRootHtml !== comparablePublicHtml) {
     fail("index.html and public/index.html are out of sync");
   }
 
