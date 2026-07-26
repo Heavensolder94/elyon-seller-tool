@@ -1,7 +1,7 @@
 import internalHandler from "../../internal/ebay/index.js";
-import { requireImporterAccess } from "../../lib/importer-request-guard.js";
 import { createEbayOAuthState, readEbayOAuthState, verifyEbayOAuthState } from "../../lib/ebay-oauth-state.js";
 import { readToken } from "../../lib/ebay-token-store.js";
+import { requireSellerAccess } from "../../lib/seller-access.js";
 
 function text(value) {
   return String(value ?? "").trim();
@@ -66,7 +66,7 @@ export default async function handler(req, res) {
   if (action === "login-url") {
     req.query = {
       ...(req.query || {}),
-      state: createEbayOAuthState({ source: req?.query?.source || "amazon-importer-extension", environment })
+      state: createEbayOAuthState({ source: req?.query?.source || "elyon-seller-tool", environment })
     };
   }
 
@@ -79,7 +79,7 @@ export default async function handler(req, res) {
   }
 
   if (["token", "orders"].includes(action)) {
-    if (!requireImporterAccess(req, res, { maxBodyBytes: 64 * 1024 })) return;
+    if (!requireSellerAccess(req, res, { maxBodyBytes: 64 * 1024 })) return;
   }
 
   const originalJson = res.json.bind(res);
