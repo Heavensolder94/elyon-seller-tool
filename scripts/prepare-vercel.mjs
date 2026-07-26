@@ -1,6 +1,7 @@
 import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { injectMarkedBlock } from "./html-injection.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const appRoot = path.resolve(scriptDir, "..");
@@ -9,6 +10,7 @@ const publicRoot = path.join(appRoot, "public");
 await import("./check-layout.mjs");
 
 const mobileModuleScripts = [
+  "seller-auth.js",
   "mobile-live.js",
   "mobile-flags.js",
   "mobile-scanner-v2.js",
@@ -20,19 +22,27 @@ const mobileModuleScripts = [
 ];
 
 function injectMobileScripts(html) {
-  const marker = "<!-- ELYON_MOBILE_MODULES -->";
-  const scriptBlock = [
-    marker,
-    ...mobileModuleScripts.map((file) => `<script defer src="/${file}?v=${Date.now()}"></script>`),
-  ].join("\n  ");
+  const startMarker = "<!-- ELYON_MOBILE_MODULES -->";
+  const endMarker = "<!-- /ELYON_MOBILE_MODULES -->";
+  const content = mobileModuleScripts
+    .map((file) => `<script defer src="/${file}?v=${Date.now()}"></script>`)
+    .join("\n");
 
-  const cleaned = html.replace(new RegExp(`\\s*${marker}[\\s\\S]*?(?=</body>)`, "m"), "");
-  return cleaned.includes("</body>") ? cleaned.replace("</body>", `  ${scriptBlock}\n</body>`) : `${cleaned}\n${scriptBlock}\n`;
+  return injectMarkedBlock(html, { startMarker, endMarker, content });
+}
+
+function injectDesktopSecurity(html) {
+  const startMarker = "<!-- ELYON_DESKTOP_SECURITY -->";
+  const endMarker = "<!-- /ELYON_DESKTOP_SECURITY -->";
+  const content = '<script defer src="/seller-auth.js"></script>';
+
+  return injectMarkedBlock(html, { startMarker, endMarker, content });
 }
 
 const filesToMirror = [
   ["elyon-clean.css", "public/elyon-clean.css"],
   ["elyon-ui.js", "public/elyon-ui.js"],
+  ["seller-auth.js", "public/seller-auth.js"],
   ["ai-agent-engine.js", "public/ai-agent-engine.js"],
   ["elyon-soul.css", "public/elyon-soul.css"],
   ["elyon-soul.js", "public/elyon-soul.js"],
@@ -54,6 +64,12 @@ for (const [source, destination] of filesToMirror) {
   await copyFile(sourcePath, destinationPath);
 }
 
+const desktopSourcePath = path.join(appRoot, "index.html");
+const desktopDestinationPath = path.join(publicRoot, "index.html");
+await mkdir(path.dirname(desktopDestinationPath), { recursive: true });
+const desktopHtml = await readFile(desktopSourcePath, "utf8");
+await writeFile(desktopDestinationPath, injectDesktopSecurity(desktopHtml), "utf8");
+
 const mobileSourcePath = path.join(appRoot, "mobile.html");
 const mobileDestinationPath = path.join(publicRoot, "mobile.html");
 await mkdir(path.dirname(mobileDestinationPath), { recursive: true });
@@ -65,7 +81,9 @@ const envStatus = {
   GOOGLE_CLIENT_SECRET: Boolean(process.env.GOOGLE_CLIENT_SECRET),
   GOOGLE_REDIRECT_URI: Boolean(process.env.GOOGLE_REDIRECT_URI),
   GOOGLE_DRIVE_BACKUP_FOLDER_ID: Boolean(process.env.GOOGLE_DRIVE_BACKUP_FOLDER_ID),
+  ELYON_SELLER_ACCESS_TOKEN: Boolean(process.env.ELYON_SELLER_ACCESS_TOKEN),
+  CRON_SECRET: Boolean(process.env.CRON_SECRET),
 };
 
-console.log("Google env status:", JSON.stringify(envStatus));
-console.log("Prepared Vercel static output, including mobile PWA files and module scripts.");
+console.log("Google/security env status:", JSON.stringify(envStatus));
+console.log("Prepared Vercel static output, including seller auth, mobile PWA files and module scripts.");

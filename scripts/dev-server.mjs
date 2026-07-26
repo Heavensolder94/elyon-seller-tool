@@ -156,34 +156,44 @@ function buildApiRoute(pathname, query) {
     { match: /^\/api\/ping$/, module: "api/health.js" },
     { match: /^\/api\/health$/, module: "api/health.js" },
     { match: /^\/api\/env-check$/, module: "api/env-check.js" },
-    { match: /^\/api\/google-sheets-sync$/, module: "api/env-check.js" },
+    { match: /^\/api\/auth\/session$/, module: "api/auth/session.js" },
+    { match: /^\/api\/products$/, module: "api/products/index.js" },
+    { match: /^\/api\/integrations\/status$/, module: "api/integrations/status.js" },
+    { match: /^\/api\/google-sheets-sync$/, module: "api/secure-env-check.js" },
+    { match: /^\/api\/secure-env-check$/, module: "api/secure-env-check.js" },
     { match: /^\/api\/google-sheets-sync-settings$/, module: "api/google-sheets-sync-settings.js" },
     { match: /^\/api\/cj\/status$/, module: "api/cj/status.js" },
     { match: /^\/api\/cj\/search$/, module: "api/cj/search.js" },
-    { match: /^\/api\/elyon-soul$/, module: "api/elyon-soul.js" },
-    { match: /^\/api\/agent-engine$/, module: "api/agent-engine.js" },
-    { match: /^\/api\/ai-router$/, module: "api/ai.js" },
-    { match: /^\/api\/ai(?:\/(listing-optimizer|product-search))?$/, module: "api/ai.js" },
-    { match: /^\/api\/google-drive(?:\/(status|auth-url|upload-backup|oauth\/start|oauth\/callback))?$/, module: "api/google-drive.js" },
-    { match: /^\/api\/ebay(?:\/(status|login-url|search|competition|exchange-token|token))?$/, module: "api/ebay/index.js" },
+    { match: /^\/api\/mobile-features$/, module: "api/mobile-features.js" },
+    { match: /^\/api\/mobile-health$/, module: "api/secure-mobile-health.js" },
+    { match: /^\/api\/mobile-summary$/, module: "api/secure-mobile-summary.js" },
+    { match: /^\/api\/extension\/import-product$/, module: "api/extension/import-product.js" },
+    { match: /^\/api\/import\/extension-product$/, module: "api/import/extension-product.js" },
+    { match: /^\/api\/elyon\/products$/, module: "api/extension/import-product.js", fixedQuery: { collection: "products" } },
+    { match: /^\/api\/elyon-soul$/, module: "api/secure-elyon-soul.js" },
+    { match: /^\/api\/secure-elyon-soul$/, module: "api/secure-elyon-soul.js" },
+    { match: /^\/api\/agent-engine$/, module: "api/secure-agent-engine.js" },
+    { match: /^\/api\/secure-agent-engine$/, module: "api/secure-agent-engine.js" },
+    { match: /^\/api\/ai-workflow$/, module: "api/secure-agent-engine.js", fixedQuery: { action: "ai-workflow" } },
+    { match: /^\/api\/product-vision$/, module: "api/secure-agent-engine.js", fixedQuery: { action: "ai-workflow" } },
+    { match: /^\/api\/ai-router$/, module: "api/secure-ai.js", fixedQuery: { task: "router" } },
+    { match: /^\/api\/secure-ai$/, module: "api/secure-ai.js" },
+    { match: /^\/api\/ai(?:\/(listing-optimizer|product-search))?$/, module: "api/secure-ai.js", taskFromMatch: true },
+    { match: /^\/api\/google-drive(?:\/(status|auth-url|upload-backup|oauth\/start|oauth\/callback))?$/, module: "api/secure-google-drive.js", actionFromMatch: true },
+    { match: /^\/api\/secure-google-drive$/, module: "api/secure-google-drive.js" },
+    { match: /^\/api\/ebay(?:\/(status|login-url|search|orders|competition|exchange-token|token))?$/, module: "api/ebay/index.js", actionFromMatch: true },
   ];
 
   for (const route of routes) {
     const match = clean.match(route.match);
     if (!match) continue;
 
-    const nextQuery = { ...query };
-    if (route.module === "api/ai.js" && match[1]) {
+    const nextQuery = { ...query, ...(route.fixedQuery || {}) };
+    if (route.taskFromMatch && match[1]) {
       nextQuery.task = match[1];
     }
-    if (route.module === "api/ai.js" && clean === "/api/ai-router") {
-      nextQuery.task = "router";
-    }
-    if (route.module === "api/google-drive.js" && match[1]) {
+    if (route.actionFromMatch && match[1]) {
       nextQuery.action = match[1].split("/").pop();
-    }
-    if (route.module === "api/ebay/index.js" && match[1]) {
-      nextQuery.action = match[1];
     }
 
     return { modulePath: path.join(appRoot, route.module), query: nextQuery };
