@@ -37,6 +37,7 @@ function injectDesktopSecurity(html) {
   const content = [
     '<script defer src="/seller-auth.js"></script>',
     '<script defer src="/seller-product-import.js"></script>',
+    '<script defer src="/seller-products-hub.js"></script>',
   ].join("\n");
 
   return injectMarkedBlock(html, { startMarker, endMarker, content });
@@ -47,6 +48,7 @@ const filesToMirror = [
   ["elyon-ui.js", "public/elyon-ui.js"],
   ["seller-auth.js", "public/seller-auth.js"],
   ["seller-product-import.js", "public/seller-product-import.js"],
+  ["seller-products-hub.js", "public/seller-products-hub.js"],
   ["ai-agent-engine.js", "public/ai-agent-engine.js"],
   ["elyon-soul.css", "public/elyon-soul.css"],
   ["elyon-soul.js", "public/elyon-soul.js"],
@@ -90,4 +92,4 @@ const envStatus = {
 };
 
 console.log("Google/security env status:", JSON.stringify(envStatus));
-console.log("Prepared Vercel static output, including seller auth, integrated Product Import, mobile PWA files and module scripts.");
+console.log("Prepared Vercel static output, including seller auth, integrated Product Import, clean Products Hub, mobile PWA files and module scripts.");
