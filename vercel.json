@@ -54,6 +54,14 @@
       "destination": "/api/health"
     },
     {
+      "source": "/api/mobile-health",
+      "destination": "/api/secure-mobile-health"
+    },
+    {
+      "source": "/api/mobile-summary",
+      "destination": "/api/secure-mobile-summary"
+    },
+    {
       "source": "/api/agent-engine",
       "destination": "/api/secure-agent-engine"
     },
