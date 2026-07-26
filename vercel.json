@@ -91,7 +91,7 @@
     },
     {
       "source": "/api/google-sheets-sync",
-      "destination": "/api/env-check"
+      "destination": "/api/secure-env-check"
     },
     {
       "source": "/api/cj/status",
