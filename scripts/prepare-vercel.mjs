@@ -1,6 +1,7 @@
 import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { injectMarkedBlock } from "./html-injection.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const appRoot = path.resolve(scriptDir, "..");
@@ -21,22 +22,21 @@ const mobileModuleScripts = [
 ];
 
 function injectMobileScripts(html) {
-  const marker = "<!-- ELYON_MOBILE_MODULES -->";
-  const scriptBlock = [
-    marker,
-    ...mobileModuleScripts.map((file) => `<script defer src="/${file}?v=${Date.now()}"></script>`),
-  ].join("\n  ");
+  const startMarker = "<!-- ELYON_MOBILE_MODULES -->";
+  const endMarker = "<!-- /ELYON_MOBILE_MODULES -->";
+  const content = mobileModuleScripts
+    .map((file) => `<script defer src="/${file}?v=${Date.now()}"></script>`)
+    .join("\n");
 
-  const cleaned = html.replace(new RegExp(`\\s*${marker}[\\s\\S]*?(?=</body>)`, "m"), "");
-  return cleaned.includes("</body>") ? cleaned.replace("</body>", `  ${scriptBlock}\n</body>`) : `${cleaned}\n${scriptBlock}\n`;
+  return injectMarkedBlock(html, { startMarker, endMarker, content });
 }
 
 function injectDesktopSecurity(html) {
-  const start = "<!-- ELYON_DESKTOP_SECURITY -->";
-  const end = "<!-- /ELYON_DESKTOP_SECURITY -->";
-  const block = `${start}\n  <script defer src="/seller-auth.js"></script>\n  ${end}`;
-  const cleaned = html.replace(new RegExp(`\\s*${start}[\\s\\S]*?${end}`, "m"), "");
-  return cleaned.includes("</body>") ? cleaned.replace("</body>", `  ${block}\n</body>`) : `${cleaned}\n${block}\n`;
+  const startMarker = "<!-- ELYON_DESKTOP_SECURITY -->";
+  const endMarker = "<!-- /ELYON_DESKTOP_SECURITY -->";
+  const content = '<script defer src="/seller-auth.js"></script>';
+
+  return injectMarkedBlock(html, { startMarker, endMarker, content });
 }
 
 const filesToMirror = [
@@ -68,17 +68,13 @@ const desktopSourcePath = path.join(appRoot, "index.html");
 const desktopDestinationPath = path.join(publicRoot, "index.html");
 await mkdir(path.dirname(desktopDestinationPath), { recursive: true });
 const desktopHtml = await readFile(desktopSourcePath, "utf8");
-const securedDesktopHtml = injectDesktopSecurity(desktopHtml);
-await writeFile(desktopSourcePath, securedDesktopHtml, "utf8");
-await writeFile(desktopDestinationPath, securedDesktopHtml, "utf8");
+await writeFile(desktopDestinationPath, injectDesktopSecurity(desktopHtml), "utf8");
 
 const mobileSourcePath = path.join(appRoot, "mobile.html");
 const mobileDestinationPath = path.join(publicRoot, "mobile.html");
 await mkdir(path.dirname(mobileDestinationPath), { recursive: true });
 const mobileHtml = await readFile(mobileSourcePath, "utf8");
-const securedMobileHtml = injectMobileScripts(mobileHtml);
-await writeFile(mobileSourcePath, securedMobileHtml, "utf8");
-await writeFile(mobileDestinationPath, securedMobileHtml, "utf8");
+await writeFile(mobileDestinationPath, injectMobileScripts(mobileHtml), "utf8");
 
 const envStatus = {
   GOOGLE_CLIENT_ID: Boolean(process.env.GOOGLE_CLIENT_ID),
