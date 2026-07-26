@@ -76,7 +76,9 @@ const mobileSourcePath = path.join(appRoot, "mobile.html");
 const mobileDestinationPath = path.join(publicRoot, "mobile.html");
 await mkdir(path.dirname(mobileDestinationPath), { recursive: true });
 const mobileHtml = await readFile(mobileSourcePath, "utf8");
-await writeFile(mobileDestinationPath, injectMobileScripts(mobileHtml), "utf8");
+const securedMobileHtml = injectMobileScripts(mobileHtml);
+await writeFile(mobileSourcePath, securedMobileHtml, "utf8");
+await writeFile(mobileDestinationPath, securedMobileHtml, "utf8");
 
 const envStatus = {
   GOOGLE_CLIENT_ID: Boolean(process.env.GOOGLE_CLIENT_ID),
