@@ -13,9 +13,17 @@ function getBaseUrl(req) {
   return `${proto}://${host}`;
 }
 
+function forwardedAuthHeaders(req) {
+  const headers = {};
+  if (req?.headers?.cookie) headers.cookie = req.headers.cookie;
+  if (req?.headers?.authorization) headers.authorization = req.headers.authorization;
+  if (req?.headers?.["x-elyon-seller-token"]) headers["x-elyon-seller-token"] = req.headers["x-elyon-seller-token"];
+  return headers;
+}
+
 async function probe(req, path) {
   try {
-    const response = await fetch(`${getBaseUrl(req)}${path}`);
+    const response = await fetch(`${getBaseUrl(req)}${path}`, { headers: forwardedAuthHeaders(req) });
     const data = await readJsonSafe(response);
     return { ok: response.ok, status: response.status, data };
   } catch (error) {
