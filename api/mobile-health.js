@@ -19,6 +19,14 @@ function getBaseUrl(req) {
   return `${proto}://${host}`;
 }
 
+function forwardedAuthHeaders(req) {
+  const headers = {};
+  if (req?.headers?.cookie) headers.cookie = req.headers.cookie;
+  if (req?.headers?.authorization) headers.authorization = req.headers.authorization;
+  if (req?.headers?.["x-elyon-seller-token"]) headers["x-elyon-seller-token"] = req.headers["x-elyon-seller-token"];
+  return headers;
+}
+
 async function readJsonSafe(response) {
   const text = await response.text();
   try {
@@ -32,7 +40,8 @@ async function probe(req, path, options = {}) {
   const url = `${getBaseUrl(req)}${path}`;
   const started = Date.now();
   try {
-    const runner = withTimeout((signal) => fetch(url, { ...options, signal }));
+    const headers = { ...forwardedAuthHeaders(req), ...(options.headers || {}) };
+    const runner = withTimeout((signal) => fetch(url, { ...options, headers, signal }));
     const response = await runner.run;
     const data = await readJsonSafe(response);
     return {
@@ -59,7 +68,7 @@ function missing(flags) {
 
 function hasEbayOrderScope() {
   const scopes = String(process.env.EBAY_SCOPES || "");
-  return /sell\.fulfillment|sell\.inventory|sell\.account|sell\.marketing|sell\.analytics/i.test(scopes);
+  return /sell\.fulfillment/i.test(scopes);
 }
 
 function buildEnvReadiness() {
@@ -81,7 +90,7 @@ function buildEnvReadiness() {
   };
 
   const cj = {
-    CJ_API_KEY: envFlag("CJ_API_KEY"),
+    CJ_API_KEY_OR_ACCESS_TOKEN: envFlag("CJ_API_KEY") || envFlag("CJ_ACCESS_TOKEN"),
   };
 
   const openai = {
@@ -149,11 +158,14 @@ export default async function handler(req, res) {
     probe(req, "/api/cj/status"),
   ]);
 
-  const ebayOrdersForbidden = ebayOrders.status === 403;
-  const ebayState = ebayOrders.ok ? "ok" : ebayToken.ok ? "warn" : undefined;
-  const ebayDetail = ebayOrdersForbidden
-    ? "eBay Token funktioniert, aber Orders sind gesperrt. Bitte EBAY_SCOPES erweitern und eBay OAuth neu verbinden."
-    : null;
+  const ebayAccessDenied = ebayOrders.status === 403 && ebayOrders.data?.error === "seller_access_denied";
+  const ebayScopeMissing = ebayOrders.status === 403 && !ebayAccessDenied;
+  const ebayState = ebayOrders.ok ? "ok" : ebayToken.ok ? "warn" : ebayAccessDenied ? "bad" : undefined;
+  const ebayDetail = ebayAccessDenied
+    ? "Seller-Sitzung fehlt in der internen Orders-Prüfung. Bitte erneut im Seller Tool anmelden."
+    : ebayScopeMissing
+      ? "eBay ist verbunden, aber der Fulfillment-/Orders-Scope fehlt oder wurde noch nicht neu autorisiert."
+      : null;
 
   const googleData = googleDrive.data || {};
   const googleState = googleData.connected === false ? "warn" : undefined;
@@ -179,9 +191,11 @@ export default async function handler(req, res) {
     checkedAt: new Date().toISOString(),
     summary: { total: services.length, ok: okCount, warn: warnCount, bad: badCount },
     nextActions: {
-      ebayOrders: ebayOrdersForbidden
-        ? "In Vercel EBAY_SCOPES um sell.fulfillment erweitern, danach /api/ebay/login-url öffnen und eBay neu autorisieren."
-        : null,
+      ebayOrders: ebayAccessDenied
+        ? "Seller Tool erneut anmelden."
+        : ebayScopeMissing
+          ? "EBAY_SCOPES um sell.fulfillment.readonly erweitern und eBay danach neu verbinden."
+          : null,
       googleDrive: googleData.connected === false ? "Google Drive OAuth Flow erneut starten." : null,
     },
     services,
