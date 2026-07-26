@@ -1,4 +1,5 @@
 import { mergeProductLists, normalizeProduct } from "../../lib/product-master.js";
+import { requireSellerAccess } from "../../lib/seller-access.js";
 
 function getRedisConfig() {
   const pairs = [
@@ -6,12 +7,12 @@ function getRedisConfig() {
     { source: "upstash_redis_rest", url: process.env.UPSTASH_REDIS_REST_URL, token: process.env.UPSTASH_REDIS_REST_TOKEN },
     { source: "vercel_kv_rest", url: process.env.KV_REST_API_URL, token: process.env.KV_REST_API_TOKEN },
   ];
-  return pairs.find((pair) => pair.url && pair.token) || { source: "memory", url: "", token: "" };
+  return pairs.find((pair) => pair.url && pair.token) || { source: "unconfigured", url: "", token: "" };
 }
 
 async function redisCommand(command) {
   const { url, token } = getRedisConfig();
-  if (!url || !token) return null;
+  if (!url || !token) throw new Error("Persistenter Product-Master-Speicher ist nicht konfiguriert.");
   const response = await fetch(url.replace(/\/$/, ""), {
     method: "POST",
     headers: {
@@ -47,18 +48,13 @@ async function readList(key) {
 async function writeList(key, items) {
   const config = getRedisConfig();
   if (!config.url || !config.token) {
-    globalThis.__elyonProductMaster = Array.isArray(items) ? items : [];
-    return { persisted: false, mode: "server_memory", source: config.source };
+    return { persisted: false, mode: "unconfigured", source: config.source };
   }
   await redisCommand(["SET", key, JSON.stringify(items || [])]);
   return { persisted: true, mode: "server_persistent", source: config.source };
 }
 
 async function loadMasterProducts() {
-  const config = getRedisConfig();
-  if (!config.url || !config.token) {
-    return Array.isArray(globalThis.__elyonProductMaster) ? globalThis.__elyonProductMaster : [];
-  }
   return readList("elyon_products");
 }
 
@@ -106,8 +102,19 @@ function summarize(products) {
 }
 
 export default async function handler(req, res) {
+  if (!requireSellerAccess(req, res, { maxBodyBytes: 512 * 1024 })) return;
+
   res.setHeader("Cache-Control", "no-store");
   const config = getRedisConfig();
+  if (!config.url || !config.token) {
+    return res.status(503).json({
+      ok: false,
+      route: "/api/products",
+      error: "persistent_storage_required",
+      message: "Product Master bleibt gesperrt, bis Upstash/KV persistent konfiguriert ist.",
+      storage: { configured: false, mode: "unconfigured", source: config.source },
+    });
+  }
 
   try {
     if (req.method === "GET") {
@@ -123,8 +130,8 @@ export default async function handler(req, res) {
           browserImports: browserImports.length,
         },
         storage: {
-          configured: Boolean(config.url && config.token),
-          mode: config.url && config.token ? "server_persistent" : "server_memory",
+          configured: true,
+          mode: "server_persistent",
           source: config.source,
         },
         safety: {
@@ -175,7 +182,7 @@ export default async function handler(req, res) {
       route: "/api/products",
       error: error && error.message ? error.message : "Product API Fehler",
       storage: {
-        configured: Boolean(config.url && config.token),
+        configured: true,
         source: config.source,
       },
     });
