@@ -1,5 +1,4 @@
 import {
-  buildSellerListingView,
   sellerProductIdentity,
   sellerProductPayload,
 } from "/seller-selling-flow-core.js";
@@ -48,6 +47,10 @@ function selectedProduct() {
   const products = readProducts();
   const selectedId = text(localStorage.getItem(SELECTED_KEY));
   return products.find((product) => productMatches(product, selectedId)) || products[0] || null;
+}
+
+function productById(id) {
+  return readProducts().find((product) => productMatches(product, id)) || selectedProduct();
 }
 
 function replaceStoredProduct(updated) {
@@ -155,15 +158,18 @@ function controlFor(input, product) {
     input.insertAdjacentElement("afterend", control);
   }
   const message = categoryMessage(product);
+  const signature = `${message.cls}|${message.title}|${message.detail}`;
   control.className = `sce-category-control ${message.cls}`;
-  control.innerHTML = `<span><strong>${esc(message.title)}</strong><small>${esc(message.detail)}</small></span><button type="button" class="secondary" data-sce-action="choose">Kategorie ändern</button>`;
+  if (control.dataset.signature !== signature) {
+    control.dataset.signature = signature;
+    control.innerHTML = `<span><strong>${esc(message.title)}</strong><small>${esc(message.detail)}</small></span><button type="button" class="secondary" data-sce-action="choose">Kategorie ändern</button>`;
+  }
 }
 
 function decorateCategoryFields() {
   const product = selectedProduct();
   if (!product) return;
   const state = categoryState(product);
-
   const idInputs = new Set([
     document.getElementById("sellerAutoCategoryId"),
     ...document.querySelectorAll('input[id*="CategoryId" i],input[name*="categoryId" i],input[id*="ebayCategoryId" i],input[name*="ebayCategoryId" i]'),
@@ -192,12 +198,12 @@ function decorateCategoryFields() {
   });
 
   const taxonomyMetric = document.getElementById("salpTaxonomyCategory");
-  if (taxonomyMetric) {
-    taxonomyMetric.textContent = state.categoryName || (runtimeState(product).loading ? "wird ermittelt" : "offen");
-    taxonomyMetric.title = "Die technische eBay-Kategorie-ID wird intern verwaltet.";
-  }
+  const metricValue = state.categoryName || (runtimeState(product).loading ? "wird ermittelt" : "offen");
+  if (taxonomyMetric && taxonomyMetric.textContent !== metricValue) taxonomyMetric.textContent = metricValue;
+  if (taxonomyMetric) taxonomyMetric.title = "Die technische eBay-Kategorie-ID wird intern verwaltet.";
   document.querySelectorAll(".salp-result small").forEach((node) => {
-    node.textContent = text(node.textContent).replace(/^ID\s+\d+\s*·?\s*/i, "");
+    const clean = text(node.textContent).replace(/^ID\s+\d+\s*·?\s*/i, "");
+    if (node.textContent !== clean) node.textContent = clean;
   });
 }
 
@@ -212,11 +218,9 @@ function cardProductId(card) {
 function decorateProductBoard() {
   const products = readProducts();
   document.querySelectorAll(".product-card").forEach((card) => {
-    const id = cardProductId(card);
-    const product = products.find((entry) => productMatches(entry, id));
+    const product = products.find((entry) => productMatches(entry, cardProductId(card)));
     if (!product) return;
     const state = categoryState(product);
-    const current = runtimeState(product);
     const row = card.querySelector(".pill-row");
     if (!row) return;
     let badge = row.querySelector(":scope > .sce-board-category");
@@ -229,16 +233,29 @@ function decorateProductBoard() {
       row.appendChild(badge);
     }
     badge.classList.toggle("pending", !state.valid);
-    badge.textContent = current.loading ? "🏷️ Kategorie wird ermittelt" : state.categoryName ? `🏷️ ${state.categoryName}` : "🏷️ Kategorie automatisch";
-    badge.title = state.valid ? "Kategorie anzeigen oder ändern" : "Kategorie jetzt automatisch ermitteln";
+    const label = runtimeState(product).loading ? "🏷️ Kategorie wird ermittelt" : state.categoryName ? `🏷️ ${state.categoryName}` : "🏷️ Kategorie automatisch";
+    const title = state.valid ? "Kategorie anzeigen oder ändern" : "Kategorie jetzt automatisch ermitteln";
+    if (badge.textContent !== label) badge.textContent = label;
+    if (badge.title !== title) badge.title = title;
   });
+}
+
+function startObserver() {
+  if (!document.body) return;
+  if (!observer) observer = new MutationObserver(scheduleDecoration);
+  observer.observe(document.body, { childList: true, subtree: true });
 }
 
 function decorate() {
   decorationQueued = false;
-  installStyles();
-  decorateCategoryFields();
-  decorateProductBoard();
+  observer?.disconnect();
+  try {
+    installStyles();
+    decorateCategoryFields();
+    decorateProductBoard();
+  } finally {
+    startObserver();
+  }
 }
 
 function scheduleDecoration() {
@@ -267,9 +284,8 @@ async function applyResolution(product, resolution, { automatic = true } = {}) {
 
 async function resolveProduct(product, { force = false } = {}) {
   if (!product) return null;
-  const id = sellerProductIdentity(product);
   const query = categoryQueryFromProduct(product);
-  const key = `${id}:${query.toLowerCase()}`;
+  const key = `${sellerProductIdentity(product)}:${query.toLowerCase()}`;
   if (!force && (!categoryNeedsResolution(product) || attempted.has(key) || taxonomyUnavailable)) return product;
   if (query.length < 2) {
     setRuntime(product, { loading: false, error: "Für die automatische Zuordnung fehlt ein verwertbarer Produkttitel." });
@@ -307,11 +323,6 @@ async function runBackfill() {
     backfillRunning = false;
     scheduleDecoration();
   }
-}
-
-function chooserProduct(productId = "") {
-  const products = readProducts();
-  return products.find((product) => productMatches(product, productId)) || selectedProduct();
 }
 
 function chooserStatus(message, error = false) {
@@ -356,7 +367,7 @@ function openChooser(product) {
 
 async function chooseCategory(button) {
   const backdrop = document.getElementById(CHOOSER_ID);
-  const product = chooserProduct(backdrop?.dataset.productId);
+  const product = productById(backdrop?.dataset.productId);
   if (!product) return;
   const categoryId = text(button.dataset.sceChoice);
   const categoryName = text(button.dataset.sceName);
@@ -380,9 +391,9 @@ function bindEvents() {
     if (action) {
       const type = action.dataset.sceAction;
       if (type === "close") document.getElementById(CHOOSER_ID)?.remove();
-      if (type === "choose") openChooser(chooserProduct(action.dataset.sceProductId));
+      if (type === "choose") openChooser(productById(action.dataset.sceProductId));
       if (type === "automatic") {
-        const product = chooserProduct(document.getElementById(CHOOSER_ID)?.dataset.productId);
+        const product = productById(document.getElementById(CHOOSER_ID)?.dataset.productId);
         chooserStatus("Der beste offizielle eBay-Vorschlag wird übernommen …");
         const updated = await resolveProduct(product, { force: true });
         if (categoryState(updated).valid) document.getElementById(CHOOSER_ID)?.remove();
@@ -403,16 +414,10 @@ function bindEvents() {
   });
 }
 
-function observe() {
-  if (observer || !document.body) return;
-  observer = new MutationObserver(scheduleDecoration);
-  observer.observe(document.body, { childList: true, subtree: true });
-}
-
 function install() {
   installStyles();
   bindEvents();
-  observe();
+  startObserver();
   scheduleDecoration();
   scheduleBackfill();
   window.elyonCategoryEngine = {
