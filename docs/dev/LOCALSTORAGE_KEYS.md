@@ -45,7 +45,7 @@ Zweck:
 Zweck:
 
 - bewusst erzeugte lokale Arbeitskopien aus dem Seller Product Master
-- Grundlage der bestehenden Produktansicht sowie des neuen Seller-Bereichs `Verkaufen`
+- Grundlage der bestehenden Produktansicht sowie des Seller-Bereichs `Verkaufen`
 - bleibt eine Arbeitskopie und nicht die verbindliche Hauptdatenquelle
 
 Regeln:
@@ -77,6 +77,50 @@ Beispiel:
   "updatedAt": "2026-07-27T12:00:00.000Z"
 }
 ```
+
+### `elyon_seller_visual_designer_v1`
+
+Zweck:
+
+- ausschließlich UI-Zustand des visuellen Elyon Listing Designers
+- aktuell geöffneter Designer-Modus
+- Desktop- oder Mobil-Vorschau
+- DeepSeek-Stärke-Regler
+- keine Listing-Texte, Bilder, Product-Master-Daten, Tokens oder Secrets
+
+Beispiel:
+
+```json
+{
+  "activeMode": "visual",
+  "previewMode": "desktop",
+  "aiStrength": 45,
+  "updatedAt": "2026-07-27T12:00:00.000Z"
+}
+```
+
+Die eigentlichen Designer-Daten werden additiv im Product Master unter `listing.descriptionDesign` und `listing.descriptionDesignDraft` gespeichert.
+
+### `elyon_seller_auto_lister_parity_v1`
+
+Zweck:
+
+- ausschließlich UI-Zustand des vollständigen Auto Listers
+- aktuell geöffneter Unterbereich
+- DeepSeek-Stärke-Regler
+- keine Produkt-, GPSR-, Varianten-, Taxonomy-, Token- oder Secret-Daten
+
+Beispiel:
+
+```json
+{
+  "activeTab": "taxonomy",
+  "aiStrength": 45,
+  "updatedAt": "2026-07-27T12:00:00.000Z"
+}
+```
+
+Die eigentlichen Auto-Lister-Daten werden additiv im Product Master unter `listing.autoListerDraft`, `listing.categoryMetadata`, `listing.compliance`, `listing.gpsr` und den Variantenfeldern gespeichert.
 
 ## Vorbereitete oder zu prüfende Keys
 
@@ -113,3 +157,4 @@ Status:
 - Nie echte Tokens oder Secrets in GitHub speichern.
 - Neue UI-Keys dürfen keine Product-Master-Daten duplizieren.
 - `listing.autoListerDraft` ist ein Feld im Produktdatensatz und kein eigener LocalStorage-Hauptspeicher.
+- Designer-, Taxonomy-, GPSR- und Varianten-Daten gehören in den Product Master, nicht in neue lokale Hauptspeicher.
