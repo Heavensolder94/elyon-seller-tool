@@ -164,8 +164,8 @@ export function visualDraftFromListingView(view = {}) {
     specs,
     packageContents: text(listing.packageContents || view.server?.packageContents || view.local?.packageContents || "Lieferumfang gemäß Angebotsbeschreibung und Produktbildern.", 3000),
     importantNotes: text(listing.importantNotes || view.server?.importantNotes || "Bitte Maße, Variante, Kompatibilität und Lieferumfang vor dem Kauf prüfen.", 3000),
-    shippingText: text(listing.shippingText || view.deliveryTime ? `Voraussichtliche Lieferzeit: ${view.deliveryTime}. Maßgeblich sind die Angaben im eBay-Angebot.` : "Es gelten die im eBay-Angebot angegebenen Versandbedingungen.", 2000),
-    returnsText: text(listing.returnsText || view.returnAddress ? `Rücksendung an die dokumentierte Rücksendeadresse: ${view.returnAddress}. Es gelten die im Angebot hinterlegten Rückgabebedingungen.` : "Es gelten die im Angebot hinterlegten Rückgabebedingungen.", 2000),
+    shippingText: text(listing.shippingText || (view.deliveryTime ? `Voraussichtliche Lieferzeit: ${view.deliveryTime}. Maßgeblich sind die Angaben im eBay-Angebot.` : "Es gelten die im eBay-Angebot angegebenen Versandbedingungen."), 2000),
+    returnsText: text(listing.returnsText || (view.returnAddress ? `Rücksendung an die dokumentierte Rücksendeadresse: ${view.returnAddress}. Es gelten die im Angebot hinterlegten Rückgabebedingungen.` : "Es gelten die im Angebot hinterlegten Rückgabebedingungen."), 2000),
     serviceText: text(listing.serviceText || "Bei Fragen sende bitte eine Nachricht über eBay.", 2000),
   });
 }
