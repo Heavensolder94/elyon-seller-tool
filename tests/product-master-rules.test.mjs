@@ -46,8 +46,8 @@ function approvedProduct(overrides = {}) {
 test("a complete approved Company OS package becomes ready for manual listing", () => {
   const product = normalizeProduct(approvedProduct());
   assert.equal(product.approval.companyOsApproved, true);
+  assert.deepEqual(product.readiness.blockers, [], `Unexpected blockers: ${JSON.stringify(product.readiness.blockers)}`);
   assert.equal(product.readiness.state, "ready_for_manual_listing");
-  assert.deepEqual(product.readiness.blockers, []);
   assert.equal(product.pricing.minimumRulePassed, true);
   assert.equal(product.listing.conditionId, "1000");
 });
