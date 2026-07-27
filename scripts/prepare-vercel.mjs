@@ -37,7 +37,9 @@ function injectDesktopSecurity(html) {
   const content = [
     '<script defer src="/seller-auth.js"></script>',
     '<script src="/seller-dashboard-compat.js"></script>',
+    '<script defer src="/seller-selling-flow-capture.js"></script>',
     '<script defer src="/seller-role-policy.js"></script>',
+    '<script type="module" src="/seller-selling-flow.js"></script>',
     '<script type="module" src="/seller-dashboard-v2.js"></script>',
     '<script defer src="/seller-company-os-inbox.js"></script>',
   ].join("\n");
@@ -50,7 +52,10 @@ const filesToMirror = [
   ["elyon-ui.js", "public/elyon-ui.js"],
   ["seller-auth.js", "public/seller-auth.js"],
   ["seller-dashboard-compat.js", "public/seller-dashboard-compat.js"],
+  ["seller-selling-flow-capture.js", "public/seller-selling-flow-capture.js"],
   ["seller-role-policy.js", "public/seller-role-policy.js"],
+  ["seller-selling-flow-core.js", "public/seller-selling-flow-core.js"],
+  ["seller-selling-flow.js", "public/seller-selling-flow.js"],
   ["seller-dashboard-v2.js", "public/seller-dashboard-v2.js"],
   ["seller-company-os-inbox.js", "public/seller-company-os-inbox.js"],
   ["elyon-soul.css", "public/elyon-soul.css"],
@@ -95,4 +100,4 @@ const envStatus = {
 };
 
 console.log("Google/security env status:", JSON.stringify(envStatus));
-console.log("Prepared Vercel output with Seller auth, dashboard DOM compatibility, corrected live dashboard, final Company OS inbox and role-clean Seller workflow.");
+console.log("Prepared Vercel output with Seller auth, dashboard DOM compatibility, Seller selling flow, corrected live dashboard, final Company OS inbox and role-clean Seller workflow.");
