@@ -301,15 +301,20 @@ function moveImage(action, index) {
 
 function bindVisualEvents() {
   const root = document.getElementById("svdVisualPanel");
-  root?.addEventListener("input", (event) => {
+  if (!root) return;
+  root._svdEventController?.abort();
+  const controller = new AbortController();
+  root._svdEventController = controller;
+  const eventOptions = { signal: controller.signal };
+  root.addEventListener("input", (event) => {
     if (event.target.id === "svdAiStrength") {
       document.getElementById("svdAiStrengthLabel").textContent = `${event.target.value} %`;
       return;
     }
     clearTimeout(root._previewTimer);
     root._previewTimer = setTimeout(updatePreview, 120);
-  });
-  root?.addEventListener("click", async (event) => {
+  }, eventOptions);
+  root.addEventListener("click", async (event) => {
     const theme = event.target.closest("[data-svd-theme]");
     if (theme) { syncForm(); draft.theme = theme.dataset.svdTheme; renderVisual(); return; }
     const add = event.target.closest("[data-svd-add]");
@@ -349,7 +354,7 @@ function bindVisualEvents() {
         button.disabled = false;
       }
     }
-  });
+  }, eventOptions);
   document.getElementById("svdImportFile")?.addEventListener("change", async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
