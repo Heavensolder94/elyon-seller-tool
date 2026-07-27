@@ -8,6 +8,7 @@ const HEALTH_INSTALL_FLAG = "__elyonCompletenessAware";
 const DECISION_INSTALL_FLAG = "__elyonDecisionAdvisory";
 const COMPLETION_NOTICE_ID = "elyonAdvisoryCompletionNotice";
 const COMPLETION_BUTTON_ID = "elyonOpenListingPackageDespiteWarning";
+const BOARD_SELECTOR = "#productListTab #list";
 let attempts = 0;
 let retryTimer = null;
 let latestCalculatedProduct = null;
@@ -78,7 +79,6 @@ function completionNoticeHtml() {
 }
 
 function decorateFocusedCompletion() {
-  decorationScheduled = false;
   const step = document.getElementById("focusedSellingStep3");
   if (!step) return;
 
@@ -113,10 +113,128 @@ function decorateFocusedCompletion() {
   }
 }
 
-function scheduleCompletionDecoration() {
+function readProducts() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem("elyonProducts") || "[]");
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function cardProductId(card) {
+  const aiButton = card.querySelector('[id^="productAiBtn_"]');
+  if (aiButton?.id) return aiButton.id.replace(/^productAiBtn_/, "");
+  const action = [...card.querySelectorAll("button")].find((button) =>
+    /(?:editProduct|prepareProductForEbayDraft|removeProduct|duplicateProduct)\s*\(/.test(String(button.getAttribute("onclick") || "")),
+  );
+  const match = String(action?.getAttribute("onclick") || "").match(/\((?:'|")?([^)'"\s]+)(?:'|")?\)/);
+  return match ? match[1] : "";
+}
+
+function productForCard(card, storedProducts) {
+  const id = cardProductId(card);
+  if (!id) return null;
+  return storedProducts.find((product) => String(product?.id) === String(id)) || null;
+}
+
+function statusClass(node) {
+  if (node?.classList.contains("good")) return "good";
+  if (node?.classList.contains("bad")) return "bad";
+  if (node?.classList.contains("warn")) return "warn";
+  return "info";
+}
+
+function applyStatusNode(node, decision) {
+  if (!node || !decision) return;
+  if (node.textContent !== decision.label) node.textContent = decision.label;
+  ["good", "warn", "bad", "info", "ai-status-ghost"].forEach((cls) => node.classList.remove(cls));
+  node.classList.add("status", decision.cls || "info");
+  node.title = decision.text || "Bewertung ist eine Empfehlung.";
+}
+
+function decisionNote(card, decision) {
+  const scoreWrap = card.querySelector(":scope > .score-wrap");
+  if (!scoreWrap) return;
+  let note = scoreWrap.querySelector(":scope > .elyon-product-decision-note");
+  if (!note) {
+    note = document.createElement("div");
+    note.className = "muted elyon-product-decision-note";
+    note.style.marginTop = "10px";
+    note.style.padding = "9px 10px";
+    note.style.borderRadius = "12px";
+    note.style.background = "rgba(59,130,246,.08)";
+    note.style.border = "1px solid rgba(96,165,250,.16)";
+    scoreWrap.appendChild(note);
+  }
+  const suffix = decision.key === "no"
+    ? " Du kannst den Artikel trotzdem bearbeiten, das Listing vorbereiten und nach bewusster Pflichtprüfung manuell veröffentlichen."
+    : " Bearbeiten und Listing vorbereiten bleiben möglich.";
+  const message = `${decision.text || "Bewertung ist eine Empfehlung."}${suffix}`;
+  if (note.textContent !== message) note.textContent = message;
+}
+
+function keepActionsAvailable(card, decision) {
+  card.querySelectorAll("button[onclick]").forEach((button) => {
+    const handler = String(button.getAttribute("onclick") || "");
+    const isEdit = /editProduct\s*\(/.test(handler);
+    const isPrepare = /prepareProductForEbayDraft\s*\(/.test(handler);
+    if (!isEdit && !isPrepare) return;
+
+    button.disabled = false;
+    button.removeAttribute("aria-disabled");
+    if (!button.dataset.elyonOriginalLabel) button.dataset.elyonOriginalLabel = button.textContent || "";
+
+    if (isPrepare && decision.key === "no") {
+      button.textContent = "Trotz Warnung für eBay vorbereiten";
+      button.title = "Der Score ist eine Warnung, keine Sperre. Pflicht- und Rechtsangaben vor dem Einstellen prüfen.";
+    } else {
+      button.textContent = button.dataset.elyonOriginalLabel;
+      button.title = decision.publicationNote || "Bearbeiten und Vorbereiten bleiben möglich.";
+    }
+  });
+}
+
+function decorateProductBoard() {
+  const board = document.querySelector(BOARD_SELECTOR);
+  if (!board) return;
+  const storedProducts = readProducts();
+  [...board.children].forEach((card) => {
+    if (!(card instanceof HTMLElement) || !card.classList.contains("product-card") || card.classList.contains("small-card")) return;
+    const product = productForCard(card, storedProducts);
+    const statusNode = card.querySelector(":scope > .score-wrap .score-top .status");
+    if (!product || !statusNode) return;
+
+    const scoredStatus = {
+      label: String(statusNode.textContent || "").trim(),
+      cls: statusClass(statusNode),
+    };
+    const decision = productDecisionStatus(product, scoredStatus);
+    applyStatusNode(statusNode, decision);
+
+    if (!decision.readiness.ready) {
+      const score = card.querySelector(":scope > .score-wrap .score-number");
+      const bar = card.querySelector(":scope > .score-wrap .progress .bar");
+      if (score && score.textContent !== "—") score.textContent = "—";
+      if (bar) bar.style.width = "0%";
+    }
+
+    card.dataset.elyonDecisionState = decision.key;
+    decisionNote(card, decision);
+    keepActionsAvailable(card, decision);
+  });
+}
+
+function decorateAdvisoryUi() {
+  decorationScheduled = false;
+  decorateFocusedCompletion();
+  decorateProductBoard();
+}
+
+function scheduleAdvisoryDecoration() {
   if (decorationScheduled) return;
   decorationScheduled = true;
-  window.requestAnimationFrame(decorateFocusedCompletion);
+  window.requestAnimationFrame(decorateAdvisoryUi);
 }
 
 function bindCompletionAction() {
@@ -127,15 +245,13 @@ function bindCompletionAction() {
     if (!button) return;
     event.preventDefault();
     const packageRoot = document.getElementById("sellerReadyRoot");
-    if (packageRoot) {
-      packageRoot.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
+    if (packageRoot) packageRoot.scrollIntoView({ behavior: "smooth", block: "start" });
   });
 }
 
-function observeCompletionFlow() {
+function observeAdvisoryUi() {
   if (observer) return;
-  observer = new MutationObserver(scheduleCompletionDecoration);
+  observer = new MutationObserver(scheduleAdvisoryDecoration);
   observer.observe(document.body, { childList: true, subtree: true });
 }
 
@@ -144,8 +260,8 @@ function installAll() {
   const healthReady = installProductHealthGuard();
   const decisionReady = installProductDecisionGuard();
   bindCompletionAction();
-  observeCompletionFlow();
-  scheduleCompletionDecoration();
+  observeAdvisoryUi();
+  scheduleAdvisoryDecoration();
 
   if (healthReady && decisionReady) {
     if (typeof window.render === "function") window.render();
@@ -165,7 +281,7 @@ function scheduleInstall() {
 
 scheduleInstall();
 window.addEventListener("elyon:products-updated", scheduleInstall);
-window.addEventListener("elyon:seller-product-selected", scheduleCompletionDecoration);
+window.addEventListener("elyon:seller-product-selected", scheduleAdvisoryDecoration);
 window.addEventListener("storage", (event) => {
   if (!event.key || event.key === "elyonProducts") scheduleInstall();
 });
