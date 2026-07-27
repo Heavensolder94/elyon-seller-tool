@@ -8,6 +8,7 @@ function approvedProduct(overrides = {}) {
     id: "company-product-ready",
     source: "elyon_company_os",
     reviewApproved: true,
+    processingStatus: "ready_for_seller_tool",
     title: "Markenfreier Aufbewahrungshalter",
     description: "Vollständige und ehrliche Produktbeschreibung.",
     images: ["https://example.com/product.jpg"],
@@ -64,6 +65,16 @@ test("Seller Tool never interprets a sell price as purchase price", () => {
   });
   assert.equal(product.pricing.buyPrice, 0);
   assert.match(product.readiness.blockers.join(" "), /Einkaufspreis fehlt/);
+});
+
+test("Company OS approval requires explicit approval plus final handoff status", () => {
+  const approvalOnly = normalizeProduct(approvedProduct({ processingStatus: "" }));
+  assert.equal(approvalOnly.approval.companyOsApproved, false);
+  assert.match(approvalOnly.readiness.blockers.join(" "), /Company-OS/);
+
+  const statusOnly = normalizeProduct(approvedProduct({ reviewApproved: false }));
+  assert.equal(statusOnly.approval.companyOsApproved, false);
+  assert.match(statusOnly.readiness.blockers.join(" "), /Company-OS/);
 });
 
 test("Elyon minimum rule accepts either 20 percent margin or 5 euro profit", () => {
