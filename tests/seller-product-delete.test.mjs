@@ -33,7 +33,7 @@ test("delete repair supports UUID and Product Master identities", async () => {
 test("delete repair removes server record before local working copy", async () => {
   const source = await readFile(new URL("../seller-product-delete.js", import.meta.url), "utf8");
   const serverIndex = source.indexOf("await deleteServerProduct(deleteId)");
-  const localIndex = source.indexOf("removeLocalProduct(product)");
+  const localIndex = source.indexOf("removeLocalProduct(product)", serverIndex);
   assert.ok(serverIndex > 0);
   assert.ok(localIndex > serverIndex);
   assert.match(source, /method: "DELETE"/);
