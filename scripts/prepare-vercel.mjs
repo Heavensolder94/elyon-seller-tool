@@ -19,6 +19,7 @@ const mobileModuleScripts = [
   "mobile-agents-v1.js",
   "mobile-bootstrap.js",
   "mobile-more-ui.js",
+  "mobile-selling-entry.js",
 ];
 
 function injectMobileScripts(html) {
@@ -80,6 +81,7 @@ const filesToMirror = [
   ["mobile-agents-v1.js", "public/mobile-agents-v1.js"],
   ["mobile-bootstrap.js", "public/mobile-bootstrap.js"],
   ["mobile-more-ui.js", "public/mobile-more-ui.js"],
+  ["mobile-selling-entry.js", "public/mobile-selling-entry.js"],
   ["manifest.json", "public/manifest.json"],
 ];
 
@@ -112,4 +114,4 @@ const envStatus = {
 };
 
 console.log("Google/security env status:", JSON.stringify(envStatus));
-console.log("Prepared Vercel output with Seller auth, dashboard DOM compatibility, visible Seller selling flow, visual Listing Designer, full Auto Lister parity, corrected live dashboard, final Company OS inbox and role-clean Seller workflow.");
+console.log("Prepared Vercel output with Seller auth, mobile selling entry, visible Seller selling flow, visual Listing Designer, full Auto Lister parity, corrected live dashboard, final Company OS inbox and role-clean Seller workflow.");
