@@ -4,6 +4,11 @@
   const TAB_ID = "ebayListingTab";
   const ORIGINAL_ID = "sellerPreservedListingDesigner";
   let preserved = null;
+  let scheduled = false;
+
+  function setText(node, value) {
+    if (node && node.textContent !== value) node.textContent = value;
+  }
 
   function captureOriginalDesigner() {
     if (preserved) return preserved;
@@ -31,23 +36,22 @@
     if (option) {
       const options = [...menu.options];
       const index = Math.max(0, options.indexOf(option));
-      option.textContent = `${index + 1}. Verkaufen`;
+      setText(option, `${index + 1}. Verkaufen`);
     }
 
     const launcher = document.getElementById("launcherGenerator");
     if (launcher) {
-      const strong = launcher.querySelector("strong");
-      const small = launcher.querySelector("small");
-      if (strong) strong.textContent = "🛒 Verkaufen";
-      if (small) small.textContent = "Listing Designer, Auto Lister und Abschluss";
+      setText(launcher.querySelector("strong"), "🛒 Verkaufen");
+      setText(launcher.querySelector("small"), "Listing Designer, Auto Lister und Abschluss");
     }
 
     const banner = document.getElementById("elyonSellerRoleBanner");
     if (banner) {
-      const strong = banner.querySelector("strong");
-      const paragraph = banner.querySelector("p");
-      if (strong) strong.textContent = "Seller Tool = Verkaufen und Betrieb nach der Company-OS-Freigabe";
-      if (paragraph) paragraph.textContent = "Nova sammelt. Company OS prüft und gibt Produkte frei. Das Seller Tool erstellt und finalisiert danach das Listing mit Designer und Auto Lister, dokumentiert das bewusst manuelle eBay-Listing und verwaltet Bestellungen, Versand, Rechnungen und Retouren.";
+      setText(banner.querySelector("strong"), "Seller Tool = Verkaufen und Betrieb nach der Company-OS-Freigabe");
+      setText(
+        banner.querySelector("p"),
+        "Nova sammelt. Company OS prüft und gibt Produkte frei. Das Seller Tool erstellt und finalisiert danach das Listing mit Designer und Auto Lister, dokumentiert das bewusst manuelle eBay-Listing und verwaltet Bestellungen, Versand, Rechnungen und Retouren."
+      );
     }
 
     const modules = window.ElyonSellerModules?.active;
@@ -66,7 +70,13 @@
   }
 
   function scheduleRestore() {
-    [0, 40, 180, 650, 1750].forEach((delay) => window.setTimeout(restoreAndPatch, delay));
+    if (scheduled) return;
+    scheduled = true;
+    window.setTimeout(() => {
+      scheduled = false;
+      restoreAndPatch();
+    }, 0);
+    [80, 300, 900, 1850].forEach((delay) => window.setTimeout(restoreAndPatch, delay));
   }
 
   captureOriginalDesigner();
@@ -83,7 +93,11 @@
   });
 
   const observer = new MutationObserver(() => {
-    if (document.getElementById("elyonSellerSellingFlow")) scheduleRestore();
+    const host = document.getElementById("sellerDesignerOriginalHost");
+    const option = document.getElementById("mainMenu")?.querySelector('option[value="ebayListingTab"]');
+    const originalMissing = Boolean(host && preserved && !host.contains(preserved));
+    const labelMissing = Boolean(option && !/Verkaufen/.test(option.textContent || ""));
+    if (originalMissing || labelMissing) scheduleRestore();
   });
   if (document.documentElement) observer.observe(document.documentElement, { childList: true, subtree: true });
 
