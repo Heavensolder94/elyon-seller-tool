@@ -7,6 +7,11 @@
   const LOCAL_KEYS = ["elyonProducts", "elyonSelectedSellerProductId"];
   let queued = false;
 
+  function shouldOpenSelling() {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("open") === "selling" || window.location.hash === "#verkaufen";
+  }
+
   function patchLabels() {
     const menu = document.getElementById(MENU_ID);
     const option = menu?.querySelector(`option[value="${TAB_ID}"]`);
@@ -36,6 +41,26 @@
     }
   }
 
+  function activateSellingTab() {
+    if (!shouldOpenSelling()) return false;
+    const tab = document.getElementById(TAB_ID);
+    if (!tab) return false;
+
+    const menu = document.getElementById(MENU_ID);
+    if (menu && menu.value !== TAB_ID) {
+      menu.value = TAB_ID;
+      menu.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+
+    document.querySelectorAll(".tab").forEach((candidate) => {
+      candidate.classList.toggle("active", candidate.id === TAB_ID);
+    });
+    tab.hidden = false;
+    tab.removeAttribute("aria-hidden");
+    window.ElyonSellerSellingFlow?.setActivePanel?.("designer");
+    return true;
+  }
+
   function restoreSellingFlow() {
     patchLabels();
     const tab = document.getElementById(TAB_ID);
@@ -47,6 +72,7 @@
 
     window.ElyonSellerSellingFlowCapture?.restore?.();
     patchLabels();
+    activateSellingTab();
     return Boolean(document.getElementById(ROOT_ID));
   }
 
@@ -65,7 +91,8 @@
     const option = document.getElementById(MENU_ID)?.querySelector(`option[value="${TAB_ID}"]`);
     return Boolean(
       (tab && (!root || !tab.contains(root))) ||
-      (option && !/Verkaufen/.test(option.textContent || ""))
+      (option && !/Verkaufen/.test(option.textContent || "")) ||
+      (shouldOpenSelling() && tab && !tab.classList.contains("active"))
     );
   }
 
@@ -77,6 +104,7 @@
     window.addEventListener("storage", (event) => {
       if (LOCAL_KEYS.includes(event.key)) scheduleRestore();
     });
+    window.addEventListener("hashchange", scheduleRestore);
 
     document.getElementById(MENU_ID)?.addEventListener("change", (event) => {
       if (event.target?.value === TAB_ID) scheduleRestore();
@@ -99,5 +127,6 @@
   window.ElyonSellerSellingFlowVisibility = {
     restore: restoreSellingFlow,
     patchLabels,
+    activate: activateSellingTab,
   };
 })();
