@@ -44,12 +44,15 @@ test("Product Hub file import chooses one target instead of running both fallbac
   assert.match(source, /#elyonProductsHub button\[data-hub-action\]/);
 });
 
-test("selling flow guard replaces stale root listeners instead of discarding new listeners", async () => {
-  const source = await readFile(new URL("../seller-selling-flow-event-guard.js", import.meta.url), "utf8");
-  assert.match(source, /originalRemoveEventListener/);
-  assert.match(source, /previous\?\.listener/);
-  assert.match(source, /replace_stale_listener/);
-  assert.doesNotMatch(source, /has\(key\)\) return/);
+test("selling flow uses scoped listeners without patching EventTarget globally", async () => {
+  const guard = await readFile(new URL("../seller-selling-flow-event-guard.js", import.meta.url), "utf8");
+  const designer = await readFile(new URL("../seller-listing-visual-designer.js", import.meta.url), "utf8");
+  const parity = await readFile(new URL("../seller-auto-lister-parity.js", import.meta.url), "utf8");
+  assert.match(guard, /scoped_abort_controller/);
+  assert.match(guard, /prototypePatched:\s*false/);
+  assert.doesNotMatch(guard, /EventTarget\.prototype\./);
+  assert.match(designer, /_svdEventController\?\.abort\(\)/);
+  assert.match(parity, /_salpEventController\?\.abort\(\)/);
 });
 
 test("desktop build loads button integrity after delete and mirrors both files", async () => {
