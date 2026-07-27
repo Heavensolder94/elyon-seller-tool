@@ -7,6 +7,8 @@ import {
   createSellerSession,
   isSellerAuthenticated,
   requireSellerAccess,
+  sellerAccessConfiguration,
+  verifySellerToken,
 } from "../lib/seller-access.js";
 import productHandler from "../api/products/index.js";
 import sheetsSettingsHandler from "../api/google-sheets-sync-settings.js";
@@ -49,13 +51,49 @@ function sellerCookie(token = "seller-test-secret") {
 test("seller guard fails closed when no server secret exists", () => {
   const previous = process.env.ELYON_SELLER_ACCESS_TOKEN;
   delete process.env.ELYON_SELLER_ACCESS_TOKEN;
-  delete process.env.ELYON_ADMIN_TOKEN;
-  delete process.env.FEATURE_FLAGS_ADMIN_TOKEN;
   const res = responseMock();
   try {
     assert.equal(requireSellerAccess({ method: "GET", headers: {} }, res), false);
     assert.equal(res.statusCode, 503);
     assert.equal(res.body.error, "seller_access_not_configured");
+  } finally {
+    if (previous === undefined) delete process.env.ELYON_SELLER_ACCESS_TOKEN;
+    else process.env.ELYON_SELLER_ACCESS_TOKEN = previous;
+  }
+});
+
+test("seller login ignores legacy admin token fallbacks", () => {
+  const previousSeller = process.env.ELYON_SELLER_ACCESS_TOKEN;
+  const previousAdmin = process.env.ELYON_ADMIN_TOKEN;
+  const previousFlags = process.env.FEATURE_FLAGS_ADMIN_TOKEN;
+  try {
+    delete process.env.ELYON_SELLER_ACCESS_TOKEN;
+    process.env.ELYON_ADMIN_TOKEN = "legacy-admin-secret";
+    process.env.FEATURE_FLAGS_ADMIN_TOKEN = "legacy-flags-secret";
+    assert.equal(sellerAccessConfiguration().configured, false);
+    assert.equal(verifySellerToken("legacy-admin-secret"), false);
+    assert.equal(verifySellerToken("legacy-flags-secret"), false);
+  } finally {
+    if (previousSeller === undefined) delete process.env.ELYON_SELLER_ACCESS_TOKEN;
+    else process.env.ELYON_SELLER_ACCESS_TOKEN = previousSeller;
+    if (previousAdmin === undefined) delete process.env.ELYON_ADMIN_TOKEN;
+    else process.env.ELYON_ADMIN_TOKEN = previousAdmin;
+    if (previousFlags === undefined) delete process.env.FEATURE_FLAGS_ADMIN_TOKEN;
+    else process.env.FEATURE_FLAGS_ADMIN_TOKEN = previousFlags;
+  }
+});
+
+test("seller token tolerates copied quotes, invisible characters and outer whitespace", () => {
+  const previous = process.env.ELYON_SELLER_ACCESS_TOKEN;
+  try {
+    process.env.ELYON_SELLER_ACCESS_TOKEN = '  "seller-production-secret\u200B"  ';
+    const configuration = sellerAccessConfiguration();
+    assert.equal(configuration.configured, true);
+    assert.equal(configuration.source, "ELYON_SELLER_ACCESS_TOKEN");
+    assert.equal(configuration.formatAdjusted, true);
+    assert.equal(verifySellerToken("seller-production-secret"), true);
+    assert.equal(verifySellerToken("  'seller-production-secret'  "), true);
+    assert.equal(verifySellerToken("wrong-secret"), false);
   } finally {
     if (previous === undefined) delete process.env.ELYON_SELLER_ACCESS_TOKEN;
     else process.env.ELYON_SELLER_ACCESS_TOKEN = previous;
