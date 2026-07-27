@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { normalizeProduct } from "../lib/product-master.js";
+import { normalizeProduct } from "../lib/product-master-active.js";
 
 function approvedProduct(overrides = {}) {
   return {
@@ -50,6 +50,7 @@ test("a complete approved Company OS package becomes ready for manual listing", 
   assert.equal(product.readiness.state, "ready_for_manual_listing");
   assert.equal(product.pricing.minimumRulePassed, true);
   assert.equal(product.listing.conditionId, "1000");
+  assert.equal(product.supplier.url, "https://supplier.example/product");
 });
 
 test("Seller Tool never interprets a sell price as purchase price", () => {
