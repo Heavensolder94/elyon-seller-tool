@@ -40,6 +40,44 @@ Zweck:
 - UI-Element: `googleSheetsSyncToken`
 - relevant für Sync-Buttons wie `InventarTracker synchronisieren` und `Laufende Kosten synchronisieren`
 
+### `elyonProducts`
+
+Zweck:
+
+- bewusst erzeugte lokale Arbeitskopien aus dem Seller Product Master
+- Grundlage der bestehenden Produktansicht sowie des neuen Seller-Bereichs `Verkaufen`
+- bleibt eine Arbeitskopie und nicht die verbindliche Hauptdatenquelle
+
+Regeln:
+
+- vorhandene Datensätze und unbekannte Felder erhalten
+- Listing-Daten nur additiv ergänzen
+- nach Änderungen den geschützten Server Product Master aktualisieren
+
+### `elyonSelectedSellerProductId`
+
+Zweck:
+
+- aktuell bewusst ausgewählte Seller-Arbeitskopie
+- verbindet Produkte, Listing Designer, Auto Lister und manuellen Abschluss
+
+### `elyon_seller_selling_flow_v1`
+
+Zweck:
+
+- ausschließlich UI-Zustand des Seller-Bereichs `Verkaufen`
+- aktuell geöffneter Unterbereich: `designer`, `auto` oder `ready`
+- keine Produktdaten, Tokens oder Secrets
+
+Beispiel:
+
+```json
+{
+  "activePanel": "designer",
+  "updatedAt": "2026-07-27T12:00:00.000Z"
+}
+```
+
 ## Vorbereitete oder zu prüfende Keys
 
 ### `elyon_backup_settings`
@@ -73,3 +111,5 @@ Status:
 - Neue Felder defensiv ergänzen.
 - Bei Migrationen Backward Compatibility beachten.
 - Nie echte Tokens oder Secrets in GitHub speichern.
+- Neue UI-Keys dürfen keine Product-Master-Daten duplizieren.
+- `listing.autoListerDraft` ist ein Feld im Produktdatensatz und kein eigener LocalStorage-Hauptspeicher.
