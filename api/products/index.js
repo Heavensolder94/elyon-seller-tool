@@ -1,4 +1,4 @@
-import { normalizeProduct } from "../../lib/product-master.js";
+import { normalizeProduct } from "../../lib/product-master-active.js";
 import {
   deleteProductMasterItem,
   getProductMasterRedisConfig,
