@@ -1,5 +1,5 @@
 import { requireBridgeAccess } from "../../../lib/bridge-access.js";
-import { normalizeProduct } from "../../../lib/product-master.js";
+import { normalizeProduct } from "../../../lib/product-master-active.js";
 import {
   getProductMasterRedisConfig,
   readProductMasterList,
@@ -11,18 +11,30 @@ function text(value) {
   return String(value ?? "").trim();
 }
 
+function object(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+
+function normalizedStatus(value) {
+  return text(value).toLocaleLowerCase("de-DE").replace(/[_-]+/g, " ").replace(/\s+/g, " ");
+}
+
 export function isReviewedCompanyProduct(product = {}) {
-  const reviewStatus = text(product.reviewStatus).toLowerCase();
-  const processingStatus = text(product.processingStatus).toLowerCase();
-  const section = text(product.companyOsSection || product.targetArea).toLowerCase();
-  const status = text(product.status).toLowerCase();
+  const approval = object(product.approval);
+  const listingPackage = object(product.listingPackage || product.listingTask);
+  const reviewStatus = normalizedStatus(product.reviewStatus);
+  const processingStatus = normalizedStatus(product.processingStatus);
+  const status = normalizedStatus(product.status);
+  const listingStatus = normalizedStatus(listingPackage.status);
+
   return Boolean(
     product.reviewApproved === true ||
-    product.reviewAcceptedAt ||
-    ["in_review", "reviewed", "approved"].includes(reviewStatus) ||
-    ["sent_to_review", "reviewed", "approved", "ready_for_seller_tool"].includes(processingStatus) ||
-    ["pruefen", "prüfen", "review"].includes(section) ||
-    ["prüfen", "pruefen", "geprüft", "geprueft", "bereit fürs seller tool", "bereit fuer seller tool"].includes(status)
+    approval.approved === true ||
+    approval.manualApproved === true ||
+    ["approved", "freigegeben"].includes(reviewStatus) ||
+    ["ready for seller tool", "bereit fürs seller tool", "bereit fuer seller tool", "bereit manuell einstellen"].includes(processingStatus) ||
+    ["ready for seller tool", "bereit fürs seller tool", "bereit fuer seller tool", "bereit manuell einstellen"].includes(status) ||
+    ["completed", "approved", "ready for seller tool", "bereit manuell einstellen"].includes(listingStatus)
   );
 }
 
@@ -41,6 +53,8 @@ export default async function handler(req, res) {
       route: "/api/integrations/company-os/products",
       bridge: { configured: true, source: "elyon_company_os" },
       storage: { configured: Boolean(config.url && config.token), source: config.source },
+      acceptedStates: ["reviewApproved=true", "approved", "ready_for_seller_tool", "bereit_manuell_einstellen"],
+      rejectedStates: ["in_review", "sent_to_review", "prüfen", "review"],
       safety: { automaticListing: false, automaticOrder: false, manualApprovalRequired: true },
     });
   }
@@ -65,8 +79,8 @@ export default async function handler(req, res) {
   if (!isReviewedCompanyProduct(incoming)) {
     return res.status(409).json({
       ok: false,
-      error: "company_os_review_required",
-      message: "Nur Produkte aus der Company-OS-Produktprüfung dürfen an den Product Master übertragen werden.",
+      error: "company_os_final_approval_required",
+      message: "Nur final freigegebene Produkte mit Status ready_for_seller_tool bzw. bereit_manuell_einstellen dürfen an das Seller Tool übertragen werden.",
     });
   }
 
@@ -74,16 +88,18 @@ export default async function handler(req, res) {
     const now = new Date().toISOString();
     const prepared = {
       ...incoming,
+      schemaVersion: text(incoming.schemaVersion || "elyon-seller-product-v1"),
       source: "elyon_company_os",
       sourceProvider: "company-os",
-      sourceType: "company_os_review",
+      sourceType: "company_os_approved",
       companyOsProductId: text(incoming.companyOsProductId || incoming.id),
       sourceImportId: text(incoming.sourceImportId || incoming.importId || incoming.novaId),
       sellerToolReceivedAt: now,
       sellerToolSyncStatus: "imported",
+      sellerStatus: text(incoming.sellerStatus || "received_from_company_os"),
       processingStatus: "sent_to_seller_tool",
       reviewApproved: true,
-      listingStatus: text(incoming.listingStatus || incoming.listing?.status || "draft"),
+      listingStatus: text(incoming.listingStatus || incoming.listing?.status || incoming.listingPackage?.status || "draft"),
       manualApprovalRequired: true,
       autonomousPostingAllowed: false,
       updatedAt: now,
@@ -102,8 +118,8 @@ export default async function handler(req, res) {
       total: result.items.length,
       storage,
       message: result.status === "updated"
-        ? "Product-Master-Eintrag aus Company OS aktualisiert."
-        : "Produkt aus Company OS im Product Master gespeichert.",
+        ? "Freigegebener Company-OS-Datensatz im Product Master aktualisiert."
+        : "Freigegebenes Produkt aus Company OS im Product Master gespeichert.",
       safety: { automaticListing: false, automaticOrder: false, manualApprovalRequired: true },
     });
   } catch (error) {
