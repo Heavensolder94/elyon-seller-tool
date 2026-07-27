@@ -50,6 +50,7 @@ function injectDesktopSecurity(html) {
     '<style>#elyonSellerSellingFlow.focused-selling-active > .card:first-of-type{display:none!important}</style>',
     '<script type="module" src="/seller-dashboard-v2.js"></script>',
     '<script defer src="/seller-company-os-inbox.js"></script>',
+    '<script type="module" src="/seller-product-health-state.js"></script>',
     '<script defer src="/seller-product-board-accordion.js"></script>',
   ].join("\n");
 
@@ -75,6 +76,8 @@ const filesToMirror = [
   ["seller-selling-flow-focused-ui.js", "public/seller-selling-flow-focused-ui.js"],
   ["seller-dashboard-v2.js", "public/seller-dashboard-v2.js"],
   ["seller-company-os-inbox.js", "public/seller-company-os-inbox.js"],
+  ["seller-product-health-core.js", "public/seller-product-health-core.js"],
+  ["seller-product-health-state.js", "public/seller-product-health-state.js"],
   ["seller-product-board-accordion.js", "public/seller-product-board-accordion.js"],
   ["elyon-soul.css", "public/elyon-soul.css"],
   ["elyon-soul.js", "public/elyon-soul.js"],
@@ -119,4 +122,4 @@ const envStatus = {
 };
 
 console.log("Google/security env status:", JSON.stringify(envStatus));
-console.log("Prepared Vercel output with Seller auth, mobile selling entry, focused three-step selling workspace, visible Seller selling flow, visual Listing Designer, full Auto Lister parity, corrected live dashboard, final Company OS inbox, collapsible Product Board and role-clean Seller workflow.");
+console.log("Prepared Vercel output with Seller auth, mobile selling entry, focused three-step selling workspace, visible Seller selling flow, visual Listing Designer, full Auto Lister parity, corrected live dashboard, final Company OS inbox, completeness-aware product health, collapsible Product Board and role-clean Seller workflow.");
