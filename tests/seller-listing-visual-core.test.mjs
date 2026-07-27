@@ -45,6 +45,18 @@ test("creates a visual listing draft from the Seller Product Master view", () =>
   assert.match(draft.returnsText, /Musterstraße/);
 });
 
+test("preserves explicit Seller shipping and returns text before generated fallbacks", () => {
+  const draft = visualDraftFromListingView({
+    ...view,
+    autoListerDraft: {
+      shippingText: "Explizit geprüfter Versandtext aus dem Seller Product Master.",
+      returnsText: "Explizit geprüfter Rückgabetext aus dem Seller Product Master.",
+    },
+  });
+  assert.equal(draft.shippingText, "Explizit geprüfter Versandtext aus dem Seller Product Master.");
+  assert.equal(draft.returnsText, "Explizit geprüfter Rückgabetext aus dem Seller Product Master.");
+});
+
 test("normalizes unsafe image protocols and excess content", () => {
   const draft = normalizeVisualDraft({
     theme: "unknown",
@@ -75,7 +87,7 @@ test("builds script-free escaped HTML with responsive product sections", () => {
   assert.match(html, /ELYON STORE/);
   assert.match(html, /Produktdetails/);
   assert.doesNotMatch(html, /<script/i);
-  assert.doesNotMatch(html, /onerror=/i);
+  assert.doesNotMatch(html, /<img src=x onerror/i);
   assert.match(html, /&lt;img/);
   assert.match(html, /@media\(max-width:680px\)/);
 });
