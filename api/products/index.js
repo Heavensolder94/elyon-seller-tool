@@ -1,4 +1,4 @@
-import { mergeProductLists, normalizeProduct } from "../../lib/product-master.js";
+import { normalizeProduct } from "../../lib/product-master.js";
 import {
   deleteProductMasterItem,
   getProductMasterRedisConfig,
@@ -8,6 +8,14 @@ import {
   writeProductMasterList,
 } from "../../lib/product-master-store.js";
 import { requireSellerAccess } from "../../lib/seller-access.js";
+
+function text(value) {
+  return String(value ?? "").trim();
+}
+
+function includeLegacyImports(req) {
+  return ["1", "true", "yes"].includes(text(req?.query?.includeLegacyImports).toLowerCase());
+}
 
 export default async function handler(req, res) {
   if (!requireSellerAccess(req, res, { maxBodyBytes: 512 * 1024 })) return;
@@ -30,32 +38,45 @@ export default async function handler(req, res) {
         readProductMasterList("elyon_products"),
         readProductMasterList("elyon_browser_imports"),
       ]);
-      const products = mergeProductLists(masterProducts, browserImports);
-      return res.status(200).json({
+      const products = masterProducts.map(normalizeProduct);
+      const payload = {
         ok: true,
         route: "/api/products",
         products,
         summary: summarizeProductMaster(products),
         sources: {
-          masterProducts: masterProducts.length,
-          browserImports: browserImports.length,
+          activeProductMaster: masterProducts.length,
+          inactiveLegacyBrowserImports: browserImports.length,
         },
         storage: {
           configured: true,
           mode: "server_persistent",
           source: config.source,
         },
+        workflow: {
+          sourceOfTruth: "server_product_master",
+          acceptedInput: "final_company_os_approval",
+          directNovaImportActive: false,
+          localStorageRole: "explicit_working_copy_only",
+        },
         safety: {
           automaticListing: false,
           automaticOrder: false,
           manualApprovalRequired: true,
         },
-      });
+      };
+      if (includeLegacyImports(req)) {
+        payload.legacyBrowserImports = browserImports;
+      }
+      return res.status(200).json(payload);
     }
 
     if (req.method === "POST") {
       const body = req.body && typeof req.body === "object" ? req.body : {};
       const incoming = body.product || body.item || body.data || body;
+      if (!incoming || typeof incoming !== "object" || Array.isArray(incoming)) {
+        return res.status(400).json({ ok: false, error: "invalid_product_payload", message: "Produktdatensatz fehlt." });
+      }
       const current = await readProductMasterList("elyon_products");
       const result = upsertProductMasterItem(current, incoming);
       const storage = await writeProductMasterList("elyon_products", result.items);
@@ -66,12 +87,12 @@ export default async function handler(req, res) {
         product: normalizeProduct(result.product),
         total: result.items.length,
         storage,
-        message: result.status === "updated" ? "Produkt aktualisiert." : "Produkt im Master gespeichert.",
+        message: result.status === "updated" ? "Seller-Produkt aktualisiert." : "Produkt im Seller Product Master gespeichert.",
       });
     }
 
     if (req.method === "DELETE") {
-      const id = String(req.query.id || req.query.url || req.body?.id || req.body?.url || "").trim();
+      const id = text(req.query.id || req.query.url || req.body?.id || req.body?.url);
       if (!id) return res.status(400).json({ ok: false, error: "id oder url fehlt." });
       const current = await readProductMasterList("elyon_products");
       const result = deleteProductMasterItem(current, id);
