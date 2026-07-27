@@ -47,6 +47,7 @@ function injectDesktopSecurity(html) {
     '<script defer src="/seller-selling-flow-resilience.js"></script>',
     '<script defer src="/seller-selling-flow-visibility-fix.js"></script>',
     '<script type="module" src="/seller-selling-flow-focused-ui.js"></script>',
+    '<style>#elyonSellerSellingFlow.focused-selling-active > .card:first-of-type{display:none!important}</style>',
     '<script type="module" src="/seller-dashboard-v2.js"></script>',
     '<script defer src="/seller-company-os-inbox.js"></script>',
   ].join("\n");
