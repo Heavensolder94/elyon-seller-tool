@@ -121,8 +121,8 @@ export function buildAdvancedAutoListerState(product = {}, view = {}, overrides 
       loadedAt: text(categoryMetadata.loadedAt),
     },
     itemSpecifics,
-    aiPrepared: draft.aiPrepared === true,
-    aiModel: text(draft.aiModel, 100),
+    aiPrepared: overrides.aiPrepared === true || draft.aiPrepared === true,
+    aiModel: text(overrides.aiModel || draft.aiModel, 100),
   };
 }
 
