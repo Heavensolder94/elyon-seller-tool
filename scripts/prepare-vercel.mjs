@@ -40,6 +40,9 @@ function injectDesktopSecurity(html) {
     '<script defer src="/seller-selling-flow-capture.js"></script>',
     '<script defer src="/seller-role-policy.js"></script>',
     '<script type="module" src="/seller-selling-flow.js"></script>',
+    '<script defer src="/seller-selling-flow-event-guard.js"></script>',
+    '<script type="module" src="/seller-listing-visual-designer.js"></script>',
+    '<script type="module" src="/seller-auto-lister-parity.js"></script>',
     '<script defer src="/seller-selling-flow-resilience.js"></script>',
     '<script type="module" src="/seller-dashboard-v2.js"></script>',
     '<script defer src="/seller-company-os-inbox.js"></script>',
@@ -57,6 +60,11 @@ const filesToMirror = [
   ["seller-role-policy.js", "public/seller-role-policy.js"],
   ["seller-selling-flow-core.js", "public/seller-selling-flow-core.js"],
   ["seller-selling-flow.js", "public/seller-selling-flow.js"],
+  ["seller-selling-flow-event-guard.js", "public/seller-selling-flow-event-guard.js"],
+  ["seller-listing-visual-core.js", "public/seller-listing-visual-core.js"],
+  ["seller-listing-visual-designer.js", "public/seller-listing-visual-designer.js"],
+  ["seller-auto-lister-parity-core.js", "public/seller-auto-lister-parity-core.js"],
+  ["seller-auto-lister-parity.js", "public/seller-auto-lister-parity.js"],
   ["seller-selling-flow-resilience.js", "public/seller-selling-flow-resilience.js"],
   ["seller-dashboard-v2.js", "public/seller-dashboard-v2.js"],
   ["seller-company-os-inbox.js", "public/seller-company-os-inbox.js"],
@@ -102,4 +110,4 @@ const envStatus = {
 };
 
 console.log("Google/security env status:", JSON.stringify(envStatus));
-console.log("Prepared Vercel output with Seller auth, dashboard DOM compatibility, Seller selling flow, corrected live dashboard, final Company OS inbox and role-clean Seller workflow.");
+console.log("Prepared Vercel output with Seller auth, dashboard DOM compatibility, Seller selling flow, visual Listing Designer, full Auto Lister parity, corrected live dashboard, final Company OS inbox and role-clean Seller workflow.");
