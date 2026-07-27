@@ -55,6 +55,7 @@ function injectDesktopSecurity(html) {
     '<script defer src="/seller-company-os-inbox.js"></script>',
     '<script type="module" src="/seller-product-health-state.js"></script>',
     '<script defer src="/seller-product-board-accordion.js"></script>',
+    '<script defer src="/seller-product-delete.js"></script>',
   ].join("\n");
 
   return injectMarkedBlock(html, { startMarker, endMarker, content });
@@ -84,6 +85,7 @@ const filesToMirror = [
   ["seller-product-health-core.js", "public/seller-product-health-core.js"],
   ["seller-product-health-state.js", "public/seller-product-health-state.js"],
   ["seller-product-board-accordion.js", "public/seller-product-board-accordion.js"],
+  ["seller-product-delete.js", "public/seller-product-delete.js"],
   ["elyon-soul.css", "public/elyon-soul.css"],
   ["elyon-soul.js", "public/elyon-soul.js"],
   ["mobile-live.js", "public/mobile-live.js"],
@@ -127,4 +129,4 @@ const envStatus = {
 };
 
 console.log("Google/security env status:", JSON.stringify(envStatus));
-console.log("Prepared Vercel output with Seller auth, shared automatic eBay category engine, mobile selling entry, focused three-step selling workspace, visible Seller selling flow, visual Listing Designer, full Auto Lister parity, corrected live dashboard, final Company OS inbox, completeness-aware product health, collapsible Product Board and role-clean Seller workflow.");
+console.log("Prepared Vercel output with Seller auth, reliable Product Board deletion, shared automatic eBay category engine, mobile selling entry, focused three-step selling workspace, visible Seller selling flow, visual Listing Designer, full Auto Lister parity, corrected live dashboard, final Company OS inbox, completeness-aware product health, collapsible Product Board and role-clean Seller workflow.");
