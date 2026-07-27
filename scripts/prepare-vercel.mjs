@@ -40,6 +40,7 @@ function injectDesktopSecurity(html) {
     '<script defer src="/seller-selling-flow-capture.js"></script>',
     '<script defer src="/seller-role-policy.js"></script>',
     '<script type="module" src="/seller-selling-flow.js"></script>',
+    '<script defer src="/seller-selling-flow-resilience.js"></script>',
     '<script type="module" src="/seller-dashboard-v2.js"></script>',
     '<script defer src="/seller-company-os-inbox.js"></script>',
   ].join("\n");
@@ -56,6 +57,7 @@ const filesToMirror = [
   ["seller-role-policy.js", "public/seller-role-policy.js"],
   ["seller-selling-flow-core.js", "public/seller-selling-flow-core.js"],
   ["seller-selling-flow.js", "public/seller-selling-flow.js"],
+  ["seller-selling-flow-resilience.js", "public/seller-selling-flow-resilience.js"],
   ["seller-dashboard-v2.js", "public/seller-dashboard-v2.js"],
   ["seller-company-os-inbox.js", "public/seller-company-os-inbox.js"],
   ["elyon-soul.css", "public/elyon-soul.css"],
