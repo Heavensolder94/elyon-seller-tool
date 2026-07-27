@@ -6,7 +6,7 @@ import {
   buildSellerTasks,
   normalizeEbayOrder,
   normalizeSellerProduct,
-} from "../seller-dashboard.js";
+} from "../seller-dashboard-v2.js";
 
 const readyProduct = {
   id: "seller-1",
@@ -101,6 +101,7 @@ test("normalizes eBay orders without exposing raw credentials", () => {
   assert.equal(order.quantity, 2);
   assert.equal(order.isFulfilled, false);
   assert.equal(order.lineItems[0].itemId, "111");
+  assert.equal(order.lineItems[0].lineTotal, 50);
 });
 
 test("builds honest seller metrics from product master and eBay orders", () => {
@@ -123,6 +124,18 @@ test("builds honest seller metrics from product master and eBay orders", () => {
   assert.equal(metrics.totalLineItems, 2);
   assert.equal(metrics.topProducts[0].revenue, 75);
   assert.equal(metrics.topProducts[0].quantity, 3);
+});
+
+test("does not multiply eBay lineItemCost by quantity twice", () => {
+  const metrics = buildSellerDashboardMetrics({
+    products: [readyProduct],
+    orders: [openOrder],
+    days: 30,
+    ebayConnected: true,
+  });
+  assert.equal(metrics.revenue, 50);
+  assert.equal(metrics.topProducts[0].revenue, 50);
+  assert.equal(metrics.topProducts[0].quantity, 2);
 });
 
 test("creates revenue buckets without demo values", () => {
