@@ -23,11 +23,17 @@ test("bridge remains closed when no server secret exists", () => {
   assert.equal(result.status, 503);
 });
 
-test("only reviewed Company OS products pass the bridge", () => {
+test("only finally approved Company OS products pass the bridge", () => {
   assert.equal(isReviewedCompanyProduct({ status: "neu", reviewStatus: "not_reviewed" }), false);
-  assert.equal(isReviewedCompanyProduct({ reviewStatus: "in_review" }), true);
-  assert.equal(isReviewedCompanyProduct({ companyOsSection: "pruefen" }), true);
+  assert.equal(isReviewedCompanyProduct({ reviewStatus: "in_review" }), false);
+  assert.equal(isReviewedCompanyProduct({ companyOsSection: "pruefen" }), false);
+  assert.equal(isReviewedCompanyProduct({ processingStatus: "sent_to_review" }), false);
+  assert.equal(isReviewedCompanyProduct({ status: "prüfen" }), false);
   assert.equal(isReviewedCompanyProduct({ reviewApproved: true }), true);
+  assert.equal(isReviewedCompanyProduct({ reviewStatus: "approved" }), true);
+  assert.equal(isReviewedCompanyProduct({ processingStatus: "ready_for_seller_tool" }), true);
+  assert.equal(isReviewedCompanyProduct({ status: "bereit_manuell_einstellen" }), true);
+  assert.equal(isReviewedCompanyProduct({ listingPackage: { status: "completed" } }), true);
 });
 
 test("repeated Company OS transfers update one Product Master item", () => {
