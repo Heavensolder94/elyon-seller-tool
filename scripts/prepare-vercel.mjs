@@ -25,9 +25,11 @@ const mobileModuleScripts = [
 function injectMobileScripts(html) {
   const startMarker = "<!-- ELYON_MOBILE_MODULES -->";
   const endMarker = "<!-- /ELYON_MOBILE_MODULES -->";
-  const content = mobileModuleScripts
-    .map((file) => `<script defer src="/${file}?v=${Date.now()}"></script>`)
-    .join("\n");
+  const version = Date.now();
+  const content = [
+    ...mobileModuleScripts.map((file) => `<script defer src="/${file}?v=${version}"></script>`),
+    `<script type="module" src="/seller-category-engine.js?v=${version}"></script>`,
+  ].join("\n");
 
   return injectMarkedBlock(html, { startMarker, endMarker, content });
 }
@@ -44,6 +46,7 @@ function injectDesktopSecurity(html) {
     '<script defer src="/seller-selling-flow-event-guard.js"></script>',
     '<script type="module" src="/seller-listing-visual-designer.js"></script>',
     '<script type="module" src="/seller-auto-lister-parity.js"></script>',
+    '<script type="module" src="/seller-category-engine.js"></script>',
     '<script defer src="/seller-selling-flow-resilience.js"></script>',
     '<script defer src="/seller-selling-flow-visibility-fix.js"></script>',
     '<script type="module" src="/seller-selling-flow-focused-ui.js"></script>',
@@ -71,6 +74,8 @@ const filesToMirror = [
   ["seller-listing-visual-designer.js", "public/seller-listing-visual-designer.js"],
   ["seller-auto-lister-parity-core.js", "public/seller-auto-lister-parity-core.js"],
   ["seller-auto-lister-parity.js", "public/seller-auto-lister-parity.js"],
+  ["seller-category-engine-core.js", "public/seller-category-engine-core.js"],
+  ["seller-category-engine.js", "public/seller-category-engine.js"],
   ["seller-selling-flow-resilience.js", "public/seller-selling-flow-resilience.js"],
   ["seller-selling-flow-visibility-fix.js", "public/seller-selling-flow-visibility-fix.js"],
   ["seller-selling-flow-focused-ui.js", "public/seller-selling-flow-focused-ui.js"],
@@ -122,4 +127,4 @@ const envStatus = {
 };
 
 console.log("Google/security env status:", JSON.stringify(envStatus));
-console.log("Prepared Vercel output with Seller auth, mobile selling entry, focused three-step selling workspace, visible Seller selling flow, visual Listing Designer, full Auto Lister parity, corrected live dashboard, final Company OS inbox, completeness-aware product health, collapsible Product Board and role-clean Seller workflow.");
+console.log("Prepared Vercel output with Seller auth, shared automatic eBay category engine, mobile selling entry, focused three-step selling workspace, visible Seller selling flow, visual Listing Designer, full Auto Lister parity, corrected live dashboard, final Company OS inbox, completeness-aware product health, collapsible Product Board and role-clean Seller workflow.");
