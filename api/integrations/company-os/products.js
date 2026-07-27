@@ -1,5 +1,5 @@
 import { requireBridgeAccess } from "../../../lib/bridge-access.js";
-import { normalizeProduct } from "../../../lib/product-master.js";
+import { normalizeProduct } from "../../../lib/product-master-active.js";
 import {
   getProductMasterRedisConfig,
   readProductMasterList,
