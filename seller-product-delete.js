@@ -97,6 +97,9 @@
       [data-elyon-delete-product]{position:relative}
       [data-elyon-delete-product][aria-busy="true"]{opacity:.65;cursor:wait!important}
       .elyon-delete-note{grid-column:1/-1;margin:0;padding:9px 11px;border-radius:12px;background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.16);color:#fecaca;font-size:11px;line-height:1.4}
+      #productListTab #list>.product-card>.elyon-board-delete-quick{grid-column:1/-1;justify-self:end;width:auto;margin-top:-2px;padding:8px 11px;border-radius:11px;font-size:11px;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);color:#fecaca}
+      #productListTab #list>.product-card>.elyon-board-delete-quick:hover{background:rgba(239,68,68,.2);border-color:rgba(248,113,113,.45)}
+      @media(max-width:620px){#productListTab #list>.product-card>.elyon-board-delete-quick{justify-self:stretch;width:100%}}
     `;
     document.head.appendChild(style);
   }
@@ -110,6 +113,25 @@
       button.classList.add("danger");
       if (!/löschen/i.test(text(button.textContent))) button.textContent = "Löschen";
       button.title = "Artikel dauerhaft aus Product Board und Seller Product Master löschen";
+    });
+  }
+
+  function decorateQuickDeleteButtons() {
+    document.querySelectorAll("#productListTab #list > .product-card").forEach((card) => {
+      if (card.classList.contains("small-card") || card.closest(".kanban-board, .kanban-column, .kanban-shell")) return;
+      const original = card.querySelector(":scope > .actions button[data-elyon-delete-product]");
+      if (!original?.dataset.elyonDeleteProduct) return;
+      let quick = card.querySelector(":scope > .elyon-board-delete-quick");
+      if (!quick) {
+        quick = document.createElement("button");
+        quick.type = "button";
+        quick.className = "danger elyon-board-delete-quick";
+        quick.textContent = "Artikel löschen";
+        const actions = card.querySelector(":scope > .actions");
+        card.insertBefore(quick, actions || null);
+      }
+      quick.dataset.elyonDeleteProduct = original.dataset.elyonDeleteProduct;
+      quick.title = "Artikel dauerhaft löschen";
     });
   }
 
@@ -129,6 +151,7 @@
     try {
       installStyles();
       decorateDeleteButtons();
+      decorateQuickDeleteButtons();
       decorateActionHints();
     } finally {
       startObserver();
