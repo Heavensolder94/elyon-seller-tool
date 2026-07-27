@@ -37,6 +37,7 @@ function injectDesktopSecurity(html) {
   const content = [
     '<script defer src="/seller-auth.js"></script>',
     '<script defer src="/seller-role-policy.js"></script>',
+    '<script type="module" src="/seller-dashboard.js"></script>',
     '<script defer src="/seller-company-os-inbox.js"></script>',
   ].join("\n");
 
@@ -48,6 +49,7 @@ const filesToMirror = [
   ["elyon-ui.js", "public/elyon-ui.js"],
   ["seller-auth.js", "public/seller-auth.js"],
   ["seller-role-policy.js", "public/seller-role-policy.js"],
+  ["seller-dashboard.js", "public/seller-dashboard.js"],
   ["seller-company-os-inbox.js", "public/seller-company-os-inbox.js"],
   ["elyon-soul.css", "public/elyon-soul.css"],
   ["elyon-soul.js", "public/elyon-soul.js"],
@@ -91,4 +93,4 @@ const envStatus = {
 };
 
 console.log("Google/security env status:", JSON.stringify(envStatus));
-console.log("Prepared Vercel output with Seller auth, final Company OS inbox and role-clean Seller workflow.");
+console.log("Prepared Vercel output with Seller auth, live dashboard, final Company OS inbox and role-clean Seller workflow.");
