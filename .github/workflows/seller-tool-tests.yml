@@ -32,6 +32,7 @@ jobs:
           node --check seller-selling-flow-event-guard.js
           node --check seller-selling-flow-resilience.js
           node --check seller-selling-flow-visibility-fix.js
+          node --check mobile-selling-entry.js
           node --check seller-listing-visual-core.js
           node --check seller-listing-visual-designer.js
           node --check seller-auto-lister-parity-core.js
