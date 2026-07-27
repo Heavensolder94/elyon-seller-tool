@@ -328,19 +328,24 @@ async function saveParity(view, initialState) {
 
 function bindEvents(view, state) {
   const shell = document.getElementById("sellerAutoListerParity");
-  shell.querySelectorAll("[data-salp-tab]").forEach((button) => button.addEventListener("click", () => setTab(button.dataset.salpTab)));
-  document.getElementById("salpRefresh")?.addEventListener("click", mount);
-  document.getElementById("salpCategorySearch")?.addEventListener("click", searchCategories);
-  document.getElementById("salpLoadAspects")?.addEventListener("click", () => loadAspects(field("sellerAutoCategoryId"), field("sellerAutoCategoryName")).catch((error) => setStatus(error.message, "bad")));
-  document.getElementById("salpCompetitionRun")?.addEventListener("click", runCompetition);
-  document.getElementById("salpAiRun")?.addEventListener("click", () => runAi(view));
-  document.getElementById("salpAiStatus")?.addEventListener("click", aiStatus);
-  document.getElementById("salpSave")?.addEventListener("click", () => saveParity(view, state));
-  document.getElementById("salpAiStrength")?.addEventListener("input", (event) => { document.getElementById("salpAiLabel").textContent = `${event.target.value} %`; });
+  if (!shell) return;
+  shell._salpEventController?.abort();
+  const controller = new AbortController();
+  shell._salpEventController = controller;
+  const eventOptions = { signal: controller.signal };
+  shell.querySelectorAll("[data-salp-tab]").forEach((button) => button.addEventListener("click", () => setTab(button.dataset.salpTab), eventOptions));
+  document.getElementById("salpRefresh")?.addEventListener("click", mount, eventOptions);
+  document.getElementById("salpCategorySearch")?.addEventListener("click", searchCategories, eventOptions);
+  document.getElementById("salpLoadAspects")?.addEventListener("click", () => loadAspects(field("sellerAutoCategoryId"), field("sellerAutoCategoryName")).catch((error) => setStatus(error.message, "bad")), eventOptions);
+  document.getElementById("salpCompetitionRun")?.addEventListener("click", runCompetition, eventOptions);
+  document.getElementById("salpAiRun")?.addEventListener("click", () => runAi(view), eventOptions);
+  document.getElementById("salpAiStatus")?.addEventListener("click", aiStatus, eventOptions);
+  document.getElementById("salpSave")?.addEventListener("click", () => saveParity(view, state), eventOptions);
+  document.getElementById("salpAiStrength")?.addEventListener("input", (event) => { document.getElementById("salpAiLabel").textContent = `${event.target.value} %`; }, eventOptions);
   shell.addEventListener("click", (event) => {
     const category = event.target.closest("[data-salp-category]");
     if (category) loadAspects(category.dataset.salpCategory, category.dataset.name).catch((error) => setStatus(error.message, "bad"));
-  });
+  }, eventOptions);
   shell.addEventListener("input", () => {
     try {
       const advancedState = buildAdvancedAutoListerState(currentProduct, view, { compliance: complianceFromUi(), variantsState: variantsFromUi(state), categoryMetadata, itemSpecifics: currentSpecifics(), aiPrepared, aiModel });
@@ -348,7 +353,7 @@ function bindEvents(view, state) {
       const root = document.getElementById("salpAdvancedChecks");
       if (root) root.innerHTML = checksHtml(checks);
     } catch {}
-  });
+  }, eventOptions);
 }
 
 function scheduleMount() {

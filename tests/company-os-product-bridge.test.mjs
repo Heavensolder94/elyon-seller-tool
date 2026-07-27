@@ -29,11 +29,13 @@ test("only finally approved Company OS products pass the bridge", () => {
   assert.equal(isReviewedCompanyProduct({ companyOsSection: "pruefen" }), false);
   assert.equal(isReviewedCompanyProduct({ processingStatus: "sent_to_review" }), false);
   assert.equal(isReviewedCompanyProduct({ status: "prüfen" }), false);
-  assert.equal(isReviewedCompanyProduct({ reviewApproved: true }), true);
-  assert.equal(isReviewedCompanyProduct({ reviewStatus: "approved" }), true);
-  assert.equal(isReviewedCompanyProduct({ processingStatus: "ready_for_seller_tool" }), true);
-  assert.equal(isReviewedCompanyProduct({ status: "bereit_manuell_einstellen" }), true);
-  assert.equal(isReviewedCompanyProduct({ listingPackage: { status: "completed" } }), true);
+  assert.equal(isReviewedCompanyProduct({ reviewApproved: true }), false);
+  assert.equal(isReviewedCompanyProduct({ reviewStatus: "approved" }), false);
+  assert.equal(isReviewedCompanyProduct({ processingStatus: "ready_for_seller_tool" }), false);
+  assert.equal(isReviewedCompanyProduct({ status: "bereit_manuell_einstellen" }), false);
+  assert.equal(isReviewedCompanyProduct({ listingPackage: { status: "completed" } }), false);
+  assert.equal(isReviewedCompanyProduct({ reviewApproved: true, processingStatus: "ready_for_seller_tool" }), true);
+  assert.equal(isReviewedCompanyProduct({ reviewStatus: "approved", status: "bereit_manuell_einstellen" }), true);
 });
 
 test("repeated Company OS transfers update one Product Master item", () => {
