@@ -16,6 +16,11 @@ jobs:
         with:
           node-version: 20
       - name: Run security tests
-        run: npm test
+        shell: bash
+        run: |
+          status=0
+          npm test > test-output.log 2>&1 || status=$?
+          tail -n 180 test-output.log
+          exit "$status"
       - name: Verify production build
         run: npm run build
