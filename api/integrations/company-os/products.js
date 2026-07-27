@@ -21,21 +21,20 @@ function normalizedStatus(value) {
 
 export function isReviewedCompanyProduct(product = {}) {
   const approval = object(product.approval);
-  const listingPackage = object(product.listingPackage || product.listingTask);
   const reviewStatus = normalizedStatus(product.reviewStatus);
   const processingStatus = normalizedStatus(product.processingStatus);
   const status = normalizedStatus(product.status);
-  const listingStatus = normalizedStatus(listingPackage.status);
-
-  return Boolean(
+  const hasExplicitApproval = Boolean(
     product.reviewApproved === true ||
     approval.approved === true ||
     approval.manualApproved === true ||
-    ["approved", "freigegeben"].includes(reviewStatus) ||
-    ["ready for seller tool", "bereit fürs seller tool", "bereit fuer seller tool", "bereit manuell einstellen"].includes(processingStatus) ||
-    ["ready for seller tool", "bereit fürs seller tool", "bereit fuer seller tool", "bereit manuell einstellen"].includes(status) ||
-    ["completed", "approved", "ready for seller tool", "bereit manuell einstellen"].includes(listingStatus)
+    ["approved", "freigegeben"].includes(reviewStatus)
   );
+  const hasFinalHandoffStatus = Boolean(
+    ["ready for seller tool", "bereit fürs seller tool", "bereit fuer seller tool", "bereit manuell einstellen"].includes(processingStatus) ||
+    ["ready for seller tool", "bereit fürs seller tool", "bereit fuer seller tool", "bereit manuell einstellen"].includes(status)
+  );
+  return hasExplicitApproval && hasFinalHandoffStatus;
 }
 
 function incomingProduct(req) {
@@ -53,7 +52,7 @@ export default async function handler(req, res) {
       route: "/api/integrations/company-os/products",
       bridge: { configured: true, source: "elyon_company_os" },
       storage: { configured: Boolean(config.url && config.token), source: config.source },
-      acceptedStates: ["reviewApproved=true", "approved", "ready_for_seller_tool", "bereit_manuell_einstellen"],
+      acceptedStates: ["explicit_approval + ready_for_seller_tool", "explicit_approval + bereit_manuell_einstellen"],
       rejectedStates: ["in_review", "sent_to_review", "prüfen", "review"],
       safety: { automaticListing: false, automaticOrder: false, manualApprovalRequired: true },
     });
