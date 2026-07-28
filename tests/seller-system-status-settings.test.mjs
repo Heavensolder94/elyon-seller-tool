@@ -8,54 +8,74 @@ function syntaxCheck(relativePath) {
   execFileSync(process.execPath, ["--check", fileURLToPath(new URL(`../${relativePath}`, import.meta.url))], { stdio: "pipe" });
 }
 
+async function source() {
+  return readFile(new URL("../seller-system-status-settings.js", import.meta.url), "utf8");
+}
+
 test("system and data status is moved from dashboard into settings", async () => {
-  const source = await readFile(new URL("../seller-system-status-settings.js", import.meta.url), "utf8");
-  assert.match(source, /document\.getElementById\("settingsTab"\)/);
-  assert.match(source, /#dashboardTab \.sd-panel/);
-  assert.match(source, /system- und datenstatus/);
-  assert.match(source, /target\.host\.appendChild\(panel\)/);
-  assert.match(source, /MutationObserver/);
+  const code = await source();
+  assert.match(code, /document\.getElementById\("settingsTab"\)/);
+  assert.match(code, /#dashboardTab \.sd-panel/);
+  assert.match(code, /system- und datenstatus/);
+  assert.match(code, /keepOnlyPanel\(panel, target\.host\)/);
+  assert.match(code, /MutationObserver/);
 });
 
-test("settings relocation keeps one live panel after dashboard refreshes", async () => {
-  const source = await readFile(new URL("../seller-system-status-settings.js", import.meta.url), "utf8");
-  assert.match(source, /previous && previous !== panel/);
-  assert.match(source, /previous\.remove\(\)/);
-  assert.match(source, /data-system-status-host/);
-  assert.match(source, /seller-system-status-placeholder/);
-  assert.match(source, /elyon:seller-authenticated/);
+test("status marker uses the real kebab-case data attribute", async () => {
+  const code = await source();
+  assert.match(code, /PANEL_ATTRIBUTE = "data-elyon-system-status-panel"/);
+  assert.match(code, /panel\.setAttribute\(PANEL_ATTRIBUTE, "1"\)/);
+  assert.match(code, /\[\$\{PANEL_ATTRIBUTE\}="1"\]/);
+  assert.doesNotMatch(code, /data-\$\{PANEL_MARKER\}/);
+  assert.doesNotMatch(code, /dataset\[PANEL_MARKER\]/);
+});
+
+test("settings relocation removes duplicate wrappers and panels", async () => {
+  const code = await source();
+  assert.match(code, /statusWrappers/);
+  assert.match(code, /existing\.filter\(\(node\) => node !== wrapper\)\.forEach\(\(node\) => node\.remove\(\)\)/);
+  assert.match(code, /statusPanels\(\)\.forEach/);
+  assert.match(code, /if \(panel !== keep\) panel\.remove\(\)/);
+  assert.match(code, /wrapperCount: statusWrappers\(\)\.length/);
+  assert.match(code, /panelCount: statusPanels\(\)\.length/);
+});
+
+test("inner dashboard heading is hidden after moving into the settings wrapper", async () => {
+  const code = await source();
+  assert.match(code, /seller-system-status-panel>\.sd-head\{display:none!important\}/);
+  assert.match(code, /<summary><span>System- und Datenstatus/);
 });
 
 test("eBay status is verified directly instead of trusting the initial dashboard placeholder", async () => {
-  const source = await readFile(new URL("../seller-system-status-settings.js", import.meta.url), "utf8");
-  assert.match(source, /\/api\/ebay\/status\?environment=production/);
-  assert.match(source, /credentials:\s*"same-origin"/);
-  assert.match(source, /cache:\s*"no-store"/);
-  assert.match(source, /typeof data\.connected !== "boolean"/);
-  assert.match(source, /wird geprüft/);
-  assert.match(source, /Status nicht abrufbar/);
-  assert.match(source, /refreshEbayStatus/);
-  assert.match(source, /STATUS_MAX_AGE_MS/);
+  const code = await source();
+  assert.match(code, /\/api\/ebay\/status\?environment=production/);
+  assert.match(code, /credentials:\s*"same-origin"/);
+  assert.match(code, /cache:\s*"no-store"/);
+  assert.match(code, /typeof data\.connected !== "boolean"/);
+  assert.match(code, /wird geprüft/);
+  assert.match(code, /Status nicht abrufbar/);
+  assert.match(code, /refreshEbayStatus/);
+  assert.match(code, /STATUS_MAX_AGE_MS/);
 });
 
 test("verified eBay state updates both settings row and dashboard badge", async () => {
-  const source = await readFile(new URL("../seller-system-status-settings.js", import.meta.url), "utf8");
-  assert.match(source, /ebayStatusRows/);
-  assert.match(source, /ebayHeroBadges/);
-  assert.match(source, /value\.textContent = label/);
-  assert.match(source, /badge\.textContent = `eBay \$\{label\}`/);
-  assert.match(source, /sd-good/);
-  assert.match(source, /sd-bad/);
-  assert.match(source, /sd-warn/);
+  const code = await source();
+  assert.match(code, /ebayStatusRows/);
+  assert.match(code, /ebayHeroBadges/);
+  assert.match(code, /value\.textContent = label/);
+  assert.match(code, /badge\.textContent = `eBay \$\{label\}`/);
+  assert.match(code, /sd-good/);
+  assert.match(code, /sd-bad/);
+  assert.match(code, /sd-warn/);
 });
 
 test("desktop build loads and mirrors the settings relocation after dashboard v2", async () => {
-  const source = await readFile(new URL("../scripts/prepare-vercel.mjs", import.meta.url), "utf8");
-  const dashboardIndex = source.indexOf('<script type="module" src="/seller-dashboard-v2.js"></script>');
-  const settingsIndex = source.indexOf('<script defer src="/seller-system-status-settings.js"></script>');
+  const code = await readFile(new URL("../scripts/prepare-vercel.mjs", import.meta.url), "utf8");
+  const dashboardIndex = code.indexOf('<script type="module" src="/seller-dashboard-v2.js"></script>');
+  const settingsIndex = code.indexOf('<script defer src="/seller-system-status-settings.js"></script>');
   assert.ok(dashboardIndex > 0);
   assert.ok(settingsIndex > dashboardIndex);
-  assert.match(source, /\["seller-system-status-settings\.js", "public\/seller-system-status-settings\.js"\]/);
+  assert.match(code, /\["seller-system-status-settings\.js", "public\/seller-system-status-settings\.js"\]/);
 });
 
 test("system status settings files are valid JavaScript", () => {

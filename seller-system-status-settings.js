@@ -3,7 +3,8 @@
 
   const WRAPPER_ID = "elyonSystemDataStatusSettings";
   const STYLE_ID = "elyonSystemDataStatusSettingsStyles";
-  const PANEL_MARKER = "elyonSystemStatusPanel";
+  const PANEL_ATTRIBUTE = "data-elyon-system-status-panel";
+  const PANEL_SELECTOR = `[${PANEL_ATTRIBUTE}="1"], .seller-system-status-panel`;
   const EBAY_STATUS_URL = "/api/ebay/status?environment=production";
   const STATUS_MAX_AGE_MS = 15000;
   let observer = null;
@@ -26,8 +27,8 @@
       #${WRAPPER_ID}>summary span{display:grid;gap:3px}
       #${WRAPPER_ID}>summary small{font-size:11px;font-weight:600;color:#94a3b8}
       #${WRAPPER_ID} [data-system-status-host]{display:grid;gap:10px}
-      #${WRAPPER_ID} [data-${PANEL_MARKER}="1"]{margin:0;padding:0;background:transparent;border:0;box-shadow:none}
-      #${WRAPPER_ID} [data-${PANEL_MARKER}="1"]>.sd-head{display:none!important}
+      #${WRAPPER_ID} [${PANEL_ATTRIBUTE}="1"],#${WRAPPER_ID} .seller-system-status-panel{margin:0;padding:0;background:transparent;border:0;box-shadow:none}
+      #${WRAPPER_ID} [${PANEL_ATTRIBUTE}="1"]>.sd-head,#${WRAPPER_ID} .seller-system-status-panel>.sd-head{display:none!important}
       #${WRAPPER_ID} .seller-system-status-placeholder{margin:0;color:#94a3b8;font-size:12px;line-height:1.5}
     `;
     document.head.appendChild(style);
@@ -38,29 +39,68 @@
     return panels.find((panel) => normalized(panel.querySelector(".sd-head h3")?.textContent) === "system- und datenstatus") || null;
   }
 
+  function statusWrappers() {
+    return [...document.querySelectorAll(`[id="${WRAPPER_ID}"], .seller-system-status-settings`)];
+  }
+
+  function statusPanels(root = document) {
+    return [...new Set([...root.querySelectorAll(PANEL_SELECTOR)])];
+  }
+
+  function ensureHost(wrapper) {
+    let host = wrapper.querySelector("[data-system-status-host]");
+    if (!host) {
+      host = document.createElement("div");
+      host.className = "settings-dropdown-content";
+      host.dataset.systemStatusHost = "";
+      wrapper.appendChild(host);
+    }
+    return host;
+  }
+
   function ensureSettingsWrapper() {
     const settings = document.getElementById("settingsTab");
     if (!settings) return null;
 
-    let wrapper = document.getElementById(WRAPPER_ID);
+    const existing = statusWrappers();
+    let wrapper = existing.find((node) => settings.contains(node)) || existing[0] || null;
     if (!wrapper) {
       wrapper = document.createElement("details");
-      wrapper.id = WRAPPER_ID;
-      wrapper.className = "settings-section settings-dropdown seller-system-status-settings";
-      wrapper.open = true;
       wrapper.innerHTML = `
         <summary><span>System- und Datenstatus<small>Verbindungen, Datenquellen und technische Betriebsbereitschaft</small></span></summary>
         <div class="settings-dropdown-content" data-system-status-host>
           <p class="seller-system-status-placeholder">Statusdaten werden aus dem Seller-Dashboard geladen …</p>
         </div>
       `;
-      settings.appendChild(wrapper);
     }
 
-    return {
-      wrapper,
-      host: wrapper.querySelector("[data-system-status-host]"),
-    };
+    wrapper.id = WRAPPER_ID;
+    wrapper.classList.add("settings-section", "settings-dropdown", "seller-system-status-settings");
+    wrapper.open = true;
+    if (!settings.contains(wrapper)) settings.appendChild(wrapper);
+    const host = ensureHost(wrapper);
+
+    const duplicatePanels = existing
+      .filter((node) => node !== wrapper)
+      .flatMap((node) => statusPanels(node));
+    const recoverablePanel = duplicatePanels.at(-1) || null;
+    existing.filter((node) => node !== wrapper).forEach((node) => node.remove());
+    if (!statusPanels(host).length && recoverablePanel) host.appendChild(recoverablePanel);
+
+    return { wrapper, host };
+  }
+
+  function markPanel(panel) {
+    panel.setAttribute(PANEL_ATTRIBUTE, "1");
+    panel.classList.add("seller-system-status-panel");
+  }
+
+  function keepOnlyPanel(keep, host) {
+    statusPanels().forEach((panel) => {
+      if (panel !== keep) panel.remove();
+    });
+    if (keep && host && !host.contains(keep)) host.appendChild(keep);
+    return keep || null;
   }
 
   function ebayStatusRows() {
@@ -145,16 +185,16 @@
     installStyles();
 
     const target = ensureSettingsWrapper();
-    const panel = findDashboardPanel();
-    if (!target?.host || !panel) return false;
+    if (!target?.host) return false;
 
-    const previous = target.host.querySelector(`[data-${PANEL_MARKER}="1"]`);
-    if (previous && previous !== panel) previous.remove();
+    const freshPanel = findDashboardPanel();
+    const existingPanel = statusPanels(target.host).at(-1) || null;
+    const panel = freshPanel || existingPanel;
+    if (!panel) return false;
 
-    panel.dataset[PANEL_MARKER] = "1";
-    panel.classList.add("seller-system-status-panel");
+    markPanel(panel);
+    keepOnlyPanel(panel, target.host);
     target.host.querySelector(".seller-system-status-placeholder")?.remove();
-    target.host.appendChild(panel);
 
     if (lastConnected === null) applyEbayStatus("checking");
     else applyEbayStatus(lastConnected ? "connected" : "disconnected", lastStatusError);
@@ -183,20 +223,25 @@
     [120, 450, 1000, 1800].forEach((delay) => setTimeout(scheduleMove, delay));
   }
 
+  function health() {
+    return {
+      wrapperCount: statusWrappers().length,
+      panelCount: statusPanels().length,
+      wrapperPresent: Boolean(document.getElementById(WRAPPER_ID)),
+      panelInSettings: Boolean(document.querySelector(`#${WRAPPER_ID} ${PANEL_SELECTOR}`)),
+      panelInDashboard: Boolean(findDashboardPanel()),
+      ebayConnected: lastConnected,
+      ebayStatusError: lastStatusError,
+      ebayStatusCheckedAt: lastStatusCheckAt || null,
+    };
+  }
+
   window.ElyonSystemStatusSettings = {
     install,
     move: moveSystemStatusToSettings,
+    repair: moveSystemStatusToSettings,
     refreshEbayStatus: () => verifyEbayStatus({ force: true }),
-    health() {
-      return {
-        wrapperPresent: Boolean(document.getElementById(WRAPPER_ID)),
-        panelInSettings: Boolean(document.querySelector(`#${WRAPPER_ID} [data-${PANEL_MARKER}="1"]`)),
-        panelInDashboard: Boolean(findDashboardPanel()),
-        ebayConnected: lastConnected,
-        ebayStatusError: lastStatusError,
-        ebayStatusCheckedAt: lastStatusCheckAt || null,
-      };
-    },
+    health,
   };
 
   window.addEventListener("elyon:seller-authenticated", () => {
