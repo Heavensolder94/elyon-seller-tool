@@ -3,6 +3,8 @@ name: Seller Tool Tests
 on:
   pull_request:
     branches: [main]
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -40,9 +42,14 @@ jobs:
           node --check seller-auto-lister-parity.js
           node --check api/seller-listing-ai.js
           node --check api/ebay-taxonomy.js
+          node --check scripts/performance-budget.mjs
+          node --check scripts/check-performance-budget.mjs
 
       - name: Run tests
         run: npm test
 
       - name: Build Vercel output
         run: npm run build
+
+      - name: Verify performance budgets
+        run: npm run check:performance
