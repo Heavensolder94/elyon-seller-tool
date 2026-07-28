@@ -7,8 +7,11 @@
   const EXPANDED_STORAGE_KEY = "elyonProductBoardExpandedCardsV1";
   const CARD_CLASS = "elyon-board-accordion-card";
   const EXPANDED_CLASS = "elyon-board-card-expanded";
+  const TOGGLE_SELECTOR = "[data-elyon-board-toggle]";
   let observer = null;
+  let observerTarget = null;
   let scheduled = false;
+  let clickHandlerInstalled = false;
 
   function safeText(value) {
     return String(value ?? "").trim();
@@ -43,10 +46,14 @@
   }
 
   function getCardKey(card) {
+    if (card.dataset.elyonProductCardKey) return card.dataset.elyonProductCardKey;
     const productId = getCardProductId(card);
     if (productId) return `id:${productId}`;
     const title = safeText(card.querySelector(".product-title")?.textContent).toLocaleLowerCase("de-DE");
-    return `title:${title || Math.random().toString(36).slice(2)}`;
+    if (title) return `title:${title}`;
+    const list = card.closest("#list");
+    const position = list ? [...list.children].indexOf(card) : -1;
+    return `position:${position}`;
   }
 
   function getProductRecord(card) {
@@ -120,58 +127,72 @@
   }
 
   function updateToggle(card, expanded) {
-    const toggle = card.querySelector(":scope > .elyon-product-card-toggle");
+    const toggle = card.querySelector(`:scope > ${TOGGLE_SELECTOR}`);
     if (!toggle) return;
     const state = expanded ? "expanded" : "collapsed";
-    if (toggle.dataset.elyonAccordionState === state) return;
     toggle.dataset.elyonAccordionState = state;
     toggle.setAttribute("aria-expanded", String(expanded));
+    toggle.setAttribute("aria-label", expanded ? "Artikel einklappen" : "Artikel aufklappen");
     toggle.innerHTML = expanded
       ? '<span>Artikel einklappen</span><span class="elyon-card-chevron" aria-hidden="true">⌃</span>'
       : '<span>Artikel aufklappen</span><span class="elyon-card-chevron" aria-hidden="true">⌄</span>';
   }
 
+  function syncNativeDetails(card, expanded) {
+    card.querySelectorAll(":scope > :first-child .details-box").forEach((details) => {
+      if (details.tagName === "DETAILS") details.open = expanded;
+    });
+  }
+
   function setCardExpanded(card, expanded, persist = true) {
+    if (!(card instanceof HTMLElement)) return;
+    const key = card.dataset.elyonProductCardKey || getCardKey(card);
+    card.dataset.elyonProductCardKey = key;
+
+    // Persist first. The Product Board can re-render immediately after a click;
+    // storing the intended state before DOM mutations prevents that render from
+    // restoring the previous value.
+    if (persist) {
+      const keys = loadExpandedKeys();
+      if (expanded) keys.add(key);
+      else keys.delete(key);
+      saveExpandedKeys(keys);
+    }
+
     card.classList.toggle(EXPANDED_CLASS, expanded);
     updateToggle(card, expanded);
-
-    card.querySelectorAll(":scope > :first-child .details-box").forEach((details) => {
-      if (details instanceof HTMLDetailsElement) details.open = expanded;
-    });
-
-    if (!persist) return;
-    const keys = loadExpandedKeys();
-    const key = card.dataset.elyonProductCardKey || getCardKey(card);
-    if (expanded) keys.add(key);
-    else keys.delete(key);
-    saveExpandedKeys(keys);
+    syncNativeDetails(card, expanded);
   }
 
   function addToggle(card) {
-    if (card.querySelector(":scope > .elyon-product-card-toggle")) return;
-    const toggle = document.createElement("button");
+    let toggle = card.querySelector(`:scope > ${TOGGLE_SELECTOR}`);
+    if (!toggle) {
+      toggle = document.createElement("button");
+      toggle.type = "button";
+      toggle.className = "secondary elyon-product-card-toggle";
+      toggle.dataset.elyonBoardToggle = "true";
+      const actions = [...card.children].find((child) => child.classList?.contains("actions"));
+      card.insertBefore(toggle, actions || null);
+    }
     toggle.type = "button";
-    toggle.className = "secondary elyon-product-card-toggle";
-    toggle.addEventListener("click", (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      setCardExpanded(card, !card.classList.contains(EXPANDED_CLASS));
-    });
-
-    const actions = [...card.children].find((child) => child.classList?.contains("actions"));
-    card.insertBefore(toggle, actions || null);
+    toggle.dataset.elyonBoardToggle = "true";
   }
 
   function decorateCard(card) {
     if (!(card instanceof HTMLElement)) return;
     if (card.classList.contains("small-card") || card.closest(".kanban-board, .kanban-column, .kanban-shell")) return;
 
+    const wasDecorated = card.dataset.elyonAccordionReady === "true";
     const key = getCardKey(card);
-    const expanded = loadExpandedKeys().has(key);
     card.classList.add(CARD_CLASS);
     card.dataset.elyonProductCardKey = key;
+    card.dataset.elyonAccordionReady = "true";
     addToggle(card);
     ensureEssentialPills(card);
+
+    const expanded = wasDecorated
+      ? card.classList.contains(EXPANDED_CLASS)
+      : loadExpandedKeys().has(key);
     setCardExpanded(card, expanded, false);
   }
 
@@ -185,19 +206,17 @@
 
   function setAllCards(expanded) {
     const cards = getBoardCards();
+    cards.forEach(decorateCard);
+
     const keys = loadExpandedKeys();
     cards.forEach((card) => {
-      decorateCard(card);
       const key = card.dataset.elyonProductCardKey || getCardKey(card);
-      card.classList.toggle(EXPANDED_CLASS, expanded);
-      updateToggle(card, expanded);
-      card.querySelectorAll(":scope > :first-child .details-box").forEach((details) => {
-        if (details instanceof HTMLDetailsElement) details.open = expanded;
-      });
       if (expanded) keys.add(key);
       else keys.delete(key);
     });
     saveExpandedKeys(keys);
+
+    cards.forEach((card) => setCardExpanded(card, expanded, false));
   }
 
   function ensureControls() {
@@ -214,9 +233,41 @@
         <button type="button" class="secondary" data-elyon-board-collapse-all>Alle einklappen</button>
       </div>
     `;
-    controls.querySelector("[data-elyon-board-expand-all]")?.addEventListener("click", () => setAllCards(true));
-    controls.querySelector("[data-elyon-board-collapse-all]")?.addEventListener("click", () => setAllCards(false));
     list.parentElement?.insertBefore(controls, list);
+  }
+
+  function handleAccordionClick(event) {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+
+    const toggle = target.closest(TOGGLE_SELECTOR);
+    if (toggle) {
+      const card = toggle.closest(`${LIST_SELECTOR} > .product-card`);
+      if (!card) return;
+      event.preventDefault();
+      event.stopPropagation();
+      setCardExpanded(card, !card.classList.contains(EXPANDED_CLASS));
+      return;
+    }
+
+    if (target.closest(`#${CONTROLS_ID} [data-elyon-board-expand-all]`)) {
+      event.preventDefault();
+      event.stopPropagation();
+      setAllCards(true);
+      return;
+    }
+
+    if (target.closest(`#${CONTROLS_ID} [data-elyon-board-collapse-all]`)) {
+      event.preventDefault();
+      event.stopPropagation();
+      setAllCards(false);
+    }
+  }
+
+  function installClickHandler() {
+    if (clickHandlerInstalled) return;
+    clickHandlerInstalled = true;
+    document.addEventListener("click", handleAccordionClick, true);
   }
 
   function installStyles() {
@@ -250,11 +301,27 @@
     document.head.appendChild(style);
   }
 
+  function startObserver() {
+    const list = document.querySelector(LIST_SELECTOR);
+    if (!list) return;
+    if (!observer) observer = new MutationObserver(scheduleDecorate);
+    if (observerTarget === list) return;
+    observer.disconnect();
+    observerTarget = list;
+    observer.observe(list, { childList: true, subtree: true });
+  }
+
   function decorateBoard() {
     scheduled = false;
-    installStyles();
-    ensureControls();
-    getBoardCards().forEach(decorateCard);
+    observer?.disconnect();
+    observerTarget = null;
+    try {
+      installStyles();
+      ensureControls();
+      getBoardCards().forEach(decorateCard);
+    } finally {
+      startObserver();
+    }
   }
 
   function scheduleDecorate() {
@@ -264,13 +331,27 @@
   }
 
   function start() {
+    installClickHandler();
     decorateBoard();
-    if (observer) return;
-    observer = new MutationObserver(scheduleDecorate);
-    observer.observe(document.body, { childList: true, subtree: true });
-    document.addEventListener("input", scheduleDecorate, true);
-    document.addEventListener("change", scheduleDecorate, true);
+    let tries = 0;
+    const retry = window.setInterval(() => {
+      tries += 1;
+      decorateBoard();
+      if (document.querySelector(LIST_SELECTOR) || tries >= 30) window.clearInterval(retry);
+    }, 300);
+    window.addEventListener("elyon:products-updated", scheduleDecorate);
+    window.addEventListener("storage", (event) => {
+      if (event.key === EXPANDED_STORAGE_KEY) scheduleDecorate();
+    });
   }
+
+  window.ElyonProductBoardAccordion = {
+    refresh: scheduleDecorate,
+    expandAll: () => setAllCards(true),
+    collapseAll: () => setAllCards(false),
+    setCardExpanded,
+    get expandedKeys() { return [...loadExpandedKeys()]; },
+  };
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", start, { once: true });
