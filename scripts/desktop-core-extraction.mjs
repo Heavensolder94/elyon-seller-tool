@@ -36,7 +36,7 @@ export function extractDesktopRuntime(html, { version = Date.now() } = {}) {
   const agentsCode = scriptBody(agentsBlock);
 
   let optimizedHtml = html.replace(XLSX_TAG_PATTERN, "\n");
-  optimizedHtml = optimizedHtml.replace(coreBlock, `<script defer src="/seller-app-core.js?v=${version}"></script>`);
+  optimizedHtml = optimizedHtml.replace(coreBlock, `<script src="/seller-app-core.js?v=${version}"></script>`);
   optimizedHtml = optimizedHtml.replace(agentsBlock, "");
 
   return {
