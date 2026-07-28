@@ -17,6 +17,7 @@ const mobileModuleScripts = [
   "mobile-brain-v2.js",
   "mobile-push-v1.js",
   "mobile-agents-v1.js",
+  "ai-workforce-client.js",
   "mobile-bootstrap.js",
   "mobile-more-ui.js",
   "mobile-selling-entry.js",
@@ -56,6 +57,7 @@ function injectDesktopSecurity(html) {
     '<script defer src="/seller-settings-layout-experiment.js"></script>',
     '<script defer src="/seller-ai-settings-label.js"></script>',
     '<script defer src="/seller-ai-provider-model-guard.js"></script>',
+    '<script defer src="/ai-workforce-client.js"></script>',
     '<script defer src="/seller-ebay-api-status.js"></script>',
     '<script defer src="/seller-company-os-inbox.js"></script>',
     '<script type="module" src="/seller-product-health-state.js"></script>',
@@ -92,6 +94,7 @@ const filesToMirror = [
   ["seller-settings-layout-experiment.js", "public/seller-settings-layout-experiment.js"],
   ["seller-ai-settings-label.js", "public/seller-ai-settings-label.js"],
   ["seller-ai-provider-model-guard.js", "public/seller-ai-provider-model-guard.js"],
+  ["ai-workforce-client.js", "public/ai-workforce-client.js"],
   ["seller-ebay-api-status.js", "public/seller-ebay-api-status.js"],
   ["seller-company-os-inbox.js", "public/seller-company-os-inbox.js"],
   ["seller-product-health-core.js", "public/seller-product-health-core.js"],
@@ -140,7 +143,10 @@ const envStatus = {
   GOOGLE_DRIVE_BACKUP_FOLDER_ID: Boolean(process.env.GOOGLE_DRIVE_BACKUP_FOLDER_ID),
   ELYON_SELLER_ACCESS_TOKEN: Boolean(process.env.ELYON_SELLER_ACCESS_TOKEN),
   CRON_SECRET: Boolean(process.env.CRON_SECRET),
+  OPENAI_API_KEY: Boolean(process.env.OPENAI_API_KEY),
+  DEEPSEEK_API_KEY: Boolean(process.env.DEEPSEEK_API_KEY),
+  QWEN_API_KEY: Boolean(process.env.QWEN_API_KEY || process.env.DASHSCOPE_API_KEY),
 };
 
-console.log("Google/security env status:", JSON.stringify(envStatus));
-console.log("Prepared Vercel output with separate eBay API and OAuth status verification, clearer experimental Settings information architecture, AI & Models settings label, enforced AI provider-model compatibility, System and Data Status moved into Settings, stable Seller button routing, replaceable delegated event handlers, reliable Product Board deletion, shared automatic eBay category engine, mobile selling entry, focused three-step selling workspace, visible Seller selling flow, visual Listing Designer, full Auto Lister parity, corrected live dashboard, final Company OS inbox, completeness-aware product health, grouped collapsible Product Board and role-clean Seller workflow.");
+console.log("Google/security/AI env status:", JSON.stringify(envStatus));
+console.log("Prepared Vercel output with protected Elyon AI Workforce V1, structured agent tasks, manual approvals, provider routing, mobile and desktop workforce UI, and the existing Seller workflow modules.");
