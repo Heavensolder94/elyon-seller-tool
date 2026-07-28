@@ -60,6 +60,10 @@
       "destination": "/api/secure-agent-engine"
     },
     {
+      "source": "/api/ai-agent-run",
+      "destination": "/api/ai-agent-run-compatible"
+    },
+    {
       "source": "/api/ai-workflow",
       "destination": "/api/secure-agent-engine?action=ai-workflow"
     },
