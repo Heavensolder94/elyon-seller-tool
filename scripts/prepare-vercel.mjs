@@ -18,6 +18,7 @@ const mobileModuleScripts = [
   "mobile-push-v1.js",
   "mobile-agents-v1.js",
   "ai-workforce-client.js",
+  "ai-workforce-mount-fix.js",
   "mobile-bootstrap.js",
   "mobile-more-ui.js",
   "mobile-selling-entry.js",
@@ -58,6 +59,7 @@ function injectDesktopSecurity(html) {
     '<script defer src="/seller-ai-settings-label.js"></script>',
     '<script defer src="/seller-ai-provider-model-guard.js"></script>',
     '<script defer src="/ai-workforce-client.js"></script>',
+    '<script defer src="/ai-workforce-mount-fix.js"></script>',
     '<script defer src="/seller-ebay-api-status.js"></script>',
     '<script defer src="/seller-company-os-inbox.js"></script>',
     '<script type="module" src="/seller-product-health-state.js"></script>',
@@ -95,6 +97,7 @@ const filesToMirror = [
   ["seller-ai-settings-label.js", "public/seller-ai-settings-label.js"],
   ["seller-ai-provider-model-guard.js", "public/seller-ai-provider-model-guard.js"],
   ["ai-workforce-client.js", "public/ai-workforce-client.js"],
+  ["ai-workforce-mount-fix.js", "public/ai-workforce-mount-fix.js"],
   ["seller-ebay-api-status.js", "public/seller-ebay-api-status.js"],
   ["seller-company-os-inbox.js", "public/seller-company-os-inbox.js"],
   ["seller-product-health-core.js", "public/seller-product-health-core.js"],
@@ -149,4 +152,4 @@ const envStatus = {
 };
 
 console.log("Google/security/AI env status:", JSON.stringify(envStatus));
-console.log("Prepared Vercel output with protected Elyon AI Workforce V1, structured agent tasks, manual approvals, provider routing, mobile and desktop workforce UI, and the existing Seller workflow modules.");
+console.log("Prepared Vercel output with AI Workforce mounted in the dedicated virtual agents tab, protected agent tasks, manual approvals, provider routing, mobile and desktop workforce UI, and the existing Seller workflow modules.");
