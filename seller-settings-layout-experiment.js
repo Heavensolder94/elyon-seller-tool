@@ -4,6 +4,10 @@
   const STYLE_ID = "elyonSettingsLayoutExperimentStyles";
   const INTRO_ID = "elyonSettingsLayoutExperimentIntro";
   const HIDDEN_IMPORT_ATTR = "data-elyon-settings-import-hidden";
+  const SYSTEM_STATUS_LABEL = "3. 🩺 Systemstatus & Diagnose";
+  const SYSTEM_STATUS_HINT = "Verbindungen, Datenquellen und technische Betriebsbereitschaft prüfen";
+  const ORDERS_IMPORT_TITLE = "1. 📦 eBay-Bestellungen importieren";
+  const ORDERS_IMPORT_HINT = "Neue eBay-Bestellungen abrufen, die Vorschau kontrollieren und anschließend in den Elyon-Workflow übernehmen.";
   let observer = null;
   let scheduled = false;
 
@@ -64,15 +68,14 @@
     if (!wrapper) return;
     wrapper.dataset.elyonSettingsSection = "3";
     const summary = wrapper.querySelector(":scope > summary");
-    if (!summary) return;
-    summary.innerHTML = `
-      <span>3. 🩺 Systemstatus & Diagnose<small>Verbindungen, Datenquellen und technische Betriebsbereitschaft prüfen</small></span>
-    `;
+    if (!summary || summary.dataset.elyonSettingsExperimentLabel === "1") return;
+    summary.dataset.elyonSettingsExperimentLabel = "1";
+    summary.innerHTML = `<span>${SYSTEM_STATUS_LABEL}<small>${SYSTEM_STATUS_HINT}</small></span>`;
   }
 
   function hideDuplicateSettingsImport(settings) {
     const duplicateImport = directCardContaining(settings, "#ebayOrdersRange");
-    if (!duplicateImport) return;
+    if (!duplicateImport || duplicateImport.getAttribute(HIDDEN_IMPORT_ATTR) === "1") return;
     duplicateImport.setAttribute(HIDDEN_IMPORT_ATTR, "1");
     duplicateImport.setAttribute("aria-hidden", "true");
     duplicateImport.hidden = true;
@@ -85,8 +88,8 @@
 
     const heading = importCard.querySelector(":scope > h2");
     const hint = importCard.querySelector(":scope > .hint");
-    if (heading) heading.textContent = "1. 📦 eBay-Bestellungen importieren";
-    if (hint) hint.textContent = "Neue eBay-Bestellungen abrufen, die Vorschau kontrollieren und anschließend in den Elyon-Workflow übernehmen.";
+    if (heading && text(heading.textContent) !== ORDERS_IMPORT_TITLE) heading.textContent = ORDERS_IMPORT_TITLE;
+    if (hint && text(hint.textContent) !== ORDERS_IMPORT_HINT) hint.textContent = ORDERS_IMPORT_HINT;
 
     let note = importCard.querySelector("[data-elyon-orders-import-note]");
     if (!note) {
