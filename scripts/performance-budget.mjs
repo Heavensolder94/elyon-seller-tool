@@ -2,15 +2,15 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 
 export const PERFORMANCE_BUDGETS = Object.freeze({
-  sourceHtmlBytes: 1_050_000,
-  outputHtmlBytes: 240_000,
-  coreBytes: 575_000,
-  lazyAgentsBytes: 325_000,
-  maxInlineScriptBytes: 24_000,
-  startupScriptCount: 30,
-  startupLocalScriptBytes: 1_250_000,
-  startupMutationObserverOccurrences: 16,
-  startupPollingOccurrences: 20,
+  sourceHtmlBytes: 1_020_000,
+  outputHtmlBytes: 220_000,
+  coreBytes: 540_000,
+  lazyAgentsBytes: 300_000,
+  maxInlineScriptBytes: 16_000,
+  startupScriptCount: 24,
+  startupLocalScriptBytes: 900_000,
+  startupMutationObserverOccurrences: 14,
+  startupPollingOccurrences: 6,
 });
 
 const SCRIPT_PATTERN = /<script\b([^>]*)>([\s\S]*?)<\/script>/gi;
