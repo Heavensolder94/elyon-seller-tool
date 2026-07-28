@@ -1,3 +1,5 @@
+import { Script } from "node:vm";
+
 const XLSX_CDN_URL = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
 const XLSX_TAG_PATTERN = /\s*<script\s+src=["']https:\/\/cdn\.jsdelivr\.net\/npm\/xlsx@0\.18\.5\/dist\/xlsx\.full\.min\.js["']><\/script>\s*/;
 const INLINE_APP_PATTERN = /<script>\s*'use strict';[\s\S]*?<\/script>/g;
@@ -34,6 +36,9 @@ export function extractDesktopRuntime(html, { version = Date.now() } = {}) {
   const agentsBlock = agentsMatch[0];
   const coreCode = addLazyXlsxLoader(scriptBody(coreBlock));
   const agentsCode = scriptBody(agentsBlock);
+
+  new Script(coreCode, { filename: "seller-app-core.js" });
+  new Script(agentsCode, { filename: "seller-virtual-agents-legacy.js" });
 
   let optimizedHtml = html.replace(XLSX_TAG_PATTERN, "\n");
   optimizedHtml = optimizedHtml.replace(coreBlock, `<script src="/seller-app-core.js?v=${version}"></script>`);
