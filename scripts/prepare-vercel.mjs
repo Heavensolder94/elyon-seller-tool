@@ -54,6 +54,7 @@ function injectDesktopSecurity(html) {
     '<script type="module" src="/seller-dashboard-v2.js"></script>',
     '<script defer src="/seller-system-status-settings.js"></script>',
     '<script defer src="/seller-settings-layout-experiment.js"></script>',
+    '<script defer src="/seller-ai-settings-label.js"></script>',
     '<script defer src="/seller-ebay-api-status.js"></script>',
     '<script defer src="/seller-company-os-inbox.js"></script>',
     '<script type="module" src="/seller-product-health-state.js"></script>',
@@ -88,6 +89,7 @@ const filesToMirror = [
   ["seller-dashboard-v2.js", "public/seller-dashboard-v2.js"],
   ["seller-system-status-settings.js", "public/seller-system-status-settings.js"],
   ["seller-settings-layout-experiment.js", "public/seller-settings-layout-experiment.js"],
+  ["seller-ai-settings-label.js", "public/seller-ai-settings-label.js"],
   ["seller-ebay-api-status.js", "public/seller-ebay-api-status.js"],
   ["seller-company-os-inbox.js", "public/seller-company-os-inbox.js"],
   ["seller-product-health-core.js", "public/seller-product-health-core.js"],
@@ -139,4 +141,4 @@ const envStatus = {
 };
 
 console.log("Google/security env status:", JSON.stringify(envStatus));
-console.log("Prepared Vercel output with separate eBay API and OAuth status verification, clearer experimental Settings information architecture, System and Data Status moved into Settings, stable Seller button routing, replaceable delegated event handlers, reliable Product Board deletion, shared automatic eBay category engine, mobile selling entry, focused three-step selling workspace, visible Seller selling flow, visual Listing Designer, full Auto Lister parity, corrected live dashboard, final Company OS inbox, completeness-aware product health, grouped collapsible Product Board and role-clean Seller workflow.");
+console.log("Prepared Vercel output with separate eBay API and OAuth status verification, clearer experimental Settings information architecture, AI & Models settings label, System and Data Status moved into Settings, stable Seller button routing, replaceable delegated event handlers, reliable Product Board deletion, shared automatic eBay category engine, mobile selling entry, focused three-step selling workspace, visible Seller selling flow, visual Listing Designer, full Auto Lister parity, corrected live dashboard, final Company OS inbox, completeness-aware product health, grouped collapsible Product Board and role-clean Seller workflow.");
