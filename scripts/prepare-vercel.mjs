@@ -57,6 +57,7 @@ function injectDesktopSecurity(html) {
     '<script defer src="/seller-company-os-inbox.js"></script>',
     '<script type="module" src="/seller-product-health-state.js"></script>',
     '<script defer src="/seller-product-board-accordion.js"></script>',
+    '<script defer src="/seller-product-board-accordion-compat.js"></script>',
     '<script defer src="/seller-product-delete.js"></script>',
     '<script defer src="/seller-button-integrity.js"></script>',
   ].join("\n");
@@ -90,6 +91,7 @@ const filesToMirror = [
   ["seller-product-health-core.js", "public/seller-product-health-core.js"],
   ["seller-product-health-state.js", "public/seller-product-health-state.js"],
   ["seller-product-board-accordion.js", "public/seller-product-board-accordion.js"],
+  ["seller-product-board-accordion-compat.js", "public/seller-product-board-accordion-compat.js"],
   ["seller-product-delete.js", "public/seller-product-delete.js"],
   ["seller-button-integrity.js", "public/seller-button-integrity.js"],
   ["elyon-soul.css", "public/elyon-soul.css"],
@@ -135,4 +137,4 @@ const envStatus = {
 };
 
 console.log("Google/security env status:", JSON.stringify(envStatus));
-console.log("Prepared Vercel output with separate eBay API and OAuth status verification, System and Data Status moved into Settings, stable Seller button routing, replaceable delegated event handlers, reliable Product Board deletion, shared automatic eBay category engine, mobile selling entry, focused three-step selling workspace, visible Seller selling flow, visual Listing Designer, full Auto Lister parity, corrected live dashboard, final Company OS inbox, completeness-aware product health, collapsible Product Board and role-clean Seller workflow.");
+console.log("Prepared Vercel output with separate eBay API and OAuth status verification, System and Data Status moved into Settings, stable Seller button routing, replaceable delegated event handlers, reliable Product Board deletion, shared automatic eBay category engine, mobile selling entry, focused three-step selling workspace, visible Seller selling flow, visual Listing Designer, full Auto Lister parity, corrected live dashboard, final Company OS inbox, completeness-aware product health, grouped collapsible Product Board and role-clean Seller workflow.");
