@@ -136,8 +136,9 @@
 
     installStyles();
     ensureControls(list);
-    list.querySelectorAll(".product-card:not(.small-card)").forEach(ensureEssentialPills);
-    return true;
+    const cards = list.querySelectorAll(".product-card:not(.small-card)");
+    cards.forEach(ensureEssentialPills);
+    return cards.length > 0;
   }
 
   function schedule() {
