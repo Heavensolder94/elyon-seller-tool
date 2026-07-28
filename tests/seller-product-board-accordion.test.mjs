@@ -27,6 +27,23 @@ test("Product Board accordion persists the intended state before mutating the ca
   assert.ok(classIndex > saveIndex);
 });
 
+test("Product Board cards use a fresh storage version and start collapsed by default", async () => {
+  const source = await readFile(new URL("../seller-product-board-accordion.js", import.meta.url), "utf8");
+  assert.match(source, /elyonProductBoardExpandedCardsV2/);
+  assert.match(source, /LEGACY_EXPANDED_STORAGE_KEY = "elyonProductBoardExpandedCardsV1"/);
+  assert.match(source, /localStorage\.removeItem\(LEGACY_EXPANDED_STORAGE_KEY\)/);
+  assert.match(source, /localStorage\.getItem\(EXPANDED_STORAGE_KEY\) \|\| "\[\]"/);
+});
+
+test("collapsed Product Board cards render a small preview", async () => {
+  const source = await readFile(new URL("../seller-product-board-accordion.js", import.meta.url), "utf8");
+  assert.match(source, /grid-template-columns:minmax\(0,1fr\) minmax\(132px,170px\)/);
+  assert.match(source, /-webkit-line-clamp:1/);
+  assert.match(source, /\.score-wrap \.score-number\{font-size:22px\}/);
+  assert.match(source, /\.elyon-board-delete-quick\{display:none!important\}/);
+  assert.match(source, /Titel, Kennzahlen und Status bleiben sichtbar/);
+});
+
 test("Product Board accordion avoids observer feedback while decorating", async () => {
   const source = await readFile(new URL("../seller-product-board-accordion.js", import.meta.url), "utf8");
   assert.match(source, /observer\?\.disconnect\(\)/);
