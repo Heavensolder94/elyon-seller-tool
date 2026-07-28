@@ -2,39 +2,48 @@
   "use strict";
 
   const SETTINGS_KEY = "elyonSettings";
+  const WORKFORCE_SETTINGS_KEY = "elyon_ai_agents_settings";
   const PROVIDER_SELECT_ID = "setAiProvider";
   const MODEL_SELECT_ID = "setAiModel";
   const DASHBOARD_ID = "aiDashboardModal";
+  const WORKFORCE_CARD_SELECTOR = ".aiw-card[data-agent-id]";
   const PROVIDERS = {
     deepseek: {
       label: "DeepSeek",
       defaultModel: "deepseek-v4-flash",
       models: [
-        { value: "deepseek-v4-flash", label: "DeepSeek v4 flash" },
-        { value: "deepseek-v4-pro", label: "DeepSeek v4 pro" },
+        { value: "deepseek-v4-flash", label: "DeepSeek V4 Flash · schnell & günstig" },
+        { value: "deepseek-v4-pro", label: "DeepSeek V4 Pro · stärkere Analyse" },
       ],
     },
     openai: {
       label: "OpenAI",
       defaultModel: "gpt-4o-mini",
       models: [
-        { value: "gpt-4o-mini", label: "GPT-4o mini" },
-        { value: "gpt-4o", label: "GPT-4o" },
+        { value: "gpt-5.6-luna", label: "GPT-5.6 Luna · günstig & schnell" },
+        { value: "gpt-5.6-terra", label: "GPT-5.6 Terra · ausgewogen" },
+        { value: "gpt-5.6-sol", label: "GPT-5.6 Sol · höchste Qualität" },
+        { value: "gpt-5.4-mini", label: "GPT-5.4 mini · leistungsstark" },
+        { value: "gpt-4o-mini", label: "GPT-4o mini · kompatibel & günstig" },
+        { value: "gpt-4o", label: "GPT-4o · Legacy-Kompatibilität" },
       ],
     },
     qwen: {
       label: "Qwen",
-      defaultModel: "qwen-flash",
+      defaultModel: "qwen-plus",
       models: [
-        { value: "qwen-flash", label: "Qwen Flash" },
-        { value: "qwen-plus", label: "Qwen Plus" },
-        { value: "qwen-max", label: "Qwen Max" },
+        { value: "qwen3.6-flash", label: "Qwen 3.6 Flash · schnell & günstig" },
+        { value: "qwen3.7-plus", label: "Qwen 3.7 Plus · ausgewogen" },
+        { value: "qwen3.7-max", label: "Qwen 3.7 Max · höchste Qualität" },
+        { value: "qwen-flash", label: "Qwen Flash · kompatibler Alias" },
+        { value: "qwen-plus", label: "Qwen Plus · kompatibler Alias" },
+        { value: "qwen-max", label: "Qwen Max · kompatibler Alias" },
       ],
     },
     local: {
       label: "Lokal",
       defaultModel: "local",
-      models: [{ value: "local", label: "Lokales Modell" }],
+      models: [{ value: "local", label: "Lokaler Fallback · keine externe KI" }],
     },
   };
 
@@ -51,6 +60,21 @@
     } catch {
       return {};
     }
+  }
+
+  function readWorkforceSettings() {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(WORKFORCE_SETTINGS_KEY) || "{}");
+      return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+    } catch {
+      return {};
+    }
+  }
+
+  function writeWorkforceSettings(settings) {
+    try {
+      localStorage.setItem(WORKFORCE_SETTINGS_KEY, JSON.stringify(settings));
+    } catch {}
   }
 
   function readRuntimeSettings() {
@@ -105,6 +129,22 @@
     } catch {}
   }
 
+  function writeWorkforceAgentPair(agentId, pair) {
+    if (!agentId) return;
+    const settings = readWorkforceSettings();
+    settings.agents = settings.agents && typeof settings.agents === "object" ? { ...settings.agents } : {};
+    const current = settings.agents[agentId] && typeof settings.agents[agentId] === "object"
+      ? settings.agents[agentId]
+      : {};
+    if (current.provider === pair.provider && current.model === pair.model) return;
+    settings.agents[agentId] = {
+      ...current,
+      provider: pair.provider,
+      model: pair.model,
+    };
+    writeWorkforceSettings(settings);
+  }
+
   function ensureProviderOption(select, provider) {
     if (!select || [...select.options].some((option) => option.value === provider)) return;
     const option = document.createElement("option");
@@ -125,6 +165,7 @@
         const option = document.createElement("option");
         option.value = entry.value;
         option.textContent = entry.label;
+        option.title = entry.label;
         fragment.appendChild(option);
       });
       select.replaceChildren(fragment);
@@ -140,6 +181,36 @@
       if (providerSelect.value !== pair.provider) providerSelect.value = pair.provider;
     }
     syncModelOptions(modelSelect, pair.provider, pair.model);
+  }
+
+  function syncWorkforceModelSelectors() {
+    const settings = readWorkforceSettings();
+    const agents = settings.agents && typeof settings.agents === "object" ? settings.agents : {};
+
+    document.querySelectorAll(WORKFORCE_CARD_SELECTOR).forEach((card) => {
+      const agentId = text(card.dataset.agentId);
+      if (!agentId) return;
+
+      const agent = agents[agentId] && typeof agents[agentId] === "object" ? agents[agentId] : {};
+      const providerSelect = card.querySelector('select[data-field="provider"]');
+      const control = card.querySelector('[data-field="model"]');
+      const provider = normalizeProvider(providerSelect?.value || agent.provider);
+      const pair = normalizePair(provider, control?.value || agent.model);
+      let modelSelect = control;
+
+      if (!(control instanceof HTMLSelectElement) || control.dataset.elyonWorkforceModelSelector !== "true") {
+        modelSelect = document.createElement("select");
+        modelSelect.dataset.field = "model";
+        modelSelect.dataset.elyonWorkforceModelSelector = "true";
+        modelSelect.setAttribute("aria-label", "KI-Modell auswählen");
+        modelSelect.title = "Wähle ein freigegebenes Modell für diesen virtuellen Mitarbeiter.";
+        if (control?.className) modelSelect.className = control.className;
+        control?.replaceWith(modelSelect);
+      }
+
+      syncModelOptions(modelSelect, pair.provider, pair.model);
+      writeWorkforceAgentPair(agentId, pair);
+    });
   }
 
   function displayModel(provider, model) {
@@ -190,7 +261,10 @@
   }
 
   function refreshAfterMain(pair) {
-    [0, 40, 160].forEach((delay) => setTimeout(() => syncDashboard(pair), delay));
+    [0, 40, 160].forEach((delay) => setTimeout(() => {
+      syncDashboard(pair);
+      syncWorkforceModelSelectors();
+    }, delay));
   }
 
   function handleChange(event) {
@@ -215,6 +289,23 @@
         reason: "model-change",
       });
       refreshAfterMain(pair);
+      return;
+    }
+
+    const workforceCard = target.closest(WORKFORCE_CARD_SELECTOR);
+    if (!workforceCard) return;
+    const agentId = text(workforceCard.dataset.agentId);
+
+    if (target.matches('select[data-field="provider"]')) {
+      setTimeout(syncWorkforceModelSelectors, 0);
+      return;
+    }
+
+    if (target.matches('select[data-elyon-workforce-model-selector="true"]')) {
+      const provider = workforceCard.querySelector('select[data-field="provider"]')?.value;
+      const pair = normalizePair(provider, target.value);
+      writeWorkforceAgentPair(agentId, pair);
+      syncModelOptions(target, pair.provider, pair.model);
     }
   }
 
@@ -254,6 +345,7 @@
     const pair = normalizeAndApply({ reason: "refresh" });
     wrapGlobalFunction("openAiDashboard");
     wrapGlobalFunction("refreshAiDashboardStatus");
+    syncWorkforceModelSelectors();
     refreshAfterMain(pair);
   }
 
@@ -276,6 +368,7 @@
     apply,
     normalize: normalizePair,
     providers: PROVIDERS,
+    syncWorkforce: syncWorkforceModelSelectors,
     get current() {
       const settings = readRuntimeSettings();
       return normalizePair(settings.aiProvider, settings.aiModel);
