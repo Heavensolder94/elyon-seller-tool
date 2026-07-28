@@ -1,10 +1,13 @@
 (() => {
   "use strict";
 
-  const VERSION = "perf-20260728-2";
+  const VERSION = "perf-20260728-3";
   const loaded = new Map();
 
   const GROUPS = {
+    quickstart: [
+      { src: "/seller-quickstart-menu.js", type: "module" },
+    ],
     productListTab: [
       { src: "/seller-company-os-inbox.js" },
       { src: "/seller-product-health-state.js", type: "module" },
@@ -67,28 +70,28 @@
     return promise;
   }
 
-  async function loadGroup(tabId) {
-    const entries = GROUPS[tabId];
+  async function loadGroup(groupId) {
+    const entries = GROUPS[groupId];
     if (!entries) return;
 
     for (const entry of entries) {
       await loadScript(entry);
     }
 
-    if (tabId === "productListTab") {
+    if (groupId === "productListTab") {
       window.ElyonCompanyOsInbox?.install?.();
       window.ElyonProductBoardAccordion?.refresh?.();
       window.ElyonProductHealthState?.refresh?.();
-    } else if (tabId === "settingsTab") {
+    } else if (groupId === "settingsTab") {
       window.ElyonEbayApiStatus?.status?.();
-    } else if (tabId === "virtualAgentsTab") {
+    } else if (groupId === "virtualAgentsTab") {
       window.ElyonAIWorkforce?.mount?.();
       window.ElyonAIWorkforceMountFix?.refresh?.();
       window.ElyonAIWorkforceAdvancedSettings?.refresh?.();
     }
 
     window.dispatchEvent(new CustomEvent("elyon:runtime-group-loaded", {
-      detail: { tabId, modules: entries.map((entry) => entry.src) },
+      detail: { tabId: groupId, modules: entries.map((entry) => entry.src) },
     }));
   }
 
@@ -99,14 +102,25 @@
     return active?.id && GROUPS[active.id] ? active.id : "";
   }
 
-  function requestGroup(tabId) {
-    if (!GROUPS[tabId]) return;
-    loadGroup(tabId).catch((error) => {
+  function requestGroup(groupId) {
+    if (!GROUPS[groupId]) return;
+    loadGroup(groupId).catch((error) => {
       console.error("[Elyon Runtime Loader]", error);
       window.dispatchEvent(new CustomEvent("elyon:runtime-group-error", {
-        detail: { tabId, message: error.message },
+        detail: { tabId: groupId, message: error.message },
       }));
     });
+  }
+
+  function requestQuickstart(manual = true) {
+    loadGroup("quickstart")
+      .then(() => window.ElyonSellerQuickstart?.open?.({ manual }))
+      .catch((error) => {
+        console.error("[Elyon Runtime Loader]", error);
+        window.dispatchEvent(new CustomEvent("elyon:runtime-group-error", {
+          detail: { tabId: "quickstart", message: error.message },
+        }));
+      });
   }
 
   function tabFromClick(target) {
@@ -120,12 +134,21 @@
     return match && GROUPS[match[1]] ? match[1] : "";
   }
 
+  function quickstartIsOpen() {
+    const modal = document.getElementById("startLauncherModal");
+    return Boolean(modal && !modal.classList.contains("hidden"));
+  }
+
   function install() {
     document.addEventListener("change", (event) => {
       if (event.target?.id === "mainMenu") requestGroup(event.target.value);
     }, true);
 
     document.addEventListener("click", (event) => {
+      if (event.target instanceof Element && event.target.closest("#startLauncherBtn")) {
+        requestQuickstart(true);
+        return;
+      }
       const tabId = tabFromClick(event.target);
       if (tabId) requestGroup(tabId);
     }, true);
@@ -145,9 +168,12 @@
       }
     }
 
+    if (quickstartIsOpen()) requestQuickstart(false);
+
     window.ElyonRuntimeLoader = {
       loadGroup,
       loadScript: (src, type = "") => loadScript({ src, type }),
+      openQuickstart: requestQuickstart,
       loaded: () => [...loaded.keys()],
       groups: GROUPS,
     };
