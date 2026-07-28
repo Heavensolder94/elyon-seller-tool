@@ -15,7 +15,7 @@ test("grouped Product Board cards are discovered below status wrappers", async (
   assert.doesNotMatch(source, /\[\.\.\.list\.children\]/);
 });
 
-test("compat accordion intercepts clicks before legacy handlers", async () => {
+test("compat accordion intercepts clicks before the older direct-child handler", async () => {
   const source = await readFile(new URL("../seller-product-board-accordion-compat.js", import.meta.url), "utf8");
   assert.match(source, /window\.addEventListener\("click", handleClick, true\)/);
   assert.match(source, /stopImmediatePropagation\(\)/);
@@ -46,20 +46,16 @@ test("global expand and collapse include grouped and direct cards", async () => 
   assert.match(source, /cards\.forEach\(\(card\) => setExpanded\(card, expanded, false\)\)/);
 });
 
-test("Vercel build ships one active accordion observer after its observer-free foundation", async () => {
+test("Vercel build loads compat module directly after the base accordion", async () => {
   const source = await readFile(new URL("../scripts/prepare-vercel.mjs", import.meta.url), "utf8");
-  const foundationIndex = source.indexOf('seller-product-board-accordion-foundation.js');
+  const baseIndex = source.indexOf('seller-product-board-accordion.js');
   const compatIndex = source.indexOf('seller-product-board-accordion-compat.js');
-  const legacyIndex = source.indexOf('seller-product-board-accordion.js');
-  assert.ok(foundationIndex > 0);
-  assert.ok(compatIndex > foundationIndex);
-  assert.equal(legacyIndex, -1);
-  assert.match(source, /\["seller-product-board-accordion-foundation\.js", "public\/seller-product-board-accordion-foundation\.js"\]/);
+  assert.ok(baseIndex > 0);
+  assert.ok(compatIndex > baseIndex);
   assert.match(source, /\["seller-product-board-accordion-compat\.js", "public\/seller-product-board-accordion-compat\.js"\]/);
 });
 
 test("grouped accordion compatibility scripts remain valid JavaScript", () => {
   syntaxCheck("seller-product-board-accordion-compat.js");
-  syntaxCheck("seller-product-board-accordion-foundation.js");
   syntaxCheck("scripts/prepare-vercel.mjs");
 });
