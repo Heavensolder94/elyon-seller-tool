@@ -1,6 +1,7 @@
 import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { extractDesktopRuntime } from "./desktop-core-extraction.mjs";
 import { injectMarkedBlock } from "./html-injection.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -126,9 +127,16 @@ for (const [source, destination] of filesToMirror) {
 
 const desktopSourcePath = path.join(appRoot, "index.html");
 const desktopDestinationPath = path.join(publicRoot, "index.html");
+const desktopCorePath = path.join(publicRoot, "seller-app-core.js");
+const desktopAgentsPath = path.join(publicRoot, "seller-virtual-agents-legacy.js");
 await mkdir(path.dirname(desktopDestinationPath), { recursive: true });
 const desktopHtml = await readFile(desktopSourcePath, "utf8");
-await writeFile(desktopDestinationPath, injectDesktopSecurity(desktopHtml), "utf8");
+const desktopRuntime = extractDesktopRuntime(desktopHtml, { version: Date.now() });
+await Promise.all([
+  writeFile(desktopDestinationPath, injectDesktopSecurity(desktopRuntime.html), "utf8"),
+  writeFile(desktopCorePath, desktopRuntime.coreCode, "utf8"),
+  writeFile(desktopAgentsPath, desktopRuntime.agentsCode, "utf8"),
+]);
 
 const mobileSourcePath = path.join(appRoot, "mobile.html");
 const mobileDestinationPath = path.join(publicRoot, "mobile.html");
@@ -149,4 +157,5 @@ const envStatus = {
 };
 
 console.log("Google/security/AI env status:", JSON.stringify(envStatus));
-console.log("Prepared Vercel output with route-aware lazy loading for Product Board, eBay status and AI Workforce modules.");
+console.log("Desktop runtime extraction:", JSON.stringify(desktopRuntime.metrics));
+console.log("Prepared Vercel output with extracted desktop core, lazy XLSX import, lazy virtual-agent legacy UI, and route-aware feature modules.");
