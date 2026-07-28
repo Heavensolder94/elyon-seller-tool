@@ -3,6 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { extractDesktopRuntime } from "./desktop-core-extraction.mjs";
 import { injectMarkedBlock } from "./html-injection.mjs";
+import { auditDesktopPerformance } from "./performance-budget.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const appRoot = path.resolve(scriptDir, "..");
@@ -129,14 +130,27 @@ const desktopSourcePath = path.join(appRoot, "index.html");
 const desktopDestinationPath = path.join(publicRoot, "index.html");
 const desktopCorePath = path.join(publicRoot, "seller-app-core.js");
 const desktopAgentsPath = path.join(publicRoot, "seller-virtual-agents-legacy.js");
+const desktopPerformanceReportPath = path.join(publicRoot, "performance-report.json");
 await mkdir(path.dirname(desktopDestinationPath), { recursive: true });
 const desktopHtml = await readFile(desktopSourcePath, "utf8");
 const desktopRuntime = extractDesktopRuntime(desktopHtml, { version: Date.now() });
+const desktopOutputHtml = injectDesktopSecurity(desktopRuntime.html);
 await Promise.all([
-  writeFile(desktopDestinationPath, injectDesktopSecurity(desktopRuntime.html), "utf8"),
+  writeFile(desktopDestinationPath, desktopOutputHtml, "utf8"),
   writeFile(desktopCorePath, desktopRuntime.coreCode, "utf8"),
   writeFile(desktopAgentsPath, desktopRuntime.agentsCode, "utf8"),
 ]);
+
+const runtimeLoaderSource = await readFile(path.join(appRoot, "seller-runtime-loader.js"), "utf8");
+const performanceAudit = await auditDesktopPerformance({
+  sourceHtml: desktopHtml,
+  outputHtml: desktopOutputHtml,
+  coreCode: desktopRuntime.coreCode,
+  agentsCode: desktopRuntime.agentsCode,
+  runtimeLoaderSource,
+  publicRoot,
+});
+await writeFile(desktopPerformanceReportPath, `${JSON.stringify(performanceAudit, null, 2)}\n`, "utf8");
 
 const mobileSourcePath = path.join(appRoot, "mobile.html");
 const mobileDestinationPath = path.join(publicRoot, "mobile.html");
@@ -158,4 +172,5 @@ const envStatus = {
 
 console.log("Google/security/AI env status:", JSON.stringify(envStatus));
 console.log("Desktop runtime extraction:", JSON.stringify(desktopRuntime.metrics));
-console.log("Prepared Vercel output with extracted desktop core, lazy XLSX import, lazy virtual-agent legacy UI, and route-aware feature modules.");
+console.log("Desktop performance budget:", JSON.stringify(performanceAudit.metrics));
+console.log("Prepared Vercel output with enforced performance budgets, extracted desktop core, lazy XLSX import, lazy virtual-agent legacy UI, and route-aware feature modules.");

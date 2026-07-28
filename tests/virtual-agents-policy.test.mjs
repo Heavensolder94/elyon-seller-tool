@@ -28,19 +28,26 @@ test("virtual agents policy reverses the obsolete inactive-role decision", async
   assert.match(activationPolicy, /registry\.active\.push/);
 });
 
-test("desktop build loads the activation policy after role policy and before the workforce", async () => {
+test("desktop build activates the tab before installing the lazy workforce loader", async () => {
   const build = await readFile(new URL("../scripts/prepare-vercel.mjs", import.meta.url), "utf8");
+  const runtime = await readFile(new URL("../seller-runtime-loader.js", import.meta.url), "utf8");
   const rolePolicy = build.indexOf('<script defer src="/seller-role-policy.js"></script>');
   const activationPolicy = build.indexOf('<script defer src="/seller-virtual-agents-policy.js"></script>');
-  const workforce = build.indexOf('<script defer src="/ai-workforce-client.js"></script>');
+  const runtimeLoader = build.indexOf('<script defer src="/seller-runtime-loader.js"></script>');
+  const virtualAgentsGroup = runtime.indexOf("virtualAgentsTab:");
+  const workforce = runtime.indexOf('{ src: "/ai-workforce-client.js" }');
 
   assert.ok(rolePolicy > 0);
   assert.ok(activationPolicy > rolePolicy);
-  assert.ok(workforce > activationPolicy);
+  assert.ok(runtimeLoader > activationPolicy);
+  assert.ok(virtualAgentsGroup > 0);
+  assert.ok(workforce > virtualAgentsGroup);
+  assert.doesNotMatch(build, /<script[^>]+ai-workforce-client\.js/);
   assert.match(build, /\["seller-virtual-agents-policy\.js", "public\/seller-virtual-agents-policy\.js"\]/);
 });
 
 test("virtual agents activation files are valid JavaScript", () => {
   syntaxCheck("seller-virtual-agents-policy.js");
+  syntaxCheck("seller-runtime-loader.js");
   syntaxCheck("scripts/prepare-vercel.mjs");
 });

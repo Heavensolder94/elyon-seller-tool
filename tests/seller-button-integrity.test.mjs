@@ -55,18 +55,23 @@ test("selling flow uses scoped listeners without patching EventTarget globally",
   assert.match(parity, /_salpEventController\?\.abort\(\)/);
 });
 
-test("desktop build loads button integrity after delete and mirrors both files", async () => {
-  const source = await readFile(new URL("../scripts/prepare-vercel.mjs", import.meta.url), "utf8");
-  const deleteIndex = source.indexOf('<script defer src="/seller-product-delete.js"></script>');
-  const integrityIndex = source.indexOf('<script defer src="/seller-button-integrity.js"></script>');
+test("desktop runtime loads button integrity after delete and mirrors both files", async () => {
+  const build = await readFile(new URL("../scripts/prepare-vercel.mjs", import.meta.url), "utf8");
+  const runtime = await readFile(new URL("../seller-runtime-loader.js", import.meta.url), "utf8");
+  const deleteIndex = runtime.indexOf('{ src: "/seller-product-delete.js" }');
+  const integrityIndex = runtime.indexOf('{ src: "/seller-button-integrity.js" }');
+
   assert.ok(deleteIndex > 0);
   assert.ok(integrityIndex > deleteIndex);
-  assert.match(source, /\["seller-button-integrity\.js", "public\/seller-button-integrity\.js"\]/);
-  assert.match(source, /\["seller-selling-flow-event-guard\.js", "public\/seller-selling-flow-event-guard\.js"\]/);
+  assert.doesNotMatch(build, /<script[^>]+seller-product-delete\.js/);
+  assert.doesNotMatch(build, /<script[^>]+seller-button-integrity\.js/);
+  assert.match(build, /\["seller-button-integrity\.js", "public\/seller-button-integrity\.js"\]/);
+  assert.match(build, /\["seller-selling-flow-event-guard\.js", "public\/seller-selling-flow-event-guard\.js"\]/);
 });
 
 test("button integrity files are valid JavaScript", () => {
   syntaxCheck("seller-button-integrity.js");
   syntaxCheck("seller-selling-flow-event-guard.js");
+  syntaxCheck("seller-runtime-loader.js");
   syntaxCheck("scripts/prepare-vercel.mjs");
 });

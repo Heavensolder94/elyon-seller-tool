@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "check:layout": "node scripts/check-layout.mjs",
+    "check:performance": "node scripts/check-performance-budget.mjs",
     "prepare:web": "npm run check:layout && node scripts/prepare-vercel.mjs",
     "start": "node scripts/dev-server.mjs",
     "dev": "npm run start",

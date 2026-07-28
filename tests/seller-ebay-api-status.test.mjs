@@ -44,16 +44,22 @@ test("public OAuth status contract remains minimal and secret-free", async () =>
   assert.doesNotMatch(source, /publicConnectionStatus[\s\S]{0,300}refresh_token:/);
 });
 
-test("desktop build ships the dedicated status verifier after system settings", async () => {
-  const source = await readFile(new URL("../scripts/prepare-vercel.mjs", import.meta.url), "utf8");
-  const settingsIndex = source.indexOf('<script defer src="/seller-system-status-settings.js"></script>');
-  const ebayIndex = source.indexOf('<script defer src="/seller-ebay-api-status.js"></script>');
+test("desktop build keeps system settings in startup and loads eBay verification only with settings", async () => {
+  const build = await readFile(new URL("../scripts/prepare-vercel.mjs", import.meta.url), "utf8");
+  const runtime = await readFile(new URL("../seller-runtime-loader.js", import.meta.url), "utf8");
+  const settingsIndex = build.indexOf('<script defer src="/seller-system-status-settings.js"></script>');
+  const settingsGroup = runtime.indexOf("settingsTab:");
+  const ebayIndex = runtime.indexOf('{ src: "/seller-ebay-api-status.js" }');
+
   assert.ok(settingsIndex > 0);
-  assert.ok(ebayIndex > settingsIndex);
-  assert.match(source, /\["seller-ebay-api-status\.js", "public\/seller-ebay-api-status\.js"\]/);
+  assert.ok(settingsGroup > 0);
+  assert.ok(ebayIndex > settingsGroup);
+  assert.doesNotMatch(build, /<script[^>]+seller-ebay-api-status\.js/);
+  assert.match(build, /\["seller-ebay-api-status\.js", "public\/seller-ebay-api-status\.js"\]/);
 });
 
-test("eBay status verifier is valid JavaScript", () => {
+test("eBay status verifier and runtime loader are valid JavaScript", () => {
   syntaxCheck("seller-ebay-api-status.js");
+  syntaxCheck("seller-runtime-loader.js");
   syntaxCheck("scripts/prepare-vercel.mjs");
 });
