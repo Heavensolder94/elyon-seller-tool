@@ -3,8 +3,13 @@
 
   const PRODUCTS_KEY = "elyonProducts";
   const SELECTED_KEY = "elyonSelectedSellerProductId";
+  const EXPANDED_KEY = "elyonProductBoardExpandedCardsV2";
   const STYLE_ID = "elyonProductDeleteStyles";
+  const DELETE_ALL_SELECTOR = "[data-elyon-delete-all-products]";
+  const DELETE_ALL_CONFIRMATION = "DELETE_SELECTED_PRODUCTS";
+  const DELETE_ALL_TYPED_PHRASE = "ALLE LÖSCHEN";
   const busy = new Set();
+  let deleteAllBusy = false;
   let observer = null;
   let scheduled = false;
 
@@ -18,6 +23,16 @@
     } catch {
       return [];
     }
+  }
+
+  function replaceLocalProducts(nextProducts) {
+    const normalized = Array.isArray(nextProducts) ? nextProducts : [];
+    localStorage.setItem(PRODUCTS_KEY, JSON.stringify(normalized));
+    try {
+      if (typeof products !== "undefined" && Array.isArray(products)) {
+        products.splice(0, products.length, ...normalized);
+      }
+    } catch {}
   }
 
   function deepestRaw(value) {
@@ -69,7 +84,7 @@
     const handler = text(button?.getAttribute("onclick"));
     const match = handler.match(/removeProduct\s*\(\s*([\s\S]*?)\s*\)/i);
     if (!match) return "";
-    return text(match[1]).replace(/^['"]|['"]$/g, "");
+    return text(match[1]).replace(/^["']|["']$/g, "");
   }
 
   function cardTitle(card) {
@@ -78,12 +93,12 @@
   }
 
   function findProduct(identifier, card = null) {
-    const products = readProducts();
-    const direct = products.find((product) => productMatches(product, identifier));
+    const productsList = readProducts();
+    const direct = productsList.find((product) => productMatches(product, identifier));
     if (direct) return direct;
     const title = cardTitle(card).toLocaleLowerCase("de-DE");
     if (!title) return null;
-    return products.find((product) => {
+    return productsList.find((product) => {
       const name = text(product?.name || product?.title || product?.listingTitle).toLocaleLowerCase("de-DE");
       return name && (name === title || title.includes(name) || name.includes(title));
     }) || null;
@@ -94,11 +109,15 @@
     const style = document.createElement("style");
     style.id = STYLE_ID;
     style.textContent = `
-      [data-elyon-delete-product]{position:relative}
-      [data-elyon-delete-product][aria-busy="true"]{opacity:.65;cursor:wait!important}
+      [data-elyon-delete-product],[data-elyon-delete-all-products]{position:relative}
+      [data-elyon-delete-product][aria-busy="true"],[data-elyon-delete-all-products][aria-busy="true"]{opacity:.65;cursor:wait!important}
       .elyon-delete-note{grid-column:1/-1;margin:0;padding:9px 11px;border-radius:12px;background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.16);color:#fecaca;font-size:11px;line-height:1.4}
       #productListTab #list>.product-card>.elyon-board-delete-quick{grid-column:1/-1;justify-self:end;width:auto;margin-top:-2px;padding:8px 11px;border-radius:11px;font-size:11px;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);color:#fecaca}
       #productListTab #list>.product-card>.elyon-board-delete-quick:hover{background:rgba(239,68,68,.2);border-color:rgba(248,113,113,.45)}
+      #productListTab .quick-actions>.elyon-delete-all-products{margin-left:auto;background:rgba(239,68,68,.16);border:1px solid rgba(248,113,113,.38);color:#fecaca}
+      #productListTab .quick-actions>.elyon-delete-all-products:hover{background:rgba(239,68,68,.25);border-color:rgba(248,113,113,.58)}
+      #productListTab .quick-actions>.elyon-delete-all-products:disabled{opacity:.45;cursor:not-allowed;transform:none;filter:none}
+      @media(max-width:760px){#productListTab .quick-actions>.elyon-delete-all-products{flex:1 1 100%;margin-left:0}}
       @media(max-width:620px){#productListTab #list>.product-card>.elyon-board-delete-quick{justify-self:stretch;width:100%}}
     `;
     document.head.appendChild(style);
@@ -114,6 +133,25 @@
       if (!/löschen/i.test(text(button.textContent))) button.textContent = "Löschen";
       button.title = "Artikel dauerhaft aus Product Board und Seller Product Master löschen";
     });
+  }
+
+  function decorateDeleteAllButton() {
+    const actions = document.querySelector("#productListTab .quick-actions");
+    if (!actions) return;
+    let button = actions.querySelector(`:scope > ${DELETE_ALL_SELECTOR}`);
+    if (!button) {
+      button = document.createElement("button");
+      button.type = "button";
+      button.className = "danger elyon-delete-all-products";
+      button.dataset.elyonDeleteAllProducts = "true";
+      actions.appendChild(button);
+    }
+    const count = readProducts().length;
+    if (!deleteAllBusy) button.textContent = "🗑️ Alles löschen";
+    button.disabled = deleteAllBusy || count === 0;
+    button.title = count
+      ? `Alle ${count} Produkte dauerhaft aus Product Board und Seller Product Master löschen`
+      : "Keine Produkte zum Löschen vorhanden";
   }
 
   function decorateQuickDeleteButtons() {
@@ -151,6 +189,7 @@
     try {
       installStyles();
       decorateDeleteButtons();
+      decorateDeleteAllButton();
       decorateQuickDeleteButtons();
       decorateActionHints();
     } finally {
@@ -183,10 +222,16 @@
   function removeLocalProduct(product) {
     const identifiers = new Set(productIdentifiers(product));
     const next = readProducts().filter((entry) => !productIdentifiers(entry).some((id) => identifiers.has(id)));
-    localStorage.setItem(PRODUCTS_KEY, JSON.stringify(next));
+    replaceLocalProducts(next);
 
     const selected = text(localStorage.getItem(SELECTED_KEY));
     if (identifiers.has(selected)) localStorage.removeItem(SELECTED_KEY);
+  }
+
+  function clearLocalProducts() {
+    replaceLocalProducts([]);
+    localStorage.removeItem(SELECTED_KEY);
+    localStorage.removeItem(EXPANDED_KEY);
   }
 
   async function deleteServerProduct(identifier) {
@@ -197,6 +242,23 @@
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok || data.ok === false) {
+      throw new Error(data.message || data.error || `HTTP ${response.status}`);
+    }
+    return data;
+  }
+
+  async function deleteServerProducts(ids) {
+    const response = await fetch("/api/products", {
+      method: "DELETE",
+      credentials: "same-origin",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ ids, confirmation: DELETE_ALL_CONFIRMATION }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data.ok === false || data.bulk !== true) {
       throw new Error(data.message || data.error || `HTTP ${response.status}`);
     }
     return data;
@@ -214,7 +276,7 @@
       notify("Dem Artikel fehlt eine stabile Product-Master-ID. Löschen wurde aus Sicherheitsgründen abgebrochen.", true);
       return false;
     }
-    if (busy.has(deleteId)) return false;
+    if (busy.has(deleteId) || deleteAllBusy) return false;
 
     const label = text(product.name || product.title || product.listingTitle) || "diesen Artikel";
     const confirmed = window.confirm(`Artikel wirklich dauerhaft löschen?\n\n${label}\n\nEr wird aus dem Product Board und dem Seller Product Master entfernt.`);
@@ -236,6 +298,7 @@
       window.dispatchEvent(new CustomEvent("elyon:product-deleted", { detail: { product, deleteId } }));
       try {
         if (typeof window.render === "function") window.render();
+        else if (typeof render === "function") render();
       } catch {}
       notify(`Artikel „${label}“ wurde dauerhaft gelöscht.`);
       return true;
@@ -253,7 +316,85 @@
     }
   }
 
+  async function deleteAllProductsReliable(button = null) {
+    const productsList = readProducts();
+    if (!productsList.length) {
+      notify("Im Product Board sind keine Produkte zum Löschen vorhanden.");
+      scheduleDecorate();
+      return false;
+    }
+    if (deleteAllBusy || busy.size) return false;
+
+    const ids = productsList.map(primaryDeleteId);
+    const missingIds = ids.filter((id) => !id).length;
+    const uniqueIds = [...new Set(ids.filter(Boolean))];
+    if (missingIds || uniqueIds.length !== productsList.length) {
+      notify("Nicht alle Produkte besitzen eine eindeutige Product-Master-ID. Alles löschen wurde aus Sicherheitsgründen abgebrochen.", true);
+      return false;
+    }
+
+    const count = productsList.length;
+    const confirmed = window.confirm(
+      `Wirklich alle ${count} Produkte dauerhaft löschen?\n\nSie werden aus dem Product Board und dem serverseitigen Seller Product Master entfernt. Dieser Vorgang kann nicht rückgängig gemacht werden.`,
+    );
+    if (!confirmed) return false;
+
+    const typed = window.prompt(`Sicherheitsbestätigung: Bitte exakt „${DELETE_ALL_TYPED_PHRASE}“ eingeben.`);
+    if (text(typed).toLocaleUpperCase("de-DE") !== DELETE_ALL_TYPED_PHRASE) {
+      notify("Alles löschen wurde abgebrochen.");
+      return false;
+    }
+
+    deleteAllBusy = true;
+    const previousLabel = text(button?.textContent) || "🗑️ Alles löschen";
+    if (button) {
+      button.disabled = true;
+      button.setAttribute("aria-busy", "true");
+      button.textContent = `${count} Produkte werden gelöscht …`;
+    }
+
+    try {
+      const result = await deleteServerProducts(uniqueIds);
+      clearLocalProducts();
+      document.querySelectorAll("#productListTab #list > .product-card, #productListTab #list > .kanban-shell").forEach((node) => node.remove());
+      window.dispatchEvent(new CustomEvent("elyon:products-updated", {
+        detail: { reason: "bulk_deleted", count, serverDeleted: Number(result.deleted) || 0 },
+      }));
+      window.dispatchEvent(new CustomEvent("elyon:products-bulk-deleted", { detail: result }));
+      try {
+        if (typeof window.render === "function") window.render();
+        else if (typeof render === "function") render();
+      } catch {}
+
+      const serverDeleted = Number(result.deleted) || 0;
+      const staleLocal = Math.max(0, count - serverDeleted);
+      notify(staleLocal
+        ? `Product Board geleert: ${serverDeleted} serverseitige Produkte gelöscht und ${staleLocal} veraltete lokale Einträge entfernt.`
+        : `Alle ${count} Produkte wurden dauerhaft gelöscht.`);
+      return true;
+    } catch (error) {
+      notify(`Produkte wurden nicht gelöscht: ${error.message}`, true);
+      return false;
+    } finally {
+      deleteAllBusy = false;
+      if (button?.isConnected) {
+        button.removeAttribute("aria-busy");
+        button.textContent = previousLabel;
+      }
+      scheduleDecorate();
+    }
+  }
+
   function clickHandler(event) {
+    const deleteAllButton = event.target?.closest?.(`#productListTab ${DELETE_ALL_SELECTOR}`);
+    if (deleteAllButton) {
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      deleteAllProductsReliable(deleteAllButton);
+      return;
+    }
+
     const button = event.target?.closest?.('#productListTab button[data-elyon-delete-product], #productListTab button[onclick*="removeProduct("]');
     if (!button) return;
     event.preventDefault();
@@ -273,6 +414,7 @@
       return deleteProductReliable(text(id));
     };
     window.elyonDeleteProduct = deleteProductReliable;
+    window.elyonDeleteAllProducts = deleteAllProductsReliable;
     window.dispatchEvent(new CustomEvent("elyon:product-delete-ready"));
   }
 

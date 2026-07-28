@@ -9,12 +9,20 @@ import {
 } from "../../lib/product-master-store.js";
 import { requireSellerAccess } from "../../lib/seller-access.js";
 
+const BULK_DELETE_CONFIRMATION = "DELETE_SELECTED_PRODUCTS";
+const MAX_BULK_DELETE_ITEMS = 500;
+
 function text(value) {
   return String(value ?? "").trim();
 }
 
 function includeLegacyImports(req) {
   return ["1", "true", "yes"].includes(text(req?.query?.includeLegacyImports).toLowerCase());
+}
+
+function requestedBulkDeleteIds(req) {
+  const ids = Array.isArray(req?.body?.ids) ? req.body.ids : [];
+  return [...new Set(ids.map(text).filter(Boolean))];
 }
 
 export default async function handler(req, res) {
@@ -92,6 +100,47 @@ export default async function handler(req, res) {
     }
 
     if (req.method === "DELETE") {
+      const ids = requestedBulkDeleteIds(req);
+      if (ids.length) {
+        if (text(req.body?.confirmation) !== BULK_DELETE_CONFIRMATION) {
+          return res.status(400).json({
+            ok: false,
+            error: "bulk_delete_confirmation_required",
+            message: "Die Sicherheitsbestätigung für das gebündelte Löschen fehlt.",
+          });
+        }
+        if (ids.length > MAX_BULK_DELETE_ITEMS) {
+          return res.status(413).json({
+            ok: false,
+            error: "bulk_delete_limit_exceeded",
+            message: `Pro Löschvorgang sind höchstens ${MAX_BULK_DELETE_ITEMS} Produkte erlaubt.`,
+          });
+        }
+
+        const current = await readProductMasterList("elyon_products");
+        let items = current;
+        let deleted = 0;
+        const missing = [];
+        ids.forEach((id) => {
+          const result = deleteProductMasterItem(items, id);
+          items = result.items;
+          if (result.deleted) deleted += 1;
+          else missing.push(id);
+        });
+        const storage = await writeProductMasterList("elyon_products", items);
+        return res.status(200).json({
+          ok: true,
+          bulk: true,
+          route: "/api/products",
+          requested: ids.length,
+          deleted,
+          missing,
+          total: items.length,
+          storage,
+          message: `${deleted} Produkte gelöscht.`,
+        });
+      }
+
       const id = text(req.query.id || req.query.url || req.body?.id || req.body?.url);
       if (!id) return res.status(400).json({ ok: false, error: "id oder url fehlt." });
       const current = await readProductMasterList("elyon_products");
