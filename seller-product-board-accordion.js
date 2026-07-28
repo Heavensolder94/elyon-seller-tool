@@ -4,7 +4,8 @@
   const LIST_SELECTOR = "#productListTab #list";
   const STYLE_ID = "elyonProductBoardAccordionStyles";
   const CONTROLS_ID = "elyonProductBoardAccordionControls";
-  const EXPANDED_STORAGE_KEY = "elyonProductBoardExpandedCardsV1";
+  const EXPANDED_STORAGE_KEY = "elyonProductBoardExpandedCardsV2";
+  const LEGACY_EXPANDED_STORAGE_KEY = "elyonProductBoardExpandedCardsV1";
   const CARD_CLASS = "elyon-board-accordion-card";
   const EXPANDED_CLASS = "elyon-board-card-expanded";
   const TOGGLE_SELECTOR = "[data-elyon-board-toggle]";
@@ -15,6 +16,12 @@
 
   function safeText(value) {
     return String(value ?? "").trim();
+  }
+
+  function resetLegacyExpandedState() {
+    try {
+      localStorage.removeItem(LEGACY_EXPANDED_STORAGE_KEY);
+    } catch {}
   }
 
   function loadExpandedKeys() {
@@ -135,7 +142,7 @@
     toggle.setAttribute("aria-label", expanded ? "Artikel einklappen" : "Artikel aufklappen");
     toggle.innerHTML = expanded
       ? '<span>Artikel einklappen</span><span class="elyon-card-chevron" aria-hidden="true">⌃</span>'
-      : '<span>Artikel aufklappen</span><span class="elyon-card-chevron" aria-hidden="true">⌄</span>';
+      : '<span>Details anzeigen</span><span class="elyon-card-chevron" aria-hidden="true">⌄</span>';
   }
 
   function syncNativeDetails(card, expanded) {
@@ -190,6 +197,8 @@
     addToggle(card);
     ensureEssentialPills(card);
 
+    // A new card is closed by default. Only an explicit user choice stored in
+    // the current storage version can restore it as expanded after a re-render.
     const expanded = wasDecorated
       ? card.classList.contains(EXPANDED_CLASS)
       : loadExpandedKeys().has(key);
@@ -227,7 +236,7 @@
     controls.id = CONTROLS_ID;
     controls.className = "elyon-product-board-accordion-controls";
     controls.innerHTML = `
-      <span class="muted">Kompakte Artikelkarten</span>
+      <span class="muted">Standardmäßig geschlossen · Titel, Kennzahlen und Status bleiben sichtbar</span>
       <div>
         <button type="button" class="secondary" data-elyon-board-expand-all>Alle aufklappen</button>
         <button type="button" class="secondary" data-elyon-board-collapse-all>Alle einklappen</button>
@@ -277,23 +286,34 @@
     style.textContent = `
       .elyon-product-board-accordion-controls{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:0 0 14px;padding:10px 12px;border-radius:16px;background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.08)}
       .elyon-product-board-accordion-controls>div{display:flex;gap:8px;flex-wrap:wrap}.elyon-product-board-accordion-controls button{padding:8px 11px;border-radius:11px;font-size:12px}
-      #list>.${CARD_CLASS}{position:relative;grid-template-columns:minmax(0,1fr) minmax(210px,280px);align-items:start;transition:border-color .18s ease,box-shadow .18s ease,background .18s ease}
-      #list>.${CARD_CLASS}:not(.${EXPANDED_CLASS}){background:rgba(2,6,23,.44)}
+      #list>.${CARD_CLASS}{position:relative;grid-template-columns:minmax(0,1fr) minmax(210px,280px);align-items:start;transition:border-color .18s ease,box-shadow .18s ease,background .18s ease,padding .18s ease}
+      #list>.${CARD_CLASS}:not(.${EXPANDED_CLASS}){grid-template-columns:minmax(0,1fr) minmax(132px,170px);align-items:center;gap:10px;padding:13px 14px;background:rgba(2,6,23,.44)}
+      #list>.${CARD_CLASS}:not(.${EXPANDED_CLASS})>:first-child{min-width:0}
       #list>.${CARD_CLASS}:not(.${EXPANDED_CLASS})>:first-child .ai-product-card,
       #list>.${CARD_CLASS}:not(.${EXPANDED_CLASS})>:first-child .details-box,
-      #list>.${CARD_CLASS}:not(.${EXPANDED_CLASS})>.actions{display:none!important}
+      #list>.${CARD_CLASS}:not(.${EXPANDED_CLASS})>.actions,
+      #list>.${CARD_CLASS}:not(.${EXPANDED_CLASS})>.elyon-board-delete-quick{display:none!important}
+      #list>.${CARD_CLASS}:not(.${EXPANDED_CLASS})>:first-child .product-title{margin:0 6px 5px 0;font-size:16px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      #list>.${CARD_CLASS}:not(.${EXPANDED_CLASS})>:first-child .muted{display:-webkit-box;overflow:hidden;-webkit-box-orient:vertical;-webkit-line-clamp:1;line-clamp:1;font-size:11px;line-height:1.35}
+      #list>.${CARD_CLASS}:not(.${EXPANDED_CLASS})>:first-child .pill-row{flex-wrap:nowrap;max-height:26px;margin-top:7px;overflow:hidden}
+      #list>.${CARD_CLASS}:not(.${EXPANDED_CLASS})>:first-child .pill{flex:0 0 auto;padding:4px 7px;font-size:10px;white-space:nowrap}
+      #list>.${CARD_CLASS}:not(.${EXPANDED_CLASS})>.score-wrap{min-width:0}
+      #list>.${CARD_CLASS}:not(.${EXPANDED_CLASS})>.score-wrap .score-top{margin-bottom:5px}
+      #list>.${CARD_CLASS}:not(.${EXPANDED_CLASS})>.score-wrap .score-number{font-size:22px}
+      #list>.${CARD_CLASS}:not(.${EXPANDED_CLASS})>.score-wrap .progress{height:7px}
       #list>.${CARD_CLASS}>.elyon-product-card-toggle{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;width:100%;margin-top:2px;padding:10px 13px;border-radius:13px;background:rgba(255,255,255,.055);border:1px solid rgba(148,163,184,.14);color:#dbeafe;font-size:12px}
+      #list>.${CARD_CLASS}:not(.${EXPANDED_CLASS})>.elyon-product-card-toggle{margin-top:0;padding:7px 10px;font-size:11px}
       #list>.${CARD_CLASS}>.elyon-product-card-toggle:hover{background:rgba(59,130,246,.12);border-color:rgba(96,165,250,.28)}
       #list>.${CARD_CLASS}>.elyon-product-card-toggle .elyon-card-chevron{font-size:18px;line-height:1;transition:transform .18s ease}
       #list>.${CARD_CLASS}.${EXPANDED_CLASS}{border-color:rgba(96,165,250,.32);box-shadow:0 22px 64px rgba(0,0,0,.28),0 0 0 3px rgba(59,130,246,.06)}
       #list>.${CARD_CLASS}.${EXPANDED_CLASS}>.actions{grid-column:1/-1;display:flex!important;flex-direction:row;flex-wrap:wrap;padding-top:13px;border-top:1px solid rgba(148,163,184,.13)}
       #list>.${CARD_CLASS}.${EXPANDED_CLASS}>.actions button{flex:1 1 180px}
       #list>.${CARD_CLASS} .elyon-essential-pill{background:rgba(59,130,246,.1);border-color:rgba(96,165,250,.2);color:#dbeafe}
-      #list>.${CARD_CLASS}:not(.${EXPANDED_CLASS}) .product-title{margin-right:6px}
       @media(max-width:760px){
         .elyon-product-board-accordion-controls{align-items:stretch}.elyon-product-board-accordion-controls>div{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}
-        #list>.${CARD_CLASS}{grid-template-columns:1fr}
+        #list>.${CARD_CLASS},#list>.${CARD_CLASS}:not(.${EXPANDED_CLASS}){grid-template-columns:1fr}
         #list>.${CARD_CLASS}>.score-wrap{grid-column:1}
+        #list>.${CARD_CLASS}:not(.${EXPANDED_CLASS})>.score-wrap{padding-top:8px;border-top:1px solid rgba(148,163,184,.1)}
         #list>.${CARD_CLASS}.${EXPANDED_CLASS}>.actions button{flex-basis:calc(50% - 8px)}
       }
       @media(max-width:460px){#list>.${CARD_CLASS}.${EXPANDED_CLASS}>.actions button{flex-basis:100%}}
@@ -331,6 +351,7 @@
   }
 
   function start() {
+    resetLegacyExpandedState();
     installClickHandler();
     decorateBoard();
     let tries = 0;
