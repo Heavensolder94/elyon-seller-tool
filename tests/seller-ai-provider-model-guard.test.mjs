@@ -18,16 +18,22 @@ function loadGuard() {
 
 test("DeepSeek rejects OpenAI models and uses its own default", () => {
   const guard = loadGuard();
-  const result = guard.normalize("deepseek", "gpt-4o-mini");
+  const result = guard.normalize("deepseek", "gpt-5.6-terra");
   assert.equal(result.provider, "deepseek");
   assert.equal(result.model, "deepseek-v4-flash");
   assert.equal(result.corrected, true);
 });
 
-test("valid provider and model combinations are preserved", () => {
+test("valid provider and current model combinations are preserved", () => {
   const guard = loadGuard();
   assert.equal(guard.normalize("deepseek", "deepseek-v4-pro").model, "deepseek-v4-pro");
-  assert.equal(guard.normalize("openai", "gpt-4o").model, "gpt-4o");
+  assert.equal(guard.normalize("openai", "gpt-5.6-terra").model, "gpt-5.6-terra");
+  assert.equal(guard.normalize("qwen", "qwen3.7-plus").model, "qwen3.7-plus");
+});
+
+test("legacy compatible model aliases remain selectable", () => {
+  const guard = loadGuard();
+  assert.equal(guard.normalize("openai", "gpt-4o-mini").model, "gpt-4o-mini");
   assert.equal(guard.normalize("qwen", "qwen-plus").model, "qwen-plus");
 });
 
@@ -43,6 +49,24 @@ test("unknown providers fall back to OpenAI safely", () => {
   const result = guard.normalize("unknown", "anything");
   assert.equal(result.provider, "openai");
   assert.equal(result.model, "gpt-4o-mini");
+});
+
+test("model catalog contains selectable current models for every remote provider", () => {
+  const guard = loadGuard();
+  assert.deepEqual(
+    [...guard.providers.deepseek.models.map((entry) => entry.value)],
+    ["deepseek-v4-flash", "deepseek-v4-pro"],
+  );
+  assert.equal(guard.providers.openai.models.some((entry) => entry.value === "gpt-5.6-luna"), true);
+  assert.equal(guard.providers.openai.models.some((entry) => entry.value === "gpt-5.6-sol"), true);
+  assert.equal(guard.providers.qwen.models.some((entry) => entry.value === "qwen3.7-max"), true);
+});
+
+test("workforce model text inputs are replaced by protected select controls", () => {
+  assert.match(source, /WORKFORCE_CARD_SELECTOR/);
+  assert.match(source, /elyonWorkforceModelSelector/);
+  assert.match(source, /control\?\.replaceWith\(modelSelect\)/);
+  assert.match(source, /syncWorkforceModelSelectors/);
 });
 
 test("Vercel build ships the provider-model guard", async () => {
