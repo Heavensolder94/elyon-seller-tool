@@ -59,8 +59,9 @@ test("Product Board accordion keeps global expand and collapse controls delegate
   assert.match(source, /setAllCards\(false\)/);
 });
 
-test("Product Board accordion remains valid JavaScript and part of the Vercel build", async () => {
+test("legacy direct-child accordion remains valid but is not shipped in production", async () => {
   syntaxCheck("seller-product-board-accordion.js");
   const buildSource = await readFile(new URL("../scripts/prepare-vercel.mjs", import.meta.url), "utf8");
-  assert.match(buildSource, /seller-product-board-accordion\.js/);
+  assert.doesNotMatch(buildSource, /seller-product-board-accordion\.js/);
+  assert.match(buildSource, /seller-product-board-accordion-compat\.js/);
 });
