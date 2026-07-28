@@ -4,7 +4,8 @@
 **Repository:** `Heavensolder94/elyon-seller-tool`  
 **Feature-Branch:** `feat/modern-seller-quickstart`  
 **Basis-Commit:** `4de6b865e7b101b39564268b5919bcb7f3c463a6`  
-**Main-Status:** unverändert, kein Merge
+**Main-Status:** unverändert, kein Merge  
+**Prüf-PR:** `#41` (Draft, nicht zum Merge freigegeben)
 
 ## Ziel
 
@@ -98,16 +99,22 @@ node --test tests/seller-quickstart-menu.test.mjs
 9 Tests bestanden
 ```
 
-Zusätzlich werden auf dem vollständigen Branch ausgeführt:
+Vollständige Branch-Prüfung über den Draft-PR `#41`:
 
-```text
-npm test
-npm run check:layout
-npm run check:performance
-npm run build
-```
+- GitHub Actions „Seller Tool Tests“, Lauf `#45`: **erfolgreich**
+  - Syntaxprüfungen: erfolgreich
+  - `npm test`: erfolgreich
+  - `npm run build`: erfolgreich
+  - darin enthaltener `npm run check:layout`: erfolgreich
+  - `npm run check:performance`: erfolgreich
+- GitHub Actions „P0 safety tests“, Lauf `#87`: **erfolgreich**
+  - Security-Tests: erfolgreich
+  - vollständiger Testreport: erfolgreich hochgeladen
+  - Produktionsbuild: erfolgreich
+- Vercel Preview-Build `elyon-seller-tool`: **erfolgreich**
+- Vercel Preview-Build `elyonsellertool`: **erfolgreich**
 
-Die endgültigen Ergebnisse werden nach dem vollständigen Branch-Lauf ergänzt.
+Damit sind Tests, Layout-Check, Performance-Budgets, Sicherheitsprüfungen und Produktionsbuild auf dem vollständigen Feature-Branch bestanden.
 
 ## Restrisiken
 
