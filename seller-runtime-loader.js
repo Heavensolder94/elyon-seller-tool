@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const VERSION = "perf-20260728-1";
+  const VERSION = "perf-20260728-2";
   const loaded = new Map();
 
   const GROUPS = {
@@ -17,6 +17,7 @@
       { src: "/seller-ebay-api-status.js" },
     ],
     virtualAgentsTab: [
+      { src: "/seller-virtual-agents-legacy.js" },
       { src: "/ai-workforce-client.js" },
       { src: "/ai-workforce-mount-fix.js" },
       { src: "/seller-ai-workforce-advanced-settings.js" },
