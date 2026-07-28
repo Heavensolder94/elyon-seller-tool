@@ -46,6 +46,7 @@ function injectDesktopSecurity(html) {
     '<script defer src="/seller-selling-flow-capture.js"></script>',
     '<script defer src="/seller-role-policy.js"></script>',
     '<script defer src="/seller-virtual-agents-policy.js"></script>',
+    '<script defer src="/seller-runtime-loader.js"></script>',
     '<script type="module" src="/seller-selling-flow.js"></script>',
     '<script defer src="/seller-selling-flow-event-guard.js"></script>',
     '<script type="module" src="/seller-listing-visual-designer.js"></script>',
@@ -60,16 +61,6 @@ function injectDesktopSecurity(html) {
     '<script defer src="/seller-settings-layout-experiment.js"></script>',
     '<script defer src="/seller-ai-settings-label.js"></script>',
     '<script defer src="/seller-ai-provider-model-guard.js"></script>',
-    '<script defer src="/seller-ai-workforce-advanced-settings.js"></script>',
-    '<script defer src="/ai-workforce-client.js"></script>',
-    '<script defer src="/ai-workforce-mount-fix.js"></script>',
-    '<script defer src="/seller-ebay-api-status.js"></script>',
-    '<script defer src="/seller-company-os-inbox.js"></script>',
-    '<script type="module" src="/seller-product-health-state.js"></script>',
-    '<script defer src="/seller-product-board-accordion.js"></script>',
-    '<script defer src="/seller-product-board-accordion-compat.js"></script>',
-    '<script defer src="/seller-product-delete.js"></script>',
-    '<script defer src="/seller-button-integrity.js"></script>',
   ].join("\n");
 
   return injectMarkedBlock(html, { startMarker, endMarker, content });
@@ -83,6 +74,7 @@ const filesToMirror = [
   ["seller-selling-flow-capture.js", "public/seller-selling-flow-capture.js"],
   ["seller-role-policy.js", "public/seller-role-policy.js"],
   ["seller-virtual-agents-policy.js", "public/seller-virtual-agents-policy.js"],
+  ["seller-runtime-loader.js", "public/seller-runtime-loader.js"],
   ["seller-selling-flow-core.js", "public/seller-selling-flow-core.js"],
   ["seller-selling-flow.js", "public/seller-selling-flow.js"],
   ["seller-selling-flow-event-guard.js", "public/seller-selling-flow-event-guard.js"],
@@ -157,4 +149,4 @@ const envStatus = {
 };
 
 console.log("Google/security/AI env status:", JSON.stringify(envStatus));
-console.log("Prepared Vercel output with advanced per-agent workforce settings, protected agent tasks, manual approvals, provider routing, mobile and desktop workforce UI, and the existing Seller workflow modules.");
+console.log("Prepared Vercel output with route-aware lazy loading for Product Board, eBay status and AI Workforce modules.");
