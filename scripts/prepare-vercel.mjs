@@ -44,6 +44,7 @@ function injectDesktopSecurity(html) {
     '<script src="/seller-dashboard-compat.js"></script>',
     '<script defer src="/seller-selling-flow-capture.js"></script>',
     '<script defer src="/seller-role-policy.js"></script>',
+    '<script defer src="/seller-virtual-agents-policy.js"></script>',
     '<script type="module" src="/seller-selling-flow.js"></script>',
     '<script defer src="/seller-selling-flow-event-guard.js"></script>',
     '<script type="module" src="/seller-listing-visual-designer.js"></script>',
@@ -79,6 +80,7 @@ const filesToMirror = [
   ["seller-dashboard-compat.js", "public/seller-dashboard-compat.js"],
   ["seller-selling-flow-capture.js", "public/seller-selling-flow-capture.js"],
   ["seller-role-policy.js", "public/seller-role-policy.js"],
+  ["seller-virtual-agents-policy.js", "public/seller-virtual-agents-policy.js"],
   ["seller-selling-flow-core.js", "public/seller-selling-flow-core.js"],
   ["seller-selling-flow.js", "public/seller-selling-flow.js"],
   ["seller-selling-flow-event-guard.js", "public/seller-selling-flow-event-guard.js"],
@@ -152,4 +154,4 @@ const envStatus = {
 };
 
 console.log("Google/security/AI env status:", JSON.stringify(envStatus));
-console.log("Prepared Vercel output with AI Workforce mounted in the dedicated virtual agents tab, protected agent tasks, manual approvals, provider routing, mobile and desktop workforce UI, and the existing Seller workflow modules.");
+console.log("Prepared Vercel output with the AI Workforce activated in the Seller role policy, mounted in the dedicated virtual agents tab, protected agent tasks, manual approvals, provider routing, mobile and desktop workforce UI, and the existing Seller workflow modules.");
