@@ -4,19 +4,15 @@ on:
   push:
     branches:
       - feat/systemwide-ebay-categories
-    paths:
-      - .github/workflows/systemwide-ebay-categories.yml
-      - scripts/apply-systemwide-ebay-categories.mjs
-      - scripts/fix-systemwide-ebay-categories-after-apply.mjs
   pull_request:
     branches:
       - main
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  apply-and-test:
+  verify:
     runs-on: ubuntu-latest
     steps:
       - name: Branch auschecken
@@ -30,11 +26,6 @@ jobs:
         with:
           node-version: 24
 
-      - name: Kategorie-Patches anwenden
-        run: |
-          node scripts/apply-systemwide-ebay-categories.mjs
-          node scripts/fix-systemwide-ebay-categories-after-apply.mjs
-
       - name: Tests ausführen
         run: npm test
 
@@ -47,32 +38,12 @@ jobs:
       - name: Performance-Budget prüfen
         run: npm run check:performance
 
-      - name: Build-Artefakte zurücksetzen
-        run: |
-          git checkout -- public 2>/dev/null || true
-          git clean -fd public
+      - name: Build-Artefakte dürfen nicht committed sein
+        run: git diff --exit-code -- public
 
-      - name: Nur geprüfte Kategorien-Dateien committen
-        if: github.event_name == 'push'
+      - name: Sicherheitsvertrag prüfen
         run: |
-          git config user.name "elyon-category-bot"
-          git config user.email "actions@users.noreply.github.com"
-          git add \
-            docs/SELLER_TOOL_MODULE_STATUS.md \
-            lib/product-master.js \
-            seller-auto-lister-parity-core.js \
-            seller-category-engine-core.js \
-            seller-company-os-inbox.js \
-            seller-selling-flow-core.js \
-            tests/product-master-rules.test.mjs
-          if git diff --cached --quiet; then
-            echo "Keine fachlichen Änderungen zu committen."
-            exit 0
-          fi
-          git commit -m "feat: kategorien im seller tool vereinheitlichen"
-          git push origin HEAD:feat/systemwide-ebay-categories
-
-      - name: Prüfen, ob nur erwartete Dateien offen sind
-        if: github.event_name == 'pull_request'
-        run: |
-          git diff --exit-code -- public
+          grep -q "Offizielle eBay-Kategorie fehlt" lib/product-master.js
+          grep -q "elyon-category-v1" seller-category-engine-core.js
+          grep -q "automaticPublishingAllowed: false" seller-selling-flow-core.js
+          ! grep -R "EBAY_CLIENT_SECRET\|EBAY_USER_ACCESS_TOKEN" seller-category-engine-core.js seller-company-os-inbox.js seller-selling-flow-core.js
