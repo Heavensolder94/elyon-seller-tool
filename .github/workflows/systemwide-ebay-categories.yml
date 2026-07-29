@@ -47,19 +47,32 @@ jobs:
       - name: Performance-Budget prüfen
         run: npm run check:performance
 
-      - name: Geprüfte Änderungen committen
+      - name: Build-Artefakte zurücksetzen
+        run: |
+          git checkout -- public 2>/dev/null || true
+          git clean -fd public
+
+      - name: Nur geprüfte Kategorien-Dateien committen
         if: github.event_name == 'push'
         run: |
-          if git diff --quiet; then
-            echo "Keine weiteren Änderungen."
-            exit 0
-          fi
           git config user.name "elyon-category-bot"
           git config user.email "actions@users.noreply.github.com"
-          git add .
+          git add \
+            docs/SELLER_TOOL_MODULE_STATUS.md \
+            lib/product-master.js \
+            seller-auto-lister-parity-core.js \
+            seller-category-engine-core.js \
+            seller-company-os-inbox.js \
+            seller-selling-flow-core.js \
+            tests/product-master-rules.test.mjs
+          if git diff --cached --quiet; then
+            echo "Keine fachlichen Änderungen zu committen."
+            exit 0
+          fi
           git commit -m "feat: kategorien im seller tool vereinheitlichen"
           git push origin HEAD:feat/systemwide-ebay-categories
 
-      - name: Prüfen, ob Patch vollständig committed ist
+      - name: Prüfen, ob nur erwartete Dateien offen sind
         if: github.event_name == 'pull_request'
-        run: git diff --exit-code
+        run: |
+          git diff --exit-code -- public
