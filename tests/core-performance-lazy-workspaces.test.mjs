@@ -28,13 +28,16 @@ const heavyStartupModules = [
 
 test("desktop startup contains only the seller shell and dashboard modules", async () => {
   const build = await readFile(new URL("../scripts/prepare-vercel.mjs", import.meta.url), "utf8");
+  const desktopBlock = build.match(/function injectDesktopSecurity\(html\) \{[\s\S]*?\n\}\n\nconst filesToMirror/)?.[0] || "";
+  assert.ok(desktopBlock, "Desktop injection block must be discoverable");
+
   for (const file of heavyStartupModules) {
-    assert.doesNotMatch(build, new RegExp(`<script[^>]+${file.replaceAll(".", "\\.")}`));
+    assert.doesNotMatch(desktopBlock, new RegExp(`<script[^>]+${file.replaceAll(".", "\\.")}`));
     assert.match(build, new RegExp(`\\["${file.replaceAll(".", "\\.")}", "public/${file.replaceAll(".", "\\.")}"\\]`));
   }
-  assert.match(build, /<script defer src="\/seller-auth\.js"><\/script>/);
-  assert.match(build, /<script defer src="\/seller-runtime-loader\.js"><\/script>/);
-  assert.match(build, /<script type="module" src="\/seller-dashboard-v2\.js"><\/script>/);
+  assert.match(desktopBlock, /<script defer src="\/seller-auth\.js"><\/script>/);
+  assert.match(desktopBlock, /<script defer src="\/seller-runtime-loader\.js"><\/script>/);
+  assert.match(desktopBlock, /<script type="module" src="\/seller-dashboard-v2\.js"><\/script>/);
 });
 
 test("runtime loader separates selling, settings, products and agents", async () => {
