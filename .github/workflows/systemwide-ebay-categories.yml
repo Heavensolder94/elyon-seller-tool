@@ -1,0 +1,54 @@
+name: Systemweite eBay-Kategorien
+
+on:
+  push:
+    branches:
+      - feat/systemwide-ebay-categories
+    paths:
+      - .github/workflows/systemwide-ebay-categories.yml
+      - scripts/apply-systemwide-ebay-categories.mjs
+
+permissions:
+  contents: write
+
+jobs:
+  apply-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Branch auschecken
+        uses: actions/checkout@v4
+        with:
+          ref: feat/systemwide-ebay-categories
+          fetch-depth: 0
+
+      - name: Node einrichten
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Kategorie-Patches anwenden
+        run: node scripts/apply-systemwide-ebay-categories.mjs
+
+      - name: Tests ausführen
+        run: npm test
+
+      - name: Layout prüfen
+        run: npm run check:layout
+
+      - name: Performance-Budget prüfen
+        run: npm run check:performance
+
+      - name: Build prüfen
+        run: npm run build
+
+      - name: Geprüfte Änderungen committen
+        run: |
+          if git diff --quiet; then
+            echo "Keine weiteren Änderungen."
+            exit 0
+          fi
+          git config user.name "elyon-category-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add .
+          git commit -m "feat: kategorien im seller tool vereinheitlichen"
+          git push origin HEAD:feat/systemwide-ebay-categories
