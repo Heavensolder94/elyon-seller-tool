@@ -7,10 +7,10 @@ export const PERFORMANCE_BUDGETS = Object.freeze({
   coreBytes: 540_000,
   lazyAgentsBytes: 300_000,
   maxInlineScriptBytes: 16_000,
-  startupScriptCount: 24,
-  startupLocalScriptBytes: 900_000,
-  startupMutationObserverOccurrences: 14,
-  startupPollingOccurrences: 6,
+  startupScriptCount: 10,
+  startupLocalScriptBytes: 650_000,
+  startupMutationObserverOccurrences: 4,
+  startupPollingOccurrences: 2,
 });
 
 const SCRIPT_PATTERN = /<script\b([^>]*)>([\s\S]*?)<\/script>/gi;
