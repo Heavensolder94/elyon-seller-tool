@@ -2,10 +2,76 @@
   "use strict";
 
   const API_URL = "/api/auth/session";
+  const PROTECTED_API_PATHS = [
+    "/api/products",
+    "/api/ebay/status",
+    "/api/ebay/orders",
+    "/api/ebay-taxonomy",
+    "/api/google-sheets-sync",
+  ];
+  const nativeFetch = window.fetch.bind(window);
+  let authState = "checking";
+  let readyResolved = false;
+  let resolveReady;
+  const readyPromise = new Promise((resolve) => { resolveReady = resolve; });
+
+  function requestPath(input) {
+    try {
+      const value = typeof input === "string" || input instanceof URL ? input : input?.url;
+      return new URL(value, window.location.href).pathname;
+    } catch {
+      return "";
+    }
+  }
+
+  function isProtectedRequest(input) {
+    const path = requestPath(input);
+    return PROTECTED_API_PATHS.some((protectedPath) => path === protectedPath || path.startsWith(`${protectedPath}/`));
+  }
+
+  function syntheticForbiddenResponse() {
+    return new Response(JSON.stringify({
+      ok: false,
+      error: "Seller-Sitzung fehlt oder ist noch nicht bestätigt.",
+      authenticated: false,
+    }), {
+      status: 403,
+      headers: { "Content-Type": "application/json; charset=utf-8" },
+    });
+  }
+
+  window.fetch = async function elyonAuthenticatedFetch(input, init) {
+    if (!isProtectedRequest(input)) return nativeFetch(input, init);
+    if (authState === "checking") await readyPromise;
+    if (authState !== "authenticated") return syntheticForbiddenResponse();
+    return nativeFetch(input, init);
+  };
+
+  function publishState(authenticated, details = {}) {
+    const previous = authState;
+    authState = authenticated ? "authenticated" : "required";
+    if (document.body) document.body.dataset.sellerAuthenticated = authenticated ? "true" : "false";
+    const snapshot = {
+      authenticated,
+      state: authState,
+      configured: details.configured !== false,
+      status: Number(details.status || 0),
+    };
+    window.ElyonSellerAuthState = snapshot;
+    if (!readyResolved) {
+      readyResolved = true;
+      resolveReady(snapshot);
+    }
+    window.dispatchEvent(new CustomEvent("elyon:seller-auth-ready", { detail: snapshot }));
+    if (authenticated && previous !== "authenticated") {
+      window.dispatchEvent(new CustomEvent("elyon:seller-authenticated", { detail: snapshot }));
+    }
+    return snapshot;
+  }
 
   async function request(url, options = {}) {
     try {
-      const response = await fetch(url, {
+      const response = await nativeFetch(url, {
         credentials: "same-origin",
         ...options,
         headers: {
@@ -114,8 +180,8 @@
       submit.disabled = false;
       submit.textContent = "Sicher anmelden";
       if (result.ok && result.data?.authenticated) {
+        publishState(true, { configured: result.data?.configured, status: result.status });
         backdrop.hidden = true;
-        window.dispatchEvent(new CustomEvent("elyon:seller-authenticated"));
         window.location.reload();
         return;
       }
@@ -143,11 +209,11 @@
 
     if (result.ok && result.data?.authenticated) {
       backdrop.hidden = true;
-      document.body.dataset.sellerAuthenticated = "true";
+      publishState(true, { configured: result.data?.configured, status: result.status });
       return true;
     }
 
-    document.body.dataset.sellerAuthenticated = "false";
+    publishState(false, { configured: result.data?.configured, status: result.status });
     backdrop.hidden = false;
     card?.classList.toggle("elyon-auth-config-warning", result.data?.configured === false);
 
@@ -170,6 +236,9 @@
 
   window.ElyonSellerAuth = {
     check,
+    whenReady: () => readyPromise,
+    isAuthenticated: () => authState === "authenticated",
+    get state() { return authState; },
     async logout() {
       await request(API_URL, { method: "DELETE", body: "{}" });
       window.location.reload();
