@@ -26,6 +26,9 @@ jobs:
         with:
           node-version: 24
 
+      - name: Keine Build-Artefakte im PR
+        run: git diff --exit-code origin/main...HEAD -- public
+
       - name: Tests ausführen
         run: npm test
 
@@ -38,12 +41,15 @@ jobs:
       - name: Performance-Budget prüfen
         run: npm run check:performance
 
-      - name: Build-Artefakte dürfen nicht committed sein
-        run: git diff --exit-code -- public
-
       - name: Sicherheitsvertrag prüfen
         run: |
           grep -q "Offizielle eBay-Kategorie fehlt" lib/product-master.js
           grep -q "elyon-category-v1" seller-category-engine-core.js
           grep -q "automaticPublishingAllowed: false" seller-selling-flow-core.js
           ! grep -R "EBAY_CLIENT_SECRET\|EBAY_USER_ACCESS_TOKEN" seller-category-engine-core.js seller-company-os-inbox.js seller-selling-flow-core.js
+
+      - name: Build-Arbeitskopie bereinigen
+        if: always()
+        run: |
+          git checkout -- public 2>/dev/null || true
+          git clean -fd public
