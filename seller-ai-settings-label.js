@@ -37,13 +37,17 @@
 
   function install() {
     applyLabel();
-    observer = new MutationObserver(scheduleApply);
-    observer.observe(document.documentElement, { childList: true, subtree: true });
-    [150, 500, 1200].forEach((delay) => setTimeout(scheduleApply, delay));
+    const modal = document.querySelector(SETTINGS_MODAL_SELECTOR);
+    if (modal && !observer) {
+      observer = new MutationObserver(scheduleApply);
+      observer.observe(modal, { childList: true, subtree: true });
+    }
+    [120, 400, 900].forEach((delay) => setTimeout(scheduleApply, delay));
   }
 
   window.ElyonAiSettingsLabel = {
     apply: applyLabel,
+    install,
     label: TARGET_LABEL,
   };
 
