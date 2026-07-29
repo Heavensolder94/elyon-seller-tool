@@ -102,6 +102,9 @@
     const pricing = product.pricing || {};
     const supplier = product.supplier || {};
     const listing = product.listing || {};
+    const categoryData = listing.categoryData || product.categoryData || product.raw?.categoryData || null;
+    const ebayCategoryId = String(listing.categoryId || product.ebayCategoryId || categoryData?.ebay?.categoryId || "").trim();
+    const ebayCategoryName = String(listing.categoryName || product.ebayCategoryName || categoryData?.ebay?.categoryName || "").trim();
     return {
       id: text(product.id),
       sellerToolMasterProductId: text(product.id),
@@ -109,6 +112,16 @@
       name: text(product.title),
       title: text(product.title),
       description: text(product.description),
+      sourceCategory: text(product.sourceCategoryName || product.sourceCategory || categoryData?.source?.name),
+      sourceCategoryName: text(product.sourceCategoryName || product.sourceCategory || categoryData?.source?.name),
+      categoryData,
+      ebayCategoryId,
+      ebayCategoryName,
+      ebayCategoryPath: Array.isArray(product.ebayCategoryPath || categoryData?.ebay?.categoryPath) ? (product.ebayCategoryPath || categoryData?.ebay?.categoryPath) : [],
+      categoryId: ebayCategoryId,
+      categoryName: ebayCategoryName,
+      itemSpecifics: listing.itemSpecifics || product.itemSpecifics || {},
+      conditionId: text(listing.conditionId || product.conditionId),
       supplier: text(supplier.name || "Company OS"),
       supplierName: text(supplier.name || "Company OS"),
       supplierUrl: text(supplier.url),

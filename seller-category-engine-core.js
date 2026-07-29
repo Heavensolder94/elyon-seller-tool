@@ -26,6 +26,9 @@ export function categoryState(product = {}) {
   const listing = object(server.listing || local.listing);
   const autoListerDraft = object(listing.autoListerDraft || local.autoListerDraft);
   const raw = object(server.raw || local.raw);
+  const categoryData = object(autoListerDraft.categoryData || listing.categoryData || server.categoryData || local.categoryData);
+  const ebayCategory = object(categoryData.ebay);
+  const sourceCategory = object(categoryData.source);
   const metadata = object(
     autoListerDraft.categoryMetadata ||
     listing.categoryMetadata ||
@@ -33,6 +36,7 @@ export function categoryState(product = {}) {
     local.categoryMetadata
   );
   const categoryId = text(
+    ebayCategory.categoryId ||
     autoListerDraft.categoryId ||
     listing.categoryId ||
     server.ebayCategoryId ||
@@ -42,6 +46,7 @@ export function categoryState(product = {}) {
     raw.categoryId
   );
   const categoryName = text(
+    ebayCategory.categoryName ||
     autoListerDraft.categoryName ||
     listing.categoryName ||
     metadata.categoryName ||
@@ -56,6 +61,10 @@ export function categoryState(product = {}) {
     categoryName,
     valid: /^\d+$/.test(categoryId),
     metadata,
+    categoryData,
+    ebayCategory,
+    sourceCategory,
+    categoryPath: Array.isArray(ebayCategory.categoryPath || metadata.path) ? (ebayCategory.categoryPath || metadata.path) : [],
   };
 }
 
@@ -116,7 +125,7 @@ export function normalizeCategoryResolution(value = {}) {
     categoryId,
     categoryName,
     ancestors,
-    path: dedupe([...ancestors.map((entry) => entry.categoryName), categoryName]),
+    path: dedupe([...(Array.isArray(input.path || value.path) ? input.path || value.path : []), ...ancestors.map((entry) => entry.categoryName), categoryName]),
     aspects,
     required,
     query: text(value.query || input.query),
@@ -127,6 +136,7 @@ export function normalizeCategoryResolution(value = {}) {
 }
 
 export function mergeProductWithCategory(product = {}, resolution = {}) {
+  const previous = categoryState(product);
   const normalized = normalizeCategoryResolution(resolution);
   if (!normalized.valid) return product;
 
@@ -135,6 +145,13 @@ export function mergeProductWithCategory(product = {}, resolution = {}) {
   const existingListing = object(server.listing || local.listing);
   const existingDraft = object(existingListing.autoListerDraft || local.autoListerDraft);
   const now = new Date().toISOString();
+  const categoryChanged = Boolean(previous.valid && previous.categoryId !== normalized.categoryId);
+  const sourceName = text(previous.sourceCategory?.name || local.sourceCategoryName || local.sourceCategory || server.sourceCategoryName || server.sourceCategory || (!previous.valid ? local.category || server.category : ""));
+  const sourceData = { ...object(previous.categoryData?.source), name: sourceName, path: Array.isArray(previous.categoryData?.source?.path) ? previous.categoryData.source.path : sourceName ? [sourceName] : [], origin: text(previous.categoryData?.source?.origin || server.source || local.source || "company_os"), capturedAt: text(previous.categoryData?.source?.capturedAt || server.createdAt || local.createdAt || now) };
+  const fingerprint = ["EBAY_DE", normalized.categoryId, normalized.categoryName, ...normalized.path].join("|");
+  const categoryData = { schemaVersion: "elyon-category-v1", source: sourceData, ebay: { marketplaceId: "EBAY_DE", categoryId: normalized.categoryId, categoryName: normalized.categoryName, categoryPath: normalized.path, status: "resolved", resolutionSource: normalized.source, query: normalized.query, requiredAspects: normalized.required, aspects: normalized.aspects, fingerprint, previousFingerprint: categoryChanged ? text(previous.ebayCategory?.fingerprint) : text(previous.ebayCategory?.previousFingerprint), resolvedAt: now, confirmedAt: normalized.automatic ? "" : now, requiredSpecificsConfirmed: categoryChanged ? false : previous.ebayCategory?.requiredSpecificsConfirmed === true, staleSpecifics: categoryChanged } };
+  const listingSpecifics = object(existingDraft.itemSpecifics || existingListing.itemSpecifics || server.itemSpecifics || local.itemSpecifics);
+  const missingRequiredAspects = normalized.required.filter((name) => !Array.isArray(listingSpecifics[name]) || !listingSpecifics[name].length);
   const categoryMetadata = {
     ...object(existingListing.categoryMetadata || local.categoryMetadata),
     categoryId: normalized.categoryId,
@@ -146,6 +163,9 @@ export function mergeProductWithCategory(product = {}, resolution = {}) {
     query: normalized.query,
     source: normalized.source,
     automatic: normalized.automatic,
+    fingerprint,
+    staleSpecifics: categoryChanged,
+    requiredSpecificsConfirmed: categoryChanged ? false : previous.metadata?.requiredSpecificsConfirmed === true,
     resolvedAt: now,
   };
   const nextDraft = Object.keys(existingDraft).length
@@ -153,7 +173,10 @@ export function mergeProductWithCategory(product = {}, resolution = {}) {
         ...existingDraft,
         categoryId: normalized.categoryId,
         categoryName: normalized.categoryName,
+        categoryData,
         categoryMetadata,
+        missingRequiredAspects,
+        requiredSpecificsConfirmed: categoryChanged ? false : existingDraft.requiredSpecificsConfirmed === true,
         updatedAt: now,
       }
     : existingDraft;
@@ -161,7 +184,12 @@ export function mergeProductWithCategory(product = {}, resolution = {}) {
     ...existingListing,
     categoryId: normalized.categoryId,
     categoryName: normalized.categoryName,
+    categoryData,
     categoryMetadata,
+    ebayCategoryId: normalized.categoryId,
+    ebayCategoryName: normalized.categoryName,
+    ebayCategoryPath: normalized.path,
+    requiredSpecificsConfirmed: categoryChanged ? false : existingListing.requiredSpecificsConfirmed === true,
     ...(Object.keys(nextDraft).length ? { autoListerDraft: nextDraft } : {}),
     updatedAt: now,
   };
@@ -170,6 +198,12 @@ export function mergeProductWithCategory(product = {}, resolution = {}) {
     categoryId: normalized.categoryId,
     categoryName: normalized.categoryName,
     category: normalized.categoryName,
+    sourceCategory: sourceName,
+    sourceCategoryName: sourceName,
+    categoryData,
+    ebayCategoryId: normalized.categoryId,
+    ebayCategoryName: normalized.categoryName,
+    ebayCategoryPath: normalized.path,
     categoryMetadata,
     listing: nextListing,
     updatedAt: now,
@@ -181,6 +215,10 @@ export function mergeProductWithCategory(product = {}, resolution = {}) {
     ebayCategoryId: normalized.categoryId,
     categoryName: normalized.categoryName,
     category: normalized.categoryName,
+    sourceCategory: sourceName,
+    sourceCategoryName: sourceName,
+    categoryData,
+    ebayCategoryPath: normalized.path,
     categoryMetadata,
     listing: nextListing,
     ...(Object.keys(nextDraft).length ? { autoListerDraft: nextDraft } : {}),
