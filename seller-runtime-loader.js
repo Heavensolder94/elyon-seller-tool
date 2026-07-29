@@ -1,7 +1,8 @@
 (() => {
   "use strict";
 
-  const VERSION = "perf-20260728-3";
+  const VERSION = "perf-20260729-1";
+  const LEGACY_QUICKSTART_BRIDGE_FLAG = "__elyonModernQuickstartBridge";
   const loaded = new Map();
 
   const GROUPS = {
@@ -123,6 +124,31 @@
       });
   }
 
+  function installLegacyQuickstartBridge() {
+    const legacyOpen = window.openStartLauncher;
+    if (typeof legacyOpen !== "function") return false;
+    if (legacyOpen[LEGACY_QUICKSTART_BRIDGE_FLAG] === true) return true;
+
+    function openModernQuickstartFromLegacy() {
+      requestQuickstart(false);
+    }
+
+    Object.defineProperty(openModernQuickstartFromLegacy, LEGACY_QUICKSTART_BRIDGE_FLAG, {
+      value: true,
+      configurable: false,
+      enumerable: false,
+      writable: false,
+    });
+    Object.defineProperty(openModernQuickstartFromLegacy, "legacyOpenStartLauncher", {
+      value: legacyOpen,
+      configurable: false,
+      enumerable: false,
+      writable: false,
+    });
+    window.openStartLauncher = openModernQuickstartFromLegacy;
+    return window.openStartLauncher === openModernQuickstartFromLegacy;
+  }
+
   function tabFromClick(target) {
     if (!(target instanceof Element)) return "";
     const explicit = target.closest("[data-tab],[data-tab-id],[data-target-tab]");
@@ -140,12 +166,16 @@
   }
 
   function install() {
+    installLegacyQuickstartBridge();
+
     document.addEventListener("change", (event) => {
       if (event.target?.id === "mainMenu") requestGroup(event.target.value);
     }, true);
 
     document.addEventListener("click", (event) => {
       if (event.target instanceof Element && event.target.closest("#startLauncherBtn")) {
+        event.preventDefault();
+        event.stopPropagation();
         requestQuickstart(true);
         return;
       }
@@ -178,6 +208,8 @@
       groups: GROUPS,
     };
   }
+
+  installLegacyQuickstartBridge();
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", install, { once: true });
