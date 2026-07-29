@@ -77,6 +77,10 @@ const filesToMirror = [
   ["seller-role-policy.js", "public/seller-role-policy.js"],
   ["seller-virtual-agents-policy.js", "public/seller-virtual-agents-policy.js"],
   ["seller-runtime-loader.js", "public/seller-runtime-loader.js"],
+  ["seller-quickstart-core.js", "public/seller-quickstart-core.js"],
+  ["seller-quickstart-snapshot.js", "public/seller-quickstart-snapshot.js"],
+  ["seller-quickstart-view.js", "public/seller-quickstart-view.js"],
+  ["seller-quickstart-menu.js", "public/seller-quickstart-menu.js"],
   ["seller-selling-flow-core.js", "public/seller-selling-flow-core.js"],
   ["seller-selling-flow.js", "public/seller-selling-flow.js"],
   ["seller-selling-flow-event-guard.js", "public/seller-selling-flow-event-guard.js"],
@@ -173,4 +177,4 @@ const envStatus = {
 console.log("Google/security/AI env status:", JSON.stringify(envStatus));
 console.log("Desktop runtime extraction:", JSON.stringify(desktopRuntime.metrics));
 console.log("Desktop performance budget:", JSON.stringify(performanceAudit.metrics));
-console.log("Prepared Vercel output with enforced performance budgets, extracted desktop core, lazy XLSX import, lazy virtual-agent legacy UI, and route-aware feature modules.");
+console.log("Prepared Vercel output with enforced performance budgets, extracted desktop core, lazy XLSX import, lazy quickstart, lazy virtual-agent legacy UI, and route-aware feature modules.");
