@@ -1,13 +1,26 @@
 (() => {
   "use strict";
 
-  const VERSION = "perf-20260729-1";
+  const VERSION = "perf-20260730-1";
   const LEGACY_QUICKSTART_BRIDGE_FLAG = "__elyonModernQuickstartBridge";
   const loaded = new Map();
+  const groupLoads = new Map();
+  const AI_MODEL_GUARD = { src: "/seller-ai-provider-model-guard.js" };
 
   const GROUPS = {
     quickstart: [
       { src: "/seller-quickstart-menu.js", type: "module" },
+    ],
+    ebayListingTab: [
+      { src: "/seller-selling-flow-capture.js" },
+      { src: "/seller-selling-flow.js", type: "module" },
+      { src: "/seller-selling-flow-event-guard.js" },
+      { src: "/seller-listing-visual-designer.js", type: "module" },
+      { src: "/seller-auto-lister-parity.js", type: "module" },
+      { src: "/seller-category-engine.js", type: "module" },
+      { src: "/seller-selling-flow-resilience.js" },
+      { src: "/seller-selling-flow-visibility-fix.js" },
+      { src: "/seller-selling-flow-focused-ui.js", type: "module" },
     ],
     productListTab: [
       { src: "/seller-company-os-inbox.js" },
@@ -18,6 +31,9 @@
       { src: "/seller-button-integrity.js" },
     ],
     settingsTab: [
+      { src: "/seller-system-status-settings.js" },
+      { src: "/seller-settings-layout-experiment.js" },
+      { src: "/seller-ai-settings-label.js" },
       { src: "/seller-ebay-api-status.js" },
     ],
     virtualAgentsTab: [
@@ -71,29 +87,60 @@
     return promise;
   }
 
-  async function loadGroup(groupId) {
+  function ensureGroup(groupId) {
+    if (groupLoads.has(groupId)) return groupLoads.get(groupId);
     const entries = GROUPS[groupId];
-    if (!entries) return;
+    if (!entries) return Promise.resolve([]);
 
-    for (const entry of entries) {
-      await loadScript(entry);
-    }
+    const promise = (async () => {
+      const scripts = [];
+      for (const entry of entries) scripts.push(await loadScript(entry));
+      if (groupId === "settingsTab" || groupId === "virtualAgentsTab") {
+        scripts.push(await loadScript(AI_MODEL_GUARD));
+      }
+      return scripts;
+    })().catch((error) => {
+      groupLoads.delete(groupId);
+      throw error;
+    });
 
-    if (groupId === "productListTab") {
+    groupLoads.set(groupId, promise);
+    return promise;
+  }
+
+  function activateGroup(groupId) {
+    if (groupId === "ebayListingTab") {
+      window.ElyonSellerSellingFlowCapture?.restore?.();
+      window.ElyonSellerSellingFlow?.render?.();
+    } else if (groupId === "productListTab") {
       window.ElyonCompanyOsInbox?.install?.();
       window.ElyonProductBoardAccordion?.refresh?.();
       window.ElyonProductHealthState?.refresh?.();
     } else if (groupId === "settingsTab") {
+      window.ElyonSystemStatusSettings?.install?.();
+      window.ElyonSystemStatusSettings?.move?.();
+      window.ElyonSettingsLayoutExperiment?.refresh?.();
+      window.ElyonAiSettingsLabel?.apply?.();
+      window.ElyonAiProviderModelGuard?.apply?.();
       window.ElyonEbayApiStatus?.status?.();
     } else if (groupId === "virtualAgentsTab") {
       window.ElyonAIWorkforce?.mount?.();
       window.ElyonAIWorkforceMountFix?.refresh?.();
       window.ElyonAIWorkforceAdvancedSettings?.refresh?.();
+      window.ElyonAiProviderModelGuard?.apply?.();
+      window.ElyonAiProviderModelGuard?.syncWorkforce?.();
     }
+  }
 
+  async function loadGroup(groupId) {
+    const entries = GROUPS[groupId];
+    if (!entries) return [];
+    const scripts = await ensureGroup(groupId);
+    activateGroup(groupId);
     window.dispatchEvent(new CustomEvent("elyon:runtime-group-loaded", {
       detail: { tabId: groupId, modules: entries.map((entry) => entry.src) },
     }));
+    return scripts;
   }
 
   function activeTabId() {
@@ -104,24 +151,20 @@
   }
 
   function requestGroup(groupId) {
-    if (!GROUPS[groupId]) return;
-    loadGroup(groupId).catch((error) => {
+    if (!GROUPS[groupId]) return Promise.resolve([]);
+    return loadGroup(groupId).catch((error) => {
       console.error("[Elyon Runtime Loader]", error);
       window.dispatchEvent(new CustomEvent("elyon:runtime-group-error", {
         detail: { tabId: groupId, message: error.message },
       }));
+      throw error;
     });
   }
 
   function requestQuickstart(manual = true) {
-    loadGroup("quickstart")
+    return requestGroup("quickstart")
       .then(() => window.ElyonSellerQuickstart?.open?.({ manual }))
-      .catch((error) => {
-        console.error("[Elyon Runtime Loader]", error);
-        window.dispatchEvent(new CustomEvent("elyon:runtime-group-error", {
-          detail: { tabId: "quickstart", message: error.message },
-        }));
-      });
+      .catch(() => false);
   }
 
   function installLegacyQuickstartBridge() {
@@ -151,9 +194,13 @@
 
   function tabFromClick(target) {
     if (!(target instanceof Element)) return "";
-    const explicit = target.closest("[data-tab],[data-tab-id],[data-target-tab]");
-    const candidate = explicit?.dataset.tab || explicit?.dataset.tabId || explicit?.dataset.targetTab;
+    const explicit = target.closest("[data-tab],[data-tab-id],[data-target-tab],[data-sd-tab]");
+    const candidate = explicit?.dataset.tab || explicit?.dataset.tabId || explicit?.dataset.targetTab || explicit?.dataset.sdTab;
     if (candidate && GROUPS[candidate]) return candidate;
+
+    if (target.closest("#settingsBtn,#openAiDashboardBtn")) return "settingsTab";
+    if (target.closest("#launcherGenerator")) return "ebayListingTab";
+    if (target.closest("#launcherBoard")) return "productListTab";
 
     const inline = target.closest("[onclick]")?.getAttribute("onclick") || "";
     const match = inline.match(/showTab\s*\(\s*['"]([^'"]+)['"]\s*\)/);
@@ -169,7 +216,7 @@
     installLegacyQuickstartBridge();
 
     document.addEventListener("change", (event) => {
-      if (event.target?.id === "mainMenu") requestGroup(event.target.value);
+      if (event.target?.id === "mainMenu") requestGroup(event.target.value).catch(() => {});
     }, true);
 
     document.addEventListener("click", (event) => {
@@ -180,17 +227,17 @@
         return;
       }
       const tabId = tabFromClick(event.target);
-      if (tabId) requestGroup(tabId);
+      if (tabId) requestGroup(tabId).catch(() => {});
     }, true);
 
     window.addEventListener("elyon:tab-changed", (event) => {
       const tabId = event.detail?.tabId || event.detail;
-      if (typeof tabId === "string") requestGroup(tabId);
+      if (typeof tabId === "string") requestGroup(tabId).catch(() => {});
     });
 
     const initial = activeTabId();
     if (initial) {
-      const start = () => requestGroup(initial);
+      const start = () => requestGroup(initial).catch(() => {});
       if ("requestIdleCallback" in window) {
         window.requestIdleCallback(start, { timeout: 700 });
       } else {
@@ -205,6 +252,7 @@
       loadScript: (src, type = "") => loadScript({ src, type }),
       openQuickstart: requestQuickstart,
       loaded: () => [...loaded.keys()],
+      loadedGroups: () => [...groupLoads.keys()],
       groups: GROUPS,
     };
   }
