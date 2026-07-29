@@ -7,6 +7,7 @@ on:
     paths:
       - .github/workflows/systemwide-ebay-categories.yml
       - scripts/apply-systemwide-ebay-categories.mjs
+      - scripts/fix-systemwide-ebay-categories-after-apply.mjs
   pull_request:
     branches:
       - main
@@ -30,7 +31,9 @@ jobs:
           node-version: 24
 
       - name: Kategorie-Patches anwenden
-        run: node scripts/apply-systemwide-ebay-categories.mjs
+        run: |
+          node scripts/apply-systemwide-ebay-categories.mjs
+          node scripts/fix-systemwide-ebay-categories-after-apply.mjs
 
       - name: Tests ausführen
         run: npm test
