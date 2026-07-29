@@ -1,8 +1,8 @@
 export const QUICKSTART_PRIMARY_WORKFLOW = Object.freeze([
   Object.freeze({ id: "companyOs", step: 1, icon: "🏢", label: "Company OS Eingang", description: "Final freigegebene Company-OS-Produkte im Seller Tool übernehmen.", tab: "productListTab", runtimeGroup: "productListTab", anchor: "elyonApprovedCompanyOsInbox" }),
   Object.freeze({ id: "productMaster", step: 2, icon: "📦", label: "Seller Product Master", description: "Seller-Produkte, Readiness, Blocker und Arbeitskopien verwalten.", tab: "productListTab", runtimeGroup: "productListTab", anchor: "productListTab" }),
-  Object.freeze({ id: "listingPackage", step: 3, icon: "🧾", label: "Listing-Paket", description: "Titel, Beschreibung, Artikelmerkmale und Pflichtfelder final prüfen.", tab: "ebayListingTab", sellingPanel: "ready", anchor: "sellerReadyRoot" }),
-  Object.freeze({ id: "ebay", step: 4, icon: "🛒", label: "eBay", description: "Manuelles eBay-Listing dokumentieren und Artikelnummer hinterlegen.", tab: "ebayListingTab", sellingPanel: "ready", anchor: "sellerReadyItemId" }),
+  Object.freeze({ id: "listingPackage", step: 3, icon: "🧾", label: "Listing-Paket", description: "Titel, Beschreibung, Artikelmerkmale und Pflichtfelder final prüfen.", tab: "ebayListingTab", runtimeGroup: "ebayListingTab", sellingPanel: "ready", anchor: "sellerReadyRoot" }),
+  Object.freeze({ id: "ebay", step: 4, icon: "🛒", label: "eBay", description: "Manuelles eBay-Listing dokumentieren und Artikelnummer hinterlegen.", tab: "ebayListingTab", runtimeGroup: "ebayListingTab", sellingPanel: "ready", anchor: "sellerReadyItemId" }),
   Object.freeze({ id: "orders", step: 5, icon: "📥", label: "Bestellungen", description: "Echte eBay-Bestellungen und offene Bearbeitungsschritte öffnen.", tab: "ordersTab" }),
   Object.freeze({ id: "shipping", step: 6, icon: "🚚", label: "Versand", description: "Versandstatus, Tracking und offene Fulfillment-Fälle bearbeiten.", tab: "automationTab" }),
   Object.freeze({ id: "invoices", step: 7, icon: "🧮", label: "Rechnungen", description: "Rechnungsübersicht, Status und Exporte verwalten.", tab: "invoiceTab", anchor: "invoiceTab" }),
