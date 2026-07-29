@@ -45,24 +45,11 @@ function injectDesktopSecurity(html) {
   const content = [
     '<script defer src="/seller-auth.js"></script>',
     '<script src="/seller-dashboard-compat.js"></script>',
-    '<script defer src="/seller-selling-flow-capture.js"></script>',
     '<script defer src="/seller-role-policy.js"></script>',
     '<script defer src="/seller-virtual-agents-policy.js"></script>',
     '<script defer src="/seller-runtime-loader.js"></script>',
-    '<script type="module" src="/seller-selling-flow.js"></script>',
-    '<script defer src="/seller-selling-flow-event-guard.js"></script>',
-    '<script type="module" src="/seller-listing-visual-designer.js"></script>',
-    '<script type="module" src="/seller-auto-lister-parity.js"></script>',
-    '<script type="module" src="/seller-category-engine.js"></script>',
-    '<script defer src="/seller-selling-flow-resilience.js"></script>',
-    '<script defer src="/seller-selling-flow-visibility-fix.js"></script>',
-    '<script type="module" src="/seller-selling-flow-focused-ui.js"></script>',
     '<style>#elyonSellerSellingFlow.focused-selling-active > .card:first-of-type{display:none!important}</style>',
     '<script type="module" src="/seller-dashboard-v2.js"></script>',
-    '<script defer src="/seller-system-status-settings.js"></script>',
-    '<script defer src="/seller-settings-layout-experiment.js"></script>',
-    '<script defer src="/seller-ai-settings-label.js"></script>',
-    '<script defer src="/seller-ai-provider-model-guard.js"></script>',
   ].join("\n");
 
   return injectMarkedBlock(html, { startMarker, endMarker, content });
@@ -177,4 +164,4 @@ const envStatus = {
 console.log("Google/security/AI env status:", JSON.stringify(envStatus));
 console.log("Desktop runtime extraction:", JSON.stringify(desktopRuntime.metrics));
 console.log("Desktop performance budget:", JSON.stringify(performanceAudit.metrics));
-console.log("Prepared Vercel output with enforced performance budgets, extracted desktop core, lazy XLSX import, lazy quickstart, lazy virtual-agent legacy UI, and route-aware feature modules.");
+console.log("Prepared Vercel output with enforced performance budgets, minimal dashboard startup, extracted desktop core, lazy XLSX import, lazy quickstart, lazy selling workspace, lazy settings, and lazy virtual-agent UI.");

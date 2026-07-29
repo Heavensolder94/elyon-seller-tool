@@ -5,6 +5,7 @@
   const ORIGINAL_ID = "sellerPreservedListingDesigner";
   let preserved = null;
   let scheduled = false;
+  let observer = null;
 
   function setText(node, value) {
     if (node && node.textContent !== value) node.textContent = value;
@@ -56,7 +57,7 @@
 
     const modules = window.ElyonSellerModules?.active;
     if (Array.isArray(modules)) {
-      const selling = modules.find((item) => item?.id === "ebayListingTab");
+      const selling = modules.find((item) => item?.id === TAB_ID);
       if (selling) {
         selling.label = "Verkaufen";
         selling.role = "Listing Designer, Auto Lister und manuelle eBay-Freigabe";
@@ -76,30 +77,40 @@
       scheduled = false;
       restoreAndPatch();
     }, 0);
-    [80, 300, 900, 1850].forEach((delay) => window.setTimeout(restoreAndPatch, delay));
+  }
+
+  function observeListingWorkspace() {
+    const tab = document.getElementById(TAB_ID);
+    if (!tab || observer) return;
+    observer = new MutationObserver(() => {
+      const host = document.getElementById("sellerDesignerOriginalHost");
+      if (host && preserved && !host.contains(preserved)) scheduleRestore();
+    });
+    observer.observe(tab, { childList: true, subtree: true });
   }
 
   captureOriginalDesigner();
 
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", scheduleRestore, { once: true });
+    document.addEventListener("DOMContentLoaded", () => {
+      restoreAndPatch();
+      observeListingWorkspace();
+    }, { once: true });
   } else {
-    scheduleRestore();
+    restoreAndPatch();
+    observeListingWorkspace();
   }
 
   window.addEventListener("elyon:seller-product-selected", scheduleRestore);
+  window.addEventListener("elyon:tab-changed", (event) => {
+    const tabId = event.detail?.tabId || event.detail;
+    if (tabId === TAB_ID) scheduleRestore();
+  });
   window.addEventListener("storage", (event) => {
     if (["elyonProducts", "elyonSelectedSellerProductId"].includes(event.key)) scheduleRestore();
   });
 
-  const observer = new MutationObserver(() => {
-    const host = document.getElementById("sellerDesignerOriginalHost");
-    const option = document.getElementById("mainMenu")?.querySelector('option[value="ebayListingTab"]');
-    const originalMissing = Boolean(host && preserved && !host.contains(preserved));
-    const labelMissing = Boolean(option && !/Verkaufen/.test(option.textContent || ""));
-    if (originalMissing || labelMissing) scheduleRestore();
-  });
-  if (document.documentElement) observer.observe(document.documentElement, { childList: true, subtree: true });
+  [80, 300, 900].forEach((delay) => window.setTimeout(restoreAndPatch, delay));
 
   window.ElyonSellerSellingFlowCapture = {
     capture: captureOriginalDesigner,

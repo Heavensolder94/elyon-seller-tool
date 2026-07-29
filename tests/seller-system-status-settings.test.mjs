@@ -69,16 +69,22 @@ test("verified eBay state updates both settings row and dashboard badge", async 
   assert.match(code, /sd-warn/);
 });
 
-test("desktop build loads and mirrors the settings relocation after dashboard v2", async () => {
-  const code = await readFile(new URL("../scripts/prepare-vercel.mjs", import.meta.url), "utf8");
-  const dashboardIndex = code.indexOf('<script type="module" src="/seller-dashboard-v2.js"></script>');
-  const settingsIndex = code.indexOf('<script defer src="/seller-system-status-settings.js"></script>');
-  assert.ok(dashboardIndex > 0);
-  assert.ok(settingsIndex > dashboardIndex);
-  assert.match(code, /\["seller-system-status-settings\.js", "public\/seller-system-status-settings\.js"\]/);
+test("desktop runtime loads system status only with the settings workspace", async () => {
+  const build = await readFile(new URL("../scripts/prepare-vercel.mjs", import.meta.url), "utf8");
+  const runtime = await readFile(new URL("../seller-runtime-loader.js", import.meta.url), "utf8");
+  const settingsGroup = runtime.indexOf("settingsTab:");
+  const systemIndex = runtime.indexOf('{ src: "/seller-system-status-settings.js" }');
+  const layoutIndex = runtime.indexOf('{ src: "/seller-settings-layout-experiment.js" }');
+
+  assert.ok(settingsGroup > 0);
+  assert.ok(systemIndex > settingsGroup);
+  assert.ok(layoutIndex > systemIndex);
+  assert.doesNotMatch(build, /<script[^>]+seller-system-status-settings\.js/);
+  assert.match(build, /\["seller-system-status-settings\.js", "public\/seller-system-status-settings\.js"\]/);
 });
 
 test("system status settings files are valid JavaScript", () => {
   syntaxCheck("seller-system-status-settings.js");
+  syntaxCheck("seller-runtime-loader.js");
   syntaxCheck("scripts/prepare-vercel.mjs");
 });
