@@ -13,6 +13,12 @@ replaceOnce(
 );
 
 replaceOnce(
+  "seller-category-engine-core.js",
+  "    path: dedupe([...ancestors.map((entry) => entry.categoryName), categoryName]),",
+  "    path: dedupe([...(Array.isArray(input.path || value.path) ? input.path || value.path : []), ...ancestors.map((entry) => entry.categoryName), categoryName]),",
+);
+
+replaceOnce(
   "tests/product-master-rules.test.mjs",
   "      conditionId: \"1000\",\n      images:",
   "      conditionId: \"1000\",\n      categoryId: \"12345\",\n      categoryName: \"Aufbewahrungshalter\",\n      images:",
