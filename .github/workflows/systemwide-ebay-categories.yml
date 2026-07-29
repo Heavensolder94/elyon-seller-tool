@@ -7,6 +7,9 @@ on:
     paths:
       - .github/workflows/systemwide-ebay-categories.yml
       - scripts/apply-systemwide-ebay-categories.mjs
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: write
@@ -42,6 +45,7 @@ jobs:
         run: npm run build
 
       - name: Geprüfte Änderungen committen
+        if: github.event_name == 'push'
         run: |
           if git diff --quiet; then
             echo "Keine weiteren Änderungen."
@@ -52,3 +56,7 @@ jobs:
           git add .
           git commit -m "feat: kategorien im seller tool vereinheitlichen"
           git push origin HEAD:feat/systemwide-ebay-categories
+
+      - name: Prüfen, ob Patch vollständig committed ist
+        if: github.event_name == 'pull_request'
+        run: git diff --exit-code
