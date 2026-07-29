@@ -38,6 +38,8 @@ function approvedProduct(overrides = {}) {
       descriptionHtml: "<p>Vollständige Beschreibung</p>",
       itemSpecifics: { Material: "Kunststoff" },
       conditionId: "1000",
+      categoryId: "12345",
+      categoryName: "Aufbewahrungshalter",
       images: ["https://example.com/product.jpg"],
     },
     ...overrides,

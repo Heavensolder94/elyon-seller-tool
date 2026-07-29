@@ -154,3 +154,7 @@ Ausgangsstand der vollständigen Designer- und Auto-Lister-Erweiterung:
 ```
 
 Die vollständige Erweiterung wird auf dem separaten Branch `feat/seller-tool-designer-auto-lister-parity` entwickelt. Ein Rückweg ist möglich, ohne Product-Master-Daten, LocalStorage-Werte, Secrets oder produktive Einstellungen zu löschen.
+
+## Einheitlicher Kategorienstandard
+
+Der Product Master, Company-OS-Eingang, Listing Designer und Auto Lister verwenden additiv dasselbe `categoryData`-Schema (`elyon-category-v1`). Lieferanten-/Quellkategorie und offizielle eBay-DE-Kategorie bleiben getrennt. Eine Kategorieänderung lädt Pflichtmerkmale neu und setzt eine frühere Pflichtmerkmal-Bestätigung zurück.
