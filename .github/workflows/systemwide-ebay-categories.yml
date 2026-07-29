@@ -41,11 +41,11 @@ jobs:
       - name: Layout prüfen
         run: npm run check:layout
 
-      - name: Performance-Budget prüfen
-        run: npm run check:performance
-
       - name: Build prüfen
         run: npm run build
+
+      - name: Performance-Budget prüfen
+        run: npm run check:performance
 
       - name: Geprüfte Änderungen committen
         if: github.event_name == 'push'
