@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const VERSION = "perf-20260730-1";
+  const VERSION = "price-path-20260731-1";
   const LEGACY_QUICKSTART_BRIDGE_FLAG = "__elyonModernQuickstartBridge";
   const loaded = new Map();
   const groupLoads = new Map();
@@ -12,6 +12,7 @@
       { src: "/seller-quickstart-menu.js", type: "module" },
     ],
     ebayListingTab: [
+      { src: "/seller-price-provenance.js", type: "module" },
       { src: "/seller-selling-flow-capture.js" },
       { src: "/seller-selling-flow.js", type: "module" },
       { src: "/seller-selling-flow-event-guard.js" },
@@ -23,6 +24,7 @@
       { src: "/seller-selling-flow-focused-ui.js", type: "module" },
     ],
     productListTab: [
+      { src: "/seller-price-provenance.js", type: "module" },
       { src: "/seller-company-os-inbox.js" },
       { src: "/seller-product-health-state.js", type: "module" },
       { src: "/seller-product-board-accordion.js" },
@@ -110,9 +112,12 @@
 
   function activateGroup(groupId) {
     if (groupId === "ebayListingTab") {
+      window.ElyonSellerPriceProvenance?.enrichSelectedWorkingCopy?.();
+      window.ElyonSellerPriceProvenance?.render?.();
       window.ElyonSellerSellingFlowCapture?.restore?.();
       window.ElyonSellerSellingFlow?.render?.();
     } else if (groupId === "productListTab") {
+      window.ElyonSellerPriceProvenance?.enrichSelectedWorkingCopy?.();
       window.ElyonCompanyOsInbox?.install?.();
       window.ElyonProductBoardAccordion?.refresh?.();
       window.ElyonProductHealthState?.refresh?.();
