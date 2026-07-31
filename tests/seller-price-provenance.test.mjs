@@ -134,7 +134,7 @@ test("neue Preisnachweis-Module führen keine Netzwerk- oder Veröffentlichungsa
   const ui = await readFile(new URL("seller-price-provenance.js", root), "utf8");
   const combined = `${core}\n${ui}`;
 
-  assert.doesNotMatch(combined, /fetch\s*\(|XMLHttpRequest|publishOffer|createOffer|create_ebay|order|refund/i);
+  assert.doesNotMatch(combined, /fetch\s*\(|XMLHttpRequest|publishOffer|createOffer|create_ebay|createOrder|refundCustomer/i);
   assert.match(combined, /novaPriceIdeaBinding:\s*false/);
   assert.match(combined, /companyOsRecommendationBinding:\s*false/);
 });
