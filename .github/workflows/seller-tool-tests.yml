@@ -35,11 +35,18 @@ jobs:
           node --check seller-selling-flow-resilience.js
           node --check seller-selling-flow-visibility-fix.js
           node --check seller-selling-flow-focused-ui.js
+          node --check seller-ebay-production-readiness.js
+          node --check public/seller-ebay-production-readiness.js
           node --check mobile-selling-entry.js
           node --check seller-listing-visual-core.js
           node --check seller-listing-visual-designer.js
           node --check seller-auto-lister-parity-core.js
           node --check seller-auto-lister-parity.js
+          node --check lib/ebay-production.js
+          node --check lib/ebay-token-store.js
+          node --check internal/ebay/index.js
+          node --check api/ebay/index.js
+          node --check api/ebay/create-draft.js
           node --check api/seller-listing-ai.js
           node --check api/ebay-taxonomy.js
           node --check scripts/performance-budget.mjs
