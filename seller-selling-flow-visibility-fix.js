@@ -4,12 +4,50 @@
   const TAB_ID = "ebayListingTab";
   const MENU_ID = "mainMenu";
   const ROOT_ID = "elyonSellerSellingFlow";
+  const PRODUCTION_SCRIPT = "/seller-ebay-production-readiness.js";
   const LOCAL_KEYS = ["elyonProducts", "elyonSelectedSellerProductId"];
   let queued = false;
+  let productionModulePromise = null;
 
   function shouldOpenSelling() {
     const params = new URLSearchParams(window.location.search);
     return params.get("open") === "selling" || window.location.hash === "#verkaufen";
+  }
+
+  function loadProductionModule() {
+    if (window.ElyonEbayProductionReadiness) {
+      window.ElyonEbayProductionReadiness.install?.();
+      return Promise.resolve(true);
+    }
+    if (productionModulePromise) return productionModulePromise;
+    productionModulePromise = new Promise((resolve, reject) => {
+      const existing = [...document.scripts].find((script) => {
+        try { return new URL(script.src, window.location.href).pathname === PRODUCTION_SCRIPT; }
+        catch { return false; }
+      });
+      if (existing) {
+        existing.addEventListener("load", () => {
+          window.ElyonEbayProductionReadiness?.install?.();
+          resolve(true);
+        }, { once: true });
+        if (window.ElyonEbayProductionReadiness) resolve(true);
+        return;
+      }
+      const script = document.createElement("script");
+      script.src = `${PRODUCTION_SCRIPT}?v=20260731-1`;
+      script.defer = true;
+      script.dataset.elyonSellingAddon = "ebay-production";
+      script.addEventListener("load", () => {
+        window.ElyonEbayProductionReadiness?.install?.();
+        resolve(true);
+      }, { once: true });
+      script.addEventListener("error", () => {
+        productionModulePromise = null;
+        reject(new Error("eBay-Produktionsmodul konnte nicht geladen werden."));
+      }, { once: true });
+      document.head.appendChild(script);
+    });
+    return productionModulePromise;
   }
 
   function patchLabels() {
@@ -36,7 +74,7 @@
       const selling = modules.find((item) => item?.id === TAB_ID);
       if (selling) {
         selling.label = "Verkaufen";
-        selling.role = "Listing Designer, Auto Lister und manuelle eBay-Freigabe";
+        selling.role = "Listing Designer, Auto Lister und kontrollierte eBay-Veröffentlichung";
       }
     }
   }
@@ -73,6 +111,7 @@
     window.ElyonSellerSellingFlowCapture?.restore?.();
     patchLabels();
     activateSellingTab();
+    loadProductionModule().catch((error) => console.error("[Elyon eBay Production]", error));
     return Boolean(document.getElementById(ROOT_ID));
   }
 
@@ -128,5 +167,6 @@
     restore: restoreSellingFlow,
     patchLabels,
     activate: activateSellingTab,
+    loadProductionModule,
   };
 })();
