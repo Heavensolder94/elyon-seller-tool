@@ -1,0 +1,55 @@
+name: Systemweite eBay-Kategorien
+
+on:
+  push:
+    branches:
+      - feat/systemwide-ebay-categories
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Branch auschecken
+        uses: actions/checkout@v4
+        with:
+          ref: feat/systemwide-ebay-categories
+          fetch-depth: 0
+
+      - name: Node einrichten
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Keine Build-Artefakte im PR
+        run: git diff --exit-code origin/main...HEAD -- public
+
+      - name: Tests ausführen
+        run: npm test
+
+      - name: Layout prüfen
+        run: npm run check:layout
+
+      - name: Build prüfen
+        run: npm run build
+
+      - name: Performance-Budget prüfen
+        run: npm run check:performance
+
+      - name: Sicherheitsvertrag prüfen
+        run: |
+          grep -q "Offizielle eBay-Kategorie fehlt" lib/product-master.js
+          grep -q "elyon-category-v1" seller-category-engine-core.js
+          grep -q "automaticPublishingAllowed: false" seller-selling-flow-core.js
+          ! grep -R "EBAY_CLIENT_SECRET\|EBAY_USER_ACCESS_TOKEN" seller-category-engine-core.js seller-company-os-inbox.js seller-selling-flow-core.js
+
+      - name: Build-Arbeitskopie bereinigen
+        if: always()
+        run: |
+          git checkout -- public 2>/dev/null || true
+          git clean -fd public

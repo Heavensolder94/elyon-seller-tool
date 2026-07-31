@@ -108,11 +108,13 @@ export function buildAdvancedAutoListerState(product = {}, view = {}, overrides 
     responsiblePerson: { ...complianceFrom(product, view).responsiblePerson, ...object(overrides.compliance?.responsiblePerson) },
   };
   const variants = { ...variantsFrom(product, view), ...object(overrides.variantsState) };
-  const categoryMetadata = object(overrides.categoryMetadata || draft.categoryMetadata || listing.categoryMetadata);
+  const categoryData = object(overrides.categoryData || draft.categoryData || listing.categoryData || view.categoryData);
+  const categoryMetadata = object(overrides.categoryMetadata || draft.categoryMetadata || listing.categoryMetadata || categoryData.ebay);
   const itemSpecifics = cleanAspects(overrides.itemSpecifics || view.itemSpecifics || draft.itemSpecifics);
   return {
     compliance,
     variantsState: variants,
+    categoryData,
     categoryMetadata: {
       categoryId: text(categoryMetadata.categoryId || view.categoryId, 50),
       categoryName: text(categoryMetadata.categoryName || view.categoryName, 300),
@@ -211,6 +213,7 @@ export function buildParityDraft(product = {}, view = {}, overrides = {}) {
     variants: state.variantsState.variants,
     variantSummary: state.variantsState.variantSummary,
     variantsConfirmed: state.variantsState.confirmed === true,
+    categoryData: state.categoryData,
     categoryMetadata: { ...state.categoryMetadata, loadedAt: state.categoryMetadata.loadedAt || new Date().toISOString() },
     missingRequiredAspects: advancedChecks.find((check) => check.key === "required_aspects")?.ok ? [] : state.categoryMetadata.required.filter((name) => !state.itemSpecifics[name]?.length),
     aiPrepared: state.aiPrepared,
@@ -249,6 +252,7 @@ export function mergeProductWithParityDraft(product = {}, draft = {}) {
     variants: Array.isArray(draft.variants) ? draft.variants : listing.variants,
     variantSummary: text(draft.variantSummary || listing.variantSummary),
     variantsConfirmed: draft.variantsConfirmed === true,
+    categoryData: object(draft.categoryData || listing.categoryData),
     categoryMetadata: object(draft.categoryMetadata || listing.categoryMetadata),
     updatedAt: new Date().toISOString(),
   };

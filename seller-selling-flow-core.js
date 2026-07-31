@@ -1,3 +1,5 @@
+import { categoryState } from "./seller-category-engine-core.js";
+
 function text(value) {
   return String(value ?? "").trim();
 }
@@ -106,6 +108,7 @@ export function buildSellerListingView(product = {}) {
   );
   const profit = numeric(pricing.profit ?? local.profit);
   const marginPercent = numeric(pricing.marginPercent ?? local.marginPercent ?? local.margin);
+  const category = categoryState(local);
   const companyOsApproved = Boolean(
     approval.companyOsApproved === true ||
     approval.approved === true ||
@@ -117,8 +120,10 @@ export function buildSellerListingView(product = {}) {
     title,
     listingTitle,
     descriptionHtml,
-    categoryId: text(autoListerDraft.categoryId || listing.categoryId || server.categoryId || raw.categoryId),
-    categoryName: text(autoListerDraft.categoryName || listing.categoryName || server.category || local.category),
+    categoryId: category.categoryId,
+    categoryName: category.categoryName,
+    categoryData: category.categoryData,
+    categoryPath: category.categoryPath,
     conditionId: text(autoListerDraft.conditionId || listing.conditionId || server.conditionId),
     itemSpecifics,
     images,
@@ -279,6 +284,8 @@ export function buildInternalAutoListerDraft(view = {}, overrides = {}) {
     descriptionHtml: text(merged.descriptionHtml).slice(0, 60000),
     categoryId: text(merged.categoryId).slice(0, 50),
     categoryName: text(merged.categoryName).slice(0, 300),
+    categoryData: object(merged.categoryData),
+    categoryPath: array(merged.categoryPath),
     conditionId: text(merged.conditionId).slice(0, 20),
     itemSpecifics: object(merged.itemSpecifics),
     images: httpsImages(merged.images),
@@ -302,13 +309,18 @@ export function mergeSellerProductWithDraft(product = {}, draft = {}) {
   const local = object(product);
   const server = sellerServerProduct(local);
   const existingListing = object(server.listing || local.listing);
+  const categoryData = object(draft.categoryData || existingListing.categoryData || server.categoryData || local.categoryData);
   const now = new Date().toISOString();
   const nextListing = {
     ...existingListing,
     title: text(draft.title || existingListing.title),
     descriptionHtml: text(draft.descriptionHtml || existingListing.descriptionHtml),
     categoryId: text(draft.categoryId || existingListing.categoryId),
-    categoryName: text(draft.categoryName || existingListing.categoryName),
+    categoryName: text(draft.categoryName || categoryData.ebay?.categoryName || existingListing.categoryName),
+    categoryData,
+    ebayCategoryId: text(draft.categoryId || categoryData.ebay?.categoryId || existingListing.categoryId),
+    ebayCategoryName: text(draft.categoryName || categoryData.ebay?.categoryName || existingListing.categoryName),
+    ebayCategoryPath: array(categoryData.ebay?.categoryPath),
     conditionId: text(draft.conditionId || existingListing.conditionId),
     itemSpecifics: object(draft.itemSpecifics || existingListing.itemSpecifics),
     images: httpsImages(draft.images || existingListing.images || server.images),
@@ -324,6 +336,10 @@ export function mergeSellerProductWithDraft(product = {}, draft = {}) {
   };
   const nextServer = {
     ...server,
+    categoryData,
+    ebayCategoryId: nextListing.ebayCategoryId,
+    ebayCategoryName: nextListing.ebayCategoryName,
+    ebayCategoryPath: nextListing.ebayCategoryPath,
     listing: nextListing,
     listingTitle: nextListing.title,
     listingDescription: nextListing.descriptionHtml,
