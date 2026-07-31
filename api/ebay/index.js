@@ -19,7 +19,9 @@ function actionFrom(req) {
 }
 
 function environmentFrom(req) {
-  const raw = req?.method === "POST" ? req?.body?.environment || req?.body?.env : req?.query?.environment || req?.query?.env;
+  const raw = req?.method === "POST"
+    ? req?.body?.environment || req?.body?.env
+    : req?.query?.environment || req?.query?.env;
   return text(raw).toLowerCase() === "sandbox" ? "sandbox" : "production";
 }
 
@@ -29,7 +31,7 @@ export function publicConnectionStatus(tokenRecord) {
 
 function redactSecrets(value, seen = new WeakSet()) {
   if (value === null || value === undefined) return value;
-  if (Array.isArray(value)) return value.map(item => redactSecrets(item, seen));
+  if (Array.isArray(value)) return value.map((item) => redactSecrets(item, seen));
   if (typeof value !== "object") return value;
   if (seen.has(value)) return undefined;
   seen.add(value);
@@ -57,16 +59,24 @@ export default async function handler(req, res) {
   if (action === "status") {
     try {
       const tokenRecord = await readToken(environment);
-      return res.status(200).json(publicConnectionStatus(tokenRecord));
+      const captured = {
+        statusCode: 200,
+        body: null,
+        setHeader() {},
+        status(code) { this.statusCode = code; return this; },
+        json(payload) { this.body = payload; return this; },
+      };
+      await internalHandler(req, captured);
+      return res.status(captured.statusCode).json({ ...captured.body, ...publicConnectionStatus(tokenRecord) });
     } catch {
-      return res.status(200).json({ connected: false });
+      return res.status(200).json({ ok: true, connected: false, environment });
     }
   }
 
   if (action === "login-url") {
     req.query = {
       ...(req.query || {}),
-      state: createEbayOAuthState({ source: req?.query?.source || "elyon-seller-tool", environment })
+      state: createEbayOAuthState({ source: req?.query?.source || "elyon-seller-tool", environment }),
     };
   }
 
@@ -74,15 +84,25 @@ export default async function handler(req, res) {
     const state = readEbayOAuthState(req);
     const verified = verifyEbayOAuthState(state, { environment });
     if (!verified.ok) {
-      return res.status(403).json({ ok: false, connected: false, error: verified.error, message: "eBay OAuth-State ist ungültig oder abgelaufen." });
+      return res.status(403).json({
+        ok: false,
+        connected: false,
+        error: verified.error,
+        message: "eBay OAuth-State ist ungültig oder abgelaufen.",
+      });
     }
   }
 
-  if (["token", "orders"].includes(action)) {
-    if (!requireSellerAccess(req, res, { maxBodyBytes: 64 * 1024 })) return;
+  const protectedActions = new Set(["token", "orders", "setup", "create-draft", "draft", "publish", "withdraw"]);
+  if (protectedActions.has(action)) {
+    if (!requireSellerAccess(req, res, { maxBodyBytes: 1024 * 1024 })) return;
+  }
+
+  if (["create-draft", "draft", "publish", "withdraw"].includes(action) && req.method !== "POST") {
+    return res.status(405).json({ ok: false, error: "method_not_allowed", message: "Diese eBay-Aktion benötigt POST." });
   }
 
   const originalJson = res.json.bind(res);
-  res.json = payload => originalJson(redactSecrets(payload));
+  res.json = (payload) => originalJson(redactSecrets(payload));
   return internalHandler(req, res);
 }
