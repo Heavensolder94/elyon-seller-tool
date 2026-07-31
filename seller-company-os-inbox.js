@@ -26,6 +26,34 @@
       : "0,00 €";
   }
 
+  function optionalMoney(value, currency = "EUR") {
+    const number = Number(value);
+    return Number.isFinite(number) && number > 0
+      ? number.toLocaleString("de-DE", { style: "currency", currency: currency || "EUR" })
+      : "Nicht vorhanden";
+  }
+
+  function pricePath(product) {
+    const extracted = window.ElyonSellerPriceProvenance?.extract?.(product);
+    if (extracted) return extracted;
+    const pricing = product?.pricing || {};
+    const finalSalePrice = Number(pricing.salePrice || 0) > 0 ? Number(pricing.salePrice) : null;
+    return {
+      schemaVersion: "elyon-price-provenance-v1-fallback",
+      currency: pricing.currency || "EUR",
+      buyPrice: Number(pricing.buyPrice || 0) || null,
+      novaPriceIdea: null,
+      companyOsRecommendedPrice: null,
+      sellerValidationSuggestion: Number(pricing.suggestedSalePrice || 0) || null,
+      finalSalePrice,
+      finalSource: finalSalePrice ? "company_os_confirmed" : "missing",
+      finalSourceLabel: finalSalePrice ? "Final in Company OS bestätigt" : "Noch nicht bestätigt",
+      novaPriceIdeaBinding: false,
+      companyOsRecommendationBinding: false,
+      finalSalePriceBinding: Boolean(finalSalePrice),
+    };
+  }
+
   function installStyles() {
     if (document.getElementById(STYLE_ID)) return;
     const style = document.createElement("style");
@@ -43,7 +71,10 @@
       .elyon-approved-meta{display:flex;gap:7px;flex-wrap:wrap;margin-top:4px}.elyon-approved-pill{padding:5px 7px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:#dbeafe!important;font-size:10px!important;font-weight:850}
       .elyon-approved-pill.ready{color:#bbf7d0!important;background:rgba(34,197,94,.1);border-color:rgba(34,197,94,.23)}.elyon-approved-pill.blocked{color:#fecaca!important;background:rgba(239,68,68,.09);border-color:rgba(239,68,68,.22)}
       .elyon-approved-actions{display:grid;gap:8px}.elyon-approved-actions button{padding:9px 11px;border-radius:12px;font-size:11px;white-space:nowrap}
-      @media(max-width:760px){.elyon-approved-item{grid-template-columns:52px minmax(0,1fr)}.elyon-approved-image{width:52px;height:52px}.elyon-approved-actions{grid-column:1/-1;grid-template-columns:repeat(2,minmax(0,1fr))}.elyon-approved-actions button{white-space:normal}}
+      .elyon-approved-price-path{grid-column:2/3;margin-top:2px;border-radius:13px;border:1px solid rgba(96,165,250,.2);background:rgba(15,23,42,.6);overflow:hidden}.elyon-approved-price-path summary{cursor:pointer;padding:8px 10px;color:#bfdbfe;font-size:10px;font-weight:850;list-style:none}.elyon-approved-price-path summary::-webkit-details-marker{display:none}.elyon-approved-price-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;padding:0 9px 9px}.elyon-approved-price-value{display:grid;gap:2px;padding:7px;border-radius:9px;background:rgba(2,6,23,.55);border:1px solid rgba(148,163,184,.12)}.elyon-approved-price-value span{font-size:9px!important;color:#94a3b8!important;font-weight:750}.elyon-approved-price-value strong{font-size:11px!important;color:#f8fafc}.elyon-approved-price-value small{font-size:8px;color:#cbd5e1;line-height:1.3}.elyon-approved-price-value.final{border-color:rgba(34,197,94,.25);background:rgba(34,197,94,.07)}
+      @media(max-width:900px){.elyon-approved-price-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+      @media(max-width:760px){.elyon-approved-item{grid-template-columns:52px minmax(0,1fr)}.elyon-approved-image{width:52px;height:52px}.elyon-approved-actions{grid-column:1/-1;grid-template-columns:repeat(2,minmax(0,1fr))}.elyon-approved-actions button{white-space:normal}.elyon-approved-price-path{grid-column:1/-1}}
+      @media(max-width:480px){.elyon-approved-price-grid{grid-template-columns:1fr}}
     `;
     document.head.appendChild(style);
   }
@@ -102,7 +133,9 @@
     const pricing = product.pricing || {};
     const supplier = product.supplier || {};
     const listing = product.listing || {};
-    return {
+    const provenance = pricePath(product);
+    const finalSalePrice = Number(provenance.finalSalePrice || 0);
+    const copy = {
       id: text(product.id),
       sellerToolMasterProductId: text(product.id),
       companyOsProductId: text(product.raw?.companyOsProductId || product.companyOsProductId),
@@ -117,8 +150,22 @@
       buyPrice: Number(pricing.buyPrice || 0),
       ship: Number(pricing.shippingCost || 0),
       shippingCost: Number(pricing.shippingCost || 0),
-      sell: Number(pricing.salePrice || 0),
-      salePrice: Number(pricing.salePrice || 0),
+      sell: finalSalePrice,
+      salePrice: finalSalePrice,
+      novaPriceIdea: provenance.novaPriceIdea,
+      companyOsRecommendedPrice: provenance.companyOsRecommendedPrice,
+      finalSalePrice: provenance.finalSalePrice,
+      salePriceSource: provenance.finalSource,
+      priceProvenance: provenance,
+      pricing: {
+        ...pricing,
+        novaPriceIdea: provenance.novaPriceIdea,
+        companyOsRecommendedPrice: provenance.companyOsRecommendedPrice,
+        finalSalePrice: provenance.finalSalePrice,
+        salePrice: provenance.finalSalePrice,
+        salePriceSource: provenance.finalSource,
+        priceProvenance: provenance,
+      },
       fee: Number(pricing.marketplaceFeePercent || 0),
       margin: Number(pricing.marginPercent || 0),
       profit: Number(pricing.profit || 0),
@@ -132,6 +179,7 @@
       rawServerProduct: product,
       updatedAt: new Date().toISOString(),
     };
+    return window.ElyonSellerPriceProvenance?.enrichWorkingCopy?.(copy, product) || copy;
   }
 
   function adopt(product, openListing = false) {
@@ -161,7 +209,10 @@
         if (typeof window.showTab === "function") window.showTab("ebayListingTab");
         else if (typeof showTab === "function") showTab("ebayListingTab");
       } catch {}
-      window.setTimeout(() => window.ElyonSellerRolePolicy?.renderListingPackage?.(), 80);
+      window.setTimeout(() => {
+        window.ElyonSellerPriceProvenance?.render?.();
+        window.ElyonSellerRolePolicy?.renderListingPackage?.();
+      }, 80);
     } else {
       try {
         if (typeof window.showTab === "function") window.showTab("productListTab");
@@ -182,6 +233,7 @@
 
     list.innerHTML = lastProducts.map((product, index) => {
       const pricing = product.pricing || {};
+      const provenance = pricePath(product);
       const readiness = product.readiness || {};
       const ready = readiness.state === "ready_for_manual_listing" && !(readiness.blockers || []).length;
       const exists = workingCopyExists(product);
@@ -193,7 +245,7 @@
           ${image}
           <div class="elyon-approved-copy">
             <strong>${escapeHtml(product.title)}</strong>
-            <span>${escapeHtml(product.supplier?.name || "Lieferant offen")} · ${escapeHtml(money(pricing.buyPrice))} EK · ${escapeHtml(money(pricing.salePrice))} VK</span>
+            <span>${escapeHtml(product.supplier?.name || "Lieferant offen")} · ${escapeHtml(money(pricing.buyPrice))} EK · ${escapeHtml(optionalMoney(provenance.finalSalePrice, provenance.currency))} finaler VK</span>
             <div class="elyon-approved-meta">
               <span class="elyon-approved-pill ${ready ? "ready" : "blocked"}">${ready ? "Bereit" : "Blockiert"}</span>
               <span class="elyon-approved-pill">Score ${Number(readiness.score || 0)} %</span>
@@ -204,6 +256,15 @@
             <button type="button" data-approved-adopt="${index}">${exists ? "Arbeitskopie aktualisieren" : "Arbeitskopie übernehmen"}</button>
             <button type="button" class="secondary" data-approved-listing="${index}">Listing-Paket öffnen</button>
           </div>
+          <details class="elyon-approved-price-path">
+            <summary>Preisweg anzeigen</summary>
+            <div class="elyon-approved-price-grid">
+              <div class="elyon-approved-price-value"><span>Einkaufspreis</span><strong>${escapeHtml(optionalMoney(provenance.buyPrice, provenance.currency))}</strong><small>Bekannte Lieferantenkosten</small></div>
+              <div class="elyon-approved-price-value"><span>Nova-Preisidee</span><strong>${escapeHtml(optionalMoney(provenance.novaPriceIdea, provenance.currency))}</strong><small>Vorläufig · nicht bindend</small></div>
+              <div class="elyon-approved-price-value"><span>Elyon-Empfehlung</span><strong>${escapeHtml(optionalMoney(provenance.companyOsRecommendedPrice, provenance.currency))}</strong><small>In Company OS berechnet</small></div>
+              <div class="elyon-approved-price-value final"><span>Finaler Verkaufspreis</span><strong>${escapeHtml(optionalMoney(provenance.finalSalePrice, provenance.currency))}</strong><small>${escapeHtml(provenance.finalSourceLabel || "Noch nicht bestätigt")}</small></div>
+            </div>
+          </details>
         </article>
       `;
     }).join("");
@@ -259,7 +320,7 @@
     window.setTimeout(() => refresh(false), 450);
   }
 
-  window.ElyonCompanyOsInbox = { install, refresh, adopt };
+  window.ElyonCompanyOsInbox = { install, refresh, adopt, normalizeWorkingCopy, pricePath };
   window.addEventListener("elyon:seller-authenticated", () => window.setTimeout(() => refresh(false), 200));
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", install, { once: true });
   else install();
