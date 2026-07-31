@@ -1,18 +1,19 @@
 (() => {
   "use strict";
 
-  const VERSION = "price-path-20260731-1";
+  const VERSION = "price-path-20260731-2";
   const LEGACY_QUICKSTART_BRIDGE_FLAG = "__elyonModernQuickstartBridge";
   const loaded = new Map();
   const groupLoads = new Map();
   const AI_MODEL_GUARD = { src: "/seller-ai-provider-model-guard.js" };
+  const PRICE_PROVENANCE = { src: "/seller-price-provenance.js", type: "module" };
 
   const GROUPS = {
     quickstart: [
       { src: "/seller-quickstart-menu.js", type: "module" },
     ],
     ebayListingTab: [
-      { src: "/seller-price-provenance.js", type: "module" },
+      PRICE_PROVENANCE,
       { src: "/seller-selling-flow-capture.js" },
       { src: "/seller-selling-flow.js", type: "module" },
       { src: "/seller-selling-flow-event-guard.js" },
@@ -24,7 +25,7 @@
       { src: "/seller-selling-flow-focused-ui.js", type: "module" },
     ],
     productListTab: [
-      { src: "/seller-price-provenance.js", type: "module" },
+      PRICE_PROVENANCE,
       { src: "/seller-company-os-inbox.js" },
       { src: "/seller-product-health-state.js", type: "module" },
       { src: "/seller-product-board-accordion.js" },
