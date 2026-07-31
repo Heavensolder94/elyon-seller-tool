@@ -5,18 +5,56 @@
   const MENU_ID = "mainMenu";
   const ROOT_ID = "elyonSellerSellingFlow";
   const PRODUCTION_SCRIPT = "/seller-ebay-production-readiness.js";
+  const PRODUCTION_SETTINGS_KEY = "elyonEbayProductionSelectionV1";
   const LOCAL_KEYS = ["elyonProducts", "elyonSelectedSellerProductId"];
   let queued = false;
   let productionModulePromise = null;
+  let productionSetupTimer = null;
 
   function shouldOpenSelling() {
     const params = new URLSearchParams(window.location.search);
     return params.get("open") === "selling" || window.location.hash === "#verkaufen";
   }
 
+  function selectedPoliciesExist() {
+    try {
+      const value = JSON.parse(localStorage.getItem(PRODUCTION_SETTINGS_KEY) || "{}");
+      return Boolean(
+        value?.fulfillmentPolicyId &&
+        value?.paymentPolicyId &&
+        value?.returnPolicyId &&
+        value?.merchantLocationKey
+      );
+    } catch {
+      return false;
+    }
+  }
+
+  function productionSelectionsNeedRefresh() {
+    if (!selectedPoliciesExist()) return false;
+    const select = document.getElementById("elyonEbayFulfillment");
+    if (!select) return false;
+    const value = String(select.value || "").trim();
+    return select.options.length <= 1 || !value || value === "Setup prüfen";
+  }
+
+  function restoreProductionSelections() {
+    window.clearTimeout(productionSetupTimer);
+    productionSetupTimer = window.setTimeout(() => {
+      if (!productionSelectionsNeedRefresh()) return;
+      const checkSetup = window.ElyonEbayProductionReadiness?.checkSetup;
+      if (typeof checkSetup === "function") {
+        Promise.resolve(checkSetup()).catch((error) => {
+          console.error("[Elyon eBay Setup Sync]", error);
+        });
+      }
+    }, 80);
+  }
+
   function loadProductionModule() {
     if (window.ElyonEbayProductionReadiness) {
       window.ElyonEbayProductionReadiness.install?.();
+      restoreProductionSelections();
       return Promise.resolve(true);
     }
     if (productionModulePromise) return productionModulePromise;
@@ -28,17 +66,22 @@
       if (existing) {
         existing.addEventListener("load", () => {
           window.ElyonEbayProductionReadiness?.install?.();
+          restoreProductionSelections();
           resolve(true);
         }, { once: true });
-        if (window.ElyonEbayProductionReadiness) resolve(true);
+        if (window.ElyonEbayProductionReadiness) {
+          restoreProductionSelections();
+          resolve(true);
+        }
         return;
       }
       const script = document.createElement("script");
-      script.src = `${PRODUCTION_SCRIPT}?v=20260731-1`;
+      script.src = `${PRODUCTION_SCRIPT}?v=20260731-2`;
       script.defer = true;
       script.dataset.elyonSellingAddon = "ebay-production";
       script.addEventListener("load", () => {
         window.ElyonEbayProductionReadiness?.install?.();
+        restoreProductionSelections();
         resolve(true);
       }, { once: true });
       script.addEventListener("error", () => {
@@ -111,7 +154,9 @@
     window.ElyonSellerSellingFlowCapture?.restore?.();
     patchLabels();
     activateSellingTab();
-    loadProductionModule().catch((error) => console.error("[Elyon eBay Production]", error));
+    loadProductionModule()
+      .then(restoreProductionSelections)
+      .catch((error) => console.error("[Elyon eBay Production]", error));
     return Boolean(document.getElementById(ROOT_ID));
   }
 
@@ -168,5 +213,6 @@
     patchLabels,
     activate: activateSellingTab,
     loadProductionModule,
+    restoreProductionSelections,
   };
 })();
