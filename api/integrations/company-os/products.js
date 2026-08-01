@@ -105,6 +105,15 @@ export default async function handler(req, res) {
     };
     const current = await readProductMasterList("elyon_products");
     const result = upsertProductMasterItem(current, prepared);
+    if (result.status === "blocked_active_listing") {
+      return res.status(409).json({
+        ok: false,
+        error: "active_ebay_listing_requires_explicit_decision",
+        message: "Der bestehende Product-Master-Datensatz ist bereits mit einem aktiven eBay-Angebot verknüpft und wurde nicht überschrieben.",
+        masterProductId: result.product?.id,
+        ebayItemId: result.activeMarketplaceId,
+      });
+    }
     const storage = await writeProductMasterList("elyon_products", result.items);
     const product = normalizeProduct(result.product);
 
