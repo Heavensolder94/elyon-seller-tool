@@ -89,6 +89,7 @@ const filesToMirror = [
   ["ai-workforce-client.js", "public/ai-workforce-client.js"],
   ["ai-workforce-mount-fix.js", "public/ai-workforce-mount-fix.js"],
   ["seller-ebay-api-status.js", "public/seller-ebay-api-status.js"],
+  ["seller-ebay-production-readiness.js", "public/seller-ebay-production-readiness.js"],
   ["seller-company-os-inbox.js", "public/seller-company-os-inbox.js"],
   ["seller-product-health-core.js", "public/seller-product-health-core.js"],
   ["seller-product-health-state.js", "public/seller-product-health-state.js"],
