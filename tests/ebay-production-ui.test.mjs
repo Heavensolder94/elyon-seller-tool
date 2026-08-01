@@ -3,7 +3,16 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
 const visibility = await readFile(new URL("../seller-selling-flow-visibility-fix.js", import.meta.url), "utf8");
+const productionUiSource = await readFile(new URL("../seller-ebay-production-readiness.js", import.meta.url), "utf8");
 const productionUi = await readFile(new URL("../public/seller-ebay-production-readiness.js", import.meta.url), "utf8");
+
+test("the deployed eBay production module is kept in sync with its source", () => {
+  assert.equal(
+    productionUi,
+    productionUiSource,
+    "The lazy eBay production module must be mirrored to public during the Vercel build."
+  );
+});
 
 test("selling workspace lazily loads the controlled eBay production module", () => {
   assert.match(visibility, /seller-ebay-production-readiness\.js/);
