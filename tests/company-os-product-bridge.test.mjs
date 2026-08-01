@@ -67,3 +67,30 @@ test("repeated Company OS transfers update one Product Master item", () => {
   assert.equal(second.product.title, "Testprodukt aktualisiert");
   assert.equal(second.product.pricing.salePrice, 29.99);
 });
+
+test("active eBay listings are not silently overwritten by Company OS", () => {
+  const existing = upsertProductMasterItem([], {
+    id: "company-product-active",
+    sourceImportId: "nova-import-active",
+    title: "Aktives Produkt",
+    ebayItemId: "123456789012",
+  });
+  const blocked = upsertProductMasterItem(existing.items, {
+    id: "company-product-active",
+    sourceImportId: "nova-import-active",
+    title: "Ungeprüfte Überschreibung",
+  });
+  assert.equal(blocked.status, "blocked_active_listing");
+  assert.equal(blocked.items.length, 1);
+  assert.equal(blocked.product.title, "Aktives Produkt");
+  assert.equal(blocked.activeMarketplaceId, "123456789012");
+
+  const explicitSameListing = upsertProductMasterItem(existing.items, {
+    id: "company-product-active",
+    sourceImportId: "nova-import-active",
+    title: "Bewusst aktualisiert",
+    ebayItemId: "123456789012",
+  });
+  assert.equal(explicitSameListing.status, "updated");
+  assert.equal(explicitSameListing.product.title, "Bewusst aktualisiert");
+});
