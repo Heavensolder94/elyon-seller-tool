@@ -189,6 +189,9 @@
     const index = copies.findIndex((entry) => idsOf(entry).some((id) => targetIds.has(id)));
     if (index >= 0) {
       const existing = copies[index];
+      if (text(existing.ebayItemId) && !confirm("Diese Arbeitskopie ist bereits mit einem eBay-Angebot verknüpft. Die geprüften Company-OS-Daten trotzdem bewusst in diese Arbeitskopie übernehmen?")) {
+        return;
+      }
       copies[index] = {
         ...copy,
         notes: existing.notes || copy.notes || "",
