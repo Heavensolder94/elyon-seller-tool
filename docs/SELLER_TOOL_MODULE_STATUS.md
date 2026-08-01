@@ -1,13 +1,13 @@
 # Elyon Seller Tool – aktive und inaktive Module
 
-**Stand: 27.07.2026**
+**Stand: 01.08.2026**
 
 ## Verbindliche Rolle
 
 ```text
-Elyon Nova sammelt Produktdaten.
-Company OS nimmt Rohimporte auf, prüft Produkte und gibt geeignete Produkte für das Seller Tool frei.
-Das Seller Tool übernimmt final freigegebene Produkte, erstellt und finalisiert das Listing und verwaltet danach den Seller-Betrieb.
+Elyon Nova sammelt ausschließlich Rohdaten.
+Company OS prüft Produkte, erzeugt das vollständige Listing-Paket und erstellt höchstens einen unveröffentlichten eBay-Entwurf.
+Das Seller Tool übernimmt nur bewusst ausgewählte, final freigegebene Datensätze und verwaltet danach den Seller-Betrieb.
 ```
 
 ## Aktiver Workflow
@@ -16,20 +16,13 @@ Das Seller Tool übernimmt final freigegebene Produkte, erstellt und finalisiert
 Nova
 → Nova Eingang im Company OS
 → Company-OS-Produktprüfung
-→ Status ready_for_seller_tool / bereit_manuell_einstellen
+→ Company OS Listing Designer
+→ Company OS Auto Lister
+→ unveröffentlichter eBay-Entwurf
+→ Raoul veröffentlicht bewusst manuell bei eBay
+→ Status ready_for_seller_tool / manuell_gelistet
 → Seller Product Master
 → bewusste lokale Arbeitskopie
-→ Seller Tool: Verkaufen
-   → Listing Designer
-      → bestehender Titel-, SEO- und KI-Generator
-      → Elyon Visual Designer
-   → eBay Auto Lister
-      → Kategorie und Pflichtmerkmale
-      → GPSR, Hersteller und Varianten
-      → interner Seller-Entwurf
-   → Bereit zum Einstellen
-→ Listing bewusst manuell bei eBay einstellen
-→ eBay-Artikelnummer intern dokumentieren
 → Orders
 → Versand und Tracking
 → Rechnung
@@ -46,7 +39,7 @@ Nova
 | Company-OS-Eingang | Nur final freigegebene Produkte aus dem Server Product Master anzeigen |
 | Product Master | Verbindliche serverseitige Produktquelle |
 | Lokale Arbeitskopie | Nur nach bewusstem Klick; kein automatischer Import |
-| Verkaufen | Gemeinsamer Bereich für Listing Designer, Auto Lister und manuellen eBay-Abschluss |
+| Verkaufen | Bestehende Werkzeuge bleiben für Altstände erhalten; der neue Hauptworkflow bereitet Listings im Company OS vor |
 | Titel- und KI-Generator | Bestehende Seller-Funktionen für Titel, SEO, Beschreibung, KI und Drafts bleiben erhalten |
 | Elyon Visual Designer | Neun Themes, Live-Vorschau, Desktop/Mobil, Bilder, Produktvorteile, Merkmale, HTML und JSON |
 | DeepSeek Listing Assistant | Geschützte, faktengebundene Textoptimierung mit Stärke-Regler; keine erfundenen Produkt- oder Sicherheitsdaten |
@@ -64,6 +57,8 @@ Nova
 | Integrationsstatus | Tatsächliche Verbindungen prüfen |
 
 ## Listing-Designer-Status
+
+Die folgenden Seller-Werkzeuge bleiben aus Kompatibilitätsgründen erhalten, sind aber nicht mehr der primäre Vorbereitungspfad. Neue Datensätze durchlaufen Listing Designer und Auto Lister im Company OS.
 
 Der aktive Seller-Bereich enthält zwei Designer-Modi:
 
@@ -134,10 +129,11 @@ Die direkte eBay-Inventory-API-Übergabe bleibt sichtbar gesperrt, bis Scopes, R
 - Mindestens 20 % Marge nach realistischen Kosten oder mindestens 5 € realistischer Gewinn.
 - Einkaufspreis und Verkaufspreis werden getrennt behandelt.
 - LocalStorage ist nur eine bewusst erzeugte Arbeitskopie, nicht die Hauptdatenquelle.
+- Ein mit einer eBay-Artikel-ID verknüpfter Product-Master-Datensatz wird durch einen erneuten Company-OS-Transfer nicht still überschrieben.
 - Neue Listing-Daten werden additiv gespeichert; unbekannte vorhandene Felder bleiben erhalten.
 - Keine Marke, EAN, MPN, Hersteller-, GPSR-, CE-, Sicherheits-, Material-, Maß- oder Leistungsangabe durch KI erfinden.
 - Pflichtmerkmale ohne Beleg bleiben leer und blockieren die Freigabe.
-- Die Auto-Lister-API-Schaltfläche bleibt deaktiviert, solange kein geprüfter eBay-Inventory-Entwurfsendpunkt vorhanden ist.
+- Seller-seitige Altwerkzeuge veröffentlichen weiterhin nicht automatisch; der neue Hauptpfad erzeugt den unveröffentlichten Entwurf im Company OS.
 
 ## Rückweg
 
