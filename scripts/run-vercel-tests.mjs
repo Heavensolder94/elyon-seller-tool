@@ -2,8 +2,10 @@ import { access, readdir } from "node:fs/promises";
 import { constants } from "node:fs";
 import { spawn } from "node:child_process";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-const root = path.resolve(new URL("..", import.meta.url).pathname, "..");
+const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+const root = path.resolve(scriptDir, "..");
 const testsDir = path.join(root, "tests");
 const entries = (await readdir(testsDir))
   .filter((name) => name.endsWith(".test.mjs"))
@@ -34,10 +36,7 @@ for (const name of entries) {
 }
 
 if (!filtered.length) throw new Error("Keine ausführbaren Vercel-Tests gefunden.");
-
-if (skipped.length) {
-  console.log("Vercel test exclusions:", JSON.stringify(skipped));
-}
+if (skipped.length) console.log("Vercel test exclusions:", JSON.stringify(skipped));
 
 const child = spawn(process.execPath, ["--test", ...filtered], {
   cwd: root,
