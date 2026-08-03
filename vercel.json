@@ -1,5 +1,5 @@
 {
-  "buildCommand": "VERCEL_FORCE_NO_BUILD_CACHE=1 node scripts/prepare-vercel.mjs",
+  "buildCommand": "npm test && VERCEL_FORCE_NO_BUILD_CACHE=1 node scripts/prepare-vercel.mjs",
   "outputDirectory": "public",
   "regions": ["fra1"],
   "rewrites": [
