@@ -17,11 +17,11 @@ test("parses German eBay CSV and classifies ad fees", () => {
     "ad-1;12-345;01.08.2026;NON_SALE_CHARGE;AD_FEE;-1,50;EUR;Promoted Listings",
   ].join("\n");
   const result = parseEbayCsv(csv);
-  assert.equal(result.transactions.length, 2);
-  assert.equal(result.transactions[0].category, "revenue");
-  assert.equal(result.transactions[0].amount, 29.99);
-  assert.equal(result.transactions[1].category, "advertising_expense");
-  assert.equal(result.transactions[1].amount, -1.5);
+  assert.equal(result.transactions.length, 2, JSON.stringify(result));
+  assert.equal(result.transactions[0].category, "revenue", JSON.stringify(result.transactions[0]));
+  assert.equal(result.transactions[0].amount, 29.99, JSON.stringify(result.transactions[0]));
+  assert.equal(result.transactions[1].category, "advertising_expense", JSON.stringify(result.transactions[1]));
+  assert.equal(result.transactions[1].amount, -1.5, JSON.stringify(result.transactions[1]));
 });
 
 test("payout is a transfer and never counted as second revenue", () => {
