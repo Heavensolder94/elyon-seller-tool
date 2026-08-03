@@ -7,9 +7,9 @@ const HEADER_ALIASES = Object.freeze({
   transactionDate: ["transaction date", "date", "datum", "transaktionsdatum", "buchungsdatum"],
   transactionType: ["transaction type", "type", "typ", "transaktionstyp", "transactiontype"],
   feeType: ["fee type", "gebührentyp", "gebuehrentyp", "feetype"],
-  bookingEntry: ["booking entry", "buchung", "soll/haben", "bookingentry"],
+  bookingEntry: ["booking entry", "buchung", "soll/haben", "soll haben", "bookingentry"],
   amount: ["amount", "betrag", "bruttobetrag", "transaction amount", "transactionamount"],
-  totalFeeAmount: ["total fee amount", "gebühren gesamt", "gebuehren gesamt", "gesamtgebühr", "totalfeeamount"],
+  totalFeeAmount: ["total fee amount", "gebühren gesamt", "gebuehren gesamt", "gesamtgebühr", "gesamtgebuehr", "totalfeeamount"],
   netAmount: ["net amount", "nettoauszahlung", "auszahlungsbetrag", "netamount"],
   currency: ["currency", "währung", "waehrung"],
   itemId: ["item id", "artikelnummer", "ebay-artikelnummer", "itemid"],
@@ -18,7 +18,13 @@ const HEADER_ALIASES = Object.freeze({
   memo: ["transaction memo", "memo", "beschreibung", "notiz", "transactionmemo"],
 });
 
-const AD_FEE_TYPES = new Set(["AD_FEE", "PREMIUM_AD_FEES", "PROMOTED_LISTINGS_FEE", "PROMOTED_OFFSITE_FEE"]);
+const AD_FEE_TYPES = new Set([
+  "AD_FEE",
+  "PREMIUM_AD_FEES",
+  "PROMOTED_LISTINGS_FEE",
+  "PROMOTED_OFFSITE_FEE",
+]);
+
 const EBAY_FEE_TYPES = new Set([
   "FINAL_VALUE_FEE",
   "FINAL_VALUE_FEE_FIXED_PER_ORDER",
@@ -34,6 +40,22 @@ const EBAY_FEE_TYPES = new Set([
   "PAYMENT_DISPUTE_FEE",
   "EXPRESS_PAYOUT_FEE",
   "OTHER_FEES",
+]);
+
+const KNOWN_TRANSACTION_TYPES = new Set([
+  "SALE",
+  "ORDER",
+  "REFUND",
+  "CHARGEBACK",
+  "DISPUTE",
+  "PAYOUT",
+  "WITHDRAWAL",
+  "TRANSFER",
+  "CREDIT",
+  "ADJUSTMENT",
+  "SHIPPING_LABEL",
+  "NON_SALE_CHARGE",
+  "SUPPLIER_PURCHASE",
 ]);
 
 function text(value, max = 10000) {
@@ -57,22 +79,35 @@ function isoDate(value) {
   const german = raw.match(/^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{2,4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
   if (german) {
     const year = german[3].length === 2 ? Number(`20${german[3]}`) : Number(german[3]);
-    const date = new Date(Date.UTC(year, Number(german[2]) - 1, Number(german[1]), Number(german[4] || 0), Number(german[5] || 0), Number(german[6] || 0)));
+    const date = new Date(Date.UTC(
+      year,
+      Number(german[2]) - 1,
+      Number(german[1]),
+      Number(german[4] || 0),
+      Number(german[5] || 0),
+      Number(german[6] || 0),
+    ));
     return Number.isNaN(date.getTime()) ? "" : date.toISOString();
   }
   const date = new Date(raw);
   return Number.isNaN(date.getTime()) ? "" : date.toISOString();
 }
 
-function normalizeHeader(value) {
-  return text(value).toLowerCase().replace(/[ä]/g, "ae").replace(/[ö]/g, "oe").replace(/[ü]/g, "ue").replace(/[ß]/g, "ss").replace(/\s+/g, " ");
+function normalizedKey(value) {
+  return text(value)
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/ß/g, "ss")
+    .replace(/[^a-z0-9]+/g, "");
 }
 
 function detectDelimiter(source) {
-  const first = text(source).split(/\r?\n/, 1)[0] || "";
-  const counts = [";", "\t", ","].map((delimiter) => ({ delimiter, count: (first.match(new RegExp(delimiter === "\t" ? "\\t" : `\\${delimiter}`, "g")) || []).length }));
-  counts.sort((a, b) => b.count - a.count);
-  return counts[0]?.count ? counts[0].delimiter : ";";
+  const first = String(source ?? "").replace(/^\uFEFF/, "").split(/\r?\n/, 1)[0] || "";
+  const candidates = [";", "\t", ","];
+  return candidates
+    .map((delimiter) => ({ delimiter, count: first.split(delimiter).length - 1 }))
+    .sort((left, right) => right.count - left.count)[0]?.delimiter || ";";
 }
 
 export function parseDelimited(source, explicitDelimiter = "") {
@@ -82,6 +117,7 @@ export function parseDelimited(source, explicitDelimiter = "") {
   let row = [];
   let field = "";
   let quoted = false;
+
   for (let index = 0; index < input.length; index += 1) {
     const char = input[index];
     const next = input[index + 1];
@@ -96,9 +132,8 @@ export function parseDelimited(source, explicitDelimiter = "") {
       }
       continue;
     }
-    if (char === '"') {
-      quoted = true;
-    } else if (char === delimiter) {
+    if (char === '"') quoted = true;
+    else if (char === delimiter) {
       row.push(field);
       field = "";
     } else if (char === "\n") {
@@ -106,20 +141,20 @@ export function parseDelimited(source, explicitDelimiter = "") {
       if (row.some((entry) => text(entry))) rows.push(row);
       row = [];
       field = "";
-    } else {
-      field += char;
-    }
+    } else field += char;
   }
+
   row.push(field.replace(/\r$/, ""));
   if (row.some((entry) => text(entry))) rows.push(row);
   return { delimiter, rows };
 }
 
 function resolveHeaderMap(headers) {
-  const normalized = headers.map(normalizeHeader);
+  const normalized = headers.map(normalizedKey);
   const map = {};
   for (const [field, aliases] of Object.entries(HEADER_ALIASES)) {
-    const index = normalized.findIndex((header) => aliases.map(normalizeHeader).includes(header));
+    const accepted = new Set(aliases.map(normalizedKey));
+    const index = normalized.findIndex((header) => accepted.has(header));
     if (index >= 0) map[field] = index;
   }
   return map;
@@ -128,6 +163,12 @@ function resolveHeaderMap(headers) {
 function valueAt(row, map, field) {
   const index = map[field];
   return Number.isInteger(index) ? row[index] : "";
+}
+
+function inferredTransactionType(row, mappedValue) {
+  const mapped = text(mappedValue).toUpperCase();
+  if (mapped) return mapped;
+  return row.map((entry) => text(entry).toUpperCase()).find((entry) => KNOWN_TRANSACTION_TYPES.has(entry)) || "";
 }
 
 function transactionKey(transaction) {
@@ -149,14 +190,38 @@ function classify({ transactionType, feeType, bookingEntry, memo, amount }) {
   const fee = text(feeType).toUpperCase();
   const booking = text(bookingEntry).toUpperCase();
   const description = text(memo).toUpperCase();
-  if (AD_FEE_TYPES.has(fee) || description.includes("PROMOTED") || description.includes("ANZEIGENGEB")) return "advertising_expense";
-  if (EBAY_FEE_TYPES.has(fee) || (type === "NON_SALE_CHARGE" && fee)) return booking === "CREDIT" || number(amount) > 0 ? "fee_credit" : "ebay_fee";
-  if (["SALE", "ORDER"].includes(type)) return "revenue";
+
+  if (AD_FEE_TYPES.has(fee) || description.includes("PROMOTED") || description.includes("ANZEIGENGEB")) {
+    return "advertising_expense";
+  }
+  if (EBAY_FEE_TYPES.has(fee) || (type === "NON_SALE_CHARGE" && fee)) {
+    return booking === "CREDIT" || number(amount) > 0 ? "fee_credit" : "ebay_fee";
+  }
+  if (["SALE", "ORDER"].includes(type) || type.includes("VERKAUF")) return "revenue";
   if (["REFUND", "CHARGEBACK", "DISPUTE"].includes(type)) return "refund";
   if (["PAYOUT", "WITHDRAWAL", "TRANSFER"].includes(type)) return "transfer";
   if (["CREDIT", "ADJUSTMENT"].includes(type) && (booking === "CREDIT" || number(amount) > 0)) return "other_income";
   if (type === "SHIPPING_LABEL") return "shipping_expense";
+  if (type === "SUPPLIER_PURCHASE") return "supplier_expense";
   return number(amount) >= 0 ? "other_income" : "other_expense";
+}
+
+function safeOriginal(input = {}) {
+  return {
+    transactionId: text(input.transactionId || input.id),
+    transactionType: text(input.transactionType || input.type),
+    transactionDate: text(input.transactionDate || input.date),
+    orderId: text(input.orderId),
+    payoutId: text(input.payoutId),
+    itemId: text(input.itemId),
+    feeType: text(input.feeType),
+    bookingEntry: text(input.bookingEntry),
+    amount: input.amount,
+    totalFeeAmount: input.totalFeeAmount,
+    netAmount: input.netAmount,
+    currency: text(input.currency || input.amount?.currency),
+    memo: text(input.memo || input.transactionMemo || input.description),
+  };
 }
 
 export function normalizeFinanceTransaction(input = {}, source = "manual") {
@@ -178,14 +243,14 @@ export function normalizeFinanceTransaction(input = {}, source = "manual") {
     bookingEntry,
     amount,
     totalFeeAmount,
-    netAmount: number(input.netAmount, amount - totalFeeAmount),
+    netAmount: number(input.netAmount?.value ?? input.netAmount, amount - totalFeeAmount),
     currency: text(input.currency || input.amount?.currency || input.totalFeeAmount?.currency).toUpperCase() || DEFAULT_CURRENCY,
     quantity: Math.max(1, number(input.quantity, 1)),
     memo: text(input.memo || input.transactionMemo || input.description),
     source: text(source || input.source) || "manual",
     status: text(input.status || input.reviewStatus).toLowerCase() || "needs_review",
     documentIds: Array.isArray(input.documentIds) ? [...new Set(input.documentIds.map(text).filter(Boolean))] : [],
-    original: input.original && typeof input.original === "object" ? input.original : null,
+    original: input.original && typeof input.original === "object" ? safeOriginal(input.original) : null,
     createdAt: isoDate(input.createdAt) || new Date().toISOString(),
     updatedAt: isoDate(input.updatedAt) || new Date().toISOString(),
     voidedAt: isoDate(input.voidedAt),
@@ -198,30 +263,38 @@ export function normalizeFinanceTransaction(input = {}, source = "manual") {
 
 export function parseEbayCsv(source, options = {}) {
   const parsed = parseDelimited(source, options.delimiter || "");
-  if (parsed.rows.length < 2) return { delimiter: parsed.delimiter, headers: [], transactions: [], warnings: ["Die CSV enthält keine Datenzeilen."] };
+  if (parsed.rows.length < 2) {
+    return { delimiter: parsed.delimiter, headers: [], transactions: [], warnings: ["Die CSV enthält keine Datenzeilen."] };
+  }
+
   const headers = parsed.rows[0].map(text);
   const map = resolveHeaderMap(headers);
   const warnings = [];
   if (map.amount === undefined) warnings.push("Keine Betragsspalte erkannt.");
   if (map.transactionType === undefined && map.feeType === undefined) warnings.push("Kein Transaktions- oder Gebührentyp erkannt.");
-  const transactions = parsed.rows.slice(1).map((row, index) => normalizeFinanceTransaction({
-    transactionId: valueAt(row, map, "transactionId") || `csv_${index + 1}`,
-    orderId: valueAt(row, map, "orderId"),
-    payoutId: valueAt(row, map, "payoutId"),
-    transactionDate: valueAt(row, map, "transactionDate"),
-    transactionType: valueAt(row, map, "transactionType"),
-    feeType: valueAt(row, map, "feeType"),
-    bookingEntry: valueAt(row, map, "bookingEntry"),
-    amount: valueAt(row, map, "amount"),
-    totalFeeAmount: valueAt(row, map, "totalFeeAmount"),
-    netAmount: valueAt(row, map, "netAmount"),
-    currency: valueAt(row, map, "currency"),
-    itemId: valueAt(row, map, "itemId"),
-    title: valueAt(row, map, "title"),
-    quantity: valueAt(row, map, "quantity"),
-    memo: valueAt(row, map, "memo"),
-    original: Object.fromEntries(headers.map((header, headerIndex) => [header || `Spalte ${headerIndex + 1}`, row[headerIndex] ?? ""])),
-  }, "ebay_csv"));
+
+  const transactions = parsed.rows.slice(1).map((row, index) => {
+    const transactionType = inferredTransactionType(row, valueAt(row, map, "transactionType"));
+    const recognized = {
+      transactionId: valueAt(row, map, "transactionId") || `csv_${index + 1}`,
+      orderId: valueAt(row, map, "orderId"),
+      payoutId: valueAt(row, map, "payoutId"),
+      transactionDate: valueAt(row, map, "transactionDate"),
+      transactionType,
+      feeType: valueAt(row, map, "feeType"),
+      bookingEntry: valueAt(row, map, "bookingEntry"),
+      amount: valueAt(row, map, "amount"),
+      totalFeeAmount: valueAt(row, map, "totalFeeAmount"),
+      netAmount: valueAt(row, map, "netAmount"),
+      currency: valueAt(row, map, "currency"),
+      itemId: valueAt(row, map, "itemId"),
+      title: valueAt(row, map, "title"),
+      quantity: valueAt(row, map, "quantity"),
+      memo: valueAt(row, map, "memo"),
+    };
+    return normalizeFinanceTransaction({ ...recognized, original: recognized }, "ebay_csv");
+  });
+
   return { delimiter: parsed.delimiter, headers, transactions, warnings };
 }
 
@@ -242,7 +315,19 @@ function feeRowsFromLineItems(transaction) {
         itemId: item.legacyItemId || item.lineItemId,
         title: fee.feeMemo || fee.feeType || "eBay-Gebühr",
         memo: fee.feeMemo,
-        original: fee,
+        original: safeOriginal({
+          transactionId: transaction.transactionId,
+          transactionDate: transaction.transactionDate,
+          orderId: transaction.orderId,
+          payoutId: transaction.payoutId,
+          itemId: item.legacyItemId || item.lineItemId,
+          transactionType: "NON_SALE_CHARGE",
+          feeType: fee.feeType,
+          bookingEntry: "DEBIT",
+          amount: -Math.abs(number(fee.amount?.value)),
+          currency: fee.amount?.currency,
+          memo: fee.feeMemo,
+        }),
       });
     }
   }
@@ -252,7 +337,7 @@ function feeRowsFromLineItems(transaction) {
 export function normalizeEbayApiTransactions(payload = {}) {
   const output = [];
   for (const transaction of Array.isArray(payload.transactions) ? payload.transactions : []) {
-    output.push(normalizeFinanceTransaction({ ...transaction, original: transaction }, "ebay_finances_api"));
+    output.push(normalizeFinanceTransaction({ ...transaction, original: safeOriginal(transaction) }, "ebay_finances_api"));
     for (const fee of feeRowsFromLineItems(transaction)) output.push(normalizeFinanceTransaction(fee, "ebay_finances_api"));
   }
   return mergeTransactions([], output).transactions;
@@ -264,6 +349,7 @@ export function mergeTransactions(existing = [], incoming = []) {
     const normalized = normalizeFinanceTransaction(entry, entry.source || "existing");
     byKey.set(normalized.dedupeKey, normalized);
   }
+
   let inserted = 0;
   let updated = 0;
   let duplicates = 0;
@@ -288,12 +374,18 @@ export function mergeTransactions(existing = [], incoming = []) {
     if (JSON.stringify(previous) !== JSON.stringify(next)) updated += 1;
     byKey.set(normalized.dedupeKey, next);
   }
-  return { transactions: [...byKey.values()].sort((a, b) => String(b.transactionDate).localeCompare(String(a.transactionDate))), inserted, updated, duplicates };
+
+  return {
+    transactions: [...byKey.values()].sort((left, right) => String(right.transactionDate).localeCompare(String(left.transactionDate))),
+    inserted,
+    updated,
+    duplicates,
+  };
 }
 
 export function bookingProposal(transaction = {}, settings = {}) {
   const item = normalizeFinanceTransaction(transaction, transaction.source || "proposal");
-  const map = {
+  const templates = {
     revenue: { debit: "eBay-Verrechnung", credit: settings.revenueAccount || "Erlöse", label: "Betriebseinnahme" },
     ebay_fee: { debit: settings.ebayFeeAccount || "eBay-Gebühren", credit: "eBay-Verrechnung", label: "Verkaufsgebühren" },
     advertising_expense: { debit: settings.advertisingAccount || "Werbekosten", credit: "eBay-Verrechnung", label: "eBay-Werbung" },
@@ -305,7 +397,7 @@ export function bookingProposal(transaction = {}, settings = {}) {
     other_income: { debit: "eBay-Verrechnung", credit: settings.otherIncomeAccount || "Sonstige Erträge", label: "Sonstiger Ertrag" },
     other_expense: { debit: settings.otherExpenseAccount || "Sonstige Kosten", credit: "eBay-Verrechnung", label: "Sonstige Ausgabe" },
   };
-  const template = map[item.category] || map.other_expense;
+  const template = templates[item.category] || templates.other_expense;
   return {
     id: `booking:${item.dedupeKey}`,
     transactionId: item.id,
@@ -325,8 +417,13 @@ export function bookingProposal(transaction = {}, settings = {}) {
 }
 
 export function calculateMetrics(transactions = []) {
-  const active = transactions.map((entry) => normalizeFinanceTransaction(entry, entry.source)).filter((entry) => !entry.voidedAt);
-  const sumCategory = (category) => active.filter((entry) => entry.category === category).reduce((sum, entry) => sum + Math.abs(number(entry.amount || entry.totalFeeAmount)), 0);
+  const active = transactions
+    .map((entry) => normalizeFinanceTransaction(entry, entry.source))
+    .filter((entry) => !entry.voidedAt);
+  const sumCategory = (category) => active
+    .filter((entry) => entry.category === category)
+    .reduce((sum, entry) => sum + Math.abs(number(entry.amount || entry.totalFeeAmount)), 0);
+
   const revenue = sumCategory("revenue") + sumCategory("other_income") + sumCategory("fee_credit");
   const refunds = sumCategory("refund");
   const ebayFees = sumCategory("ebay_fee");
@@ -336,6 +433,7 @@ export function calculateMetrics(transactions = []) {
   const otherExpenses = sumCategory("other_expense");
   const expenses = refunds + ebayFees + advertising + supplier + shipping + otherExpenses;
   const profit = revenue - expenses;
+
   return {
     revenue,
     refunds,
@@ -363,7 +461,17 @@ export function exportTransactionsCsv(transactions = [], delimiter = ";") {
   const headers = ["Datum", "Transaktions-ID", "Bestellnummer", "Kategorie", "Beschreibung", "Betrag", "Währung", "Status", "Quelle"];
   const rows = transactions.map((entry) => {
     const item = normalizeFinanceTransaction(entry, entry.source);
-    return [item.transactionDate.slice(0, 10), item.transactionId, item.orderId, item.category, item.memo || item.title, item.amount.toFixed(2).replace(".", ","), item.currency, item.status, item.source];
+    return [
+      item.transactionDate.slice(0, 10),
+      item.transactionId,
+      item.orderId,
+      item.category,
+      item.memo || item.title,
+      item.amount.toFixed(2).replace(".", ","),
+      item.currency,
+      item.status,
+      item.source,
+    ];
   });
   return [headers, ...rows].map((row) => row.map((value) => quoteCsv(value, delimiter)).join(delimiter)).join("\r\n");
 }
@@ -377,7 +485,7 @@ export function exportDatevPreparation(transactions = [], settings = {}) {
     const date = item.transactionDate.slice(0, 10).split("-").reverse().join("");
     return [
       proposal.amount.toFixed(2).replace(".", ","),
-      item.category === "revenue" || item.category === "other_income" || item.category === "fee_credit" ? "H" : "S",
+      ["revenue", "other_income", "fee_credit"].includes(item.category) ? "H" : "S",
       proposal.currency,
       date,
       item.orderId || item.transactionId,
