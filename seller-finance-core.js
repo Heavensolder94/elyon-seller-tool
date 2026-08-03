@@ -59,7 +59,8 @@ const KNOWN_TRANSACTION_TYPES = new Set([
 ]);
 
 function text(value, max = 10000) {
-  return String(value ?? "").replace(/\u0000/g, "").trim().slice(0, max);
+  const limit = arguments.length >= 3 && Array.isArray(arguments[2]) ? 10000 : max;
+  return String(value ?? "").replace(/\u0000/g, "").trim().slice(0, Number(limit) || 10000);
 }
 
 function number(value, fallback = 0) {
