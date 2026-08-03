@@ -10,7 +10,7 @@
     "dev": "npm run start",
     "launcher": "electron launcher/main.cjs",
     "launcher:terminal": "node scripts/elyon-launcher.mjs",
-    "build": "npm run prepare:web",
+    "build": "npm test && npm run prepare:web",
     "test": "node --test tests/*.test.mjs"
   },
   "dependencies": {
