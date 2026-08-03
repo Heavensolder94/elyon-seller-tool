@@ -64,6 +64,8 @@ const filesToMirror = [
   ["seller-role-policy.js", "public/seller-role-policy.js"],
   ["seller-virtual-agents-policy.js", "public/seller-virtual-agents-policy.js"],
   ["seller-runtime-loader.js", "public/seller-runtime-loader.js"],
+  ["seller-finance-core.js", "public/seller-finance-core.js"],
+  ["seller-finance.js", "public/seller-finance.js"],
   ["seller-quickstart-core.js", "public/seller-quickstart-core.js"],
   ["seller-quickstart-snapshot.js", "public/seller-quickstart-snapshot.js"],
   ["seller-quickstart-view.js", "public/seller-quickstart-view.js"],
@@ -164,4 +166,4 @@ const envStatus = {
 console.log("Google/security/AI env status:", JSON.stringify(envStatus));
 console.log("Desktop runtime extraction:", JSON.stringify(desktopRuntime.metrics));
 console.log("Desktop performance budget:", JSON.stringify(performanceAudit.metrics));
-console.log("Prepared Vercel output with enforced performance budgets, minimal dashboard startup, extracted desktop core, lazy XLSX import, lazy quickstart, lazy selling workspace, lazy settings, and lazy virtual-agent UI.");
+console.log("Prepared Vercel output with enforced performance budgets, minimal dashboard startup, extracted desktop core, lazy XLSX import, lazy quickstart, lazy selling workspace, lazy finance workspace, lazy settings, and lazy virtual-agent UI.");

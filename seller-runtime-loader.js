@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const VERSION = "price-path-20260731-2";
+  const VERSION = "finance-20260803-1";
   const LEGACY_QUICKSTART_BRIDGE_FLAG = "__elyonModernQuickstartBridge";
   const loaded = new Map();
   const groupLoads = new Map();
@@ -32,6 +32,9 @@
       { src: "/seller-product-board-accordion-compat.js" },
       { src: "/seller-product-delete.js" },
       { src: "/seller-button-integrity.js" },
+    ],
+    financeTab: [
+      { src: "/seller-finance.js", type: "module" },
     ],
     settingsTab: [
       { src: "/seller-system-status-settings.js" },
@@ -122,6 +125,8 @@
       window.ElyonCompanyOsInbox?.install?.();
       window.ElyonProductBoardAccordion?.refresh?.();
       window.ElyonProductHealthState?.refresh?.();
+    } else if (groupId === "financeTab") {
+      window.ElyonSellerFinance?.open?.();
     } else if (groupId === "settingsTab") {
       window.ElyonSystemStatusSettings?.install?.();
       window.ElyonSystemStatusSettings?.move?.();
@@ -198,6 +203,32 @@
     return window.openStartLauncher === openModernQuickstartFromLegacy;
   }
 
+  function installFinanceEntry() {
+    const menu = document.getElementById("mainMenu");
+    if (menu && !menu.querySelector('option[value="financeTab"]')) {
+      const option = document.createElement("option");
+      option.value = "financeTab";
+      option.textContent = "Finanzen & Buchhaltung";
+      menu.appendChild(option);
+    }
+
+    const nav = document.querySelector(".nav-menu");
+    if (nav && !document.getElementById("elyonFinanceRuntimeNav")) {
+      const link = document.createElement("a");
+      link.id = "elyonFinanceRuntimeNav";
+      link.href = "#finance";
+      link.className = "nav-item";
+      link.dataset.tab = "financeTab";
+      link.innerHTML = '<span class="nav-icon">€</span><span>Finanzen</span>';
+      link.addEventListener("click", (event) => {
+        event.preventDefault();
+        if (menu) menu.value = "financeTab";
+        requestGroup("financeTab").catch(() => {});
+      });
+      nav.appendChild(link);
+    }
+  }
+
   function tabFromClick(target) {
     if (!(target instanceof Element)) return "";
     const explicit = target.closest("[data-tab],[data-tab-id],[data-target-tab],[data-sd-tab]");
@@ -220,6 +251,7 @@
 
   function install() {
     installLegacyQuickstartBridge();
+    installFinanceEntry();
 
     document.addEventListener("change", (event) => {
       if (event.target?.id === "mainMenu") requestGroup(event.target.value).catch(() => {});
@@ -241,7 +273,11 @@
       if (typeof tabId === "string") requestGroup(tabId).catch(() => {});
     });
 
-    const initial = activeTabId();
+    window.addEventListener("hashchange", () => {
+      if (window.location.hash === "#finance") requestGroup("financeTab").catch(() => {});
+    });
+
+    const initial = window.location.hash === "#finance" ? "financeTab" : activeTabId();
     if (initial) {
       const start = () => requestGroup(initial).catch(() => {});
       if ("requestIdleCallback" in window) {

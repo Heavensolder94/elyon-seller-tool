@@ -3,6 +3,20 @@ import { createEbayOAuthState, readEbayOAuthState, verifyEbayOAuthState } from "
 import { readToken } from "../../lib/ebay-token-store.js";
 import { requireSellerAccess } from "../../lib/seller-access.js";
 
+const EBAY_FINANCES_SCOPE = "https://api.ebay.com/oauth/api_scope/sell.finances";
+
+function ensureFinanceScope() {
+  const configured = String(process.env.EBAY_SCOPES || "")
+    .split(/[\s,]+/)
+    .map((scope) => scope.trim())
+    .filter(Boolean);
+  if (!configured.includes(EBAY_FINANCES_SCOPE)) {
+    process.env.EBAY_SCOPES = [...configured, EBAY_FINANCES_SCOPE].join(" ");
+  }
+}
+
+ensureFinanceScope();
+
 function text(value) {
   return String(value ?? "").trim();
 }
@@ -51,6 +65,7 @@ function redactSecrets(value, seen = new WeakSet()) {
 }
 
 export default async function handler(req, res) {
+  ensureFinanceScope();
   const action = actionFrom(req);
   const environment = environmentFrom(req);
   res.setHeader("Cache-Control", "no-store");
