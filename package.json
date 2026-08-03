@@ -11,8 +11,7 @@
     "launcher": "electron launcher/main.cjs",
     "launcher:terminal": "node scripts/elyon-launcher.mjs",
     "build": "npm test && npm run prepare:web",
-    "test": "node --test tests/*.test.mjs",
-    "test:vercel": "node scripts/run-vercel-tests.mjs"
+    "test": "node scripts/run-vercel-tests.mjs"
   },
   "dependencies": {
     "openai": "^4.0.0"
