@@ -35,6 +35,7 @@
     ],
     financeTab: [
       { src: "/seller-finance.js", type: "module" },
+      { src: "/seller-order-invoices.js", type: "module" },
     ],
     settingsTab: [
       { src: "/seller-system-status-settings.js" },
@@ -127,6 +128,7 @@
       window.ElyonProductHealthState?.refresh?.();
     } else if (groupId === "financeTab") {
       window.ElyonSellerFinance?.open?.();
+      window.ElyonOrderInvoices?.mount?.();
     } else if (groupId === "settingsTab") {
       window.ElyonSystemStatusSettings?.install?.();
       window.ElyonSystemStatusSettings?.move?.();

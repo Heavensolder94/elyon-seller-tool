@@ -67,6 +67,7 @@ const filesToMirror = [
   ["seller-runtime-loader.js", "public/seller-runtime-loader.js"],
   ["seller-finance-core.js", "public/seller-finance-core.js"],
   ["seller-finance.js", "public/seller-finance.js"],
+  ["seller-order-invoices.js", "public/seller-order-invoices.js"],
   ["seller-quickstart-core.js", "public/seller-quickstart-core.js"],
   ["seller-quickstart-snapshot.js", "public/seller-quickstart-snapshot.js"],
   ["seller-quickstart-view.js", "public/seller-quickstart-view.js"],
