@@ -276,7 +276,7 @@ function designerHeaderHtml(view) {
       <div><h3>🎨 Elyon Listing Designer</h3><p>Nutze den bestehenden vollständigen Titel-, SEO-, KI- und Beschreibungsgenerator. Produktdaten werden nur nach deinem Klick übernommen; bestehende Eingaben werden nicht überschrieben.</p></div>
       <div class="seller-selling-actions">
         <button type="button" class="secondary" id="sellerDesignerFillBtn">Produktdaten übernehmen</button>
-        <button type="button" class="secondary" data-selling-nav-jump="auto">Weiter zum Auto Lister</button>
+        <button type="button" class="secondary" data-selling-nav-jump="auto" title="Listing-Daten vorbereiten; es wird nichts direkt bei eBay veröffentlicht.">Listing vorbereiten</button>
       </div>
     </div>
     <div class="seller-selling-summary">
