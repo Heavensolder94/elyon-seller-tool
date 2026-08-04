@@ -12,6 +12,7 @@ const read = (file) => readFile(path.join(root, file), "utf8");
 const financeFiles = [
   "seller-finance-core.js",
   "seller-finance.js",
+  "seller-order-invoices.js",
   "lib/finance-store.js",
   "internal/finance/index.js",
   "api/finance/index.js",
@@ -34,7 +35,9 @@ test("finance workspace stays lazy and is mirrored into the Vercel output", asyn
   assert.match(runtime, /financeTab/);
   assert.match(runtime, /seller-finance\.js/);
   assert.match(runtime, /ElyonSellerFinance/);
+  assert.match(runtime, /seller-order-invoices\\.js/);
   assert.match(preparation, /seller-finance-core\.js/);
+  assert.match(preparation, /seller-order-invoices\\.js/);
   assert.match(preparation, /seller-finance\.js/);
   assert.doesNotMatch(preparation, /<script[^>]+seller-finance\.js/);
 });
@@ -48,6 +51,10 @@ test("finance UI contains all three stages and no destructive storage reset", as
   assert.match(ui, /Audit-Log/);
   assert.match(ui, /SHA-256/);
   assert.match(ui, /Storno/);
+  const invoiceUi = await read("seller-order-invoices.js");
+  assert.match(invoiceUi, /data-eoi-invoice/);
+  assert.match(invoiceUi, /invoiceNumber/);
+  assert.match(invoiceUi, /window\\.print/);
   assert.doesNotMatch(ui, /localStorage\.clear\s*\(/);
   assert.doesNotMatch(ui, /automatisch.{0,30}(buchen|übermitteln)/i);
 });
