@@ -18,6 +18,9 @@
   let loading = false;
   let mounted = false;
   let errorMessage = '';
+  let serverLoaded = false;
+  let serverSyncBusy = false;
+  let serverState = { orderOperations: {}, invoiceMeta: {}, inventory: {}, returns: {}, safety: {} };
 
   const text = (value) => String(value == null ? '' : value).trim();
   const esc = (value) => text(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
@@ -27,9 +30,52 @@
     catch { return num(value).toFixed(2) + ' ' + (currency || 'EUR'); }
   };
   const readJson = (key, fallback) => { try { return JSON.parse(localStorage.getItem(key) || '') || fallback; } catch { return fallback; } };
-  const readMeta = () => readJson(META_KEY, {});
-  const readOps = () => readJson(OPS_KEY, {});
-  const saveJson = (key, value) => { try { localStorage.setItem(key, JSON.stringify(value)); } catch (error) { notify(error.message, 'Speicherfehler'); } };
+  const readMeta = () => serverLoaded && Object.keys(serverState.invoiceMeta || {}).length ? serverState.invoiceMeta : readJson(META_KEY, {});
+  const readOps = () => serverLoaded && Object.keys(serverState.orderOperations || {}).length ? serverState.orderOperations : readJson(OPS_KEY, {});
+  const saveJson = (key, value) => {
+    try { localStorage.setItem(key, JSON.stringify(value)); } catch (error) { notify(error.message, 'Speicherfehler'); }
+    if (key === META_KEY) serverState.invoiceMeta = value;
+    if (key === OPS_KEY) serverState.orderOperations = value;
+    persistServerState();
+  };
+  async function persistServerState() {
+    if (!serverLoaded || serverSyncBusy) return;
+    serverSyncBusy = true;
+    try {
+      const response = await fetch('/api/finance?action=save', {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ state: {
+          orderOperations: serverState.orderOperations || {},
+          invoiceMeta: serverState.invoiceMeta || {},
+          inventory: serverState.inventory || {},
+          returns: serverState.returns || {},
+          safety: serverState.safety || {},
+        }, action: 'seller_order_operations_sync', source: 'seller_order_center' }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || data.ok === false) throw new Error(data.message || data.error || 'Finance-Sync HTTP ' + response.status);
+      serverState = { ...serverState, ...(data.state || {}) };
+    } catch (error) {
+      notify('Server-Sync nicht verfügbar: ' + error.message + '. Lokale Sicherung bleibt erhalten.', 'Synchronisierung');
+    } finally { serverSyncBusy = false; }
+  }
+  async function loadServerState() {
+    try {
+      const response = await fetch('/api/finance?action=load', { credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'application/json' } });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || data.ok === false) throw new Error(data.message || data.error || 'Finance-Sync HTTP ' + response.status);
+      const incoming = data.state || {};
+      serverState = { ...serverState, ...incoming, orderOperations: incoming.orderOperations || {}, invoiceMeta: incoming.invoiceMeta || {}, inventory: incoming.inventory || {}, returns: incoming.returns || {}, safety: incoming.safety || {} };
+      serverLoaded = true;
+      if (!Object.keys(serverState.orderOperations).length) serverState.orderOperations = readJson(OPS_KEY, {});
+      if (!Object.keys(serverState.invoiceMeta).length) serverState.invoiceMeta = readJson(META_KEY, {});
+      try { localStorage.setItem(OPS_KEY, JSON.stringify(serverState.orderOperations)); localStorage.setItem(META_KEY, JSON.stringify(serverState.invoiceMeta)); } catch {}
+    } catch (error) {
+      serverLoaded = false;
+      notify('Server-Sync nicht verfügbar. Lokale Sicherung bleibt erhalten.', 'Synchronisierung');
+    }
+  }
   const settings = () => readJson(SETTINGS_KEY, {}).settings || {};
   const notify = (message, eyebrow) => { if (typeof window.toast === 'function') window.toast(message, eyebrow || 'Bestellzentrale'); };
 
@@ -165,6 +211,7 @@
     let root = document.getElementById(ROOT_ID);
     if (!root) { root = document.createElement('section'); root.id = ROOT_ID; root.className = 'ef-panel'; tab.appendChild(root); }
     mounted = true; render();
+    if (!serverLoaded) loadServerState().then(() => render());
   }
 
   document.addEventListener('click', (event) => {
