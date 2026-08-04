@@ -93,7 +93,7 @@
       ebayStatus: text(order && (order.orderFulfillmentStatus || order.orderPaymentStatus) || 'UNKNOWN').toUpperCase(),
       buyerName: text(ship.fullName || order && order.buyer && order.buyer.username),
       address: [address.addressLine1, address.addressLine2, [address.postalCode, address.city].filter(Boolean).join(' '), address.countryCode].filter(Boolean),
-      lines: lines.map((line) => ({ title: text(line && line.title || 'Artikel'), quantity: Math.max(1, num(line && line.quantity)), total: num(line && line.lineItemCost && line.lineItemCost.value), currency })),
+      lines: lines.map((line) => ({ itemId: text(line && (line.legacyItemId || line.itemId || line.sku || line.lineItemId || line.title)), title: text(line && line.title || 'Artikel'), quantity: Math.max(1, num(line && line.quantity)), total: num(line && line.lineItemCost && line.lineItemCost.value), currency })),
       total,
       currency,
     };
@@ -102,7 +102,7 @@
   function defaultOperation(order) {
     const paid = order.ebayStatus.includes('PAID');
     const shipped = order.ebayStatus.includes('FULFILLED') || order.ebayStatus.includes('SHIPPED');
-    return { status: shipped ? 'SHIPPED' : paid ? 'PAID' : 'NEW', carrier: '', trackingNumber: '', trackingUrl: '', updatedAt: '' };
+    return { status: shipped ? 'SHIPPED' : paid ? 'PAID' : 'NEW', carrier: '', trackingNumber: '', trackingUrl: '', stockQuantity: '', returnStatus: 'NONE', updatedAt: '' };
   }
 
   function operationFor(order) {
@@ -117,9 +117,15 @@
       carrier: text(data.carrier).slice(0, 80),
       trackingNumber: text(data.trackingNumber).slice(0, 120),
       trackingUrl: text(data.trackingUrl).slice(0, 500),
+      stockQuantity: text(data.stockQuantity).slice(0, 20),
+      returnStatus: ['NONE', 'REQUESTED', 'APPROVED', 'RECEIVED', 'REFUNDED'].includes(data.returnStatus) ? data.returnStatus : 'NONE',
       updatedAt: new Date().toISOString(),
     };
     saveJson(OPS_KEY, ops);
+    const itemId = order.lines[0]?.itemId;
+    if (itemId) serverState.inventory = { ...(serverState.inventory || {}), [itemId]: { id: itemId, quantity: Math.max(0, Number(data.stockQuantity || 0)), updatedAt: new Date().toISOString() } };
+    if (data.returnStatus && data.returnStatus !== 'NONE') serverState.returns = { ...(serverState.returns || {}), [order.id]: { orderId: order.id, status: data.returnStatus, updatedAt: new Date().toISOString() } };
+    persistServerState();
     notify('Bestellstatus und Versanddaten gespeichert. eBay wird dadurch nicht automatisch benachrichtigt.', 'Bestellzentrale');
     render();
   }
@@ -179,7 +185,7 @@
   function styles() {
     if (document.getElementById('elyonOrderInvoiceStyles')) return;
     const style = document.createElement('style'); style.id = 'elyonOrderInvoiceStyles';
-    style.textContent = '#' + ROOT_ID + '{margin:18px 0}.eoi-head{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;flex-wrap:wrap}.eoi-head h3{margin:0 0 6px}.eoi-muted{color:#94a3b8;font-size:12px}.eoi-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-top:14px}.eoi-card{padding:12px;border:1px solid rgba(148,163,184,.18);border-radius:12px;background:rgba(15,23,42,.5)}.eoi-card strong{display:block;font-size:18px}.eoi-table{width:100%;border-collapse:collapse;margin-top:14px}.eoi-table th,.eoi-table td{padding:10px 8px;text-align:left;border-bottom:1px solid rgba(148,163,184,.18);vertical-align:top}.eoi-table th{color:#94a3b8;font-size:11px;text-transform:uppercase}.eoi-btn{border:1px solid rgba(148,163,184,.25);background:rgba(15,23,42,.65);color:inherit;border-radius:10px;padding:8px 11px;cursor:pointer}.eoi-btn.primary{background:#2563eb;border-color:#2563eb}.eoi-status{font-size:11px;color:#86efac}.eoi-error{color:#fecaca;padding:10px;border-radius:10px;background:rgba(127,29,29,.24)}.eoi-controls{display:grid;grid-template-columns:140px 130px minmax(140px,1fr) minmax(160px,1fr) auto;gap:7px;align-items:center}.eoi-controls select,.eoi-controls input{width:100%;box-sizing:border-box;border:1px solid rgba(148,163,184,.25);background:#0f172a;color:inherit;border-radius:8px;padding:7px}.eoi-total{font-size:12px;color:#86efac}.eoi-note{margin-top:10px;color:#cbd5e1;font-size:12px}@media(max-width:800px){.eoi-controls{grid-template-columns:1fr 1fr}.eoi-controls .eoi-save{grid-column:span 2}}';
+    style.textContent = '#' + ROOT_ID + '{margin:18px 0}.eoi-head{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;flex-wrap:wrap}.eoi-head h3{margin:0 0 6px}.eoi-muted{color:#94a3b8;font-size:12px}.eoi-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-top:14px}.eoi-card{padding:12px;border:1px solid rgba(148,163,184,.18);border-radius:12px;background:rgba(15,23,42,.5)}.eoi-card strong{display:block;font-size:18px}.eoi-table{width:100%;border-collapse:collapse;margin-top:14px}.eoi-table th,.eoi-table td{padding:10px 8px;text-align:left;border-bottom:1px solid rgba(148,163,184,.18);vertical-align:top}.eoi-table th{color:#94a3b8;font-size:11px;text-transform:uppercase}.eoi-btn{border:1px solid rgba(148,163,184,.25);background:rgba(15,23,42,.65);color:inherit;border-radius:10px;padding:8px 11px;cursor:pointer}.eoi-btn.primary{background:#2563eb;border-color:#2563eb}.eoi-status{font-size:11px;color:#86efac}.eoi-error{color:#fecaca;padding:10px;border-radius:10px;background:rgba(127,29,29,.24)}.eoi-controls{display:grid;grid-template-columns:140px 130px minmax(140px,1fr) minmax(160px,1fr) 90px 130px auto;gap:7px;align-items:center}.eoi-controls select,.eoi-controls input{width:100%;box-sizing:border-box;border:1px solid rgba(148,163,184,.25);background:#0f172a;color:inherit;border-radius:8px;padding:7px}.eoi-total{font-size:12px;color:#86efac}.eoi-note{margin-top:10px;color:#cbd5e1;font-size:12px}@media(max-width:800px){.eoi-controls{grid-template-columns:1fr 1fr}.eoi-controls .eoi-save{grid-column:span 2}}';
     document.head.appendChild(style);
   }
 
@@ -198,7 +204,7 @@
       html += orders.map((order) => {
         const invoice = meta[order.id]; const op = operationFor(order);
         const options = STATUS_OPTIONS.map((item) => '<option value="' + item[0] + '"' + (item[0] === op.status ? ' selected' : '') + '>' + item[1] + '</option>').join('');
-        return '<tr><td><strong>' + esc(order.id) + '</strong><div class="eoi-muted">' + esc(order.buyerName || 'Käuferdaten nicht übermittelt') + '</div></td><td>' + esc(order.ebayStatus) + '</td><td>' + money(order.total, order.currency) + '</td><td><div class="eoi-controls"><select data-eoi-status="' + esc(order.id) + '">' + options + '</select><input data-eoi-carrier="' + esc(order.id) + '" placeholder="Versanddienst" value="' + esc(op.carrier) + '"><input data-eoi-tracking="' + esc(order.id) + '" placeholder="Trackingnummer" value="' + esc(op.trackingNumber) + '"><input data-eoi-url="' + esc(order.id) + '" placeholder="Tracking-URL (optional)" value="' + esc(op.trackingUrl) + '"><button type="button" class="eoi-btn eoi-save" data-eoi-save="' + esc(order.id) + '">Speichern</button></div><div class="eoi-note">' + (op.updatedAt ? 'Zuletzt gespeichert: ' + esc(dateTime.format(new Date(op.updatedAt))) : 'Noch nicht intern erfasst') + '</div></td><td>' + (invoice ? '<span class="eoi-status">' + esc(invoice.invoiceNumber) + '</span><br>' : '') + '<button type="button" class="eoi-btn" data-eoi-invoice="' + esc(order.id) + '">' + (invoice ? 'Rechnung öffnen' : 'Rechnung erstellen') + '</button></td></tr>';
+        return '<tr><td><strong>' + esc(order.id) + '</strong><div class="eoi-muted">' + esc(order.buyerName || 'Käuferdaten nicht übermittelt') + '</div></td><td>' + esc(order.ebayStatus) + '</td><td>' + money(order.total, order.currency) + '</td><td><div class="eoi-controls"><select data-eoi-status="' + esc(order.id) + '">' + options + '</select><input data-eoi-carrier="' + esc(order.id) + '" placeholder="Versanddienst" value="' + esc(op.carrier) + '"><input data-eoi-tracking="' + esc(order.id) + '" placeholder="Trackingnummer" value="' + esc(op.trackingNumber) + '"><input data-eoi-url="' + esc(order.id) + '" placeholder="Tracking-URL (optional)" value="' + esc(op.trackingUrl) + '"><input data-eoi-stock="' + esc(order.id) + '" placeholder="Bestand" value="' + esc(op.stockQuantity || (serverState.inventory?.[order.lines[0]?.itemId]?.quantity ?? '')) + '"><select data-eoi-return="' + esc(order.id) + '"><option value="NONE"' + (op.returnStatus === "NONE" ? " selected" : "") + '>Keine Retoure</option><option value="REQUESTED"' + (op.returnStatus === "REQUESTED" ? " selected" : "") + '>Angefragt</option><option value="APPROVED"' + (op.returnStatus === "APPROVED" ? " selected" : "") + '>Genehmigt</option><option value="RECEIVED"' + (op.returnStatus === "RECEIVED" ? " selected" : "") + '>Eingegangen</option><option value="REFUNDED"' + (op.returnStatus === "REFUNDED" ? " selected" : "") + '>Erstattet</option></select><button type="button" class="eoi-btn eoi-save" data-eoi-save="' + esc(order.id) + '">Speichern</button></div><div class="eoi-note">' + (op.updatedAt ? 'Zuletzt gespeichert: ' + esc(dateTime.format(new Date(op.updatedAt))) : 'Noch nicht intern erfasst') + '</div></td><td>' + (invoice ? '<span class="eoi-status">' + esc(invoice.invoiceNumber) + '</span><br>' : '') + '<button type="button" class="eoi-btn" data-eoi-invoice="' + esc(order.id) + '">' + (invoice ? 'Rechnung öffnen' : 'Rechnung erstellen') + '</button></td></tr>';
       }).join('');
       html += '</tbody></table></div><div class="eoi-note">Die Versanddaten werden im Seller Tool gespeichert. Es wird keine Bestellung ausgelöst und keine eBay-Nachricht automatisch versendet.</div>';
     }
@@ -228,6 +234,8 @@
         carrier: root.querySelector('[data-eoi-carrier="' + CSS.escape(id) + '"]')?.value,
         trackingNumber: root.querySelector('[data-eoi-tracking="' + CSS.escape(id) + '"]')?.value,
         trackingUrl: root.querySelector('[data-eoi-url="' + CSS.escape(id) + '"]')?.value,
+        stockQuantity: root.querySelector('[data-eoi-stock="' + CSS.escape(id) + '"]')?.value,
+        returnStatus: root.querySelector('[data-eoi-return="' + CSS.escape(id) + '"]')?.value,
       });
     }
   });
