@@ -113,7 +113,8 @@ async function handleStatus(req, res) {
       auditEvents: state.auditLog.length,
     },
     metrics,
-    safety: {
+    safety: state.safety || { livePublishingEnabled: false, trackingSyncEnabled: false },
+    safetyPolicy: {
       readOnlyEbayApi: true,
       automaticTaxFiling: false,
       automaticPosting: false,
