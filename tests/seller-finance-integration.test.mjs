@@ -59,7 +59,7 @@ test("finance UI contains all three stages and no destructive storage reset", as
   assert.match(invoiceUi, /data-eoi-tracking/);
   assert.match(invoiceUi, /data-eoi-save/);
   assert.match(invoiceUi, /eBay wird dadurch nicht automatisch benachrichtigt/);
-  assert.match(invoiceUi, /api\\/finance\\?action=save/);
+  assert.match(invoiceUi, /api\/finance\?action=save/);
   assert.match(invoiceUi, /data-eoi-stock/);
   assert.match(invoiceUi, /data-eoi-return/);
   assert.doesNotMatch(ui, /localStorage\.clear\s*\(/);
