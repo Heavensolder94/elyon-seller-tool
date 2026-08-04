@@ -5,6 +5,7 @@ import {
   normalizeEbayEnvironment,
   ebayApiRoot,
   ebayAuthRoot,
+  ebayUserSession,
   refreshEbayAccessToken,
   loadEbaySellerSetup,
   createOrUpdateEbayDraft,
@@ -289,6 +290,53 @@ async function handleOrders(req, res) {
   return res.status(200).json({ ok: true, environment, days, status, count: data.orders?.length || 0, orders: data.orders || [] });
 }
 
+async function handleListings(req, res) {
+  const environment = environmentFrom(req);
+  const session = await ebayUserSession(environment);
+  const limit = 200;
+  const offers = [];
+  let offset = 0;
+  let total = null;
+
+  for (let page = 0; page < 10; page += 1) {
+    const endpoint = `${ebayApiRoot(environment)}/sell/inventory/v1/offer?limit=${limit}&offset=${offset}`;
+    const response = await fetch(endpoint, {
+      headers: {
+        Authorization: `Bearer ${session.accessToken}`,
+        "Content-Type": "application/json",
+        "X-EBAY-C-MARKETPLACE-ID": "EBAY_DE",
+      },
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) return res.status(response.status).json({ ok: false, error: data.errors?.[0]?.message || data.message || "eBay-Angebote konnten nicht abgerufen werden." });
+    const pageOffers = Array.isArray(data.offers) ? data.offers : [];
+    total = Number.isFinite(Number(data.total)) ? Number(data.total) : total;
+    offers.push(...pageOffers);
+    if (!pageOffers.length || pageOffers.length < limit || (total !== null && offers.length >= total)) break;
+    offset += pageOffers.length;
+  }
+
+  const items = offers.map((offer) => ({
+    offerId: text(offer.offerId, 120),
+    sku: text(offer.sku, 120),
+    status: text(offer.status, 40).toUpperCase(),
+    listingId: text(offer.listingId, 120),
+    listingUrl: text(offer.listing?.listingUrl || offer.listingUrl, 1000),
+    title: text(offer.product?.title || offer.title, 200),
+    price: Number(offer.pricingSummary?.price?.value || offer.price?.value || 0),
+    quantity: Number(offer.availableQuantity ?? offer.quantity ?? 0),
+    marketplaceId: text(offer.marketplaceId, 40),
+    lastModifiedDate: text(offer.lastModifiedDate, 80),
+  }));
+  const counts = items.reduce((result, item) => {
+    if (item.status === "PUBLISHED") result.active += 1;
+    else if (item.status === "UNPUBLISHED") result.drafts += 1;
+    else result.other += 1;
+    return result;
+  }, { active: 0, drafts: 0, other: 0 });
+  return res.status(200).json({ ok: true, environment, total: items.length, counts, items, syncedAt: new Date().toISOString() });
+}
+
 async function handleProductionAction(req, res, action) {
   const body = req?.body && typeof req.body === "object" ? req.body : {};
   const environment = environmentFrom(req);
@@ -309,6 +357,7 @@ export default async function handler(req, res) {
     if (action === "search") return handleSearch(req, res);
     if (action === "competition") return handleCompetition(req, res);
     if (action === "orders") return handleOrders(req, res);
+    if (action === "listings") return handleListings(req, res);
     if (["setup", "create-draft", "draft", "publish", "withdraw"].includes(action)) return handleProductionAction(req, res, action);
     return res.status(404).json({ ok: false, error: `Unbekannte eBay API Route: ${action}` });
   } catch (error) {
