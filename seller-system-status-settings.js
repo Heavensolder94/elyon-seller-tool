@@ -199,7 +199,7 @@
       panel.querySelector('[data-finance-sync-body]').innerHTML =
         '<div><strong class="' + (store.persistent ? 'sd-good' : 'sd-warn') + '">' + (store.persistent ? 'Zentral verbunden' : 'Nicht persistent konfiguriert') + '</strong><br><span>Speicher: ' + text(store.source || store.mode || 'unbekannt') + '</span></div>' +
         '<label>Live-Veröffentlichung erlaubt<input type="checkbox" data-finance-safety="livePublishingEnabled" ' + (safety.livePublishingEnabled ? 'checked' : '') + '></label>' +
-        '<label>Tracking an eBay übertragen<input type="checkbox" data-finance-safety="trackingSyncEnabled" ' + (safety.trackingSyncEnabled ? 'checked' : '') + '></label>' +
+        '<label>Tracking-Übertragung freigeben (späterer manueller Schritt)<input type="checkbox" data-finance-safety="trackingSyncEnabled" ' + (safety.trackingSyncEnabled ? 'checked' : '') + '></label>' +
         '<small>Beide Schalter bleiben standardmäßig aus. Aktivieren allein führt keine Veröffentlichung oder Nachricht aus.</small>';
       panel.querySelectorAll('[data-finance-safety]').forEach((input) => input.addEventListener('change', async () => {
         const next = { ...safety, [input.dataset.financeSafety]: input.checked };
