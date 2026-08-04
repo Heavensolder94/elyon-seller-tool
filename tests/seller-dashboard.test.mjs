@@ -4,9 +4,16 @@ import {
   buildRevenueBuckets,
   buildSellerDashboardMetrics,
   buildSellerTasks,
+  AUTO_REFRESH_INTERVAL_MS,
+  FOCUS_REFRESH_COOLDOWN_MS,
   normalizeEbayOrder,
   normalizeSellerProduct,
 } from "../seller-dashboard-v2.js";
+
+test("uses a bounded automatic refresh interval", () => {
+  assert.equal(AUTO_REFRESH_INTERVAL_MS, 5 * 60 * 1000);
+  assert.equal(FOCUS_REFRESH_COOLDOWN_MS, 60 * 1000);
+});
 
 const readyProduct = {
   id: "seller-1",
