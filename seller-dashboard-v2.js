@@ -9,6 +9,8 @@ const DASHBOARD_STYLE_ID = "elyonSellerDashboardStyles";
 const ROLE_BANNER_ID = "elyonSellerRoleBanner";
 const RANGE_KEY = "elyonSellerDashboardRange";
 const WORKING_PRODUCTS_KEY = "elyonProducts";
+export const AUTO_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
+export const FOCUS_REFRESH_COOLDOWN_MS = 60 * 1000;
 
 const runtime = {
   days: readRange(),
@@ -19,6 +21,9 @@ const runtime = {
   ebayStatus: null,
   errors: {},
 };
+
+let autoRefreshInstalled = false;
+let autoRefreshTimer = null;
 
 const text = (value) => String(value ?? "").trim();
 const list = (value) => Array.isArray(value) ? value : [];
@@ -339,7 +344,7 @@ function dashboardMarkup(metrics, tasks) {
   const coverage = metrics.totalLineItems ? `${metrics.matchedLineItems}/${metrics.totalLineItems} Positionen zugeordnet` : "Noch keine Order-Positionen";
 
   return `<section id="${DASHBOARD_ID}">
-    <header class="sd-hero" id="${ROLE_BANNER_ID}"><div><div class="badge">Elyon Seller Cockpit</div><h2>Dein Verkaufsbetrieb auf einen Blick</h2><p>Company OS liefert geprüfte Produkte und Listing-Pakete. Hier siehst du den echten Seller-Stand: Produkte, Listings, eBay-Bestellungen, Umsatz, kalkulierten Gewinn, Blocker und die nächsten Schritte.</p><div class="sd-badges"><span class="sd-badge ${metrics.ebayConnected ? "good" : "bad"}">eBay ${metrics.ebayConnected ? "verbunden" : "nicht verbunden"}</span><span class="sd-badge ${storageReady ? "good" : runtime.errors.products ? "bad" : "warn"}">Product Master ${escapeHtml(productState)}</span><span class="sd-badge ${runtime.errors.orders ? "warn" : "good"}">Orders ${escapeHtml(orderState)}</span><span class="sd-badge">Aktualisiert ${escapeHtml(refreshed)}</span></div></div><div class="sd-actions"><div class="sd-range">${[7,30,90].map((days) => `<button type="button" data-sd-range="${days}" class="${runtime.days === days ? "active" : ""}">${days} Tage</button>`).join("")}</div><button type="button" id="sdRefresh" class="secondary">${runtime.loading ? "Lädt …" : "Aktualisieren"}</button></div></header>
+    <header class="sd-hero" id="${ROLE_BANNER_ID}"><div><div class="badge">Elyon Seller Cockpit</div><h2>Dein Verkaufsbetrieb auf einen Blick</h2><p>Company OS liefert geprüfte Produkte und Listing-Pakete. Hier siehst du den echten Seller-Stand: Produkte, Listings, eBay-Bestellungen, Umsatz, kalkulierten Gewinn, Blocker und die nächsten Schritte.</p><div class="sd-badges"><span class="sd-badge ${metrics.ebayConnected ? "good" : "bad"}">eBay ${metrics.ebayConnected ? "verbunden" : "nicht verbunden"}</span><span class="sd-badge ${storageReady ? "good" : runtime.errors.products ? "bad" : "warn"}">Product Master ${escapeHtml(productState)}</span><span class="sd-badge ${runtime.errors.orders ? "warn" : "good"}">Orders ${escapeHtml(orderState)}</span><span class="sd-badge" title="Wird beim Öffnen und danach alle 5 Minuten aktualisiert">Aktualisiert ${escapeHtml(refreshed)}</span></div></div><div class="sd-actions"><div class="sd-range">${[7,30,90].map((days) => `<button type="button" data-sd-range="${days}" class="${runtime.days === days ? "active" : ""}">${days} Tage</button>`).join("")}</div><button type="button" id="sdRefresh" class="secondary">${runtime.loading ? "Lädt …" : "Aktualisieren"}</button></div></header>
     <section class="sd-kpis"><article class="sd-kpi ${metrics.revenue ? "good" : ""}"><small>eBay-Umsatz · ${metrics.days} Tage</small><strong>${money(metrics.revenue)}</strong><span>Nur echte eBay-Bestellungen</span></article><article class="sd-kpi"><small>Bestellungen</small><strong>${count(metrics.orderCount)}</strong><span>${count(metrics.fulfilledOrders.length)} abgeschlossen</span></article><article class="sd-kpi ${metrics.openOrders.length ? "warn" : ""}"><small>Offene Bestellungen</small><strong>${count(metrics.openOrders.length)}</strong><span>Versand oder Bearbeitung offen</span></article><article class="sd-kpi ${metrics.liveProducts.length ? "good" : ""}"><small>Aktive Listings</small><strong>${count(metrics.liveProducts.length)}</strong><span>${count(metrics.listedProducts.length)} dokumentiert</span></article><article class="sd-kpi ${metrics.readyProducts.length ? "good" : metrics.blockedProducts.length ? "warn" : ""}"><small>Listingbereit</small><strong>${count(metrics.readyProducts.length)}</strong><span>${count(metrics.blockedProducts.length)} Produktblocker</span></article><article class="sd-kpi ${metrics.estimatedOrderProfit ? "good" : ""}"><small>Geschätzter Order-Gewinn</small><strong>${money(metrics.estimatedOrderProfit)}</strong><span>${escapeHtml(coverage)} · keine Buchhaltungszahl</span></article></section>
     <section class="sd-main"><article class="sd-panel"><div class="sd-head"><div><h3>Umsatzentwicklung</h3><p>Echte eBay-Bestellungen im gewählten Zeitraum.</p></div><strong>${money(metrics.revenue)}</strong></div><div class="sd-chart">${chartMarkup(metrics.buckets)}</div></article><article class="sd-panel"><div class="sd-head"><div><h3>Nächste Aufgaben</h3><p>Automatisch priorisiert.</p></div></div><div class="sd-list">${tasksMarkup(tasks)}</div></article></section>
     <section class="sd-two"><article class="sd-panel"><div class="sd-head"><div><h3>Neueste Bestellungen</h3><p>Aktuelle eBay-Orders.</p></div><button type="button" class="secondary" data-sd-tab="ordersTab">Alle öffnen</button></div><div class="sd-list">${ordersMarkup(metrics.orders)}</div></article><article class="sd-panel"><div class="sd-head"><div><h3>Produktleistung</h3><p>Nach echtem Umsatz, sonst nach kalkuliertem Gewinn.</p></div><button type="button" class="secondary" data-sd-tab="productListTab">Produkte öffnen</button></div><div class="sd-list">${productsMarkup(metrics.topProducts)}</div></article></section>
@@ -389,6 +394,27 @@ function renderDashboard() {
   document.getElementById("sdRefresh")?.addEventListener("click", refreshDashboard);
 }
 
+function isDashboardVisible() {
+  return typeof document === "undefined" || document.visibilityState !== "hidden";
+}
+
+function refreshWhenStale() {
+  if (!isDashboardVisible() || runtime.loading) return;
+  const lastRefresh = runtime.refreshedAt instanceof Date ? runtime.refreshedAt.getTime() : 0;
+  if (lastRefresh && Date.now() - lastRefresh < FOCUS_REFRESH_COOLDOWN_MS) return;
+  refreshDashboard();
+}
+
+function installAutoRefresh() {
+  if (autoRefreshInstalled || typeof window === "undefined") return;
+  autoRefreshInstalled = true;
+  autoRefreshTimer = window.setInterval(() => {
+    if (isDashboardVisible()) refreshDashboard();
+  }, AUTO_REFRESH_INTERVAL_MS);
+  document.addEventListener("visibilitychange", refreshWhenStale);
+  window.addEventListener("focus", refreshWhenStale);
+}
+
 export async function refreshDashboard() {
   if (runtime.loading) return;
   runtime.loading = true;
@@ -406,6 +432,7 @@ export async function refreshDashboard() {
 function install() {
   if (!host()) return false;
   renderDashboard();
+  installAutoRefresh();
   window.setTimeout(refreshDashboard, 120);
   return true;
 }
