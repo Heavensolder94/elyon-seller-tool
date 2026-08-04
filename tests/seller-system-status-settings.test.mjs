@@ -60,7 +60,9 @@ test("eBay status is verified directly instead of trusting the initial dashboard
   assert.match(code, /livePublishingEnabled/);
   assert.match(code, /trackingSyncEnabled/);
   assert.match(code, /Server-Synchronisierung/);
-  assert.match(code, /elyon-toggle-track/);\n  assert.match(code, /elyon-toggle-thumb/);\n  assert.match(code, /elyon-toggle-row/);
+  assert.match(code, /elyon-toggle-track/);
+  assert.match(code, /elyon-toggle-thumb/);
+  assert.match(code, /elyon-toggle-row/);
 });
 
 test("verified eBay state updates both settings row and dashboard badge", async () => {
