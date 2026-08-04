@@ -10,6 +10,9 @@ test("eBay listing sync exposes active and unpublished offer counts", async () =
   assert.match(source, /sell\/inventory\/v1\/offer\?limit=/);
   assert.match(source, /status === "PUBLISHED"/);
   assert.match(source, /status === "UNPUBLISHED"/);
+  assert.match(source, /async function handleSyncListings/);
+  assert.match(source, /Nur eindeutig zuordenbare bestehende Produkte/);
+  assert.match(source, /ambiguousItems/);
   assert.match(source, /counts/);
 });
 
@@ -18,6 +21,8 @@ test("listing sync UI is secret-free and uses the protected listings endpoint", 
   assert.match(source, /\/api\/ebay\?action=listings/);
   assert.match(source, /Aktive Angebote/);
   assert.match(source, /Unveröffentlichte Entwürfe/);
+  assert.match(source, /sync-listings/);
+  assert.match(source, /nicht angelegt/);
   assert.doesNotMatch(source, /access_token|refresh_token|client_secret/i);
   execFileSync(process.execPath, ["--check", fileURLToPath(new URL("../seller-ebay-listing-sync.js", import.meta.url))]);
 });
