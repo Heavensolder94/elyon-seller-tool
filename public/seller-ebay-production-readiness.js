@@ -137,7 +137,7 @@
     const autoPublishEnabled = readSelections().autoPublishEnabled === true;
     root.innerHTML = `
       <div class="elyon-ebay-production-head">
-        <div><h3>🚀 eBay-Veröffentlichung</h3><p>Prüft dein eBay-Konto, erstellt zuerst einen kontrollierten Inventory-Entwurf und veröffentlicht erst nach deiner ausdrücklichen Bestätigung.</p></div>
+        <div><h3>🚀 eBay-Veröffentlichung</h3><p>Prüft dein eBay-Konto und erstellt zuerst einen kontrollierten Inventory-Entwurf. Die Live-Veröffentlichung bleibt manuell, solange der grüne Auto-Live-Schalter nicht aktiviert ist.</p></div>
         <span class="elyon-ebay-badge" id="elyonEbayBadge">Setup noch nicht geprüft</span>
       </div>
       <div class="elyon-ebay-grid" id="elyonEbayPolicyGrid">
