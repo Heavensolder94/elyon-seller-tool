@@ -68,9 +68,12 @@
       const incoming = data.state || {};
       serverState = { ...serverState, ...incoming, orderOperations: incoming.orderOperations || {}, invoiceMeta: incoming.invoiceMeta || {}, inventory: incoming.inventory || {}, returns: incoming.returns || {}, safety: incoming.safety || {} };
       serverLoaded = true;
-      if (!Object.keys(serverState.orderOperations).length) serverState.orderOperations = readJson(OPS_KEY, {});
-      if (!Object.keys(serverState.invoiceMeta).length) serverState.invoiceMeta = readJson(META_KEY, {});
+      const hadLocalOps = !Object.keys(serverState.orderOperations).length && Object.keys(readJson(OPS_KEY, {})).length;
+      const hadLocalMeta = !Object.keys(serverState.invoiceMeta).length && Object.keys(readJson(META_KEY, {})).length;
+      if (hadLocalOps) serverState.orderOperations = readJson(OPS_KEY, {});
+      if (hadLocalMeta) serverState.invoiceMeta = readJson(META_KEY, {});
       try { localStorage.setItem(OPS_KEY, JSON.stringify(serverState.orderOperations)); localStorage.setItem(META_KEY, JSON.stringify(serverState.invoiceMeta)); } catch {}
+      if (hadLocalOps || hadLocalMeta) persistServerState();
     } catch (error) {
       serverLoaded = false;
       notify('Server-Sync nicht verfügbar. Lokale Sicherung bleibt erhalten.', 'Synchronisierung');
