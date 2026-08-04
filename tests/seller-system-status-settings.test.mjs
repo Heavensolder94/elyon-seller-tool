@@ -56,7 +56,7 @@ test("eBay status is verified directly instead of trusting the initial dashboard
   assert.match(code, /Status nicht abrufbar/);
   assert.match(code, /refreshEbayStatus/);
   assert.match(code, /STATUS_MAX_AGE_MS/);
-  assert.match(code, /api\\/finance\\?action=status/);
+  assert.match(code, /api\/finance\?action=status/);
   assert.match(code, /livePublishingEnabled/);
   assert.match(code, /trackingSyncEnabled/);
   assert.match(code, /Server-Synchronisierung/);
