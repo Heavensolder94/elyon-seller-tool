@@ -55,6 +55,10 @@ test("finance UI contains all three stages and no destructive storage reset", as
   assert.match(invoiceUi, /data-eoi-invoice/);
   assert.match(invoiceUi, /invoiceNumber/);
   assert.match(invoiceUi, /window\.print/);
+  assert.match(invoiceUi, /elyon_order_operations_v1/);
+  assert.match(invoiceUi, /data-eoi-tracking/);
+  assert.match(invoiceUi, /data-eoi-save/);
+  assert.match(invoiceUi, /eBay wird dadurch nicht automatisch benachrichtigt/);
   assert.doesNotMatch(ui, /localStorage\.clear\s*\(/);
   assert.doesNotMatch(ui, /automatisch.{0,30}(buchen|übermitteln)/i);
 });
