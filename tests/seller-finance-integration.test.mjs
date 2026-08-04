@@ -35,9 +35,9 @@ test("finance workspace stays lazy and is mirrored into the Vercel output", asyn
   assert.match(runtime, /financeTab/);
   assert.match(runtime, /seller-finance\.js/);
   assert.match(runtime, /ElyonSellerFinance/);
-  assert.match(runtime, /seller-order-invoices\\.js/);
+    assert.match(runtime, /seller-order-invoices/);
   assert.match(preparation, /seller-finance-core\.js/);
-  assert.match(preparation, /seller-order-invoices\\.js/);
+    assert.match(preparation, /seller-order-invoices/);
   assert.match(preparation, /seller-finance\.js/);
   assert.doesNotMatch(preparation, /<script[^>]+seller-finance\.js/);
 });
@@ -54,7 +54,7 @@ test("finance UI contains all three stages and no destructive storage reset", as
   const invoiceUi = await read("seller-order-invoices.js");
   assert.match(invoiceUi, /data-eoi-invoice/);
   assert.match(invoiceUi, /invoiceNumber/);
-  assert.match(invoiceUi, /window\\.print/);
+  assert.match(invoiceUi, /window\.print/);
   assert.doesNotMatch(ui, /localStorage\.clear\s*\(/);
   assert.doesNotMatch(ui, /automatisch.{0,30}(buchen|übermitteln)/i);
 });
