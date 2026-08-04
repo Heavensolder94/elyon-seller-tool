@@ -509,7 +509,7 @@ function buildShell(tab) {
       </div>
       <nav class="seller-selling-nav" aria-label="Verkaufsbereiche">
         <button type="button" data-selling-nav="designer"><strong>1 · Listing Designer</strong><span>Titel, Beschreibung, SEO und Design bearbeiten</span></button>
-        <button type="button" data-selling-nav="auto"><strong>2 · eBay Auto Lister</strong><span>Pflichtfelder prüfen und internen Entwurf speichern</span></button>
+        <button type="button" data-selling-nav="auto" title="Interner Prüfschritt; keine direkte eBay-Veröffentlichung."><strong>2 · Listing vorbereiten</strong><span>Pflichtfelder prüfen und internen Entwurf speichern</span></button>
         <button type="button" data-selling-nav="ready"><strong>3 · Bereit zum Einstellen</strong><span>Paket kopieren und manuelles Listing dokumentieren</span></button>
       </nav>
       <div id="sellerSellingStatusLine" class="seller-selling-statusline">Seller-Verkaufsflow geladen. Keine Live-Aktion.</div>
