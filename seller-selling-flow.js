@@ -276,7 +276,7 @@ function designerHeaderHtml(view) {
       <div><h3>🎨 Elyon Listing Designer</h3><p>Nutze den bestehenden vollständigen Titel-, SEO-, KI- und Beschreibungsgenerator. Produktdaten werden nur nach deinem Klick übernommen; bestehende Eingaben werden nicht überschrieben.</p></div>
       <div class="seller-selling-actions">
         <button type="button" class="secondary" id="sellerDesignerFillBtn">Produktdaten übernehmen</button>
-        <button type="button" class="secondary" data-selling-nav-jump="auto">Weiter zum Auto Lister</button>
+        <button type="button" class="secondary" data-selling-nav-jump="auto" title="Listing-Daten vorbereiten; es wird nichts direkt bei eBay veröffentlicht.">Listing vorbereiten</button>
       </div>
     </div>
     <div class="seller-selling-summary">
@@ -509,7 +509,7 @@ function buildShell(tab) {
       </div>
       <nav class="seller-selling-nav" aria-label="Verkaufsbereiche">
         <button type="button" data-selling-nav="designer"><strong>1 · Listing Designer</strong><span>Titel, Beschreibung, SEO und Design bearbeiten</span></button>
-        <button type="button" data-selling-nav="auto"><strong>2 · eBay Auto Lister</strong><span>Pflichtfelder prüfen und internen Entwurf speichern</span></button>
+        <button type="button" data-selling-nav="auto" title="Interner Prüfschritt; keine direkte eBay-Veröffentlichung."><strong>2 · Listing vorbereiten</strong><span>Pflichtfelder prüfen und internen Entwurf speichern</span></button>
         <button type="button" data-selling-nav="ready"><strong>3 · Bereit zum Einstellen</strong><span>Paket kopieren und manuelles Listing dokumentieren</span></button>
       </nav>
       <div id="sellerSellingStatusLine" class="seller-selling-statusline">Seller-Verkaufsflow geladen. Keine Live-Aktion.</div>
