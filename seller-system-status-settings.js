@@ -6,6 +6,7 @@
   const PANEL_ATTRIBUTE = "data-elyon-system-status-panel";
   const PANEL_SELECTOR = `[${PANEL_ATTRIBUTE}="1"], .seller-system-status-panel`;
   const EBAY_STATUS_URL = "/api/ebay/status?environment=production";
+  const FINANCE_STATUS_URL = "/api/finance?action=status";
   const STATUS_MAX_AGE_MS = 15000;
   let observer = null;
   let scheduled = false;
@@ -30,6 +31,8 @@
       #${WRAPPER_ID} [${PANEL_ATTRIBUTE}="1"],#${WRAPPER_ID} .seller-system-status-panel{margin:0;padding:0;background:transparent;border:0;box-shadow:none}
       #${WRAPPER_ID} [${PANEL_ATTRIBUTE}="1"]>.sd-head,#${WRAPPER_ID} .seller-system-status-panel>.sd-head{display:none!important}
       #${WRAPPER_ID} .seller-system-status-placeholder{margin:0;color:#94a3b8;font-size:12px;line-height:1.5}
+      #${WRAPPER_ID} .elyon-finance-sync{margin-top:14px;padding:14px;border:1px solid rgba(148,163,184,.16);border-radius:14px;background:rgba(15,23,42,.42)}
+      #${WRAPPER_ID} .elyon-finance-sync h4{margin:0 0 6px;color:#e2e8f0}#${WRAPPER_ID} .elyon-finance-sync p{margin:4px 0 10px;color:#94a3b8;font-size:12px;line-height:1.45}#${WRAPPER_ID} .elyon-finance-sync label{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:8px 0;color:#cbd5e1;font-size:12px}#${WRAPPER_ID} .elyon-finance-sync input{accent-color:#2563eb}
     `;
     document.head.appendChild(style);
   }
@@ -180,6 +183,41 @@
     return statusRequest;
   }
 
+  async function installFinanceSyncPanel(host) {
+    if (!host || host.querySelector('.elyon-finance-sync')) return;
+    const panel = document.createElement('section');
+    panel.className = 'elyon-finance-sync';
+    panel.innerHTML = '<h4>Server-Synchronisierung</h4><p>Bestellstatus, Rechnungsnummern, Bestand und Retouren werden zentral gespeichert. Lokale Browserdaten bleiben nur als Fallback erhalten.</p><div data-finance-sync-body>Wird geprüft …</div>';
+    host.appendChild(panel);
+    try {
+      const response = await fetch(FINANCE_STATUS_URL, { credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'application/json' } });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || data.ok === false) throw new Error(data.message || data.error || 'HTTP ' + response.status);
+      const store = data.store || {};
+      const safety = data.safety || {};
+      panel.querySelector('[data-finance-sync-body]').innerHTML =
+        '<div><strong class="' + (store.persistent ? 'sd-good' : 'sd-warn') + '">' + (store.persistent ? 'Zentral verbunden' : 'Nicht persistent konfiguriert') + '</strong><br><span>Speicher: ' + text(store.source || store.mode || 'unbekannt') + '</span></div>' +
+        '<label>Live-Veröffentlichung erlaubt<input type="checkbox" data-finance-safety="livePublishingEnabled" ' + (safety.livePublishingEnabled ? 'checked' : '') + '></label>' +
+        '<label>Tracking an eBay übertragen<input type="checkbox" data-finance-safety="trackingSyncEnabled" ' + (safety.trackingSyncEnabled ? 'checked' : '') + '></label>' +
+        '<small>Beide Schalter bleiben standardmäßig aus. Aktivieren allein führt keine Veröffentlichung oder Nachricht aus.</small>';
+      panel.querySelectorAll('[data-finance-safety]').forEach((input) => input.addEventListener('change', async () => {
+        const next = { ...safety, [input.dataset.financeSafety]: input.checked };
+        input.disabled = true;
+        try {
+          const save = await fetch('/api/finance?action=save', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ state: { safety: next }, action: 'seller_safety_settings_update', source: 'seller_settings' }) });
+          const saved = await save.json().catch(() => ({}));
+          if (!save.ok || saved.ok === false) throw new Error(saved.message || saved.error || 'Speichern fehlgeschlagen');
+          notify('Sicherheitseinstellung gespeichert.', 'Seller Einstellungen');
+        } catch (error) {
+          input.checked = !input.checked;
+          notify(error.message, 'Seller Einstellungen');
+        } finally { input.disabled = false; }
+      }));
+    } catch (error) {
+      panel.querySelector('[data-finance-sync-body]').innerHTML = '<span class="sd-warn">Status nicht abrufbar: ' + text(error.message) + '</span>';
+    }
+  }
+
   function moveSystemStatusToSettings() {
     scheduled = false;
     installStyles();
@@ -199,6 +237,7 @@
     if (lastConnected === null) applyEbayStatus("checking");
     else applyEbayStatus(lastConnected ? "connected" : "disconnected", lastStatusError);
     verifyEbayStatus();
+    installFinanceSyncPanel(target.host);
     return true;
   }
 
