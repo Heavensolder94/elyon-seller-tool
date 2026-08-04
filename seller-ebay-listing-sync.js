@@ -16,6 +16,20 @@
         if (!response.ok) throw new Error(data.message || data.error || `HTTP ${response.status}`);
         return data;
       })
+      .then(async (data) => {
+        try {
+          const syncResponse = await fetch("/api/ebay?action=sync-listings&environment=production", {
+            method: "POST",
+            credentials: "same-origin",
+            cache: "no-store",
+            headers: { Accept: "application/json", "Content-Type": "application/json" },
+            body: JSON.stringify({ environment: "production" }),
+          });
+          const sync = await syncResponse.json().catch(() => ({}));
+          if (syncResponse.ok && sync.ok !== false) data.sync = sync;
+        } catch {}
+        return data;
+      })
       .then(render)
       .catch((error) => renderError(error))
       .finally(() => { request = null; });
@@ -42,8 +56,15 @@
     const active = number(counts.active);
     const drafts = number(counts.drafts);
     const other = number(counts.other);
+    const sync = data?.sync || {};
+    const matched = number(sync.matched);
+    const unmatched = number(sync.unmatched);
+    const ambiguous = number(sync.ambiguous);
     const syncedAt = data?.syncedAt ? new Date(data.syncedAt).toLocaleString("de-DE") : "gerade eben";
-    card.innerHTML = `<div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap"><div><h2>🛒 eBay-Angebote</h2><p class="hint">Direkt aus deinem verbundenen eBay-Konto. Keine Veröffentlichung wird automatisch ausgelöst.</p></div><button type="button" class="secondary" id="elyonEbayListingSyncRefresh">Jetzt synchronisieren</button></div><div class="dashboard" style="margin-bottom:0"><div class="metric"><small>Aktive Angebote</small><strong>${active}</strong></div><div class="metric"><small>Unveröffentlichte Entwürfe</small><strong>${drafts}</strong></div><div class="metric"><small>Sonstige eBay-Offers</small><strong>${other}</strong></div><div class="metric"><small>Letzte Synchronisation</small><strong style="font-size:14px">${syncedAt}</strong></div></div><p class="hint" style="margin-top:12px;margin-bottom:0">Offer-ID, Listing-ID und SKU werden für die spätere Zuordnung mitgeliefert. Bereits bekannte Datensätze dürfen nicht doppelt übernommen werden.</p>`;
+    const syncText = sync.ok === true
+      ? `${matched} eindeutig zugeordnet, ${unmatched} nicht zugeordnet, ${ambiguous} mehrdeutig. Unbekannte Angebote wurden nicht angelegt.`
+      : "Zuordnung wartet auf den persistenten Product Master.";
+    card.innerHTML = `<div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap"><div><h2>🛒 eBay-Angebote</h2><p class="hint">Direkt aus deinem verbundenen eBay-Konto. Keine Veröffentlichung wird automatisch ausgelöst.</p></div><button type="button" class="secondary" id="elyonEbayListingSyncRefresh">Jetzt synchronisieren</button></div><div class="dashboard" style="margin-bottom:0"><div class="metric"><small>Aktive Angebote</small><strong>${active}</strong></div><div class="metric"><small>Unveröffentlichte Entwürfe</small><strong>${drafts}</strong></div><div class="metric"><small>Sonstige eBay-Offers</small><strong>${other}</strong></div><div class="metric"><small>Letzte Synchronisation</small><strong style="font-size:14px">${syncedAt}</strong></div></div><p class="hint" style="margin-top:12px;margin-bottom:0">${syncText} Zuordnung erfolgt nur über vorhandene SKU, Offer-ID oder Listing-ID; es werden keine neuen Produktdatensätze automatisch erfunden.</p>`;
     card.querySelector("#elyonEbayListingSyncRefresh")?.addEventListener("click", load, { once: true });
     return data;
   }

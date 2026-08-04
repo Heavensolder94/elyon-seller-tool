@@ -13,6 +13,7 @@ import {
   withdrawEbayOffer,
   publicEbayError,
 } from "../../lib/ebay-production.js";
+import { readProductMasterList, writeProductMasterList } from "../../lib/product-master-store.js";
 
 function text(value) {
   return String(value ?? "").trim();
@@ -290,8 +291,7 @@ async function handleOrders(req, res) {
   return res.status(200).json({ ok: true, environment, days, status, count: data.orders?.length || 0, orders: data.orders || [] });
 }
 
-async function handleListings(req, res) {
-  const environment = environmentFrom(req);
+async function fetchListingItems(environment) {
   const session = await ebayUserSession(environment);
   const limit = 200;
   const offers = [];
@@ -308,7 +308,11 @@ async function handleListings(req, res) {
       },
     });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok) return res.status(response.status).json({ ok: false, error: data.errors?.[0]?.message || data.message || "eBay-Angebote konnten nicht abgerufen werden." });
+    if (!response.ok) {
+      const error = new Error(data.errors?.[0]?.message || data.message || "eBay-Angebote konnten nicht abgerufen werden.");
+      error.status = response.status;
+      throw error;
+    }
     const pageOffers = Array.isArray(data.offers) ? data.offers : [];
     total = Number.isFinite(Number(data.total)) ? Number(data.total) : total;
     offers.push(...pageOffers);
@@ -334,7 +338,107 @@ async function handleListings(req, res) {
     else result.other += 1;
     return result;
   }, { active: 0, drafts: 0, other: 0 });
-  return res.status(200).json({ ok: true, environment, total: items.length, counts, items, syncedAt: new Date().toISOString() });
+  return { items, counts, syncedAt: new Date().toISOString() };
+}
+
+function identityValues(entry = {}) {
+  const raw = entry?.raw && typeof entry.raw === "object" ? entry.raw : {};
+  const listing = entry?.listing && typeof entry.listing === "object" ? entry.listing : {};
+  const rawListing = raw?.listing && typeof raw.listing === "object" ? raw.listing : {};
+  const draft = raw?.autoListerDraft && typeof raw.autoListerDraft === "object" ? raw.autoListerDraft : {};
+  return new Set([
+    entry.sku, entry.offerId, entry.ebayItemId, entry.listingId,
+    listing.sku, listing.offerId, listing.ebayItemId, listing.listingId,
+    raw.sku, raw.offerId, raw.ebayItemId, raw.listingId,
+    rawListing.sku, rawListing.offerId, rawListing.ebayItemId, rawListing.listingId,
+    draft.sku, draft.offerId, draft.listingId,
+  ].map(text).filter(Boolean));
+}
+
+function mergeListingMetadata(entry, item, syncedAt) {
+  const raw = entry?.raw && typeof entry.raw === "object" ? entry.raw : {};
+  const listing = entry?.listing && typeof entry.listing === "object" ? entry.listing : {};
+  return {
+    ...entry,
+    offerId: item.offerId || entry.offerId || "",
+    ebayItemId: item.listingId || entry.ebayItemId || "",
+    listingStatus: item.status === "PUBLISHED" ? "active" : item.status === "UNPUBLISHED" ? "ebay_draft_created" : item.status.toLowerCase(),
+    listing: {
+      ...listing,
+      offerId: item.offerId,
+      ebayItemId: item.listingId || listing.ebayItemId,
+      listingUrl: item.listingUrl || listing.listingUrl,
+      ebayStatus: item.status,
+      quantity: item.quantity,
+      lastSyncedAt: syncedAt,
+    },
+    raw: {
+      ...raw,
+      offerId: item.offerId || raw.offerId,
+      ebayItemId: item.listingId || raw.ebayItemId,
+      listingStatus: item.status === "PUBLISHED" ? "active" : item.status === "UNPUBLISHED" ? "ebay_draft_created" : item.status.toLowerCase(),
+      listing: {
+        ...(raw.listing && typeof raw.listing === "object" ? raw.listing : {}),
+        offerId: item.offerId,
+        ebayItemId: item.listingId,
+        listingUrl: item.listingUrl,
+        ebayStatus: item.status,
+        quantity: item.quantity,
+        lastSyncedAt: syncedAt,
+      },
+    },
+    updatedAt: syncedAt,
+  };
+}
+
+async function handleListings(req, res) {
+  const environment = environmentFrom(req);
+  const result = await fetchListingItems(environment);
+  return res.status(200).json({ ok: true, environment, total: result.items.length, ...result });
+}
+
+async function handleSyncListings(req, res) {
+  if (String(req?.method || "GET").toUpperCase() !== "POST") {
+    return res.status(405).json({ ok: false, error: "method_not_allowed", message: "Die eBay-Zuordnung benötigt POST." });
+  }
+  const environment = environmentFrom(req);
+  const result = await fetchListingItems(environment);
+  const products = await readProductMasterList("elyon_products");
+  const next = [...products];
+  const matched = [];
+  const unmatched = [];
+  const ambiguous = [];
+  for (const item of result.items) {
+    const matches = next
+      .map((entry, index) => ({ entry, index }))
+      .filter(({ entry }) => {
+        const ids = identityValues(entry);
+        return [item.sku, item.offerId, item.listingId].map(text).filter(Boolean).some((id) => ids.has(id));
+      });
+    if (matches.length === 1) {
+      const syncedAt = result.syncedAt;
+      next[matches[0].index] = mergeListingMetadata(matches[0].entry, item, syncedAt);
+      matched.push({ offerId: item.offerId, sku: item.sku, listingId: item.listingId });
+    } else if (matches.length > 1) {
+      ambiguous.push({ offerId: item.offerId, sku: item.sku, listingId: item.listingId, matches: matches.length });
+    } else {
+      unmatched.push({ offerId: item.offerId, sku: item.sku, listingId: item.listingId, title: item.title });
+    }
+  }
+  const storage = matched.length ? await writeProductMasterList("elyon_products", next) : { persisted: false, mode: "read_only_no_matches" };
+  return res.status(200).json({
+    ok: true,
+    environment,
+    counts: result.counts,
+    syncedAt: result.syncedAt,
+    matched: matched.length,
+    unmatched: unmatched.length,
+    ambiguous: ambiguous.length,
+    unmatchedItems: unmatched,
+    ambiguousItems: ambiguous,
+    storage,
+    message: "Nur eindeutig zuordenbare bestehende Produkte wurden aktualisiert. Unbekannte oder mehrdeutige Angebote wurden nicht angelegt.",
+  });
 }
 
 async function handleProductionAction(req, res, action) {
@@ -358,6 +462,7 @@ export default async function handler(req, res) {
     if (action === "competition") return handleCompetition(req, res);
     if (action === "orders") return handleOrders(req, res);
     if (action === "listings") return handleListings(req, res);
+    if (action === "sync-listings") return handleSyncListings(req, res);
     if (["setup", "create-draft", "draft", "publish", "withdraw"].includes(action)) return handleProductionAction(req, res, action);
     return res.status(404).json({ ok: false, error: `Unbekannte eBay API Route: ${action}` });
   } catch (error) {
