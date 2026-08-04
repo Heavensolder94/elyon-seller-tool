@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const VERSION = "order-center-20260804-1";
+  const VERSION = "seller-operations-20260804-1";
   const LEGACY_QUICKSTART_BRIDGE_FLAG = "__elyonModernQuickstartBridge";
   const loaded = new Map();
   const groupLoads = new Map();
