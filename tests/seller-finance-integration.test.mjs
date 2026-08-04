@@ -96,6 +96,13 @@ test("normalized finance originals exclude buyer identity fields", async () => {
   assert.doesNotMatch(core, /buyerUsername|buyerEmail|buyerAddress|shippingAddress/);
 });
 
+test("eBay refresh preserves existing granted scopes unless explicitly overridden", async () => {
+  const ebay = await read("lib/ebay-production.js");
+  assert.match(ebay, /refreshBody = new URLSearchParams/);
+  assert.match(ebay, /EBAY_REFRESH_SCOPES/);
+  assert.doesNotMatch(ebay, /refresh_token: text\(refreshToken\),\n\s*scope: configuredEbayScopes/);
+});
+
 test("central store keeps seller operations and safety flags separate from buyer data", async () => {
   const store = await read("lib/finance-store.js");
   assert.match(store, /orderOperations/);
