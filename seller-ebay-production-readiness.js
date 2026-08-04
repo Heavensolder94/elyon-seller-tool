@@ -79,6 +79,7 @@
       .elyon-ebay-actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:14px}.elyon-ebay-actions button{min-height:40px}.elyon-ebay-actions button.danger{background:rgba(239,68,68,.14);border:1px solid rgba(239,68,68,.26);color:#fecaca}
       .elyon-ebay-status{margin-top:12px;padding:11px 13px;border-radius:14px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);color:#cbd5e1;font-size:11px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere}.elyon-ebay-status.good{background:rgba(34,197,94,.08);border-color:rgba(34,197,94,.22);color:#bbf7d0}.elyon-ebay-status.bad{background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.22);color:#fecaca}
       .elyon-ebay-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:12px}.elyon-ebay-summary div{padding:10px;border-radius:14px;background:rgba(2,6,23,.42);border:1px solid rgba(255,255,255,.08)}.elyon-ebay-summary small{display:block;color:#94a3b8;font-size:9px;text-transform:uppercase;letter-spacing:.05em}.elyon-ebay-summary strong{display:block;margin-top:4px;font-size:12px;overflow-wrap:anywhere}
+      .elyon-ebay-auto-row{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:14px;padding:12px 14px;border-radius:16px;background:rgba(2,6,23,.36);border:1px solid rgba(255,255,255,.09)}.elyon-ebay-auto-copy{min-width:0}.elyon-ebay-auto-copy strong{display:block;color:#f8fafc;font-size:12px}.elyon-ebay-auto-copy span{display:block;margin-top:3px;color:#94a3b8;font-size:11px;line-height:1.45}.elyon-ebay-toggle{position:relative;display:inline-flex;align-items:center;flex:0 0 auto}.elyon-ebay-toggle input{position:absolute;opacity:0;width:1px;height:1px}.elyon-ebay-toggle-track{position:relative;width:50px;height:30px;border-radius:999px;background:#64748b;box-shadow:inset 0 0 0 1px rgba(255,255,255,.22);transition:background .18s ease,box-shadow .18s ease;cursor:pointer}.elyon-ebay-toggle-track::after{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#fff;box-shadow:0 2px 7px rgba(0,0,0,.3);transition:transform .18s ease}.elyon-ebay-toggle input:checked + .elyon-ebay-toggle-track{background:#22c55e;box-shadow:inset 0 0 0 1px rgba(134,239,172,.4),0 0 0 3px rgba(34,197,94,.1)}.elyon-ebay-toggle input:checked + .elyon-ebay-toggle-track::after{transform:translateX(20px)}.elyon-ebay-toggle input:focus-visible + .elyon-ebay-toggle-track{outline:3px solid rgba(96,165,250,.65);outline-offset:3px}
       @media(max-width:760px){.elyon-ebay-grid{grid-template-columns:1fr}.elyon-ebay-summary{grid-template-columns:1fr 1fr}.elyon-ebay-actions{display:grid;grid-template-columns:1fr}.elyon-ebay-actions button{width:100%}}
     `;
     document.head.appendChild(style);
@@ -133,6 +134,7 @@
     }
     const product = selectedProduct();
     const state = listingState(product || {});
+    const autoPublishEnabled = readSelections().autoPublishEnabled === true;
     root.innerHTML = `
       <div class="elyon-ebay-production-head">
         <div><h3>🚀 eBay-Veröffentlichung</h3><p>Prüft dein eBay-Konto, erstellt zuerst einen kontrollierten Inventory-Entwurf und veröffentlicht erst nach deiner ausdrücklichen Bestätigung.</p></div>
@@ -149,6 +151,10 @@
         <div><small>Offer ID</small><strong id="elyonEbayOffer">${esc(state.offerId || "noch offen")}</strong></div>
         <div><small>Listing ID</small><strong id="elyonEbayListing">${esc(state.listingId || "noch nicht live")}</strong></div>
         <div><small>Status</small><strong id="elyonEbayState">${esc(state.status)}</strong></div>
+      </div>
+      <div class="elyon-ebay-auto-row">
+        <div class="elyon-ebay-auto-copy"><strong>Automatisch live veröffentlichen</strong><span>${autoPublishEnabled ? "Nach erfolgreicher Entwurf- und Pflichtdatenprüfung wird das Angebot automatisch öffentlich aktiviert." : "Aus: Es wird nur ein unveröffentlichter Entwurf erstellt. Die Veröffentlichung bleibt manuell."}</span></div>
+        <label class="elyon-ebay-toggle" title="Automatische eBay-Veröffentlichung"><input type="checkbox" id="elyonEbayAutoPublishToggle" ${autoPublishEnabled ? "checked" : ""} aria-label="Automatisch live veröffentlichen"><span class="elyon-ebay-toggle-track" aria-hidden="true"></span></label>
       </div>
       <div class="elyon-ebay-actions">
         <button type="button" class="secondary" id="elyonEbaySetupBtn">eBay-Setup prüfen</button>
@@ -316,7 +322,18 @@
       document.getElementById("elyonEbayOffer").textContent = data.offerId || "offen";
       document.getElementById("elyonEbayState").textContent = "ebay_draft_created";
       document.getElementById("elyonEbayPublishBtn").disabled = !data.offerId;
-      status("eBay-Entwurf wurde erstellt und von eBay zurückgelesen. Das Angebot ist noch nicht live.", "good");
+      if (readSelections().autoPublishEnabled === true) {
+        if (!data.offerId) throw new Error("Automatische Veröffentlichung abgebrochen: eBay hat keine Offer-ID zurückgegeben.");
+        status("Entwurf erstellt. Automatische Live-Veröffentlichung wird jetzt ausgeführt …");
+        const published = await api("publish", { method: "POST", body: productPayload({ confirmation: "PUBLISH_EBAY_OFFER", offerId: data.offerId }) });
+        await persistResult(published, "active");
+        document.getElementById("elyonEbayListing").textContent = published.listingId || "live";
+        document.getElementById("elyonEbayState").textContent = "active";
+        document.getElementById("elyonEbayWithdrawBtn").disabled = false;
+        status(`Entwurf erstellt und automatisch live veröffentlicht. eBay Listing-ID: ${published.listingId}`, "good");
+      } else {
+        status("eBay-Entwurf wurde erstellt und von eBay zurückgelesen. Das Angebot ist noch nicht live.", "good");
+      }
     } catch (error) {
       const blockers = error.data?.details?.blockers || [];
       status([error.message, ...blockers].filter(Boolean).join("\n"), "bad");
@@ -374,6 +391,16 @@
     root.querySelector("#elyonEbayDraftBtn")?.addEventListener("click", (event) => createDraft(event.currentTarget));
     root.querySelector("#elyonEbayPublishBtn")?.addEventListener("click", (event) => publish(event.currentTarget));
     root.querySelector("#elyonEbayWithdrawBtn")?.addEventListener("click", (event) => withdraw(event.currentTarget));
+    root.querySelector("#elyonEbayAutoPublishToggle")?.addEventListener("change", (event) => {
+      const toggle = event.currentTarget;
+      if (toggle.checked && !window.confirm("Wenn du den Schalter aktivierst, kann ein erfolgreicher Entwurf anschließend automatisch öffentlich und kostenpflichtig bei eBay aktiviert werden. Fortfahren?")) {
+        toggle.checked = false;
+        return;
+      }
+      saveSelections({ autoPublishEnabled: toggle.checked });
+      renderShell();
+      status(toggle.checked ? "Automatische Live-Veröffentlichung ist aktiviert. Prüfe vor dem nächsten Entwurf alle Produktdaten." : "Automatische Live-Veröffentlichung ist deaktiviert. Neue Angebote bleiben als Entwurf gespeichert.", toggle.checked ? "bad" : "good");
+    });
     ["elyonEbayFulfillment", "elyonEbayPayment", "elyonEbayReturn", "elyonEbayLocation"].forEach((id) => {
       root.querySelector(`#${id}`)?.addEventListener("change", () => saveSelections(selectedSetupPayload()));
     });
