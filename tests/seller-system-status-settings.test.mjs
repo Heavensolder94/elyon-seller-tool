@@ -56,7 +56,10 @@ test("eBay status is verified directly instead of trusting the initial dashboard
   assert.match(code, /Status nicht abrufbar/);
   assert.match(code, /refreshEbayStatus/);
   assert.match(code, /STATUS_MAX_AGE_MS/);
-  assert.match(code, /api\\/finance\\?action=status/);\n  assert.match(code, /livePublishingEnabled/);\n  assert.match(code, /trackingSyncEnabled/);\n  assert.match(code, /Server-Synchronisierung/);
+  assert.match(code, /api\\/finance\\?action=status/);
+  assert.match(code, /livePublishingEnabled/);
+  assert.match(code, /trackingSyncEnabled/);
+  assert.match(code, /Server-Synchronisierung/);
 });
 
 test("verified eBay state updates both settings row and dashboard badge", async () => {
