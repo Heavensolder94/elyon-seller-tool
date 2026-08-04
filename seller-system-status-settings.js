@@ -18,6 +18,7 @@
 
   const text = (value) => String(value ?? "").trim();
   const normalized = (value) => text(value).toLocaleLowerCase("de-DE").replace(/\s+/g, " ");
+  const notify = (message, eyebrow) => { if (typeof window.toast === "function") window.toast(message, eyebrow || "Seller Einstellungen"); };
 
   function installStyles() {
     if (document.getElementById(STYLE_ID)) return;
