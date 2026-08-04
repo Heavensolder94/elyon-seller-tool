@@ -96,6 +96,17 @@ test("normalized finance originals exclude buyer identity fields", async () => {
   assert.doesNotMatch(core, /buyerUsername|buyerEmail|buyerAddress|shippingAddress/);
 });
 
+test("central store keeps seller operations and safety flags separate from buyer data", async () => {
+  const store = await read("lib/finance-store.js");
+  assert.match(store, /orderOperations/);
+  assert.match(store, /invoiceMeta/);
+  assert.match(store, /inventory/);
+  assert.match(store, /returns/);
+  assert.match(store, /livePublishingEnabled/);
+  assert.match(store, /trackingSyncEnabled/);
+  assert.doesNotMatch(store, /buyerEmail|buyerAddress|shippingAddress/);
+});
+
 test("Vercel deployment runs tests before creating output", async () => {
   const vercel = JSON.parse(await read("vercel.json"));
   assert.match(vercel.buildCommand, /^npm test &&/);
