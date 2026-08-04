@@ -93,7 +93,7 @@ export default async function handler(req, res) {
     }
   }
 
-  const protectedActions = new Set(["token", "orders", "setup", "create-draft", "draft", "publish", "withdraw"]);
+  const protectedActions = new Set(["token", "orders", "listings", "setup", "create-draft", "draft", "publish", "withdraw"]);
   if (protectedActions.has(action)) {
     if (!requireSellerAccess(req, res, { maxBodyBytes: 1024 * 1024 })) return;
   }
