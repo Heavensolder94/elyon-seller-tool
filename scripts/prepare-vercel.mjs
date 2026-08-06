@@ -56,13 +56,29 @@ function injectDesktopSecurity(html) {
     '<script defer src="/seller-ebay-listing-sync.js"></script>',
     '<script defer src="/seller-virtual-agents-policy.js"></script>',
     '<script defer src="/seller-runtime-loader.js"></script>',
-    '<script defer src="/seller-ai-workforce-v2-settings.js"></script>',
-    '<script defer src="/seller-ai-workforce-structure-v2.js"></script>',
     '<style>#elyonSellerSellingFlow.focused-selling-active > .card:first-of-type{display:none!important}</style>',
     '<script type="module" src="/seller-dashboard-v2.js"></script>',
   ].join("\n");
 
   return injectMarkedBlock(html, { startMarker, endMarker, content });
+}
+
+function injectWorkforceV2IntoRuntimeLoader(source) {
+  const entryMarker = '      { src: "/seller-ai-workforce-advanced-settings.js" },';
+  const activationMarker = "      window.ElyonAIWorkforceAdvancedSettings?.refresh?.();";
+  if (!source.includes(entryMarker) || !source.includes(activationMarker)) {
+    throw new Error("Virtual-Agent-Runtime konnte nicht um Workforce V2 erweitert werden.");
+  }
+  return source
+    .replace(entryMarker, [
+      entryMarker,
+      '      { src: "/seller-ai-workforce-v2-settings.js" },',
+      '      { src: "/seller-ai-workforce-structure-v2.js" },',
+    ].join("\n"))
+    .replace(activationMarker, [
+      activationMarker,
+      "      window.ElyonAIWorkforceV2?.render?.();",
+    ].join("\n"));
 }
 
 const filesToMirror = [
@@ -139,7 +155,7 @@ const [runtimeLoaderRaw, aiWorkforceClientRaw, advancedAgentSettingsRaw] = await
   readFile(path.join(appRoot, "ai-workforce-client.js"), "utf8"),
   readFile(path.join(appRoot, "seller-ai-workforce-advanced-settings.js"), "utf8"),
 ]);
-const runtimeLoaderSource = optimizeVirtualAgentsRuntimeLoader(runtimeLoaderRaw);
+const runtimeLoaderSource = injectWorkforceV2IntoRuntimeLoader(optimizeVirtualAgentsRuntimeLoader(runtimeLoaderRaw));
 const aiWorkforceClientSource = optimizeAiWorkforceClient(aiWorkforceClientRaw);
 const advancedAgentSettingsSource = optimizeAdvancedAgentSettings(advancedAgentSettingsRaw);
 await Promise.all([
@@ -194,4 +210,4 @@ const envStatus = {
 console.log("Google/security/AI env status:", JSON.stringify(envStatus));
 console.log("Desktop runtime extraction:", JSON.stringify(desktopRuntime.metrics));
 console.log("Desktop performance budget:", JSON.stringify(performanceAudit.metrics));
-console.log("Prepared Vercel output with Elyon Manager workforce v2, seven specialist agents, protected deterministic orchestration, draft quality checks, stable virtual-agent runtime, and enforced performance budgets.");
+console.log("Prepared Vercel output with lazy-loaded Elyon Manager workforce v2, seven specialist agents, protected deterministic orchestration, draft quality checks, stable virtual-agent runtime, and enforced performance budgets.");
