@@ -1,9 +1,9 @@
 import { requireSellerAccess } from "../lib/seller-access.js";
+import { createManagerPlan } from "../lib/ai-workforce-manager-v2.js";
 import {
   EXTERNAL_ACTIONS_LOCKED,
   MAIN_AGENT_ID,
   STRUCTURE_VERSION,
-  assessWorkflow,
   evaluateDraftQuality,
   listAgentStructure,
 } from "../lib/ai-workforce-structure-v2.js";
@@ -65,7 +65,7 @@ function runManager(body) {
   const startedAt = Date.now();
   const context = plainObject(body.input || body.context || body.data);
   const tasks = safeTasks(body.tasks || context.tasks);
-  const plan = assessWorkflow({ context, tasks });
+  const plan = createManagerPlan({ context, tasks, workflowType: text(body.workflowType, 50) || "product" });
   const result = {
     summary: plan.summary,
     status: plan.status === "blocked" ? "blocked" : "manualReviewRequired",
