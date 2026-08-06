@@ -28,18 +28,6 @@
         { value: "gpt-4o", label: "GPT-4o · Legacy-Kompatibilität" },
       ],
     },
-    qwen: {
-      label: "Qwen",
-      defaultModel: "qwen-plus",
-      models: [
-        { value: "qwen3.6-flash", label: "Qwen 3.6 Flash · schnell & günstig" },
-        { value: "qwen3.7-plus", label: "Qwen 3.7 Plus · ausgewogen" },
-        { value: "qwen3.7-max", label: "Qwen 3.7 Max · höchste Qualität" },
-        { value: "qwen-flash", label: "Qwen Flash · kompatibler Alias" },
-        { value: "qwen-plus", label: "Qwen Plus · kompatibler Alias" },
-        { value: "qwen-max", label: "Qwen Max · kompatibler Alias" },
-      ],
-    },
     local: {
       label: "Lokal",
       defaultModel: "local",
@@ -145,12 +133,22 @@
     writeWorkforceSettings(settings);
   }
 
-  function ensureProviderOption(select, provider) {
-    if (!select || [...select.options].some((option) => option.value === provider)) return;
-    const option = document.createElement("option");
-    option.value = provider;
-    option.textContent = PROVIDERS[provider].label;
-    select.appendChild(option);
+  function syncProviderOptions(select, provider) {
+    if (!select) return;
+    const definitions = Object.entries(PROVIDERS).map(([value, definition]) => ({ value, label: definition.label }));
+    const desiredSignature = definitions.map((entry) => `${entry.value}:${entry.label}`).join("|");
+    const currentSignature = [...select.options].map((option) => `${option.value}:${option.textContent}`).join("|");
+    if (currentSignature !== desiredSignature) {
+      const fragment = document.createDocumentFragment();
+      definitions.forEach((entry) => {
+        const option = document.createElement("option");
+        option.value = entry.value;
+        option.textContent = entry.label;
+        fragment.appendChild(option);
+      });
+      select.replaceChildren(fragment);
+    }
+    if (select.value !== provider) select.value = provider;
   }
 
   function syncModelOptions(select, provider, model) {
@@ -176,10 +174,7 @@
   function syncControls(pair) {
     const providerSelect = document.getElementById(PROVIDER_SELECT_ID);
     const modelSelect = document.getElementById(MODEL_SELECT_ID);
-    if (providerSelect) {
-      ensureProviderOption(providerSelect, pair.provider);
-      if (providerSelect.value !== pair.provider) providerSelect.value = pair.provider;
-    }
+    syncProviderOptions(providerSelect, pair.provider);
     syncModelOptions(modelSelect, pair.provider, pair.model);
   }
 
@@ -194,9 +189,10 @@
       const agent = agents[agentId] && typeof agents[agentId] === "object" ? agents[agentId] : {};
       const providerSelect = card.querySelector('select[data-field="provider"]');
       const control = card.querySelector('[data-field="model"]');
-      const provider = normalizeProvider(providerSelect?.value || agent.provider);
-      const pair = normalizePair(provider, control?.value || agent.model);
+      const pair = normalizePair(providerSelect?.value || agent.provider, control?.value || agent.model);
       let modelSelect = control;
+
+      syncProviderOptions(providerSelect, pair.provider);
 
       if (!(control instanceof HTMLSelectElement) || control.dataset.elyonWorkforceModelSelector !== "true") {
         modelSelect = document.createElement("select");
