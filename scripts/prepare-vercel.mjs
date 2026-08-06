@@ -27,6 +27,8 @@ const mobileModuleScripts = [
   "seller-ai-workforce-advanced-settings.js",
   "ai-workforce-client.js",
   "ai-workforce-mount-fix.js",
+  "seller-ai-workforce-v2-settings.js",
+  "seller-ai-workforce-structure-v2.js",
   "mobile-bootstrap.js",
   "mobile-more-ui.js",
   "mobile-selling-entry.js",
@@ -54,6 +56,8 @@ function injectDesktopSecurity(html) {
     '<script defer src="/seller-ebay-listing-sync.js"></script>',
     '<script defer src="/seller-virtual-agents-policy.js"></script>',
     '<script defer src="/seller-runtime-loader.js"></script>',
+    '<script defer src="/seller-ai-workforce-v2-settings.js"></script>',
+    '<script defer src="/seller-ai-workforce-structure-v2.js"></script>',
     '<style>#elyonSellerSellingFlow.focused-selling-active > .card:first-of-type{display:none!important}</style>',
     '<script type="module" src="/seller-dashboard-v2.js"></script>',
   ].join("\n");
@@ -95,6 +99,8 @@ const filesToMirror = [
   ["seller-ai-settings-label.js", "public/seller-ai-settings-label.js"],
   ["seller-ai-provider-model-guard.js", "public/seller-ai-provider-model-guard.js"],
   ["seller-ai-workforce-advanced-settings.js", "public/seller-ai-workforce-advanced-settings.js"],
+  ["seller-ai-workforce-v2-settings.js", "public/seller-ai-workforce-v2-settings.js"],
+  ["seller-ai-workforce-structure-v2.js", "public/seller-ai-workforce-structure-v2.js"],
   ["ai-workforce-client.js", "public/ai-workforce-client.js"],
   ["ai-workforce-mount-fix.js", "public/ai-workforce-mount-fix.js"],
   ["seller-ebay-api-status.js", "public/seller-ebay-api-status.js"],
@@ -188,4 +194,4 @@ const envStatus = {
 console.log("Google/security/AI env status:", JSON.stringify(envStatus));
 console.log("Desktop runtime extraction:", JSON.stringify(desktopRuntime.metrics));
 console.log("Desktop performance budget:", JSON.stringify(performanceAudit.metrics));
-console.log("Prepared Vercel output with stable virtual-agent runtime, enforced performance budgets, minimal dashboard startup, extracted desktop core, lazy XLSX import, lazy quickstart, lazy selling workspace, lazy finance workspace, and lazy settings.");
+console.log("Prepared Vercel output with Elyon Manager workforce v2, seven specialist agents, protected deterministic orchestration, draft quality checks, stable virtual-agent runtime, and enforced performance budgets.");
