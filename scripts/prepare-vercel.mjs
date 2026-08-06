@@ -30,6 +30,7 @@ const mobileModuleScripts = [
   "seller-ai-workforce-v2-settings.js",
   "seller-ai-workforce-structure-v2.js",
   "seller-ai-workforce-v2-operations.js",
+  "seller-ai-workforce-workspace-v3.js",
   "mobile-bootstrap.js",
   "mobile-more-ui.js",
   "mobile-selling-entry.js",
@@ -68,7 +69,7 @@ function injectWorkforceV2IntoRuntimeLoader(source) {
   const entryMarker = '      { src: "/seller-ai-workforce-advanced-settings.js" },';
   const activationMarker = "      window.ElyonAIWorkforceAdvancedSettings?.refresh?.();";
   if (!source.includes(entryMarker) || !source.includes(activationMarker)) {
-    throw new Error("Virtual-Agent-Runtime konnte nicht um Workforce V2 erweitert werden.");
+    throw new Error("Virtual-Agent-Runtime konnte nicht um Workforce V3 erweitert werden.");
   }
   return source
     .replace(entryMarker, [
@@ -76,10 +77,12 @@ function injectWorkforceV2IntoRuntimeLoader(source) {
       '      { src: "/seller-ai-workforce-v2-settings.js" },',
       '      { src: "/seller-ai-workforce-structure-v2.js" },',
       '      { src: "/seller-ai-workforce-v2-operations.js" },',
+      '      { src: "/seller-ai-workforce-workspace-v3.js" },',
     ].join("\n"))
     .replace(activationMarker, [
       activationMarker,
       "      window.ElyonAIWorkforceV2?.render?.();",
+      "      window.ElyonAIWorkforceWorkspaceV3?.render?.();",
     ].join("\n"));
 }
 
@@ -120,6 +123,7 @@ const filesToMirror = [
   ["seller-ai-workforce-v2-settings.js", "public/seller-ai-workforce-v2-settings.js"],
   ["seller-ai-workforce-structure-v2.js", "public/seller-ai-workforce-structure-v2.js"],
   ["seller-ai-workforce-v2-operations.js", "public/seller-ai-workforce-v2-operations.js"],
+  ["seller-ai-workforce-workspace-v3.js", "public/seller-ai-workforce-workspace-v3.js"],
   ["ai-workforce-client.js", "public/ai-workforce-client.js"],
   ["ai-workforce-mount-fix.js", "public/ai-workforce-mount-fix.js"],
   ["seller-ebay-api-status.js", "public/seller-ebay-api-status.js"],
@@ -213,4 +217,4 @@ const envStatus = {
 console.log("Google/security/AI env status:", JSON.stringify(envStatus));
 console.log("Desktop runtime extraction:", JSON.stringify(desktopRuntime.metrics));
 console.log("Desktop performance budget:", JSON.stringify(performanceAudit.metrics));
-console.log("Prepared Vercel output with lazy-loaded Elyon Manager workforce v2, product and operations routing, seven specialist agents, protected deterministic orchestration, draft quality checks, stable virtual-agent runtime, and enforced performance budgets.");
+console.log("Prepared Vercel output with lazy-loaded Elyon autonomy workspace v3, full internal automation, permission-gated external automation, compact work UI, stable virtual-agent runtime, and enforced performance budgets.");
