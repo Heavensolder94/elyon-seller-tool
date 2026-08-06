@@ -27,6 +27,9 @@ const mobileModuleScripts = [
   "seller-ai-workforce-advanced-settings.js",
   "ai-workforce-client.js",
   "ai-workforce-mount-fix.js",
+  "seller-ai-workforce-v2-settings.js",
+  "seller-ai-workforce-structure-v2.js",
+  "seller-ai-workforce-v2-operations.js",
   "mobile-bootstrap.js",
   "mobile-more-ui.js",
   "mobile-selling-entry.js",
@@ -59,6 +62,25 @@ function injectDesktopSecurity(html) {
   ].join("\n");
 
   return injectMarkedBlock(html, { startMarker, endMarker, content });
+}
+
+function injectWorkforceV2IntoRuntimeLoader(source) {
+  const entryMarker = '      { src: "/seller-ai-workforce-advanced-settings.js" },';
+  const activationMarker = "      window.ElyonAIWorkforceAdvancedSettings?.refresh?.();";
+  if (!source.includes(entryMarker) || !source.includes(activationMarker)) {
+    throw new Error("Virtual-Agent-Runtime konnte nicht um Workforce V2 erweitert werden.");
+  }
+  return source
+    .replace(entryMarker, [
+      entryMarker,
+      '      { src: "/seller-ai-workforce-v2-settings.js" },',
+      '      { src: "/seller-ai-workforce-structure-v2.js" },',
+      '      { src: "/seller-ai-workforce-v2-operations.js" },',
+    ].join("\n"))
+    .replace(activationMarker, [
+      activationMarker,
+      "      window.ElyonAIWorkforceV2?.render?.();",
+    ].join("\n"));
 }
 
 const filesToMirror = [
@@ -95,6 +117,9 @@ const filesToMirror = [
   ["seller-ai-settings-label.js", "public/seller-ai-settings-label.js"],
   ["seller-ai-provider-model-guard.js", "public/seller-ai-provider-model-guard.js"],
   ["seller-ai-workforce-advanced-settings.js", "public/seller-ai-workforce-advanced-settings.js"],
+  ["seller-ai-workforce-v2-settings.js", "public/seller-ai-workforce-v2-settings.js"],
+  ["seller-ai-workforce-structure-v2.js", "public/seller-ai-workforce-structure-v2.js"],
+  ["seller-ai-workforce-v2-operations.js", "public/seller-ai-workforce-v2-operations.js"],
   ["ai-workforce-client.js", "public/ai-workforce-client.js"],
   ["ai-workforce-mount-fix.js", "public/ai-workforce-mount-fix.js"],
   ["seller-ebay-api-status.js", "public/seller-ebay-api-status.js"],
@@ -133,7 +158,7 @@ const [runtimeLoaderRaw, aiWorkforceClientRaw, advancedAgentSettingsRaw] = await
   readFile(path.join(appRoot, "ai-workforce-client.js"), "utf8"),
   readFile(path.join(appRoot, "seller-ai-workforce-advanced-settings.js"), "utf8"),
 ]);
-const runtimeLoaderSource = optimizeVirtualAgentsRuntimeLoader(runtimeLoaderRaw);
+const runtimeLoaderSource = injectWorkforceV2IntoRuntimeLoader(optimizeVirtualAgentsRuntimeLoader(runtimeLoaderRaw));
 const aiWorkforceClientSource = optimizeAiWorkforceClient(aiWorkforceClientRaw);
 const advancedAgentSettingsSource = optimizeAdvancedAgentSettings(advancedAgentSettingsRaw);
 await Promise.all([
@@ -188,4 +213,4 @@ const envStatus = {
 console.log("Google/security/AI env status:", JSON.stringify(envStatus));
 console.log("Desktop runtime extraction:", JSON.stringify(desktopRuntime.metrics));
 console.log("Desktop performance budget:", JSON.stringify(performanceAudit.metrics));
-console.log("Prepared Vercel output with stable virtual-agent runtime, enforced performance budgets, minimal dashboard startup, extracted desktop core, lazy XLSX import, lazy quickstart, lazy selling workspace, lazy finance workspace, and lazy settings.");
+console.log("Prepared Vercel output with lazy-loaded Elyon Manager workforce v2, product and operations routing, seven specialist agents, protected deterministic orchestration, draft quality checks, stable virtual-agent runtime, and enforced performance budgets.");
