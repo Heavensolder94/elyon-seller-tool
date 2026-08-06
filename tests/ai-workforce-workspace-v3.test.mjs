@@ -4,6 +4,7 @@ import vm from "node:vm";
 import { readFile } from "node:fs/promises";
 
 const sourceUrl = new URL("../seller-ai-workforce-workspace-v3.js", import.meta.url);
+const policyUrl = new URL("../seller-ai-workforce-workspace-v3-policy.js", import.meta.url);
 const buildUrl = new URL("../scripts/prepare-vercel.mjs", import.meta.url);
 
 test("autonomy workspace v3 is valid browser JavaScript", async () => {
@@ -34,6 +35,17 @@ test("internal automation has workflow controls and safe stop conditions", async
   assert.match(source, /runWithRecovery/);
 });
 
+test("safe manager routing continues automatically in full-auto modes", async () => {
+  const policy = await readFile(policyUrl, "utf8");
+  assert.doesNotThrow(() => new vm.Script(policy));
+  assert.match(policy, /modeLevel/);
+  assert.match(policy, /auto_internal: 4/);
+  assert.match(policy, /auto_external: 5/);
+  assert.match(policy, /automaticContinuationApproved/);
+  assert.match(policy, /blockers\.length/);
+  assert.match(policy, /warnings\.length \? "warning" : "passed"/);
+});
+
 test("external automation is separately locked and permission gated", async () => {
   const source = await readFile(sourceUrl, "utf8");
   assert.match(source, /ELYON EXTERN FREIGEBEN/);
@@ -58,9 +70,10 @@ test("workspace presents a focused three-column work surface", async () => {
   assert.match(source, /Letzte Aktivität/);
 });
 
-test("vercel build mirrors and lazy-loads workspace v3", async () => {
+test("vercel build mirrors and lazy-loads workspace v3 and policy", async () => {
   const build = await readFile(buildUrl, "utf8");
   assert.match(build, /seller-ai-workforce-workspace-v3\.js/);
+  assert.match(build, /seller-ai-workforce-workspace-v3-policy\.js/);
   assert.match(build, /ElyonAIWorkforceWorkspaceV3\?\.render/);
-  assert.match(build, /lazy-loaded Elyon autonomy workspace v3/);
+  assert.match(build, /automatic manager continuation policy/);
 });
