@@ -28,13 +28,13 @@ test("valid provider and current model combinations are preserved", () => {
   const guard = loadGuard();
   assert.equal(guard.normalize("deepseek", "deepseek-v4-pro").model, "deepseek-v4-pro");
   assert.equal(guard.normalize("openai", "gpt-5.6-terra").model, "gpt-5.6-terra");
-  assert.equal(guard.normalize("qwen", "qwen3.7-plus").model, "qwen3.7-plus");
+  assert.equal(guard.normalize("local", "local").model, "local");
 });
 
-test("legacy compatible model aliases remain selectable", () => {
+test("legacy compatible OpenAI model aliases remain selectable", () => {
   const guard = loadGuard();
   assert.equal(guard.normalize("openai", "gpt-4o-mini").model, "gpt-4o-mini");
-  assert.equal(guard.normalize("qwen", "qwen-plus").model, "qwen-plus");
+  assert.equal(guard.normalize("openai", "gpt-4o").model, "gpt-4o");
 });
 
 test("OpenAI rejects DeepSeek models", () => {
@@ -46,20 +46,21 @@ test("OpenAI rejects DeepSeek models", () => {
 
 test("unknown providers fall back to OpenAI safely", () => {
   const guard = loadGuard();
-  const result = guard.normalize("unknown", "anything");
+  const result = guard.normalize("removed-provider", "removed-model");
   assert.equal(result.provider, "openai");
   assert.equal(result.model, "gpt-4o-mini");
+  assert.equal(result.corrected, true);
 });
 
-test("model catalog contains selectable current models for every remote provider", () => {
+test("model catalog contains only supported providers", () => {
   const guard = loadGuard();
+  assert.deepEqual(Object.keys(guard.providers), ["deepseek", "openai", "local"]);
   assert.deepEqual(
     [...guard.providers.deepseek.models.map((entry) => entry.value)],
     ["deepseek-v4-flash", "deepseek-v4-pro"],
   );
   assert.equal(guard.providers.openai.models.some((entry) => entry.value === "gpt-5.6-luna"), true);
   assert.equal(guard.providers.openai.models.some((entry) => entry.value === "gpt-5.6-sol"), true);
-  assert.equal(guard.providers.qwen.models.some((entry) => entry.value === "qwen3.7-max"), true);
 });
 
 test("workforce model text inputs are replaced by protected select controls", () => {
@@ -67,6 +68,7 @@ test("workforce model text inputs are replaced by protected select controls", ()
   assert.match(source, /elyonWorkforceModelSelector/);
   assert.match(source, /control\?\.replaceWith\(modelSelect\)/);
   assert.match(source, /syncWorkforceModelSelectors/);
+  assert.match(source, /syncProviderOptions/);
 });
 
 test("Vercel build ships the provider-model guard", async () => {
