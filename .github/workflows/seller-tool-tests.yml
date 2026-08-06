@@ -22,7 +22,7 @@ jobs:
           fetch-depth: 0
 
       - name: Finalize retired provider removal
-        if: github.event_name == 'pull_request' && github.head_ref == 'fix/remove-qwen-provider'
+        if: github.event_name == 'pull_request' && github.event.pull_request.number == 62
         shell: python
         run: |
           from pathlib import Path
@@ -89,12 +89,14 @@ jobs:
                   encoded = b"\xef\xbb\xbf" + encoded
               path.write_bytes(encoded)
 
-          helper = Path('.github/workflows/finalize-provider-removal.yml')
-          if helper.exists():
-              helper.unlink()
-          trigger = Path('.github/provider-cleanup-trigger')
-          if trigger.exists():
-              trigger.unlink()
+          for helper_path in (
+              '.github/workflows/finalize-provider-removal.yml',
+              '.github/provider-cleanup-trigger',
+              '.github/provider-cleanup-run',
+          ):
+              helper = Path(helper_path)
+              if helper.exists():
+                  helper.unlink()
 
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -140,7 +142,7 @@ jobs:
         run: npm run check:performance
 
       - name: Commit verified cleanup
-        if: github.event_name == 'pull_request' && github.head_ref == 'fix/remove-qwen-provider'
+        if: github.event_name == 'pull_request' && github.event.pull_request.number == 62
         shell: bash
         run: |
           if git diff --quiet; then
@@ -148,7 +150,7 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add index.html public/index.html .github/workflows/finalize-provider-removal.yml .github/provider-cleanup-trigger 2>/dev/null || true
+          git add index.html public/index.html .github/workflows/finalize-provider-removal.yml .github/provider-cleanup-trigger .github/provider-cleanup-run 2>/dev/null || true
           git add -u
           git diff --cached --check
           git commit -m "fix(ai): remove final retired provider references"
