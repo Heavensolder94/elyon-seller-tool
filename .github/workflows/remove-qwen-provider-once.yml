@@ -1,0 +1,58 @@
+name: Remove retired AI provider once
+
+on:
+  push:
+    branches:
+      - fix/remove-qwen-provider
+
+permissions:
+  contents: write
+
+jobs:
+  migrate-test-build:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/remove-qwen-provider
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Apply provider migration
+        run: node scripts/remove-qwen-provider-once.mjs apply
+
+      - name: Run tests
+        run: npm test
+
+      - name: Run production build
+        run: npm run prepare:web
+
+      - name: Verify repository cleanup
+        run: node scripts/remove-qwen-provider-once.mjs finalize
+
+      - name: Validate diff
+        run: git diff --check
+
+      - name: Commit migration result
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No migration changes to commit."
+            exit 0
+          fi
+          git commit -m "refactor(ai): remove retired provider completely"
+          git push origin HEAD:fix/remove-qwen-provider
