@@ -4,6 +4,11 @@ import { fileURLToPath } from "node:url";
 import { extractDesktopRuntime } from "./desktop-core-extraction.mjs";
 import { injectMarkedBlock } from "./html-injection.mjs";
 import { auditDesktopPerformance } from "./performance-budget.mjs";
+import {
+  optimizeAdvancedAgentSettings,
+  optimizeAiWorkforceClient,
+  optimizeVirtualAgentsRuntimeLoader,
+} from "./virtual-agents-runtime-optimization.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const appRoot = path.resolve(scriptDir, "..");
@@ -123,6 +128,20 @@ for (const [source, destination] of filesToMirror) {
   await copyFile(sourcePath, destinationPath);
 }
 
+const [runtimeLoaderRaw, aiWorkforceClientRaw, advancedAgentSettingsRaw] = await Promise.all([
+  readFile(path.join(appRoot, "seller-runtime-loader.js"), "utf8"),
+  readFile(path.join(appRoot, "ai-workforce-client.js"), "utf8"),
+  readFile(path.join(appRoot, "seller-ai-workforce-advanced-settings.js"), "utf8"),
+]);
+const runtimeLoaderSource = optimizeVirtualAgentsRuntimeLoader(runtimeLoaderRaw);
+const aiWorkforceClientSource = optimizeAiWorkforceClient(aiWorkforceClientRaw);
+const advancedAgentSettingsSource = optimizeAdvancedAgentSettings(advancedAgentSettingsRaw);
+await Promise.all([
+  writeFile(path.join(publicRoot, "seller-runtime-loader.js"), runtimeLoaderSource, "utf8"),
+  writeFile(path.join(publicRoot, "ai-workforce-client.js"), aiWorkforceClientSource, "utf8"),
+  writeFile(path.join(publicRoot, "seller-ai-workforce-advanced-settings.js"), advancedAgentSettingsSource, "utf8"),
+]);
+
 const desktopSourcePath = path.join(appRoot, "index.html");
 const desktopDestinationPath = path.join(publicRoot, "index.html");
 const desktopCorePath = path.join(publicRoot, "seller-app-core.js");
@@ -138,7 +157,6 @@ await Promise.all([
   writeFile(desktopAgentsPath, desktopRuntime.agentsCode, "utf8"),
 ]);
 
-const runtimeLoaderSource = await readFile(path.join(appRoot, "seller-runtime-loader.js"), "utf8");
 const performanceAudit = await auditDesktopPerformance({
   sourceHtml: desktopHtml,
   outputHtml: desktopOutputHtml,
@@ -170,4 +188,4 @@ const envStatus = {
 console.log("Google/security/AI env status:", JSON.stringify(envStatus));
 console.log("Desktop runtime extraction:", JSON.stringify(desktopRuntime.metrics));
 console.log("Desktop performance budget:", JSON.stringify(performanceAudit.metrics));
-console.log("Prepared Vercel output with enforced performance budgets, minimal dashboard startup, extracted desktop core, lazy XLSX import, lazy quickstart, lazy selling workspace, lazy finance workspace, lazy settings, and lazy virtual-agent UI.");
+console.log("Prepared Vercel output with stable virtual-agent runtime, enforced performance budgets, minimal dashboard startup, extracted desktop core, lazy XLSX import, lazy quickstart, lazy selling workspace, lazy finance workspace, and lazy settings.");

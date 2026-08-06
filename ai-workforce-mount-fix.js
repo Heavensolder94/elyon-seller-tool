@@ -4,7 +4,6 @@
   const ROOT_ID = "virtualAgentsSettingsRoot";
   const TAB_ID = "virtualAgentsTab";
   const SHELL_ID = "elyonAiWorkforce";
-  let observer = null;
   let scheduled = false;
 
   function dedicatedRoot() {
@@ -30,9 +29,7 @@
     }
     if (!shell) return false;
 
-    if (shell.parentElement !== root) {
-      root.replaceChildren(shell);
-    }
+    if (shell.parentElement !== root) root.replaceChildren(shell);
 
     shell.classList.add("aiw-dedicated-tab");
     root.dataset.elyonWorkforceReady = "1";
@@ -50,16 +47,18 @@
   function install() {
     scheduleMove();
 
-    observer = new MutationObserver(scheduleMove);
-    observer.observe(document.documentElement, { childList: true, subtree: true });
-
     document.addEventListener("change", (event) => {
       if (event.target?.id === "mainMenu" && event.target.value === TAB_ID) scheduleMove();
     }, true);
 
-    window.addEventListener("elyon:tab-changed", scheduleMove);
-    window.addEventListener("focus", scheduleMove);
-    [0, 150, 600, 1500].forEach((delay) => setTimeout(scheduleMove, delay));
+    window.addEventListener("elyon:tab-changed", (event) => {
+      const tabId = event.detail?.tabId || event.detail;
+      if (tabId === TAB_ID) scheduleMove();
+    });
+
+    window.addEventListener("elyon:runtime-group-loaded", (event) => {
+      if (event.detail?.tabId === TAB_ID) scheduleMove();
+    });
 
     window.ElyonAIWorkforceMountFix = {
       refresh: moveIntoDedicatedTab,

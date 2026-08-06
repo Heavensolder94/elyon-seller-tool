@@ -8,20 +8,22 @@ function syntaxCheck(relativePath) {
   execFileSync(process.execPath, ["--check", fileURLToPath(new URL(`../${relativePath}`, import.meta.url))], { stdio: "pipe" });
 }
 
-test("AI Workforce is moved into the dedicated virtual agents root", async () => {
+test("AI Workforce is moved into the dedicated virtual agents root without a global observer", async () => {
   const source = await readFile(new URL("../ai-workforce-mount-fix.js", import.meta.url), "utf8");
   assert.match(source, /virtualAgentsSettingsRoot/);
   assert.match(source, /virtualAgentsTab/);
   assert.match(source, /elyonAiWorkforce/);
   assert.match(source, /root\.replaceChildren\(shell\)/);
-  assert.match(source, /MutationObserver/);
+  assert.doesNotMatch(source, /MutationObserver/);
+  assert.doesNotMatch(source, /window\.addEventListener\("focus"/);
 });
 
-test("mount fix reacts when the virtual agents menu entry is opened", async () => {
+test("mount fix reacts only when the virtual agents area is opened or loaded", async () => {
   const source = await readFile(new URL("../ai-workforce-mount-fix.js", import.meta.url), "utf8");
   assert.match(source, /event\.target\?\.id === "mainMenu"/);
   assert.match(source, /event\.target\.value === TAB_ID/);
   assert.match(source, /elyon:tab-changed/);
+  assert.match(source, /elyon:runtime-group-loaded/);
 });
 
 test("Vercel build loads the mount fix after the workforce client inside the lazy group", async () => {
@@ -41,8 +43,9 @@ test("Vercel build loads the mount fix after the workforce client inside the laz
   assert.match(build, /\["ai-workforce-mount-fix\.js", "public\/ai-workforce-mount-fix\.js"\]/);
 });
 
-test("mount fix, runtime loader and build script are valid JavaScript", () => {
+test("mount fix, runtime optimizer and build script are valid JavaScript", () => {
   syntaxCheck("ai-workforce-mount-fix.js");
   syntaxCheck("seller-runtime-loader.js");
+  syntaxCheck("scripts/virtual-agents-runtime-optimization.mjs");
   syntaxCheck("scripts/prepare-vercel.mjs");
 });
