@@ -11,8 +11,7 @@ test("operations control parses and is lazy-loaded with workforce v2", async () 
   assert.doesNotThrow(() => new vm.Script(source));
   assert.match(source, /workflowType: "operations"/);
   assert.match(source, /Betrieb prüfen/);
-  assert.match(source, /elyon-order-specialist/);
-  assert.match(source, /elyon-customer-support-specialist/);
+  assert.match(source, /runOperations/);
   assert.match(build, /seller-ai-workforce-v2-operations\.js/);
   assert.match(build, /injectWorkforceV2IntoRuntimeLoader/);
 });
