@@ -45,9 +45,6 @@ const CLIENT_WATCH_BEFORE = `  function watchMount() {
 
 const CLIENT_WATCH_AFTER = `  function installMountLifecycle() {
     mount();
-    window.addEventListener("elyon:runtime-group-loaded", (event) => {
-      if (event.detail?.tabId === "virtualAgentsTab") mount();
-    });
   }`;
 
 const CLIENT_BOOT_BEFORE = `  bindTriggers();
@@ -114,6 +111,8 @@ const ADVANCED_INSTALL_AFTER = `  let updateScheduled = false;
     };
   }`;
 
+const LEGACY_RUNTIME_ENTRY = `      { src: "/seller-virtual-agents-legacy.js" },\n`;
+
 function replaceRequired(source, before, after, label) {
   if (!source.includes(before)) {
     throw new Error(`Virtual-agent optimization failed: ${label} signature not found.`);
@@ -130,4 +129,13 @@ export function optimizeAiWorkforceClient(source) {
 
 export function optimizeAdvancedAgentSettings(source) {
   return replaceRequired(source, ADVANCED_INSTALL_BEFORE, ADVANCED_INSTALL_AFTER, "advanced settings observer");
+}
+
+export function optimizeVirtualAgentsRuntimeLoader(source) {
+  let output = replaceRequired(source, LEGACY_RUNTIME_ENTRY, "", "legacy virtual-agent runtime entry");
+  output = output.replace(
+    /const VERSION = "[^"]+";/,
+    'const VERSION = "virtual-agents-stable-20260806-1";'
+  );
+  return output;
 }
