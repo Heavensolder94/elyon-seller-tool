@@ -101,16 +101,12 @@ function buildEnvReadiness() {
     DEEPSEEK_API_KEY: envFlag("DEEPSEEK_API_KEY"),
   };
 
-  const qwen = {
-    QWEN_API_KEY_OR_DASHSCOPE_API_KEY: envFlag("QWEN_API_KEY") || envFlag("DASHSCOPE_API_KEY"),
-  };
-
   const upstash = {
     EBAY_TOKEN_STORE_URL_OR_UPSTASH_REDIS_REST_URL: envFlag("EBAY_TOKEN_STORE_URL") || envFlag("UPSTASH_REDIS_REST_URL") || envFlag("KV_REST_API_URL"),
     EBAY_TOKEN_STORE_TOKEN_OR_UPSTASH_REDIS_REST_TOKEN: envFlag("EBAY_TOKEN_STORE_TOKEN") || envFlag("UPSTASH_REDIS_REST_TOKEN") || envFlag("KV_REST_API_TOKEN"),
   };
 
-  return { ebay, googleDrive, cj, openai, deepseek, qwen, upstash };
+  return { ebay, googleDrive, cj, openai, deepseek, upstash };
 }
 
 function summarizeService({ key, name, envFlags, routeProbe, liveProbe, liveLabel, forceState, forceDetail }) {
@@ -178,7 +174,6 @@ export default async function handler(req, res) {
     summarizeService({ key: "cj", name: "CJ Dropshipping", envFlags: env.cj, routeProbe: cjStatus, liveProbe: cjStatus, liveLabel: "Status" }),
     summarizeService({ key: "openai", name: "OpenAI", envFlags: env.openai, routeProbe: envCheck, liveProbe: envCheck, liveLabel: "Key vorhanden" }),
     summarizeService({ key: "deepseek", name: "DeepSeek", envFlags: env.deepseek, routeProbe: envCheck, liveProbe: envCheck, liveLabel: "Key vorhanden" }),
-    summarizeService({ key: "qwen", name: "Qwen", envFlags: env.qwen, routeProbe: envCheck, liveProbe: envCheck, liveLabel: "Key vorhanden" }),
     summarizeService({ key: "upstash", name: "Upstash/KV", envFlags: env.upstash, routeProbe: envCheck, liveProbe: envCheck, liveLabel: "Token Store" }),
   ];
 

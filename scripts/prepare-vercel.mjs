@@ -214,7 +214,6 @@ const envStatus = {
   CRON_SECRET: Boolean(process.env.CRON_SECRET),
   OPENAI_API_KEY: Boolean(process.env.OPENAI_API_KEY),
   DEEPSEEK_API_KEY: Boolean(process.env.DEEPSEEK_API_KEY),
-  QWEN_API_KEY: Boolean(process.env.QWEN_API_KEY || process.env.DASHSCOPE_API_KEY),
 };
 
 console.log("Google/security/AI env status:", JSON.stringify(envStatus));

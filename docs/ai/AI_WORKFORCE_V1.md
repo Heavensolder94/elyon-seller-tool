@@ -1,117 +1,73 @@
 # Elyon AI Workforce V1
 
-## Status
+## Unterstützte Provider
 
-Die AI Workforce V1 ergänzt das Elyon Seller Tool um geschützte virtuelle Mitarbeiter. Alle externen KI-Anfragen laufen serverseitig über `lib/ai-provider-router.js` und den geschützten Endpoint `POST /api/ai-agent-run`.
+Das Elyon Seller Tool unterstützt ausschließlich:
 
-## Virtuelle Mitarbeiter
+- **OpenAI** für hochwertige Analysen, Support-Entwürfe und Gewinnlogik
+- **DeepSeek** für Listing-, Compliance- und operative Analysen
+- **Lokaler Fallback** für regelbasierte Prüfungen ohne externe KI
 
-| Mitarbeiter | Phase | Aufgabe |
-|---|---:|---|
-| Elyon Listing Pro | 1 | faktengebundene eBay-Titel, SEO- und Beschreibungsvorschläge |
-| Elyon Compliance Guard | 1 | GPSR-, Hersteller-, Pflichtmerkmal- und Risikoprüfung |
-| Elyon Profit Analyst | 1 | Gewinn, Marge, Break-even und Preisszenarien |
-| Elyon Operations Manager | 2 | Tagesbriefing und Priorisierung offener Vorgänge |
-| Elyon Order Coordinator | 3 | Order-, Versandfrist- und Trackingprüfung |
-| Elyon Support Assistant | 3 | freigabepflichtige Support- und Retourenantworten |
+Andere oder veraltete Providerwerte werden nicht ausgeführt. Gespeicherte unbekannte Provider- oder Modellkombinationen werden automatisch auf eine gültige Konfiguration normalisiert.
 
-`soul-scout` bleibt abwärtskompatibel als lokaler Produktdaten-Vollständigkeitscheck erhalten. Die übrigen bisherigen `soul-*` IDs werden auf die neuen Mitarbeiter-IDs migriert, ohne die alten Einstellungen zu löschen.
+## Server-Routing
 
-## Sicherheitsmodell
+Der zentrale Router liegt in `lib/ai-provider-router.js`.
 
-Die Workforce darf in V1 keine externen kritischen Aktionen ausführen. Gesperrt bleiben insbesondere:
+Er übernimmt:
 
-- eBay-Listings automatisch veröffentlichen
-- Live-Preise ungefragt ändern
-- Lieferantenbestellungen auslösen
-- Kundennachrichten versenden
-- Rückerstattungen auslösen
-- Produkte löschen
-- rechtliche Angaben verändern
-- Company-OS-Freigaben oder Compliance-Blocker umgehen
+- Provider- und Modellvalidierung
+- sichere API-Aufrufe
+- kontrollierten Fallback zwischen OpenAI und DeepSeek
+- lokalen Fallback, falls kein externer Provider verfügbar ist
+- einheitliche Fehler- und Usage-Daten
+- bestehende Elyon-Sicherheitsregeln
 
-Autonomiestufe 4 ist nicht verfügbar. Stufe 2 und 3 dürfen nur interne Aufgaben beziehungsweise Entwürfe erzeugen.
+Es gibt keinen automatischen externen Aktionspfad. Die virtuelle Belegschaft darf keine Listings veröffentlichen, Preise live ändern, Lieferantenbestellungen auslösen, Kundennachrichten versenden oder Erstattungen durchführen.
 
-## Strukturierte Ergebnisse
+## Umgebungsvariablen
 
-Jeder Mitarbeiter liefert ein validiertes Ergebnis mit:
+```env
+OPENAI_API_KEY=
+OPENAI_MODEL=gpt-4o-mini
 
-- `summary`
-- `status`
-- `confidence`
-- `findings`
-- `recommendations`
-- `missingFacts`
-- `warnings`
-- `blockers`
-- `suggestedActions`
-- `generatedContent`
-- `assumptions`
-
-Ungültiges JSON wird einmal kontrolliert repariert. Scheitert die Reparatur, wird die Aufgabe als `failed` gespeichert und nicht übernommen.
-
-## Profit Analyst
-
-Die Kalkulation wird zusätzlich deterministisch ausgeführt. Fehlende Kosten werden nicht geschätzt, sondern als Annahme beziehungsweise fehlender Wert ausgewiesen. Die verbindliche Elyon-Regel lautet:
-
-> Mindestens 20 % realistische Marge oder mindestens 5,00 EUR realistischer Gewinn.
-
-## API
-
-### Status
-
-`GET /api/ai-agent-run`
-
-Liefert Agentendefinitionen, Provider-Bereitschaft und Sicherheitsstatus. Seller-Authentifizierung ist erforderlich.
-
-### Agent ausführen
-
-`POST /api/ai-agent-run`
-
-Unterstützte Aktionen:
-
-- `run_agent`
-- `analyze_product`
-- `analyze_listing`
-- `analyze_order`
-- `analyze_return`
-- `create_daily_briefing`
-- `retry_task`
-
-Der Request ist auf 192 KiB begrenzt. Es werden nur kontrollierte Kontextpakete an den KI-Provider übermittelt.
-
-## Vercel-Konfiguration
-
-Mindestens erforderlich:
-
-- `ELYON_SELLER_ACCESS_TOKEN`
-- mindestens einer der KI-Provider-Keys:
-  - `OPENAI_API_KEY`
-  - `DEEPSEEK_API_KEY`
-  - `QWEN_API_KEY` oder `DASHSCOPE_API_KEY`
+DEEPSEEK_API_KEY=
+DEEPSEEK_MODEL=deepseek-v4-flash
+```
 
 Optional:
 
-- `OPENAI_MODEL`
-- `DEEPSEEK_MODEL`
-- `QWEN_MODEL`
-- `AI_DEFAULT_PROVIDER`
-- `AI_FALLBACK_PROVIDER`
-- `AI_ALLOW_PROVIDER_FALLBACK`
+```env
+AI_DEFAULT_PROVIDER=openai
+AI_FALLBACK_PROVIDER=deepseek
+AI_ALLOW_PROVIDER_FALLBACK=true
+AI_LOGGING_ENABLED=false
+```
 
-API-Keys werden weder in LocalStorage noch in Client-JavaScript oder Agenten-Logs gespeichert.
+Ungültige Werte für `AI_DEFAULT_PROVIDER` oder `AI_FALLBACK_PROVIDER` werden ignoriert.
 
-## Tests
+## Provider- und Modellschutz im Frontend
 
-`tests/ai-workforce.test.mjs` prüft insbesondere:
+`seller-ai-provider-model-guard.js` stellt sicher, dass:
 
-- Migration der bisherigen Agenten-IDs
-- Sperre externer Aktionen
-- einheitliches Task-Schema
-- Elyon-Mindestmargenregel
-- Entfernung unnötiger personenbezogener Orderdaten
-- Entfernung unbelegter KI-Fakten
-- Compliance-Blocker bei fehlender Company-OS-Freigabe
-- strukturierte JSON-Ausgabe
-- pausierte und limitierte Agenten
-- lokalen deterministischen Fallback
+- nur OpenAI, DeepSeek und Lokal auswählbar sind
+- nur freigegebene Modelle zum jeweiligen Provider angezeigt werden
+- alte gespeicherte Kombinationen automatisch repariert werden
+- globale Einstellungen und virtuelle Mitarbeiter synchron bleiben
+- entfernte oder unbekannte Optionen aus vorhandenen Select-Feldern gelöscht werden
+
+## Agenten
+
+| Agent | Standardprovider | Aufgabe |
+|---|---|---|
+| Listing Pro | DeepSeek | Titel, SEO und Beschreibung |
+| Compliance Guard | DeepSeek | GPSR, Hersteller und Pflichtangaben |
+| Profit Analyst | OpenAI | Gewinn, Marge und Break-even |
+| Operations Manager | DeepSeek | Prioritäten und Tagesbriefing |
+| Order Coordinator | DeepSeek | Orders, Fristen und Tracking |
+| Support Assistant | OpenAI | freigabepflichtige Antwortentwürfe |
+| Produktdaten-Check | Lokal | regelbasierte Vollständigkeitsprüfung |
+
+## Sicherheitsmodell
+
+Alle Agentenergebnisse bleiben Entwürfe oder Prüfberichte. Manuelle Freigabe bleibt Pflicht. Die bestehende maximale Autonomiestufe 3 wird nicht überschritten.

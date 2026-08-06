@@ -4,6 +4,7 @@
   const SETTINGS_KEY = "elyon_ai_agents_settings";
   const TASKS_KEY = "elyon_ai_workforce_tasks";
   const MAX_TASKS = 150;
+  const SUPPORTED_PROVIDERS = ["openai", "deepseek", "local"];
   const LEGACY_MAP = {
     "soul-seo": "elyon-listing-pro",
     "soul-guard": "elyon-compliance-guard",
@@ -16,8 +17,8 @@
     { id: "elyon-listing-pro", name: "Listing Pro", phase: 1, provider: "deepseek", icon: "✍️", role: "Titel, SEO und Beschreibung faktengebunden vorbereiten", action: "analyze_listing" },
     { id: "elyon-compliance-guard", name: "Compliance Guard", phase: 1, provider: "deepseek", icon: "🛡️", role: "GPSR, Hersteller, Pflichtmerkmale und Risiken prüfen", action: "analyze_product" },
     { id: "elyon-profit-analyst", name: "Profit Analyst", phase: 1, provider: "openai", icon: "📊", role: "Gewinn, Marge, Break-even und Preisvarianten berechnen", action: "analyze_product" },
-    { id: "elyon-operations-manager", name: "Operations Manager", phase: 2, provider: "qwen", icon: "🧭", role: "Tagesbriefing und offene Seller-Aufgaben priorisieren", action: "create_daily_briefing" },
-    { id: "elyon-order-coordinator", name: "Order Coordinator", phase: 3, provider: "qwen", icon: "📦", role: "Orders, Versandfristen und Tracking-Lücken prüfen", action: "analyze_order" },
+    { id: "elyon-operations-manager", name: "Operations Manager", phase: 2, provider: "deepseek", icon: "🧭", role: "Tagesbriefing und offene Seller-Aufgaben priorisieren", action: "create_daily_briefing" },
+    { id: "elyon-order-coordinator", name: "Order Coordinator", phase: 3, provider: "deepseek", icon: "📦", role: "Orders, Versandfristen und Tracking-Lücken prüfen", action: "analyze_order" },
     { id: "elyon-support-assistant", name: "Support Assistant", phase: 3, provider: "openai", icon: "💬", role: "Freigabepflichtige Antwortentwürfe vorbereiten", action: "analyze_return" },
   ];
 
@@ -73,7 +74,10 @@
       const current = settings.agents[definition.id] && typeof settings.agents[definition.id] === "object" ? settings.agents[definition.id] : {};
       const source = { ...legacy, ...current };
       const oldModel = text(source.model).toLowerCase();
-      const oldModelIsProvider = ["openai", "deepseek", "qwen", "local"].includes(oldModel);
+      const oldModelIsProvider = SUPPORTED_PROVIDERS.includes(oldModel);
+      const requestedProvider = text(source.provider, oldModelIsProvider ? oldModel : definition.provider).toLowerCase();
+      const provider = SUPPORTED_PROVIDERS.includes(requestedProvider) ? requestedProvider : definition.provider;
+      const model = provider === requestedProvider && !oldModelIsProvider ? text(source.model) : "";
       settings.agents[definition.id] = {
         ...source,
         id: definition.id,
@@ -83,8 +87,8 @@
         enabled: source.enabled !== false,
         paused: source.paused === true,
         autonomyLevel: Math.max(0, Math.min(3, Number(source.autonomyLevel ?? 1) || 0)),
-        provider: text(source.provider, oldModelIsProvider ? oldModel : definition.provider).toLowerCase(),
-        model: oldModelIsProvider ? "" : text(source.model),
+        provider,
+        model,
         allowFallback: source.allowFallback !== false,
         temperature: Math.max(0, Math.min(2, Number(source.temperature ?? 0.2) || 0.2)),
         maxTokens: Math.max(200, Math.min(12000, Number(source.maxTokens ?? 4000) || 4000)),
@@ -94,7 +98,7 @@
       };
     });
 
-    settings.agentMigrationVersion = 1;
+    settings.agentMigrationVersion = 2;
     settings.agentAliases = { ...LEGACY_MAP };
     if (settings.securityMode === undefined) settings.securityMode = true;
     if (settings.sandboxMode === undefined) settings.sandboxMode = true;
@@ -273,6 +277,10 @@
     return state.providerStatus[provider] ? "bereit" : "nicht konfiguriert";
   }
 
+  function providerOptions(agent) {
+    return `<option value="openai" ${agent.provider === "openai" ? "selected" : ""}>OpenAI</option><option value="deepseek" ${agent.provider === "deepseek" ? "selected" : ""}>DeepSeek</option><option value="local" ${agent.provider === "local" ? "selected" : ""}>Lokal</option>`;
+  }
+
   function renderCards() {
     const grid = document.getElementById("aiwAgentGrid");
     if (!grid) return;
@@ -286,7 +294,7 @@
           <div class="aiw-card-head"><div class="aiw-icon">${definition.icon}</div><div><h3>${escapeHtml(definition.name)}</h3><div class="aiw-role">${escapeHtml(definition.role)}</div></div></div>
           <div class="aiw-meta"><span>Phase ${definition.phase}</span><span>${isPaused ? "pausiert" : "aktiv"}</span><span>${escapeHtml(providerAvailability(agent.provider))}</span>${last ? `<span>${escapeHtml(statusLabel(last.status))}</span>` : ""}</div>
           <div class="aiw-fields">
-            <label>Provider<select data-field="provider"><option value="openai" ${agent.provider === "openai" ? "selected" : ""}>OpenAI</option><option value="deepseek" ${agent.provider === "deepseek" ? "selected" : ""}>DeepSeek</option><option value="qwen" ${agent.provider === "qwen" ? "selected" : ""}>Qwen</option><option value="local" ${agent.provider === "local" ? "selected" : ""}>Lokal</option></select></label>
+            <label>Provider<select data-field="provider">${providerOptions(agent)}</select></label>
             <label>Modell<input data-field="model" value="${escapeHtml(agent.model || "")}" placeholder="zentrale Vorgabe" /></label>
             <label>Autonomie<select data-field="autonomyLevel"><option value="0" ${agent.autonomyLevel === 0 ? "selected" : ""}>0 · Aus</option><option value="1" ${agent.autonomyLevel === 1 ? "selected" : ""}>1 · Manuell</option><option value="2" ${agent.autonomyLevel === 2 ? "selected" : ""}>2 · Vorschläge</option><option value="3" ${agent.autonomyLevel === 3 ? "selected" : ""}>3 · interne Entwürfe</option><option value="4" disabled>4 · gesperrt</option></select></label>
             <label>Tageslimit €<input data-field="dailyLimit" type="number" min="0" step="0.05" value="${Number(agent.dailyLimit || 0).toFixed(2)}" /></label>

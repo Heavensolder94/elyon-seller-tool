@@ -1793,7 +1793,6 @@ Land"></textarea>
             <select id="setAiProvider">
               <option value="openai">OpenAI</option>
               <option value="deepseek">DeepSeek</option>
-              <option value="qwen">Qwen</option>
               <option value="local">Lokal</option>
             </select>
           </div>
@@ -1804,9 +1803,6 @@ Land"></textarea>
               <option value="gpt-4o">GPT-4o</option>
               <option value="deepseek-v4-flash">DeepSeek v4 flash</option>
               <option value="deepseek-v4-pro">DeepSeek v4 pro</option>
-              <option value="qwen-plus">Qwen Plus</option>
-              <option value="qwen-flash">Qwen Flash</option>
-              <option value="qwen-max">Qwen Max</option>
             </select>
           </div>
         </div>
@@ -8355,8 +8351,8 @@ async function refreshAiDashboardStatus(){
 }
 async function testAiRouterProvider(provider){
   const defaults = getGlobalAiDefaults();
-  const task = provider === 'deepseek' ? 'dashboard_deepseek_test' : provider === 'qwen' ? 'dashboard_qwen_test' : 'dashboard_openai_test';
-  const prompt = provider === 'deepseek' ? 'Kurzer DeepSeek Dashboard-Test.' : provider === 'qwen' ? 'Kurzer Qwen Dashboard-Test.' : 'Kurzer OpenAI Dashboard-Test.';
+  const task = provider === 'deepseek' ? 'dashboard_deepseek_test' : 'dashboard_openai_test';
+  const prompt = provider === 'deepseek' ? 'Kurzer DeepSeek Dashboard-Test.' : 'Kurzer OpenAI Dashboard-Test.';
   const payload = {
     provider: provider,
     task: task,
@@ -8523,9 +8519,8 @@ async function postJsonWithTimeout(url, payload, timeoutMs){
 function normalizeAiRouterProvider(extra){
   const rawProvider = extra && typeof extra.provider === 'string' ? extra.provider.trim().toLowerCase() : '';
   const rawModel = extra && typeof extra.model === 'string' ? extra.model.trim().toLowerCase() : '';
-  if (rawProvider === 'openai' || rawProvider === 'deepseek' || rawProvider === 'qwen' || rawProvider === 'local') return rawProvider;
+  if (rawProvider === 'openai' || rawProvider === 'deepseek' || rawProvider === 'local') return rawProvider;
   if (rawModel === 'deepseek') return 'deepseek';
-  if (rawModel === 'qwen') return 'qwen';
   return 'openai';
 }
 function normalizeAiRouterModel(provider, extra){
@@ -8539,13 +8534,6 @@ function normalizeAiRouterModel(provider, extra){
     if (rawModel === 'deepseek-v4-pro') return 'deepseek-v4-pro';
     if (rawModel && rawModel !== 'deepseek') return rawModel;
     return 'deepseek-v4-flash';
-  }
-  if (provider === 'qwen') {
-    if (rawModel === 'qwen-plus') return 'qwen-plus';
-    if (rawModel === 'qwen-flash') return 'qwen-flash';
-    if (rawModel === 'qwen-max') return 'qwen-max';
-    if (rawModel && rawModel !== 'qwen') return rawModel;
-    return 'qwen-plus';
   }
   if (rawModel === 'openai-mini') return 'gpt-4o-mini';
   if (rawModel === 'openai-standard') return 'gpt-4o';
@@ -8567,7 +8555,7 @@ function getGlobalAiDefaults(){
   const provider = settings.aiProvider || (settings.aiEnabled === false ? 'local' : 'openai');
   return {
     provider,
-    model: settings.aiModel || (provider === 'deepseek' ? 'deepseek-v4-flash' : provider === 'qwen' ? 'qwen-plus' : 'gpt-4o-mini'),
+    model: settings.aiModel || (provider === 'deepseek' ? 'deepseek-v4-flash' : 'gpt-4o-mini'),
     allowFallback: settings.aiAllowFallback !== false,
   };
 }
@@ -11431,9 +11419,6 @@ document.addEventListener('DOMContentLoaded',()=>{
   const MODEL_OPTIONS = [
     { value: 'deepseek-v4-flash', label: 'deepseek-v4-flash' },
     { value: 'deepseek-v4-pro', label: 'deepseek-v4-pro' },
-    { value: 'qwen-plus', label: 'qwen-plus' },
-    { value: 'qwen-flash', label: 'qwen-flash' },
-    { value: 'qwen-max', label: 'qwen-max' },
     { value: 'openai-mini', label: 'openai-mini' },
     { value: 'openai-standard', label: 'openai-standard' },
   ];
@@ -11970,7 +11955,7 @@ document.addEventListener('DOMContentLoaded',()=>{
 
   const normalizeModel = (value) => {
     const input = String(value || '').trim();
-    return MODEL_OPTIONS.some((item) => item.value === input) ? input : 'qwen-plus';
+    return MODEL_OPTIONS.some((item) => item.value === input) ? input : 'deepseek-v4-flash';
   };
 
   const normalizeLimit = (value) => {

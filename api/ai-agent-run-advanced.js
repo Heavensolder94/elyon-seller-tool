@@ -286,7 +286,6 @@ export default async function handler(req, res) {
       providers: {
         openai: Boolean(process.env.OPENAI_API_KEY),
         deepseek: Boolean(process.env.DEEPSEEK_API_KEY),
-        qwen: Boolean(process.env.QWEN_API_KEY || process.env.DASHSCOPE_API_KEY),
         local: true,
       },
       safety: {

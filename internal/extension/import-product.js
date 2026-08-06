@@ -303,13 +303,11 @@ function buildBrowserImportAiPrompt(product) {
 }
 
 async function prepareBrowserImportWithAi(product) {
-  const provider = toText(process.env.BROWSER_IMPORT_AI_PROVIDER || process.env.AI_BROWSER_IMPORT_PROVIDER || "qwen").toLowerCase();
-  const model =
-    provider === "deepseek"
-      ? toText(process.env.BROWSER_IMPORT_AI_MODEL || process.env.DEEPSEEK_MODEL || "deepseek-v4-flash")
-      : provider === "openai"
-        ? toText(process.env.BROWSER_IMPORT_AI_MODEL || process.env.OPENAI_MODEL || "gpt-4o-mini")
-        : toText(process.env.BROWSER_IMPORT_AI_MODEL || process.env.QWEN_MODEL || "qwen-plus");
+  const requestedProvider = toText(process.env.BROWSER_IMPORT_AI_PROVIDER || process.env.AI_BROWSER_IMPORT_PROVIDER || "deepseek").toLowerCase();
+  const provider = ["openai", "deepseek"].includes(requestedProvider) ? requestedProvider : "deepseek";
+  const model = provider === "openai"
+    ? toText(process.env.BROWSER_IMPORT_AI_MODEL || process.env.OPENAI_MODEL || "gpt-4o-mini")
+    : toText(process.env.BROWSER_IMPORT_AI_MODEL || process.env.DEEPSEEK_MODEL || "deepseek-v4-flash");
 
   try {
     const result = await routeAIRequest({
