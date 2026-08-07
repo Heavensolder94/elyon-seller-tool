@@ -3,6 +3,7 @@
 
   const STYLE_ID = "elyonAiTaskPromptHelperStyles";
   const SELECTORS = [
+    '#elyonAiWorkforceTeamV6Composer [data-v6-field="prompt"]',
     '#elyonAiWorkforceTeamV5Composer [data-v5-field="prompt"]',
     '#elyonAiAgentTaskComposerModal [data-task-field="prompt"]',
     '#elyonAiWorkforce textarea[placeholder*="konkrete Aufgabe"]',
@@ -45,11 +46,11 @@
   }
 
   function inferContext(field) {
-    const container = field.closest("#elyonAiWorkforceTeamV5Composer,#elyonAiAgentTaskComposerModal,.aiw-builder-panel,.aiw-v5-composer-inner,#elyonAiWorkforce") || document.body;
+    const container = field.closest("#elyonAiWorkforceTeamV6Composer,#elyonAiWorkforceTeamV5Composer,#elyonAiAgentTaskComposerModal,.aiw-builder-panel,.aiw-v6-composer-inner,.aiw-v5-composer-inner,#elyonAiWorkforce") || document.body;
     const heading = text(container.querySelector("h2,h3")?.textContent);
     const assigneeSelect = container.querySelector('[data-task-field="agent"]');
     const assignee = text(assigneeSelect?.selectedOptions?.[0]?.textContent || heading.replace(/\s+beauftragen$/i, ""));
-    const taskTitle = text(container.querySelector('[data-v5-field="title"],[data-task-field="title"],input[name="title"]')?.value);
+    const taskTitle = text(container.querySelector('[data-v6-field="title"],[data-v5-field="title"],[data-task-field="title"],input[name="title"]')?.value);
     return { assignee, taskTitle, workspace: heading || "Virtuelle Mitarbeiter" };
   }
 
@@ -170,7 +171,7 @@
 
   function relevantClick(target) {
     return target instanceof Element && Boolean(target.closest(
-      "#virtualAgentsTab,#elyonAiAgentBuilderModal,#elyonAiAgentTaskComposerModal,#elyonAiWorkforceTeamV5Panel,#elyonAiWorkforceTeamV5Composer"
+      "#virtualAgentsTab,#elyonAiAgentBuilderModal,#elyonAiAgentTaskComposerModal,#elyonAiWorkforceTeamV6Panel,#elyonAiWorkforceTeamV6Composer,#elyonAiWorkforceTeamV5Panel,#elyonAiWorkforceTeamV5Composer"
     ));
   }
 
@@ -185,6 +186,7 @@
     window.addEventListener("elyon:runtime-group-loaded", (event) => {
       if (event.detail?.tabId === "virtualAgentsTab") setTimeout(queueDecorate, 0);
     });
+    window.addEventListener("elyon:ai-workforce-team-v6-rendered", () => setTimeout(queueDecorate, 0));
     [100, 350, 800].forEach((delay) => setTimeout(queueDecorate, delay));
   }
 

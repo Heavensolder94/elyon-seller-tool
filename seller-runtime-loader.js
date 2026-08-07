@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const VERSION = "seller-operations-20260807-6";
+  const VERSION = "seller-operations-20260807-7";
   const LEGACY_QUICKSTART_BRIDGE_FLAG = "__elyonModernQuickstartBridge";
   const loaded = new Map();
   const groupLoads = new Map();
@@ -48,7 +48,7 @@
       { src: "/ai-workforce-client.js" },
       { src: "/ai-workforce-mount-fix.js" },
       { src: "/seller-ai-workforce-advanced-settings.js" },
-      { src: "/seller-ai-workforce-team-v5.js" },
+      { src: "/seller-ai-workforce-team-v6.js" },
       { src: "/seller-ai-task-prompt-helper.js" },
     ],
   };
@@ -142,7 +142,7 @@
       window.ElyonAIWorkforce?.mount?.();
       window.ElyonAIWorkforceMountFix?.refresh?.();
       window.ElyonAIWorkforceAdvancedSettings?.refresh?.();
-      window.ElyonAIWorkforceTeamV5?.render?.();
+      window.ElyonAIWorkforceTeamV6?.render?.();
       window.ElyonAITaskPromptHelper?.refresh?.();
       window.ElyonAiProviderModelGuard?.apply?.();
       window.ElyonAiProviderModelGuard?.syncWorkforce?.();
