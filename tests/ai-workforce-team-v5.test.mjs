@@ -31,9 +31,10 @@ test("technical specialists remain internal skills rather than visible employees
   assert.match(src, /visibleAgents: \["elyon-product-data-specialist", "elyon-compliance-specialist", "elyon-profit-specialist"\]/);
   assert.match(src, /visibleAgents: \["elyon-listing-specialist", "elyon-draft-quality-guard"\]/);
   assert.match(src, /Technischer Skill im Hintergrund/);
-  assert.match(src, /Product Data Specialist/);
-  assert.match(src, /Compliance/);
-  assert.match(src, /Draft QA/);
+  assert.match(src, /name: "Produktdaten"/);
+  assert.match(src, /name: "Compliance"/);
+  assert.match(src, /name: "Profit"/);
+  assert.match(src, /name: "Draft QA"/);
 });
 
 test("product manager runs product data, compliance and profit in sequence", async () => {
