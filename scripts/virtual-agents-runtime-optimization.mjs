@@ -112,6 +112,8 @@ const ADVANCED_INSTALL_AFTER = `  let updateScheduled = false;
   }`;
 
 const LEGACY_RUNTIME_ENTRY = `      { src: "/seller-virtual-agents-legacy.js" },\n`;
+const ADVANCED_RUNTIME_ENTRY = `      { src: "/seller-ai-workforce-advanced-settings.js" },\n`;
+const REDESIGN_RUNTIME_ENTRY = `      { src: "/seller-virtual-agents-redesign.js" },\n`;
 
 function replaceRequired(source, before, after, label) {
   if (!source.includes(before)) {
@@ -133,9 +135,17 @@ export function optimizeAdvancedAgentSettings(source) {
 
 export function optimizeVirtualAgentsRuntimeLoader(source) {
   let output = replaceRequired(source, LEGACY_RUNTIME_ENTRY, "", "legacy virtual-agent runtime entry");
+  if (!output.includes(REDESIGN_RUNTIME_ENTRY)) {
+    output = replaceRequired(
+      output,
+      ADVANCED_RUNTIME_ENTRY,
+      `${ADVANCED_RUNTIME_ENTRY}${REDESIGN_RUNTIME_ENTRY}`,
+      "virtual-agent redesign runtime entry"
+    );
+  }
   output = output.replace(
     /const VERSION = "[^"]+";/,
-    'const VERSION = "virtual-agents-stable-20260806-1";'
+    'const VERSION = "virtual-agents-redesign-20260807-1";'
   );
   return output;
 }
