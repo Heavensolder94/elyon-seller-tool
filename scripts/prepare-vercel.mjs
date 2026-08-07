@@ -32,6 +32,7 @@ const mobileModuleScripts = [
   "seller-ai-workforce-v2-operations.js",
   "seller-ai-workforce-workspace-v3.js",
   "seller-ai-workforce-workspace-v3-policy.js",
+  "seller-ai-workforce-agent-builder.js",
   "mobile-bootstrap.js",
   "mobile-more-ui.js",
   "mobile-selling-entry.js",
@@ -80,11 +81,13 @@ function injectWorkforceV2IntoRuntimeLoader(source) {
       '      { src: "/seller-ai-workforce-v2-operations.js" },',
       '      { src: "/seller-ai-workforce-workspace-v3.js" },',
       '      { src: "/seller-ai-workforce-workspace-v3-policy.js" },',
+      '      { src: "/seller-ai-workforce-agent-builder.js" },',
     ].join("\n"))
     .replace(activationMarker, [
       activationMarker,
       "      window.ElyonAIWorkforceV2?.render?.();",
       "      window.ElyonAIWorkforceWorkspaceV3?.render?.();",
+      "      window.ElyonAIAgentBuilder?.refresh?.();",
     ].join("\n"));
 }
 
@@ -127,6 +130,7 @@ const filesToMirror = [
   ["seller-ai-workforce-v2-operations.js", "public/seller-ai-workforce-v2-operations.js"],
   ["seller-ai-workforce-workspace-v3.js", "public/seller-ai-workforce-workspace-v3.js"],
   ["seller-ai-workforce-workspace-v3-policy.js", "public/seller-ai-workforce-workspace-v3-policy.js"],
+  ["seller-ai-workforce-agent-builder.js", "public/seller-ai-workforce-agent-builder.js"],
   ["ai-workforce-client.js", "public/ai-workforce-client.js"],
   ["ai-workforce-mount-fix.js", "public/ai-workforce-mount-fix.js"],
   ["seller-ebay-api-status.js", "public/seller-ebay-api-status.js"],
@@ -219,4 +223,4 @@ const envStatus = {
 console.log("Google/security/AI env status:", JSON.stringify(envStatus));
 console.log("Desktop runtime extraction:", JSON.stringify(desktopRuntime.metrics));
 console.log("Desktop performance budget:", JSON.stringify(performanceAudit.metrics));
-console.log("Prepared Vercel output with lazy-loaded Elyon autonomy workspace v3, automatic manager continuation policy, full internal automation, permission-gated external automation, compact work UI, stable virtual-agent runtime, and enforced performance budgets.");
+console.log("Prepared Vercel output with lazy-loaded Elyon autonomy workspace v3, custom agent builder, manual task prompts, protected custom-agent execution, automatic manager continuation policy, full internal automation, permission-gated external automation, compact work UI, stable virtual-agent runtime, and enforced performance budgets.");
