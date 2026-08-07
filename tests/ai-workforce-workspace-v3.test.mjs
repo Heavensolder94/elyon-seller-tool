@@ -75,5 +75,6 @@ test("vercel build mirrors and lazy-loads workspace v3 and policy", async () => 
   assert.match(build, /seller-ai-workforce-workspace-v3\.js/);
   assert.match(build, /seller-ai-workforce-workspace-v3-policy\.js/);
   assert.match(build, /ElyonAIWorkforceWorkspaceV3\?\.render/);
-  assert.match(build, /automatic manager continuation policy/);
+  const policy = await readFile(policyUrl, "utf8");
+  assert.match(policy, /automaticContinuationApproved/);
 });
