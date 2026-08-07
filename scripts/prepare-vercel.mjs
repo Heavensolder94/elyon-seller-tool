@@ -134,6 +134,8 @@ const filesToMirror = [
   ["seller-ai-workforce-workspace-v3-policy.js", "public/seller-ai-workforce-workspace-v3-policy.js"],
   ["seller-ai-workforce-agent-builder.js", "public/seller-ai-workforce-agent-builder.js"],
   ["seller-ai-workforce-interface-v4.js", "public/seller-ai-workforce-interface-v4.js"],
+  ["seller-ai-workforce-team-v6.js", "public/seller-ai-workforce-team-v6.js"],
+  ["seller-ai-task-prompt-helper.js", "public/seller-ai-task-prompt-helper.js"],
   ["ai-workforce-client.js", "public/ai-workforce-client.js"],
   ["ai-workforce-mount-fix.js", "public/ai-workforce-mount-fix.js"],
   ["seller-ebay-api-status.js", "public/seller-ebay-api-status.js"],
@@ -226,4 +228,4 @@ const envStatus = {
 console.log("Google/security/AI env status:", JSON.stringify(envStatus));
 console.log("Desktop runtime extraction:", JSON.stringify(desktopRuntime.metrics));
 console.log("Desktop performance budget:", JSON.stringify(performanceAudit.metrics));
-console.log("Prepared Vercel output with lazy-loaded Elyon autonomy workspace v4, manager-default task routing, custom agent builder, manual task prompts, protected custom-agent execution, automatic manager continuation policy, full internal automation, permission-gated external automation, compact work UI, stable virtual-agent runtime, and enforced performance budgets.");
+console.log("Prepared Vercel output with stable delegated virtual-team V6, DeepSeek task prompt helper, lazy-loaded Elyon autonomy workspace v4, manager-default task routing, custom agent builder, manual task prompts, protected custom-agent execution, full internal automation, permission-gated external automation, and enforced performance budgets.");
