@@ -17,13 +17,39 @@ test("DeepSeek task prompt helper is valid browser JavaScript and public asset m
   assert.match(source, /window\.ElyonAITaskPromptHelper/);
 });
 
-test("helper decorates both team and generic task prompt fields", async () => {
+test("helper decorates every useful virtual employee work-order prompt field", async () => {
   const source = await helperSource();
-  assert.match(source, /elyonAiWorkforceTeamV5Composer/);
-  assert.match(source, /data-v5-field=\\?"prompt/);
+  assert.match(source, /elyonAiWorkforceTeamV6Composer/);
+  assert.match(source, /data-v6-field=\\?"prompt/);
   assert.match(source, /elyonAiAgentTaskComposerModal/);
   assert.match(source, /data-task-field=\\?"prompt/);
-  assert.doesNotMatch(source, /data-builder-field=\\?"systemPrompt[^\n]*insertAdjacentElement/);
+  assert.match(source, /aiTaskDescriptionInput/);
+  assert.match(source, /placeholder\*=\\?"Arbeitsauftrag/);
+});
+
+test("helper also supports persistent custom-agent system prompts with a distinct mode", async () => {
+  const source = await helperSource();
+  assert.match(source, /elyonAiAgentBuilderModal/);
+  assert.match(source, /data-builder-field=\\?"systemPrompt/);
+  assert.match(source, /kind: "system"/);
+  assert.match(source, /System-Prompt mit DeepSeek/);
+  assert.match(source, /promptKind: kind/);
+});
+
+test("DeepSeek controls are inserted before the textarea so they stay visible above sticky actions", async () => {
+  const source = await helperSource();
+  assert.match(source, /field\.insertAdjacentElement\("beforebegin", toolbar\)/);
+  assert.doesNotMatch(source, /field\.insertAdjacentElement\("afterend", toolbar\)/);
+});
+
+test("helper uses one delegated click router for generate, regenerate and restore", async () => {
+  const source = await helperSource();
+  assert.match(source, /function handleHelperClick/);
+  assert.match(source, /data-prompt-generate/);
+  assert.match(source, /data-prompt-regenerate/);
+  assert.match(source, /data-prompt-restore/);
+  assert.match(source, /document\.addEventListener\("click"/);
+  assert.doesNotMatch(source, /querySelector\("\[data-prompt-generate\]"\)\?\.addEventListener/);
 });
 
 test("helper offers generate, regenerate and restore without starting a task", async () => {
@@ -52,12 +78,22 @@ test("prompt generator is seller-protected and DeepSeek-only", async () => {
   assert.match(source, /externalActionExecuted: false/);
 });
 
-test("generator preserves intent and forbids inventing or adding external actions", async () => {
+test("generator preserves task intent and forbids inventing or adding external actions", async () => {
   const source = await readFile(apiUrl, "utf8");
   assert.match(source, /Bewahre Absicht, Umfang, Einschränkungen und Prioritäten/);
   assert.match(source, /Erfinde keine Produkt-, Markt-, Rechts-, Preis-, Kunden- oder Lieferantendaten/);
   assert.match(source, /Füge niemals selbstständig Veröffentlichung, Live-Preisänderung, Lieferantenbestellung, Kundennachricht, Erstattung, Löschung oder Änderung rechtlicher Daten hinzu/);
   assert.match(source, /nur als Vorbereitung oder als Aktion nach der im Elyon-System erforderlichen Freigabe/);
+});
+
+test("system prompt generation stays subordinate to Elyon safety and grants no external rights", async () => {
+  const source = await readFile(apiUrl, "utf8");
+  assert.match(source, /supportedPromptKinds: \["task", "system"\]/);
+  assert.match(source, /expand_notes_to_persistent_system_prompt/);
+  assert.match(source, /dauerhaften System-Prompt/);
+  assert.match(source, /darf niemals den serverseitigen Elyon-Sicherheitsrahmen abschwächen oder externe Rechte erteilen/);
+  assert.match(source, /serverSafetyRemainsAuthoritative: true/);
+  assert.match(source, /doNotGrantExternalPermissions: true/);
 });
 
 test("prompt helper stays lazy in virtual employees runtime and adds no observer or polling", async () => {
