@@ -39,13 +39,10 @@ test("custom route protects immutable Elyon safety ahead of user prompt", async 
   assert.doesNotMatch(source, /publish_listing|place_supplier_order|issue_refund|send_customer_message/);
 });
 
-test("custom route accepts only bounded custom identities and provider set", async () => {
+test("custom route accepts only the active bounded provider set and prompt sizes", async () => {
   const source = await readFile(customRouteUrl, "utf8");
   assert.match(source, /CUSTOM_AGENT_ID/);
-  assert.match(source, /openai/);
-  assert.match(source, /deepseek/);
-  assert.match(source, /local/);
-  assert.doesNotMatch(source, /qwen|dashscope/i);
+  assert.match(source, /new Set\(\["openai", "deepseek", "local"\]\)/);
   assert.match(source, /systemPrompt, 16000/);
   assert.match(source, /taskPrompt.*8000/);
 });
