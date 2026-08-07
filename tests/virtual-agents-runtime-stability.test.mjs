@@ -38,7 +38,7 @@ test("desktop runtime replaces legacy UI with the redesigned agent workspace", a
 
   assert.doesNotMatch(optimized, /seller-virtual-agents-legacy\.js/);
   assert.match(optimized, /virtualAgentsTab:[\s\S]*ai-workforce-client\.js[\s\S]*ai-workforce-mount-fix\.js[\s\S]*seller-ai-workforce-advanced-settings\.js[\s\S]*seller-virtual-agents-redesign\.js/);
-  assert.match(optimized, /virtual-agents-redesign-20260807-1/);
+  assert.match(optimized, /virtual-agents-final-20260807-2/);
   assert.doesNotThrow(() => new Script(optimized, { filename: "seller-runtime-loader.js" }));
 });
 
