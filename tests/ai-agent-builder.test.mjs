@@ -66,6 +66,14 @@ test("custom agents use privacy-reduced order and return summaries in browser co
   assert.match(source, /operative Zusammenfassung/);
 });
 
+test("custom team decoration is idempotent and cannot feedback-loop on its own DOM write", async () => {
+  const source = await readFile(builderUrl, "utf8");
+  assert.match(source, /function teamSignature/);
+  assert.match(source, /existing\?\.dataset\.signature === signature/);
+  assert.match(source, /wrapper\.dataset\.signature = signature/);
+  assert.doesNotMatch(source, /section\.querySelector\("\.aiw-custom-team"\)\?\.remove\(\);\s*const list/);
+});
+
 test("builder is mirrored and lazy loaded only with virtual agents runtime", async () => {
   const source = await readFile(buildUrl, "utf8");
   assert.match(source, /seller-ai-workforce-agent-builder\.js/);
