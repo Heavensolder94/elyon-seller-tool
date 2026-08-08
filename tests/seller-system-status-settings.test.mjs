@@ -57,12 +57,31 @@ test("eBay status is verified directly instead of trusting the initial dashboard
   assert.match(code, /refreshEbayStatus/);
   assert.match(code, /STATUS_MAX_AGE_MS/);
   assert.match(code, /api\/finance\?action=status/);
-  assert.match(code, /livePublishingEnabled/);
-  assert.match(code, /trackingSyncEnabled/);
   assert.match(code, /Server-Synchronisierung/);
+});
+
+test("server synchronization contains only storage status, not business safety toggles", async () => {
+  const code = await source();
+  const start = code.indexOf("async function installFinanceSyncPanel");
+  const end = code.indexOf("async function installTrackingAutomationPanel");
+  const financePanel = code.slice(start, end);
+  assert.match(financePanel, /Server-Synchronisierung/);
+  assert.match(financePanel, /Zentral verbunden/);
+  assert.doesNotMatch(financePanel, /data-finance-safety/);
+  assert.doesNotMatch(financePanel, /Live-Veröffentlichung erlaubt/);
+});
+
+test("tracking permission is placed in its own Seller Tool shipping section", async () => {
+  const code = await source();
+  assert.match(code, /TRACKING_WRAPPER_ID = "elyonShippingAutomationSettings"/);
+  assert.match(code, /Versand &amp; Tracking/);
+  assert.match(code, /Tracking-Übertragung an eBay freigeben/);
+  assert.match(code, /data-finance-safety="trackingSyncEnabled"/);
+  assert.match(code, /seller_tracking_settings_update/);
   assert.match(code, /elyon-toggle-track/);
   assert.match(code, /elyon-toggle-thumb/);
   assert.match(code, /elyon-toggle-row/);
+  assert.doesNotMatch(code, /Live-Veröffentlichung erlaubt/);
 });
 
 test("verified eBay state updates both settings row and dashboard badge", async () => {
