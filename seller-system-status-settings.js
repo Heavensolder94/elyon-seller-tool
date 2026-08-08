@@ -2,6 +2,7 @@
   "use strict";
 
   const WRAPPER_ID = "elyonSystemDataStatusSettings";
+  const TRACKING_WRAPPER_ID = "elyonShippingAutomationSettings";
   const STYLE_ID = "elyonSystemDataStatusSettingsStyles";
   const PANEL_ATTRIBUTE = "data-elyon-system-status-panel";
   const PANEL_SELECTOR = `[${PANEL_ATTRIBUTE}="1"], .seller-system-status-panel`;
@@ -25,15 +26,17 @@
     const style = document.createElement("style");
     style.id = STYLE_ID;
     style.textContent = `
-      #${WRAPPER_ID}{grid-column:1/-1;margin-top:16px}
-      #${WRAPPER_ID}>summary span{display:grid;gap:3px}
-      #${WRAPPER_ID}>summary small{font-size:11px;font-weight:600;color:#94a3b8}
+      #${WRAPPER_ID},#${TRACKING_WRAPPER_ID}{grid-column:1/-1;margin-top:16px}
+      #${WRAPPER_ID}>summary span,#${TRACKING_WRAPPER_ID}>summary span{display:grid;gap:3px}
+      #${WRAPPER_ID}>summary small,#${TRACKING_WRAPPER_ID}>summary small{font-size:11px;font-weight:600;color:#94a3b8}
       #${WRAPPER_ID} [data-system-status-host]{display:grid;gap:10px}
       #${WRAPPER_ID} [${PANEL_ATTRIBUTE}="1"],#${WRAPPER_ID} .seller-system-status-panel{margin:0;padding:0;background:transparent;border:0;box-shadow:none}
       #${WRAPPER_ID} [${PANEL_ATTRIBUTE}="1"]>.sd-head,#${WRAPPER_ID} .seller-system-status-panel>.sd-head{display:none!important}
       #${WRAPPER_ID} .seller-system-status-placeholder{margin:0;color:#94a3b8;font-size:12px;line-height:1.5}
-      #${WRAPPER_ID} .elyon-finance-sync{margin-top:14px;padding:14px;border:1px solid rgba(148,163,184,.16);border-radius:14px;background:rgba(15,23,42,.42)}
-      #${WRAPPER_ID} .elyon-finance-sync h4{margin:0 0 6px;color:#e2e8f0}#${WRAPPER_ID} .elyon-finance-sync p{margin:4px 0 10px;color:#94a3b8;font-size:12px;line-height:1.45}#${WRAPPER_ID} .elyon-finance-sync label{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:8px 0;color:#cbd5e1;font-size:12px}#${WRAPPER_ID} .elyon-finance-sync input{accent-color:#2563eb}.elyon-toggle-row{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:8px 0;color:#cbd5e1;font-size:12px}.elyon-toggle{position:relative;display:inline-flex;align-items:center;flex:0 0 auto}.elyon-toggle input{position:absolute;opacity:0;width:1px;height:1px;pointer-events:none}.elyon-toggle-track{width:42px;height:24px;border-radius:999px;background:#475569;border:1px solid rgba(148,163,184,.35);display:block;transition:background .18s,border-color .18s;box-shadow:inset 0 1px 2px rgba(0,0,0,.22)}.elyon-toggle-thumb{position:absolute;left:3px;top:3px;width:18px;height:18px;border-radius:50%;background:#e2e8f0;box-shadow:0 1px 4px rgba(0,0,0,.35);transition:transform .18s,background .18s}.elyon-toggle input:checked + .elyon-toggle-track{background:#22c55e;border-color:#4ade80}.elyon-toggle input:checked + .elyon-toggle-track + .elyon-toggle-thumb{transform:translateX(18px);background:#fff}.elyon-toggle input:focus-visible + .elyon-toggle-track{outline:2px solid #60a5fa;outline-offset:2px}
+      #${WRAPPER_ID} .elyon-finance-sync,#${TRACKING_WRAPPER_ID} .elyon-tracking-automation{margin-top:14px;padding:14px;border:1px solid rgba(148,163,184,.16);border-radius:14px;background:rgba(15,23,42,.42)}
+      #${WRAPPER_ID} .elyon-finance-sync h4,#${TRACKING_WRAPPER_ID} .elyon-tracking-automation h4{margin:0 0 6px;color:#e2e8f0}
+      #${WRAPPER_ID} .elyon-finance-sync p,#${TRACKING_WRAPPER_ID} .elyon-tracking-automation p{margin:4px 0 10px;color:#94a3b8;font-size:12px;line-height:1.45}
+      .elyon-toggle-row{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:8px 0;color:#cbd5e1;font-size:12px}.elyon-toggle{position:relative;display:inline-flex;align-items:center;flex:0 0 auto}.elyon-toggle input{position:absolute;opacity:0;width:1px;height:1px;pointer-events:none}.elyon-toggle-track{width:42px;height:24px;border-radius:999px;background:#475569;border:1px solid rgba(148,163,184,.35);display:block;transition:background .18s,border-color .18s;box-shadow:inset 0 1px 2px rgba(0,0,0,.22)}.elyon-toggle-thumb{position:absolute;left:3px;top:3px;width:18px;height:18px;border-radius:50%;background:#e2e8f0;box-shadow:0 1px 4px rgba(0,0,0,.35);transition:transform .18s,background .18s}.elyon-toggle input:checked + .elyon-toggle-track{background:#22c55e;border-color:#4ade80}.elyon-toggle input:checked + .elyon-toggle-track + .elyon-toggle-thumb{transform:translateX(18px);background:#fff}.elyon-toggle input:focus-visible + .elyon-toggle-track{outline:2px solid #60a5fa;outline-offset:2px}
     `;
     document.head.appendChild(style);
   }
@@ -92,6 +95,23 @@
     if (!statusPanels(host).length && recoverablePanel) host.appendChild(recoverablePanel);
 
     return { wrapper, host };
+  }
+
+  function ensureTrackingAutomationWrapper() {
+    const settings = document.getElementById("settingsTab");
+    if (!settings) return null;
+    let wrapper = document.getElementById(TRACKING_WRAPPER_ID);
+    if (!wrapper) {
+      wrapper = document.createElement("details");
+      wrapper.id = TRACKING_WRAPPER_ID;
+      wrapper.className = "settings-section settings-dropdown seller-shipping-automation-settings";
+      wrapper.innerHTML = `
+        <summary><span>Versand &amp; Tracking<small>Tracking-Übertragung und spätere Versandautomatisierung</small></span></summary>
+        <div class="settings-dropdown-content" data-tracking-automation-host></div>
+      `;
+      settings.appendChild(wrapper);
+    }
+    return wrapper.querySelector("[data-tracking-automation-host]");
   }
 
   function markPanel(panel) {
@@ -184,38 +204,71 @@
     return statusRequest;
   }
 
+  async function financeStatus() {
+    const response = await fetch(FINANCE_STATUS_URL, { credentials: "same-origin", cache: "no-store", headers: { Accept: "application/json" } });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data.ok === false) throw new Error(data.message || data.error || `HTTP ${response.status}`);
+    return data;
+  }
+
+  async function saveFinanceSafety(safety, action) {
+    const save = await fetch("/api/finance?action=save", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ state: { safety }, action, source: "seller_settings" }),
+    });
+    const saved = await save.json().catch(() => ({}));
+    if (!save.ok || saved.ok === false) throw new Error(saved.message || saved.error || "Speichern fehlgeschlagen");
+    return saved;
+  }
+
   async function installFinanceSyncPanel(host) {
-    if (!host || host.querySelector('.elyon-finance-sync')) return;
-    const panel = document.createElement('section');
-    panel.className = 'elyon-finance-sync';
+    if (!host || host.querySelector(".elyon-finance-sync")) return;
+    const panel = document.createElement("section");
+    panel.className = "elyon-finance-sync";
     panel.innerHTML = '<h4>Server-Synchronisierung</h4><p>Bestellstatus, Rechnungsnummern, Bestand und Retouren werden zentral gespeichert. Lokale Browserdaten bleiben nur als Fallback erhalten.</p><div data-finance-sync-body>Wird geprüft …</div>';
     host.appendChild(panel);
     try {
-      const response = await fetch(FINANCE_STATUS_URL, { credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'application/json' } });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok || data.ok === false) throw new Error(data.message || data.error || 'HTTP ' + response.status);
+      const data = await financeStatus();
       const store = data.store || {};
+      panel.querySelector("[data-finance-sync-body]").innerHTML =
+        '<div><strong class="' + (store.persistent ? "sd-good" : "sd-warn") + '">' + (store.persistent ? "Zentral verbunden" : "Nicht persistent konfiguriert") + '</strong><br><span>Speicher: ' + text(store.source || store.mode || "unbekannt") + "</span></div>";
+    } catch (error) {
+      panel.querySelector("[data-finance-sync-body]").innerHTML = '<span class="sd-warn">Status nicht abrufbar: ' + text(error.message) + "</span>";
+    }
+  }
+
+  async function installTrackingAutomationPanel() {
+    const host = ensureTrackingAutomationWrapper();
+    if (!host || host.querySelector(".elyon-tracking-automation")) return;
+    const panel = document.createElement("section");
+    panel.className = "elyon-tracking-automation";
+    panel.innerHTML = '<h4>Tracking-Übertragung</h4><p>Diese Freigabe gehört zum Bestell- und Versandprozess im Seller Tool. Standardmäßig bleibt sie aus.</p><div data-tracking-automation-body>Wird geprüft …</div>';
+    host.appendChild(panel);
+    try {
+      const data = await financeStatus();
       const safety = data.safety || {};
-      panel.querySelector('[data-finance-sync-body]').innerHTML =
-        '<div><strong class="' + (store.persistent ? 'sd-good' : 'sd-warn') + '">' + (store.persistent ? 'Zentral verbunden' : 'Nicht persistent konfiguriert') + '</strong><br><span>Speicher: ' + text(store.source || store.mode || 'unbekannt') + '</span></div>' +
-        '<label class="elyon-toggle-row">Live-Veröffentlichung erlaubt<span class="elyon-toggle"><input type="checkbox" data-finance-safety="livePublishingEnabled" ' + (safety.livePublishingEnabled ? 'checked' : '') + '><span class="elyon-toggle-track"></span><span class="elyon-toggle-thumb"></span></span></label>' +
-        '<label class="elyon-toggle-row">Tracking-Übertragung freigeben (späterer manueller Schritt)<span class="elyon-toggle"><input type="checkbox" data-finance-safety="trackingSyncEnabled" ' + (safety.trackingSyncEnabled ? 'checked' : '') + '><span class="elyon-toggle-track"></span><span class="elyon-toggle-thumb"></span></span></label>' +
-        '<small>Beide Schalter bleiben standardmäßig aus. Aktivieren allein führt keine Veröffentlichung oder Nachricht aus.</small>';
-      panel.querySelectorAll('[data-finance-safety]').forEach((input) => input.addEventListener('change', async () => {
-        const next = { ...safety, [input.dataset.financeSafety]: input.checked };
+      panel.querySelector("[data-tracking-automation-body]").innerHTML =
+        '<label class="elyon-toggle-row">Tracking-Übertragung an eBay freigeben<span class="elyon-toggle"><input type="checkbox" data-finance-safety="trackingSyncEnabled" ' + (safety.trackingSyncEnabled ? "checked" : "") + '><span class="elyon-toggle-track"></span><span class="elyon-toggle-thumb"></span></span></label>' +
+        '<small>Die Freigabe allein sendet noch keine Trackingnummer. Die tatsächliche Übertragung bleibt ein separater Versand-Schritt.</small>';
+      const input = panel.querySelector('[data-finance-safety="trackingSyncEnabled"]');
+      input?.addEventListener("change", async () => {
+        const next = { ...safety, trackingSyncEnabled: input.checked };
         input.disabled = true;
         try {
-          const save = await fetch('/api/finance?action=save', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ state: { safety: next }, action: 'seller_safety_settings_update', source: 'seller_settings' }) });
-          const saved = await save.json().catch(() => ({}));
-          if (!save.ok || saved.ok === false) throw new Error(saved.message || saved.error || 'Speichern fehlgeschlagen');
-          notify('Sicherheitseinstellung gespeichert.', 'Seller Einstellungen');
+          await saveFinanceSafety(next, "seller_tracking_settings_update");
+          safety.trackingSyncEnabled = input.checked;
+          notify("Tracking-Einstellung gespeichert.", "Versand & Tracking");
         } catch (error) {
           input.checked = !input.checked;
-          notify(error.message, 'Seller Einstellungen');
-        } finally { input.disabled = false; }
-      }));
+          notify(error.message, "Versand & Tracking");
+        } finally {
+          input.disabled = false;
+        }
+      });
     } catch (error) {
-      panel.querySelector('[data-finance-sync-body]').innerHTML = '<span class="sd-warn">Status nicht abrufbar: ' + text(error.message) + '</span>';
+      panel.querySelector("[data-tracking-automation-body]").innerHTML = '<span class="sd-warn">Status nicht abrufbar: ' + text(error.message) + "</span>";
     }
   }
 
@@ -225,11 +278,15 @@
 
     const target = ensureSettingsWrapper();
     if (!target?.host) return false;
+    installTrackingAutomationPanel();
 
     const freshPanel = findDashboardPanel();
     const existingPanel = statusPanels(target.host).at(-1) || null;
     const panel = freshPanel || existingPanel;
-    if (!panel) return false;
+    if (!panel) {
+      installFinanceSyncPanel(target.host);
+      return false;
+    }
 
     markPanel(panel);
     keepOnlyPanel(panel, target.host);
@@ -268,6 +325,7 @@
       wrapperCount: statusWrappers().length,
       panelCount: statusPanels().length,
       wrapperPresent: Boolean(document.getElementById(WRAPPER_ID)),
+      trackingWrapperPresent: Boolean(document.getElementById(TRACKING_WRAPPER_ID)),
       panelInSettings: Boolean(document.querySelector(`#${WRAPPER_ID} ${PANEL_SELECTOR}`)),
       panelInDashboard: Boolean(findDashboardPanel()),
       ebayConnected: lastConnected,
