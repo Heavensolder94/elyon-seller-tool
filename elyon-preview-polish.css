@@ -1,0 +1,415 @@
+/* Elyon Seller OS — visual polish layer
+   Preview-only finishing pass. No functional selectors, IDs or workflow behavior are changed.
+*/
+
+:root {
+  --elyon-surface: #111820;
+  --elyon-surface-2: #151d26;
+  --elyon-surface-3: #1a2430;
+  --elyon-border: rgba(255, 255, 255, 0.07);
+  --elyon-border-strong: rgba(255, 255, 255, 0.115);
+  --elyon-shadow-card: 0 1px 0 rgba(255,255,255,.018) inset, 0 10px 28px rgba(0,0,0,.08);
+}
+
+/* Page rhythm */
+.content {
+  background:
+    radial-gradient(circle at 72% -12%, rgba(79,140,255,.045), transparent 26%),
+    var(--elyon-bg) !important;
+}
+
+.content::before {
+  height: 14px !important;
+}
+
+.topbar {
+  min-height: 66px !important;
+  margin-bottom: 22px !important;
+  background: rgba(11,15,20,.94) !important;
+  box-shadow: 0 10px 30px rgba(0,0,0,.08) !important;
+}
+
+.topbar h1,
+.topbar h2 {
+  font-weight: 760 !important;
+  text-wrap: balance;
+}
+
+.topbar p {
+  color: #8793a2 !important;
+}
+
+/* Sidebar refinement */
+.sidebar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,.12) transparent;
+}
+
+.brand {
+  border-bottom: 1px solid rgba(255,255,255,.045) !important;
+  margin-bottom: 10px !important;
+  padding-bottom: 13px !important;
+}
+
+.brand-mark {
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.10),
+    0 8px 18px rgba(0,0,0,.16) !important;
+}
+
+.searchbox input,
+.elyon-global-search {
+  transition: background 140ms ease, border-color 140ms ease, box-shadow 140ms ease !important;
+}
+
+.searchbox input:hover,
+.elyon-global-search:hover {
+  background: rgba(255,255,255,.046) !important;
+  border-color: rgba(255,255,255,.10) !important;
+}
+
+.nav-group + .nav-group {
+  border-top: 1px solid rgba(255,255,255,.035) !important;
+  padding-top: 4px !important;
+}
+
+.nav-menu .nav-item {
+  position: relative !important;
+}
+
+.nav-menu .nav-item.active {
+  background: linear-gradient(90deg, rgba(79,140,255,.13), rgba(79,140,255,.075)) !important;
+  border-color: rgba(79,140,255,.14) !important;
+}
+
+.nav-menu .nav-item.active::after {
+  content: "" !important;
+  position: absolute !important;
+  left: -3px !important;
+  top: 8px !important;
+  bottom: 8px !important;
+  width: 2px !important;
+  border-radius: 999px !important;
+  background: #6b9bff !important;
+  box-shadow: 0 0 10px rgba(79,140,255,.32) !important;
+}
+
+.nav-menu .nav-item:hover:not(.active) {
+  background: rgba(255,255,255,.032) !important;
+}
+
+/* Surface hierarchy */
+.card,
+.panel,
+.workspace-card,
+.small-panel,
+.metric,
+.metric-card,
+.table-card,
+.analysis-card,
+.section-card,
+.detail-hero,
+.briefing-section,
+.settings-section,
+.form-accordion,
+.output-box,
+.ai-product-card,
+.kanban-column,
+.elyon-activity,
+#elyonSellerDashboard .sd-panel,
+#elyonSellerDashboard .sd-kpi {
+  box-shadow: var(--elyon-shadow-card) !important;
+}
+
+.card,
+.panel,
+.table-card,
+.analysis-card,
+.section-card,
+#elyonSellerDashboard .sd-panel {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.016), transparent 72px),
+    var(--elyon-surface) !important;
+}
+
+.card:hover,
+.workspace-card:hover,
+.metric-card:hover,
+.product-card:hover {
+  border-color: rgba(255,255,255,.12) !important;
+}
+
+.panel-header,
+.sd-head {
+  border-bottom: 1px solid rgba(255,255,255,.045) !important;
+  padding-bottom: 11px !important;
+}
+
+.panel-body {
+  padding-top: 14px !important;
+}
+
+/* Buttons and controls */
+button,
+.btn,
+.secondary,
+.copy-btn,
+.quick-actions button,
+.gen-tab-btn,
+.returns-tab-btn {
+  letter-spacing: -.005em !important;
+}
+
+.btn-primary,
+button.primary,
+.primary {
+  background: linear-gradient(180deg, #5a92ff 0%, #4f84ed 100%) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.16), 0 7px 18px rgba(34,91,190,.16) !important;
+}
+
+.btn-primary:hover,
+button.primary:hover,
+.primary:hover {
+  background: linear-gradient(180deg, #679cff 0%, #598df5 100%) !important;
+}
+
+input,
+select,
+textarea,
+.inline-input,
+.inline-select,
+.input,
+.menu-select {
+  transition: background 140ms ease, border-color 140ms ease, box-shadow 140ms ease !important;
+}
+
+input:hover,
+select:hover,
+textarea:hover,
+.inline-input:hover,
+.inline-select:hover,
+.input:hover,
+.menu-select:hover {
+  border-color: rgba(255,255,255,.105) !important;
+}
+
+/* Generic KPI polish */
+.metric,
+.metric-card {
+  position: relative !important;
+  overflow: hidden !important;
+}
+
+.metric::before,
+.metric-card::before {
+  content: "" !important;
+  position: absolute !important;
+  inset: 0 0 auto 0 !important;
+  height: 1px !important;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.12), transparent) !important;
+  opacity: .55 !important;
+}
+
+.metric strong,
+.metric .value,
+.metric-card .value {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Product / list density */
+.result-card,
+.product-card,
+.queue-row,
+.status-row,
+.order-row,
+.tool-row,
+#elyonSellerDashboard .sd-task,
+#elyonSellerDashboard .sd-row {
+  transition: background 130ms ease, border-color 130ms ease !important;
+}
+
+.result-card:hover,
+.queue-row:hover,
+.status-row:hover,
+.order-row:hover,
+.tool-row:hover,
+#elyonSellerDashboard .sd-task:hover,
+#elyonSellerDashboard .sd-row:hover {
+  background: rgba(255,255,255,.034) !important;
+}
+
+.result-image,
+.result-thumb,
+.product-image {
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.02) !important;
+}
+
+/* Dashboard: stronger information hierarchy */
+#elyonSellerDashboard {
+  gap: 16px !important;
+}
+
+#elyonSellerDashboard .sd-hero {
+  padding-top: 2px !important;
+  padding-bottom: 18px !important;
+}
+
+#elyonSellerDashboard .sd-hero h2 {
+  max-width: 760px !important;
+  font-weight: 780 !important;
+}
+
+#elyonSellerDashboard .sd-hero .badge {
+  border-color: rgba(79,140,255,.20) !important;
+  background: rgba(79,140,255,.085) !important;
+}
+
+#elyonSellerDashboard .sd-badge {
+  backdrop-filter: none !important;
+}
+
+#elyonSellerDashboard .sd-kpis {
+  gap: 9px !important;
+}
+
+#elyonSellerDashboard .sd-kpi {
+  position: relative !important;
+  overflow: hidden !important;
+  min-height: 116px !important;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.018), transparent 65%),
+    var(--elyon-surface) !important;
+  transition: border-color 140ms ease, background 140ms ease !important;
+}
+
+#elyonSellerDashboard .sd-kpi::after {
+  content: "" !important;
+  position: absolute !important;
+  left: 13px !important;
+  right: 13px !important;
+  bottom: 0 !important;
+  height: 2px !important;
+  border-radius: 999px 999px 0 0 !important;
+  background: rgba(79,140,255,.32) !important;
+  opacity: .6 !important;
+}
+
+#elyonSellerDashboard .sd-kpi.good::after {
+  background: rgba(53,196,106,.52) !important;
+}
+
+#elyonSellerDashboard .sd-kpi.warn::after {
+  background: rgba(241,174,66,.52) !important;
+}
+
+#elyonSellerDashboard .sd-kpi.bad::after {
+  background: rgba(238,100,100,.52) !important;
+}
+
+#elyonSellerDashboard .sd-kpi:hover {
+  border-color: rgba(255,255,255,.12) !important;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.026), transparent 65%),
+    var(--elyon-surface) !important;
+}
+
+#elyonSellerDashboard .sd-kpi strong {
+  font-variant-numeric: tabular-nums;
+}
+
+#elyonSellerDashboard .sd-main,
+#elyonSellerDashboard .sd-two {
+  gap: 14px !important;
+}
+
+#elyonSellerDashboard .sd-chart {
+  background:
+    linear-gradient(to top, rgba(255,255,255,.032) 1px, transparent 1px) 0 0 / 100% 25%,
+    linear-gradient(180deg, rgba(79,140,255,.025), transparent 55%) !important;
+}
+
+#elyonSellerDashboard .sd-bar {
+  background: linear-gradient(180deg, #78a6ff 0%, #4f8cff 100%) !important;
+  box-shadow: 0 0 0 1px rgba(79,140,255,.10), 0 6px 18px rgba(79,140,255,.10) !important;
+}
+
+#elyonSellerDashboard .sd-step {
+  position: relative !important;
+  overflow: hidden !important;
+}
+
+#elyonSellerDashboard .sd-step::before {
+  content: "" !important;
+  position: absolute !important;
+  left: 18% !important;
+  right: 18% !important;
+  top: 0 !important;
+  height: 1px !important;
+  background: rgba(79,140,255,.24) !important;
+}
+
+/* Quickstart finishing */
+#elyonModernQuickstartPanel {
+  background:
+    radial-gradient(circle at 92% 2%, rgba(79,140,255,.07), transparent 28%),
+    #10161e !important;
+}
+
+#elyonModernQuickstartPanel .eq-route,
+#elyonModernQuickstartPanel .eq-status-card {
+  transition: background 140ms ease, border-color 140ms ease, transform 140ms ease !important;
+}
+
+#elyonModernQuickstartPanel .eq-route:hover {
+  transform: translateY(-1px) !important;
+  background: rgba(255,255,255,.038) !important;
+}
+
+#elyonModernQuickstartPanel .eq-focus {
+  box-shadow: inset 3px 0 0 rgba(79,140,255,.62) !important;
+}
+
+/* Tables */
+th {
+  background: rgba(255,255,255,.012) !important;
+}
+
+tbody tr:last-child td {
+  border-bottom-color: transparent !important;
+}
+
+/* Responsive finishing */
+@media (max-width: 1460px) and (min-width: 1181px) {
+  #elyonSellerDashboard .sd-kpis {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 900px) {
+  .topbar {
+    box-shadow: none !important;
+  }
+
+  #elyonSellerDashboard .sd-kpi {
+    min-height: 106px !important;
+  }
+}
+
+@media (max-width: 680px) {
+  .content {
+    background: var(--elyon-bg) !important;
+  }
+
+  .brand {
+    margin-bottom: 6px !important;
+  }
+
+  #elyonSellerDashboard {
+    gap: 12px !important;
+  }
+
+  #elyonSellerDashboard .sd-kpi::after {
+    left: 12px !important;
+    right: 12px !important;
+  }
+}
