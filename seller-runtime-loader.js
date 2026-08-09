@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const VERSION = "seller-operations-20260810-2";
+  const VERSION = "seller-operations-20260810-3";
   const LEGACY_QUICKSTART_BRIDGE_FLAG = "__elyonModernQuickstartBridge";
   const DRAFT_TAB_ID = "draftsTab";
   const DRAFT_STYLE_ID = "elyonSellerDraftWorkspaceStyles";
@@ -186,6 +186,16 @@
     document.head.appendChild(style);
   }
 
+  function numberProductPipelineMenu(menu) {
+    if (!menu) return;
+    [...menu.options]
+      .filter((option) => !option.disabled && text(option.value))
+      .forEach((option, index) => {
+        const label = text(option.textContent).replace(/^\d+\.\s*/, "");
+        option.textContent = `${index + 1}. ${label}`;
+      });
+  }
+
   function ensureDraftWorkspace() {
     installDraftStyles();
     const menu = document.getElementById("mainMenu");
@@ -197,6 +207,7 @@
       if (productOption) productOption.insertAdjacentElement("afterend", option);
       else menu.appendChild(option);
     }
+    numberProductPipelineMenu(menu);
 
     let tab = document.getElementById(DRAFT_TAB_ID);
     if (!tab) {
