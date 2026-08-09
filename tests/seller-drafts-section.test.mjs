@@ -4,17 +4,20 @@ import { readFile } from "node:fs/promises";
 
 const runtimeUrl = new URL("../seller-runtime-loader.js", import.meta.url);
 
-test("listing drafts have a dedicated lazy workspace", async () => {
+test("listing drafts and active listings have separate lazy workspaces", async () => {
   const runtime = await readFile(runtimeUrl, "utf8");
   assert.match(runtime, /const DRAFT_TAB_ID = "draftsTab"/);
+  assert.match(runtime, /const ACTIVE_TAB_ID = "activeListingsTab"/);
   assert.match(runtime, /draftsTab: \[\]/);
+  assert.match(runtime, /activeListingsTab: \[\]/);
   assert.match(runtime, /option\.textContent = "📝 Listing-Entwürfe"/);
+  assert.match(runtime, /option\.textContent = "🟢 Aktive Listings"/);
   assert.match(runtime, /fetch\("\/api\/products"/);
-  assert.match(runtime, /filter\(isDraftProduct\)/);
-  assert.match(runtime, /Noch ohne eBay-Artikelnummer/);
+  assert.match(runtime, /products\.filter\(isDraftProduct\)/);
+  assert.match(runtime, /products\.filter\(isActiveProduct\)/);
 });
 
-test("product pipeline menu numbers the inserted drafts step in sequence", async () => {
+test("product pipeline menu numbers inserted listing workspaces in sequence", async () => {
   const runtime = await readFile(runtimeUrl, "utf8");
   assert.match(runtime, /function numberProductPipelineMenu\(menu\)/);
   assert.match(runtime, /replace\(\/\^\\d\+\\\.\\s\*\//);
@@ -22,7 +25,24 @@ test("product pipeline menu numbers the inserted drafts step in sequence", async
   assert.match(runtime, /numberProductPipelineMenu\(menu\)/);
 });
 
-test("dashboard listing-draft task routes to the drafts workspace without a DOM observer", async () => {
+test("draft workspace is passive and has no selling action", async () => {
+  const runtime = await readFile(runtimeUrl, "utf8");
+  assert.match(runtime, /Diese Übersicht ist rein passiv/);
+  assert.match(runtime, /<small>Aktionen<\/small><strong style="font-size:14px">Keine<\/strong>/);
+  assert.match(runtime, /<span class="elyon-listing-pill">Passiv<\/span>/);
+  assert.doesNotMatch(runtime, /data-draft-open/);
+  assert.doesNotMatch(runtime, /openDraftForSelling/);
+});
+
+test("active listing requires ebay item id plus online status", async () => {
+  const runtime = await readFile(runtimeUrl, "utf8");
+  assert.match(runtime, /function isActiveProduct\(product\)/);
+  assert.match(runtime, /productItemIds\(product\)\.length > 0/);
+  assert.match(runtime, /"live", "active", "published", "listed", "manually_listed", "online"/);
+  assert.match(runtime, /eBay \$\{escapeHtml\(itemId\)\}/);
+});
+
+test("dashboard listing-draft task routes to passive drafts without a DOM observer", async () => {
   const runtime = await readFile(runtimeUrl, "utf8");
   assert.match(runtime, /function isDashboardDraftTaskClick\(target\)/);
   assert.match(runtime, /Listing-Entwurf/);
@@ -32,14 +52,7 @@ test("dashboard listing-draft task routes to the drafts workspace without a DOM 
   assert.doesNotMatch(runtime, /setInterval/);
 });
 
-test("drafts reuse the existing Product Master to selling adoption path", async () => {
+test("listing collections leave loading state after Product Master refresh", async () => {
   const runtime = await readFile(runtimeUrl, "utf8");
-  assert.match(runtime, /await loadGroup\("productListTab"\)/);
-  assert.match(runtime, /ElyonCompanyOsInbox\?\.adopt/);
-  assert.match(runtime, /await loadGroup\("ebayListingTab"\)/);
-});
-
-test("draft list leaves loading state after Product Master refresh", async () => {
-  const runtime = await readFile(runtimeUrl, "utf8");
-  assert.match(runtime, /finally \{\s*draftLoading = false;\s*renderDraftWorkspace\(message\)/);
+  assert.match(runtime, /finally \{\s*listingLoading = false;\s*renderDraftWorkspace\(message\);\s*renderActiveWorkspace\(message\)/);
 });
