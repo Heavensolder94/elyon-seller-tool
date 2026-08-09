@@ -33,13 +33,25 @@ test("advanced settings observe only relevant agent cards", async () => {
   assert.doesNotThrow(() => new Script(optimized, { filename: "seller-ai-workforce-advanced-settings.js" }));
 });
 
-test("desktop runtime no longer executes the discarded legacy agent UI", async () => {
+test("desktop runtime replaces legacy UI with the redesigned agent workspace", async () => {
   const optimized = optimizeVirtualAgentsRuntimeLoader(await source("seller-runtime-loader.js"));
 
   assert.doesNotMatch(optimized, /seller-virtual-agents-legacy\.js/);
-  assert.match(optimized, /virtualAgentsTab:[\s\S]*ai-workforce-client\.js[\s\S]*ai-workforce-mount-fix\.js[\s\S]*seller-ai-workforce-advanced-settings\.js/);
-  assert.match(optimized, /virtual-agents-stable-20260806-1/);
+  assert.match(optimized, /virtualAgentsTab:[\s\S]*ai-workforce-client\.js[\s\S]*ai-workforce-mount-fix\.js[\s\S]*seller-ai-workforce-advanced-settings\.js[\s\S]*seller-virtual-agents-redesign\.js/);
+  assert.match(optimized, /virtual-agents-final-20260807-2/);
   assert.doesNotThrow(() => new Script(optimized, { filename: "seller-runtime-loader.js" }));
+});
+
+test("virtual-agent redesign stays scoped and keeps technical settings collapsible", async () => {
+  const redesign = await source("seller-virtual-agents-redesign.js");
+
+  assert.match(redesign, /aiw-command-center/);
+  assert.match(redesign, /aiw-agent-settings/);
+  assert.match(redesign, /data-aiw-view-button="team"/);
+  assert.match(redesign, /data-aiw-view-button="tasks"/);
+  assert.match(redesign, /observer\.observe\(observedRoot, \{ childList: true, subtree: true \}\)/);
+  assert.doesNotMatch(redesign, /observer\.observe\(document\.documentElement/);
+  assert.doesNotThrow(() => new Script(redesign, { filename: "seller-virtual-agents-redesign.js" }));
 });
 
 test("mount compatibility layer has no global DOM observer or retry storm", async () => {
