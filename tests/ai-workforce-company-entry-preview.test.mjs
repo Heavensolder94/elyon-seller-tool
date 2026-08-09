@@ -22,13 +22,22 @@ test("virtual employees open directly into the company team view", async () => {
   assert.match(source, /event\.target\?\.id === "mainMenu"/);
 });
 
+test("virtual employees visibly expose company and advanced views", async () => {
+  const source = await readFile(entryUrl, "utf8");
+  assert.match(source, /elyonWorkforceCompanySwitcher/);
+  assert.match(source, /🏢 Firmenstruktur/);
+  assert.match(source, /⚙ Erweiterte Steuerung/);
+  assert.match(source, /data-company-view="company"/);
+  assert.match(source, /data-company-view="advanced"/);
+  assert.match(source, /requestedView: "company"/);
+});
+
 test("company view becomes full-width but keeps advanced workforce reachable", async () => {
   const source = await readFile(entryUrl, "utf8");
   assert.match(source, /aiw-company-view/);
   assert.match(source, /aiw-v3-nav[^}]*display:none!important/s);
   assert.match(source, /aiw-v3-side[^}]*display:none!important/s);
   assert.match(source, /data-org-advanced-view/);
-  assert.match(source, /Erweiterte Steuerung/);
   assert.match(source, /openAdvanced/);
 });
 
@@ -36,7 +45,7 @@ test("company entry uses only bounded activation retries", async () => {
   const source = await readFile(entryUrl, "utf8");
   assert.doesNotMatch(source, /MutationObserver/);
   assert.doesNotMatch(source, /setInterval\(/);
-  assert.match(source, /\[0, 40, 140\]/);
+  assert.match(source, /\[0, 80, 250, 700\]/);
 });
 
 test("preview build ships org chart before the company entry adapter", async () => {
