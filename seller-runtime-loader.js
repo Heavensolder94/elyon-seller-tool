@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const VERSION = "seller-operations-20260810-1";
+  const VERSION = "seller-operations-20260810-2";
   const LEGACY_QUICKSTART_BRIDGE_FLAG = "__elyonModernQuickstartBridge";
   const DRAFT_TAB_ID = "draftsTab";
   const DRAFT_STYLE_ID = "elyonSellerDraftWorkspaceStyles";
@@ -11,7 +11,6 @@
   const PRICE_PROVENANCE = { src: "/seller-price-provenance.js", type: "module" };
   let draftLoading = false;
   let draftProducts = [];
-  let draftTaskObserver = null;
 
   const GROUPS = {
     quickstart: [
@@ -297,6 +296,7 @@
     if (draftLoading) return;
     draftLoading = true;
     renderDraftWorkspace();
+    let message = "";
     try {
       const response = await fetch("/api/products", {
         credentials: "same-origin",
@@ -310,16 +310,15 @@
         throw error;
       }
       draftProducts = (Array.isArray(data.products) ? data.products : []).filter(isDraftProduct);
-      renderDraftWorkspace(`${draftProducts.length} Listing-Entwurf${draftProducts.length === 1 ? "" : "e"} aus dem Product Master geladen.`);
-      if (manual) document.getElementById(DRAFT_TAB_ID)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      message = `${draftProducts.length} Listing-Entwurf${draftProducts.length === 1 ? "" : "e"} aus dem Product Master geladen.`;
     } catch (error) {
       draftProducts = [];
       const authHint = error?.status === 403 ? " Bitte Seller-Sitzung erneut anmelden." : "";
-      renderDraftWorkspace(`Fehler: Entwürfe konnten nicht geladen werden: ${text(error?.message) || "Unbekannter Fehler"}.${authHint}`);
+      message = `Fehler: Entwürfe konnten nicht geladen werden: ${text(error?.message) || "Unbekannter Fehler"}.${authHint}`;
     } finally {
       draftLoading = false;
-      const button = document.getElementById("elyonDraftsRefresh");
-      if (button) button.textContent = "Neu laden";
+      renderDraftWorkspace(message);
+      if (manual) document.getElementById(DRAFT_TAB_ID)?.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   }
 
@@ -346,26 +345,13 @@
     }
   }
 
-  function retargetDashboardDraftTask() {
-    document.querySelectorAll("#dashboardTab .sd-task, #dashboardTab .seller-task").forEach((task) => {
-      const title = text(task.querySelector("strong")?.textContent);
-      if (!/Listing-Entwurf/i.test(title)) return;
-      const button = task.querySelector("[data-sd-tab],[data-seller-open-tab]");
-      if (!button) return;
-      if (button.hasAttribute("data-sd-tab")) button.dataset.sdTab = DRAFT_TAB_ID;
-      if (button.hasAttribute("data-seller-open-tab")) button.dataset.sellerOpenTab = DRAFT_TAB_ID;
-      button.textContent = "Entwürfe öffnen";
-      button.setAttribute("aria-label", "Listing-Entwürfe öffnen");
-    });
-  }
-
-  function installDraftTaskRetargeting() {
-    retargetDashboardDraftTask();
-    if (draftTaskObserver) return;
-    const dashboard = document.getElementById("dashboardTab");
-    if (!dashboard || typeof MutationObserver === "undefined") return;
-    draftTaskObserver = new MutationObserver(retargetDashboardDraftTask);
-    draftTaskObserver.observe(dashboard, { childList: true, subtree: true });
+  function isDashboardDraftTaskClick(target) {
+    if (!(target instanceof Element)) return false;
+    const button = target.closest("#dashboardTab [data-sd-tab], #dashboardTab [data-seller-open-tab]");
+    if (!button) return false;
+    const task = button.closest(".sd-task,.seller-task");
+    const title = text(task?.querySelector("strong")?.textContent);
+    return /Listing-Entwurf/i.test(title);
   }
 
   function activateGroup(groupId) {
@@ -513,7 +499,6 @@
     installLegacyQuickstartBridge();
     installFinanceEntry();
     ensureDraftWorkspace();
-    installDraftTaskRetargeting();
 
     document.addEventListener("change", (event) => {
       if (event.target?.id === "mainMenu") requestGroup(event.target.value).catch(() => {});
@@ -524,6 +509,12 @@
         event.preventDefault();
         event.stopPropagation();
         requestQuickstart(true);
+        return;
+      }
+      if (isDashboardDraftTaskClick(event.target)) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        requestGroup(DRAFT_TAB_ID).catch(() => {});
         return;
       }
       const tabId = tabFromClick(event.target);
