@@ -1,205 +1,156 @@
-/* Elyon Seller OS - Notion Dark Workspace
-   One controlled design layer. No JavaScript changes, no IDs renamed.
+/* Elyon Seller OS — Dashboard Preview
+   Design-only layer for design/seller-tool-dashboard-preview.
+   No IDs, hooks, API routes, storage keys or workflow behavior are changed here.
 */
 
 :root {
-  --workspace-bg: #191919;
-  --chrome-bg: #202020;
-  --page-bg: #191919;
-  --panel: rgba(255, 255, 255, 0.035);
-  --panel-hover: rgba(255, 255, 255, 0.06);
-  --line: rgba(255, 255, 255, 0.075);
-  --line-strong: rgba(255, 255, 255, 0.13);
-  --text: #f4f4f5;
-  --text-soft: #c7c7cc;
-  --muted: #8a8a8f;
-  --faint: #626267;
-  --accent: #60a5fa;
-  --accent-dark: #3b82f6;
-  --success: #22c55e;
-  --warning: #f59e0b;
-  --danger: #ef4444;
-  --radius: 12px;
-  --radius-lg: 16px;
+  color-scheme: dark;
+
+  --elyon-bg: #0b0f14;
+  --elyon-bg-elevated: #0f141b;
+  --elyon-sidebar: #0d1218;
+  --elyon-surface: #111821;
+  --elyon-surface-2: #151d27;
+  --elyon-surface-3: #1a2430;
+  --elyon-hover: rgba(255, 255, 255, 0.045);
+
+  --elyon-border: rgba(255, 255, 255, 0.075);
+  --elyon-border-strong: rgba(255, 255, 255, 0.12);
+
+  --elyon-text: #f4f6f8;
+  --elyon-text-2: #c2c9d2;
+  --elyon-muted: #8d98a7;
+  --elyon-faint: #657181;
+
+  --elyon-accent: #4f8cff;
+  --elyon-accent-soft: rgba(79, 140, 255, 0.12);
+  --elyon-success: #35c46a;
+  --elyon-success-soft: rgba(53, 196, 106, 0.1);
+  --elyon-warning: #f1ae42;
+  --elyon-warning-soft: rgba(241, 174, 66, 0.1);
+  --elyon-danger: #ee6464;
+  --elyon-danger-soft: rgba(238, 100, 100, 0.1);
+
+  --elyon-radius-xs: 7px;
+  --elyon-radius-sm: 9px;
+  --elyon-radius: 12px;
+  --elyon-radius-lg: 14px;
+
+  --elyon-sidebar-width: 264px;
+  --elyon-page-width: 1320px;
+  --elyon-shadow-popover: 0 24px 70px rgba(0, 0, 0, 0.42);
+
+  --workspace-bg: var(--elyon-bg);
+  --chrome-bg: var(--elyon-sidebar);
+  --page-bg: var(--elyon-bg);
+  --panel: var(--elyon-surface);
+  --panel-hover: var(--elyon-surface-2);
+  --line: var(--elyon-border);
+  --line-strong: var(--elyon-border-strong);
+  --text: var(--elyon-text);
+  --text-soft: var(--elyon-text-2);
+  --muted: var(--elyon-muted);
+  --faint: var(--elyon-faint);
+  --accent: var(--elyon-accent);
+  --accent-dark: var(--elyon-accent);
+  --success: var(--elyon-success);
+  --warning: var(--elyon-warning);
+  --danger: var(--elyon-danger);
+  --radius: var(--elyon-radius);
+  --radius-lg: var(--elyon-radius-lg);
+}
+
+/* ---------- Base ---------- */
+
+html {
+  background: var(--elyon-bg) !important;
+}
+
+* {
+  scrollbar-color: #334152 transparent;
 }
 
 body {
-  color: var(--text) !important;
-  background: var(--workspace-bg) !important;
+  min-height: 100vh !important;
+  margin: 0 !important;
+  color: var(--elyon-text) !important;
+  background: var(--elyon-bg) !important;
+  font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+  letter-spacing: -0.01em;
 }
 
-body::before {
+body::before,
+body::after {
   display: none !important;
 }
 
+::selection {
+  background: rgba(79, 140, 255, 0.28);
+  color: #fff;
+}
+
+a {
+  color: inherit;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* ---------- App shell ---------- */
+
 .app {
-  grid-template-columns: 252px minmax(0, 1fr) !important;
-  background: var(--workspace-bg) !important;
+  display: grid !important;
+  grid-template-columns: var(--elyon-sidebar-width) minmax(0, 1fr) !important;
+  min-height: 100vh !important;
+  background: var(--elyon-bg) !important;
 }
 
 .sidebar {
-  width: 252px !important;
-  padding: 14px 12px !important;
-  background: var(--chrome-bg) !important;
-  border-right: 1px solid var(--line) !important;
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 70 !important;
+  width: var(--elyon-sidebar-width) !important;
+  height: 100vh !important;
+  padding: 14px 11px !important;
+  overflow: auto !important;
+  color: var(--elyon-text-2) !important;
+  background: var(--elyon-sidebar) !important;
+  border-right: 1px solid var(--elyon-border) !important;
   box-shadow: none !important;
   backdrop-filter: none !important;
 }
 
-.brand {
-  padding: 8px 8px 12px !important;
-}
-
-.brand-mark {
-  width: 34px !important;
-  height: 34px !important;
-  border-radius: 8px !important;
-  background:
-    linear-gradient(135deg, #f8d06a 0%, #a16207 48%, #171717 49%, #171717 100%) !important;
-  box-shadow: none !important;
-}
-
-.brand h1 {
-  color: var(--text) !important;
-  font-size: 15px !important;
-  letter-spacing: -0.01em !important;
-}
-
-.brand p {
-  color: var(--faint) !important;
-  font-size: 10px !important;
-}
-
-.searchbox {
-  padding: 0 4px !important;
-}
-
-.searchbox::before {
-  display: none !important;
-}
-
-.searchbox input {
-  min-height: 34px !important;
-  padding: 8px 10px !important;
-  color: var(--text) !important;
-  background: rgba(255, 255, 255, 0.045) !important;
-  border: 1px solid transparent !important;
-  border-radius: 7px !important;
-}
-
-.searchbox input:focus {
-  border-color: var(--line-strong) !important;
-  box-shadow: none !important;
-}
-
-.sidebar > .nav:not(.nav-menu) {
-  display: none !important;
-}
-
-.nav-menu {
-  display: grid !important;
-  gap: 3px !important;
-  padding: 4px 0 10px !important;
-}
-
-.nav-group {
-  margin: 5px 0 9px !important;
-  background: transparent !important;
-  border: 0 !important;
-}
-
-.nav-group summary {
-  list-style: none;
-  padding: 8px 9px 5px !important;
-  color: var(--faint) !important;
-  font-size: 11px !important;
-  font-weight: 600 !important;
-  letter-spacing: 0.01em !important;
-  text-transform: none !important;
-  cursor: pointer;
-}
-
-.nav-group summary::-webkit-details-marker {
-  display: none;
-}
-
-.nav-group summary::after {
-  content: "";
-  float: right;
-  width: 6px;
-  height: 6px;
-  margin-top: 4px;
-  border-right: 1px solid var(--faint);
-  border-bottom: 1px solid var(--faint);
-  transform: rotate(45deg);
-  opacity: .55;
-}
-
-.nav-group[open] summary::after {
-  transform: rotate(225deg);
-  margin-top: 7px;
-}
-
-.nav-menu .nav-item {
-  min-height: 30px !important;
-  margin: 1px 0 !important;
-  padding: 6px 8px !important;
-  color: #b8b8bd !important;
-  background: transparent !important;
-  border: 0 !important;
-  border-radius: 6px !important;
-  font-size: 13px !important;
-  transform: none !important;
-  box-shadow: none !important;
-}
-
-.nav-menu .nav-item:hover,
-.nav-menu .nav-item.active {
-  color: #f4f4f5 !important;
-  background: rgba(255, 255, 255, 0.075) !important;
-}
-
-.nav-menu .nav-item.active::before {
-  display: none !important;
-}
-
-.nav-menu .nav-item .icon {
-  min-width: 22px !important;
-  width: auto !important;
-  height: 22px !important;
-  padding: 0 5px !important;
-  color: #d6d6da !important;
-  background: transparent !important;
-  border: 0 !important;
-  border-radius: 5px !important;
-  font-size: 10px !important;
-}
-
-.sidebar-footer {
-  display: none !important;
-}
-
 .content {
-  max-width: none !important;
+  position: relative !important;
+  min-width: 0 !important;
   width: 100% !important;
-  padding: 0 0 56px !important;
+  max-width: none !important;
+  min-height: 100vh !important;
   margin: 0 !important;
-  background: var(--page-bg) !important;
+  padding: 0 0 64px !important;
+  background: var(--elyon-bg) !important;
 }
 
 .content::before {
   content: "" !important;
   display: block !important;
-  height: 178px !important;
-  margin: 0 !important;
-  border: 0 !important;
-  background:
-    linear-gradient(180deg, rgba(25, 25, 25, 0), #191919),
-    radial-gradient(circle at 58% 30%, rgba(255, 255, 255, 0.18), transparent 10%),
-    radial-gradient(circle at 52% 42%, rgba(59, 130, 246, 0.20), transparent 16%),
-    linear-gradient(135deg, #0f172a 0%, #1e293b 42%, #020617 100%) !important;
+  height: 18px !important;
+  background: transparent !important;
 }
 
+/* Shared page width */
 .topbar,
 .metrics,
 .workflow-grid,
@@ -207,119 +158,499 @@ body::before {
 .workspace-grid,
 .bottom-grid,
 .section-grid,
-.footer {
-  width: min(980px, calc(100vw - 320px)) !important;
+.footer,
+#elyonSellerDashboard {
+  width: min(var(--elyon-page-width), calc(100vw - 324px)) !important;
   margin-left: auto !important;
   margin-right: auto !important;
 }
 
-.topbar {
-  position: relative !important;
-  display: grid !important;
-  grid-template-columns: minmax(0, 1fr) auto !important;
-  align-items: end !important;
-  gap: 18px !important;
-  margin-top: -52px !important;
-  margin-bottom: 28px !important;
-  padding: 0 !important;
-  border: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
-  backdrop-filter: none !important;
+/* ---------- Brand ---------- */
+
+.brand {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 7px 7px 15px !important;
 }
 
+.brand-mark {
+  display: grid !important;
+  place-items: center !important;
+  width: 32px !important;
+  height: 32px !important;
+  flex: 0 0 32px !important;
+  border: 1px solid var(--elyon-border-strong) !important;
+  border-radius: 9px !important;
+  background:
+    linear-gradient(145deg, rgba(255,255,255,.18), transparent 44%),
+    linear-gradient(135deg, #253b61, #101722) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08) !important;
+}
+
+.brand h1 {
+  margin: 0 !important;
+  color: var(--elyon-text) !important;
+  font-size: 14px !important;
+  font-weight: 720 !important;
+  letter-spacing: -0.02em !important;
+}
+
+.brand p {
+  margin: 2px 0 0 !important;
+  color: var(--elyon-faint) !important;
+  font-size: 10px !important;
+  font-weight: 650 !important;
+  letter-spacing: 0.11em !important;
+  text-transform: uppercase !important;
+}
+
+/* ---------- Sidebar search ---------- */
+
+.searchbox {
+  position: relative !important;
+  padding: 0 4px 9px !important;
+}
+
+.searchbox::before {
+  display: none !important;
+}
+
+.searchbox input {
+  width: 100% !important;
+  min-height: 35px !important;
+  margin: 0 !important;
+  padding: 8px 10px !important;
+  color: var(--elyon-text-2) !important;
+  background: rgba(255, 255, 255, 0.035) !important;
+  border: 1px solid var(--elyon-border) !important;
+  border-radius: var(--elyon-radius-sm) !important;
+  box-shadow: none !important;
+}
+
+.searchbox input::placeholder {
+  color: var(--elyon-faint) !important;
+}
+
+.searchbox input:focus {
+  outline: none !important;
+  border-color: rgba(79, 140, 255, 0.45) !important;
+  box-shadow: 0 0 0 3px rgba(79, 140, 255, 0.09) !important;
+}
+
+/* ---------- Navigation ---------- */
+
+.sidebar > .nav:not(.nav-menu) {
+  display: none !important;
+}
+
+.nav-menu {
+  display: grid !important;
+  gap: 2px !important;
+  padding: 0 0 10px !important;
+}
+
+.nav-group {
+  margin: 4px 0 10px !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+}
+
+.nav-group summary,
+.nav-section summary {
+  list-style: none !important;
+  padding: 9px 8px 6px !important;
+  color: var(--elyon-faint) !important;
+  background: transparent !important;
+  border-radius: 7px !important;
+  font-size: 10px !important;
+  font-weight: 750 !important;
+  letter-spacing: 0.085em !important;
+  text-transform: uppercase !important;
+  cursor: pointer !important;
+}
+
+.nav-group summary::-webkit-details-marker,
+.nav-section summary::-webkit-details-marker {
+  display: none !important;
+}
+
+.nav-group summary::after,
+.nav-section summary::after {
+  content: "" !important;
+  float: right !important;
+  width: 5px !important;
+  height: 5px !important;
+  margin-top: 3px !important;
+  border-right: 1px solid var(--elyon-faint) !important;
+  border-bottom: 1px solid var(--elyon-faint) !important;
+  transform: rotate(45deg) !important;
+  opacity: .7 !important;
+}
+
+.nav-group[open] summary::after,
+.nav-section[open] summary::after {
+  margin-top: 6px !important;
+  transform: rotate(225deg) !important;
+}
+
+.nav-section {
+  display: grid !important;
+  gap: 2px !important;
+  padding: 0 2px !important;
+}
+
+.nav-menu .nav-item {
+  min-height: 36px !important;
+  margin: 0 !important;
+  padding: 7px 8px !important;
+  gap: 9px !important;
+  color: #aeb8c5 !important;
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  border-radius: var(--elyon-radius-sm) !important;
+  box-shadow: none !important;
+  font-size: 13px !important;
+  font-weight: 540 !important;
+  transform: none !important;
+  transition: background 140ms ease, color 140ms ease, border-color 140ms ease !important;
+}
+
+.nav-menu .nav-item:hover {
+  color: var(--elyon-text) !important;
+  background: rgba(255,255,255,.04) !important;
+  border-color: rgba(255,255,255,.035) !important;
+  transform: none !important;
+}
+
+.nav-menu .nav-item.active {
+  color: #f8fafc !important;
+  background: rgba(79, 140, 255, 0.11) !important;
+  border-color: rgba(79, 140, 255, 0.16) !important;
+}
+
+.nav-menu .nav-item.active::before {
+  display: none !important;
+}
+
+.nav-menu .nav-item .icon,
+.nav-item.active .icon,
+.icon {
+  display: inline-grid !important;
+  place-items: center !important;
+  min-width: 21px !important;
+  width: 21px !important;
+  height: 21px !important;
+  padding: 0 !important;
+  color: var(--elyon-muted) !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 6px !important;
+  font-size: 10px !important;
+}
+
+.nav-menu .nav-item.active .icon {
+  color: #7aa7ff !important;
+}
+
+.sidebar-footer {
+  margin-top: auto !important;
+  padding: 8px 6px !important;
+  color: var(--elyon-faint) !important;
+}
+
+/* ---------- Topbar ---------- */
+
+.topbar {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 45 !important;
+  display: grid !important;
+  grid-template-columns: minmax(260px, 1fr) auto !important;
+  align-items: center !important;
+  gap: 20px !important;
+  min-height: 70px !important;
+  margin-top: 0 !important;
+  margin-bottom: 20px !important;
+  padding: 12px 0 !important;
+  color: var(--elyon-text) !important;
+  background: rgba(11, 15, 20, 0.9) !important;
+  border: 0 !important;
+  border-bottom: 1px solid var(--elyon-border) !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  backdrop-filter: blur(14px) saturate(125%) !important;
+}
+
+.topbar::before,
 .topbar::after {
   display: none !important;
 }
 
-.topbar::before {
-  content: "E";
-  display: grid;
-  place-items: center;
-  width: 58px;
-  height: 58px;
-  margin-bottom: 16px;
-  color: #111827;
-  background: linear-gradient(135deg, #f8fafc, #94a3b8);
-  border-radius: 14px;
-  font-size: 27px;
-  font-weight: 850;
-}
-
+.topbar h1,
 .topbar h2 {
-  color: var(--text) !important;
-  font-size: clamp(42px, 5vw, 64px) !important;
-  line-height: .95 !important;
-  letter-spacing: -0.075em !important;
   margin: 0 !important;
+  color: var(--elyon-text) !important;
+  font-size: clamp(22px, 2.5vw, 30px) !important;
+  line-height: 1.1 !important;
+  font-weight: 740 !important;
+  letter-spacing: -0.04em !important;
 }
 
 .topbar p {
-  max-width: 760px;
-  color: #a3a3a8 !important;
-  font-size: 15px !important;
-  line-height: 1.55 !important;
+  max-width: 760px !important;
+  margin: 5px 0 0 !important;
+  color: var(--elyon-muted) !important;
+  font-size: 12px !important;
+  line-height: 1.5 !important;
 }
 
 .top-actions {
-  align-self: start !important;
-  padding-top: 68px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 8px !important;
+  padding: 0 !important;
 }
 
-.btn,
-.pill,
-.mini-pill {
-  min-height: 34px !important;
-  padding: 7px 11px !important;
-  border-radius: 7px !important;
-  font-size: 13px !important;
-  font-weight: 500 !important;
+.elyon-global-search {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 9px !important;
+  width: min(33vw, 390px) !important;
+  min-width: 280px !important;
+  height: 38px !important;
+  padding: 0 10px !important;
+  color: var(--elyon-muted) !important;
+  background: rgba(255,255,255,.035) !important;
+  border: 1px solid var(--elyon-border) !important;
+  border-radius: var(--elyon-radius-sm) !important;
   box-shadow: none !important;
 }
 
-.btn {
-  color: #111827 !important;
-  background: #f8fafc !important;
+.elyon-global-search span {
+  color: var(--elyon-faint) !important;
+  font-size: 10px !important;
+  font-weight: 750 !important;
+  letter-spacing: .075em !important;
+  text-transform: uppercase !important;
+}
+
+.elyon-global-search input {
+  width: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  color: var(--elyon-text) !important;
+  background: transparent !important;
   border: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
 }
 
+.elyon-global-search kbd {
+  padding: 2px 6px !important;
+  color: var(--elyon-faint) !important;
+  background: rgba(255,255,255,.035) !important;
+  border: 1px solid var(--elyon-border) !important;
+  border-radius: 6px !important;
+  font-size: 10px !important;
+  white-space: nowrap !important;
+}
+
+/* ---------- Buttons ---------- */
+
+button,
+.btn,
+.secondary,
 .pill,
-.mini-pill {
-  color: #d4d4d8 !important;
-  background: rgba(255, 255, 255, 0.055) !important;
-  border: 1px solid var(--line) !important;
+.mini-pill,
+.copy-btn,
+.quick-actions button,
+.gen-tab-btn,
+.returns-tab-btn {
+  min-height: 36px !important;
+  padding: 8px 12px !important;
+  color: var(--elyon-text-2) !important;
+  background: rgba(255,255,255,.045) !important;
+  border: 1px solid var(--elyon-border) !important;
+  border-radius: var(--elyon-radius-sm) !important;
+  box-shadow: none !important;
+  font-size: 12px !important;
+  font-weight: 650 !important;
+  transform: none !important;
+  transition: background 140ms ease, border-color 140ms ease, color 140ms ease !important;
 }
 
-.metric,
+button:hover,
+.btn:hover,
+.secondary:hover,
+.pill:hover,
+.mini-pill:hover {
+  color: var(--elyon-text) !important;
+  background: rgba(255,255,255,.075) !important;
+  border-color: var(--elyon-border-strong) !important;
+  filter: none !important;
+  transform: none !important;
+}
+
+button:focus-visible,
+.btn:focus-visible,
+.nav-item:focus-visible {
+  outline: 2px solid rgba(79, 140, 255, .65) !important;
+  outline-offset: 2px !important;
+}
+
+.btn-primary,
+button.primary,
+.primary {
+  color: #fff !important;
+  background: var(--elyon-accent) !important;
+  border-color: var(--elyon-accent) !important;
+}
+
+.btn-primary:hover,
+button.primary:hover,
+.primary:hover {
+  background: #6399ff !important;
+  border-color: #6399ff !important;
+}
+
+.danger,
+button.danger {
+  color: #ffb5b5 !important;
+  background: var(--elyon-danger-soft) !important;
+  border-color: rgba(238,100,100,.25) !important;
+}
+
+.full {
+  width: 100% !important;
+}
+
+/* ---------- Forms ---------- */
+
+label {
+  color: var(--elyon-muted) !important;
+  font-size: 12px !important;
+}
+
+input,
+select,
+textarea,
+.inline-input,
+.inline-select,
+.input,
+.menu-select {
+  min-height: 38px !important;
+  color: var(--elyon-text) !important;
+  background: rgba(255,255,255,.035) !important;
+  border: 1px solid var(--elyon-border) !important;
+  border-radius: var(--elyon-radius-sm) !important;
+  box-shadow: none !important;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--elyon-faint) !important;
+}
+
+input:focus,
+select:focus,
+textarea:focus,
+.inline-input:focus,
+.inline-select:focus,
+.input:focus,
+.menu-select:focus {
+  outline: none !important;
+  border-color: rgba(79,140,255,.48) !important;
+  box-shadow: 0 0 0 3px rgba(79,140,255,.1) !important;
+}
+
+/* ---------- Generic surfaces ---------- */
+
+.card,
 .panel,
 .workspace-card,
-.small-panel {
-  color: var(--text) !important;
-  background: var(--panel) !important;
-  border: 1px solid var(--line) !important;
-  border-radius: var(--radius) !important;
+.small-panel,
+.metric,
+.metric-card,
+.table-card,
+.analysis-card,
+.section-card,
+.detail-hero,
+.briefing-section,
+.settings-section,
+.form-accordion,
+.output-box,
+.ai-product-card,
+.kanban-column,
+.elyon-activity {
+  color: var(--elyon-text) !important;
+  background: var(--elyon-surface) !important;
+  border: 1px solid var(--elyon-border) !important;
+  border-radius: var(--elyon-radius) !important;
   box-shadow: none !important;
   backdrop-filter: none !important;
 }
 
-.metric {
-  min-height: 92px !important;
-  padding: 14px !important;
+.card:hover,
+.workspace-card:hover,
+.metric-card:hover {
+  border-color: rgba(255,255,255,.105) !important;
 }
 
-.metric .value {
-  font-size: 24px !important;
+.panel,
+.card,
+.table-card,
+.analysis-card,
+.section-card {
+  padding: 18px !important;
 }
 
-.metric .label,
-.workspace-card .label,
-.status-chip .k,
-.detail-box .k,
-.toast .k {
-  color: var(--faint) !important;
+.panel-header,
+.panel-body {
+  padding-left: 0 !important;
+  padding-right: 0 !important;
 }
 
-.metric .sub,
+.panel-header {
+  padding-top: 0 !important;
+}
+
+.panel-body {
+  padding-bottom: 0 !important;
+}
+
+.card h2,
+.card h3,
+.panel h2,
+.panel h3,
+.panel-header h3,
+.workspace-card h4,
+.small-panel h4,
+.detail-title,
+.product-title,
+.result-main h5,
+.section-card h2,
+.analysis-card h3 {
+  color: var(--elyon-text) !important;
+  letter-spacing: -0.025em !important;
+}
+
+.card h2,
+.panel h2,
+.section-card h2 {
+  font-size: 18px !important;
+}
+
+.card h3,
+.panel h3,
+.analysis-card h3 {
+  font-size: 15px !important;
+}
+
+.muted,
+.hint,
 .panel-header p,
 .workspace-card p,
 .small-panel p,
@@ -328,1033 +659,19 @@ body::before {
 .detail-subtitle,
 .preview-line,
 .queue-item,
-.footer {
-  color: var(--muted) !important;
-}
-
-.workflow-grid {
-  grid-template-columns: minmax(0, 1.35fr) minmax(300px, .75fr) !important;
-  gap: 14px !important;
-}
-
-.main-grid {
-  display: none !important;
-}
-
-.metrics,
-.workspace-grid,
-.section-grid {
-  gap: 10px !important;
-}
-
-.workspace-grid,
-.section-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-}
-
-.panel-header {
-  padding: 18px 18px 0 !important;
-}
-
-.panel-header h3,
-.workspace-card h4,
-.small-panel h4,
-.detail-title,
-.product-title,
-.result-main h5 {
-  color: var(--text) !important;
-  letter-spacing: -0.035em !important;
-}
-
-.panel-body {
-  padding: 14px 18px 18px !important;
-}
-
-.research-toolbar,
-.result-card,
-.detail-hero,
-.detail-box,
-.preview-line,
-.queue-item,
-.status-chip,
-.product-item,
-.mini-row {
-  background: rgba(255, 255, 255, 0.03) !important;
-  border: 1px solid rgba(255, 255, 255, 0.065) !important;
-  border-radius: 10px !important;
-}
-
-.inline-input,
-.inline-select {
-  color: var(--text) !important;
-  background: rgba(255, 255, 255, 0.045) !important;
-  border: 1px solid var(--line) !important;
-  border-radius: 8px !important;
-}
-
-.inline-input:focus,
-.inline-select:focus {
-  border-color: rgba(96, 165, 250, 0.45) !important;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.11) !important;
-}
-
-.result-card:hover,
-.result-card.active {
-  background: rgba(255, 255, 255, 0.055) !important;
-  border-color: rgba(255, 255, 255, 0.12) !important;
-  transform: none !important;
-}
-
-.result-thumb {
-  border-radius: 9px !important;
-  background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.16), transparent),
-    linear-gradient(135deg, #334155, #020617) !important;
-}
-
-.score-good,
-.signal-good,
-.kpi-positive,
-.product-profit {
-  color: var(--success) !important;
-}
-
-.score-medium,
-.signal-medium,
-.kpi-warning {
-  color: var(--warning) !important;
-}
-
-.score-bad,
-.signal-bad {
-  color: var(--danger) !important;
-}
-
-.dot.ok { background: var(--success) !important; }
-.dot.warn { background: var(--warning) !important; }
-.dot.err { background: var(--danger) !important; }
-
-@media (max-width: 1280px) {
-  .app {
-    grid-template-columns: 1fr !important;
-  }
-
-  .sidebar {
-    position: relative !important;
-    width: auto !important;
-    height: auto !important;
-  }
-
-  .topbar,
-  .metrics,
-  .workflow-grid,
-  .workspace-grid,
-  .bottom-grid,
-  .section-grid,
-  .footer {
-    width: calc(100vw - 40px) !important;
-  }
-
-  .workflow-grid,
-  .bottom-grid {
-    grid-template-columns: 1fr !important;
-  }
-}
-
-@media (max-width: 760px) {
-  .content::before {
-    height: 132px !important;
-  }
-
-  .topbar {
-    grid-template-columns: 1fr !important;
-    margin-top: -36px !important;
-  }
-
-  .topbar::before {
-    width: 46px;
-    height: 46px;
-    margin-bottom: 12px;
-    font-size: 22px;
-  }
-
-  .top-actions {
-    padding-top: 0 !important;
-  }
-
-  .metrics,
-  .workspace-grid,
-  .section-grid,
-  .research-toolbar,
-  .detail-grid,
-  .result-card {
-    grid-template-columns: 1fr !important;
-  }
-
-  .btn,
-  .pill {
-    width: 100%;
-  }
-}
-
-/* Apple x Notion x Linear functional layer */
-body {
-  background:
-    radial-gradient(circle at 10% -10%, rgba(96, 165, 250, 0.12), transparent 30%),
-    radial-gradient(circle at 92% 8%, rgba(59, 130, 246, 0.08), transparent 28%),
-    linear-gradient(180deg, #0b0f19 0%, #0f172a 48%, #090d16 100%) !important;
-}
-
-.topbar {
-  min-height: 72px !important;
-  margin-top: -34px !important;
-  margin-bottom: 22px !important;
-  padding: 14px 24px !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
-  background: rgba(11, 15, 25, 0.78) !important;
-  backdrop-filter: blur(24px) saturate(140%) !important;
-}
-
-.content::before {
-  height: 116px !important;
-  background:
-    linear-gradient(180deg, rgba(11, 15, 25, 0), rgba(11, 15, 25, 0.94)),
-    radial-gradient(circle at 52% 20%, rgba(96, 165, 250, 0.14), transparent 20%),
-    linear-gradient(135deg, #0b0f19 0%, #111827 54%, #060914 100%) !important;
-}
-
-.top-actions {
-  gap: 10px !important;
-  align-items: center !important;
-}
-
-.elyon-global-search {
-  min-width: min(36vw, 420px);
-  height: 42px;
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  padding: 0 12px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.045);
-  color: rgba(248, 250, 252, 0.72);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
-}
-
-.elyon-global-search span {
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: rgba(148, 163, 184, 0.82);
-}
-
-.elyon-global-search input {
-  width: 100%;
-  border: 0;
-  outline: 0;
-  background: transparent;
-  color: #f8fafc;
-  font: inherit;
-}
-
-.elyon-global-search input::placeholder {
-  color: rgba(148, 163, 184, 0.72);
-}
-
-.elyon-global-search kbd {
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 7px;
-  padding: 2px 6px;
-  color: #94a3b8;
-  background: rgba(255, 255, 255, 0.04);
-  font-size: 11px;
-  white-space: nowrap;
-}
-
-.sidebar {
-  background: rgba(8, 12, 21, 0.88) !important;
-  border-right: 1px solid rgba(255, 255, 255, 0.07) !important;
-  box-shadow: 22px 0 60px rgba(0, 0, 0, 0.18) !important;
-}
-
-.nav-menu {
-  gap: 14px !important;
-}
-
-.nav-section {
-  padding: 0 10px !important;
-}
-
-.nav-section summary {
-  border-radius: 12px !important;
-  color: rgba(248, 250, 252, 0.78) !important;
-}
-
-.nav-section[open] summary,
-.nav-section summary:hover {
-  background: rgba(255, 255, 255, 0.045) !important;
-}
-
-.nav-menu .nav-item {
-  min-height: 36px !important;
-  border-radius: 12px !important;
-  border: 1px solid transparent !important;
-  color: rgba(203, 213, 225, 0.8) !important;
-  transition: background 160ms ease, border-color 160ms ease, color 160ms ease, transform 160ms ease;
-}
-
-.nav-menu .nav-item:hover {
-  background: rgba(255, 255, 255, 0.04) !important;
-  border-color: rgba(255, 255, 255, 0.06) !important;
-  transform: translateX(2px);
-}
-
-.nav-menu .nav-item.active {
-  background: rgba(59, 130, 246, 0.1) !important;
-  border-color: rgba(96, 165, 250, 0.22) !important;
-  color: #f8fafc !important;
-}
-
-.icon {
-  background: rgba(255, 255, 255, 0.055) !important;
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
-  color: #94a3b8 !important;
-}
-
-.nav-item.active .icon {
-  background: rgba(59, 130, 246, 0.16) !important;
-  color: #60a5fa !important;
-}
-
-.hero,
-.card,
-.panel,
-.table-card,
-.product-card,
-.analysis-card,
-.elyon-activity {
-  background: rgba(255, 255, 255, 0.045) !important;
-  border: 1px solid rgba(255, 255, 255, 0.075) !important;
-  border-radius: 20px !important;
-  box-shadow: 0 22px 65px rgba(0, 0, 0, 0.18) !important;
-  backdrop-filter: blur(22px) saturate(130%) !important;
-}
-
-.hero {
-  min-height: 188px !important;
-  overflow: hidden !important;
-}
-
-.hero::before {
-  opacity: 0.58 !important;
-  filter: saturate(0.8) contrast(1.02);
-}
-
-.section-card {
-  background: rgba(255, 255, 255, 0.032) !important;
-  border: 1px solid rgba(255, 255, 255, 0.065) !important;
-  border-radius: 22px !important;
-}
-
-.btn {
-  border-radius: 12px !important;
-  transition: transform 160ms ease, background 160ms ease, border-color 160ms ease, box-shadow 160ms ease !important;
-}
-
-.btn:hover {
-  transform: translateY(-1px);
-}
-
-.btn-primary {
-  background: linear-gradient(180deg, #60a5fa 0%, #3b82f6 100%) !important;
-  color: #fff !important;
-  box-shadow: 0 12px 32px rgba(59, 130, 246, 0.22) !important;
-}
-
-.btn-secondary,
-.btn-ghost {
-  background: rgba(255, 255, 255, 0.045) !important;
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
-  color: #cbd5e1 !important;
-}
-
-.inline-input,
-.inline-select,
-.input,
-textarea {
-  background: rgba(255, 255, 255, 0.045) !important;
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
-  border-radius: 14px !important;
-  color: #f8fafc !important;
-}
-
-.inline-input:focus,
-.inline-select:focus,
-.input:focus,
-textarea:focus {
-  outline: none !important;
-  border-color: rgba(96, 165, 250, 0.5) !important;
-  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.12) !important;
-}
-
-.elyon-shell-toggle {
-  display: none;
-  position: fixed;
-  left: 14px;
-  top: 14px;
-  z-index: 110;
-  height: 40px;
-  padding: 0 14px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 999px;
-  background: rgba(11, 15, 25, 0.82);
-  color: #f8fafc;
-  backdrop-filter: blur(18px);
-}
-
-.elyon-sidebar-overlay,
-.elyon-command-backdrop,
-.elyon-modal-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 100;
-  display: none;
-  background: rgba(3, 7, 18, 0.58);
-  backdrop-filter: blur(10px);
-}
-
-.elyon-command-backdrop.is-open,
-.elyon-modal-backdrop.is-open,
-body.sidebar-open .elyon-sidebar-overlay {
-  display: grid;
-}
-
-.elyon-command-backdrop,
-.elyon-modal-backdrop {
-  place-items: start center;
-  padding-top: 9vh;
-}
-
-.elyon-command,
-.elyon-modal {
-  width: min(680px, calc(100vw - 28px));
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 24px;
-  background: rgba(13, 18, 31, 0.94);
-  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.42);
-  color: #f8fafc;
-  overflow: hidden;
-}
-
-.elyon-command-search {
-  display: grid;
-  gap: 10px;
-  padding: 18px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.075);
-}
-
-.elyon-command-search span {
-  color: #94a3b8;
-  font-size: 12px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
-.elyon-command-search input {
-  border: 0;
-  outline: 0;
-  background: transparent;
-  color: #f8fafc;
-  font-size: 20px;
-}
-
-.elyon-command-list {
-  display: grid;
-  gap: 6px;
-  padding: 10px;
-  max-height: 440px;
-  overflow: auto;
-}
-
-.elyon-command-item {
-  display: grid;
-  gap: 4px;
-  width: 100%;
-  padding: 13px 14px;
-  border: 1px solid transparent;
-  border-radius: 16px;
-  background: transparent;
-  color: #f8fafc;
-  text-align: left;
-  cursor: pointer;
-}
-
-.elyon-command-item:hover {
-  background: rgba(255, 255, 255, 0.055);
-  border-color: rgba(255, 255, 255, 0.08);
-}
-
-.elyon-command-item span,
-.elyon-empty {
-  color: #94a3b8;
-  font-size: 13px;
-}
-
-.elyon-empty {
-  padding: 18px;
-}
-
-.elyon-modal {
-  padding: 22px;
-}
-
-.elyon-modal-close {
-  float: right;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.045);
-  color: #cbd5e1;
-  padding: 7px 12px;
-  cursor: pointer;
-}
-
-.elyon-modal-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-  margin: 18px 0;
-}
-
-.elyon-modal-grid div {
-  display: grid;
-  gap: 6px;
-  padding: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.075);
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.035);
-}
-
-.elyon-modal-grid span {
-  color: #94a3b8;
-  font-size: 12px;
-}
-
-.elyon-modal-copy {
-  color: #cbd5e1;
-  line-height: 1.65;
-}
-
-.elyon-activity {
-  padding: 20px !important;
-}
-
-.elyon-feed {
-  display: grid;
-  gap: 14px;
-  margin-top: 16px;
-}
-
-.elyon-feed div {
-  position: relative;
-  display: grid;
-  gap: 3px;
-  padding-left: 20px;
-}
-
-.elyon-feed div span {
-  position: absolute;
-  left: 0;
-  top: 5px;
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  background: #60a5fa;
-  box-shadow: 0 0 0 5px rgba(96, 165, 250, 0.1);
-}
-
-.elyon-feed strong {
-  color: #f8fafc;
-}
-
-.elyon-feed small {
-  color: #94a3b8;
-}
-
-@media (max-width: 1280px) {
-  .elyon-shell-toggle {
-    display: inline-flex;
-    align-items: center;
-  }
-
-  .sidebar {
-    position: fixed !important;
-    inset: 0 auto 0 0 !important;
-    z-index: 120 !important;
-    width: min(340px, 88vw) !important;
-    transform: translateX(-105%);
-    transition: transform 220ms ease;
-  }
-
-  body.sidebar-open .sidebar {
-    transform: translateX(0);
-  }
-
-  .topbar {
-    padding-left: 76px !important;
-  }
-
-  .elyon-global-search {
-    min-width: 220px;
-  }
-}
-
-@media (max-width: 760px) {
-  .content::before {
-    height: 92px !important;
-  }
-
-  .topbar {
-    align-items: stretch !important;
-    gap: 12px !important;
-    margin-top: -22px !important;
-  }
-
-  .top-actions,
-  .elyon-global-search {
-    width: 100%;
-  }
-
-  .elyon-global-search {
-    min-width: 0;
-  }
-
-  .elyon-command-trigger,
-  .elyon-global-search kbd {
-    display: none !important;
-  }
-
-  .elyon-modal-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-/* Final workspace pass: quiet Notion/Linear product OS */
-:root {
-  --os-bg: #151515;
-  --os-bg-2: #1b1b1b;
-  --os-sidebar: #202020;
-  --os-card: rgba(255, 255, 255, 0.032);
-  --os-card-hover: rgba(255, 255, 255, 0.052);
-  --os-border: rgba(255, 255, 255, 0.08);
-  --os-border-soft: rgba(255, 255, 255, 0.055);
-  --os-text: #f3f4f6;
-  --os-text-2: #b8bbc2;
-  --os-muted: #7b7f87;
-  --os-faint: #5f636b;
-  --os-accent: #8ab4f8;
-  --os-chip: rgba(255, 255, 255, 0.075);
-}
-
-html {
-  background: var(--os-bg) !important;
-}
-
-body {
-  background: var(--os-bg) !important;
-  color: var(--os-text) !important;
-  font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif !important;
-  letter-spacing: -0.012em;
-}
-
-body::after {
-  display: none !important;
-}
-
-.app {
-  min-height: 100vh !important;
-  grid-template-columns: 258px minmax(0, 1fr) !important;
-  background: var(--os-bg) !important;
-}
-
-.content {
-  position: relative !important;
-  min-height: 100vh !important;
-  padding: 0 0 72px !important;
-  background:
-    radial-gradient(circle at 50% -18%, rgba(255, 255, 255, 0.055), transparent 26%),
-    var(--os-bg) !important;
-}
-
-.content::before {
-  height: 64px !important;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(21, 21, 21, 0)) !important;
-}
-
-.topbar,
-.metrics,
-.main-grid,
-.workspace-grid,
-.bottom-grid,
-.section-grid,
-.footer {
-  width: min(1180px, calc(100vw - 330px)) !important;
-}
-
-.topbar {
-  position: sticky !important;
-  top: 0 !important;
-  z-index: 30 !important;
-  min-height: 64px !important;
-  margin-top: 0 !important;
-  margin-bottom: 18px !important;
-  padding: 12px 0 !important;
-  display: grid !important;
-  grid-template-columns: minmax(260px, 1fr) auto !important;
-  align-items: center !important;
-  border: 0 !important;
-  border-bottom: 1px solid var(--os-border-soft) !important;
-  border-radius: 0 !important;
-  background: rgba(21, 21, 21, 0.86) !important;
-  box-shadow: none !important;
-  backdrop-filter: blur(16px) saturate(130%) !important;
-}
-
-.topbar::before,
-.topbar::after {
-  display: none !important;
-}
-
-.topbar h2 {
-  margin: 0 !important;
-  color: var(--os-text) !important;
-  font-size: clamp(28px, 4vw, 48px) !important;
-  line-height: 1.02 !important;
-  font-weight: 760 !important;
-  letter-spacing: -0.055em !important;
-}
-
-.topbar p {
-  margin-top: 8px !important;
-  color: var(--os-muted) !important;
-  font-size: 15px !important;
-  line-height: 1.55 !important;
-  max-width: 720px !important;
-}
-
-.top-actions {
-  padding: 0 !important;
-  justify-content: end !important;
-}
-
-.elyon-global-search {
-  min-width: 320px !important;
-  height: 38px !important;
-  border-radius: 10px !important;
-  background: rgba(255, 255, 255, 0.045) !important;
-  border-color: var(--os-border-soft) !important;
-  box-shadow: none !important;
-}
-
-.elyon-command-trigger {
-  height: 38px !important;
-  padding: 0 12px !important;
-}
-
-.sidebar {
-  width: 258px !important;
-  padding: 12px 10px !important;
-  background: var(--os-sidebar) !important;
-  border-right: 1px solid var(--os-border-soft) !important;
-  box-shadow: none !important;
-  backdrop-filter: none !important;
-}
-
-.brand {
-  align-items: center !important;
-  gap: 10px !important;
-  padding: 8px 8px 14px !important;
-}
-
-.brand-mark {
-  width: 30px !important;
-  height: 30px !important;
-  border-radius: 8px !important;
-  background: linear-gradient(135deg, #e5e7eb 0%, #6b7280 52%, #27272a 53%) !important;
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
-}
-
-.brand h1 {
-  font-size: 14px !important;
-  font-weight: 650 !important;
-  letter-spacing: -0.02em !important;
-}
-
-.brand p {
-  color: var(--os-faint) !important;
-  letter-spacing: 0.12em !important;
-}
-
-.searchbox {
-  margin: 2px 0 8px !important;
-  padding: 0 5px !important;
-}
-
-.searchbox input {
-  height: 34px !important;
-  min-height: 34px !important;
-  background: rgba(255, 255, 255, 0.045) !important;
-  border: 1px solid transparent !important;
-  border-radius: 8px !important;
-  color: var(--os-text-2) !important;
-}
-
-.nav-menu {
-  padding-top: 2px !important;
-  gap: 2px !important;
-}
-
-.nav-group {
-  margin: 4px 0 10px !important;
-}
-
-.nav-group summary {
-  padding: 9px 9px 6px !important;
-  color: var(--os-faint) !important;
-  font-size: 11px !important;
-  font-weight: 650 !important;
-}
-
-.nav-section {
-  gap: 1px !important;
-  padding: 0 4px !important;
-}
-
-.nav-menu .nav-item {
-  min-height: 34px !important;
-  padding: 7px 8px !important;
-  border-radius: 8px !important;
-  color: var(--os-text-2) !important;
-  font-size: 13px !important;
-  border: 1px solid transparent !important;
-  background: transparent !important;
-  transform: none !important;
-}
-
-.nav-menu .nav-item:hover {
-  background: rgba(255, 255, 255, 0.052) !important;
-  border-color: transparent !important;
-  transform: none !important;
-}
-
-.nav-menu .nav-item.active {
-  color: var(--os-text) !important;
-  background: rgba(255, 255, 255, 0.075) !important;
-  border-color: transparent !important;
-}
-
-.icon,
-.nav-item.active .icon {
-  width: 20px !important;
-  height: 20px !important;
-  border: 0 !important;
-  background: transparent !important;
-  color: var(--os-muted) !important;
-  font-size: 10px !important;
-}
-
-.nav-item span:last-child,
-.nav-item > span {
-  min-width: 0;
-}
-
-.metrics {
-  display: grid !important;
-  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
-  gap: 10px !important;
-  margin-bottom: 18px !important;
-}
-
-.metric-card,
-.card,
-.panel,
-.table-card,
-.analysis-card,
-.detail-hero,
-.section-card,
-.elyon-activity {
-  background: var(--os-card) !important;
-  border: 1px solid var(--os-border-soft) !important;
-  border-radius: 14px !important;
-  box-shadow: none !important;
-  backdrop-filter: none !important;
-}
-
-.metric-card {
-  min-height: 114px !important;
-  padding: 16px !important;
-}
-
-.metric-card .label,
-.eyebrow {
-  color: var(--os-muted) !important;
-  font-size: 11px !important;
-  font-weight: 650 !important;
-  letter-spacing: 0.08em !important;
-}
-
-.metric-card .value {
-  color: var(--os-text) !important;
-  font-size: 30px !important;
-  letter-spacing: -0.055em !important;
-}
-
-.main-grid,
-.workspace-grid,
-.bottom-grid {
-  gap: 14px !important;
-}
-
-.main-grid {
-  grid-template-columns: minmax(0, 1.3fr) minmax(320px, 0.7fr) !important;
-}
-
-.workspace-grid {
-  grid-template-columns: minmax(0, 1.15fr) minmax(340px, 0.85fr) !important;
-}
-
-.panel,
-.table-card,
-.analysis-card,
-.section-card {
-  padding: 18px !important;
-}
-
-.panel-head,
-.section-card h2,
-.analysis-card h3 {
-  color: var(--os-text) !important;
-}
-
-.panel-head h2,
-.section-card h2,
-.analysis-card h3 {
-  font-size: 18px !important;
-  letter-spacing: -0.035em !important;
-}
-
-.chart-card {
-  min-height: 280px !important;
-}
-
-.line-chart {
-  opacity: 0.82 !important;
-  filter: saturate(0.55);
-}
-
-.bar-row,
-.queue-row,
-.status-row,
-.order-row,
-.tool-row {
-  border-color: var(--os-border-soft) !important;
-}
-
-.queue-row,
-.status-row,
-.order-row,
-.tool-row {
-  background: transparent !important;
-  border-radius: 10px !important;
-}
-
-.queue-row:hover,
-.status-row:hover,
-.order-row:hover,
-.tool-row:hover {
-  background: var(--os-card-hover) !important;
-}
-
-.research-toolbar {
-  gap: 8px !important;
-  padding: 10px !important;
-  border: 1px solid var(--os-border-soft) !important;
-  border-radius: 12px !important;
-  background: rgba(255, 255, 255, 0.025) !important;
-}
-
-.inline-input,
-.inline-select,
-.input,
-textarea {
-  min-height: 38px !important;
-  border-radius: 10px !important;
-  background: rgba(255, 255, 255, 0.038) !important;
-  border: 1px solid var(--os-border-soft) !important;
-  color: var(--os-text) !important;
-  box-shadow: none !important;
-}
-
-.inline-input:focus,
-.inline-select:focus,
-.input:focus,
-textarea:focus {
-  border-color: rgba(138, 180, 248, 0.42) !important;
-  box-shadow: 0 0 0 3px rgba(138, 180, 248, 0.1) !important;
-}
-
-.result-list {
-  display: grid !important;
-  gap: 8px !important;
-}
-
-.result-card {
-  display: grid !important;
-  grid-template-columns: 58px minmax(0, 1fr) auto !important;
-  align-items: center !important;
-  gap: 12px !important;
-  min-height: 82px !important;
-  padding: 10px 12px !important;
-  border: 1px solid var(--os-border-soft) !important;
-  border-radius: 12px !important;
-  background: rgba(255, 255, 255, 0.025) !important;
-  box-shadow: none !important;
-}
-
-.result-card:hover,
-.result-card.active {
-  background: var(--os-card-hover) !important;
-  border-color: rgba(255, 255, 255, 0.11) !important;
-  transform: none !important;
-}
-
-.result-image,
-.product-image {
-  width: 58px !important;
-  height: 58px !important;
-  border-radius: 10px !important;
-  border: 1px solid var(--os-border-soft) !important;
-  background: #242424 !important;
-}
-
-.result-card h3,
-.product-title,
-.selected-title {
-  color: var(--os-text) !important;
-  font-size: 14px !important;
-  letter-spacing: -0.015em !important;
-}
-
+.footer,
 .result-meta,
-.muted,
-.panel-head p,
 .section-card p,
-.analysis-card p {
-  color: var(--os-muted) !important;
+.analysis-card p,
+.ai-model-meta,
+.ai-compact-note {
+  color: var(--elyon-muted) !important;
 }
 
+.badge,
 .pill,
+.mini-pill,
+.status,
 .status-pill,
 .score-badge,
 .source-badge,
@@ -1362,161 +679,1102 @@ textarea:focus {
 .score-medium,
 .score-bad {
   border-radius: 999px !important;
-  border: 1px solid var(--os-border-soft) !important;
-  background: var(--os-chip) !important;
   box-shadow: none !important;
-  font-weight: 650 !important;
 }
 
+.good,
 .score-good,
+.signal-good,
+.kpi-positive,
+.product-profit,
 .status-pill.ok {
-  color: #7ddc9d !important;
-  background: rgba(34, 197, 94, 0.09) !important;
+  color: #7fe2a2 !important;
+  background: var(--elyon-success-soft) !important;
+  border-color: rgba(53,196,106,.2) !important;
 }
 
+.warn,
 .score-medium,
+.signal-medium,
+.kpi-warning,
 .status-pill.warn {
-  color: #f1c36d !important;
-  background: rgba(245, 158, 11, 0.09) !important;
+  color: #f6c56f !important;
+  background: var(--elyon-warning-soft) !important;
+  border-color: rgba(241,174,66,.2) !important;
 }
 
+.bad,
 .score-bad,
+.signal-bad,
 .status-pill.err {
-  color: #f18a8a !important;
-  background: rgba(239, 68, 68, 0.09) !important;
+  color: #ff9b9b !important;
+  background: var(--elyon-danger-soft) !important;
+  border-color: rgba(238,100,100,.2) !important;
 }
 
-.btn,
-.pill {
-  min-height: 36px !important;
-  padding: 8px 12px !important;
-  border-radius: 10px !important;
-  border: 1px solid var(--os-border-soft) !important;
-  background: rgba(255, 255, 255, 0.045) !important;
-  color: var(--os-text-2) !important;
-  box-shadow: none !important;
-  transform: none !important;
+.info {
+  color: #9fbfff !important;
+  background: var(--elyon-accent-soft) !important;
+  border-color: rgba(79,140,255,.2) !important;
 }
 
-.btn:hover,
-.pill:hover {
-  background: rgba(255, 255, 255, 0.075) !important;
-  color: var(--os-text) !important;
-  transform: none !important;
+/* ---------- Old dashboard / generic metrics ---------- */
+
+.metrics,
+.dashboard {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 10px !important;
+  margin-bottom: 18px !important;
 }
 
-.btn-primary {
-  color: #101010 !important;
-  background: #f4f4f5 !important;
-  border-color: #f4f4f5 !important;
-  box-shadow: none !important;
+.metric,
+.metric-card {
+  min-height: 104px !important;
+  padding: 15px !important;
 }
 
-.btn-secondary,
-.btn-ghost {
-  background: rgba(255, 255, 255, 0.042) !important;
+.metric small,
+.metric .label,
+.metric-card .label {
+  color: var(--elyon-muted) !important;
+  font-size: 10px !important;
+  font-weight: 720 !important;
+  letter-spacing: .065em !important;
+  text-transform: uppercase !important;
 }
 
-.action-row {
+.metric strong,
+.metric .value,
+.metric-card .value {
+  margin-top: 8px !important;
+  color: var(--elyon-text) !important;
+  font-size: 26px !important;
+  line-height: 1.05 !important;
+  font-weight: 760 !important;
+  letter-spacing: -.045em !important;
+}
+
+/* ---------- Primary content grids ---------- */
+
+.workflow-grid {
+  grid-template-columns: minmax(0, 1.35fr) minmax(320px, .75fr) !important;
+  gap: 14px !important;
+}
+
+.main-grid {
+  grid-template-columns: minmax(0, 1.25fr) minmax(320px, .75fr) !important;
+  gap: 14px !important;
+}
+
+.workspace-grid,
+.bottom-grid,
+.section-grid {
+  gap: 14px !important;
+}
+
+.workspace-grid {
+  grid-template-columns: minmax(0, 1.15fr) minmax(340px, .85fr) !important;
+}
+
+/* ---------- Research / products ---------- */
+
+.research-toolbar,
+.toolbar {
+  display: flex !important;
+  gap: 8px !important;
+  align-items: center !important;
+  flex-wrap: wrap !important;
+  margin-bottom: 14px !important;
+  padding: 10px !important;
+  background: rgba(255,255,255,.022) !important;
+  border: 1px solid var(--elyon-border) !important;
+  border-radius: var(--elyon-radius) !important;
+}
+
+.result-list,
+.products {
+  display: grid !important;
   gap: 8px !important;
 }
 
-.elyon-activity {
-  min-height: 220px !important;
+.result-card,
+.product-card,
+.detail-box,
+.preview-line,
+.queue-item,
+.status-chip,
+.product-item,
+.mini-row,
+.ai-mini-item {
+  background: rgba(255,255,255,.022) !important;
+  border: 1px solid var(--elyon-border) !important;
+  border-radius: var(--elyon-radius-sm) !important;
+  box-shadow: none !important;
 }
 
-.elyon-feed div span {
-  background: var(--os-muted) !important;
-  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.045) !important;
+.result-card {
+  display: grid !important;
+  grid-template-columns: 58px minmax(0, 1fr) auto !important;
+  align-items: center !important;
+  gap: 12px !important;
+  min-height: 80px !important;
+  padding: 10px 12px !important;
+}
+
+.product-card {
+  gap: 14px !important;
+  padding: 14px !important;
+}
+
+.result-card:hover,
+.result-card.active,
+.product-card:hover {
+  background: var(--elyon-hover) !important;
+  border-color: var(--elyon-border-strong) !important;
+  transform: none !important;
+}
+
+.result-image,
+.result-thumb,
+.product-image {
+  width: 58px !important;
+  height: 58px !important;
+  border: 1px solid var(--elyon-border) !important;
+  border-radius: var(--elyon-radius-sm) !important;
+  background: #17202b !important;
+}
+
+.score-number,
+.big-result {
+  color: var(--elyon-text) !important;
+  letter-spacing: -.045em !important;
+}
+
+.progress,
+.char-meter {
+  background: rgba(255,255,255,.07) !important;
+}
+
+/* ---------- Kanban / tables / rows ---------- */
+
+.kanban-board {
+  gap: 12px !important;
+}
+
+.kanban-column {
+  min-height: 180px !important;
+  padding: 12px !important;
+}
+
+table {
+  width: 100% !important;
+  border-collapse: collapse !important;
+}
+
+th {
+  color: var(--elyon-faint) !important;
+  font-size: 10px !important;
+  font-weight: 750 !important;
+  letter-spacing: .07em !important;
+  text-transform: uppercase !important;
+}
+
+td,
+th {
+  padding: 11px 12px !important;
+  border-bottom: 1px solid var(--elyon-border) !important;
+}
+
+tr:hover td {
+  background: rgba(255,255,255,.018) !important;
+}
+
+.bar-row,
+.queue-row,
+.status-row,
+.order-row,
+.tool-row {
+  border-color: var(--elyon-border) !important;
+}
+
+.queue-row,
+.status-row,
+.order-row,
+.tool-row {
+  background: transparent !important;
+  border-radius: var(--elyon-radius-sm) !important;
+}
+
+.queue-row:hover,
+.status-row:hover,
+.order-row:hover,
+.tool-row:hover {
+  background: var(--elyon-hover) !important;
+}
+
+/* ---------- Accordions / settings ---------- */
+
+.form-accordion,
+.settings-dropdown {
+  overflow: hidden !important;
+}
+
+.form-accordion summary,
+.settings-dropdown summary {
+  padding: 13px 14px !important;
+  color: var(--elyon-text-2) !important;
+  background: transparent !important;
+  border-bottom: 1px solid transparent !important;
+  font-size: 13px !important;
+  font-weight: 680 !important;
+}
+
+.form-accordion[open] summary,
+.settings-dropdown[open] summary {
+  border-bottom-color: var(--elyon-border) !important;
+}
+
+.accordion-body,
+.settings-dropdown-content {
+  padding: 14px !important;
+}
+
+/* ---------- Elyon Seller Dashboard V2 ---------- */
+
+#elyonSellerDashboard {
+  display: grid !important;
+  gap: 14px !important;
+  padding: 0 !important;
+}
+
+#elyonSellerDashboard .sd-hero {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto !important;
+  align-items: end !important;
+  gap: 18px !important;
+  padding: 4px 0 16px !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-bottom: 1px solid var(--elyon-border) !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+#elyonSellerDashboard .sd-hero .badge {
+  display: inline-flex !important;
+  min-height: 25px !important;
+  margin: 0 0 8px !important;
+  padding: 4px 8px !important;
+  color: #9fbfff !important;
+  background: var(--elyon-accent-soft) !important;
+  border: 1px solid rgba(79,140,255,.16) !important;
+  font-size: 10px !important;
+  font-weight: 730 !important;
+  letter-spacing: .045em !important;
+}
+
+#elyonSellerDashboard .sd-hero h2 {
+  margin: 0 0 6px !important;
+  color: var(--elyon-text) !important;
+  font-size: clamp(24px, 2.8vw, 34px) !important;
+  line-height: 1.05 !important;
+  font-weight: 760 !important;
+  letter-spacing: -.045em !important;
+}
+
+#elyonSellerDashboard .sd-hero p {
+  max-width: 760px !important;
+  margin: 0 !important;
+  color: var(--elyon-muted) !important;
+  font-size: 12px !important;
+  line-height: 1.55 !important;
+}
+
+#elyonSellerDashboard .sd-actions,
+#elyonSellerDashboard .sd-badges {
+  display: flex !important;
+  gap: 6px !important;
+  flex-wrap: wrap !important;
+}
+
+#elyonSellerDashboard .sd-badges {
+  margin-top: 11px !important;
+}
+
+#elyonSellerDashboard .sd-badge {
+  padding: 5px 8px !important;
+  color: var(--elyon-muted) !important;
+  background: rgba(255,255,255,.025) !important;
+  border: 1px solid var(--elyon-border) !important;
+  border-radius: 999px !important;
+  font-size: 10px !important;
+  font-weight: 650 !important;
+}
+
+#elyonSellerDashboard .sd-badge.good {
+  color: #7fe2a2 !important;
+  background: var(--elyon-success-soft) !important;
+  border-color: rgba(53,196,106,.18) !important;
+}
+
+#elyonSellerDashboard .sd-badge.warn {
+  color: #f6c56f !important;
+  background: var(--elyon-warning-soft) !important;
+  border-color: rgba(241,174,66,.18) !important;
+}
+
+#elyonSellerDashboard .sd-badge.bad {
+  color: #ff9b9b !important;
+  background: var(--elyon-danger-soft) !important;
+  border-color: rgba(238,100,100,.18) !important;
+}
+
+#elyonSellerDashboard .sd-range {
+  display: flex !important;
+  gap: 3px !important;
+  padding: 3px !important;
+  background: rgba(255,255,255,.025) !important;
+  border: 1px solid var(--elyon-border) !important;
+  border-radius: var(--elyon-radius-sm) !important;
+}
+
+#elyonSellerDashboard .sd-range button,
+#elyonSellerDashboard .sd-actions > button {
+  min-height: 32px !important;
+  padding: 6px 9px !important;
+  border-radius: 7px !important;
+  font-size: 10px !important;
+}
+
+#elyonSellerDashboard .sd-range button {
+  background: transparent !important;
+  border-color: transparent !important;
+}
+
+#elyonSellerDashboard .sd-range button.active {
+  color: #fff !important;
+  background: var(--elyon-accent) !important;
+  border-color: var(--elyon-accent) !important;
+}
+
+#elyonSellerDashboard .sd-kpis {
+  display: grid !important;
+  grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+}
+
+#elyonSellerDashboard .sd-kpi {
+  min-height: 112px !important;
+  padding: 14px !important;
+  background: var(--elyon-surface) !important;
+  border: 1px solid var(--elyon-border) !important;
+  border-radius: var(--elyon-radius) !important;
+  box-shadow: none !important;
+}
+
+#elyonSellerDashboard .sd-kpi small {
+  display: block !important;
+  color: var(--elyon-muted) !important;
+  font-size: 9px !important;
+  font-weight: 740 !important;
+  letter-spacing: .065em !important;
+  line-height: 1.35 !important;
+  text-transform: uppercase !important;
+}
+
+#elyonSellerDashboard .sd-kpi strong {
+  display: block !important;
+  margin: 9px 0 6px !important;
+  color: var(--elyon-text) !important;
+  font-size: clamp(20px, 2vw, 28px) !important;
+  line-height: 1 !important;
+  font-weight: 760 !important;
+  letter-spacing: -.045em !important;
+}
+
+#elyonSellerDashboard .sd-kpi span {
+  display: block !important;
+  color: var(--elyon-faint) !important;
+  font-size: 9px !important;
+  line-height: 1.4 !important;
+}
+
+#elyonSellerDashboard .sd-kpi.good strong {
+  color: #8be6aa !important;
+}
+
+#elyonSellerDashboard .sd-kpi.warn strong {
+  color: #f6c56f !important;
+}
+
+#elyonSellerDashboard .sd-kpi.bad strong {
+  color: #ff9b9b !important;
+}
+
+#elyonSellerDashboard .sd-kpi-open {
+  min-height: 26px !important;
+  margin-top: 8px !important;
+  padding: 4px 7px !important;
+  font-size: 9px !important;
+  border-radius: 6px !important;
+}
+
+#elyonSellerDashboard .sd-main {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1.55fr) minmax(300px, .72fr) !important;
+  gap: 12px !important;
+}
+
+#elyonSellerDashboard .sd-two {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 12px !important;
+}
+
+#elyonSellerDashboard .sd-panel {
+  min-width: 0 !important;
+  padding: 16px !important;
+  background: var(--elyon-surface) !important;
+  border: 1px solid var(--elyon-border) !important;
+  border-radius: var(--elyon-radius) !important;
+  box-shadow: none !important;
+}
+
+#elyonSellerDashboard .sd-head {
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+  margin-bottom: 12px !important;
+}
+
+#elyonSellerDashboard .sd-head h3 {
+  margin: 0 0 4px !important;
+  color: var(--elyon-text) !important;
+  font-size: 14px !important;
+  font-weight: 690 !important;
+  letter-spacing: -.02em !important;
+}
+
+#elyonSellerDashboard .sd-head p {
+  margin: 0 !important;
+  color: var(--elyon-muted) !important;
+  font-size: 10px !important;
+  line-height: 1.45 !important;
+}
+
+#elyonSellerDashboard .sd-head button {
+  min-height: 29px !important;
+  padding: 5px 8px !important;
+  font-size: 9px !important;
+  border-radius: 7px !important;
+}
+
+#elyonSellerDashboard .sd-chart {
+  height: 230px !important;
+  display: flex !important;
+  align-items: flex-end !important;
+  gap: 6px !important;
+  padding: 14px 8px 5px !important;
+  overflow-x: auto !important;
+  background:
+    linear-gradient(to top, rgba(255,255,255,.035) 1px, transparent 1px) 0 0 / 100% 25%,
+    rgba(255,255,255,.012) !important;
+  border: 1px solid var(--elyon-border) !important;
+  border-radius: var(--elyon-radius-sm) !important;
+}
+
+#elyonSellerDashboard .sd-col {
+  height: 100% !important;
+  min-width: 22px !important;
+  flex: 1 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: flex-end !important;
+  align-items: center !important;
+  gap: 5px !important;
+}
+
+#elyonSellerDashboard .sd-bar {
+  width: min(28px, 72%) !important;
+  min-height: 3px !important;
+  background: linear-gradient(180deg, #70a1ff 0%, #4f8cff 100%) !important;
+  border-radius: 5px 5px 2px 2px !important;
+  box-shadow: none !important;
+}
+
+#elyonSellerDashboard .sd-col small {
+  margin: 5px 0 2px !important;
+  color: var(--elyon-faint) !important;
+  font-size: 8px !important;
+  transform: rotate(-35deg) !important;
+  white-space: nowrap !important;
+}
+
+#elyonSellerDashboard .sd-list {
+  display: grid !important;
+  gap: 6px !important;
+}
+
+#elyonSellerDashboard .sd-task,
+#elyonSellerDashboard .sd-row {
+  padding: 10px 11px !important;
+  background: rgba(255,255,255,.018) !important;
+  border: 1px solid var(--elyon-border) !important;
+  border-radius: var(--elyon-radius-sm) !important;
+}
+
+#elyonSellerDashboard .sd-task {
+  display: grid !important;
+  grid-template-columns: 8px minmax(0, 1fr) auto !important;
+  align-items: start !important;
+  gap: 9px !important;
+}
+
+#elyonSellerDashboard .sd-dot {
+  width: 7px !important;
+  height: 7px !important;
+  margin-top: 5px !important;
+  background: var(--elyon-accent) !important;
+  border-radius: 50% !important;
+}
+
+#elyonSellerDashboard .sd-task.danger .sd-dot {
+  background: var(--elyon-danger) !important;
+}
+
+#elyonSellerDashboard .sd-task.warning .sd-dot {
+  background: var(--elyon-warning) !important;
+}
+
+#elyonSellerDashboard .sd-task.success .sd-dot {
+  background: var(--elyon-success) !important;
+}
+
+#elyonSellerDashboard .sd-task strong,
+#elyonSellerDashboard .sd-row strong {
+  display: block !important;
+  color: var(--elyon-text-2) !important;
+  font-size: 11px !important;
+  font-weight: 650 !important;
+}
+
+#elyonSellerDashboard .sd-task p,
+#elyonSellerDashboard .sd-row p {
+  margin: 3px 0 0 !important;
+  color: var(--elyon-faint) !important;
+  font-size: 9px !important;
+  line-height: 1.45 !important;
+}
+
+#elyonSellerDashboard .sd-task button {
+  min-height: 26px !important;
+  padding: 4px 7px !important;
+  font-size: 9px !important;
+  border-radius: 6px !important;
+}
+
+#elyonSellerDashboard .sd-row {
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+}
+
+#elyonSellerDashboard .sd-meta {
+  flex: 0 0 auto !important;
+  text-align: right !important;
+}
+
+#elyonSellerDashboard .sd-meta span {
+  display: block !important;
+  color: var(--elyon-text) !important;
+  font-size: 11px !important;
+  font-weight: 720 !important;
+}
+
+#elyonSellerDashboard .sd-meta small {
+  display: block !important;
+  margin-top: 3px !important;
+  color: var(--elyon-faint) !important;
+  font-size: 8px !important;
+}
+
+#elyonSellerDashboard .sd-pipeline {
+  display: grid !important;
+  grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
+  gap: 7px !important;
+}
+
+#elyonSellerDashboard .sd-step {
+  padding: 11px 8px !important;
+  text-align: center !important;
+  background: rgba(255,255,255,.018) !important;
+  border: 1px solid var(--elyon-border) !important;
+  border-radius: var(--elyon-radius-sm) !important;
+}
+
+#elyonSellerDashboard .sd-step strong {
+  display: block !important;
+  color: var(--elyon-text) !important;
+  font-size: 21px !important;
+  font-weight: 740 !important;
+  letter-spacing: -.035em !important;
+}
+
+#elyonSellerDashboard .sd-step span {
+  display: block !important;
+  margin-top: 4px !important;
+  color: var(--elyon-faint) !important;
+  font-size: 8px !important;
+}
+
+#elyonSellerDashboard .sd-status {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+  padding: 9px 10px !important;
+  background: rgba(255,255,255,.018) !important;
+  border: 1px solid var(--elyon-border) !important;
+  border-radius: var(--elyon-radius-sm) !important;
+}
+
+#elyonSellerDashboard .sd-status span {
+  color: var(--elyon-muted) !important;
+  font-size: 9px !important;
+}
+
+#elyonSellerDashboard .sd-status strong {
+  color: var(--elyon-text-2) !important;
+  font-size: 10px !important;
+  text-align: right !important;
+}
+
+#elyonSellerDashboard .sd-good { color: #7fe2a2 !important; }
+#elyonSellerDashboard .sd-warn { color: #f6c56f !important; }
+#elyonSellerDashboard .sd-bad { color: #ff9b9b !important; }
+
+#elyonSellerDashboard .sd-note {
+  margin-top: 8px !important;
+  color: var(--elyon-faint) !important;
+  font-size: 8px !important;
+  text-align: right !important;
+}
+
+#elyonSellerDashboard .sd-empty {
+  margin: auto !important;
+  padding: 18px !important;
+  color: var(--elyon-muted) !important;
+  background: rgba(255,255,255,.012) !important;
+  border: 1px dashed var(--elyon-border-strong) !important;
+  border-radius: var(--elyon-radius-sm) !important;
+  font-size: 10px !important;
+  line-height: 1.5 !important;
+  text-align: center !important;
+}
+
+/* ---------- Quickstart preview ---------- */
+
+#elyonModernQuickstartPanel {
+  width: min(94vw, 1040px) !important;
+  max-width: 1040px !important;
+  display: grid !important;
+  gap: 13px !important;
+  padding: 20px !important;
+  color: var(--elyon-text) !important;
+  background: #10161e !important;
+  border: 1px solid var(--elyon-border-strong) !important;
+  border-radius: var(--elyon-radius-lg) !important;
+  box-shadow: var(--elyon-shadow-popover) !important;
+}
+
+#elyonModernQuickstartPanel .eq-head {
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: space-between !important;
+  gap: 16px !important;
+}
+
+#elyonModernQuickstartPanel .eq-head h2 {
+  margin: 5px 0 6px !important;
+  color: var(--elyon-text) !important;
+  font-size: clamp(24px, 3vw, 32px) !important;
+  line-height: 1.08 !important;
+  font-weight: 750 !important;
+  letter-spacing: -.04em !important;
+}
+
+#elyonModernQuickstartPanel .eq-head p {
+  margin: 0 !important;
+  max-width: 760px !important;
+  color: var(--elyon-muted) !important;
+  font-size: 11px !important;
+  line-height: 1.5 !important;
+}
+
+#elyonModernQuickstartPanel .eq-status {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+}
+
+#elyonModernQuickstartPanel .eq-status-card {
+  padding: 11px 12px !important;
+  background: rgba(255,255,255,.02) !important;
+  border: 1px solid var(--elyon-border) !important;
+  border-radius: var(--elyon-radius-sm) !important;
+}
+
+#elyonModernQuickstartPanel .eq-status-card small {
+  display: block !important;
+  margin-bottom: 5px !important;
+  color: var(--elyon-faint) !important;
+  font-size: 9px !important;
+  font-weight: 720 !important;
+  letter-spacing: .065em !important;
+  text-transform: uppercase !important;
+}
+
+#elyonModernQuickstartPanel .eq-status-card strong {
+  color: var(--elyon-text-2) !important;
+  font-size: 11px !important;
+  line-height: 1.4 !important;
+}
+
+#elyonModernQuickstartPanel .eq-focus {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto !important;
+  align-items: center !important;
+  gap: 14px !important;
+  padding: 14px !important;
+  background: var(--elyon-accent-soft) !important;
+  border: 1px solid rgba(79,140,255,.18) !important;
+  border-radius: var(--elyon-radius) !important;
+}
+
+#elyonModernQuickstartPanel .eq-focus small {
+  color: #9fbfff !important;
+  font-size: 9px !important;
+  font-weight: 720 !important;
+  letter-spacing: .07em !important;
+  text-transform: uppercase !important;
+}
+
+#elyonModernQuickstartPanel .eq-focus h3 {
+  margin: 4px 0 !important;
+  color: var(--elyon-text) !important;
+  font-size: 17px !important;
+  letter-spacing: -.025em !important;
+}
+
+#elyonModernQuickstartPanel .eq-focus p {
+  margin: 0 !important;
+  color: var(--elyon-muted) !important;
+  font-size: 10px !important;
+  line-height: 1.45 !important;
+}
+
+#elyonModernQuickstartPanel .eq-workflow {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+}
+
+#elyonModernQuickstartPanel .eq-route {
+  min-height: 142px !important;
+  padding: 13px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  gap: 8px !important;
+  text-align: left !important;
+  color: var(--elyon-text-2) !important;
+  background: rgba(255,255,255,.02) !important;
+  border: 1px solid var(--elyon-border) !important;
+  border-radius: var(--elyon-radius-sm) !important;
+}
+
+#elyonModernQuickstartPanel .eq-route:hover {
+  background: var(--elyon-hover) !important;
+  border-color: rgba(79,140,255,.25) !important;
+}
+
+#elyonModernQuickstartPanel .eq-route-top {
+  width: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+}
+
+#elyonModernQuickstartPanel .eq-step {
+  display: inline-grid !important;
+  place-items: center !important;
+  width: 25px !important;
+  height: 25px !important;
+  color: #9fbfff !important;
+  background: rgba(79,140,255,.1) !important;
+  border-radius: 7px !important;
+  font-size: 9px !important;
+  font-weight: 760 !important;
+}
+
+#elyonModernQuickstartPanel .eq-route strong {
+  color: var(--elyon-text) !important;
+  font-size: 13px !important;
+}
+
+#elyonModernQuickstartPanel .eq-route span {
+  color: var(--elyon-muted) !important;
+  font-size: 10px !important;
+  line-height: 1.4 !important;
+}
+
+#elyonModernQuickstartPanel .eq-route em {
+  margin-top: auto !important;
+  color: #9fbfff !important;
+  font-size: 9px !important;
+  font-style: normal !important;
+  font-weight: 720 !important;
+}
+
+#elyonModernQuickstartPanel .eq-secondary {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+}
+
+#elyonModernQuickstartPanel .eq-secondary button {
+  justify-content: space-between !important;
+  padding: 12px !important;
+  text-align: left !important;
+}
+
+#elyonModernQuickstartPanel .eq-secondary-copy {
+  display: grid !important;
+  gap: 3px !important;
+}
+
+#elyonModernQuickstartPanel .eq-secondary-copy strong {
+  color: var(--elyon-text-2) !important;
+  font-size: 12px !important;
+}
+
+#elyonModernQuickstartPanel .eq-secondary-copy span,
+#elyonModernQuickstartPanel .eq-note {
+  color: var(--elyon-muted) !important;
+  font-size: 10px !important;
+  line-height: 1.4 !important;
+}
+
+#elyonModernQuickstartPanel .eq-note {
+  padding: 9px 11px !important;
+  background: rgba(255,255,255,.018) !important;
+  border: 1px solid var(--elyon-border) !important;
+  border-radius: var(--elyon-radius-sm) !important;
+}
+
+#elyonModernQuickstartPanel .eq-footer {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 10px !important;
+  padding-top: 2px !important;
+}
+
+/* ---------- Command palette / modals ---------- */
+
+.elyon-shell-toggle {
+  display: none;
+  position: fixed !important;
+  top: 12px !important;
+  left: 12px !important;
+  z-index: 140 !important;
+  min-height: 38px !important;
+  padding: 0 12px !important;
+  color: var(--elyon-text) !important;
+  background: rgba(13,18,24,.94) !important;
+  border: 1px solid var(--elyon-border-strong) !important;
+  border-radius: var(--elyon-radius-sm) !important;
+  box-shadow: var(--elyon-shadow-popover) !important;
+}
+
+.elyon-sidebar-overlay,
+.elyon-command-backdrop,
+.elyon-modal-backdrop {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 120 !important;
+  display: none;
+  background: rgba(2, 6, 10, 0.7) !important;
+  backdrop-filter: blur(7px) !important;
+}
+
+.elyon-command-backdrop.is-open,
+.elyon-modal-backdrop.is-open,
+body.sidebar-open .elyon-sidebar-overlay {
+  display: grid !important;
+}
+
+.elyon-command-backdrop,
+.elyon-modal-backdrop {
+  place-items: start center !important;
+  padding-top: 8vh !important;
 }
 
 .elyon-command,
-.elyon-modal {
-  background: rgba(29, 29, 29, 0.97) !important;
-  border-color: var(--os-border) !important;
-  border-radius: 18px !important;
-  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.44) !important;
+.elyon-modal,
+.modal-panel {
+  color: var(--elyon-text) !important;
+  background: #111820 !important;
+  border: 1px solid var(--elyon-border-strong) !important;
+  border-radius: var(--elyon-radius-lg) !important;
+  box-shadow: var(--elyon-shadow-popover) !important;
+}
+
+.elyon-command {
+  width: min(660px, calc(100vw - 28px)) !important;
+  overflow: hidden !important;
+}
+
+.elyon-command-search {
+  display: grid !important;
+  gap: 8px !important;
+  padding: 16px !important;
+  border-bottom: 1px solid var(--elyon-border) !important;
+}
+
+.elyon-command-search span {
+  color: var(--elyon-faint) !important;
+  font-size: 9px !important;
+  font-weight: 760 !important;
+  letter-spacing: .09em !important;
+  text-transform: uppercase !important;
+}
+
+.elyon-command-search input {
+  min-height: 36px !important;
+  padding: 0 !important;
+  color: var(--elyon-text) !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  font-size: 18px !important;
+}
+
+.elyon-command-list {
+  display: grid !important;
+  gap: 4px !important;
+  max-height: 440px !important;
+  padding: 8px !important;
+  overflow: auto !important;
 }
 
 .elyon-command-item {
-  border-radius: 10px !important;
+  width: 100% !important;
+  display: grid !important;
+  gap: 3px !important;
+  min-height: 0 !important;
+  padding: 11px 12px !important;
+  color: var(--elyon-text) !important;
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  border-radius: var(--elyon-radius-sm) !important;
+  text-align: left !important;
+}
+
+.elyon-command-item:hover {
+  background: var(--elyon-hover) !important;
+  border-color: var(--elyon-border) !important;
+}
+
+.elyon-command-item span,
+.elyon-empty {
+  color: var(--elyon-muted) !important;
+  font-size: 11px !important;
+}
+
+.elyon-modal {
+  width: min(700px, calc(100vw - 28px)) !important;
+  padding: 18px !important;
+}
+
+.elyon-modal-grid {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+  margin: 16px 0 !important;
+}
+
+.elyon-modal-grid div {
+  display: grid !important;
+  gap: 5px !important;
+  padding: 12px !important;
+  background: rgba(255,255,255,.02) !important;
+  border: 1px solid var(--elyon-border) !important;
+  border-radius: var(--elyon-radius-sm) !important;
+}
+
+.elyon-modal-grid span {
+  color: var(--elyon-faint) !important;
+  font-size: 10px !important;
+}
+
+.elyon-modal-copy {
+  color: var(--elyon-text-2) !important;
+  line-height: 1.6 !important;
 }
 
 .toast {
-  background: rgba(29, 29, 29, 0.94) !important;
-  border-color: var(--os-border) !important;
-  border-radius: 14px !important;
-  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.36) !important;
+  color: var(--elyon-text) !important;
+  background: rgba(17,24,32,.97) !important;
+  border: 1px solid var(--elyon-border-strong) !important;
+  border-radius: var(--elyon-radius) !important;
+  box-shadow: var(--elyon-shadow-popover) !important;
 }
 
-@media (max-width: 1280px) {
-  .topbar,
-  .metrics,
-  .main-grid,
-  .workspace-grid,
-  .bottom-grid,
-  .section-grid,
-  .footer {
-    width: min(1000px, calc(100vw - 56px)) !important;
-  }
+/* ---------- Activity ---------- */
 
-  .topbar {
-    padding-left: 0 !important;
-  }
+.elyon-activity {
+  min-height: 200px !important;
+  padding: 16px !important;
 }
 
-@media (max-width: 980px) {
-  .metrics,
-  .main-grid,
-  .workspace-grid,
-  .bottom-grid,
-  .section-grid {
-    grid-template-columns: 1fr !important;
-  }
-
-  .topbar {
-    grid-template-columns: 1fr !important;
-    align-items: start !important;
-  }
-
-  .top-actions {
-    justify-content: start !important;
-  }
+.elyon-feed {
+  display: grid !important;
+  gap: 11px !important;
+  margin-top: 13px !important;
 }
 
-@media (max-width: 760px) {
-  .content::before {
-    height: 54px !important;
-  }
-
-  .topbar,
-  .metrics,
-  .main-grid,
-  .workspace-grid,
-  .bottom-grid,
-  .section-grid,
-  .footer {
-    width: calc(100vw - 28px) !important;
-  }
-
-  .topbar {
-    padding-top: 58px !important;
-  }
-
-  .topbar h2 {
-    font-size: 34px !important;
-  }
-
-  .metrics {
-    grid-template-columns: 1fr !important;
-  }
-
-  .result-card {
-    grid-template-columns: 48px minmax(0, 1fr) !important;
-  }
+.elyon-feed div {
+  position: relative !important;
+  display: grid !important;
+  gap: 2px !important;
+  padding-left: 17px !important;
 }
 
-/* True page mode: one focused view per navigation item */
+.elyon-feed div span {
+  position: absolute !important;
+  top: 5px !important;
+  left: 0 !important;
+  width: 6px !important;
+  height: 6px !important;
+  background: var(--elyon-accent) !important;
+  border-radius: 50% !important;
+  box-shadow: 0 0 0 4px rgba(79,140,255,.08) !important;
+}
+
+.elyon-feed strong {
+  color: var(--elyon-text-2) !important;
+}
+
+.elyon-feed small {
+  color: var(--elyon-muted) !important;
+}
+
+/* ---------- Focused page routing — preserve existing behavior ---------- */
+
 body.app-paged .content > .metrics,
 body.app-paged .content > .main-grid,
 body.app-paged .content > .workflow-grid,
@@ -1545,7 +1803,7 @@ body.app-paged[data-view="suppliers"] .content > .workspace-grid,
 body.app-paged[data-view="listing"] .content > .workspace-grid,
 body.app-paged[data-view="orders"] .content > .workspace-grid {
   display: grid !important;
-  grid-template-columns: minmax(0, 760px) !important;
+  grid-template-columns: minmax(0, 820px) !important;
   justify-content: start !important;
 }
 
@@ -1578,32 +1836,20 @@ body.app-paged[data-view="orders"] .workspace-grid > #orders {
 
 body.app-paged[data-view="research"] #analysisPanel {
   position: sticky !important;
-  top: 88px !important;
+  top: 86px !important;
   align-self: start !important;
 }
 
 body.app-paged[data-view="research"] .workflow-grid {
-  grid-template-columns: minmax(0, 1.15fr) minmax(340px, 0.85fr) !important;
+  grid-template-columns: minmax(0, 1.15fr) minmax(340px, .85fr) !important;
 }
 
 body.app-paged[data-view="workflow"] .workflow-grid {
-  grid-template-columns: minmax(0, 1fr) minmax(340px, 0.8fr) !important;
+  grid-template-columns: minmax(0, 1fr) minmax(340px, .8fr) !important;
 }
 
 body.app-paged[data-view="workflow"] .bottom-grid {
   margin-top: 14px !important;
-}
-
-body.app-paged[data-view="dashboard"] .topbar,
-body.app-paged[data-view="research"] .topbar,
-body.app-paged[data-view="workflow"] .topbar,
-body.app-paged[data-view="suppliers"] .topbar,
-body.app-paged[data-view="listing"] .topbar,
-body.app-paged[data-view="orders"] .topbar,
-body.app-paged[data-view="analytics"] .topbar,
-body.app-paged[data-view="tools"] .topbar,
-body.app-paged[data-view="automation"] .topbar {
-  margin-bottom: 24px !important;
 }
 
 body.app-paged .content > .metrics,
@@ -1612,22 +1858,96 @@ body.app-paged .content > .workflow-grid,
 body.app-paged .content > .workspace-grid,
 body.app-paged .content > .bottom-grid,
 body.app-paged .content > .section-grid {
-  animation: pageFadeIn 180ms ease both;
+  animation: elyonPageIn 150ms ease both !important;
 }
 
-@keyframes pageFadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
+@keyframes elyonPageIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 
-  to {
-    opacity: 1;
-    transform: translateY(0);
+/* ---------- Responsive ---------- */
+
+@media (max-width: 1460px) {
+  #elyonSellerDashboard .sd-kpis {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
   }
 }
 
-@media (max-width: 980px) {
+@media (max-width: 1180px) {
+  .app {
+    grid-template-columns: 1fr !important;
+  }
+
+  .elyon-shell-toggle {
+    display: inline-flex !important;
+    align-items: center !important;
+  }
+
+  .sidebar {
+    position: fixed !important;
+    inset: 0 auto 0 0 !important;
+    z-index: 150 !important;
+    width: min(330px, 88vw) !important;
+    height: 100vh !important;
+    transform: translateX(-104%) !important;
+    transition: transform 180ms ease !important;
+  }
+
+  body.sidebar-open .sidebar {
+    transform: translateX(0) !important;
+  }
+
+  .topbar,
+  .metrics,
+  .workflow-grid,
+  .main-grid,
+  .workspace-grid,
+  .bottom-grid,
+  .section-grid,
+  .footer,
+  #elyonSellerDashboard {
+    width: min(1040px, calc(100vw - 44px)) !important;
+  }
+
+  .topbar {
+    padding-left: 52px !important;
+  }
+
+  #elyonSellerDashboard .sd-main,
+  #elyonSellerDashboard .sd-two {
+    grid-template-columns: 1fr !important;
+  }
+
+  #elyonSellerDashboard .sd-pipeline {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 900px) {
+  .topbar {
+    grid-template-columns: 1fr !important;
+    align-items: start !important;
+  }
+
+  .top-actions {
+    justify-content: flex-start !important;
+  }
+
+  .elyon-global-search {
+    width: min(100%, 520px) !important;
+  }
+
+  .metrics,
+  .dashboard,
+  .main-grid,
+  .workflow-grid,
+  .workspace-grid,
+  .bottom-grid,
+  .section-grid {
+    grid-template-columns: 1fr !important;
+  }
+
   body.app-paged[data-view="research"] .workflow-grid,
   body.app-paged[data-view="workflow"] .workflow-grid,
   body.app-paged[data-view="suppliers"] .content > .workspace-grid,
@@ -1638,5 +1958,124 @@ body.app-paged .content > .section-grid {
 
   body.app-paged[data-view="research"] #analysisPanel {
     position: static !important;
+  }
+
+  #elyonSellerDashboard .sd-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  #elyonModernQuickstartPanel .eq-workflow,
+  #elyonModernQuickstartPanel .eq-status {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 680px) {
+  .content::before {
+    height: 12px !important;
+  }
+
+  .topbar,
+  .metrics,
+  .workflow-grid,
+  .main-grid,
+  .workspace-grid,
+  .bottom-grid,
+  .section-grid,
+  .footer,
+  #elyonSellerDashboard {
+    width: calc(100vw - 24px) !important;
+  }
+
+  .topbar {
+    position: relative !important;
+    min-height: auto !important;
+    padding: 52px 0 12px !important;
+    background: transparent !important;
+    backdrop-filter: none !important;
+  }
+
+  .topbar h1,
+  .topbar h2 {
+    font-size: 24px !important;
+  }
+
+  .top-actions,
+  .elyon-global-search {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .elyon-command-trigger,
+  .elyon-global-search kbd {
+    display: none !important;
+  }
+
+  .result-card {
+    grid-template-columns: 48px minmax(0, 1fr) !important;
+  }
+
+  .result-image,
+  .result-thumb,
+  .product-image {
+    width: 48px !important;
+    height: 48px !important;
+  }
+
+  #elyonSellerDashboard .sd-hero {
+    grid-template-columns: 1fr !important;
+    align-items: start !important;
+  }
+
+  #elyonSellerDashboard .sd-actions {
+    width: 100% !important;
+  }
+
+  #elyonSellerDashboard .sd-range {
+    width: 100% !important;
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+
+  #elyonSellerDashboard .sd-kpis {
+    grid-template-columns: 1fr !important;
+  }
+
+  #elyonSellerDashboard .sd-pipeline {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  #elyonSellerDashboard .sd-task {
+    grid-template-columns: 8px minmax(0, 1fr) !important;
+  }
+
+  #elyonSellerDashboard .sd-task button {
+    grid-column: 2 !important;
+    justify-self: start !important;
+  }
+
+  #elyonModernQuickstartPanel {
+    width: calc(100vw - 20px) !important;
+    padding: 15px !important;
+  }
+
+  #elyonModernQuickstartPanel .eq-workflow,
+  #elyonModernQuickstartPanel .eq-secondary,
+  #elyonModernQuickstartPanel .eq-status,
+  #elyonModernQuickstartPanel .eq-focus {
+    grid-template-columns: 1fr !important;
+  }
+
+  #elyonModernQuickstartPanel .eq-route {
+    min-height: auto !important;
+  }
+
+  #elyonModernQuickstartPanel .eq-footer {
+    align-items: stretch !important;
+    flex-direction: column !important;
+  }
+
+  .elyon-modal-grid {
+    grid-template-columns: 1fr !important;
   }
 }
