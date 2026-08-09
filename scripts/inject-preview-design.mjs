@@ -8,13 +8,19 @@ const publicRoot = path.join(appRoot, "public");
 const outputPath = path.join(publicRoot, "index.html");
 const polishSourcePath = path.join(appRoot, "elyon-preview-polish.css");
 const polishOutputPath = path.join(publicRoot, "elyon-preview-polish.css");
+const orgchartSourcePath = path.join(appRoot, "seller-ai-workforce-orgchart-v1.js");
+const orgchartOutputPath = path.join(publicRoot, "seller-ai-workforce-orgchart-v1.js");
 
-const previewStylesheets = [
+const previewAssets = [
   '<link rel="stylesheet" href="/elyon-clean.css?v=seller-os-preview-20260810" data-elyon-preview-design="true" />',
   '<link rel="stylesheet" href="/elyon-preview-polish.css?v=seller-os-polish-20260810" data-elyon-preview-polish="true" />',
+  '<script defer src="/seller-ai-workforce-orgchart-v1.js?v=orgchart-preview-20260810" data-elyon-preview-orgchart="true"></script>',
 ].join("\n");
 
-await copyFile(polishSourcePath, polishOutputPath);
+await Promise.all([
+  copyFile(polishSourcePath, polishOutputPath),
+  copyFile(orgchartSourcePath, orgchartOutputPath),
+]);
 
 const html = await readFile(outputPath, "utf8");
 
@@ -24,8 +30,9 @@ if (!html.includes("</head>")) {
 
 const cleaned = html
   .replace(/\s*<link[^>]+data-elyon-preview-design=["']true["'][^>]*>\s*/gi, "\n")
-  .replace(/\s*<link[^>]+data-elyon-preview-polish=["']true["'][^>]*>\s*/gi, "\n");
-const output = cleaned.replace("</head>", `  ${previewStylesheets}\n</head>`);
+  .replace(/\s*<link[^>]+data-elyon-preview-polish=["']true["'][^>]*>\s*/gi, "\n")
+  .replace(/\s*<script[^>]+data-elyon-preview-orgchart=["']true["'][^>]*><\/script>\s*/gi, "\n");
+const output = cleaned.replace("</head>", `  ${previewAssets}\n</head>`);
 
 await writeFile(outputPath, output, "utf8");
-console.log("Preview design and polish stylesheets injected into public/index.html");
+console.log("Preview design, polish and workforce org chart injected into public/index.html");
