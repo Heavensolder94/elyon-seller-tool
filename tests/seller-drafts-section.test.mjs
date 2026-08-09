@@ -14,6 +14,14 @@ test("listing drafts have a dedicated lazy workspace", async () => {
   assert.match(runtime, /Noch ohne eBay-Artikelnummer/);
 });
 
+test("product pipeline menu numbers the inserted drafts step in sequence", async () => {
+  const runtime = await readFile(runtimeUrl, "utf8");
+  assert.match(runtime, /function numberProductPipelineMenu\(menu\)/);
+  assert.match(runtime, /replace\(\/\^\\d\+\\\.\\s\*\//);
+  assert.match(runtime, /option\.textContent = `\$\{index \+ 1\}\. \$\{label\}`/);
+  assert.match(runtime, /numberProductPipelineMenu\(menu\)/);
+});
+
 test("dashboard listing-draft task routes to the drafts workspace without a DOM observer", async () => {
   const runtime = await readFile(runtimeUrl, "utf8");
   assert.match(runtime, /function isDashboardDraftTaskClick\(target\)/);
