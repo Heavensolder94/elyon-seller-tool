@@ -1,17 +1,23 @@
 (() => {
   "use strict";
 
-  const VERSION = "seller-operations-20260807-7";
+  const VERSION = "seller-operations-20260810-1";
   const LEGACY_QUICKSTART_BRIDGE_FLAG = "__elyonModernQuickstartBridge";
+  const DRAFT_TAB_ID = "draftsTab";
+  const DRAFT_STYLE_ID = "elyonSellerDraftWorkspaceStyles";
   const loaded = new Map();
   const groupLoads = new Map();
   const AI_MODEL_GUARD = { src: "/seller-ai-provider-model-guard.js" };
   const PRICE_PROVENANCE = { src: "/seller-price-provenance.js", type: "module" };
+  let draftLoading = false;
+  let draftProducts = [];
+  let draftTaskObserver = null;
 
   const GROUPS = {
     quickstart: [
       { src: "/seller-quickstart-menu.js", type: "module" },
     ],
+    draftsTab: [],
     ebayListingTab: [
       PRICE_PROVENANCE,
       { src: "/seller-selling-flow-capture.js" },
@@ -52,6 +58,21 @@
       { src: "/seller-ai-task-prompt-helper.js" },
     ],
   };
+
+  const text = (value) => String(value ?? "").trim();
+  const escapeHtml = (value) => text(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+
+  function money(value) {
+    const parsed = Number(value || 0);
+    return Number.isFinite(parsed)
+      ? parsed.toLocaleString("de-DE", { style: "currency", currency: "EUR" })
+      : "0,00 €";
+  }
 
   function normalizedSrc(src) {
     return `${src}?v=${VERSION}`;
@@ -117,8 +138,241 @@
     return promise;
   }
 
+  function productItemIds(product) {
+    const listing = product?.listing || {};
+    const raw = product?.raw || {};
+    return [
+      listing.ebayItemId,
+      product?.ebayItemId,
+      product?.listingId,
+      raw?.ebayItemId,
+      raw?.listing?.ebayItemId,
+    ].map(text).filter(Boolean);
+  }
+
+  function isDraftProduct(product) {
+    const listing = product?.listing || {};
+    const status = text(listing.status || product?.listingStatus || product?.status || "draft").toLowerCase();
+    return productItemIds(product).length === 0
+      && ["draft", "entwurf", "ready_for_manual_listing", "not_listed"].includes(status);
+  }
+
+  function installDraftStyles() {
+    if (document.getElementById(DRAFT_STYLE_ID)) return;
+    const style = document.createElement("style");
+    style.id = DRAFT_STYLE_ID;
+    style.textContent = `
+      #${DRAFT_TAB_ID}{display:none}
+      #${DRAFT_TAB_ID}.active{display:block}
+      .elyon-drafts-shell{display:grid;gap:16px}
+      .elyon-drafts-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap}
+      .elyon-drafts-head h2{margin:0 0 7px;font-size:28px;letter-spacing:-.035em}
+      .elyon-drafts-head p{margin:0;max-width:780px;color:#cbd5e1;font-size:13px;line-height:1.55}
+      .elyon-drafts-list{display:grid;gap:12px}
+      .elyon-draft-card{display:grid;grid-template-columns:76px minmax(0,1fr) auto;gap:14px;align-items:center;padding:15px;border-radius:20px;background:rgba(2,6,23,.45);border:1px solid rgba(96,165,250,.18)}
+      .elyon-draft-image{width:76px;height:76px;border-radius:16px;display:grid;place-items:center;overflow:hidden;background:#020617;border:1px solid rgba(255,255,255,.1);font-size:28px}
+      .elyon-draft-image img{width:100%;height:100%;object-fit:cover}
+      .elyon-draft-copy{min-width:0}.elyon-draft-copy strong{display:block;color:#f8fafc;font-size:16px;line-height:1.35;overflow-wrap:anywhere}
+      .elyon-draft-copy p{margin:5px 0 0;color:#94a3b8;font-size:11px;line-height:1.45}
+      .elyon-draft-meta{display:flex;gap:7px;flex-wrap:wrap;margin-top:9px}
+      .elyon-draft-pill{display:inline-flex;padding:5px 8px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:#dbeafe;font-size:10px;font-weight:850}
+      .elyon-draft-pill.ready{color:#bbf7d0;background:rgba(34,197,94,.1);border-color:rgba(34,197,94,.23)}
+      .elyon-draft-pill.blocked{color:#fde68a;background:rgba(245,158,11,.09);border-color:rgba(245,158,11,.22)}
+      .elyon-draft-actions{display:grid;gap:8px;min-width:150px}.elyon-draft-actions button{padding:9px 11px;font-size:11px;border-radius:12px}
+      .elyon-drafts-status{padding:12px 14px;border-radius:15px;background:rgba(59,130,246,.09);border:1px solid rgba(96,165,250,.2);color:#dbeafe;font-size:12px;line-height:1.45}
+      .elyon-drafts-status.error{color:#fecaca;background:rgba(239,68,68,.09);border-color:rgba(239,68,68,.25)}
+      .elyon-drafts-empty{padding:28px 18px;text-align:center;border-radius:18px;border:1px dashed rgba(148,163,184,.22);color:#94a3b8;font-size:12px;line-height:1.55}
+      @media(max-width:760px){.elyon-draft-card{grid-template-columns:58px minmax(0,1fr)}.elyon-draft-image{width:58px;height:58px}.elyon-draft-actions{grid-column:1/-1;grid-template-columns:1fr;min-width:0}}
+    `;
+    document.head.appendChild(style);
+  }
+
+  function ensureDraftWorkspace() {
+    installDraftStyles();
+    const menu = document.getElementById("mainMenu");
+    if (menu && !menu.querySelector(`option[value="${DRAFT_TAB_ID}"]`)) {
+      const option = document.createElement("option");
+      option.value = DRAFT_TAB_ID;
+      option.textContent = "📝 Listing-Entwürfe";
+      const productOption = menu.querySelector('option[value="productListTab"]');
+      if (productOption) productOption.insertAdjacentElement("afterend", option);
+      else menu.appendChild(option);
+    }
+
+    let tab = document.getElementById(DRAFT_TAB_ID);
+    if (!tab) {
+      tab = document.createElement("section");
+      tab.id = DRAFT_TAB_ID;
+      tab.className = "tab";
+      const productTab = document.getElementById("productListTab");
+      if (productTab) productTab.insertAdjacentElement("afterend", tab);
+      else document.querySelector("main.container")?.appendChild(tab);
+    }
+    return tab;
+  }
+
+  function showDraftWorkspace() {
+    const tab = ensureDraftWorkspace();
+    if (!tab) return;
+    document.querySelectorAll(".tab").forEach((node) => node.classList.toggle("active", node === tab));
+    const menu = document.getElementById("mainMenu");
+    if (menu) menu.value = DRAFT_TAB_ID;
+  }
+
+  function draftCard(product, index) {
+    const pricing = product?.pricing || {};
+    const readiness = product?.readiness || {};
+    const blockers = Array.isArray(readiness.blockers) ? readiness.blockers.filter(Boolean) : [];
+    const ready = text(readiness.state).toLowerCase() === "ready_for_manual_listing" && blockers.length === 0;
+    const supplier = text(product?.supplier?.name || product?.supplierName || product?.supplier) || "Lieferant offen";
+    const title = text(product?.title || product?.listing?.title || product?.name) || "Unbenannter Listing-Entwurf";
+    const imageUrl = Array.isArray(product?.images) ? text(product.images[0]) : "";
+    const image = imageUrl
+      ? `<div class="elyon-draft-image"><img src="${escapeHtml(imageUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer"></div>`
+      : '<div class="elyon-draft-image">📝</div>';
+    const status = text(product?.listing?.status || product?.listingStatus || product?.status || "draft");
+    return `
+      <article class="elyon-draft-card" data-draft-index="${index}">
+        ${image}
+        <div class="elyon-draft-copy">
+          <strong>${escapeHtml(title)}</strong>
+          <p>${escapeHtml(supplier)} · EK ${escapeHtml(money(pricing.buyPrice))} · VK ${escapeHtml(money(pricing.salePrice))} · ${Number(pricing.marginPercent || 0).toLocaleString("de-DE", { maximumFractionDigits: 1 })} % Marge</p>
+          <div class="elyon-draft-meta">
+            <span class="elyon-draft-pill">${escapeHtml(status || "draft")}</span>
+            <span class="elyon-draft-pill ${ready ? "ready" : "blocked"}">${ready ? "Listingbereit" : `${blockers.length} Blocker`}</span>
+            <span class="elyon-draft-pill">Score ${Number(readiness.score || 0).toLocaleString("de-DE", { maximumFractionDigits: 0 })}</span>
+            <span class="elyon-draft-pill">Noch ohne eBay-Artikelnummer</span>
+          </div>
+        </div>
+        <div class="elyon-draft-actions">
+          <button type="button" class="secondary" data-draft-open="${index}">Im Verkaufen-Bereich öffnen</button>
+        </div>
+      </article>`;
+  }
+
+  function renderDraftWorkspace(message = "") {
+    const tab = ensureDraftWorkspace();
+    if (!tab) return;
+    const readyCount = draftProducts.filter((product) => {
+      const readiness = product?.readiness || {};
+      return text(readiness.state).toLowerCase() === "ready_for_manual_listing"
+        && !(Array.isArray(readiness.blockers) ? readiness.blockers.filter(Boolean).length : 0);
+    }).length;
+    const blockedCount = Math.max(0, draftProducts.length - readyCount);
+    tab.innerHTML = `
+      <div class="elyon-drafts-shell">
+        <section class="card">
+          <div class="elyon-drafts-head">
+            <div><div class="badge">📝 Entwürfe</div><h2>Listing-Entwürfe</h2><p>Hier landen die internen Seller-Entwürfe aus dem persistenten Product Master. Diese Liste ist getrennt vom Bereich „Verkaufen“ und löst keine eBay-Veröffentlichung aus.</p></div>
+            <button type="button" class="secondary" id="elyonDraftsRefresh">${draftLoading ? "Lädt …" : "Neu laden"}</button>
+          </div>
+          <div class="dashboard" style="margin-top:16px;margin-bottom:0">
+            <div class="metric"><small>Listing-Entwürfe</small><strong>${draftProducts.length}</strong></div>
+            <div class="metric"><small>Listingbereit</small><strong>${readyCount}</strong></div>
+            <div class="metric"><small>Mit Blockern</small><strong>${blockedCount}</strong></div>
+            <div class="metric"><small>Datenquelle</small><strong style="font-size:14px">Product Master</strong></div>
+          </div>
+        </section>
+        ${message ? `<div class="elyon-drafts-status ${message.startsWith("Fehler:") ? "error" : ""}">${escapeHtml(message)}</div>` : ""}
+        <section class="card">
+          <div class="elyon-drafts-list">
+            ${draftLoading
+              ? '<div class="elyon-drafts-empty">Listing-Entwürfe werden geladen …</div>'
+              : draftProducts.length
+                ? draftProducts.map(draftCard).join("")
+                : '<div class="elyon-drafts-empty">Aktuell gibt es keine internen Listing-Entwürfe ohne eBay-Artikelnummer.</div>'}
+          </div>
+        </section>
+      </div>`;
+
+    tab.querySelector("#elyonDraftsRefresh")?.addEventListener("click", () => refreshDraftWorkspace(true));
+    tab.querySelectorAll("[data-draft-open]").forEach((button) => button.addEventListener("click", () => {
+      const index = Number(button.dataset.draftOpen);
+      if (!Number.isInteger(index) || !draftProducts[index]) return;
+      openDraftForSelling(draftProducts[index], button);
+    }));
+  }
+
+  async function refreshDraftWorkspace(manual = false) {
+    if (draftLoading) return;
+    draftLoading = true;
+    renderDraftWorkspace();
+    try {
+      const response = await fetch("/api/products", {
+        credentials: "same-origin",
+        cache: "no-store",
+        headers: { Accept: "application/json" },
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || data.ok === false) {
+        const error = new Error(data.message || data.error || `HTTP ${response.status}`);
+        error.status = response.status;
+        throw error;
+      }
+      draftProducts = (Array.isArray(data.products) ? data.products : []).filter(isDraftProduct);
+      renderDraftWorkspace(`${draftProducts.length} Listing-Entwurf${draftProducts.length === 1 ? "" : "e"} aus dem Product Master geladen.`);
+      if (manual) document.getElementById(DRAFT_TAB_ID)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    } catch (error) {
+      draftProducts = [];
+      const authHint = error?.status === 403 ? " Bitte Seller-Sitzung erneut anmelden." : "";
+      renderDraftWorkspace(`Fehler: Entwürfe konnten nicht geladen werden: ${text(error?.message) || "Unbekannter Fehler"}.${authHint}`);
+    } finally {
+      draftLoading = false;
+      const button = document.getElementById("elyonDraftsRefresh");
+      if (button) button.textContent = "Neu laden";
+    }
+  }
+
+  async function openDraftForSelling(product, button) {
+    const previousText = button?.textContent || "Im Verkaufen-Bereich öffnen";
+    if (button) { button.disabled = true; button.textContent = "Öffne …"; }
+    try {
+      await loadGroup("productListTab");
+      if (typeof window.ElyonCompanyOsInbox?.adopt !== "function") {
+        throw new Error("Product-Master-Übernahme ist nicht verfügbar.");
+      }
+      window.ElyonCompanyOsInbox.adopt(product, false);
+      await loadGroup("ebayListingTab");
+      if (typeof window.showTab === "function") window.showTab("ebayListingTab");
+      else {
+        document.querySelectorAll(".tab").forEach((node) => node.classList.toggle("active", node.id === "ebayListingTab"));
+        const menu = document.getElementById("mainMenu");
+        if (menu) menu.value = "ebayListingTab";
+      }
+    } catch (error) {
+      renderDraftWorkspace(`Fehler: Entwurf konnte nicht im Verkaufen-Bereich geöffnet werden: ${text(error?.message) || "Unbekannter Fehler"}`);
+    } finally {
+      if (button?.isConnected) { button.disabled = false; button.textContent = previousText; }
+    }
+  }
+
+  function retargetDashboardDraftTask() {
+    document.querySelectorAll("#dashboardTab .sd-task, #dashboardTab .seller-task").forEach((task) => {
+      const title = text(task.querySelector("strong")?.textContent);
+      if (!/Listing-Entwurf/i.test(title)) return;
+      const button = task.querySelector("[data-sd-tab],[data-seller-open-tab]");
+      if (!button) return;
+      if (button.hasAttribute("data-sd-tab")) button.dataset.sdTab = DRAFT_TAB_ID;
+      if (button.hasAttribute("data-seller-open-tab")) button.dataset.sellerOpenTab = DRAFT_TAB_ID;
+      button.textContent = "Entwürfe öffnen";
+      button.setAttribute("aria-label", "Listing-Entwürfe öffnen");
+    });
+  }
+
+  function installDraftTaskRetargeting() {
+    retargetDashboardDraftTask();
+    if (draftTaskObserver) return;
+    const dashboard = document.getElementById("dashboardTab");
+    if (!dashboard || typeof MutationObserver === "undefined") return;
+    draftTaskObserver = new MutationObserver(retargetDashboardDraftTask);
+    draftTaskObserver.observe(dashboard, { childList: true, subtree: true });
+  }
+
   function activateGroup(groupId) {
-    if (groupId === "ebayListingTab") {
+    if (groupId === DRAFT_TAB_ID) {
+      showDraftWorkspace();
+      refreshDraftWorkspace(false);
+    } else if (groupId === "ebayListingTab") {
       window.ElyonSellerPriceProvenance?.enrichSelectedWorkingCopy?.();
       window.ElyonSellerPriceProvenance?.render?.();
       window.ElyonSellerSellingFlowCapture?.restore?.();
@@ -237,8 +491,8 @@
 
   function tabFromClick(target) {
     if (!(target instanceof Element)) return "";
-    const explicit = target.closest("[data-tab],[data-tab-id],[data-target-tab],[data-sd-tab]");
-    const candidate = explicit?.dataset.tab || explicit?.dataset.tabId || explicit?.dataset.targetTab || explicit?.dataset.sdTab;
+    const explicit = target.closest("[data-tab],[data-tab-id],[data-target-tab],[data-sd-tab],[data-seller-open-tab]");
+    const candidate = explicit?.dataset.tab || explicit?.dataset.tabId || explicit?.dataset.targetTab || explicit?.dataset.sdTab || explicit?.dataset.sellerOpenTab;
     if (candidate && GROUPS[candidate]) return candidate;
 
     if (target.closest("#settingsBtn,#openAiDashboardBtn")) return "settingsTab";
@@ -258,6 +512,8 @@
   function install() {
     installLegacyQuickstartBridge();
     installFinanceEntry();
+    ensureDraftWorkspace();
+    installDraftTaskRetargeting();
 
     document.addEventListener("change", (event) => {
       if (event.target?.id === "mainMenu") requestGroup(event.target.value).catch(() => {});
@@ -277,6 +533,10 @@
     window.addEventListener("elyon:tab-changed", (event) => {
       const tabId = event.detail?.tabId || event.detail;
       if (typeof tabId === "string") requestGroup(tabId).catch(() => {});
+    });
+
+    window.addEventListener("elyon:seller-authenticated", () => {
+      if (document.getElementById(DRAFT_TAB_ID)?.classList.contains("active")) refreshDraftWorkspace(false);
     });
 
     window.addEventListener("hashchange", () => {
@@ -299,6 +559,8 @@
       loadGroup,
       loadScript: (src, type = "") => loadScript({ src, type }),
       openQuickstart: requestQuickstart,
+      openDrafts: () => requestGroup(DRAFT_TAB_ID),
+      refreshDrafts: refreshDraftWorkspace,
       loaded: () => [...loaded.keys()],
       loadedGroups: () => [...groupLoads.keys()],
       groups: GROUPS,
