@@ -14,7 +14,7 @@ test("company entry adapter is valid browser JavaScript", async () => {
 
 test("virtual employees open directly into the company team view", async () => {
   const source = await readFile(entryUrl, "utf8");
-  assert.match(source, /data-v3-view=\\"team\\"/);
+  assert.match(source, /data-v3-view="team"/);
   assert.match(source, /teamButton\.click\(\)/);
   assert.match(source, /ElyonAIWorkforceTeamV6\?\.render/);
   assert.match(source, /ElyonAIWorkforceOrgchartV1\?\.render/);
