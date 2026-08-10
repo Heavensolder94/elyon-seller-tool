@@ -1,143 +1,42 @@
 {
-  "buildCommand": "npm test && VERCEL_FORCE_NO_BUILD_CACHE=1 node scripts/prepare-vercel.mjs",
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "npm test && VERCEL_FORCE_NO_BUILD_CACHE=1 node scripts/prepare-vercel.mjs && node scripts/finalize-seller-os.mjs",
   "outputDirectory": "public",
   "regions": ["fra1"],
   "rewrites": [
-    {
-      "source": "/ebay-callback",
-      "destination": "/ebay-accepted.html"
-    },
-    {
-      "source": "/ebay-callback/",
-      "destination": "/ebay-accepted.html"
-    },
-    {
-      "source": "/ebay-login",
-      "destination": "/api/ebay/login-url"
-    },
-    {
-      "source": "/api/ebay/login-url",
-      "destination": "/api/ebay?action=login-url"
-    },
-    {
-      "source": "/api/ebay/status",
-      "destination": "/api/ebay?action=status"
-    },
-    {
-      "source": "/api/ebay/search",
-      "destination": "/api/ebay?action=search"
-    },
-    {
-      "source": "/api/ebay/orders",
-      "destination": "/api/ebay?action=orders"
-    },
-    {
-      "source": "/api/ebay/competition",
-      "destination": "/api/ebay?action=competition"
-    },
-    {
-      "source": "/api/ebay/exchange-token",
-      "destination": "/api/ebay?action=exchange-token"
-    },
-    {
-      "source": "/api/ebay/token",
-      "destination": "/api/ebay?action=token"
-    },
-    {
-      "source": "/api/ping",
-      "destination": "/api/health"
-    },
-    {
-      "source": "/api/mobile-health",
-      "destination": "/api/secure-mobile-health"
-    },
-    {
-      "source": "/api/mobile-summary",
-      "destination": "/api/secure-mobile-summary"
-    },
-    {
-      "source": "/api/agent-engine",
-      "destination": "/api/secure-agent-engine"
-    },
-    {
-      "source": "/api/ai-agent-run",
-      "destination": "/api/ai-agent-run-compatible"
-    },
-    {
-      "source": "/api/ai-workflow",
-      "destination": "/api/secure-agent-engine?action=ai-workflow"
-    },
-    {
-      "source": "/api/product-vision",
-      "destination": "/api/secure-agent-engine?action=ai-workflow"
-    },
-    {
-      "source": "/api/ai",
-      "destination": "/api/secure-ai"
-    },
-    {
-      "source": "/api/ai-router",
-      "destination": "/api/secure-ai?action=router"
-    },
-    {
-      "source": "/api/elyon-soul",
-      "destination": "/api/secure-elyon-soul"
-    },
-    {
-      "source": "/api/elyon/products",
-      "destination": "/api/extension/import-product?collection=products"
-    },
-    {
-      "source": "/api/google-sheets-sync",
-      "destination": "/api/secure-env-check"
-    },
-    {
-      "source": "/api/cj/status",
-      "destination": "/api/cj/search?action=status"
-    },
-    {
-      "source": "/api/source/analyze",
-      "destination": "/api/cj/search?action=source-analyze"
-    },
-    {
-      "source": "/api/google-drive",
-      "destination": "/api/secure-google-drive"
-    },
-    {
-      "source": "/api/google-drive/status",
-      "destination": "/api/secure-google-drive?action=status"
-    },
-    {
-      "source": "/api/google-drive/auth-url",
-      "destination": "/api/secure-google-drive?action=auth-url"
-    },
-    {
-      "source": "/api/google-drive/upload-backup",
-      "destination": "/api/secure-google-drive?action=upload-backup"
-    },
-    {
-      "source": "/api/google-drive/oauth/start",
-      "destination": "/api/secure-google-drive?action=start"
-    },
-    {
-      "source": "/api/google-drive/oauth/callback",
-      "destination": "/api/secure-google-drive?action=callback"
-    },
-    {
-      "source": "/ebay-token-exchange",
-      "destination": "/ebay-token-exchange/index.html"
-    },
-    {
-      "source": "/ebay-token-exchange/",
-      "destination": "/ebay-token-exchange/index.html"
-    },
-    {
-      "source": "/api/ai/listing-optimizer",
-      "destination": "/api/secure-ai?task=listing-optimizer"
-    },
-    {
-      "source": "/api/ai/product-search",
-      "destination": "/api/secure-ai?task=product-search"
-    }
+    {"source":"/ebay-callback","destination":"/ebay-accepted.html"},
+    {"source":"/ebay-callback/","destination":"/ebay-accepted.html"},
+    {"source":"/ebay-login","destination":"/api/ebay/login-url"},
+    {"source":"/api/ebay/login-url","destination":"/api/ebay?action=login-url"},
+    {"source":"/api/ebay/status","destination":"/api/ebay?action=status"},
+    {"source":"/api/ebay/search","destination":"/api/ebay?action=search"},
+    {"source":"/api/ebay/orders","destination":"/api/ebay?action=orders"},
+    {"source":"/api/ebay/competition","destination":"/api/ebay?action=competition"},
+    {"source":"/api/ebay/exchange-token","destination":"/api/ebay?action=exchange-token"},
+    {"source":"/api/ebay/token","destination":"/api/ebay?action=token"},
+    {"source":"/api/ping","destination":"/api/health"},
+    {"source":"/api/mobile-health","destination":"/api/secure-mobile-health"},
+    {"source":"/api/mobile-summary","destination":"/api/secure-mobile-summary"},
+    {"source":"/api/agent-engine","destination":"/api/secure-agent-engine"},
+    {"source":"/api/ai-agent-run","destination":"/api/ai-agent-run-compatible"},
+    {"source":"/api/ai-workflow","destination":"/api/secure-agent-engine?action=ai-workflow"},
+    {"source":"/api/product-vision","destination":"/api/secure-agent-engine?action=ai-workflow"},
+    {"source":"/api/ai","destination":"/api/secure-ai"},
+    {"source":"/api/ai-router","destination":"/api/secure-ai?action=router"},
+    {"source":"/api/elyon-soul","destination":"/api/secure-elyon-soul"},
+    {"source":"/api/elyon/products","destination":"/api/extension/import-product?collection=products"},
+    {"source":"/api/google-sheets-sync","destination":"/api/secure-env-check"},
+    {"source":"/api/cj/status","destination":"/api/cj/search?action=status"},
+    {"source":"/api/source/analyze","destination":"/api/cj/search?action=source-analyze"},
+    {"source":"/api/google-drive","destination":"/api/secure-google-drive"},
+    {"source":"/api/google-drive/status","destination":"/api/secure-google-drive?action=status"},
+    {"source":"/api/google-drive/auth-url","destination":"/api/secure-google-drive?action=auth-url"},
+    {"source":"/api/google-drive/upload-backup","destination":"/api/secure-google-drive?action=upload-backup"},
+    {"source":"/api/google-drive/oauth/start","destination":"/api/secure-google-drive?action=start"},
+    {"source":"/api/google-drive/oauth/callback","destination":"/api/secure-google-drive?action=callback"},
+    {"source":"/ebay-token-exchange","destination":"/ebay-token-exchange/index.html"},
+    {"source":"/ebay-token-exchange/","destination":"/ebay-token-exchange/index.html"},
+    {"source":"/api/ai/listing-optimizer","destination":"/api/secure-ai?task=listing-optimizer"},
+    {"source":"/api/ai/product-search","destination":"/api/secure-ai?task=product-search"}
   ]
 }

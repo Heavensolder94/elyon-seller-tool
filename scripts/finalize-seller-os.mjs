@@ -1,0 +1,74 @@
+import { readFile, writeFile } from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+const appRoot = path.resolve(scriptDir, "..");
+const publicRoot = path.join(appRoot, "public");
+const SELLER_OS_VERSION = "20260810-prod-1";
+
+const sourcePolishPath = path.join(appRoot, "elyon-preview-polish.css");
+const sourceOrgchartPath = path.join(appRoot, "seller-ai-workforce-orgchart-v1.js");
+const sourceCompanyEntryPath = path.join(appRoot, "seller-ai-workforce-company-entry-preview.js");
+
+const outputPolishPath = path.join(publicRoot, "elyon-seller-os-polish.css");
+const outputOrgchartPath = path.join(publicRoot, "seller-ai-workforce-orgchart-v1.js");
+const outputCompanyEntryPath = path.join(publicRoot, "seller-ai-workforce-company-entry.js");
+const runtimeLoaderPath = path.join(publicRoot, "seller-runtime-loader.js");
+const outputHtmlPath = path.join(publicRoot, "index.html");
+
+const [polishSource, orgchartSource, companyEntrySource, runtimeLoaderSource, htmlSource] = await Promise.all([
+  readFile(sourcePolishPath, "utf8"),
+  readFile(sourceOrgchartPath, "utf8"),
+  readFile(sourceCompanyEntryPath, "utf8"),
+  readFile(runtimeLoaderPath, "utf8"),
+  readFile(outputHtmlPath, "utf8"),
+]);
+
+const productionPolish = polishSource
+  .replace("Preview-only finishing pass.", "Production visual finishing pass.");
+const productionCompanyEntry = companyEntrySource
+  .replaceAll("elyonCompanyEntryPreviewStyles", "elyonCompanyEntryStyles")
+  .replaceAll("ElyonAIWorkforceCompanyEntryPreview", "ElyonAIWorkforceCompanyEntry");
+
+const teamMarker = '      { src: "/seller-ai-workforce-team-v6.js" },';
+if (!runtimeLoaderSource.includes(teamMarker)) {
+  throw new Error("Seller OS finalization failed: Team V6 runtime marker not found.");
+}
+
+const runtimeWithoutSellerOs = runtimeLoaderSource
+  .replace(/\n\s*\{ src: "\/seller-ai-workforce-orgchart-v1\.js" \},/g, "")
+  .replace(/\n\s*\{ src: "\/seller-ai-workforce-company-entry\.js" \},/g, "");
+const productionRuntimeLoader = runtimeWithoutSellerOs.replace(teamMarker, [
+  teamMarker,
+  '      { src: "/seller-ai-workforce-orgchart-v1.js" },',
+  '      { src: "/seller-ai-workforce-company-entry.js" },',
+].join("\n"));
+
+if (!htmlSource.includes("</head>")) {
+  throw new Error("Seller OS finalization failed: </head> not found in public/index.html.");
+}
+
+const sellerOsAssets = [
+  `<link rel="stylesheet" href="/elyon-clean.css?v=${SELLER_OS_VERSION}" data-elyon-seller-os-design="true" />`,
+  `<link rel="stylesheet" href="/elyon-seller-os-polish.css?v=${SELLER_OS_VERSION}" data-elyon-seller-os-polish="true" />`,
+].join("\n");
+
+const cleanedHtml = htmlSource
+  .replace(/\s*<link[^>]+data-elyon-seller-os-design=["']true["'][^>]*>\s*/gi, "\n")
+  .replace(/\s*<link[^>]+data-elyon-seller-os-polish=["']true["'][^>]*>\s*/gi, "\n")
+  .replace(/\s*<link[^>]+data-elyon-preview-design=["']true["'][^>]*>\s*/gi, "\n")
+  .replace(/\s*<link[^>]+data-elyon-preview-polish=["']true["'][^>]*>\s*/gi, "\n")
+  .replace(/\s*<script[^>]+data-elyon-preview-orgchart=["']true["'][^>]*><\/script>\s*/gi, "\n")
+  .replace(/\s*<script[^>]+data-elyon-preview-company-entry=["']true["'][^>]*><\/script>\s*/gi, "\n");
+const productionHtml = cleanedHtml.replace("</head>", `  ${sellerOsAssets}\n</head>`);
+
+await Promise.all([
+  writeFile(outputPolishPath, productionPolish, "utf8"),
+  writeFile(outputOrgchartPath, orgchartSource, "utf8"),
+  writeFile(outputCompanyEntryPath, productionCompanyEntry, "utf8"),
+  writeFile(runtimeLoaderPath, productionRuntimeLoader, "utf8"),
+  writeFile(outputHtmlPath, productionHtml, "utf8"),
+]);
+
+console.log(`Finalized production Seller OS ${SELLER_OS_VERSION} with lazy workforce company view.`);
