@@ -11,24 +11,111 @@
     const style = document.createElement("style");
     style.id = STYLE_ID;
     style.textContent = `
-      #${SWITCHER_ID}{display:flex;gap:6px;align-items:center;margin:0 0 14px;padding:5px;border:1px solid rgba(255,255,255,.075);border-radius:10px;background:#0f151d;width:max-content;max-width:100%}
-      #${SWITCHER_ID} button{min-height:32px!important;padding:6px 10px!important;border-radius:7px!important;font-size:10px!important;color:#8d98a7!important;background:transparent!important;border-color:transparent!important}
-      #${SWITCHER_ID} button.active{color:#f4f6f8!important;background:#182230!important;border-color:rgba(79,140,255,.22)!important;box-shadow:inset 0 0 0 1px rgba(79,140,255,.08)}
-      #elyonAiWorkforce.aiw-company-view{padding:0!important;background:transparent!important;border:0!important;box-shadow:none!important}
+      #${SWITCHER_ID}{
+        display:flex;
+        gap:6px;
+        align-items:center;
+        margin:0 auto 22px;
+        padding:5px;
+        width:max-content;
+        max-width:100%;
+        border:1px solid rgba(255,255,255,.075);
+        border-radius:10px;
+        background:#0f151d;
+      }
+      #${SWITCHER_ID} button{
+        min-height:34px!important;
+        padding:7px 12px!important;
+        border-radius:7px!important;
+        border-color:transparent!important;
+        background:transparent!important;
+        color:#8d98a7!important;
+        font-size:10px!important;
+      }
+      #${SWITCHER_ID} button.active{
+        color:#f4f6f8!important;
+        background:#182230!important;
+        border-color:rgba(79,140,255,.22)!important;
+        box-shadow:inset 0 0 0 1px rgba(79,140,255,.08);
+      }
+
+      #virtualAgentsTab:has(.aiw-org),
+      #elyonAiWorkforce.aiw-company-view,
+      #elyonAiWorkforce:has(.aiw-org){
+        width:100%!important;
+        max-width:none!important;
+      }
+      #elyonAiWorkforce.aiw-company-view,
+      #elyonAiWorkforce:has(.aiw-org){
+        padding:0!important;
+        border:0!important;
+        background:transparent!important;
+        box-shadow:none!important;
+      }
+
       #elyonAiWorkforce.aiw-company-view .aiw-v3-root,
-      #elyonAiWorkforce.aiw-company-view .aiw-v3{display:block!important;width:100%!important;max-width:none!important;padding:0!important;background:transparent!important;border:0!important;box-shadow:none!important}
+      #elyonAiWorkforce.aiw-company-view .aiw-v3,
+      #elyonAiWorkforce:has(.aiw-org) .aiw-v3-root,
+      #elyonAiWorkforce:has(.aiw-org) .aiw-v3{
+        display:block!important;
+        width:100%!important;
+        max-width:none!important;
+        padding:0!important;
+        border:0!important;
+        background:transparent!important;
+        box-shadow:none!important;
+      }
+
       #elyonAiWorkforce.aiw-company-view .aiw-v3-command,
       #elyonAiWorkforce.aiw-company-view .aiw-v4-workbar,
       #elyonAiWorkforce.aiw-company-view .aiw-v3-nav,
       #elyonAiWorkforce.aiw-company-view .aiw-v3-side,
-      #elyonAiWorkforce.aiw-company-view .aiw-v3-hero{display:none!important}
-      #elyonAiWorkforce.aiw-company-view .aiw-v3-layout{display:block!important;width:100%!important}
-      #elyonAiWorkforce.aiw-company-view .aiw-v3-main{display:block!important;width:100%!important;max-width:none!important;padding:0!important;margin:0!important}
-      #elyonAiWorkforce.aiw-company-view .aiw-v3-section{width:100%!important;margin:0!important;padding:0!important;background:transparent!important;border:0!important;box-shadow:none!important}
-      #elyonAiWorkforce.aiw-company-view .aiw-org{width:100%!important;max-width:none!important}
-      #elyonAiWorkforce.aiw-company-view .aiw-org-branches{grid-template-columns:repeat(4,minmax(0,1fr))!important}
-      @media(max-width:1180px){#elyonAiWorkforce.aiw-company-view .aiw-org-branches{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
-      @media(max-width:720px){#${SWITCHER_ID}{width:100%}#${SWITCHER_ID} button{flex:1}#elyonAiWorkforce.aiw-company-view .aiw-org-branches{grid-template-columns:1fr!important}}
+      #elyonAiWorkforce.aiw-company-view .aiw-v3-hero,
+      #elyonAiWorkforce.aiw-company-view .aiw-v3-section-head,
+      #elyonAiWorkforce:has(.aiw-org) .aiw-v3-command,
+      #elyonAiWorkforce:has(.aiw-org) .aiw-v4-workbar,
+      #elyonAiWorkforce:has(.aiw-org) .aiw-v3-nav,
+      #elyonAiWorkforce:has(.aiw-org) .aiw-v3-side,
+      #elyonAiWorkforce:has(.aiw-org) .aiw-v3-hero,
+      #elyonAiWorkforce:has(.aiw-org) .aiw-v3-section-head{
+        display:none!important;
+      }
+
+      #elyonAiWorkforce.aiw-company-view .aiw-v3-layout,
+      #elyonAiWorkforce:has(.aiw-org) .aiw-v3-layout{
+        display:block!important;
+        width:100%!important;
+        max-width:none!important;
+      }
+      #elyonAiWorkforce.aiw-company-view .aiw-v3-main,
+      #elyonAiWorkforce:has(.aiw-org) .aiw-v3-main{
+        display:block!important;
+        width:100%!important;
+        max-width:none!important;
+        padding:0!important;
+        margin:0!important;
+      }
+      #elyonAiWorkforce.aiw-company-view .aiw-v3-section,
+      #elyonAiWorkforce:has(.aiw-org) .aiw-v3-section{
+        width:100%!important;
+        max-width:none!important;
+        margin:0!important;
+        padding:0!important;
+        border:0!important;
+        background:transparent!important;
+        box-shadow:none!important;
+      }
+      #elyonAiWorkforce.aiw-company-view .aiw-v3-agent-list,
+      #elyonAiWorkforce:has(.aiw-org) .aiw-v3-agent-list{
+        width:100%!important;
+        max-width:none!important;
+        margin:0!important;
+      }
+
+      @media(max-width:720px){
+        #${SWITCHER_ID}{width:100%;margin-bottom:16px}
+        #${SWITCHER_ID} button{flex:1}
+      }
     `;
     document.head.appendChild(style);
   }
@@ -56,17 +143,6 @@
     return switcher;
   }
 
-  function addAdvancedControl() {
-    const actions = document.querySelector("#elyonAiWorkforce .aiw-org-head .aiw-org-actions");
-    if (!actions || actions.querySelector("[data-org-advanced-view]")) return;
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "aiw-secondary";
-    button.dataset.orgAdvancedView = "product";
-    button.textContent = "⚙ Erweiterte Steuerung";
-    actions.appendChild(button);
-  }
-
   function finalizeCompanyView() {
     const shell = document.getElementById("elyonAiWorkforce");
     const org = shell?.querySelector(".aiw-org");
@@ -74,7 +150,6 @@
     state.requestedView = "company";
     shell.classList.add("aiw-company-view");
     ensureSwitcher();
-    addAdvancedControl();
     return true;
   }
 
@@ -128,20 +203,13 @@
     if (viewButton) {
       event.preventDefault();
       event.stopImmediatePropagation();
-      if (viewButton.dataset.companyView === "advanced") openAdvanced("product");
-      else {
+      if (viewButton.dataset.companyView === "advanced") {
+        openAdvanced("product");
+      } else {
         state.requestedView = "company";
         ensureSwitcher();
         scheduleActivation();
       }
-      return;
-    }
-
-    const advanced = target.closest("[data-org-advanced-view]");
-    if (advanced) {
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      openAdvanced(advanced.dataset.orgAdvancedView || "product");
       return;
     }
 
@@ -185,7 +253,15 @@
     if (virtualAreaIsActive()) scheduleActivation();
   }
 
-  window.ElyonAIWorkforceCompanyEntryPreview = { activate: activateCompanyView, openAdvanced, showCompany: () => { state.requestedView = "company"; scheduleActivation(); } };
+  window.ElyonAIWorkforceCompanyEntryPreview = {
+    activate: activateCompanyView,
+    openAdvanced,
+    showCompany: () => {
+      state.requestedView = "company";
+      scheduleActivation();
+    },
+  };
+
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", install, { once: true });
   else install();
 })();
