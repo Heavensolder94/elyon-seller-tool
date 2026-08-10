@@ -32,13 +32,14 @@ test("virtual employees visibly expose company and advanced views", async () => 
   assert.match(source, /requestedView: "company"/);
 });
 
-test("company view becomes full-width but keeps advanced workforce reachable", async () => {
+test("company view is a focus workspace without the legacy side columns", async () => {
   const source = await readFile(entryUrl, "utf8");
   assert.match(source, /aiw-company-view/);
-  assert.match(source, /aiw-v3-nav[^}]*display:none!important/s);
-  assert.match(source, /aiw-v3-side[^}]*display:none!important/s);
-  assert.match(source, /data-org-advanced-view/);
+  assert.match(source, /:has\(\.aiw-org\)/);
+  assert.match(source, /aiw-v3-nav[\s\S]*aiw-v3-side[\s\S]*display:none!important/);
+  assert.match(source, /aiw-v3-layout[\s\S]*display:block!important/);
   assert.match(source, /openAdvanced/);
+  assert.doesNotMatch(source, /data-org-advanced-view/);
 });
 
 test("company entry uses only bounded activation retries", async () => {
