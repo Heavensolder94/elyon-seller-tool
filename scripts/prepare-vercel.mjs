@@ -234,4 +234,4 @@ const envStatus = {
 console.log("Google/security/AI env status:", JSON.stringify(envStatus));
 console.log("Desktop runtime extraction:", JSON.stringify(desktopRuntime.metrics));
 console.log("Desktop performance budget:", JSON.stringify(performanceAudit.metrics));
-console.log("Prepared Vercel output with lazy-loaded Elyon Manager orchestrator V1, coordinated existing specialist agents, workflow deduplication and loop guards, centralized approvals and briefing, autonomy capped at level 3, locked irreversible external actions, stable virtual-team V6, and enforced performance budgets.");
+console.log("Prepared Vercel output with custom agent builder, manager-default task routing, lazy-loaded Elyon Manager orchestrator V1, coordinated existing specialist agents, workflow deduplication and loop guards, centralized approvals and briefing, autonomy capped at level 3, locked irreversible external actions, stable virtual-team V6, and enforced performance budgets.");
