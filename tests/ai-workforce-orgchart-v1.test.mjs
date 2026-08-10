@@ -4,7 +4,7 @@ import vm from "node:vm";
 import { readFile } from "node:fs/promises";
 
 const sourceUrl = new URL("../seller-ai-workforce-orgchart-v1.js", import.meta.url);
-const injectorUrl = new URL("../scripts/inject-preview-design.mjs", import.meta.url);
+const finalizerUrl = new URL("../scripts/finalize-seller-os.mjs", import.meta.url);
 
 test("workforce org chart is valid browser JavaScript", async () => {
   const source = await readFile(sourceUrl, "utf8");
@@ -79,9 +79,12 @@ test("org chart is event-driven and does not add polling or mutation observers",
   assert.match(source, /requestAnimationFrame/);
 });
 
-test("preview injector copies and loads the org chart without changing production preparation", async () => {
-  const source = await readFile(injectorUrl, "utf8");
+test("production finalizer ships the org chart lazily through the workforce runtime", async () => {
+  const source = await readFile(finalizerUrl, "utf8");
+  assert.match(source, /outputOrgchartPath/);
   assert.match(source, /seller-ai-workforce-orgchart-v1\.js/);
-  assert.match(source, /data-elyon-preview-orgchart/);
-  assert.match(source, /copyFile\(orgchartSourcePath, orgchartOutputPath\)/);
+  assert.match(source, /teamMarker/);
+  assert.match(source, /seller-ai-workforce-company-entry\.js/);
+  assert.match(source, /data-elyon-seller-os-design/);
+  assert.match(source, /data-elyon-seller-os-polish/);
 });
