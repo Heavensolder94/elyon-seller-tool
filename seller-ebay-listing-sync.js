@@ -2,7 +2,7 @@
   "use strict";
 
   const CARD_ID = "elyonEbayListingSync";
-  const API_URL = "/api/ebay?action=listings&environment=production";
+  const API_URL = "/api/ebay/seller-state?environment=production";
   let request = null;
 
   const text = (value) => String(value ?? "").trim();
@@ -13,21 +13,8 @@
     request = fetch(API_URL, { credentials: "same-origin", cache: "no-store", headers: { Accept: "application/json" } })
       .then(async (response) => {
         const data = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(data.message || data.error || `HTTP ${response.status}`);
-        return data;
-      })
-      .then(async (data) => {
-        try {
-          const syncResponse = await fetch("/api/ebay?action=sync-listings&environment=production", {
-            method: "POST",
-            credentials: "same-origin",
-            cache: "no-store",
-            headers: { Accept: "application/json", "Content-Type": "application/json" },
-            body: JSON.stringify({ environment: "production" }),
-          });
-          const sync = await syncResponse.json().catch(() => ({}));
-          if (syncResponse.ok && sync.ok !== false) data.sync = sync;
-        } catch {}
+        if (!response.ok || data.ok === false) throw new Error(data.message || data.error || `HTTP ${response.status}`);
+        window.__elyonSellerState = data;
         return data;
       })
       .then(render)
@@ -54,17 +41,12 @@
     if (!card) return data;
     const counts = data?.counts || {};
     const active = number(counts.active);
-    const drafts = number(counts.drafts);
-    const other = number(counts.other);
-    const sync = data?.sync || {};
-    const matched = number(sync.matched);
-    const unmatched = number(sync.unmatched);
-    const ambiguous = number(sync.ambiguous);
+    const inventoryUnpublished = number(counts.inventoryUnpublished);
+    const inventoryPublished = number(counts.inventoryPublished);
     const syncedAt = data?.syncedAt ? new Date(data.syncedAt).toLocaleString("de-DE") : "gerade eben";
-    const syncText = sync.ok === true
-      ? `${matched} eindeutig zugeordnet, ${unmatched} nicht zugeordnet, ${ambiguous} mehrdeutig. Unbekannte Angebote wurden nicht angelegt.`
-      : "Zuordnung wartet auf den persistenten Product Master.";
-    card.innerHTML = `<div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap"><div><h2>🛒 eBay-Angebote</h2><p class="hint">Direkt aus deinem verbundenen eBay-Konto. Keine Veröffentlichung wird automatisch ausgelöst.</p></div><button type="button" class="secondary" id="elyonEbayListingSyncRefresh">Jetzt synchronisieren</button></div><div class="dashboard" style="margin-bottom:0"><div class="metric"><small>Aktive Angebote</small><strong>${active}</strong></div><div class="metric"><small>Unveröffentlichte Entwürfe</small><strong>${drafts}</strong></div><div class="metric"><small>Sonstige eBay-Offers</small><strong>${other}</strong></div><div class="metric"><small>Letzte Synchronisation</small><strong style="font-size:14px">${syncedAt}</strong></div></div><p class="hint" style="margin-top:12px;margin-bottom:0">${syncText} Zuordnung erfolgt nur über vorhandene SKU, Offer-ID oder Listing-ID; es werden keine neuen Produktdatensätze automatisch erfunden.</p>`;
+    const inventoryError = text(data?.inventoryOffers?.error);
+
+    card.innerHTML = `<div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap"><div><h2>🛒 eBay Listing-Status</h2><p class="hint">Aktive Listings kommen aus GetMyeBaySelling/ActiveList. Inventory-API-Offers werden nur separat diagnostisch angezeigt und nicht mehr als Seller-Hub-Entwürfe ausgegeben.</p></div><button type="button" class="secondary" id="elyonEbayListingSyncRefresh">Jetzt aktualisieren</button></div><div class="dashboard" style="margin-bottom:0"><div class="metric"><small>Seller Hub · aktiv</small><strong>${active}</strong></div><div class="metric"><small>Seller Hub · Entwürfe</small><strong>—</strong></div><div class="metric"><small>Inventory API · UNPUBLISHED</small><strong>${inventoryUnpublished}</strong></div><div class="metric"><small>Inventory API · PUBLISHED</small><strong>${inventoryPublished}</strong></div><div class="metric"><small>Letzte Synchronisation</small><strong style="font-size:14px">${syncedAt}</strong></div></div><p class="hint" style="margin-top:12px;margin-bottom:0">Die öffentliche eBay API bietet keine lesbare Seller-Hub-Draft-Liste. Deshalb wird hier bewusst kein erfundener Draft-Zähler angezeigt. Ein UNPUBLISHED Inventory Offer ist nicht automatisch ein Seller-Hub-Entwurf.${inventoryError ? ` Inventory-Diagnose: ${text(inventoryError)}` : ""}</p>`;
     card.querySelector("#elyonEbayListingSyncRefresh")?.addEventListener("click", load, { once: true });
     return data;
   }
@@ -72,7 +54,7 @@
   function renderError(error) {
     const card = ensureCard();
     if (!card) return null;
-    card.innerHTML = `<div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap"><div><h2>🛒 eBay-Angebote</h2><p class="hint">Synchronisation derzeit nicht verfügbar: ${text(error?.message || "Unbekannter Fehler")}</p></div><button type="button" class="secondary" id="elyonEbayListingSyncRetry">Erneut prüfen</button></div>`;
+    card.innerHTML = `<div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap"><div><h2>🛒 eBay Listing-Status</h2><p class="hint">Seller-Status derzeit nicht verfügbar: ${text(error?.message || "Unbekannter Fehler")}</p></div><button type="button" class="secondary" id="elyonEbayListingSyncRetry">Erneut prüfen</button></div>`;
     card.querySelector("#elyonEbayListingSyncRetry")?.addEventListener("click", load, { once: true });
     return null;
   }
