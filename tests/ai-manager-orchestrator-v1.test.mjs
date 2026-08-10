@@ -66,7 +66,7 @@ test("autonomy is capped at level 3 and old external modes are normalized", () =
   assert.match(orchestrator, /maxAutonomyLevel:\s*3/);
   assert.match(orchestrator, /auto_internal:\s*3/);
   assert.match(orchestrator, /auto_external:\s*3/);
-  assert.match(orchestrator, /Math\.min\(3/);
+  assert.match(orchestrator, /clamp\([^\n]+,\s*0,\s*3\)/);
   assert.doesNotMatch(orchestrator, /Stufe 4/);
   assert.doesNotMatch(orchestrator, /Stufe 5/);
   assert.match(api, /maxAutonomyLevel:\s*3/);
