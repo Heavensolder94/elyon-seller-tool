@@ -1,7 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "ignoreCommand": "if [ \"$VERCEL_GIT_COMMIT_REF\" = \"main\" ] || [ \"$VERCEL_GIT_COMMIT_REF\" = \"design/seller-tool-dashboard-preview\" ]; then exit 1; else exit 0; fi",
-  "buildCommand": "npm test && VERCEL_FORCE_NO_BUILD_CACHE=1 node scripts/prepare-vercel.mjs && node scripts/inject-preview-design.mjs",
+  "buildCommand": "npm test && VERCEL_FORCE_NO_BUILD_CACHE=1 node scripts/prepare-vercel.mjs && node scripts/finalize-seller-os.mjs",
   "outputDirectory": "public",
   "regions": ["fra1"],
   "rewrites": [
