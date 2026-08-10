@@ -31,6 +31,36 @@ test("org chart exposes the four business departments and eight specialists", as
   }
 });
 
+test("department cards stay compact and expose only team and assignment actions", async () => {
+  const source = await readFile(sourceUrl, "utf8");
+  assert.match(source, /Team ansehen/);
+  assert.match(source, /Auftrag geben/);
+  assert.match(source, /data-org-toggle/);
+  assert.match(source, /data-v6-assign/);
+  assert.doesNotMatch(source, /<button class=\"aiw-secondary\" data-v6-details=\"\$\{item\.id\}\">Details<\/button>/);
+  assert.match(source, /Produktdaten, Compliance & Wirtschaftlichkeit/);
+  assert.match(source, /Listings, SEO & Entwurfsprüfung/);
+});
+
+test("laptop layout uses a two-column company grid and only very wide screens use four columns", async () => {
+  const source = await readFile(sourceUrl, "utf8");
+  assert.match(source, /grid-template-columns:repeat\(2,minmax\(280px,1fr\)\)/);
+  assert.match(source, /@media\(min-width:1500px\)/);
+  assert.match(source, /grid-template-columns:repeat\(4,minmax\(260px,1fr\)\)/);
+  assert.match(source, /@media\(max-width:900px\)/);
+  assert.match(source, /grid-template-columns:1fr/);
+});
+
+test("decisions activity and custom employees live below the company tree", async () => {
+  const source = await readFile(sourceUrl, "utf8");
+  assert.match(source, /Braucht deine Entscheidung/);
+  assert.match(source, /Letzte Teamaktivität/);
+  assert.match(source, /Eigene Mitarbeiter/);
+  assert.match(source, /Mitarbeiter einstellen/);
+  assert.match(source, /data-org-anchor=\"decisions\"/);
+  assert.match(source, /data-org-anchor=\"activity\"/);
+});
+
 test("org chart reuses stable Team V6 actions instead of creating a second execution path", async () => {
   const source = await readFile(sourceUrl, "utf8");
   for (const hook of ["data-v6-assign", "data-v6-details", "data-v6-create-custom", "data-v6-custom-assign", "data-v6-custom-edit"]) {
