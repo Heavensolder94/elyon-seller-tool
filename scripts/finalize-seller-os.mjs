@@ -1,11 +1,15 @@
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  transformSellerDashboard,
+  transformSellerRuntimeLoader,
+} from "./seller-listing-parity-transform.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const appRoot = path.resolve(scriptDir, "..");
 const publicRoot = path.join(appRoot, "public");
-const SELLER_OS_VERSION = "20260810-prod-1";
+const SELLER_OS_VERSION = "20260810-prod-2";
 
 const sourcePolishPath = path.join(appRoot, "elyon-preview-polish.css");
 const sourceOrgchartPath = path.join(appRoot, "seller-ai-workforce-orgchart-v1.js");
@@ -15,13 +19,15 @@ const outputPolishPath = path.join(publicRoot, "elyon-seller-os-polish.css");
 const outputOrgchartPath = path.join(publicRoot, "seller-ai-workforce-orgchart-v1.js");
 const outputCompanyEntryPath = path.join(publicRoot, "seller-ai-workforce-company-entry.js");
 const runtimeLoaderPath = path.join(publicRoot, "seller-runtime-loader.js");
+const dashboardPath = path.join(publicRoot, "seller-dashboard-v2.js");
 const outputHtmlPath = path.join(publicRoot, "index.html");
 
-const [polishSource, orgchartSource, companyEntrySource, runtimeLoaderSource, htmlSource] = await Promise.all([
+const [polishSource, orgchartSource, companyEntrySource, runtimeLoaderSource, dashboardSource, htmlSource] = await Promise.all([
   readFile(sourcePolishPath, "utf8"),
   readFile(sourceOrgchartPath, "utf8"),
   readFile(sourceCompanyEntryPath, "utf8"),
   readFile(runtimeLoaderPath, "utf8"),
+  readFile(dashboardPath, "utf8"),
   readFile(outputHtmlPath, "utf8"),
 ]);
 
@@ -39,11 +45,13 @@ if (!runtimeLoaderSource.includes(teamMarker)) {
 const runtimeWithoutSellerOs = runtimeLoaderSource
   .replace(/\n\s*\{ src: "\/seller-ai-workforce-orgchart-v1\.js" \},/g, "")
   .replace(/\n\s*\{ src: "\/seller-ai-workforce-company-entry\.js" \},/g, "");
-const productionRuntimeLoader = runtimeWithoutSellerOs.replace(teamMarker, [
+const runtimeWithSellerOs = runtimeWithoutSellerOs.replace(teamMarker, [
   teamMarker,
   '      { src: "/seller-ai-workforce-orgchart-v1.js" },',
   '      { src: "/seller-ai-workforce-company-entry.js" },',
 ].join("\n"));
+const productionRuntimeLoader = transformSellerRuntimeLoader(runtimeWithSellerOs);
+const productionDashboard = transformSellerDashboard(dashboardSource);
 
 if (!htmlSource.includes("</head>")) {
   throw new Error("Seller OS finalization failed: </head> not found in public/index.html.");
@@ -68,7 +76,8 @@ await Promise.all([
   writeFile(outputOrgchartPath, orgchartSource, "utf8"),
   writeFile(outputCompanyEntryPath, productionCompanyEntry, "utf8"),
   writeFile(runtimeLoaderPath, productionRuntimeLoader, "utf8"),
+  writeFile(dashboardPath, productionDashboard, "utf8"),
   writeFile(outputHtmlPath, productionHtml, "utf8"),
 ]);
 
-console.log(`Finalized production Seller OS ${SELLER_OS_VERSION} with lazy workforce company view.`);
+console.log(`Finalized production Seller OS ${SELLER_OS_VERSION} with Seller Hub listing parity safeguards.`);
