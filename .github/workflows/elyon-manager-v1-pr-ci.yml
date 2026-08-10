@@ -20,8 +20,8 @@ jobs:
       - run: npm install --no-audit --no-fund
       - run: npm test
       - run: npm run check:layout
-      - run: npm run check:performance
       - run: npm run build
         env:
           VERCEL: "1"
           VERCEL_ENV: preview
+      - run: npm run check:performance
