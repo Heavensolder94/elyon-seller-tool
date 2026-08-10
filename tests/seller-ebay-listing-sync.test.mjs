@@ -32,42 +32,72 @@ test("seller-state uses My eBay ActiveList for real active listings", async () =
   execFileSync(process.execPath, ["--check", fileURLToPath(sourceUrl)]);
 });
 
-test("Seller Hub drafts are not fabricated from Inventory API UNPUBLISHED offers", async () => {
-  const source = await readFile(new URL("../api/ebay/seller-state.js", import.meta.url), "utf8");
-  assert.match(source, /sellerHubDrafts/);
-  assert.match(source, /readable: false/);
-  assert.match(source, /count: null/);
-  assert.match(source, /UNPUBLISHED Inventory Offers werden deshalb nicht als Seller-Hub-Entwürfe gezählt/);
-  assert.match(source, /inventoryUnpublished/);
-  assert.match(source, /fetchInventoryOfferSnapshot/);
+test("Elyon draft registry only exposes registered offers that are still UNPUBLISHED", async () => {
+  const sourceUrl = new URL("../lib/ebay-draft-registry.js", import.meta.url);
+  const source = await readFile(sourceUrl, "utf8");
+  assert.match(source, /elyon_ebay_draft_registry_v1/);
+  assert.match(source, /registerElyonDraft/);
+  assert.match(source, /record\.state === "draft" && status === "UNPUBLISHED"/);
+  assert.match(source, /source: "elyon_inventory_draft"/);
+  assert.match(source, /record\.state === "draft" && status === "PUBLISHED"/);
+  assert.match(source, /state: "published"/);
+  assert.doesNotMatch(source, /startsWith\(["']ELYON/);
+  execFileSync(process.execPath, ["--check", fileURLToPath(sourceUrl)]);
 });
 
-test("listing status UI uses one read-only Seller state endpoint", async () => {
-  const source = await readFile(new URL("../seller-ebay-listing-sync.js", import.meta.url), "utf8");
+test("seller-state counts only reconciled Elyon drafts, not every UNPUBLISHED Inventory offer", async () => {
+  const sourceUrl = new URL("../api/ebay/seller-state.js", import.meta.url);
+  const source = await readFile(sourceUrl, "utf8");
+  assert.match(source, /reconcileElyonDraftRegistry/);
+  assert.match(source, /draftItems = draftRegistry\.drafts/);
+  assert.match(source, /const items = \[\.\.\.draftItems, \.\.\.activeListings\]/);
+  assert.match(source, /drafts: draftItems\.length/);
+  assert.match(source, /draftSource: "elyon_draft_registry_plus_ebay_inventory"/);
+  assert.match(source, /Gezählt werden nur eBay-Entwürfe, die Elyon selbst erstellt/);
+  assert.doesNotMatch(source, /drafts:\s*number\(inventorySnapshot/);
+});
+
+test("successful Elyon lifecycle actions update the persistent draft registry", async () => {
+  const sourceUrl = new URL("../api/ebay/index.js", import.meta.url);
+  const source = await readFile(sourceUrl, "utf8");
+  assert.match(source, /registerElyonDraft/);
+  assert.match(source, /action === "create-draft" \|\| action === "draft"/);
+  assert.match(source, /source: "elyon_auto_lister"/);
+  assert.match(source, /markElyonDraftState/);
+  assert.match(source, /state: "published"/);
+  assert.match(source, /state: "withdrawn"/);
+  assert.match(source, /Der eBay-Vorgang war erfolgreich, aber Elyons Entwurfsregister konnte nicht aktualisiert werden/);
+  execFileSync(process.execPath, ["--check", fileURLToPath(sourceUrl)]);
+});
+
+test("listing status UI shows simple numeric draft and active counts", async () => {
+  const sourceUrl = new URL("../seller-ebay-listing-sync.js", import.meta.url);
+  const source = await readFile(sourceUrl, "utf8");
   assert.match(source, /\/api\/ebay\/seller-state\?environment=production/);
-  assert.match(source, /Seller Hub · aktiv/);
-  assert.match(source, /Seller Hub · Entwürfe/);
-  assert.match(source, /Inventory API · UNPUBLISHED/);
+  assert.match(source, /<small>Entwürfe<\/small><strong>\$\{draftsAvailable \? drafts : "!"\}/);
+  assert.match(source, /<small>Aktive Listings<\/small><strong>\$\{active\}/);
+  assert.match(source, /von Elyon erstellte eBay-Entwürfe/i);
+  assert.doesNotMatch(source, /Seller Hub · Entwürfe/);
+  assert.doesNotMatch(source, /Inventory API · UNPUBLISHED/);
   assert.doesNotMatch(source, /sync-listings/);
-  assert.doesNotMatch(source, /\/api\/ebay\?action=listings/);
   assert.doesNotMatch(source, /access_token|refresh_token|client_secret/i);
-  execFileSync(process.execPath, ["--check", fileURLToPath(new URL("../seller-ebay-listing-sync.js", import.meta.url))]);
+  execFileSync(process.execPath, ["--check", fileURLToPath(sourceUrl)]);
 });
 
-test("production transform removes false UNPUBLISHED draft semantics", async () => {
+test("production transform keeps numeric Elyon drafts and real active listings", async () => {
   const runtimeSource = await readFile(new URL("../seller-runtime-loader.js", import.meta.url), "utf8");
   const dashboardSource = await readFile(new URL("../seller-dashboard-v2.js", import.meta.url), "utf8");
   const runtime = transformSellerRuntimeLoader(runtimeSource);
   const dashboard = transformSellerDashboard(dashboardSource);
 
   assert.match(runtime, /\/api\/ebay\/seller-state\?environment=production/);
-  assert.match(runtime, /draftProducts = \[\];/);
-  assert.match(runtime, /Seller-Hub-Entwürfe: nicht per öffentlicher eBay API auslesbar/);
-  assert.match(runtime, /Inventory-API UNPUBLISHED \(separat\)/);
-  assert.doesNotMatch(runtime, /eBay meldet aktuell 0 UNPUBLISHED-Angebote/);
+  assert.match(runtime, /draftProducts = enriched\.filter\(\(item\) => listingStatus\(item\) === "UNPUBLISHED"\)/);
+  assert.match(runtime, /Aktuell sind keine von Elyon erstellten eBay-Entwürfe vorhanden/);
+  assert.match(runtime, /<small>Entwürfe<\/small><strong>\$\{window\.__elyonSellerState\?\.draftsAvailable === false \? "!" : draftProducts\.length\}/);
+  assert.doesNotMatch(runtime, /Seller-Hub-Entwürfe: nicht per öffentlicher eBay API auslesbar/);
 
-  assert.match(dashboard, /Seller-Hub-Entwürfe<\/small><strong>—<\/strong>/);
-  assert.match(dashboard, /Seller Hub · Trading API ActiveList/);
-  assert.match(dashboard, /Seller Hub aktiv/);
+  assert.match(dashboard, /Von Elyon erstellte eBay-Entwürfe/);
+  assert.match(dashboard, /Direkt aus dem eBay-Verkäuferkonto/);
+  assert.match(dashboard, /<span>Entwürfe<\/span>/);
   assert.match(dashboard, /\/api\/ebay\/seller-state\?environment=production/);
 });

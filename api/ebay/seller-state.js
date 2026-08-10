@@ -1,4 +1,5 @@
 import { fetchEbayListingSnapshot as fetchInventoryOfferSnapshot } from "./listings.js";
+import { reconcileElyonDraftRegistry } from "../../lib/ebay-draft-registry.js";
 import {
   ebayApiRoot,
   ebayUserSession,
@@ -154,16 +155,39 @@ export async function fetchSellerState(environment) {
     ? inventoryResult.value
     : { items: [], counts: { active: 0, drafts: 0, other: 0 }, total: 0, inventoryItemCount: 0, error: text(inventoryResult.reason?.message) };
 
+  let draftItems = [];
+  let draftRegistry = { count: 0, registered: 0, storage: { persisted: false, mode: "unavailable" } };
+  let draftError = "";
+  if (inventoryResult.status === "fulfilled") {
+    try {
+      draftRegistry = await reconcileElyonDraftRegistry({
+        environment: session.environment,
+        inventoryItems: inventorySnapshot.items,
+      });
+      draftItems = draftRegistry.drafts;
+    } catch (error) {
+      draftError = text(error?.message);
+    }
+  } else {
+    draftError = text(inventoryResult.reason?.message);
+  }
+
+  const items = [...draftItems, ...activeListings];
+
   return {
     environment: session.environment,
-    items: activeListings,
+    items,
     activeListings,
-    sellerHubDrafts: {
-      readable: false,
-      count: null,
-      items: [],
-      source: "not_exposed_by_public_ebay_api",
-      message: "Die öffentliche eBay API stellt keine lesbare Seller-Hub-Draft-Liste bereit. UNPUBLISHED Inventory Offers werden deshalb nicht als Seller-Hub-Entwürfe gezählt.",
+    draftItems,
+    elyonDrafts: {
+      readable: !draftError,
+      count: draftItems.length,
+      items: draftItems,
+      source: "elyon_draft_registry_plus_ebay_inventory",
+      registered: number(draftRegistry.registered),
+      message: draftError
+        ? `Elyon-Entwürfe konnten nicht vollständig geprüft werden: ${draftError}`
+        : "Gezählt werden nur eBay-Entwürfe, die Elyon selbst erstellt und im Entwurfsregister gespeichert hat.",
     },
     inventoryOffers: {
       ...inventorySnapshot,
@@ -171,16 +195,18 @@ export async function fetchSellerState(environment) {
     },
     counts: {
       active: activeListings.length,
-      drafts: null,
+      drafts: draftItems.length,
       inventoryUnpublished: number(inventorySnapshot?.counts?.drafts),
       inventoryPublished: number(inventorySnapshot?.counts?.active),
       inventoryOther: number(inventorySnapshot?.counts?.other),
     },
-    total: activeListings.length,
+    draftsAvailable: !draftError,
+    draftError,
+    total: items.length,
     syncedAt: new Date().toISOString(),
     source: "ebay_seller_state",
     activeSource: "ebay_trading_get_myeBaySelling_active",
-    draftSource: "not_exposed_by_public_ebay_api",
+    draftSource: "elyon_draft_registry_plus_ebay_inventory",
   };
 }
 

@@ -1,6 +1,7 @@
 import internalHandler from "../../internal/ebay/index.js";
 import { createEbayOAuthState, readEbayOAuthState, verifyEbayOAuthState } from "../../lib/ebay-oauth-state.js";
 import { readToken } from "../../lib/ebay-token-store.js";
+import { markElyonDraftState, registerElyonDraft } from "../../lib/ebay-draft-registry.js";
 import { requireSellerAccess } from "../../lib/seller-access.js";
 
 function text(value) {
@@ -23,6 +24,18 @@ function environmentFrom(req) {
     ? req?.body?.environment || req?.body?.env
     : req?.query?.environment || req?.query?.env;
   return text(raw).toLowerCase() === "sandbox" ? "sandbox" : "production";
+}
+
+function sourceProductIdFrom(body = {}) {
+  const product = body?.product && typeof body.product === "object" ? body.product : {};
+  return text(
+    body.sourceProductId ||
+    product.id ||
+    product.companyOsProductId ||
+    product.sellerToolMasterProductId ||
+    product.sourceProductId ||
+    product.supplier?.url,
+  );
 }
 
 export function publicConnectionStatus(tokenRecord) {
@@ -48,6 +61,62 @@ function redactSecrets(value, seen = new WeakSet()) {
     output[key] = redactSecrets(item, seen);
   }
   return output;
+}
+
+async function runLifecycleAction(req, res, action, environment) {
+  const capture = {
+    statusCode: 200,
+    body: null,
+    setHeader() {},
+    status(code) { this.statusCode = code; return this; },
+    json(payload) { this.body = payload; return payload; },
+  };
+
+  await internalHandler(req, capture);
+  let payload = capture.body && typeof capture.body === "object" ? capture.body : {};
+
+  if (capture.statusCode < 400 && payload.ok !== false) {
+    try {
+      let draftRegistry = null;
+      if (action === "create-draft" || action === "draft") {
+        draftRegistry = await registerElyonDraft({
+          offerId: payload.offerId,
+          sku: payload.sku,
+          environment,
+          source: "elyon_auto_lister",
+          sourceProductId: sourceProductIdFrom(req?.body || {}),
+        });
+      } else if (action === "publish") {
+        draftRegistry = await markElyonDraftState({
+          offerId: payload.offerId || req?.body?.offerId,
+          sku: payload.sku || req?.body?.sku,
+          listingId: payload.listingId,
+          environment,
+          state: "published",
+        });
+      } else if (action === "withdraw") {
+        draftRegistry = await markElyonDraftState({
+          offerId: payload.offerId || req?.body?.offerId,
+          sku: payload.sku || req?.body?.sku,
+          listingId: payload.listingId,
+          environment,
+          state: "withdrawn",
+        });
+      }
+      if (draftRegistry) payload = { ...payload, draftRegistry };
+    } catch (error) {
+      payload = {
+        ...payload,
+        draftRegistry: {
+          persisted: false,
+          warning: "Der eBay-Vorgang war erfolgreich, aber Elyons Entwurfsregister konnte nicht aktualisiert werden.",
+          error: text(error?.message),
+        },
+      };
+    }
+  }
+
+  return res.status(capture.statusCode).json(redactSecrets(payload));
 }
 
 export default async function handler(req, res) {
@@ -98,8 +167,13 @@ export default async function handler(req, res) {
     if (!requireSellerAccess(req, res, { maxBodyBytes: 1024 * 1024 })) return;
   }
 
-  if (["create-draft", "draft", "publish", "withdraw"].includes(action) && req.method !== "POST") {
+  const lifecycleActions = new Set(["create-draft", "draft", "publish", "withdraw"]);
+  if (lifecycleActions.has(action) && req.method !== "POST") {
     return res.status(405).json({ ok: false, error: "method_not_allowed", message: "Diese eBay-Aktion benötigt POST." });
+  }
+
+  if (lifecycleActions.has(action)) {
+    return runLifecycleAction(req, res, action, environment);
   }
 
   const originalJson = res.json.bind(res);
