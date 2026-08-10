@@ -17,6 +17,7 @@ const runtime = {
   loading: false,
   refreshedAt: null,
   productPayload: null,
+  listingPayload: null,
   orderPayload: null,
   ebayStatus: null,
   errors: {},
@@ -104,7 +105,7 @@ export function normalizeSellerProduct(product = {}) {
     id: text(product.id || product.sellerToolMasterProductId || product.companyOsProductId),
     title: text(product.title || listing.title || product.name) || "Unbenanntes Produkt",
     source: text(product.source || "elyon_company_os"),
-    supplier: text(supplier.name || product.supplierName || product.supplier) || "Lieferant offen",
+    supplier: text(supplier.name || product.supplierName || (typeof product.supplier === "string" ? product.supplier : "")) || "Lieferant offen",
     status,
     readinessState,
     readinessScore: number(readiness.score),
@@ -124,6 +125,23 @@ export function normalizeSellerProduct(product = {}) {
     returnAddress: text(logistics.returnAddress || product.returnAddress),
     updatedAt: product.updatedAt || product.receivedAt || product.createdAt || null,
     raw: product,
+  };
+}
+
+export function normalizeEbayListing(item = {}) {
+  const status = text(item.status || item.ebayStatus || item.listing?.ebayStatus).toUpperCase();
+  const listingId = text(item.listingId || item.ebayItemId || item.listing?.listingId || item.listing?.ebayItemId);
+  return {
+    offerId: text(item.offerId),
+    sku: text(item.sku),
+    status,
+    listingId,
+    marketplaceId: text(item.marketplaceId),
+    price: number(item.price ?? item.pricingSummary?.price?.value),
+    quantity: number(item.quantity ?? item.availableQuantity),
+    isDraft: status === "UNPUBLISHED",
+    isPublished: status === "PUBLISHED",
+    raw: item,
   };
 }
 
@@ -234,8 +252,9 @@ export function buildRevenueBuckets(orders, days = 30, now = new Date()) {
   }));
 }
 
-export function buildSellerDashboardMetrics({ products = [], orders = [], days = 30, ebayConnected = false } = {}) {
+export function buildSellerDashboardMetrics({ products = [], listings = [], orders = [], days = 30, ebayConnected = false } = {}) {
   const normalizedProducts = products.map(normalizeSellerProduct);
+  const normalizedListings = listings.map(normalizeEbayListing);
   const normalizedOrders = orders.map(normalizeEbayOrder);
   const activeOrders = normalizedOrders.filter((order) => !order.isCancelled);
   const listedProducts = normalizedProducts.filter((product) => product.isListed);
@@ -246,6 +265,7 @@ export function buildSellerDashboardMetrics({ products = [], orders = [], days =
     days,
     ebayConnected,
     products: normalizedProducts,
+    listings: normalizedListings,
     orders: normalizedOrders,
     activeOrders,
     revenue: activeOrders.reduce((sum, order) => sum + order.total, 0),
@@ -255,9 +275,9 @@ export function buildSellerDashboardMetrics({ products = [], orders = [], days =
     fulfilledOrders: activeOrders.filter((order) => order.isFulfilled),
     readyProducts: normalizedProducts.filter((product) => product.isReady),
     blockedProducts: normalizedProducts.filter((product) => !product.isReady),
-    liveProducts: normalizedProducts.filter((product) => product.isLive),
+    liveProducts: normalizedListings.filter((listing) => listing.isPublished),
     listedProducts,
-    draftProducts: normalizedProducts.filter((product) => product.isDraft),
+    draftProducts: normalizedListings.filter((listing) => listing.isDraft),
     endedProducts: normalizedProducts.filter((product) => product.isEnded),
     averageMargin: margins.length ? margins.reduce((sum, value) => sum + value, 0) / margins.length : 0,
     listedProfitPerSale: listedProducts.reduce((sum, product) => sum + Math.max(0, product.profit), 0),
@@ -275,12 +295,13 @@ export function buildSellerTasks(metrics, errors = {}) {
   const add = (priority, title, detail, tab, tone = "info") => tasks.push({ priority, title, detail, tab, tone });
 
   if (errors.products) add(100, "Product Master nicht erreichbar", errors.products, "settingsTab", "danger");
-  if (!metrics.ebayConnected) add(95, "eBay-Verbindung prüfen", "Ohne Verbindung können keine echten Bestellungen geladen werden.", "settingsTab", "danger");
+  if (errors.listings) add(98, "eBay-Listings konnten nicht geladen werden", errors.listings, "settingsTab", "danger");
+  if (!metrics.ebayConnected) add(95, "eBay-Verbindung prüfen", "Ohne Verbindung können keine echten Listings oder Bestellungen geladen werden.", "settingsTab", "danger");
   if (errors.orders) add(90, "Bestellungen konnten nicht geladen werden", errors.orders, "ordersTab", "warning");
   if (metrics.openOrders.length) add(85, `${metrics.openOrders.length} Bestellung${metrics.openOrders.length === 1 ? "" : "en"} offen`, "Versand, Tracking und Bearbeitungsstatus prüfen.", "ordersTab", "warning");
   if (metrics.blockedProducts.length) add(75, `${metrics.blockedProducts.length} Produkt${metrics.blockedProducts.length === 1 ? "" : "e"} blockiert`, "Fehlende Daten oder Company-OS-Freigaben prüfen.", "productListTab", "warning");
-  if (metrics.readyProducts.length) add(65, `${metrics.readyProducts.length} Produkt${metrics.readyProducts.length === 1 ? " ist" : "e sind"} listingbereit`, "Paket kontrollieren und anschließend manuell bei eBay einstellen.", "ebayListingTab", "success");
-  if (metrics.draftProducts.length) add(55, `${metrics.draftProducts.length} Listing-Entwurf${metrics.draftProducts.length === 1 ? "" : "e"}`, "Passiv vorgemerkt und noch nicht online.", "draftsTab", "info");
+  if (metrics.readyProducts.length) add(65, `${metrics.readyProducts.length} Produkt${metrics.readyProducts.length === 1 ? " ist" : "e sind"} listingbereit`, "Paket kontrollieren und anschließend als eBay-Entwurf anlegen.", "ebayListingTab", "success");
+  if (metrics.draftProducts.length) add(55, `${metrics.draftProducts.length} Listing-Entwurf${metrics.draftProducts.length === 1 ? "" : "e"}`, "Direkt von eBay: Status UNPUBLISHED.", "draftsTab", "info");
   if (!metrics.products.length && !errors.products) add(70, "Noch kein Seller-Produkt", "Ein final freigegebenes Produkt aus Company OS übernehmen.", "productListTab", "info");
   if (!metrics.orderCount && metrics.ebayConnected && !errors.orders) add(20, "Noch keine Verkäufe im Zeitraum", `In den letzten ${metrics.days} Tagen wurden keine eBay-Bestellungen gefunden.`, "ordersTab", "neutral");
   if (!tasks.length) add(10, "Keine dringenden Aufgaben", "Der Seller-Ablauf enthält aktuell keine offenen Warnungen.", "dashboardTab", "success");
@@ -342,25 +363,26 @@ function blockersMarkup(products) {
 function dashboardMarkup(metrics, tasks) {
   const storageReady = runtime.productPayload?.storage?.configured === true;
   const productState = runtime.errors.products ? "Fehler" : storageReady ? "Verbunden" : "Unbekannt";
+  const listingState = runtime.errors.listings ? "Nicht verfügbar" : metrics.ebayConnected ? "Live" : "Nicht verbunden";
   const orderState = runtime.errors.orders ? "Nicht verfügbar" : metrics.ebayConnected ? "Live" : "Nicht verbunden";
   const refreshed = runtime.refreshedAt ? formattedDate(runtime.refreshedAt) : "noch nicht geladen";
   const coverage = metrics.totalLineItems ? `${metrics.matchedLineItems}/${metrics.totalLineItems} Positionen zugeordnet` : "Noch keine Order-Positionen";
 
   return `<section id="${DASHBOARD_ID}">
-    <header class="sd-hero" id="${ROLE_BANNER_ID}"><div><div class="badge">Elyon Seller Cockpit</div><h2>Dein Verkaufsbetrieb auf einen Blick</h2><p>Company OS liefert geprüfte Produkte und Listing-Pakete. Hier siehst du den echten Seller-Stand: Entwürfe, aktive Listings, eBay-Bestellungen, Umsatz, kalkulierten Gewinn, Blocker und die nächsten Schritte.</p><div class="sd-badges"><span class="sd-badge ${metrics.ebayConnected ? "good" : "bad"}">eBay ${metrics.ebayConnected ? "verbunden" : "nicht verbunden"}</span><span class="sd-badge ${storageReady ? "good" : runtime.errors.products ? "bad" : "warn"}">Product Master ${escapeHtml(productState)}</span><span class="sd-badge ${runtime.errors.orders ? "warn" : "good"}">Orders ${escapeHtml(orderState)}</span><span class="sd-badge" title="Wird beim Öffnen und danach alle 5 Minuten aktualisiert">Aktualisiert ${escapeHtml(refreshed)}</span></div></div><div class="sd-actions"><div class="sd-range">${[7,30,90].map((days) => `<button type="button" data-sd-range="${days}" class="${runtime.days === days ? "active" : ""}">${days} Tage</button>`).join("")}</div><button type="button" id="sdRefresh" class="secondary">${runtime.loading ? "Lädt …" : "Aktualisieren"}</button></div></header>
+    <header class="sd-hero" id="${ROLE_BANNER_ID}"><div><div class="badge">Elyon Seller Cockpit</div><h2>Dein Verkaufsbetrieb auf einen Blick</h2><p>Company OS liefert geprüfte Produkte und Listing-Pakete. Entwürfe und aktive Listings kommen direkt aus der eBay Inventory API; der Product Master dient dort nur zur Anreicherung. Bestellungen und Umsatz stammen aus der eBay Orders API.</p><div class="sd-badges"><span class="sd-badge ${metrics.ebayConnected ? "good" : "bad"}">eBay ${metrics.ebayConnected ? "verbunden" : "nicht verbunden"}</span><span class="sd-badge ${runtime.errors.listings ? "bad" : metrics.ebayConnected ? "good" : "warn"}">Listings ${escapeHtml(listingState)}</span><span class="sd-badge ${storageReady ? "good" : runtime.errors.products ? "bad" : "warn"}">Product Master ${escapeHtml(productState)}</span><span class="sd-badge ${runtime.errors.orders ? "warn" : "good"}">Orders ${escapeHtml(orderState)}</span><span class="sd-badge" title="Wird beim Öffnen und danach alle 5 Minuten aktualisiert">Aktualisiert ${escapeHtml(refreshed)}</span></div></div><div class="sd-actions"><div class="sd-range">${[7,30,90].map((days) => `<button type="button" data-sd-range="${days}" class="${runtime.days === days ? "active" : ""}">${days} Tage</button>`).join("")}</div><button type="button" id="sdRefresh" class="secondary">${runtime.loading ? "Lädt …" : "Aktualisieren"}</button></div></header>
     <section class="sd-kpis">
       <article class="sd-kpi ${metrics.revenue ? "good" : ""}"><small>eBay-Umsatz · ${metrics.days} Tage</small><strong>${money(metrics.revenue)}</strong><span>Nur echte eBay-Bestellungen</span></article>
       <article class="sd-kpi"><small>Bestellungen</small><strong>${count(metrics.orderCount)}</strong><span>${count(metrics.fulfilledOrders.length)} abgeschlossen</span></article>
       <article class="sd-kpi ${metrics.openOrders.length ? "warn" : ""}"><small>Offene Bestellungen</small><strong>${count(metrics.openOrders.length)}</strong><span>Versand oder Bearbeitung offen</span></article>
-      <article class="sd-kpi ${metrics.draftProducts.length ? "warn" : ""}"><small>Entwürfe</small><strong>${count(metrics.draftProducts.length)}</strong><span>Passiv · noch nicht online</span><button type="button" class="secondary sd-kpi-open" data-sd-tab="draftsTab">Entwürfe öffnen</button></article>
-      <article class="sd-kpi ${metrics.liveProducts.length ? "good" : ""}"><small>Aktive Listings</small><strong>${count(metrics.liveProducts.length)}</strong><span>Online + eBay-Artikelnummer</span><button type="button" class="secondary sd-kpi-open" data-sd-tab="activeListingsTab">Aktive öffnen</button></article>
+      <article class="sd-kpi ${metrics.draftProducts.length ? "warn" : ""}"><small>Entwürfe</small><strong>${count(metrics.draftProducts.length)}</strong><span>eBay Inventory API · UNPUBLISHED</span><button type="button" class="secondary sd-kpi-open" data-sd-tab="draftsTab">Entwürfe öffnen</button></article>
+      <article class="sd-kpi ${metrics.liveProducts.length ? "good" : ""}"><small>Aktive Listings</small><strong>${count(metrics.liveProducts.length)}</strong><span>eBay Inventory API · PUBLISHED</span><button type="button" class="secondary sd-kpi-open" data-sd-tab="activeListingsTab">Aktive öffnen</button></article>
       <article class="sd-kpi ${metrics.readyProducts.length ? "good" : metrics.blockedProducts.length ? "warn" : ""}"><small>Listingbereit</small><strong>${count(metrics.readyProducts.length)}</strong><span>${count(metrics.blockedProducts.length)} Produktblocker</span></article>
       <article class="sd-kpi ${metrics.estimatedOrderProfit ? "good" : ""}"><small>Geschätzter Order-Gewinn</small><strong>${money(metrics.estimatedOrderProfit)}</strong><span>${escapeHtml(coverage)} · keine Buchhaltungszahl</span></article>
     </section>
     <section class="sd-main"><article class="sd-panel"><div class="sd-head"><div><h3>Umsatzentwicklung</h3><p>Echte eBay-Bestellungen im gewählten Zeitraum.</p></div><strong>${money(metrics.revenue)}</strong></div><div class="sd-chart">${chartMarkup(metrics.buckets)}</div></article><article class="sd-panel"><div class="sd-head"><div><h3>Nächste Aufgaben</h3><p>Automatisch priorisiert.</p></div></div><div class="sd-list">${tasksMarkup(tasks)}</div></article></section>
     <section class="sd-two"><article class="sd-panel"><div class="sd-head"><div><h3>Neueste Bestellungen</h3><p>Aktuelle eBay-Orders.</p></div><button type="button" class="secondary" data-sd-tab="ordersTab">Alle öffnen</button></div><div class="sd-list">${ordersMarkup(metrics.orders)}</div></article><article class="sd-panel"><div class="sd-head"><div><h3>Produktleistung</h3><p>Nach echtem Umsatz, sonst nach kalkuliertem Gewinn.</p></div><button type="button" class="secondary" data-sd-tab="productListTab">Produkte öffnen</button></div><div class="sd-list">${productsMarkup(metrics.topProducts)}</div></article></section>
-    <section class="sd-two"><article class="sd-panel"><div class="sd-head"><div><h3>Seller-Pipeline</h3><p>Vom Product Master bis zum abgeschlossenen Verkauf.</p></div></div><div class="sd-pipeline"><div class="sd-step"><strong>${count(metrics.products.length)}</strong><span>Product Master</span></div><div class="sd-step"><strong>${count(metrics.readyProducts.length)}</strong><span>listingbereit</span></div><div class="sd-step"><strong>${count(metrics.draftProducts.length)}</strong><span>Entwürfe</span></div><div class="sd-step"><strong>${count(metrics.liveProducts.length)}</strong><span>aktiv</span></div><div class="sd-step"><strong>${count(metrics.openOrders.length)}</strong><span>Orders offen</span></div><div class="sd-step"><strong>${count(metrics.fulfilledOrders.length)}</strong><span>abgeschlossen</span></div></div><div class="sd-note">${count(metrics.workingCopies)} Arbeitskopie(n) · Ø Marge ${percent(metrics.averageMargin)} · kalkulierter Gewinn aller dokumentierten Listings je Einzelverkauf ${money(metrics.listedProfitPerSale)}</div></article><article class="sd-panel"><div class="sd-head"><div><h3>Datenqualität und Blocker</h3><p>Häufigste Gründe gegen die Listing-Freigabe.</p></div></div><div class="sd-list">${blockersMarkup(metrics.products)}</div></article></section>
-    <section class="sd-panel"><div class="sd-head"><div><h3>System- und Datenstatus</h3><p>Welche Informationen tatsächlich live verbunden sind.</p></div></div><div class="sd-list"><div class="sd-status"><span>eBay OAuth</span><strong class="${metrics.ebayConnected ? "sd-good" : "sd-bad"}">${metrics.ebayConnected ? "verbunden" : "nicht verbunden"}</strong></div><div class="sd-status"><span>Server Product Master</span><strong class="${storageReady ? "sd-good" : "sd-warn"}">${escapeHtml(productState)}</strong></div><div class="sd-status"><span>Company-OS-Produkte</span><strong>${count(metrics.products.filter((product) => product.source === "elyon_company_os" || product.raw?.approval?.companyOsApproved === true).length)}</strong></div><div class="sd-status"><span>eBay Orders API</span><strong class="${runtime.errors.orders ? "sd-warn" : metrics.ebayConnected ? "sd-good" : "sd-bad"}">${escapeHtml(orderState)}</strong></div><div class="sd-status"><span>Von eBay gemeldete Marketplace-Gebühren</span><strong>${money(metrics.marketplaceFees)}</strong></div><div class="sd-status"><span>Automatisches Einstellen / Bestellen</span><strong class="sd-good">deaktiviert</strong></div></div></section>
+    <section class="sd-two"><article class="sd-panel"><div class="sd-head"><div><h3>Seller-Pipeline</h3><p>Product Master für Vorbereitung, eBay als Quelle für den echten Listing-Bestand.</p></div></div><div class="sd-pipeline"><div class="sd-step"><strong>${count(metrics.products.length)}</strong><span>Product Master</span></div><div class="sd-step"><strong>${count(metrics.readyProducts.length)}</strong><span>listingbereit</span></div><div class="sd-step"><strong>${count(metrics.draftProducts.length)}</strong><span>eBay UNPUBLISHED</span></div><div class="sd-step"><strong>${count(metrics.liveProducts.length)}</strong><span>eBay PUBLISHED</span></div><div class="sd-step"><strong>${count(metrics.openOrders.length)}</strong><span>Orders offen</span></div><div class="sd-step"><strong>${count(metrics.fulfilledOrders.length)}</strong><span>abgeschlossen</span></div></div><div class="sd-note">${count(metrics.workingCopies)} Arbeitskopie(n) · Ø Marge ${percent(metrics.averageMargin)} · kalkulierter Gewinn aller dokumentierten Product-Master-Listings je Einzelverkauf ${money(metrics.listedProfitPerSale)}</div></article><article class="sd-panel"><div class="sd-head"><div><h3>Datenqualität und Blocker</h3><p>Häufigste Gründe gegen die Listing-Freigabe.</p></div></div><div class="sd-list">${blockersMarkup(metrics.products)}</div></article></section>
+    <section class="sd-panel"><div class="sd-head"><div><h3>System- und Datenstatus</h3><p>Welche Informationen tatsächlich live verbunden sind.</p></div></div><div class="sd-list"><div class="sd-status"><span>eBay OAuth</span><strong class="${metrics.ebayConnected ? "sd-good" : "sd-bad"}">${metrics.ebayConnected ? "verbunden" : "nicht verbunden"}</strong></div><div class="sd-status"><span>eBay Inventory API · Listings</span><strong class="${runtime.errors.listings ? "sd-warn" : metrics.ebayConnected ? "sd-good" : "sd-bad"}">${escapeHtml(listingState)}</strong></div><div class="sd-status"><span>Server Product Master</span><strong class="${storageReady ? "sd-good" : "sd-warn"}">${escapeHtml(productState)}</strong></div><div class="sd-status"><span>Company-OS-Produkte</span><strong>${count(metrics.products.filter((product) => product.source === "elyon_company_os" || product.raw?.approval?.companyOsApproved === true).length)}</strong></div><div class="sd-status"><span>eBay Orders API</span><strong class="${runtime.errors.orders ? "sd-warn" : metrics.ebayConnected ? "sd-good" : "sd-bad"}">${escapeHtml(orderState)}</strong></div><div class="sd-status"><span>Von eBay gemeldete Marketplace-Gebühren</span><strong>${money(metrics.marketplaceFees)}</strong></div><div class="sd-status"><span>Automatisches Einstellen / Bestellen</span><strong class="sd-good">deaktiviert</strong></div></div></section>
   </section>`;
 }
 
@@ -398,7 +420,13 @@ function host() {
 function renderDashboard() {
   const node = host();
   if (!node) return;
-  const metrics = buildSellerDashboardMetrics({ products: list(runtime.productPayload?.products), orders: list(runtime.orderPayload?.orders), days: runtime.days, ebayConnected: runtime.ebayStatus?.connected === true });
+  const metrics = buildSellerDashboardMetrics({
+    products: list(runtime.productPayload?.products),
+    listings: list(runtime.listingPayload?.items),
+    orders: list(runtime.orderPayload?.orders),
+    days: runtime.days,
+    ebayConnected: runtime.ebayStatus?.connected === true,
+  });
   node.innerHTML = dashboardMarkup(metrics, buildSellerTasks(metrics, runtime.errors));
   node.querySelectorAll("[data-sd-range]").forEach((button) => button.addEventListener("click", () => { const days = Number(button.dataset.sdRange); if (![7,30,90].includes(days) || days === runtime.days) return; runtime.days = days; storeRange(days); refreshDashboard(); }));
   node.querySelectorAll("[data-sd-tab]").forEach((button) => button.addEventListener("click", () => openTab(button.dataset.sdTab)));
@@ -431,9 +459,15 @@ export async function refreshDashboard() {
   runtime.loading = true;
   runtime.errors = {};
   renderDashboard();
-  const [products, status, orders] = await Promise.allSettled([getJson("/api/products"), getJson("/api/ebay/status"), getJson(`/api/ebay/orders?days=${runtime.days}&status=all&environment=production`)]);
+  const [products, status, listings, orders] = await Promise.allSettled([
+    getJson("/api/products"),
+    getJson("/api/ebay/status"),
+    getJson("/api/ebay/listings?environment=production"),
+    getJson(`/api/ebay/orders?days=${runtime.days}&status=all&environment=production`),
+  ]);
   if (products.status === "fulfilled") runtime.productPayload = products.value; else { runtime.productPayload = null; runtime.errors.products = errorText(products.reason, "Product Master konnte nicht geladen werden."); }
   if (status.status === "fulfilled") runtime.ebayStatus = status.value; else { runtime.ebayStatus = { connected: false }; runtime.errors.ebay = errorText(status.reason, "eBay-Status konnte nicht geladen werden."); }
+  if (listings.status === "fulfilled") runtime.listingPayload = listings.value; else { runtime.listingPayload = null; runtime.errors.listings = errorText(listings.reason, "eBay-Listings konnten nicht geladen werden."); }
   if (orders.status === "fulfilled") runtime.orderPayload = orders.value; else { runtime.orderPayload = null; runtime.errors.orders = errorText(orders.reason, "eBay-Bestellungen konnten nicht geladen werden."); }
   runtime.refreshedAt = new Date();
   runtime.loading = false;
