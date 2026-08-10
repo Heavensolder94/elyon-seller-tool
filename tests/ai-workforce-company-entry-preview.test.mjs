@@ -4,7 +4,8 @@ import vm from "node:vm";
 import { readFile } from "node:fs/promises";
 
 const entryUrl = new URL("../seller-ai-workforce-company-entry-preview.js", import.meta.url);
-const injectorUrl = new URL("../scripts/inject-preview-design.mjs", import.meta.url);
+const finalizerUrl = new URL("../scripts/finalize-seller-os.mjs", import.meta.url);
+const vercelUrl = new URL("../vercel.json", import.meta.url);
 
 test("company entry adapter is valid browser JavaScript", async () => {
   const source = await readFile(entryUrl, "utf8");
@@ -49,11 +50,20 @@ test("company entry uses only bounded activation retries", async () => {
   assert.match(source, /\[0, 80, 250, 700\]/);
 });
 
-test("preview build ships org chart before the company entry adapter", async () => {
-  const source = await readFile(injectorUrl, "utf8");
-  const orgIndex = source.indexOf("seller-ai-workforce-orgchart-v1.js?v=");
-  const entryIndex = source.indexOf("seller-ai-workforce-company-entry-preview.js?v=");
-  assert.ok(orgIndex >= 0);
-  assert.ok(entryIndex > orgIndex);
-  assert.match(source, /copyFile\(companyEntrySourcePath, companyEntryOutputPath\)/);
+test("production finalizer keeps company UI lazy and exposes production asset names", async () => {
+  const source = await readFile(finalizerUrl, "utf8");
+  assert.match(source, /seller-ai-workforce-team-v6\.js/);
+  assert.match(source, /seller-ai-workforce-orgchart-v1\.js/);
+  assert.match(source, /seller-ai-workforce-company-entry\.js/);
+  assert.match(source, /ElyonAIWorkforceCompanyEntry/);
+  assert.doesNotMatch(source, /<script defer src=.*seller-ai-workforce-orgchart-v1/);
+  assert.doesNotMatch(source, /setInterval\(/);
+  assert.doesNotMatch(source, /MutationObserver/);
+});
+
+test("Vercel production build uses Seller OS finalizer without branch-only ignore rules", async () => {
+  const source = await readFile(vercelUrl, "utf8");
+  assert.match(source, /scripts\/finalize-seller-os\.mjs/);
+  assert.doesNotMatch(source, /inject-preview-design/);
+  assert.doesNotMatch(source, /ignoreCommand/);
 });
