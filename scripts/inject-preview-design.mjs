@@ -16,8 +16,8 @@ const companyEntryOutputPath = path.join(publicRoot, "seller-ai-workforce-compan
 const previewAssets = [
   '<link rel="stylesheet" href="/elyon-clean.css?v=seller-os-preview-20260810" data-elyon-preview-design="true" />',
   '<link rel="stylesheet" href="/elyon-preview-polish.css?v=seller-os-polish-20260810" data-elyon-preview-polish="true" />',
-  '<script defer src="/seller-ai-workforce-orgchart-v1.js?v=orgchart-preview-20260810" data-elyon-preview-orgchart="true"></script>',
-  '<script defer src="/seller-ai-workforce-company-entry-preview.js?v=company-entry-preview-20260810" data-elyon-preview-company-entry="true"></script>',
+  '<script defer src="/seller-ai-workforce-orgchart-v1.js?v=orgchart-focus-20260810-2" data-elyon-preview-orgchart="true"></script>',
+  '<script defer src="/seller-ai-workforce-company-entry-preview.js?v=company-focus-20260810-2" data-elyon-preview-company-entry="true"></script>',
 ].join("\n");
 
 await Promise.all([
@@ -40,4 +40,4 @@ const cleaned = html
 const output = cleaned.replace("</head>", `  ${previewAssets}\n</head>`);
 
 await writeFile(outputPath, output, "utf8");
-console.log("Preview design, polish and workforce company view injected into public/index.html");
+console.log("Preview design, polish and workforce company focus view injected into public/index.html");
