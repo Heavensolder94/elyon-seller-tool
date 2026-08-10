@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const appRoot = path.resolve(scriptDir, "..");
 const publicRoot = path.join(appRoot, "public");
+const SELLER_OS_VERSION = "20260810-prod-1";
 
 const sourcePolishPath = path.join(appRoot, "elyon-preview-polish.css");
 const sourceOrgchartPath = path.join(appRoot, "seller-ai-workforce-orgchart-v1.js");
@@ -49,8 +50,8 @@ if (!htmlSource.includes("</head>")) {
 }
 
 const sellerOsAssets = [
-  '<link rel="stylesheet" href="/elyon-clean.css?v=seller-os-20260810" data-elyon-seller-os-design="true" />',
-  '<link rel="stylesheet" href="/elyon-seller-os-polish.css?v=seller-os-polish-20260810" data-elyon-seller-os-polish="true" />',
+  `<link rel="stylesheet" href="/elyon-clean.css?v=${SELLER_OS_VERSION}" data-elyon-seller-os-design="true" />`,
+  `<link rel="stylesheet" href="/elyon-seller-os-polish.css?v=${SELLER_OS_VERSION}" data-elyon-seller-os-polish="true" />`,
 ].join("\n");
 
 const cleanedHtml = htmlSource
@@ -70,4 +71,4 @@ await Promise.all([
   writeFile(outputHtmlPath, productionHtml, "utf8"),
 ]);
 
-console.log("Finalized production Seller OS design and lazy workforce company view.");
+console.log(`Finalized production Seller OS ${SELLER_OS_VERSION} with lazy workforce company view.`);
