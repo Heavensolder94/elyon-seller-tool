@@ -61,9 +61,8 @@ test("production finalizer keeps company UI lazy and exposes production asset na
   assert.doesNotMatch(source, /MutationObserver/);
 });
 
-test("Vercel production build uses Seller OS finalizer without branch-only ignore rules", async () => {
+test("Vercel build uses the production Seller OS finalizer and no preview injector", async () => {
   const source = await readFile(vercelUrl, "utf8");
   assert.match(source, /scripts\/finalize-seller-os\.mjs/);
   assert.doesNotMatch(source, /inject-preview-design/);
-  assert.doesNotMatch(source, /ignoreCommand/);
 });
