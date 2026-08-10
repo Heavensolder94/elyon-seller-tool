@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const VERSION = "seller-operations-20260810-4";
+  const VERSION = "seller-operations-20260810-5";
   const LEGACY_QUICKSTART_BRIDGE_FLAG = "__elyonModernQuickstartBridge";
   const DRAFT_TAB_ID = "draftsTab";
   const ACTIVE_TAB_ID = "activeListingsTab";
@@ -69,11 +69,13 @@
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 
+  function numberValue(value) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
   function money(value) {
-    const parsed = Number(value || 0);
-    return Number.isFinite(parsed)
-      ? parsed.toLocaleString("de-DE", { style: "currency", currency: "EUR" })
-      : "0,00 €";
+    return numberValue(value).toLocaleString("de-DE", { style: "currency", currency: "EUR" });
   }
 
   function normalizedSrc(src) {
@@ -140,30 +142,87 @@
     return promise;
   }
 
-  function productItemIds(product) {
-    const listing = product?.listing || {};
-    const raw = product?.raw || {};
-    return [
-      listing.ebayItemId,
+  function listingStatus(item) {
+    return text(item?.status || item?.ebayStatus || item?.listing?.ebayStatus).toUpperCase();
+  }
+
+  function listingItemId(item) {
+    return text(item?.listingId || item?.ebayItemId || item?.listing?.listingId || item?.listing?.ebayItemId);
+  }
+
+  function productIdentityValues(product) {
+    const listing = product?.listing && typeof product.listing === "object" ? product.listing : {};
+    const raw = product?.raw && typeof product.raw === "object" ? product.raw : {};
+    const rawListing = raw?.listing && typeof raw.listing === "object" ? raw.listing : {};
+    const draft = raw?.autoListerDraft && typeof raw.autoListerDraft === "object" ? raw.autoListerDraft : {};
+    return new Set([
+      product?.sku,
+      product?.offerId,
       product?.ebayItemId,
       product?.listingId,
-      raw?.ebayItemId,
-      raw?.listing?.ebayItemId,
-    ].map(text).filter(Boolean);
+      listing.sku,
+      listing.offerId,
+      listing.ebayItemId,
+      listing.listingId,
+      raw.sku,
+      raw.offerId,
+      raw.ebayItemId,
+      raw.listingId,
+      rawListing.sku,
+      rawListing.offerId,
+      rawListing.ebayItemId,
+      rawListing.listingId,
+      draft.sku,
+      draft.offerId,
+      draft.listingId,
+    ].map(text).filter(Boolean));
   }
 
-  function listingStatus(product) {
-    return text(product?.listing?.status || product?.listingStatus || product?.status || "draft").toLowerCase();
+  function matchProductMaster(item, products) {
+    const ebayIds = [item?.sku, item?.offerId, item?.listingId].map(text).filter(Boolean);
+    if (!ebayIds.length) return { state: "unmatched", product: null };
+    const matches = products.filter((product) => {
+      const ids = productIdentityValues(product);
+      return ebayIds.some((id) => ids.has(id));
+    });
+    if (matches.length === 1) return { state: "matched", product: matches[0] };
+    if (matches.length > 1) return { state: "ambiguous", product: null };
+    return { state: "unmatched", product: null };
   }
 
-  function isDraftProduct(product) {
-    return productItemIds(product).length === 0
-      && ["draft", "entwurf", "ready_for_manual_listing", "not_listed", "seller_draft", "ready_for_manual_ebay_draft"].includes(listingStatus(product));
+  function supplierName(product) {
+    if (!product) return "";
+    if (typeof product.supplier === "string") return text(product.supplier);
+    return text(product?.supplier?.name || product?.supplierName);
   }
 
-  function isActiveProduct(product) {
-    return productItemIds(product).length > 0
-      && ["live", "active", "published", "listed", "manually_listed", "online"].includes(listingStatus(product));
+  function productImages(product) {
+    const direct = Array.isArray(product?.images) ? product.images : [];
+    const listing = Array.isArray(product?.listing?.images) ? product.listing.images : [];
+    return [...direct, ...listing].map((entry) => typeof entry === "string" ? text(entry) : text(entry?.url)).filter(Boolean);
+  }
+
+  function enrichEbayListing(item, products) {
+    const match = matchProductMaster(item, products);
+    const product = match.product;
+    const pricing = product?.pricing && typeof product.pricing === "object" ? product.pricing : {};
+    const title = text(item?.title || product?.title || product?.listing?.title || product?.name)
+      || `eBay-Angebot ${text(item?.sku || item?.offerId) || "ohne Titel"}`;
+    return {
+      ...item,
+      status: listingStatus(item),
+      title,
+      images: productImages(product),
+      supplierName: supplierName(product),
+      pricing: {
+        buyPrice: numberValue(pricing.buyPrice ?? product?.buyPrice ?? product?.purchasePrice),
+        salePrice: numberValue(item?.price || pricing.salePrice || product?.salePrice || product?.sellPrice),
+        profit: numberValue(pricing.profit ?? pricing.realisticProfit ?? product?.profit),
+        marginPercent: numberValue(pricing.marginPercent ?? product?.marginPercent ?? product?.margin),
+      },
+      productMasterMatch: match.state,
+      productMasterId: text(product?.id || product?.sellerToolMasterProductId || product?.companyOsProductId),
+    };
   }
 
   function installListingStyles() {
@@ -259,30 +318,41 @@
     if (menu) menu.value = target.id;
   }
 
+  function matchLabel(state) {
+    if (state === "matched") return { label: "Product-Master-Match", className: "ready" };
+    if (state === "ambiguous") return { label: "Mehrdeutiger Product-Master-Match", className: "blocked" };
+    return { label: "Kein Product-Master-Match", className: "blocked" };
+  }
+
   function listingCard(product, mode) {
     const pricing = product?.pricing || {};
-    const readiness = product?.readiness || {};
-    const blockers = Array.isArray(readiness.blockers) ? readiness.blockers.filter(Boolean) : [];
-    const ready = text(readiness.state).toLowerCase() === "ready_for_manual_listing" && blockers.length === 0;
-    const supplier = text(product?.supplier?.name || product?.supplierName || product?.supplier) || "Lieferant offen";
-    const title = text(product?.title || product?.listing?.title || product?.name) || "Unbenanntes Listing";
+    const match = matchLabel(product?.productMasterMatch);
     const imageUrl = Array.isArray(product?.images) ? text(product.images[0]) : "";
     const image = imageUrl
       ? `<div class="elyon-listing-image"><img src="${escapeHtml(imageUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer"></div>`
       : `<div class="elyon-listing-image">${mode === "active" ? "🟢" : "📝"}</div>`;
     const status = listingStatus(product);
-    const itemId = productItemIds(product)[0] || "";
+    const itemId = listingItemId(product);
+    const offerId = text(product?.offerId);
+    const sku = text(product?.sku);
+    const matched = product?.productMasterMatch === "matched";
+    const supplier = text(product?.supplierName) || "Lieferant offen";
+    const pricingLine = matched
+      ? `${escapeHtml(supplier)} · EK ${escapeHtml(money(pricing.buyPrice))} · VK ${escapeHtml(money(pricing.salePrice))} · Gewinn ${escapeHtml(money(pricing.profit))} · ${numberValue(pricing.marginPercent).toLocaleString("de-DE", { maximumFractionDigits: 1 })} % Marge`
+      : `eBay VK ${escapeHtml(money(pricing.salePrice))} · Product Master wird nicht als Listing-Quelle verwendet`;
+
     return `
       <article class="elyon-listing-card ${mode === "active" ? "active" : ""}">
         ${image}
         <div class="elyon-listing-copy">
-          <strong>${escapeHtml(title)}</strong>
-          <p>${escapeHtml(supplier)} · EK ${escapeHtml(money(pricing.buyPrice))} · VK ${escapeHtml(money(pricing.salePrice))} · ${Number(pricing.marginPercent || 0).toLocaleString("de-DE", { maximumFractionDigits: 1 })} % Marge</p>
+          <strong>${escapeHtml(product?.title || "Unbenanntes eBay-Angebot")}</strong>
+          <p>${pricingLine}</p>
           <div class="elyon-listing-meta">
-            <span class="elyon-listing-pill ${mode === "active" ? "live" : ""}">${escapeHtml(status || (mode === "active" ? "published" : "draft"))}</span>
-            ${mode === "active"
-              ? `<span class="elyon-listing-pill live">Online</span><span class="elyon-listing-pill">eBay ${escapeHtml(itemId)}</span>`
-              : `<span class="elyon-listing-pill">Passiv</span><span class="elyon-listing-pill ${ready ? "ready" : "blocked"}">${ready ? "Listingbereit" : `${blockers.length} Blocker`}</span><span class="elyon-listing-pill">Noch ohne eBay-Artikelnummer</span>`}
+            <span class="elyon-listing-pill ${mode === "active" ? "live" : ""}">${escapeHtml(status)}</span>
+            <span class="elyon-listing-pill ${match.className}">${escapeHtml(match.label)}</span>
+            ${sku ? `<span class="elyon-listing-pill">SKU ${escapeHtml(sku)}</span>` : ""}
+            ${offerId ? `<span class="elyon-listing-pill">Offer ${escapeHtml(offerId)}</span>` : ""}
+            ${mode === "active" && itemId ? `<span class="elyon-listing-pill live">eBay ${escapeHtml(itemId)}</span>` : ""}
           </div>
         </div>
       </article>`;
@@ -291,31 +361,28 @@
   function renderDraftWorkspace(message = "") {
     const { draftTab } = ensureListingWorkspaces();
     if (!draftTab) return;
-    const readyCount = draftProducts.filter((product) => {
-      const readiness = product?.readiness || {};
-      return text(readiness.state).toLowerCase() === "ready_for_manual_listing"
-        && !(Array.isArray(readiness.blockers) ? readiness.blockers.filter(Boolean).length : 0);
-    }).length;
+    const matchedCount = draftProducts.filter((product) => product.productMasterMatch === "matched").length;
+    const unmatchedCount = draftProducts.length - matchedCount;
     draftTab.innerHTML = `
       <div class="elyon-listings-shell">
         <section class="card">
           <div class="elyon-listings-head">
-            <div><div class="badge">📝 Passiv</div><h2>Listing-Entwürfe</h2><p>Diese Übersicht ist rein passiv. Hier stehen nur vorbereitete Listings, die noch nicht online sind. Sobald ein Datensatz eine eBay-Artikelnummer und einen aktiven Veröffentlichungsstatus besitzt, verschwindet er automatisch aus dieser Liste.</p></div>
+            <div><div class="badge">📝 eBay · UNPUBLISHED</div><h2>Listing-Entwürfe</h2><p>Diese Liste kommt direkt aus der eBay Inventory API. Angezeigt werden ausschließlich eBay-Angebote mit Status UNPUBLISHED. Der Product Master liefert nur zusätzliche Daten wie Lieferant, EK, Gewinn und Marge und bestimmt niemals, ob ein Entwurf existiert.</p></div>
             <button type="button" class="secondary" id="elyonDraftsRefresh">${listingLoading ? "Lädt …" : "Neu laden"}</button>
           </div>
           <div class="dashboard" style="margin-top:16px;margin-bottom:0">
-            <div class="metric"><small>Entwürfe</small><strong>${draftProducts.length}</strong></div>
-            <div class="metric"><small>Listingbereit</small><strong>${readyCount}</strong></div>
-            <div class="metric"><small>Aktionen</small><strong style="font-size:14px">Keine</strong></div>
-            <div class="metric"><small>Datenquelle</small><strong style="font-size:14px">Product Master</strong></div>
+            <div class="metric"><small>eBay-Entwürfe</small><strong>${draftProducts.length}</strong></div>
+            <div class="metric"><small>Mit Product-Master-Match</small><strong>${matchedCount}</strong></div>
+            <div class="metric"><small>Ohne Match</small><strong>${unmatchedCount}</strong></div>
+            <div class="metric"><small>Datenquelle</small><strong style="font-size:14px">eBay Inventory API</strong></div>
           </div>
         </section>
         ${message ? `<div class="elyon-listings-status ${message.startsWith("Fehler:") ? "error" : ""}">${escapeHtml(message)}</div>` : ""}
         <section class="card"><div class="elyon-listings-list">${listingLoading
-          ? '<div class="elyon-listings-empty">Listing-Entwürfe werden geladen …</div>'
+          ? '<div class="elyon-listings-empty">Echte eBay-Entwürfe werden geladen …</div>'
           : draftProducts.length
             ? draftProducts.map((product) => listingCard(product, "draft")).join("")
-            : '<div class="elyon-listings-empty">Keine passiven Listing-Entwürfe vorhanden.</div>'}</div></section>
+            : '<div class="elyon-listings-empty">eBay meldet aktuell 0 UNPUBLISHED-Angebote. Deshalb zeigt Elyon 0 Listing-Entwürfe.</div>'}</div></section>
       </div>`;
     draftTab.querySelector("#elyonDraftsRefresh")?.addEventListener("click", () => refreshListingWorkspaces(true, DRAFT_TAB_ID));
   }
@@ -323,29 +390,45 @@
   function renderActiveWorkspace(message = "") {
     const { activeTab } = ensureListingWorkspaces();
     if (!activeTab) return;
-    const withItemId = activeProducts.filter((product) => productItemIds(product).length > 0).length;
+    const matchedCount = activeProducts.filter((product) => product.productMasterMatch === "matched").length;
+    const withItemId = activeProducts.filter((product) => listingItemId(product)).length;
     activeTab.innerHTML = `
       <div class="elyon-listings-shell">
         <section class="card">
           <div class="elyon-listings-head">
-            <div><div class="badge">🟢 Online</div><h2>Aktive Listings</h2><p>Hier erscheinen ausschließlich Listings, die im Product Master als veröffentlicht/aktiv geführt werden und eine dokumentierte eBay-Artikelnummer besitzen. Sie werden nicht zusätzlich kopiert, sondern aus derselben Datenquelle gefiltert.</p></div>
+            <div><div class="badge">🟢 eBay · PUBLISHED</div><h2>Aktive Listings</h2><p>Diese Liste kommt direkt aus der eBay Inventory API. Angezeigt werden ausschließlich eBay-Angebote mit Status PUBLISHED. Product-Master-Daten werden nur ergänzend zugespielt; auch eBay-Angebote ohne Match bleiben sichtbar.</p></div>
             <button type="button" class="secondary" id="elyonActiveRefresh">${listingLoading ? "Lädt …" : "Neu laden"}</button>
           </div>
           <div class="dashboard" style="margin-top:16px;margin-bottom:0">
-            <div class="metric"><small>Aktive Listings</small><strong>${activeProducts.length}</strong></div>
+            <div class="metric"><small>Aktive eBay-Listings</small><strong>${activeProducts.length}</strong></div>
             <div class="metric"><small>Mit eBay-ID</small><strong>${withItemId}</strong></div>
-            <div class="metric"><small>Status</small><strong style="font-size:14px">Online</strong></div>
-            <div class="metric"><small>Datenquelle</small><strong style="font-size:14px">Product Master</strong></div>
+            <div class="metric"><small>Mit Product-Master-Match</small><strong>${matchedCount}</strong></div>
+            <div class="metric"><small>Datenquelle</small><strong style="font-size:14px">eBay Inventory API</strong></div>
           </div>
         </section>
         ${message ? `<div class="elyon-listings-status ${message.startsWith("Fehler:") ? "error" : ""}">${escapeHtml(message)}</div>` : ""}
         <section class="card"><div class="elyon-listings-list">${listingLoading
-          ? '<div class="elyon-listings-empty">Aktive Listings werden geladen …</div>'
+          ? '<div class="elyon-listings-empty">Aktive eBay-Listings werden geladen …</div>'
           : activeProducts.length
             ? activeProducts.map((product) => listingCard(product, "active")).join("")
-            : '<div class="elyon-listings-empty">Aktuell ist noch kein dokumentiertes Listing online.</div>'}</div></section>
+            : '<div class="elyon-listings-empty">eBay meldet aktuell 0 PUBLISHED-Angebote. Deshalb zeigt Elyon 0 aktive Listings.</div>'}</div></section>
       </div>`;
     activeTab.querySelector("#elyonActiveRefresh")?.addEventListener("click", () => refreshListingWorkspaces(true, ACTIVE_TAB_ID));
+  }
+
+  async function getJson(url) {
+    const response = await fetch(url, {
+      credentials: "same-origin",
+      cache: "no-store",
+      headers: { Accept: "application/json" },
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data.ok === false) {
+      const error = new Error(data.message || data.error || `HTTP ${response.status}`);
+      error.status = response.status;
+      throw error;
+    }
+    return data;
   }
 
   async function refreshListingWorkspaces(manual = false, requestedTab = DRAFT_TAB_ID) {
@@ -355,26 +438,29 @@
     renderActiveWorkspace();
     let message = "";
     try {
-      const response = await fetch("/api/products", {
-        credentials: "same-origin",
-        cache: "no-store",
-        headers: { Accept: "application/json" },
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok || data.ok === false) {
-        const error = new Error(data.message || data.error || `HTTP ${response.status}`);
-        error.status = response.status;
-        throw error;
-      }
-      const products = Array.isArray(data.products) ? data.products : [];
-      draftProducts = products.filter(isDraftProduct);
-      activeProducts = products.filter(isActiveProduct);
-      message = `${draftProducts.length} Entwurf${draftProducts.length === 1 ? "" : "e"} · ${activeProducts.length} aktive${activeProducts.length === 1 ? "s" : ""} Listing${activeProducts.length === 1 ? "" : "s"}.`;
+      const [listingResult, productResult] = await Promise.allSettled([
+        getJson("/api/ebay/listings?environment=production"),
+        getJson("/api/products"),
+      ]);
+      if (listingResult.status !== "fulfilled") throw listingResult.reason;
+
+      const items = Array.isArray(listingResult.value?.items) ? listingResult.value.items : [];
+      const products = productResult.status === "fulfilled" && Array.isArray(productResult.value?.products)
+        ? productResult.value.products
+        : [];
+      const enriched = items.map((item) => enrichEbayListing(item, products));
+      draftProducts = enriched.filter((item) => listingStatus(item) === "UNPUBLISHED");
+      activeProducts = enriched.filter((item) => listingStatus(item) === "PUBLISHED");
+
+      const enrichmentNote = productResult.status === "fulfilled"
+        ? " Product Master wurde ausschließlich zur Anreicherung verwendet."
+        : " Product Master war nicht erreichbar; die eBay-Listings bleiben trotzdem vollständig sichtbar.";
+      message = `${draftProducts.length} eBay-Entwurf${draftProducts.length === 1 ? "" : "e"} · ${activeProducts.length} aktive${activeProducts.length === 1 ? "s" : ""} eBay-Listing${activeProducts.length === 1 ? "" : "s"}.${enrichmentNote}`;
     } catch (error) {
       draftProducts = [];
       activeProducts = [];
       const authHint = error?.status === 403 ? " Bitte Seller-Sitzung erneut anmelden." : "";
-      message = `Fehler: Listing-Status konnte nicht geladen werden: ${text(error?.message) || "Unbekannter Fehler"}.${authHint}`;
+      message = `Fehler: eBay Listing-Bestand konnte nicht geladen werden: ${text(error?.message) || "Unbekannter Fehler"}.${authHint}`;
     } finally {
       listingLoading = false;
       renderDraftWorkspace(message);
