@@ -6,6 +6,7 @@ import {
   buildSellerTasks,
   AUTO_REFRESH_INTERVAL_MS,
   FOCUS_REFRESH_COOLDOWN_MS,
+  normalizeEbayListing,
   normalizeEbayOrder,
   normalizeSellerProduct,
 } from "../seller-dashboard-v2.js";
@@ -56,6 +57,25 @@ const blockedProduct = {
   },
 };
 
+const unpublishedOffer = {
+  offerId: "offer-draft",
+  sku: "sku-draft",
+  status: "UNPUBLISHED",
+  price: 19.99,
+  quantity: 2,
+  marketplaceId: "EBAY_DE",
+};
+
+const publishedOffer = {
+  offerId: "offer-live",
+  sku: "sku-live",
+  status: "PUBLISHED",
+  listingId: "111",
+  price: 25,
+  quantity: 3,
+  marketplaceId: "EBAY_DE",
+};
+
 const openOrder = {
   orderId: "ORDER-1",
   creationDate: "2026-07-26T10:00:00.000Z",
@@ -92,13 +112,23 @@ const fulfilledOrder = {
   ],
 };
 
-test("normalizes Company OS product readiness and listing status", () => {
+test("normalizes Company OS product readiness without making it listing source of truth", () => {
   const product = normalizeSellerProduct(readyProduct);
   assert.equal(product.isReady, true);
   assert.equal(product.isLive, true);
   assert.equal(product.ebayItemId, "111");
   assert.equal(product.profit, 6);
   assert.equal(product.margin, 24);
+});
+
+test("normalizes eBay Inventory offers into published and unpublished listing states", () => {
+  const draft = normalizeEbayListing(unpublishedOffer);
+  const active = normalizeEbayListing(publishedOffer);
+  assert.equal(draft.isDraft, true);
+  assert.equal(draft.isPublished, false);
+  assert.equal(active.isDraft, false);
+  assert.equal(active.isPublished, true);
+  assert.equal(active.listingId, "111");
 });
 
 test("normalizes eBay orders without exposing raw credentials", () => {
@@ -111,9 +141,10 @@ test("normalizes eBay orders without exposing raw credentials", () => {
   assert.equal(order.lineItems[0].lineTotal, 50);
 });
 
-test("builds honest seller metrics from product master and eBay orders", () => {
+test("builds honest seller metrics from Product Master, eBay listings and eBay orders", () => {
   const metrics = buildSellerDashboardMetrics({
     products: [readyProduct, blockedProduct],
+    listings: [unpublishedOffer, publishedOffer],
     orders: [openOrder, fulfilledOrder],
     days: 30,
     ebayConnected: true,
@@ -125,6 +156,7 @@ test("builds honest seller metrics from product master and eBay orders", () => {
   assert.equal(metrics.fulfilledOrders.length, 1);
   assert.equal(metrics.readyProducts.length, 1);
   assert.equal(metrics.blockedProducts.length, 1);
+  assert.equal(metrics.draftProducts.length, 1);
   assert.equal(metrics.liveProducts.length, 1);
   assert.equal(metrics.estimatedOrderProfit, 18);
   assert.equal(metrics.matchedLineItems, 2);
@@ -133,9 +165,32 @@ test("builds honest seller metrics from product master and eBay orders", () => {
   assert.equal(metrics.topProducts[0].quantity, 3);
 });
 
+test("Product Master draft/live flags never create eBay listing counts", () => {
+  const metrics = buildSellerDashboardMetrics({
+    products: [readyProduct, blockedProduct],
+    listings: [],
+    orders: [],
+    ebayConnected: true,
+  });
+  assert.equal(metrics.draftProducts.length, 0);
+  assert.equal(metrics.liveProducts.length, 0);
+});
+
+test("counts eBay listing state even without a Product Master match", () => {
+  const metrics = buildSellerDashboardMetrics({
+    products: [],
+    listings: [unpublishedOffer, publishedOffer],
+    orders: [],
+    ebayConnected: true,
+  });
+  assert.equal(metrics.draftProducts.length, 1);
+  assert.equal(metrics.liveProducts.length, 1);
+});
+
 test("does not multiply eBay lineItemCost by quantity twice", () => {
   const metrics = buildSellerDashboardMetrics({
     products: [readyProduct],
+    listings: [publishedOffer],
     orders: [openOrder],
     days: 30,
     ebayConnected: true,
@@ -156,6 +211,7 @@ test("creates revenue buckets without demo values", () => {
 test("prioritizes connection, open order and blocker actions", () => {
   const metrics = buildSellerDashboardMetrics({
     products: [readyProduct, blockedProduct],
+    listings: [unpublishedOffer],
     orders: [openOrder],
     days: 30,
     ebayConnected: false,
@@ -166,10 +222,11 @@ test("prioritizes connection, open order and blocker actions", () => {
   assert.ok(tasks.some((task) => /Bestellung/.test(task.title)));
   assert.ok(tasks.some((task) => /blockiert/.test(task.title)));
   assert.ok(tasks.some((task) => /listingbereit/.test(task.title)));
+  assert.ok(tasks.some((task) => /Listing-Entwurf/.test(task.title)));
 });
 
 test("shows a useful first-product task for an empty Seller Tool", () => {
-  const metrics = buildSellerDashboardMetrics({ products: [], orders: [], days: 30, ebayConnected: true });
+  const metrics = buildSellerDashboardMetrics({ products: [], listings: [], orders: [], days: 30, ebayConnected: true });
   const tasks = buildSellerTasks(metrics, {});
   assert.ok(tasks.some((task) => task.title === "Noch kein Seller-Produkt"));
   assert.equal(metrics.revenue, 0);

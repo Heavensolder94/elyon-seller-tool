@@ -4,12 +4,23 @@ import { readFile } from "node:fs/promises";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
-test("eBay listing sync exposes active and unpublished offer counts", async () => {
-  const source = await readFile(new URL("../internal/ebay/index.js", import.meta.url), "utf8");
-  assert.match(source, /async function handleListings/);
-  assert.match(source, /sell\/inventory\/v1\/offer\?limit=/);
+test("canonical listing snapshot enumerates inventory SKUs before requesting offers", async () => {
+  const sourceUrl = new URL("../api/ebay/listings.js", import.meta.url);
+  const source = await readFile(sourceUrl, "utf8");
+
+  assert.match(source, /sell\/inventory\/v1\/inventory_item\?limit=/);
+  assert.match(source, /sell\/inventory\/v1\/offer\?sku=\$\{encodeURIComponent\(sku\)\}/);
+  assert.match(source, /listing\.listingId \|\| offer\?\.listingId/);
   assert.match(source, /status === "PUBLISHED"/);
   assert.match(source, /status === "UNPUBLISHED"/);
+  assert.match(source, /source: "ebay_inventory_api"/);
+  assert.match(source, /requireSellerAccess/);
+  execFileSync(process.execPath, ["--check", fileURLToPath(sourceUrl)]);
+});
+
+test("legacy listing sync still updates only uniquely matched Product Master records", async () => {
+  const source = await readFile(new URL("../internal/ebay/index.js", import.meta.url), "utf8");
+  assert.match(source, /async function handleListings/);
   assert.match(source, /async function handleSyncListings/);
   assert.match(source, /Nur eindeutig zuordenbare bestehende Produkte/);
   assert.match(source, /ambiguousItems/);
