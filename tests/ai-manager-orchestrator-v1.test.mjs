@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { optimizeWorkspaceV3 } from "../scripts/virtual-agents-runtime-optimization.mjs";
 
 const orchestrator = await readFile(new URL("../seller-ai-manager-orchestrator-v1.js", import.meta.url), "utf8");
 const companyView = await readFile(new URL("../seller-ai-company-view-v1.js", import.meta.url), "utf8");
@@ -8,6 +9,7 @@ const workforce = await readFile(new URL("../lib/ai-workforce.js", import.meta.u
 const api = await readFile(new URL("../api/ai-agent-run.js", import.meta.url), "utf8");
 const prepare = await readFile(new URL("../scripts/prepare-vercel.mjs", import.meta.url), "utf8");
 const optimization = await readFile(new URL("../scripts/virtual-agents-runtime-optimization.mjs", import.meta.url), "utf8");
+const legacyWorkspace = await readFile(new URL("../seller-ai-workforce-workspace-v3.js", import.meta.url), "utf8");
 
 test("Elyon Manager reuses the existing backend agent and agent-run endpoint", () => {
   assert.match(orchestrator, /backendId:\s*"elyon-operations-manager"/);
@@ -60,6 +62,17 @@ test("events are targeted and do not introduce polling or global observers", () 
   assert.match(optimization, /CLIENT_WATCH_AFTER/);
   assert.match(optimization, /function installMountLifecycle\(\)/);
   assert.doesNotMatch(optimization.match(/const CLIENT_WATCH_AFTER = `([\s\S]*?)`;/)?.[1] || "", /MutationObserver/);
+});
+
+test("legacy workspace is build-optimized behind manager safety", () => {
+  const optimized = optimizeWorkspaceV3(legacyWorkspace);
+  assert.match(optimized, /filter\(\(mode\) => mode\.level <= 3\)/);
+  assert.match(optimized, /if \(modeById\(migratedMode\)\.level > 3\) migratedMode = "semi"/);
+  assert.match(optimized, /externe Agentenaktionen sind durch Elyon Manager V1 gesperrt/);
+  assert.doesNotMatch(optimized, /observer\.observe\(document\.documentElement/);
+  const install = optimized.match(/  function install\(\) \{([\s\S]*?)\n  \}/)?.[1] || "";
+  assert.doesNotMatch(install, /bindTriggers\(\)/);
+  assert.doesNotMatch(install, /setTimeout\(/);
 });
 
 test("autonomy is capped at level 3 and old external modes are normalized", () => {
@@ -124,6 +137,7 @@ test("company view exposes operational metadata from the same settings and task 
 test("build keeps the manager modules lazy inside the virtual-agent runtime", () => {
   assert.match(prepare, /seller-ai-manager-orchestrator-v1\.js/);
   assert.match(prepare, /seller-ai-company-view-v1\.js/);
+  assert.match(prepare, /optimizeWorkspaceV3/);
   assert.match(prepare, /filesToMirror/);
   assert.match(prepare, /lazy-loaded Elyon Manager orchestrator V1/);
   assert.doesNotMatch(orchestrator, /window\.addEventListener\("load"/);
