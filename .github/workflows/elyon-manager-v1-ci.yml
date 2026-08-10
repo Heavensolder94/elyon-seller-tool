@@ -1,0 +1,42 @@
+name: Elyon Manager V1 CI
+
+on:
+  push:
+    branches:
+      - feat/elyon-manager-orchestrator-v1
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+      - name: Layout check
+        run: npm run check:layout
+
+      - name: Performance budget
+        run: npm run check:performance
+
+      - name: Production build
+        run: npm run build
+        env:
+          VERCEL: "1"
+          VERCEL_ENV: preview
