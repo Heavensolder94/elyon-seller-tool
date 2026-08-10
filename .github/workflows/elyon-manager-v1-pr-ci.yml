@@ -1,0 +1,28 @@
+name: Elyon Manager V1 Review CI
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  test-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run check:layout
+      - run: npm run check:performance
+      - run: npm run build
+        env:
+          VERCEL: "1"
+          VERCEL_ENV: preview
