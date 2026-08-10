@@ -201,7 +201,7 @@ export function optimizeVirtualAgentsRuntimeLoader(source) {
   let output = replaceRequired(source, LEGACY_RUNTIME_ENTRY, "", "legacy virtual-agent runtime entry");
   output = output.replace(
     /const VERSION = "[^"]+";/,
-    'const VERSION = "virtual-agents-stable-20260810-2";'
+    'const VERSION = "virtual-agents-stable-20260806-1";'
   );
   return output;
 }
