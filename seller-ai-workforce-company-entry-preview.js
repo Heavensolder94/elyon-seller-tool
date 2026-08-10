@@ -13,30 +13,32 @@
     style.textContent = `
       #${SWITCHER_ID}{
         display:flex;
-        gap:6px;
+        gap:4px;
         align-items:center;
-        margin:0 auto 22px;
-        padding:5px;
+        margin:0 auto 18px;
+        padding:4px;
         width:max-content;
         max-width:100%;
-        border:1px solid rgba(255,255,255,.075);
-        border-radius:10px;
+        border:1px solid rgba(255,255,255,.065);
+        border-radius:9px;
         background:#0f151d;
       }
       #${SWITCHER_ID} button{
-        min-height:34px!important;
-        padding:7px 12px!important;
+        min-height:30px!important;
+        padding:5px 9px!important;
         border-radius:7px!important;
         border-color:transparent!important;
         background:transparent!important;
         color:#8d98a7!important;
         font-size:10px!important;
+        font-weight:590!important;
+        box-shadow:none!important;
       }
       #${SWITCHER_ID} button.active{
         color:#f4f6f8!important;
         background:#182230!important;
-        border-color:rgba(79,140,255,.22)!important;
-        box-shadow:inset 0 0 0 1px rgba(79,140,255,.08);
+        border-color:rgba(79,140,255,.18)!important;
+        box-shadow:inset 0 1px 0 rgba(255,255,255,.025)!important;
       }
 
       #virtualAgentsTab:has(.aiw-org),
@@ -112,9 +114,165 @@
         margin:0!important;
       }
 
+      /* Compact Seller-OS density for the company structure */
+      #elyonAiWorkforce:has(.aiw-org) .aiw-org{
+        gap:22px!important;
+      }
+      #elyonAiWorkforce:has(.aiw-org) .aiw-org-head{
+        gap:16px!important;
+      }
+      #elyonAiWorkforce:has(.aiw-org) .aiw-org-head h3{
+        font-size:20px!important;
+        font-weight:650!important;
+      }
+      #elyonAiWorkforce:has(.aiw-org) .aiw-org-head p{
+        margin-top:5px!important;
+        font-size:11px!important;
+      }
+      #elyonAiWorkforce:has(.aiw-org) .aiw-org-manager-wrap{
+        padding-bottom:28px!important;
+      }
+      #elyonAiWorkforce:has(.aiw-org) .aiw-org-manager-wrap:after{
+        height:28px!important;
+      }
+      #elyonAiWorkforce:has(.aiw-org) .aiw-org-manager{
+        width:min(800px,100%)!important;
+        gap:18px!important;
+        padding:17px 19px!important;
+        border-radius:12px!important;
+        border-color:rgba(79,140,255,.25)!important;
+        box-shadow:0 6px 18px rgba(0,0,0,.07)!important;
+      }
+      #elyonAiWorkforce:has(.aiw-org) .aiw-org-avatar{
+        width:40px!important;
+        height:40px!important;
+        flex-basis:40px!important;
+        border-radius:10px!important;
+        font-size:19px!important;
+      }
+      #elyonAiWorkforce:has(.aiw-org) .aiw-org-person{
+        gap:11px!important;
+      }
+      #elyonAiWorkforce:has(.aiw-org) .aiw-org-copy h4{
+        font-size:14px!important;
+        font-weight:640!important;
+      }
+      #elyonAiWorkforce:has(.aiw-org) .aiw-org-copy p{
+        margin-top:6px!important;
+        font-size:10px!important;
+      }
+      #elyonAiWorkforce:has(.aiw-org) .aiw-org-manager-side{
+        gap:7px!important;
+      }
+      #elyonAiWorkforce:has(.aiw-org) .aiw-org-status,
+      #elyonAiWorkforce:has(.aiw-org) .aiw-org-mode{
+        min-height:23px!important;
+        padding:3px 7px!important;
+        font-size:8.5px!important;
+        font-weight:560!important;
+      }
+      #elyonAiWorkforce:has(.aiw-org) .aiw-org-status:before{
+        width:6px!important;
+        height:6px!important;
+      }
+      #elyonAiWorkforce:has(.aiw-org) .aiw-org-actions{
+        gap:6px!important;
+      }
+      #elyonAiWorkforce:has(.aiw-org) .aiw-org-actions button,
+      #elyonAiWorkforce:has(.aiw-org) .aiw-org-primary,
+      #elyonAiWorkforce:has(.aiw-org) .aiw-org-toggle{
+        min-height:31px!important;
+        padding:5px 9px!important;
+        border-radius:8px!important;
+        font-size:10px!important;
+        font-weight:590!important;
+        box-shadow:none!important;
+      }
+      #elyonAiWorkforce:has(.aiw-org) .aiw-org-branches{
+        gap:18px!important;
+        padding-top:28px!important;
+      }
+      #elyonAiWorkforce:has(.aiw-org) .aiw-org-dept:before{
+        top:-28px!important;
+        height:28px!important;
+      }
+      #elyonAiWorkforce:has(.aiw-org) .aiw-org-card{
+        min-height:164px!important;
+        gap:11px!important;
+        padding:15px!important;
+        border-radius:11px!important;
+        box-shadow:0 5px 16px rgba(0,0,0,.055)!important;
+      }
+      #elyonAiWorkforce:has(.aiw-org) .aiw-org-id{
+        gap:9px!important;
+      }
+      #elyonAiWorkforce:has(.aiw-org) .aiw-org-id .aiw-org-avatar{
+        width:35px!important;
+        height:35px!important;
+        flex-basis:35px!important;
+        font-size:17px!important;
+      }
+      #elyonAiWorkforce:has(.aiw-org) .aiw-org-card .aiw-org-copy h4{
+        font-size:13px!important;
+      }
+      #elyonAiWorkforce:has(.aiw-org) .aiw-org-card .aiw-org-copy small{
+        font-size:8.5px!important;
+      }
+      #elyonAiWorkforce:has(.aiw-org) .aiw-org-meta{
+        gap:7px!important;
+        font-size:8.5px!important;
+      }
+      #elyonAiWorkforce:has(.aiw-org) .aiw-org-specialists{
+        gap:7px!important;
+        margin-top:8px!important;
+        padding:10px!important;
+        border-radius:9px!important;
+      }
+      #elyonAiWorkforce:has(.aiw-org) .aiw-org-specialist{
+        padding:8px 9px!important;
+        border-radius:8px!important;
+      }
+      #elyonAiWorkforce:has(.aiw-org) .aiw-org-work{
+        gap:14px!important;
+      }
+      #elyonAiWorkforce:has(.aiw-org) .aiw-org-panel,
+      #elyonAiWorkforce:has(.aiw-org) .aiw-org-custom{
+        padding:14px!important;
+        border-radius:10px!important;
+      }
+      #elyonAiWorkforce:has(.aiw-org) .aiw-org-panel h4,
+      #elyonAiWorkforce:has(.aiw-org) .aiw-org-custom h4{
+        font-size:12px!important;
+        font-weight:640!important;
+      }
+      #elyonAiWorkforce:has(.aiw-org) .aiw-org-count{
+        min-width:24px!important;
+        height:24px!important;
+        font-size:8.5px!important;
+      }
+      #elyonAiWorkforce:has(.aiw-org) .aiw-org-list,
+      #elyonAiWorkforce:has(.aiw-org) .aiw-org-custom-list{
+        margin-top:9px!important;
+        gap:6px!important;
+      }
+      #elyonAiWorkforce:has(.aiw-org) .aiw-org-row,
+      #elyonAiWorkforce:has(.aiw-org) .aiw-org-custom-row{
+        padding:8px 9px!important;
+        border-radius:8px!important;
+      }
+      #elyonAiWorkforce:has(.aiw-org) .aiw-org-empty{
+        margin-top:9px!important;
+        padding:11px!important;
+        border-radius:8px!important;
+      }
+
       @media(max-width:720px){
-        #${SWITCHER_ID}{width:100%;margin-bottom:16px}
+        #${SWITCHER_ID}{width:100%;margin-bottom:14px}
         #${SWITCHER_ID} button{flex:1}
+        #elyonAiWorkforce:has(.aiw-org) .aiw-org-manager,
+        #elyonAiWorkforce:has(.aiw-org) .aiw-org-card,
+        #elyonAiWorkforce:has(.aiw-org) .aiw-org-panel,
+        #elyonAiWorkforce:has(.aiw-org) .aiw-org-custom{padding:13px!important}
       }
     `;
     document.head.appendChild(style);
