@@ -6,7 +6,7 @@ Diese Datei dokumentiert bekannte localStorage-Keys des Elyon Seller Tools.
 
 ### `elyon_ai_agents_settings`
 
-Quelle: `CHATGPT_GUIDE.md` und `CHATGPT_AI_AGENTEN.md`.
+Quelle: `CHATGPT_GUIDE.md`, `CHATGPT_AI_AGENTEN.md` und AI-Workforce-Runtime.
 
 Zweck:
 
@@ -17,6 +17,8 @@ Zweck:
 - Autonomie-Sperre
 - Pause-Status aller Agenten
 - Status, Modi, Modellwahl und Tageslimits der Agenten
+- Elyon Manager V1 normalisiert vorhandene Autonomiewerte defensiv auf Stufe `0..3`
+- externe irreversible Agentenrechte bleiben deaktiviert
 
 Wichtige Standardfelder:
 
@@ -26,9 +28,45 @@ Wichtige Standardfelder:
   "sandboxMode": true,
   "advancedMode": false,
   "autonomyLocked": true,
-  "pauseAllAgents": false
+  "pauseAllAgents": false,
+  "maxAutonomyLevel": 3,
+  "externalActionsLocked": true
 }
 ```
+
+### `elyon_ai_workforce_tasks`
+
+Zweck:
+
+- bestehende gemeinsame Task-Mappe der AI Workforce
+- speichert Agentenaufgaben und strukturierte Ergebnisse
+- bleibt die Task-Source-of-Truth für den Elyon Manager; es wird keine zweite Agenten-Task-Datenbank eingeführt
+- Elyon Manager V1 ergänzt bei delegierten Aufgaben nur Workflow-Metadaten wie `workflowId`, `parentTaskId`, `workflowDepth`, `workflowStep`, `dedupeKey`, `retryCount` und `approvalRequired`
+
+Regeln:
+
+- normale erfolgreiche interne Prüfungen werden nicht automatisch zur Nutzerfreigabe hochgestuft
+- Listing- und Support-Entwürfe bleiben freigabepflichtig
+- Compliance-/Profit-Fälle werden bei Blockern, fehlenden Fakten oder nicht erfüllter Mindestregel eskaliert
+- vorhandene Tasks werden bei identischem Deduplizierungs-Key wiederverwendet statt erneut kostenpflichtig ausgeführt
+
+### `elyon_ai_manager_workflows_v1`
+
+Zweck:
+
+- begrenztes, lokales Workflow-/Audit-Protokoll des Elyon Managers
+- enthält keine zweite Agenten-Task-Struktur, sondern ausschließlich Orchestrierungsmetadaten
+- dokumentiert u. a. `workflowId`, Parent-Task, Workflow-Typ, Event, Agentenlaufzahl, Child-Task-IDs, wiederverwendete Tasks, Blocker, Freigaben und Audit-Ereignisse
+- wird auf maximal 40 aktuelle Workflows begrenzt
+
+Sicherheitsgrenzen:
+
+- keine Secrets
+- keine Provider-Keys
+- keine Lieferantenbestellungen
+- keine gesendeten Kundennachrichten
+- keine LIVE-Publikationen
+- keine Rückerstattungs- oder Zahlungsaktionen
 
 ### `elyon_google_sync_token`
 
