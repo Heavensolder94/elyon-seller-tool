@@ -33,6 +33,7 @@ const mobileModuleScripts = [
   "seller-ai-workforce-workspace-v3.js",
   "seller-ai-workforce-workspace-v3-policy.js",
   "seller-ai-workforce-agent-builder.js",
+  "seller-ai-manager-orchestrator-v1.js",
   "mobile-bootstrap.js",
   "mobile-more-ui.js",
   "mobile-selling-entry.js",
@@ -71,7 +72,7 @@ function injectWorkforceV2IntoRuntimeLoader(source) {
   const entryMarker = '      { src: "/seller-ai-workforce-advanced-settings.js" },';
   const activationMarker = "      window.ElyonAIWorkforceAdvancedSettings?.refresh?.();";
   if (!source.includes(entryMarker) || !source.includes(activationMarker)) {
-    throw new Error("Virtual-Agent-Runtime konnte nicht um Workforce V4 erweitert werden.");
+    throw new Error("Virtual-Agent-Runtime konnte nicht um Elyon Manager V1 erweitert werden.");
   }
   return source
     .replace(entryMarker, [
@@ -83,6 +84,8 @@ function injectWorkforceV2IntoRuntimeLoader(source) {
       '      { src: "/seller-ai-workforce-workspace-v3-policy.js" },',
       '      { src: "/seller-ai-workforce-agent-builder.js" },',
       '      { src: "/seller-ai-workforce-interface-v4.js" },',
+      '      { src: "/seller-ai-manager-orchestrator-v1.js" },',
+      '      { src: "/seller-ai-company-view-v1.js" },',
     ].join("\n"))
     .replace(activationMarker, [
       activationMarker,
@@ -90,6 +93,7 @@ function injectWorkforceV2IntoRuntimeLoader(source) {
       "      window.ElyonAIWorkforceWorkspaceV3?.render?.();",
       "      window.ElyonAIAgentBuilder?.refresh?.();",
       "      window.ElyonAIWorkforceInterfaceV4?.refresh?.();",
+      "      window.ElyonManagerOrchestratorV1?.settings?.();",
     ].join("\n"));
 }
 
@@ -134,6 +138,8 @@ const filesToMirror = [
   ["seller-ai-workforce-workspace-v3-policy.js", "public/seller-ai-workforce-workspace-v3-policy.js"],
   ["seller-ai-workforce-agent-builder.js", "public/seller-ai-workforce-agent-builder.js"],
   ["seller-ai-workforce-interface-v4.js", "public/seller-ai-workforce-interface-v4.js"],
+  ["seller-ai-manager-orchestrator-v1.js", "public/seller-ai-manager-orchestrator-v1.js"],
+  ["seller-ai-company-view-v1.js", "public/seller-ai-company-view-v1.js"],
   ["seller-ai-workforce-team-v6.js", "public/seller-ai-workforce-team-v6.js"],
   ["seller-ai-task-prompt-helper.js", "public/seller-ai-task-prompt-helper.js"],
   ["ai-workforce-client.js", "public/ai-workforce-client.js"],
@@ -228,4 +234,4 @@ const envStatus = {
 console.log("Google/security/AI env status:", JSON.stringify(envStatus));
 console.log("Desktop runtime extraction:", JSON.stringify(desktopRuntime.metrics));
 console.log("Desktop performance budget:", JSON.stringify(performanceAudit.metrics));
-console.log("Prepared Vercel output with stable delegated virtual-team V6, DeepSeek task prompt helper, lazy-loaded Elyon autonomy workspace v4, manager-default task routing, custom agent builder, manual task prompts, protected custom-agent execution, full internal automation, permission-gated external automation, and enforced performance budgets.");
+console.log("Prepared Vercel output with lazy-loaded Elyon Manager orchestrator V1, coordinated existing specialist agents, workflow deduplication and loop guards, centralized approvals and briefing, autonomy capped at level 3, locked irreversible external actions, stable virtual-team V6, and enforced performance budgets.");
