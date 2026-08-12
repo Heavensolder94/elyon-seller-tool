@@ -5,31 +5,47 @@ import { fileURLToPath } from "node:url";
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const appRoot = path.resolve(scriptDir, "..");
 const publicRoot = path.join(appRoot, "public");
-const sourceName = "seller-ai-agent-registry-client.js";
+const clientNames = [
+  "seller-ai-agent-registry-client.js",
+  "seller-jarvis-client.js",
+];
+
+function runtimeEntries() {
+  return clientNames.map((name) => `      { src: "/${name}" },`);
+}
 
 function injectRuntimeLoader(source) {
-  if (source.includes(`{ src: "/${sourceName}" }`)) return source;
   const marker = '      { src: "/seller-ai-workforce-agent-builder.js" },';
-  if (!source.includes(marker)) throw new Error("Agent Registry konnte nicht vor dem bestehenden Agent Builder registriert werden.");
-  return source.replace(marker, [
-    `      { src: "/${sourceName}" },`,
+  if (!source.includes(marker)) throw new Error("Agent Registry/Jarvis konnte nicht vor dem bestehenden Agent Builder registriert werden.");
+  let next = source;
+  for (const name of clientNames) {
+    next = next.replace(`      { src: "/${name}" },\n`, "");
+  }
+  return next.replace(marker, [
+    ...runtimeEntries(),
     marker,
   ].join("\n"));
 }
 
 function injectMobileHtml(source) {
-  if (source.includes(`src="/${sourceName}`)) return source;
   const marker = '<script defer src="/seller-ai-workforce-agent-builder.js';
   const index = source.indexOf(marker);
-  if (index < 0) throw new Error("Agent Registry konnte nicht in den mobilen Workforce-Build eingebunden werden.");
+  if (index < 0) throw new Error("Agent Registry/Jarvis konnte nicht in den mobilen Workforce-Build eingebunden werden.");
   const end = source.indexOf("</script>", index);
   if (end < 0) throw new Error("Bestehendes Agent-Builder-Script im Mobile-Build ist ungültig.");
   const versionMatch = source.slice(index, end).match(/\?v=([^"']+)/);
   const version = versionMatch?.[1] || Date.now();
-  return `${source.slice(0, index)}<script defer src="/${sourceName}?v=${version}"></script>\n${source.slice(index)}`;
+  let next = source;
+  for (const name of clientNames) {
+    const pattern = new RegExp(`<script defer src="/${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\?v=[^\"]+"></script>\\n?`, "g");
+    next = next.replace(pattern, "");
+  }
+  const currentIndex = next.indexOf(marker);
+  const injected = clientNames.map((name) => `<script defer src="/${name}?v=${version}"></script>`).join("\n");
+  return `${next.slice(0, currentIndex)}${injected}\n${next.slice(currentIndex)}`;
 }
 
-await copyFile(path.join(appRoot, sourceName), path.join(publicRoot, sourceName));
+await Promise.all(clientNames.map((name) => copyFile(path.join(appRoot, name), path.join(publicRoot, name))));
 
 const runtimePath = path.join(publicRoot, "seller-runtime-loader.js");
 const mobilePath = path.join(publicRoot, "mobile.html");
@@ -43,6 +59,6 @@ await Promise.all([
   writeFile(mobilePath, injectMobileHtml(mobileSource), "utf8"),
 ]);
 
-console.log("Prepared persistent Elyon Agent Registry client for desktop and mobile virtual workforce runtime.");
+console.log("Prepared persistent Elyon Agent Registry and Jarvis clients for desktop and mobile virtual workforce runtime.");
 
-export { injectMobileHtml, injectRuntimeLoader };
+export { clientNames, injectMobileHtml, injectRuntimeLoader };
