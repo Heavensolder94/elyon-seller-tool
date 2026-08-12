@@ -8,8 +8,9 @@
     "/seller-jarvis-companion-handoff.js",
     "/seller-jarvis-e1-cloud.js",
     "/seller-jarvis-e4-control.js",
+    "/seller-jarvis-e5-pipeline.js",
   ];
-  const VERSION = "phase-e4-v1";
+  const VERSION = "phase-e5-v1";
 
   function existing(path) {
     return [...document.scripts].some((script) => {
@@ -38,8 +39,9 @@
       window.ElyonJarvisCommandCenter?.refresh?.();
       window.ElyonJarvisE4Cloud?.render?.();
       window.ElyonJarvisE4Control?.render?.();
+      window.ElyonJarvisE5Pipeline?.render?.();
     } catch (error) {
-      console.warn("[Elyon Jarvis] E4 Bootstrap fehlgeschlagen", error);
+      console.warn("[Elyon Jarvis] E5 Bootstrap fehlgeschlagen", error);
     }
   }
 
