@@ -143,7 +143,7 @@ test("E3 delegation still runs exactly one safe Product Data agent under E4", as
   assert.equal(JSON.stringify(executionBody).includes("place_supplier_order"), false);
 });
 
-test("E3 worker mechanics process a claimed job once when E4 control permits it", async () => {
+test("E3 worker mechanics process a claimed job once when E4 control permits it and E5 handoff is available", async () => {
   const finished = [];
   const result = await runJarvisWorker({
     env: {},
@@ -169,7 +169,7 @@ test("E3 worker mechanics process a claimed job once when E4 control permits it"
   });
 
   assert.equal(result.ok, true);
-  assert.equal(result.phase, "E4");
+  assert.equal(result.phase, "E5");
   assert.equal(result.processed, 1);
   assert.equal(result.results[0].status, "SUCCESS");
   assert.equal(finished.length, 1);
