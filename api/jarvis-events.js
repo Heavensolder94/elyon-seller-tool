@@ -1,10 +1,15 @@
-import { requireSellerAccess } from "../lib/seller-access.js";
+import { isSellerAuthenticated, requireSellerAccess, setSellerSecurityHeaders } from "../lib/seller-access.js";
+import { validateBridgeAccess } from "../lib/bridge-access.js";
 import {
   getJarvisEventStorageInfo,
   hasJarvisEventStorage,
   ingestJarvisEvent,
   listJarvisEvents,
 } from "../lib/elyon-jarvis-event-store.js";
+
+const E2_BRIDGE_EVENT_TYPE = "nova.product.created";
+const E2_BRIDGE_SOURCE = "company-os";
+const MAX_BODY_BYTES = 256 * 1024;
 
 function plainObject(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : {};
@@ -20,12 +25,66 @@ function limit(value) {
   return Math.max(1, Math.min(100, Number.isFinite(parsed) ? Math.trunc(parsed) : 20));
 }
 
+function bridgeError(res, result) {
+  const messages = {
+    bridge_not_configured: "Die interne Elyon-Brücke ist noch nicht konfiguriert.",
+    bridge_access_denied: "Elyon-Brückenzugriff nicht autorisiert.",
+    bridge_request_too_large: "Der Event-Datensatz ist zu groß.",
+  };
+  return res.status(result.status || 403).json({
+    ok: false,
+    error: result.error || "bridge_access_denied",
+    message: messages[result.error] || "Elyon-Brückenzugriff nicht autorisiert.",
+  });
+}
+
+function validateE2BridgeEvent(body = {}) {
+  const type = text(body.type || body.eventType, 120).toLowerCase();
+  const source = text(body.source || body.origin, 100).toLowerCase();
+  const sourceId = text(body.sourceId || body.entityId || body.productId, 300);
+  const idempotencyKey = text(body.idempotencyKey, 500);
+  if (type !== E2_BRIDGE_EVENT_TYPE || source !== E2_BRIDGE_SOURCE) {
+    return { ok: false, error: "jarvis_e2_bridge_event_not_allowed" };
+  }
+  if (!sourceId || idempotencyKey !== `${E2_BRIDGE_EVENT_TYPE}:${sourceId}`) {
+    return { ok: false, error: "jarvis_e2_bridge_identity_invalid" };
+  }
+  return { ok: true };
+}
+
 export default async function handler(req, res) {
-  if (!requireSellerAccess(req, res, { maxBodyBytes: 256 * 1024 })) return;
-  res.setHeader("Cache-Control", "no-store");
-  res.setHeader("X-Content-Type-Options", "nosniff");
-  res.setHeader("X-Elyon-Jarvis-Events", "phase-e1-v1");
-  if (req.method === "OPTIONS") return res.status(204).end();
+  setSellerSecurityHeaders(res);
+  res.setHeader("X-Elyon-Jarvis-Events", "phase-e2-v1");
+
+  if (req.method === "GET") {
+    if (!requireSellerAccess(req, res, { maxBodyBytes: MAX_BODY_BYTES })) return;
+  } else if (req.method === "POST") {
+    const sellerAuthenticated = isSellerAuthenticated(req);
+    if (sellerAuthenticated) {
+      if (!requireSellerAccess(req, res, { maxBodyBytes: MAX_BODY_BYTES })) return;
+    } else {
+      const bridgeAccess = validateBridgeAccess(req, process.env, { maxBodyBytes: MAX_BODY_BYTES });
+      if (!bridgeAccess.ok) return bridgeError(res, bridgeAccess);
+      const allowed = validateE2BridgeEvent(plainObject(req.body));
+      if (!allowed.ok) {
+        return res.status(403).json({
+          ok: false,
+          error: allowed.error,
+          message: "Die Company-OS-Brücke darf in E2 ausschließlich stabile nova.product.created-Events einspielen.",
+        });
+      }
+    }
+  } else if (req.method === "OPTIONS") {
+    if (!requireSellerAccess(req, res, { maxBodyBytes: MAX_BODY_BYTES })) return;
+    return res.status(204).end();
+  } else {
+    if (!requireSellerAccess(req, res, { maxBodyBytes: MAX_BODY_BYTES })) return;
+    return res.status(405).json({
+      ok: false,
+      error: "method_not_allowed",
+      message: "E2 erlaubt für Events nur GET und POST.",
+    });
+  }
 
   try {
     if (req.method === "GET") {
@@ -35,7 +94,7 @@ export default async function handler(req, res) {
         : [];
       return res.status(200).json({
         ok: true,
-        phase: "E1",
+        phase: "E2",
         events,
         storage,
         safety: {
@@ -43,14 +102,6 @@ export default async function handler(req, res) {
           eventIngestionExecutesAgents: false,
           livePublishingAllowed: false,
         },
-      });
-    }
-
-    if (req.method !== "POST") {
-      return res.status(405).json({
-        ok: false,
-        error: "method_not_allowed",
-        message: "E1 erlaubt für Events nur GET und POST.",
       });
     }
 
@@ -67,7 +118,7 @@ export default async function handler(req, res) {
     const result = await ingestJarvisEvent(body);
     return res.status(result.duplicate ? 200 : 201).json({
       ok: true,
-      phase: "E1",
+      phase: "E2",
       duplicate: result.duplicate,
       event: result.event,
       job: result.job,
@@ -103,3 +154,5 @@ export default async function handler(req, res) {
     });
   }
 }
+
+export { validateE2BridgeEvent };
