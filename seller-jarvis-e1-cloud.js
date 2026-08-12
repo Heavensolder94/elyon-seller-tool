@@ -10,7 +10,8 @@
     events: [],
     jobs: [],
     storage: { configured: false, source: "unknown" },
-    queue: { workerEnabled: false, mode: "auto_internal" },
+    queue: { workerEnabled: false, workerState: "paused", mode: "assisted" },
+    control: null,
     lastRefreshAt: "",
   };
 
@@ -29,7 +30,7 @@
     style.textContent = `
       .jarvis-e1-head{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:12px;padding:11px 13px;border-radius:16px;border:1px solid rgba(56,189,248,.16);background:rgba(14,116,144,.07)}
       .jarvis-e1-head strong{font-size:11px;letter-spacing:.04em}.jarvis-e1-head span{display:block;margin-top:4px;color:#8294aa;font-size:9px;line-height:1.45}.jarvis-e1-badge{flex:0 0 auto;padding:6px 8px;border-radius:999px;background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);color:#bbf7d0;font-size:8px;font-weight:900;letter-spacing:.06em}
-      .jarvis-e1-badge.off{background:rgba(245,158,11,.08);border-color:rgba(245,158,11,.18);color:#fde68a}
+      .jarvis-e1-badge.off{background:rgba(245,158,11,.08);border-color:rgba(245,158,11,.18);color:#fde68a}.jarvis-e1-badge.stop{background:rgba(239,68,68,.09);border-color:rgba(239,68,68,.22);color:#fca5a5}
       .jarvis-e1-meta{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}.jarvis-e1-meta span{padding:3px 6px;border-radius:999px;background:rgba(148,163,184,.07);color:#94a3b8;font-size:8px}
       .jarvis-e1-refresh{padding:7px 9px!important;border-radius:10px!important;background:rgba(255,255,255,.06)!important;border:1px solid rgba(148,163,184,.12)!important;color:#cbd5e1!important;font-size:9px!important}
     `;
@@ -57,9 +58,19 @@
     return "";
   }
 
+  function workerBadge() {
+    const enabled = state.queue?.workerEnabled === true;
+    const workerState = text(state.queue?.workerState, enabled ? "ready" : "paused");
+    const kill = state.control?.control?.killSwitch === true;
+    if (kill || workerState === "stopped") return { label: "NOT-AUS", cls: "stop" };
+    if (enabled && workerState === "throttled") return { label: "WORKER GEDROSSELT", cls: "off" };
+    if (enabled) return { label: "WORKER AKTIV", cls: "" };
+    return { label: "WORKER PAUSIERT", cls: "off" };
+  }
+
   function eventRows() {
     if (!state.events.length) {
-      return '<div class="jarvis-cc-empty">Noch keine serverseitigen Elyon-Ereignisse gespeichert. E3 wartet auf echte System-Events.</div>';
+      return '<div class="jarvis-cc-empty">Noch keine serverseitigen Elyon-Ereignisse gespeichert. E4 wartet auf echte System-Events.</div>';
     }
     return state.events.slice(0, 8).map((event) => `
       <article class="jarvis-cc-item">
@@ -71,7 +82,7 @@
 
   function jobRows() {
     if (!state.jobs.length) {
-      return '<div class="jarvis-cc-empty">Noch keine Cloud-Jobs vorhanden. Der E3-Worker wartet auf neue Company-OS-Nova-Produkte.</div>';
+      return '<div class="jarvis-cc-empty">Noch keine Cloud-Jobs vorhanden. Der E4-Worker wartet auf neue Company-OS-Nova-Produkte.</div>';
     }
     return state.jobs.slice(0, 8).map((job) => {
       const resultSummary = text(job.result?.summary?.summary || job.result?.summary || "");
@@ -100,11 +111,12 @@
     }
 
     const configured = state.storage?.configured === true;
-    const workerEnabled = state.queue?.workerEnabled === true;
+    const badge = workerBadge();
+    const mode = text(state.queue?.mode || state.control?.control?.mode, "assisted").toUpperCase();
     panel.innerHTML = `
       <div class="jarvis-e1-head">
-        <div><strong>☁ Cloud-Automation · Phase E3</strong><span>Der sichere E3-Worker verarbeitet neue Company-OS-Nova-Events serverseitig. Externe Aktionen und Live-Publishing bleiben gesperrt.${state.lastRefreshAt ? ` · Aktualisiert ${escapeHtml(state.lastRefreshAt)}` : ""}</span></div>
-        <div style="display:flex;gap:8px;align-items:center"><span class="jarvis-e1-badge${workerEnabled ? "" : " off"}">${workerEnabled ? "WORKER AKTIV" : "WORKER NICHT BEREIT"}</span><button type="button" class="jarvis-e1-refresh" data-jarvis-e1-refresh>Cloud aktualisieren</button></div>
+        <div><strong>☁ Cloud-Automation · Phase E4</strong><span>Der Cloud-Worker wird jetzt durch Autopilot-Modus, Not-Aus, Budget, Job-/Token-Limits und Fehlerwächter kontrolliert. Externe Aktionen und Live-Publishing bleiben gesperrt.${state.lastRefreshAt ? ` · Aktualisiert ${escapeHtml(state.lastRefreshAt)}` : ""}</span></div>
+        <div style="display:flex;gap:8px;align-items:center"><span class="jarvis-e1-badge ${badge.cls}">${escapeHtml(badge.label)}</span><button type="button" class="jarvis-e1-refresh" data-jarvis-e1-refresh>Cloud aktualisieren</button></div>
       </div>
       <div class="jarvis-cc-grid">
         <section class="jarvis-cc-card">
@@ -112,7 +124,7 @@
           <div class="jarvis-cc-list">${eventRows()}</div>
         </section>
         <section class="jarvis-cc-card">
-          <div class="jarvis-cc-card-head"><h2>Cloud Jobs</h2><small>${state.jobs.length} Jobs · ${escapeHtml(state.queue?.mode || "auto_internal")}</small></div>
+          <div class="jarvis-cc-card-head"><h2>Cloud Jobs</h2><small>${state.jobs.length} Jobs · ${escapeHtml(mode)}</small></div>
           <div class="jarvis-cc-list">${jobRows()}</div>
         </section>
       </div>`;
@@ -136,12 +148,13 @@
         state.jobs = Array.isArray(jobsResult.value?.jobs) ? jobsResult.value.jobs : [];
         state.storage = jobsResult.value?.storage || state.storage;
         state.queue = jobsResult.value?.queue || state.queue;
+        state.control = jobsResult.value?.control || state.control;
       }
       state.lastRefreshAt = new Intl.DateTimeFormat("de-DE", { hour: "2-digit", minute: "2-digit" }).format(new Date());
     } catch {
       state.events = [];
       state.jobs = [];
-      state.queue = { workerEnabled: false, mode: "auto_internal" };
+      state.queue = { workerEnabled: false, workerState: "paused", mode: "assisted" };
     } finally {
       state.loading = false;
       render();
@@ -171,6 +184,11 @@
     if (event.key === "elyon_ai_workforce_tasks") window.queueMicrotask(() => render());
   });
   window.addEventListener("elyon:jarvis-command-center-result", () => refresh());
+  window.addEventListener("elyon:jarvis-control-updated", (event) => {
+    if (event.detail?.snapshot) state.control = event.detail.snapshot;
+    if (commandCenterActive()) refresh();
+    else render();
+  });
   window.addEventListener("elyon:seller-authenticated", () => {
     if (commandCenterActive()) refreshAfterCommandCenter();
   });
@@ -180,6 +198,7 @@
     render,
     state: () => ({ ...state, events: [...state.events], jobs: [...state.jobs], queue: { ...state.queue } }),
   });
+  window.ElyonJarvisE4Cloud = api;
   window.ElyonJarvisE3Cloud = api;
   window.ElyonJarvisE1Cloud = api;
 
