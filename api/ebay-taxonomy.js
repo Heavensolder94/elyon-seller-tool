@@ -1,4 +1,9 @@
-import { requireSellerAccess } from "../lib/seller-access.js";
+import {
+  isSellerAuthenticated,
+  sellerAccessConfigured,
+  setSellerSecurityHeaders,
+} from "../lib/seller-access.js";
+import { validateBridgeAccess } from "../lib/bridge-access.js";
 
 function text(value, max = 500) {
   const output = String(value ?? "").trim();
@@ -8,6 +13,30 @@ function text(value, max = 500) {
 const CACHE = globalThis.__elyonEbayTaxonomyCache || (globalThis.__elyonEbayTaxonomyCache = new Map());
 const TOKEN_STATE = globalThis.__elyonEbayTaxonomyToken || (globalThis.__elyonEbayTaxonomyToken = { token: "", expiresAt: 0 });
 const TREE_STATE = globalThis.__elyonEbayTaxonomyTree || (globalThis.__elyonEbayTaxonomyTree = { id: "", expiresAt: 0 });
+
+function requireTaxonomyAccess(req, res) {
+  setSellerSecurityHeaders(res);
+  const bridge = validateBridgeAccess(req, process.env, { maxBodyBytes: 64 * 1024 });
+  if (bridge.ok) return true;
+  if (sellerAccessConfigured() && isSellerAuthenticated(req)) return true;
+
+  const bridgeConfigured = bridge.error !== "bridge_not_configured";
+  if (!sellerAccessConfigured() && !bridgeConfigured) {
+    res.status(503).json({
+      ok: false,
+      error: "ebay_taxonomy_access_not_configured",
+      message: "eBay-Taxonomy-Zugriff ist serverseitig noch nicht konfiguriert.",
+    });
+    return false;
+  }
+
+  res.status(403).json({
+    ok: false,
+    error: "ebay_taxonomy_access_denied",
+    message: "eBay-Taxonomy-Zugriff nicht autorisiert.",
+  });
+  return false;
+}
 
 function cached(key) {
   const entry = CACHE.get(key);
@@ -182,7 +211,7 @@ async function resolveCategory(query, token) {
 }
 
 export default async function handler(req, res) {
-  if (!requireSellerAccess(req, res, { maxBodyBytes: 64 * 1024 })) return;
+  if (!requireTaxonomyAccess(req, res)) return;
   res.setHeader("Cache-Control", "no-store");
   if (req.method === "OPTIONS") return res.status(204).end();
   if (req.method !== "GET") return res.status(405).json({ ok: false, error: "Nur GET erlaubt." });
