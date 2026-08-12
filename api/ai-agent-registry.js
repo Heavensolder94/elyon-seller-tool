@@ -29,7 +29,7 @@ function mutationUnavailable(res) {
 }
 
 export default async function handler(req, res) {
-  if (!requireSellerAccess(req, res, { maxBodyBytes: 512 * 1024 })) return;
+  if (!requireSellerAccess(req, res, { maxBodyBytes: 1024 * 1024 })) return;
   res.setHeader("Cache-Control", "no-store");
   res.setHeader("X-Content-Type-Options", "nosniff");
   if (req.method === "OPTIONS") return res.status(204).end();
