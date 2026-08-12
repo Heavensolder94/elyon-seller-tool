@@ -237,9 +237,9 @@ test("E4 API/client/UI expose control without browser worker dispatch or externa
   assert.match(cloud, /NOT-AUS/);
 
   assert.match(bootstrap, /seller-jarvis-e4-control\.js/);
-  assert.match(bootstrap, /phase-e4-v1/);
+  assert.match(bootstrap, /phase-e5-v1/);
   assert.match(prepare, /seller-jarvis-e4-control\.js/);
-  assert.match(prepare, /one-script Jarvis D1\/D2\/D3\/E1\/E4 bootstrap/);
+  assert.match(prepare, /one-script Jarvis D1\/D2\/D3\/E1\/E4\/E5 bootstrap/);
   assert.match(envExample, /ELYON_AI_OPENAI_INPUT_EUR_PER_1M/);
   assert.match(envExample, /ELYON_AI_DEEPSEEK_OUTPUT_EUR_PER_1M/);
 });
