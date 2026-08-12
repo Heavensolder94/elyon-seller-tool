@@ -87,5 +87,5 @@ test("prepare script mirrors bootstrap, client and UI assets", async () => {
   const source = await readFile(prepareUrl, "utf8");
   assert.match(source, /const clientNames = \[registryClientName, jarvisBootstrapName, \.\.\.jarvisClientNames\]/);
   assert.match(source, /copyFile\(path\.join\(appRoot, name\), path\.join\(publicRoot, name\)\)/);
-  assert.match(source, /one-script Jarvis D1\/D2 bootstrap/);
+  assert.match(source, /one-script Jarvis D1\/D2\/D3 bootstrap/);
 });
