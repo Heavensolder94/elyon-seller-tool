@@ -1,8 +1,12 @@
 (() => {
   "use strict";
 
-  const FILES = ["/seller-jarvis-client.js", "/seller-jarvis-ui.js"];
-  const VERSION = "phase-d1-v1";
+  const FILES = [
+    "/seller-jarvis-client.js",
+    "/seller-jarvis-ui.js",
+    "/seller-jarvis-command-center.js",
+  ];
+  const VERSION = "phase-d2-v1";
 
   function existing(path) {
     return [...document.scripts].some((script) => {
@@ -28,8 +32,9 @@
     try {
       for (const file of FILES) await load(file);
       window.ElyonJarvisUI?.refresh?.();
+      window.ElyonJarvisCommandCenter?.refresh?.();
     } catch (error) {
-      console.warn("[Elyon Jarvis] D1 Bootstrap fehlgeschlagen", error);
+      console.warn("[Elyon Jarvis] D2 Bootstrap fehlgeschlagen", error);
     }
   }
 
