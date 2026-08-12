@@ -179,7 +179,7 @@ test("E1 rejects event types and requested actions that cross external safety bo
   );
 });
 
-test("E1 persistence APIs remain protected/read-only while E3 execution is isolated in the cloud worker", async () => {
+test("E1 persistence APIs remain protected/read-only while later worker phases stay isolated", async () => {
   const [eventsApi, jobsApi] = await Promise.all([
     readFile(eventsApiUrl, "utf8"),
     readFile(jobsApiUrl, "utf8"),
@@ -191,21 +191,23 @@ test("E1 persistence APIs remain protected/read-only while E3 execution is isola
   assert.match(jobsApi, /requireSellerAccess/);
   assert.match(jobsApi, /req\.method !== "GET"/);
   assert.match(jobsApi, /jarvis_jobs_read_only/);
-  assert.match(jobsApi, /workerEnabled: true/);
+  assert.match(jobsApi, /getJarvisControlSnapshot/);
+  assert.match(jobsApi, /workerEnabled: workerAllowed/);
   assert.doesNotMatch(jobsApi, /ai-agent-run-registry|registryRunner|executePlan|ElyonJarvis\.execute/);
 });
 
-test("E1 browser client can only read event and job inboxes, not ingest or dispatch them", async () => {
+test("E1 browser client can read cloud/control state but cannot ingest or dispatch jobs", async () => {
   const client = await readFile(clientUrl, "utf8");
   assert.doesNotThrow(() => new vm.Script(client));
   assert.match(client, /async function events/);
   assert.match(client, /async function jobs/);
+  assert.match(client, /async function control/);
   assert.match(client, /\/api\/jarvis-events/);
   assert.match(client, /\/api\/jarvis-jobs/);
   assert.doesNotMatch(client, /ingestEvent|dispatchJob|runJob|retryJob/);
 });
 
-test("E1 cloud UI remains passive while E3 worker status is displayed from server queue metadata", async () => {
+test("E1 cloud UI remains passive while E4 worker state is displayed from server queue metadata", async () => {
   const cloud = await readFile(cloudUrl, "utf8");
   assert.doesNotThrow(() => new vm.Script(cloud));
   assert.match(cloud, /window\.ElyonJarvis\.events/);
@@ -213,20 +215,23 @@ test("E1 cloud UI remains passive while E3 worker status is displayed from serve
   assert.match(cloud, /Event Inbox/);
   assert.match(cloud, /Cloud Jobs/);
   assert.match(cloud, /WORKER AKTIV/);
-  assert.match(cloud, /Phase E3/);
+  assert.match(cloud, /Phase E4/);
+  assert.match(cloud, /NOT-AUS/);
   assert.doesNotMatch(cloud, /Math\.random\(|MutationObserver|setInterval/);
   assert.doesNotMatch(cloud, /ElyonJarvis\.execute|ElyonJarvis\.plan|publish_listing|place_supplier_order/);
 });
 
-test("E1 remains under the existing one-script startup architecture", async () => {
+test("E1 remains under the existing one-script startup architecture through E4", async () => {
   const [bootstrap, prepare] = await Promise.all([
     readFile(bootstrapUrl, "utf8"),
     readFile(prepareUrl, "utf8"),
   ]);
   assert.match(bootstrap, /seller-jarvis-e1-cloud\.js/);
-  assert.match(bootstrap, /phase-e1-v1/);
+  assert.match(bootstrap, /seller-jarvis-e4-control\.js/);
+  assert.match(bootstrap, /phase-e4-v1/);
   assert.match(prepare, /seller-jarvis-e1-cloud\.js/);
-  assert.match(prepare, /one-script Jarvis D1\/D2\/D3\/E1 bootstrap/);
+  assert.match(prepare, /seller-jarvis-e4-control\.js/);
+  assert.match(prepare, /one-script Jarvis D1\/D2\/D3\/E1\/E4 bootstrap/);
   assert.match(prepare, /const content = `<script defer src="\/\$\{jarvisBootstrapName\}/);
-  assert.doesNotMatch(prepare, /seller-jarvis-e1-cloud\.js[\s\S]{0,300}<script defer/);
+  assert.doesNotMatch(prepare, /seller-jarvis-e4-control\.js[\s\S]{0,300}<script defer/);
 });
