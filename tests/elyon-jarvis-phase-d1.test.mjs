@@ -4,6 +4,7 @@ import vm from "node:vm";
 import { readFile } from "node:fs/promises";
 
 const uiUrl = new URL("../seller-jarvis-ui.js", import.meta.url);
+const bootstrapUrl = new URL("../seller-jarvis-bootstrap.js", import.meta.url);
 const prepareUrl = new URL("../scripts/prepare-agent-registry.mjs", import.meta.url);
 
 test("Jarvis D1 UI remains valid browser JavaScript", async () => {
@@ -50,30 +51,41 @@ test("Jarvis D1 passes only a bounded current product and recent task context fr
   assert.doesNotMatch(source, /buyerEmail|shippingAddress|phoneNumber/);
 });
 
-test("desktop build contract makes Jarvis global while registry remains workforce-lazy", async () => {
-  const source = await readFile(prepareUrl, "utf8");
-  assert.match(source, /const registryClientName = "seller-ai-agent-registry-client\.js"/);
-  assert.match(source, /const jarvisClientNames = \[/);
+test("Jarvis bootstrap is valid, event-driven, and loads client before UI", async () => {
+  const source = await readFile(bootstrapUrl, "utf8");
+  assert.doesNotThrow(() => new vm.Script(source));
   assert.match(source, /seller-jarvis-client\.js/);
   assert.match(source, /seller-jarvis-ui\.js/);
+  assert.match(source, /for \(const file of FILES\) await load\(file\)/);
+  assert.doesNotMatch(source, /MutationObserver|setInterval/);
+});
+
+test("desktop build uses exactly one Jarvis D1 startup script", async () => {
+  const source = await readFile(prepareUrl, "utf8");
+  assert.match(source, /const jarvisBootstrapName = "seller-jarvis-bootstrap\.js"/);
   assert.match(source, /function injectDesktopHtml/);
+  assert.match(source, /<script defer src=\\"\/\$\{jarvisBootstrapName\}/);
+  assert.doesNotMatch(source, /function injectDesktopHtml[\s\S]{0,400}jarvisClientNames\.map/);
   assert.match(source, /ELYON_JARVIS_D1/);
+});
+
+test("registry remains workforce-lazy while D1 bootstrap is global", async () => {
+  const source = await readFile(prepareUrl, "utf8");
+  assert.match(source, /const registryClientName = "seller-ai-agent-registry-client\.js"/);
   assert.match(source, /function injectRuntimeLoader/);
   assert.match(source, /registryClientName/);
   assert.doesNotMatch(source, /runtimeEntries/);
 });
 
-test("mobile build contract includes registry and both Jarvis scripts", async () => {
+test("mobile build uses registry plus one Jarvis bootstrap tag", async () => {
   const source = await readFile(prepareUrl, "utf8");
-  assert.match(source, /function injectMobileHtml/);
-  assert.match(source, /const clientNames = \[registryClientName, \.\.\.jarvisClientNames\]/);
-  assert.match(source, /clientNames\.map\(\(name\) => `<script defer src=/);
+  assert.match(source, /const injectedNames = \[registryClientName, jarvisBootstrapName\]/);
+  assert.match(source, /injectedNames\.map/);
 });
 
-test("prepare script explicitly mirrors the D1 UI and generated desktop HTML", async () => {
+test("prepare script mirrors bootstrap, client and UI assets", async () => {
   const source = await readFile(prepareUrl, "utf8");
+  assert.match(source, /const clientNames = \[registryClientName, jarvisBootstrapName, \.\.\.jarvisClientNames\]/);
   assert.match(source, /copyFile\(path\.join\(appRoot, name\), path\.join\(publicRoot, name\)\)/);
-  assert.match(source, /readFile\(desktopPath, "utf8"\)/);
-  assert.match(source, /writeFile\(desktopPath, injectDesktopHtml\(desktopSource\), "utf8"\)/);
-  assert.match(source, /globally available Jarvis D1 UI/);
+  assert.match(source, /one-script Jarvis D1 bootstrap/);
 });
