@@ -79,8 +79,8 @@ test("D2 stays inside the existing one-script Jarvis bootstrap budget", async ()
   const bootstrap = await readFile(bootstrapUrl, "utf8");
   const prepare = await readFile(prepareUrl, "utf8");
   assert.match(bootstrap, /seller-jarvis-command-center\.js/);
-  assert.match(bootstrap, /phase-d2-v1/);
+  assert.match(bootstrap, /phase-d3-v1/);
   assert.match(prepare, /seller-jarvis-command-center\.js/);
-  assert.match(prepare, /one-script Jarvis D1\/D2 bootstrap/);
+  assert.match(prepare, /one-script Jarvis D1\/D2\/D3 bootstrap/);
   assert.match(prepare, /const content = `<script defer src="\/\$\{jarvisBootstrapName\}/);
 });
