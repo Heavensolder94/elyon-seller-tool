@@ -1,5 +1,6 @@
 import { isSellerAuthenticated, requireSellerAccess, setSellerSecurityHeaders } from "../lib/seller-access.js";
 import { validateBridgeAccess } from "../lib/bridge-access.js";
+import { getJarvisControlSnapshot } from "../lib/elyon-jarvis-control-store.js";
 import {
   getJarvisEventStorageInfo,
   hasJarvisEventStorage,
@@ -53,9 +54,17 @@ function validateE2BridgeEvent(body = {}) {
   return { ok: true };
 }
 
+async function controlSnapshotSafe() {
+  try {
+    return await getJarvisControlSnapshot();
+  } catch {
+    return null;
+  }
+}
+
 export default async function handler(req, res) {
   setSellerSecurityHeaders(res);
-  res.setHeader("X-Elyon-Jarvis-Events", "phase-e3-v1");
+  res.setHeader("X-Elyon-Jarvis-Events", "phase-e4-v1");
 
   if (req.method === "GET") {
     if (!requireSellerAccess(req, res, { maxBodyBytes: MAX_BODY_BYTES })) return;
@@ -90,18 +99,21 @@ export default async function handler(req, res) {
   try {
     if (req.method === "GET") {
       const storage = getJarvisEventStorageInfo();
-      const events = storage.configured
-        ? await listJarvisEvents({ limit: limit(req.query?.limit) })
-        : [];
+      const [events, control] = await Promise.all([
+        storage.configured ? listJarvisEvents({ limit: limit(req.query?.limit) }) : Promise.resolve([]),
+        storage.configured ? controlSnapshotSafe() : Promise.resolve(null),
+      ]);
       return res.status(200).json({
         ok: true,
-        phase: "E3",
+        phase: "E4",
         events,
         storage,
+        control,
         safety: {
-          autonomousExecutionEnabled: true,
+          autonomousExecutionEnabled: control?.decision?.allowed === true,
           autonomousScope: "company-os:nova.product.created",
           eventIngestionExecutesAgents: false,
+          externalActionsLocked: true,
           livePublishingAllowed: false,
         },
       });
@@ -120,19 +132,24 @@ export default async function handler(req, res) {
     const result = await ingestJarvisEvent(body);
     const armed = await armJarvisJobForWorker(result.job);
     const job = armed.job || result.job;
+    const control = await controlSnapshotSafe();
+    const workerAllowed = armed.armed === true && control?.decision?.allowed === true;
     return res.status(result.duplicate ? 200 : 201).json({
       ok: true,
-      phase: "E3",
+      phase: "E4",
       duplicate: result.duplicate,
       event: result.event,
       job,
       storage: result.storage,
+      control,
       automation: {
         armedForWorker: armed.armed === true,
+        workerAllowed,
+        workerState: text(control?.decision?.state, 30) || "paused",
         workerScope: armed.armed ? "company-os:nova.product.created" : "manual_dispatch",
       },
       safety: {
-        autonomousExecutionEnabled: armed.armed === true,
+        autonomousExecutionEnabled: workerAllowed,
         eventIngestionExecutesAgents: false,
         jobExecutionPolicy: text(job.executionPolicy, 50) || "manual_dispatch",
         externalActionsLocked: true,
@@ -164,4 +181,4 @@ export default async function handler(req, res) {
   }
 }
 
-export { validateE2BridgeEvent };
+export { controlSnapshotSafe, validateE2BridgeEvent };
