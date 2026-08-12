@@ -2,6 +2,9 @@
   "use strict";
 
   const API_URL = "/api/jarvis";
+  const EVENTS_API_URL = "/api/jarvis-events";
+  const JOBS_API_URL = "/api/jarvis-jobs";
+  const VERSION = "phase-e1-v1";
 
   async function request(url, options = {}) {
     const response = await fetch(url, {
@@ -24,6 +27,18 @@
 
   async function status() {
     return request(API_URL, { method: "GET" });
+  }
+
+  async function events(options = {}) {
+    const limit = Math.max(1, Math.min(100, Number(options.limit) || 20));
+    return request(`${EVENTS_API_URL}?limit=${encodeURIComponent(limit)}`, { method: "GET" });
+  }
+
+  async function jobs(options = {}) {
+    const limit = Math.max(1, Math.min(100, Number(options.limit) || 20));
+    const params = new URLSearchParams({ limit: String(limit) });
+    if (options.status) params.set("status", String(options.status));
+    return request(`${JOBS_API_URL}?${params.toString()}`, { method: "GET" });
   }
 
   async function plan(command, options = {}) {
@@ -60,14 +75,18 @@
 
   window.ElyonJarvis = Object.freeze({
     status,
+    events,
+    jobs,
     plan,
     execute,
     delegate,
     api: API_URL,
-    version: "phase-c-v1",
+    eventsApi: EVENTS_API_URL,
+    jobsApi: JOBS_API_URL,
+    version: VERSION,
   });
 
   window.dispatchEvent(new CustomEvent("elyon:jarvis-ready", {
-    detail: { version: "phase-c-v1", api: API_URL },
+    detail: { version: VERSION, api: API_URL },
   }));
 })();
