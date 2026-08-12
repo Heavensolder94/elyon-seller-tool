@@ -1,5 +1,7 @@
 import { readToken } from "../../lib/ebay-token-store.js";
 
+const ELYON_SKU_PATTERN = /^ELY-\d{6,}(?:-\d{2,})?$/i;
+
 function normalizeEnvironment(value) {
   return String(value || process.env.EBAY_ENV || "production").toLowerCase() === "sandbox" ? "sandbox" : "production";
 }
@@ -68,6 +70,27 @@ function normalizeCategoryId(body) {
   return "";
 }
 
+function normalizeElyonSku(value) {
+  const candidate = cleanText(value, 100).toUpperCase();
+  return ELYON_SKU_PATTERN.test(candidate) ? candidate : "";
+}
+
+export function elyonSkuFromPayload(body = {}) {
+  const product = body?.product && typeof body.product === "object" ? body.product : {};
+  const listing = body?.listing && typeof body.listing === "object" ? body.listing : {};
+  const candidates = [
+    body.sku,
+    body.articleNumber,
+    body.elyonArticleNumber,
+    product.sku,
+    product.articleNumber,
+    product.elyonArticleNumber,
+    listing.sku,
+    listing.articleNumber,
+  ];
+  return candidates.map(normalizeElyonSku).find(Boolean) || "";
+}
+
 function makeSku(payload) {
   const rawTitle = cleanText(payload.title || "amazon", 32).replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toUpperCase();
   const stamp = new Date().toISOString().replace(/[-:.TZ]/g, "").slice(0, 14);
@@ -87,6 +110,7 @@ function validatePayload(body) {
   const condition = normalizeCondition(body?.condition);
   const images = normalizeImages(body?.images);
   const notes = cleanText(body?.notes, 1000);
+  const sku = elyonSkuFromPayload(body || {});
 
   if (!title) return { ok: false, status: 400, error: "Titel fehlt." };
   if (!price || price <= 0) return { ok: false, status: 400, error: "Preis fehlt." };
@@ -101,7 +125,7 @@ function validatePayload(body) {
 
   return {
     ok: true,
-    value: { title, description, price, shipping, quantity, sourceUrl, categoryId, categorySuggestion, condition, images, notes },
+    value: { title, description, price, shipping, quantity, sourceUrl, categoryId, categorySuggestion, condition, images, notes, sku },
   };
 }
 
@@ -199,7 +223,9 @@ export default async function handler(req, res) {
     const product = validated.value;
     const accessToken = await getAccessTokenFromRefreshToken(environment, refreshToken);
     const baseUrl = getInventoryBaseUrl(environment);
-    const sku = makeSku(product);
+    // Canonical Elyon SKU always wins. Legacy/manual records without a unified
+    // identity keep the old generated fallback so this change is backwards compatible.
+    const sku = product.sku || makeSku(product);
 
     const inventoryPayload = {
       availability: {
@@ -277,6 +303,7 @@ export default async function handler(req, res) {
       published: false,
       offerId,
       sku,
+      unifiedIdentity: Boolean(product.sku),
       categoryId: product.categoryId,
       targetRoute: "/api/ebay/create-draft",
       note: "Dies ist ein unveroeffentlichter Inventory-Offer-Entwurf. Es wurde nicht live veroeffentlicht.",
