@@ -70,6 +70,13 @@ const registry = {
   }],
 };
 
+function allowedControl() {
+  return {
+    control: { mode: "assisted", killSwitch: false, pausedByGuard: false },
+    decision: { allowed: true, state: "ready", reasons: [], batchLimit: 1 },
+  };
+}
+
 test("E3 cron endpoint fails closed and accepts only the configured CRON_SECRET", () => {
   assert.deepEqual(authorizeCron({ headers: {} }, {}), {
     ok: false,
@@ -80,7 +87,7 @@ test("E3 cron endpoint fails closed and accepts only the configured CRON_SECRET"
   assert.equal(authorizeCron({ headers: { authorization: "Bearer right" } }, { CRON_SECRET: "right" }).ok, true);
 });
 
-test("E3 autonomous scope is restricted to Company OS nova.product.created jobs", () => {
+test("E3 autonomous scope remains restricted to Company OS nova.product.created jobs", () => {
   assert.equal(isE3AutoInternalJob(safeJob()), true);
   assert.equal(isE3AutoInternalJob(safeJob({ source: "browser" })), false);
   assert.equal(isE3AutoInternalJob(safeJob({ eventType: "order.created" })), false);
@@ -90,7 +97,7 @@ test("E3 autonomous scope is restricted to Company OS nova.product.created jobs"
   assert.equal(retryDelayMs(3), 900_000);
 });
 
-test("E3 delegates one safe internal Product Data job and forwards no external action", async () => {
+test("E3 delegation still runs exactly one safe Product Data agent under E4", async () => {
   let executionBody = null;
   const outcome = await executeJarvisWorkerClaim(
     { claimed: true, owner: "lease", job: safeJob({ status: "RUNNING", attempts: 1 }) },
@@ -109,6 +116,9 @@ test("E3 delegates one safe internal Product Data job and forwards no external a
           agentName: "Elyon Product Data Specialist",
           capability: "product_data",
           payload: {
+            provider: "local",
+            model: "local-fallback",
+            usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
             result: {
               status: "completed",
               summary: "Produktdaten intern geprüft.",
@@ -123,6 +133,7 @@ test("E3 delegates one safe internal Product Data job and forwards no external a
 
   assert.equal(outcome.ok, true);
   assert.equal(outcome.blocked, false);
+  assert.equal(outcome.result.phase, "E4");
   assert.equal(executionBody.maxAgents, 1);
   assert.equal(executionBody.stopOnBlocker, true);
   assert.equal(executionBody.sourceType, "nova.product.created");
@@ -132,18 +143,21 @@ test("E3 delegates one safe internal Product Data job and forwards no external a
   assert.equal(JSON.stringify(executionBody).includes("place_supplier_order"), false);
 });
 
-test("E3 worker processes a claimed job once and persists the resulting terminal state", async () => {
+test("E3 worker mechanics process a claimed job once when E4 control permits it", async () => {
   const finished = [];
   const result = await runJarvisWorker({
     env: {},
     now: "2026-08-12T22:00:00.000Z",
+    controlSnapshotImpl: async () => allowedControl(),
+    reserveSlotImpl: async () => ({ reserved: true, hourCount: 1, dayCount: 1 }),
+    recordOutcomeImpl: async () => ({ metering: { estimatedCostEur: 0, totalTokens: 0 }, paused: false }),
     listDueJobsImpl: async () => [safeJob()],
     claimJobImpl: async () => ({ claimed: true, owner: "lease-1", job: safeJob({ status: "RUNNING", attempts: 1 }) }),
     getEventImpl: async () => safeEvent(),
     executeClaimImpl: async () => ({
       ok: true,
       blocked: false,
-      result: { phase: "E3", summary: { status: "completed", summary: "ok" } },
+      result: { phase: "E4", summary: { status: "completed", summary: "ok" }, runs: [] },
     }),
     finishJobImpl: async (claim, outcome) => {
       assert.equal(claim.owner, "lease-1");
@@ -155,7 +169,7 @@ test("E3 worker processes a claimed job once and persists the resulting terminal
   });
 
   assert.equal(result.ok, true);
-  assert.equal(result.phase, "E3");
+  assert.equal(result.phase, "E4");
   assert.equal(result.processed, 1);
   assert.equal(result.results[0].status, "SUCCESS");
   assert.equal(finished.length, 1);
@@ -164,7 +178,7 @@ test("E3 worker processes a claimed job once and persists the resulting terminal
   assert.equal(result.safety.livePublishingAllowed, false);
 });
 
-test("E3 wiring keeps queue UI read-only and schedules only the protected worker", async () => {
+test("E3 wiring remains protected while E4 adds the control gate", async () => {
   const [workerApi, eventsApi, jobsApi, worker, workerStore, cloudUi, vercelRaw] = await Promise.all([
     readFile(workerApiUrl, "utf8"),
     readFile(eventsApiUrl, "utf8"),
@@ -184,15 +198,15 @@ test("E3 wiring keeps queue UI read-only and schedules only the protected worker
   assert.match(eventsApi, /armJarvisJobForWorker/);
   assert.match(eventsApi, /eventIngestionExecutesAgents: false/);
   assert.match(jobsApi, /jarvis_jobs_read_only/);
-  assert.match(jobsApi, /workerEnabled: true/);
+  assert.match(jobsApi, /workerEnabled: workerAllowed/);
   assert.match(jobsApi, /maxAgentsPerJob: 1/);
   assert.match(worker, /maxAgents: 1/);
   assert.match(worker, /stopOnBlocker: true/);
+  assert.match(worker, /getJarvisControlSnapshot/);
   assert.match(workerStore, /nova\.product\.created/);
   assert.match(workerStore, /company-os/);
   assert.match(workerStore, /"SET", leaseKey, owner, "NX", "EX"/);
-  assert.match(cloudUi, /Phase E3/);
+  assert.match(cloudUi, /Phase E4/);
   assert.match(cloudUi, /WORKER AKTIV/);
-  assert.doesNotMatch(cloudUi, /WORKER AUS/);
   assert.deepEqual(vercel.crons, [{ path: "/api/jarvis-worker", schedule: "*/5 * * * *" }]);
 });
