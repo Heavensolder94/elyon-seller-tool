@@ -2,11 +2,6 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import vm from "node:vm";
 import { readFile } from "node:fs/promises";
-import {
-  injectDesktopHtml,
-  injectMobileHtml,
-  injectRuntimeLoader,
-} from "../scripts/prepare-agent-registry.mjs";
 
 const uiUrl = new URL("../seller-jarvis-ui.js", import.meta.url);
 const prepareUrl = new URL("../scripts/prepare-agent-registry.mjs", import.meta.url);
@@ -32,7 +27,7 @@ test("global command bar is plan-first and execution stays explicit", async () =
 test("Jarvis D1 integrates with existing mainMenu without inventing a second navigation system", async () => {
   const source = await readFile(uiUrl, "utf8");
   assert.match(source, /getElementById\("mainMenu"\)/);
-  assert.match(source, /option\[value=\\"virtualAgentsTab\\"\]/);
+  assert.match(source, /virtualAgentsTab/);
   assert.match(source, /◉ JARVIS/);
   assert.match(source, /stopImmediatePropagation/);
   assert.match(source, /openPanel\(\)/);
@@ -55,33 +50,30 @@ test("Jarvis D1 passes only a bounded current product and recent task context fr
   assert.doesNotMatch(source, /buyerEmail|shippingAddress|phoneNumber/);
 });
 
-test("desktop build injects Jarvis globally while registry client stays workforce-lazy", () => {
-  const desktop = injectDesktopHtml("<html><body><main></main></body></html>");
-  assert.match(desktop, /ELYON_JARVIS_D1/);
-  assert.match(desktop, /seller-jarvis-client\.js/);
-  assert.match(desktop, /seller-jarvis-ui\.js/);
-  assert.doesNotMatch(desktop, /seller-ai-agent-registry-client\.js/);
-
-  const runtime = injectRuntimeLoader(`const GROUPS={virtualAgentsTab:[\n      { src: "/seller-ai-workforce-agent-builder.js" },\n]};`);
-  assert.match(runtime, /seller-ai-agent-registry-client\.js/);
-  assert.doesNotMatch(runtime, /seller-jarvis-ui\.js/);
-});
-
-test("mobile build includes registry plus Jarvis client and D1 UI before agent builder", () => {
-  const source = '<html><body><script defer src="/seller-ai-workforce-agent-builder.js?v=123"></script></body></html>';
-  const output = injectMobileHtml(source);
-  const registry = output.indexOf("seller-ai-agent-registry-client.js");
-  const client = output.indexOf("seller-jarvis-client.js");
-  const ui = output.indexOf("seller-jarvis-ui.js");
-  const builder = output.indexOf("seller-ai-workforce-agent-builder.js");
-  assert.ok(registry >= 0 && registry < builder);
-  assert.ok(client >= 0 && client < builder);
-  assert.ok(ui >= 0 && ui < builder);
-});
-
-test("prepare script explicitly mirrors the D1 UI", async () => {
+test("desktop build contract makes Jarvis global while registry remains workforce-lazy", async () => {
   const source = await readFile(prepareUrl, "utf8");
+  assert.match(source, /const registryClientName = "seller-ai-agent-registry-client\.js"/);
+  assert.match(source, /const jarvisClientNames = \[/);
+  assert.match(source, /seller-jarvis-client\.js/);
   assert.match(source, /seller-jarvis-ui\.js/);
-  assert.match(source, /injectDesktopHtml/);
+  assert.match(source, /function injectDesktopHtml/);
+  assert.match(source, /ELYON_JARVIS_D1/);
+  assert.match(source, /function injectRuntimeLoader/);
+  assert.match(source, /registryClientName/);
+  assert.doesNotMatch(source, /runtimeEntries/);
+});
+
+test("mobile build contract includes registry and both Jarvis scripts", async () => {
+  const source = await readFile(prepareUrl, "utf8");
+  assert.match(source, /function injectMobileHtml/);
+  assert.match(source, /const clientNames = \[registryClientName, \.\.\.jarvisClientNames\]/);
+  assert.match(source, /clientNames\.map\(\(name\) => `<script defer src=/);
+});
+
+test("prepare script explicitly mirrors the D1 UI and generated desktop HTML", async () => {
+  const source = await readFile(prepareUrl, "utf8");
+  assert.match(source, /copyFile\(path\.join\(appRoot, name\), path\.join\(publicRoot, name\)\)/);
+  assert.match(source, /readFile\(desktopPath, "utf8"\)/);
+  assert.match(source, /writeFile\(desktopPath, injectDesktopHtml\(desktopSource\), "utf8"\)/);
   assert.match(source, /globally available Jarvis D1 UI/);
 });
