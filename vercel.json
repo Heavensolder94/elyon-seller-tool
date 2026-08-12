@@ -3,6 +3,9 @@
   "buildCommand": "npm test && VERCEL_FORCE_NO_BUILD_CACHE=1 node scripts/prepare-vercel.mjs && node scripts/finalize-seller-os.mjs",
   "outputDirectory": "public",
   "regions": ["fra1"],
+  "crons": [
+    {"path":"/api/jarvis-worker","schedule":"*/5 * * * *"}
+  ],
   "rewrites": [
     {"source":"/ebay-callback","destination":"/ebay-accepted.html"},
     {"source":"/ebay-callback/","destination":"/ebay-accepted.html"},
