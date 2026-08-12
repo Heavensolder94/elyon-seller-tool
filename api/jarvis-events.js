@@ -6,6 +6,7 @@ import {
   ingestJarvisEvent,
   listJarvisEvents,
 } from "../lib/elyon-jarvis-event-store.js";
+import { armJarvisJobForWorker } from "../lib/elyon-jarvis-worker-store.js";
 
 const E2_BRIDGE_EVENT_TYPE = "nova.product.created";
 const E2_BRIDGE_SOURCE = "company-os";
@@ -54,7 +55,7 @@ function validateE2BridgeEvent(body = {}) {
 
 export default async function handler(req, res) {
   setSellerSecurityHeaders(res);
-  res.setHeader("X-Elyon-Jarvis-Events", "phase-e2-v1");
+  res.setHeader("X-Elyon-Jarvis-Events", "phase-e3-v1");
 
   if (req.method === "GET") {
     if (!requireSellerAccess(req, res, { maxBodyBytes: MAX_BODY_BYTES })) return;
@@ -70,7 +71,7 @@ export default async function handler(req, res) {
         return res.status(403).json({
           ok: false,
           error: allowed.error,
-          message: "Die Company-OS-Brücke darf in E2 ausschließlich stabile nova.product.created-Events einspielen.",
+          message: "Die Company-OS-Brücke darf ausschließlich stabile nova.product.created-Events einspielen.",
         });
       }
     }
@@ -82,7 +83,7 @@ export default async function handler(req, res) {
     return res.status(405).json({
       ok: false,
       error: "method_not_allowed",
-      message: "E2 erlaubt für Events nur GET und POST.",
+      message: "Jarvis Events erlaubt nur GET und POST.",
     });
   }
 
@@ -94,11 +95,12 @@ export default async function handler(req, res) {
         : [];
       return res.status(200).json({
         ok: true,
-        phase: "E2",
+        phase: "E3",
         events,
         storage,
         safety: {
-          autonomousExecutionEnabled: false,
+          autonomousExecutionEnabled: true,
+          autonomousScope: "company-os:nova.product.created",
           eventIngestionExecutesAgents: false,
           livePublishingAllowed: false,
         },
@@ -116,17 +118,24 @@ export default async function handler(req, res) {
 
     const body = plainObject(req.body);
     const result = await ingestJarvisEvent(body);
+    const armed = await armJarvisJobForWorker(result.job);
+    const job = armed.job || result.job;
     return res.status(result.duplicate ? 200 : 201).json({
       ok: true,
-      phase: "E2",
+      phase: "E3",
       duplicate: result.duplicate,
       event: result.event,
-      job: result.job,
+      job,
       storage: result.storage,
+      automation: {
+        armedForWorker: armed.armed === true,
+        workerScope: armed.armed ? "company-os:nova.product.created" : "manual_dispatch",
+      },
       safety: {
-        autonomousExecutionEnabled: false,
+        autonomousExecutionEnabled: armed.armed === true,
         eventIngestionExecutesAgents: false,
-        jobExecutionPolicy: "manual_dispatch",
+        jobExecutionPolicy: text(job.executionPolicy, 50) || "manual_dispatch",
+        externalActionsLocked: true,
         livePublishingAllowed: false,
       },
     });
