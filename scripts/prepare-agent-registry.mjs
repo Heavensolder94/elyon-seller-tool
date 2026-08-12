@@ -11,6 +11,7 @@ const jarvisClientNames = [
   "seller-jarvis-client.js",
   "seller-jarvis-ui.js",
   "seller-jarvis-command-center.js",
+  "seller-jarvis-voice.js",
   "seller-jarvis-companion-handoff.js",
   "seller-jarvis-e1-cloud.js",
   "seller-jarvis-e4-control.js",
