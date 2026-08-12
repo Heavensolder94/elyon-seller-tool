@@ -5,26 +5,43 @@ import { fileURLToPath } from "node:url";
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const appRoot = path.resolve(scriptDir, "..");
 const publicRoot = path.join(appRoot, "public");
-const clientNames = [
-  "seller-ai-agent-registry-client.js",
+const registryClientName = "seller-ai-agent-registry-client.js";
+const jarvisClientNames = [
   "seller-jarvis-client.js",
+  "seller-jarvis-ui.js",
 ];
-
-function runtimeEntries() {
-  return clientNames.map((name) => `      { src: "/${name}" },`);
-}
+const clientNames = [registryClientName, ...jarvisClientNames];
 
 function injectRuntimeLoader(source) {
   const marker = '      { src: "/seller-ai-workforce-agent-builder.js" },';
-  if (!source.includes(marker)) throw new Error("Agent Registry/Jarvis konnte nicht vor dem bestehenden Agent Builder registriert werden.");
+  if (!source.includes(marker)) throw new Error("Agent Registry konnte nicht vor dem bestehenden Agent Builder registriert werden.");
   let next = source;
   for (const name of clientNames) {
     next = next.replace(`      { src: "/${name}" },\n`, "");
   }
   return next.replace(marker, [
-    ...runtimeEntries(),
+    `      { src: "/${registryClientName}" },`,
     marker,
   ].join("\n"));
+}
+
+function replaceMarkedBlock(source, startMarker, endMarker, content) {
+  const start = source.indexOf(startMarker);
+  const end = source.indexOf(endMarker);
+  if (start >= 0 && end > start) {
+    return `${source.slice(0, start)}${startMarker}\n${content}\n${endMarker}${source.slice(end + endMarker.length)}`;
+  }
+  const bodyEnd = source.lastIndexOf("</body>");
+  if (bodyEnd < 0) throw new Error("Jarvis D1 konnte nicht in das HTML eingebunden werden.");
+  return `${source.slice(0, bodyEnd)}${startMarker}\n${content}\n${endMarker}\n${source.slice(bodyEnd)}`;
+}
+
+function injectDesktopHtml(source) {
+  const version = Date.now();
+  const content = jarvisClientNames
+    .map((name) => `<script defer src="/${name}?v=${version}"></script>`)
+    .join("\n");
+  return replaceMarkedBlock(source, "<!-- ELYON_JARVIS_D1 -->", "<!-- /ELYON_JARVIS_D1 -->", content);
 }
 
 function injectMobileHtml(source) {
@@ -48,17 +65,20 @@ function injectMobileHtml(source) {
 await Promise.all(clientNames.map((name) => copyFile(path.join(appRoot, name), path.join(publicRoot, name))));
 
 const runtimePath = path.join(publicRoot, "seller-runtime-loader.js");
+const desktopPath = path.join(publicRoot, "index.html");
 const mobilePath = path.join(publicRoot, "mobile.html");
-const [runtimeSource, mobileSource] = await Promise.all([
+const [runtimeSource, desktopSource, mobileSource] = await Promise.all([
   readFile(runtimePath, "utf8"),
+  readFile(desktopPath, "utf8"),
   readFile(mobilePath, "utf8"),
 ]);
 
 await Promise.all([
   writeFile(runtimePath, injectRuntimeLoader(runtimeSource), "utf8"),
+  writeFile(desktopPath, injectDesktopHtml(desktopSource), "utf8"),
   writeFile(mobilePath, injectMobileHtml(mobileSource), "utf8"),
 ]);
 
-console.log("Prepared persistent Elyon Agent Registry and Jarvis clients for desktop and mobile virtual workforce runtime.");
+console.log("Prepared persistent Elyon Agent Registry plus globally available Jarvis D1 UI for desktop and mobile.");
 
-export { clientNames, injectMobileHtml, injectRuntimeLoader };
+export { clientNames, injectDesktopHtml, injectMobileHtml, injectRuntimeLoader, jarvisClientNames, registryClientName };
