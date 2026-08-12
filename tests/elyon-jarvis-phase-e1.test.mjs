@@ -179,7 +179,7 @@ test("E1 rejects event types and requested actions that cross external safety bo
   );
 });
 
-test("E1 APIs require Seller access and keep cloud jobs read-only", async () => {
+test("E1 persistence APIs remain protected/read-only while E3 execution is isolated in the cloud worker", async () => {
   const [eventsApi, jobsApi] = await Promise.all([
     readFile(eventsApiUrl, "utf8"),
     readFile(jobsApiUrl, "utf8"),
@@ -187,11 +187,11 @@ test("E1 APIs require Seller access and keep cloud jobs read-only", async () => 
   assert.match(eventsApi, /requireSellerAccess/);
   assert.match(eventsApi, /ingestJarvisEvent/);
   assert.match(eventsApi, /eventIngestionExecutesAgents: false/);
-  assert.match(eventsApi, /autonomousExecutionEnabled: false/);
+  assert.match(eventsApi, /autonomousExecutionEnabled: true/);
   assert.match(jobsApi, /requireSellerAccess/);
   assert.match(jobsApi, /req\.method !== "GET"/);
   assert.match(jobsApi, /jarvis_jobs_read_only/);
-  assert.match(jobsApi, /workerEnabled: false/);
+  assert.match(jobsApi, /workerEnabled: true/);
   assert.doesNotMatch(jobsApi, /ai-agent-run-registry|registryRunner|executePlan|ElyonJarvis\.execute/);
 });
 
@@ -205,15 +205,15 @@ test("E1 browser client can only read event and job inboxes, not ingest or dispa
   assert.doesNotMatch(client, /ingestEvent|dispatchJob|runJob|retryJob/);
 });
 
-test("E1 Command Center cloud block shows only real server records and clearly keeps worker off", async () => {
+test("E1 cloud UI remains passive while E3 worker status is displayed from server queue metadata", async () => {
   const cloud = await readFile(cloudUrl, "utf8");
   assert.doesNotThrow(() => new vm.Script(cloud));
   assert.match(cloud, /window\.ElyonJarvis\.events/);
   assert.match(cloud, /window\.ElyonJarvis\.jobs/);
   assert.match(cloud, /Event Inbox/);
   assert.match(cloud, /Cloud Jobs/);
-  assert.match(cloud, /WORKER AUS/);
-  assert.match(cloud, /E1 erzeugt keine Demo-Events/);
+  assert.match(cloud, /WORKER AKTIV/);
+  assert.match(cloud, /Phase E3/);
   assert.doesNotMatch(cloud, /Math\.random\(|MutationObserver|setInterval/);
   assert.doesNotMatch(cloud, /ElyonJarvis\.execute|ElyonJarvis\.plan|publish_listing|place_supplier_order/);
 });
