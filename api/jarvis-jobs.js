@@ -18,16 +18,18 @@ export default async function handler(req, res) {
   if (!requireSellerAccess(req, res, { maxBodyBytes: 64 * 1024 })) return;
   res.setHeader("Cache-Control", "no-store");
   res.setHeader("X-Content-Type-Options", "nosniff");
-  res.setHeader("X-Elyon-Jarvis-Jobs", "phase-e1-v1");
+  res.setHeader("X-Elyon-Jarvis-Jobs", "phase-e3-v1");
   if (req.method === "OPTIONS") return res.status(204).end();
 
   if (req.method !== "GET") {
     return res.status(405).json({
       ok: false,
       error: "jarvis_jobs_read_only",
-      message: "Phase E1 stellt die Cloud-Queue nur lesend bereit. Autonome Job-Ausführung ist noch deaktiviert.",
+      message: "Die Cloud-Queue bleibt über diese API read-only. E3-Ausführung erfolgt ausschließlich über den geschützten Cloud-Worker.",
       safety: {
-        autonomousExecutionEnabled: false,
+        autonomousExecutionEnabled: true,
+        autonomousScope: "company-os:nova.product.created",
+        externalActionsLocked: true,
         livePublishingAllowed: false,
       },
     });
@@ -43,18 +45,25 @@ export default async function handler(req, res) {
       : [];
     return res.status(200).json({
       ok: true,
-      phase: "E1",
+      phase: "E3",
       jobs,
       storage,
       queue: {
-        mode: "manual_dispatch",
-        autonomousExecutionEnabled: false,
+        mode: "auto_internal",
+        autonomousExecutionEnabled: true,
+        autonomousScope: "company-os:nova.product.created",
         retryMetadataEnabled: true,
-        workerEnabled: false,
+        workerEnabled: true,
+        schedule: "*/5 * * * *",
+        maxJobsPerRun: 2,
+        maxAgentsPerJob: 1,
       },
       safety: {
         externalActionsLocked: true,
         livePublishingAllowed: false,
+        supplierOrdersAllowed: false,
+        customerMessagesAllowed: false,
+        refundsAllowed: false,
       },
     });
   } catch (error) {
