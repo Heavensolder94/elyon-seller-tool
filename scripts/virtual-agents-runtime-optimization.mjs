@@ -111,6 +111,57 @@ const ADVANCED_INSTALL_AFTER = `  let updateScheduled = false;
     };
   }`;
 
+const WORKSPACE_MODE_OPTIONS_BEFORE = `  function modeOptions(selected, allowExternal) {
+    return MODES.map((mode) => \`<option value="\${mode.id}" \${mode.id === selected ? "selected" : ""} \${mode.id === "auto_external" && !allowExternal ? "disabled" : ""}>\${mode.level} · \${mode.label}</option>\`).join("");
+  }`;
+
+const WORKSPACE_MODE_OPTIONS_AFTER = `  function modeOptions(selected) {
+    return MODES
+      .filter((mode) => mode.level <= 3)
+      .map((mode) => \`<option value="\${mode.id}" \${mode.id === selected ? "selected" : ""}>\${mode.level} · \${mode.label}</option>\`)
+      .join("");
+  }`;
+
+const WORKSPACE_MIGRATION_MARKER = `      const existing = current.autonomy && typeof current.autonomy === "object" ? current.autonomy : {};`;
+const WORKSPACE_MIGRATION_AFTER = `      if (modeById(migratedMode).level > 3) migratedMode = "semi";
+      const existing = current.autonomy && typeof current.autonomy === "object" ? current.autonomy : {};`;
+
+const WORKSPACE_INSTALL_BEFORE = `  function install() {
+    ensureSettings();
+    installStyles();
+    render();
+    bindTriggers();
+    const observer = new MutationObserver(() => {
+      const grid = document.getElementById("aiwAgentGrid");
+      if (grid && !grid.querySelector(".aiw-v3")) queueRender();
+    });
+    observer.observe(document.documentElement, { childList: true, subtree: true });
+    window.addEventListener("elyon:ai-workforce-v2-task-updated", queueRender);
+    [100, 500, 1200].forEach((delay) => setTimeout(render, delay));
+  }`;
+
+const WORKSPACE_INSTALL_AFTER = `  function install() {
+    ensureSettings();
+    installStyles();
+    render();
+    window.addEventListener("elyon:ai-workforce-v2-task-updated", queueRender);
+    window.addEventListener("elyon:runtime-group-loaded", (event) => {
+      if (event.detail?.tabId === "virtualAgentsTab") queueRender();
+    });
+  }`;
+
+const WORKSPACE_EXTERNAL_EXECUTION_PATTERN = /  async function executeExternalActions\(run\) \{[\s\S]*?\n  \}\n\n  function discoverExecutor/;
+const WORKSPACE_EXTERNAL_EXECUTION_AFTER = `  async function executeExternalActions(run) {
+    if (run && Array.isArray(run.warnings)) {
+      run.warnings.push("Legacy-Workspace: externe Agentenaktionen sind durch Elyon Manager V1 gesperrt.");
+      run.updatedAt = nowIso();
+      saveRun(run);
+    }
+    return false;
+  }
+
+  function discoverExecutor`;
+
 const LEGACY_RUNTIME_ENTRY = `      { src: "/seller-virtual-agents-legacy.js" },\n`;
 
 function replaceRequired(source, before, after, label) {
@@ -118,6 +169,13 @@ function replaceRequired(source, before, after, label) {
     throw new Error(`Virtual-agent optimization failed: ${label} signature not found.`);
   }
   return source.replace(before, after);
+}
+
+function replaceRegexRequired(source, pattern, after, label) {
+  if (!pattern.test(source)) {
+    throw new Error(`Virtual-agent optimization failed: ${label} signature not found.`);
+  }
+  return source.replace(pattern, after);
 }
 
 export function optimizeAiWorkforceClient(source) {
@@ -129,6 +187,14 @@ export function optimizeAiWorkforceClient(source) {
 
 export function optimizeAdvancedAgentSettings(source) {
   return replaceRequired(source, ADVANCED_INSTALL_BEFORE, ADVANCED_INSTALL_AFTER, "advanced settings observer");
+}
+
+export function optimizeWorkspaceV3(source) {
+  let output = replaceRequired(source, WORKSPACE_MODE_OPTIONS_BEFORE, WORKSPACE_MODE_OPTIONS_AFTER, "workspace autonomy options");
+  output = replaceRequired(output, WORKSPACE_MIGRATION_MARKER, WORKSPACE_MIGRATION_AFTER, "workspace legacy autonomy migration");
+  output = replaceRequired(output, WORKSPACE_INSTALL_BEFORE, WORKSPACE_INSTALL_AFTER, "workspace global observer and auto triggers");
+  output = replaceRegexRequired(output, WORKSPACE_EXTERNAL_EXECUTION_PATTERN, WORKSPACE_EXTERNAL_EXECUTION_AFTER, "workspace external execution");
+  return output;
 }
 
 export function optimizeVirtualAgentsRuntimeLoader(source) {

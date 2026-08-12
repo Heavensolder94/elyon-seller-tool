@@ -8,6 +8,7 @@ import {
   optimizeAdvancedAgentSettings,
   optimizeAiWorkforceClient,
   optimizeVirtualAgentsRuntimeLoader,
+  optimizeWorkspaceV3,
 } from "./virtual-agents-runtime-optimization.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -33,6 +34,7 @@ const mobileModuleScripts = [
   "seller-ai-workforce-workspace-v3.js",
   "seller-ai-workforce-workspace-v3-policy.js",
   "seller-ai-workforce-agent-builder.js",
+  "seller-ai-manager-orchestrator-v1.js",
   "mobile-bootstrap.js",
   "mobile-more-ui.js",
   "mobile-selling-entry.js",
@@ -71,7 +73,7 @@ function injectWorkforceV2IntoRuntimeLoader(source) {
   const entryMarker = '      { src: "/seller-ai-workforce-advanced-settings.js" },';
   const activationMarker = "      window.ElyonAIWorkforceAdvancedSettings?.refresh?.();";
   if (!source.includes(entryMarker) || !source.includes(activationMarker)) {
-    throw new Error("Virtual-Agent-Runtime konnte nicht um Workforce V4 erweitert werden.");
+    throw new Error("Virtual-Agent-Runtime konnte nicht um Elyon Manager V1 erweitert werden.");
   }
   return source
     .replace(entryMarker, [
@@ -83,6 +85,8 @@ function injectWorkforceV2IntoRuntimeLoader(source) {
       '      { src: "/seller-ai-workforce-workspace-v3-policy.js" },',
       '      { src: "/seller-ai-workforce-agent-builder.js" },',
       '      { src: "/seller-ai-workforce-interface-v4.js" },',
+      '      { src: "/seller-ai-manager-orchestrator-v1.js" },',
+      '      { src: "/seller-ai-company-view-v1.js" },',
     ].join("\n"))
     .replace(activationMarker, [
       activationMarker,
@@ -90,6 +94,7 @@ function injectWorkforceV2IntoRuntimeLoader(source) {
       "      window.ElyonAIWorkforceWorkspaceV3?.render?.();",
       "      window.ElyonAIAgentBuilder?.refresh?.();",
       "      window.ElyonAIWorkforceInterfaceV4?.refresh?.();",
+      "      window.ElyonManagerOrchestratorV1?.settings?.();",
     ].join("\n"));
 }
 
@@ -134,6 +139,8 @@ const filesToMirror = [
   ["seller-ai-workforce-workspace-v3-policy.js", "public/seller-ai-workforce-workspace-v3-policy.js"],
   ["seller-ai-workforce-agent-builder.js", "public/seller-ai-workforce-agent-builder.js"],
   ["seller-ai-workforce-interface-v4.js", "public/seller-ai-workforce-interface-v4.js"],
+  ["seller-ai-manager-orchestrator-v1.js", "public/seller-ai-manager-orchestrator-v1.js"],
+  ["seller-ai-company-view-v1.js", "public/seller-ai-company-view-v1.js"],
   ["seller-ai-workforce-team-v6.js", "public/seller-ai-workforce-team-v6.js"],
   ["seller-ai-task-prompt-helper.js", "public/seller-ai-task-prompt-helper.js"],
   ["ai-workforce-client.js", "public/ai-workforce-client.js"],
@@ -169,18 +176,21 @@ for (const [source, destination] of filesToMirror) {
   await copyFile(sourcePath, destinationPath);
 }
 
-const [runtimeLoaderRaw, aiWorkforceClientRaw, advancedAgentSettingsRaw] = await Promise.all([
+const [runtimeLoaderRaw, aiWorkforceClientRaw, advancedAgentSettingsRaw, workspaceV3Raw] = await Promise.all([
   readFile(path.join(appRoot, "seller-runtime-loader.js"), "utf8"),
   readFile(path.join(appRoot, "ai-workforce-client.js"), "utf8"),
   readFile(path.join(appRoot, "seller-ai-workforce-advanced-settings.js"), "utf8"),
+  readFile(path.join(appRoot, "seller-ai-workforce-workspace-v3.js"), "utf8"),
 ]);
 const runtimeLoaderSource = injectWorkforceV2IntoRuntimeLoader(optimizeVirtualAgentsRuntimeLoader(runtimeLoaderRaw));
 const aiWorkforceClientSource = optimizeAiWorkforceClient(aiWorkforceClientRaw);
 const advancedAgentSettingsSource = optimizeAdvancedAgentSettings(advancedAgentSettingsRaw);
+const workspaceV3Source = optimizeWorkspaceV3(workspaceV3Raw);
 await Promise.all([
   writeFile(path.join(publicRoot, "seller-runtime-loader.js"), runtimeLoaderSource, "utf8"),
   writeFile(path.join(publicRoot, "ai-workforce-client.js"), aiWorkforceClientSource, "utf8"),
   writeFile(path.join(publicRoot, "seller-ai-workforce-advanced-settings.js"), advancedAgentSettingsSource, "utf8"),
+  writeFile(path.join(publicRoot, "seller-ai-workforce-workspace-v3.js"), workspaceV3Source, "utf8"),
 ]);
 
 const desktopSourcePath = path.join(appRoot, "index.html");
@@ -228,4 +238,4 @@ const envStatus = {
 console.log("Google/security/AI env status:", JSON.stringify(envStatus));
 console.log("Desktop runtime extraction:", JSON.stringify(desktopRuntime.metrics));
 console.log("Desktop performance budget:", JSON.stringify(performanceAudit.metrics));
-console.log("Prepared Vercel output with stable delegated virtual-team V6, DeepSeek task prompt helper, lazy-loaded Elyon autonomy workspace v4, manager-default task routing, custom agent builder, manual task prompts, protected custom-agent execution, full internal automation, permission-gated external automation, and enforced performance budgets.");
+console.log("Prepared Vercel output with custom agent builder, manager-default task routing, lazy-loaded Elyon Manager orchestrator V1, coordinated existing specialist agents, workflow deduplication and loop guards, centralized approvals and briefing, autonomy capped at level 3, locked irreversible external actions, neutralized legacy workspace auto-triggers/external execution, stable virtual-team V6, and enforced performance budgets.");
