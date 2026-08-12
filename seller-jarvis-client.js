@@ -4,7 +4,8 @@
   const API_URL = "/api/jarvis";
   const EVENTS_API_URL = "/api/jarvis-events";
   const JOBS_API_URL = "/api/jarvis-jobs";
-  const VERSION = "phase-e1-v1";
+  const CONTROL_API_URL = "/api/jarvis-control";
+  const VERSION = "phase-e4-v1";
 
   async function request(url, options = {}) {
     const response = await fetch(url, {
@@ -39,6 +40,17 @@
     const params = new URLSearchParams({ limit: String(limit) });
     if (options.status) params.set("status", String(options.status));
     return request(`${JOBS_API_URL}?${params.toString()}`, { method: "GET" });
+  }
+
+  async function control() {
+    return request(CONTROL_API_URL, { method: "GET" });
+  }
+
+  async function updateControl(patch = {}) {
+    return request(CONTROL_API_URL, {
+      method: "PUT",
+      body: JSON.stringify(patch && typeof patch === "object" ? patch : {}),
+    });
   }
 
   async function plan(command, options = {}) {
@@ -77,12 +89,15 @@
     status,
     events,
     jobs,
+    control,
+    updateControl,
     plan,
     execute,
     delegate,
     api: API_URL,
     eventsApi: EVENTS_API_URL,
     jobsApi: JOBS_API_URL,
+    controlApi: CONTROL_API_URL,
     version: VERSION,
   });
 
