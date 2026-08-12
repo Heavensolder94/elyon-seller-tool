@@ -187,7 +187,8 @@ test("E1 persistence APIs remain protected/read-only while later worker phases s
   assert.match(eventsApi, /requireSellerAccess/);
   assert.match(eventsApi, /ingestJarvisEvent/);
   assert.match(eventsApi, /eventIngestionExecutesAgents: false/);
-  assert.match(eventsApi, /autonomousExecutionEnabled: true/);
+  assert.match(eventsApi, /getJarvisControlSnapshot/);
+  assert.match(eventsApi, /autonomousExecutionEnabled: workerAllowed/);
   assert.match(jobsApi, /requireSellerAccess/);
   assert.match(jobsApi, /req\.method !== "GET"/);
   assert.match(jobsApi, /jarvis_jobs_read_only/);
