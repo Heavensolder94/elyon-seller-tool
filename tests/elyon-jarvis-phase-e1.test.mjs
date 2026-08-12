@@ -222,17 +222,19 @@ test("E1 cloud UI remains passive while E4 worker state is displayed from server
   assert.doesNotMatch(cloud, /ElyonJarvis\.execute|ElyonJarvis\.plan|publish_listing|place_supplier_order/);
 });
 
-test("E1 remains under the existing one-script startup architecture through E4", async () => {
+test("E1 remains under the existing one-script startup architecture through E5", async () => {
   const [bootstrap, prepare] = await Promise.all([
     readFile(bootstrapUrl, "utf8"),
     readFile(prepareUrl, "utf8"),
   ]);
   assert.match(bootstrap, /seller-jarvis-e1-cloud\.js/);
   assert.match(bootstrap, /seller-jarvis-e4-control\.js/);
-  assert.match(bootstrap, /phase-e4-v1/);
+  assert.match(bootstrap, /seller-jarvis-e5-pipeline\.js/);
+  assert.match(bootstrap, /phase-e5-v1/);
   assert.match(prepare, /seller-jarvis-e1-cloud\.js/);
   assert.match(prepare, /seller-jarvis-e4-control\.js/);
-  assert.match(prepare, /one-script Jarvis D1\/D2\/D3\/E1\/E4 bootstrap/);
+  assert.match(prepare, /seller-jarvis-e5-pipeline\.js/);
+  assert.match(prepare, /one-script Jarvis D1\/D2\/D3\/E1\/E4\/E5 bootstrap/);
   assert.match(prepare, /const content = `<script defer src="\/\$\{jarvisBootstrapName\}/);
-  assert.doesNotMatch(prepare, /seller-jarvis-e4-control\.js[\s\S]{0,300}<script defer/);
+  assert.doesNotMatch(prepare, /seller-jarvis-e5-pipeline\.js[\s\S]{0,300}<script defer/);
 });
