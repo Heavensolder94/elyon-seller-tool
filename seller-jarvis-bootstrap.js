@@ -6,8 +6,9 @@
     "/seller-jarvis-ui.js",
     "/seller-jarvis-command-center.js",
     "/seller-jarvis-companion-handoff.js",
+    "/seller-jarvis-e1-cloud.js",
   ];
-  const VERSION = "phase-d3-v1";
+  const VERSION = "phase-e1-v1";
 
   function existing(path) {
     return [...document.scripts].some((script) => {
@@ -34,8 +35,9 @@
       for (const file of FILES) await load(file);
       window.ElyonJarvisUI?.refresh?.();
       window.ElyonJarvisCommandCenter?.refresh?.();
+      window.ElyonJarvisE1Cloud?.render?.();
     } catch (error) {
-      console.warn("[Elyon Jarvis] D3 Bootstrap fehlgeschlagen", error);
+      console.warn("[Elyon Jarvis] E1 Bootstrap fehlgeschlagen", error);
     }
   }
 
