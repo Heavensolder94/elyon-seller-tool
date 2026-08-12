@@ -64,7 +64,7 @@ test("desktop build uses exactly one Jarvis D1 startup script", async () => {
   const source = await readFile(prepareUrl, "utf8");
   assert.match(source, /const jarvisBootstrapName = "seller-jarvis-bootstrap\.js"/);
   assert.match(source, /function injectDesktopHtml/);
-  assert.match(source, /<script defer src=\\"\/\$\{jarvisBootstrapName\}/);
+  assert.match(source, /const content = `<script defer src="\/\$\{jarvisBootstrapName\}\?v=\$\{Date\.now\(\)\}"><\/script>`/);
   assert.doesNotMatch(source, /function injectDesktopHtml[\s\S]{0,400}jarvisClientNames\.map/);
   assert.match(source, /ELYON_JARVIS_D1/);
 });
