@@ -1,6 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "npm test && VERCEL_FORCE_NO_BUILD_CACHE=1 node scripts/prepare-vercel.mjs && node scripts/finalize-seller-os.mjs",
+  "buildCommand": "npm test && VERCEL_FORCE_NO_BUILD_CACHE=1 node scripts/prepare-vercel.mjs && node scripts/prepare-agent-registry.mjs && node scripts/finalize-seller-os.mjs",
   "outputDirectory": "public",
   "regions": ["fra1"],
   "crons": [
