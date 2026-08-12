@@ -34,6 +34,12 @@
     document.head.appendChild(style);
   }
 
+  function commandCenterActive() {
+    const tab = document.getElementById(TAB_ID);
+    const menu = document.getElementById("mainMenu");
+    return Boolean(tab?.classList.contains("active") || menu?.value === TAB_ID);
+  }
+
   function dateLabel(value) {
     const stamp = Date.parse(text(value));
     if (!Number.isFinite(stamp)) return "ohne Zeit";
@@ -108,7 +114,7 @@
   }
 
   async function refresh() {
-    if (state.loading) return false;
+    if (state.loading || !commandCenterActive()) return false;
     state.loading = true;
     try {
       if (!window.ElyonJarvis?.events || !window.ElyonJarvis?.jobs) throw new Error("E1-Client ist nicht verfügbar.");
@@ -136,7 +142,10 @@
   }
 
   function refreshAfterCommandCenter(delay = 350) {
-    window.setTimeout(() => refresh(), delay);
+    window.setTimeout(() => {
+      if (commandCenterActive()) refresh();
+      else render();
+    }, delay);
   }
 
   document.addEventListener("click", (event) => {
@@ -154,7 +163,9 @@
     if (event.key === "elyon_ai_workforce_tasks") window.queueMicrotask(() => render());
   });
   window.addEventListener("elyon:jarvis-command-center-result", () => refresh());
-  window.addEventListener("elyon:seller-authenticated", () => refreshAfterCommandCenter());
+  window.addEventListener("elyon:seller-authenticated", () => {
+    if (commandCenterActive()) refreshAfterCommandCenter();
+  });
 
   window.ElyonJarvisE1Cloud = Object.freeze({
     refresh,
@@ -162,6 +173,6 @@
     state: () => ({ ...state, events: [...state.events], jobs: [...state.jobs] }),
   });
 
-  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => refreshAfterCommandCenter(500), { once: true });
-  else refreshAfterCommandCenter(500);
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", render, { once: true });
+  else render();
 })();
