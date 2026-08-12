@@ -24,13 +24,13 @@ function authorizeCron(req, env = process.env) {
 export default async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
   res.setHeader("X-Content-Type-Options", "nosniff");
-  res.setHeader("X-Elyon-Jarvis-Worker", "phase-e3-v1");
+  res.setHeader("X-Elyon-Jarvis-Worker", "phase-e4-v1");
 
   if (req.method !== "GET") {
     return res.status(405).json({
       ok: false,
       error: "method_not_allowed",
-      message: "Der E3-Worker wird ausschließlich durch den geschützten Cloud-Cron aufgerufen.",
+      message: "Der E4-Worker wird ausschließlich durch den geschützten Cloud-Cron aufgerufen.",
     });
   }
 
@@ -50,13 +50,18 @@ export default async function handler(req, res) {
     return res.status(200).json(result);
   } catch (error) {
     const code = text(error?.code, 120) || "jarvis_worker_failed";
-    const configurationError = code === "jarvis_worker_seller_access_unconfigured" || code === "jarvis_worker_storage_unconfigured";
+    const configurationError = [
+      "jarvis_worker_seller_access_unconfigured",
+      "jarvis_worker_storage_unconfigured",
+      "jarvis_control_storage_unconfigured",
+    ].includes(code);
     return res.status(configurationError ? 503 : 500).json({
       ok: false,
-      phase: "E3",
+      phase: "E4",
       error: code,
-      message: text(error?.message, 2000) || "Jarvis E3 Worker konnte nicht ausgeführt werden.",
+      message: text(error?.message, 2000) || "Jarvis E4 Worker konnte nicht ausgeführt werden.",
       safety: {
+        failClosed: true,
         externalActionsLocked: true,
         livePublishingAllowed: false,
       },
