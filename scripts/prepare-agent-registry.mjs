@@ -12,6 +12,7 @@ const jarvisClientNames = [
   "seller-jarvis-ui.js",
   "seller-jarvis-command-center.js",
   "seller-jarvis-companion-handoff.js",
+  "seller-jarvis-e1-cloud.js",
 ];
 const clientNames = [registryClientName, jarvisBootstrapName, ...jarvisClientNames];
 
@@ -73,6 +74,6 @@ await Promise.all([
   writeFile(mobilePath, injectMobileHtml(mobileSource), "utf8"),
 ]);
 
-console.log("Prepared persistent Elyon Agent Registry plus one-script Jarvis D1/D2/D3 bootstrap for desktop and mobile.");
+console.log("Prepared persistent Elyon Agent Registry plus one-script Jarvis D1/D2/D3/E1 bootstrap for desktop and mobile.");
 
 export { clientNames, injectDesktopHtml, injectMobileHtml, injectRuntimeLoader, jarvisBootstrapName, jarvisClientNames, registryClientName };
