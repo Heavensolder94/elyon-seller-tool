@@ -5,6 +5,7 @@ import { validateE2BridgeEvent } from "../api/jarvis-events.js";
 
 const eventsApiUrl = new URL("../api/jarvis-events.js", import.meta.url);
 const eventStoreUrl = new URL("../lib/elyon-jarvis-event-store.js", import.meta.url);
+const workerStoreUrl = new URL("../lib/elyon-jarvis-worker-store.js", import.meta.url);
 
 function validEvent(overrides = {}) {
   return {
@@ -39,21 +40,28 @@ test("E2 event API keeps GET seller-only while POST can use the existing server 
   assert.doesNotMatch(source, /Access-Control-Allow-Origin|cors\(/i);
 });
 
-test("E2 service bridge cannot broaden Jarvis execution authority", async () => {
+test("E2 service bridge still cannot execute agents or broaden external authority directly", async () => {
   const source = await readFile(eventsApiUrl, "utf8");
   assert.match(source, /eventIngestionExecutesAgents: false/);
-  assert.match(source, /autonomousExecutionEnabled: false/);
-  assert.match(source, /jobExecutionPolicy: "manual_dispatch"/);
+  assert.match(source, /armJarvisJobForWorker/);
+  assert.match(source, /externalActionsLocked: true/);
   assert.match(source, /livePublishingAllowed: false/);
   assert.doesNotMatch(source, /ai-agent-run-registry|registryRunner|executePlan|publish_listing|place_supplier_order|issue_refund|send_customer_message/);
 });
 
-test("E2 still relies on the E1 deterministic event/job store for idempotency", async () => {
-  const source = await readFile(eventStoreUrl, "utf8");
-  assert.match(source, /const explicitKey = text\(source\.idempotencyKey/);
-  assert.match(source, /const eventId = `evt-\$\{hash\.slice\(0, 24\)\}`/);
-  assert.match(source, /const jobId = `job-\$\{hash\.slice\(0, 24\)\}`/);
-  assert.match(source, /"NX"/);
-  assert.match(source, /executionPolicy: "manual_dispatch"/);
-  assert.match(source, /autoExecute: false/);
+test("E2 still relies on the E1 deterministic event/job store and E3 arms only the exact safe scope", async () => {
+  const [eventStore, workerStore] = await Promise.all([
+    readFile(eventStoreUrl, "utf8"),
+    readFile(workerStoreUrl, "utf8"),
+  ]);
+  assert.match(eventStore, /const explicitKey = text\(source\.idempotencyKey/);
+  assert.match(eventStore, /const eventId = `evt-\$\{hash\.slice\(0, 24\)\}`/);
+  assert.match(eventStore, /const jobId = `job-\$\{hash\.slice\(0, 24\)\}`/);
+  assert.match(eventStore, /"NX"/);
+  assert.match(eventStore, /executionPolicy: "manual_dispatch"/);
+  assert.match(eventStore, /autoExecute: false/);
+  assert.match(workerStore, /nova\.product\.created/);
+  assert.match(workerStore, /company-os/);
+  assert.match(workerStore, /executionPolicy: "auto_internal"/);
+  assert.match(workerStore, /autoExecute: true/);
 });
