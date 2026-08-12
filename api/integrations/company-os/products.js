@@ -7,6 +7,8 @@ import {
   writeProductMasterList,
 } from "../../../lib/product-master-store.js";
 
+const ARTICLE_NUMBER_PATTERN = /^ELY-\d{6,}$/i;
+
 function text(value) {
   return String(value ?? "").trim();
 }
@@ -17,6 +19,23 @@ function object(value) {
 
 function normalizedStatus(value) {
   return text(value).toLocaleLowerCase("de-DE").replace(/[_-]+/g, " ").replace(/\s+/g, " ");
+}
+
+function articleNumberOf(product = {}) {
+  const candidates = [
+    product.articleNumber,
+    product.elyonArticleNumber,
+    product.sku,
+    product.listing?.articleNumber,
+    product.listing?.sku,
+    product.listingPackage?.articleNumber,
+    product.listingPackage?.sku,
+  ];
+  for (const value of candidates) {
+    const candidate = text(value).toUpperCase();
+    if (ARTICLE_NUMBER_PATTERN.test(candidate)) return candidate;
+  }
+  return "";
 }
 
 export function isReviewedCompanyProduct(product = {}) {
@@ -53,6 +72,7 @@ export default async function handler(req, res) {
       bridge: { configured: true, source: "elyon_company_os" },
       storage: { configured: Boolean(config.url && config.token), source: config.source },
       acceptedStates: ["explicit_approval + ready_for_seller_tool", "explicit_approval + bereit_manuell_einstellen"],
+      requiredIdentity: "ELY-000001",
       rejectedStates: ["in_review", "sent_to_review", "prüfen", "review"],
       safety: { automaticListing: false, automaticOrder: false, manualApprovalRequired: true },
     });
@@ -83,10 +103,25 @@ export default async function handler(req, res) {
     });
   }
 
+  const articleNumber = articleNumberOf(incoming);
+  if (!articleNumber) {
+    return res.status(409).json({
+      ok: false,
+      error: "company_os_article_number_required",
+      message: "Der Company-OS-Datensatz besitzt noch keine gültige Elyon-Artikelnummer (z. B. ELY-000001). Bitte den Datensatz zuerst über die aktuelle Produktprüfung synchronisieren.",
+    });
+  }
+
   try {
     const now = new Date().toISOString();
+    const incomingSku = text(incoming.sku || incoming.productSku);
     const prepared = {
       ...incoming,
+      articleNumber,
+      sku: articleNumber,
+      ...(text(incoming.supplierSku) || (incomingSku && !ARTICLE_NUMBER_PATTERN.test(incomingSku))
+        ? { supplierSku: text(incoming.supplierSku) || incomingSku }
+        : {}),
       schemaVersion: text(incoming.schemaVersion || "elyon-seller-product-v1"),
       source: "elyon_company_os",
       sourceProvider: "company-os",
@@ -99,6 +134,11 @@ export default async function handler(req, res) {
       processingStatus: "sent_to_seller_tool",
       reviewApproved: true,
       listingStatus: text(incoming.listingStatus || incoming.listing?.status || incoming.listingPackage?.status || "draft"),
+      listing: {
+        ...object(incoming.listing),
+        articleNumber,
+        sku: articleNumber,
+      },
       manualApprovalRequired: true,
       autonomousPostingAllowed: false,
       updatedAt: now,
@@ -113,6 +153,9 @@ export default async function handler(req, res) {
       route: "/api/integrations/company-os/products",
       status: result.status,
       masterProductId: product.id,
+      articleNumber: product.articleNumber,
+      sku: product.sku,
+      identity: result.identity || null,
       product,
       total: result.items.length,
       storage,
