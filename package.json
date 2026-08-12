@@ -5,7 +5,7 @@
   "scripts": {
     "check:layout": "node scripts/check-layout.mjs",
     "check:performance": "node scripts/check-performance-budget.mjs",
-    "prepare:web": "npm run check:layout && node scripts/prepare-vercel.mjs",
+    "prepare:web": "npm run check:layout && node scripts/prepare-vercel.mjs && node scripts/prepare-agent-registry.mjs",
     "start": "node scripts/dev-server.mjs",
     "dev": "npm run start",
     "launcher": "electron launcher/main.cjs",
