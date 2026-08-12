@@ -7,7 +7,11 @@ const appRoot = path.resolve(scriptDir, "..");
 const publicRoot = path.join(appRoot, "public");
 const registryClientName = "seller-ai-agent-registry-client.js";
 const jarvisBootstrapName = "seller-jarvis-bootstrap.js";
-const jarvisClientNames = ["seller-jarvis-client.js", "seller-jarvis-ui.js"];
+const jarvisClientNames = [
+  "seller-jarvis-client.js",
+  "seller-jarvis-ui.js",
+  "seller-jarvis-command-center.js",
+];
 const clientNames = [registryClientName, jarvisBootstrapName, ...jarvisClientNames];
 
 function injectRuntimeLoader(source) {
@@ -23,7 +27,7 @@ function replaceMarkedBlock(source, startMarker, endMarker, content) {
   const end = source.indexOf(endMarker);
   if (start >= 0 && end > start) return `${source.slice(0, start)}${startMarker}\n${content}\n${endMarker}${source.slice(end + endMarker.length)}`;
   const bodyEnd = source.lastIndexOf("</body>");
-  if (bodyEnd < 0) throw new Error("Jarvis D1 konnte nicht in das HTML eingebunden werden.");
+  if (bodyEnd < 0) throw new Error("Jarvis konnte nicht in das HTML eingebunden werden.");
   return `${source.slice(0, bodyEnd)}${startMarker}\n${content}\n${endMarker}\n${source.slice(bodyEnd)}`;
 }
 
@@ -68,6 +72,6 @@ await Promise.all([
   writeFile(mobilePath, injectMobileHtml(mobileSource), "utf8"),
 ]);
 
-console.log("Prepared persistent Elyon Agent Registry plus one-script Jarvis D1 bootstrap for desktop and mobile.");
+console.log("Prepared persistent Elyon Agent Registry plus one-script Jarvis D1/D2 bootstrap for desktop and mobile.");
 
 export { clientNames, injectDesktopHtml, injectMobileHtml, injectRuntimeLoader, jarvisBootstrapName, jarvisClientNames, registryClientName };
