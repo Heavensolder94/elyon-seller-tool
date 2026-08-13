@@ -223,6 +223,15 @@
     }
     if (document.documentElement.dataset.elyonAutonomyModelRoutingBound === "1") return;
     document.documentElement.dataset.elyonAutonomyModelRoutingBound = "1";
+
+    window.addEventListener("click", (event) => {
+      const target = event.target instanceof Element ? event.target : null;
+      const v6Button = target?.closest("[data-v6-skill-autonomy]");
+      if (!v6Button) return;
+      const agentId = v6Button.dataset.v6SkillAutonomy;
+      queueMicrotask(() => decorateAutonomy(agentId));
+    }, true);
+
     document.addEventListener("click", (event) => {
       const target = event.target instanceof Element ? event.target : null;
       if (!target) return;
