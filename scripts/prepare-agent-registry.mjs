@@ -36,9 +36,18 @@ function replaceMarkedBlock(source, startMarker, endMarker, content) {
   return `${source.slice(0, bodyEnd)}${startMarker}\n${content}\n${endMarker}\n${source.slice(bodyEnd)}`;
 }
 
+function injectIntegrationMenuOption(source) {
+  const value = "jarvisIntegrationCenterTab";
+  if (source.includes(`value="${value}"`)) return source;
+  const marker = '<option value="virtualAgentsTab">10. 🧑‍💼 Virtuelle Mitarbeiter / KI-Agenten</option>';
+  if (!source.includes(marker)) return source;
+  return source.replace(marker, `${marker}\n      <option value="${value}">11. ⌘ Jarvis Integration Center</option>`);
+}
+
 function injectDesktopHtml(source) {
+  const withMenu = injectIntegrationMenuOption(source);
   const content = `<script defer src="/${jarvisBootstrapName}?v=${Date.now()}"></script>`;
-  return replaceMarkedBlock(source, "<!-- ELYON_JARVIS_D1 -->", "<!-- /ELYON_JARVIS_D1 -->", content);
+  return replaceMarkedBlock(withMenu, "<!-- ELYON_JARVIS_D1 -->", "<!-- /ELYON_JARVIS_D1 -->", content);
 }
 
 function injectMobileHtml(source) {
@@ -79,4 +88,4 @@ await Promise.all([
 
 console.log("Prepared persistent Elyon Agent Registry plus one-script Jarvis D1/D2/D3/E1/E4/E5 bootstrap with Integration Center for desktop and mobile.");
 
-export { clientNames, injectDesktopHtml, injectMobileHtml, injectRuntimeLoader, jarvisBootstrapName, jarvisClientNames, registryClientName };
+export { clientNames, injectDesktopHtml, injectIntegrationMenuOption, injectMobileHtml, injectRuntimeLoader, jarvisBootstrapName, jarvisClientNames, registryClientName };
