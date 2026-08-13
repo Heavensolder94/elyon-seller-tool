@@ -5,6 +5,7 @@ import { Script } from "node:vm";
 import {
   optimizeAdvancedAgentSettings,
   optimizeAiWorkforceClient,
+  optimizeWorkforceWorkspaceV3,
   optimizeVirtualAgentsRuntimeLoader,
 } from "../scripts/virtual-agents-runtime-optimization.mjs";
 
@@ -33,12 +34,27 @@ test("advanced settings observe only relevant agent cards", async () => {
   assert.doesNotThrow(() => new Script(optimized, { filename: "seller-ai-workforce-advanced-settings.js" }));
 });
 
-test("desktop runtime no longer executes the discarded legacy agent UI", async () => {
+test("workspace v3 refreshes from virtual-agent events without observing the whole app", async () => {
+  const optimized = optimizeWorkforceWorkspaceV3(await source("seller-ai-workforce-workspace-v3.js"));
+
+  assert.match(optimized, /function workspaceIsActive\(\)/);
+  assert.match(optimized, /function refreshWorkspace\(\)/);
+  assert.match(optimized, /elyon:runtime-group-loaded/);
+  assert.match(optimized, /elyon:tab-changed/);
+  assert.match(optimized, /event\.target\?\.id === "mainMenu"/);
+  assert.doesNotMatch(optimized, /observer\.observe\(document\.documentElement/);
+  assert.doesNotMatch(optimized, /\[100, 500, 1200\]/);
+  assert.doesNotThrow(() => new Script(optimized, { filename: "seller-ai-workforce-workspace-v3.js" }));
+});
+
+test("desktop runtime no longer executes the discarded legacy agent UI and coalesces duplicate virtual-agent activation", async () => {
   const optimized = optimizeVirtualAgentsRuntimeLoader(await source("seller-runtime-loader.js"));
 
   assert.doesNotMatch(optimized, /seller-virtual-agents-legacy\.js/);
   assert.match(optimized, /virtualAgentsTab:[\s\S]*ai-workforce-client\.js[\s\S]*ai-workforce-mount-fix\.js[\s\S]*seller-ai-workforce-advanced-settings\.js/);
-  assert.match(optimized, /virtual-agents-stable-20260806-1/);
+  assert.match(optimized, /virtual-agents-stable-20260813-2/);
+  assert.match(optimized, /duplicateVirtualActivation/);
+  assert.match(optimized, /now - lastVirtualActivation < 250/);
   assert.doesNotThrow(() => new Script(optimized, { filename: "seller-runtime-loader.js" }));
 });
 
