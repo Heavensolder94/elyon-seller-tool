@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const VERSION = "phase-e5-v2-lazy-workspaces";
+  const VERSION = "phase-e5-v1-integration-center-v3-lazy-workspaces";
   const COMMAND_CENTER_TAB = "jarvisCommandCenterTab";
   const INTEGRATION_CENTER_TAB = "jarvisIntegrationCenterTab";
   const VIRTUAL_AGENTS_TAB = "virtualAgentsTab";
