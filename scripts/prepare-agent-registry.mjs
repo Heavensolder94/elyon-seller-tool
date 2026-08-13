@@ -7,11 +7,13 @@ const appRoot = path.resolve(scriptDir, "..");
 const publicRoot = path.join(appRoot, "public");
 const registryClientName = "seller-ai-agent-registry-client.js";
 const jarvisBootstrapName = "seller-jarvis-bootstrap.js";
+const openRouterModelCatalogName = "seller-jarvis-openrouter-models.js";
 const builderIntegrationName = "seller-ai-workforce-builder-integration.js";
 const jarvisClientNames = [
   "seller-jarvis-client.js",
   "seller-jarvis-ui.js",
   "seller-jarvis-command-center.js",
+  openRouterModelCatalogName,
   "seller-jarvis-integration-center.js",
   builderIntegrationName,
   "seller-jarvis-companion-handoff.js",
@@ -88,6 +90,6 @@ await Promise.all([
   writeFile(mobilePath, injectMobileHtml(mobileSource), "utf8"),
 ]);
 
-console.log("Prepared persistent Elyon Agent Registry plus one-script Jarvis D1/D2/D3/E1/E4/E5 bootstrap with Integration Center and employee-builder model bridge for desktop and mobile.");
+console.log("Prepared persistent Elyon Agent Registry plus one-script Jarvis D1/D2/D3/E1/E4/E5 bootstrap with OpenRouter model catalog, Integration Center and employee-builder model bridge for desktop and mobile.");
 
-export { builderIntegrationName, clientNames, injectDesktopHtml, injectIntegrationMenuOption, injectMobileHtml, injectRuntimeLoader, jarvisBootstrapName, jarvisClientNames, registryClientName };
+export { builderIntegrationName, clientNames, injectDesktopHtml, injectIntegrationMenuOption, injectMobileHtml, injectRuntimeLoader, jarvisBootstrapName, jarvisClientNames, openRouterModelCatalogName, registryClientName };
