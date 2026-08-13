@@ -44,7 +44,7 @@ test("task center lifecycle is event driven without DOM polling", async () => {
 
 test("static task form is wired into both task stores", async () => {
   const source = await readFile(runtimeUrl, "utf8");
-  assert.match(source, /data-task-action=\\"create-task\\"/);
+  assert.match(source, /data-task-action="create-task"/);
   assert.match(source, /aiTaskTitleInput/);
   assert.match(source, /aiTaskDescriptionInput/);
   assert.match(source, /aiTaskAgentSelect/);
@@ -57,7 +57,7 @@ test("static task form is wired into both task stores", async () => {
 test("production finalizer ships the lightweight task center independently of the legacy chunk", async () => {
   const source = await readFile(finalizerUrl, "utf8");
   assert.match(source, /seller-ai-task-center-live\.js/);
-  assert.match(source, /data-elyon-task-center-live=\\"true\\"/);
+  assert.match(source, /data-elyon-task-center-live="true"/);
   assert.match(source, /writeFile\(outputTaskCenterPath, taskCenterSource/);
   assert.match(source, /20260813-task-center-live-1/);
 });
