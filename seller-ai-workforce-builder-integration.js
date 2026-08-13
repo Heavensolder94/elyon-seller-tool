@@ -33,10 +33,13 @@
     catch { return false; }
   }
 
-  function models() {
+  function catalogModels() {
     const registry = readJson(REGISTRY_KEY, {});
-    const list = Array.isArray(registry?.models) ? registry.models.filter((model) => model?.enabled !== false) : [];
-    return list.length ? list : DEFAULT_MODELS;
+    return Array.isArray(registry?.models) && registry.models.length ? registry.models : DEFAULT_MODELS;
+  }
+
+  function models() {
+    return catalogModels().filter((model) => model?.enabled !== false);
   }
 
   function runtimeModelId(model) {
@@ -50,6 +53,24 @@
 
   function openRouterModels() {
     return models().filter((model) => text(model.provider).toLowerCase() === "openrouter" && isChatRuntimeModel(model));
+  }
+
+  function normalizeLegacyModelOptions(root = document) {
+    const aliases = new Map(catalogModels().map((model) => [text(model?.id), model]).filter(([id]) => id));
+    const selectors = root.querySelectorAll?.('.elyon-model-picker,[data-resource-field="model"],[data-resource-field="fallbackModel"]') || [];
+    selectors.forEach((select) => {
+      if (!(select instanceof HTMLSelectElement)) return;
+      [...select.options].forEach((option) => {
+        const model = aliases.get(text(option.value));
+        if (!model) return;
+        if (text(model.provider).toLowerCase() !== "openrouter" || !isChatRuntimeModel(model)) {
+          option.remove();
+          return;
+        }
+        const runtimeId = runtimeModelId(model);
+        if (runtimeId) option.value = runtimeId;
+      });
+    });
   }
 
   function installStyles() {
@@ -151,6 +172,7 @@
   }
 
   function enhance(root = document.getElementById(BUILDER_ID)) {
+    normalizeLegacyModelOptions(document);
     if (!root) return false;
     installStyles();
     const provider = root.querySelector('[data-builder-field="provider"]');
@@ -213,13 +235,14 @@
   }, true);
 
   const observer = new MutationObserver(() => {
+    normalizeLegacyModelOptions(document);
     const root = document.getElementById(BUILDER_ID);
     if (root) enhance(root);
   });
   observer.observe(document.documentElement, { childList: true, subtree: true });
 
   window.addEventListener("elyon:jarvis-integration-registry-changed", () => enhance());
-  window.ElyonAIWorkforceBuilderIntegration = { refresh: enhance, models: openRouterModels };
+  window.ElyonAIWorkforceBuilderIntegration = { refresh: enhance, models: openRouterModels, normalizeLegacyModelOptions };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => enhance(), { once: true });
   else enhance();
 })();
