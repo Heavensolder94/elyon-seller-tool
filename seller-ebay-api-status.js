@@ -5,14 +5,20 @@
   const RESULT_ID = "setIntEbayStatus";
   const TAXONOMY_STATUS_URL = "/api/ebay-taxonomy?action=status";
   const OAUTH_STATUS_URL = "/api/ebay/status?environment=production";
-  const MAX_AGE_MS = 15000;
+  const MAX_AGE_MS = 2 * 60 * 1000;
   let request = null;
   let lastResult = null;
   let checkedAt = 0;
-  let observer = null;
   let scheduled = false;
 
   const text = (value) => String(value ?? "").trim();
+
+  function settingsIsActive() {
+    const settings = document.getElementById("settingsTab");
+    if (!settings) return false;
+    if (settings.classList.contains("active")) return true;
+    return document.getElementById("mainMenu")?.value === "settingsTab";
+  }
 
   async function fetchJson(url) {
     const response = await fetch(url, {
@@ -154,19 +160,33 @@
   function scheduleDecorate() {
     if (scheduled) return;
     scheduled = true;
-    requestAnimationFrame(decorate);
+    if (typeof requestAnimationFrame === "function") requestAnimationFrame(decorate);
+    else setTimeout(decorate, 0);
+  }
+
+  function scheduleBoundedDecorates() {
+    [120, 450, 1000, 1800].forEach((delay) => setTimeout(() => {
+      if (settingsIsActive()) scheduleDecorate();
+    }, delay));
   }
 
   function install() {
     document.addEventListener("click", captureClick, true);
-    if (document.body) {
-      observer = new MutationObserver(scheduleDecorate);
-      observer.observe(document.body, { childList: true, subtree: true });
-    }
     scheduleDecorate();
-    window.addEventListener("focus", () => checkEbayApiStatus());
+    scheduleBoundedDecorates();
+
+    document.addEventListener("change", (event) => {
+      if (event.target?.id === "mainMenu" && event.target.value === "settingsTab") scheduleDecorate();
+    }, true);
+    window.addEventListener("elyon:tab-changed", (event) => {
+      const tabId = event.detail?.tabId || event.detail;
+      if (tabId === "settingsTab") scheduleDecorate();
+    });
+    window.addEventListener("focus", () => {
+      if (settingsIsActive()) checkEbayApiStatus();
+    });
     document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === "visible") checkEbayApiStatus();
+      if (document.visibilityState === "visible" && settingsIsActive()) checkEbayApiStatus();
     });
     window.ElyonEbayApiStatus = {
       refresh: () => checkEbayApiStatus({ force: true }),
