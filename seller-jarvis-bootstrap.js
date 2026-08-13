@@ -6,12 +6,13 @@
     "/seller-jarvis-ui.js",
     "/seller-jarvis-command-center.js",
     "/seller-jarvis-integration-center.js",
+    "/seller-ai-workforce-builder-integration.js",
     "/seller-jarvis-companion-handoff.js",
     "/seller-jarvis-e1-cloud.js",
     "/seller-jarvis-e4-control.js",
     "/seller-jarvis-e5-pipeline.js",
   ];
-  const VERSION = "phase-e5-v1-integration-center-v1";
+  const VERSION = "phase-e5-v1-integration-center-v2";
 
   function existing(path) {
     return [...document.scripts].some((script) => {
@@ -39,6 +40,7 @@
       window.ElyonJarvisUI?.refresh?.();
       window.ElyonJarvisCommandCenter?.refresh?.();
       window.ElyonJarvisIntegrationCenter?.refresh?.();
+      window.ElyonAIWorkforceBuilderIntegration?.refresh?.();
       window.ElyonJarvisE4Cloud?.render?.();
       window.ElyonJarvisE4Control?.render?.();
       window.ElyonJarvisE5Pipeline?.render?.();
