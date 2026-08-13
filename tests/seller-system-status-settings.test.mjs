@@ -12,13 +12,16 @@ async function source() {
   return readFile(new URL("../seller-system-status-settings.js", import.meta.url), "utf8");
 }
 
-test("system and data status is moved from dashboard into settings", async () => {
+test("system and data status is moved from dashboard into settings without a global DOM observer", async () => {
   const code = await source();
   assert.match(code, /document\.getElementById\("settingsTab"\)/);
   assert.match(code, /#dashboardTab \.sd-panel/);
   assert.match(code, /system- und datenstatus/);
   assert.match(code, /keepOnlyPanel\(panel, target\.host\)/);
-  assert.match(code, /MutationObserver/);
+  assert.match(code, /scheduleBoundedRepairs/);
+  assert.match(code, /elyon:tab-changed/);
+  assert.doesNotMatch(code, /new MutationObserver/);
+  assert.doesNotMatch(code, /observer\.observe\(document\.documentElement/);
 });
 
 test("status marker uses the real kebab-case data attribute", async () => {
