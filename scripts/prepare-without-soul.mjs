@@ -6,6 +6,7 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const appRoot = path.resolve(scriptDir, "..");
 const publicRoot = path.join(appRoot, "public");
 const indexPath = path.join(appRoot, "index.html");
+const publicIndexPath = path.join(publicRoot, "index.html");
 const backupPath = path.join(appRoot, ".elyon-index-before-soul-removal.tmp");
 const soulJsPath = path.join(appRoot, "elyon-soul.js");
 const soulCssPath = path.join(appRoot, "elyon-soul.css");
@@ -20,10 +21,11 @@ function stripSoulAssets(html) {
 
 async function prepareBeforeBuild() {
   const originalIndex = await readFile(indexPath, "utf8");
-  const strippedIndex = stripSoulAssets(originalIndex);
+  const currentPublicIndex = await readFile(publicIndexPath, "utf8");
 
   await writeFile(backupPath, originalIndex, "utf8");
-  await writeFile(indexPath, strippedIndex, "utf8");
+  await writeFile(indexPath, stripSoulAssets(originalIndex), "utf8");
+  await writeFile(publicIndexPath, stripSoulAssets(currentPublicIndex), "utf8");
 
   // prepare-vercel.mjs still contains two historical mirror entries. Temporary
   // empty files satisfy that old build contract; they are removed after output.
