@@ -1,9 +1,12 @@
-const WORKER_VERSION = "0.3.0";
+import { normalizeProduct } from "../../../lib/product-master-active.js";
+
+const WORKER_VERSION = "0.4.0";
 const TASK_TTL_SECONDS = 86400;
 const IDEMPOTENCY_TTL_SECONDS = 2592000;
 const DEFAULT_MAX_ATTEMPTS = 3;
 const RETRY_DELAYS_SECONDS = [15, 60];
 const TERMINAL_STATUSES = new Set(["completed", "failed", "cancelled"]);
+const PRODUCT_MASTER_KEYS = ["elyon_products", "elyon_browser_imports"];
 
 const json = (data, init = {}) => Response.json(data, {
   ...init,
@@ -50,6 +53,8 @@ const isSupabaseSecretKey = (key) => String(key || "").startsWith("sb_secret_");
 const normalizeText = (value, max = 500) => String(value || "").trim().slice(0, max);
 const nowIso = () => new Date().toISOString();
 const safeError = (error) => error instanceof Error ? error.message : "internal_error";
+const object = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : {};
+const array = (value) => Array.isArray(value) ? value : [];
 const taskKey = (id) => `jarvis:task:${id}`;
 const taskAttemptKey = (id) => `jarvis:task:${id}:attempt`;
 const idempotencyKey = (key) => `jarvis:idempotency:${key}`;
@@ -61,6 +66,14 @@ const publicError = (error) => {
   if (/^(upstash|supabase|queue)_/.test(error.message)) return error.message;
   return "internal_error";
 };
+
+const taskError = (message, { retryable = true } = {}) => {
+  const error = new Error(message);
+  error.retryable = retryable;
+  return error;
+};
+
+const isRetryableError = (error) => error?.retryable !== false;
 
 const redis = async (env, command) => {
   requireRedis(env);
@@ -152,11 +165,393 @@ const runtimeOutput = (type) => ({
   message: "Jarvis Task Runtime V1 completed successfully"
 });
 
+const parseStoredProductList = (raw) => {
+  if (Array.isArray(raw)) return raw;
+  if (Array.isArray(raw?.value)) return raw.value;
+  if (typeof raw !== "string") return [];
+
+  try {
+    const parsed = JSON.parse(raw || "[]");
+    if (Array.isArray(parsed)) return parsed;
+    if (Array.isArray(parsed?.value)) return parsed.value;
+  } catch {
+    return [];
+  }
+
+  return [];
+};
+
+const textFrom = (value, max = 500) => String(value ?? "").trim().slice(0, max);
+
+const numberFrom = (value) => {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  const raw = textFrom(value).replace(/\s/g, "").replace(",", ".");
+  if (!raw) return null;
+  const match = raw.match(/-?\d+(?:\.\d+)?/);
+  return match ? Number(match[0]) : null;
+};
+
+const roundMoney = (value) => Number.isFinite(Number(value)) ? Number(Number(value).toFixed(2)) : null;
+const roundPercent = (value) => Number.isFinite(Number(value)) ? Number(Number(value).toFixed(2)) : null;
+
+const valueAt = (source, path) => path.split(".").reduce((current, part) => object(current)[part], source);
+
+const firstTextAt = (source, paths, max = 500) => {
+  for (const path of paths) {
+    const value = valueAt(source, path);
+    if (Array.isArray(value)) {
+      const item = value.map((entry) => textFrom(entry, max)).find(Boolean);
+      if (item) return item;
+    } else {
+      const text = textFrom(value, max);
+      if (text) return text;
+    }
+  }
+  return "";
+};
+
+const firstNumberAt = (source, paths) => {
+  for (const path of paths) {
+    const value = numberFrom(valueAt(source, path));
+    if (value !== null) return value;
+  }
+  return null;
+};
+
+const hasPath = (source, paths) => paths.some((path) => {
+  const current = valueAt(source, path);
+  if (Array.isArray(current)) return current.length > 0;
+  if (current && typeof current === "object") return Object.keys(current).length > 0;
+  return textFrom(current) !== "";
+});
+
+const hasContactData = (value) => {
+  const current = object(value);
+  if (!Object.keys(current).length) return false;
+  return Object.values(current).some((entry) => {
+    if (entry && typeof entry === "object") return hasContactData(entry);
+    return textFrom(entry) !== "";
+  });
+};
+
+const explicitNumberAt = (source, paths) => {
+  for (const path of paths) {
+    const parentPath = path.split(".").slice(0, -1).join(".");
+    const key = path.split(".").at(-1);
+    const parent = parentPath ? object(valueAt(source, parentPath)) : object(source);
+    if (!Object.prototype.hasOwnProperty.call(parent, key)) continue;
+    const value = numberFrom(parent[key]);
+    if (value !== null) return value;
+  }
+  return null;
+};
+
+const compactProductSnapshot = (product) => ({
+  id: product.id,
+  articleNumber: product.articleNumber ?? null,
+  sku: product.sku ?? null,
+  title: product.title,
+  source: product.source,
+  supplier: {
+    id: product.supplier?.id || null,
+    name: product.supplier?.name || null,
+    url: product.supplier?.url || null
+  },
+  pricing: product.pricing,
+  readiness: product.readiness
+});
+
+const productIdentityMatches = (rawProduct, normalizedProduct, productId) => {
+  const id = textFrom(productId);
+  if (!id) return false;
+  const candidates = [
+    normalizedProduct.id,
+    normalizedProduct.articleNumber,
+    normalizedProduct.sku,
+    normalizedProduct.supplierSku,
+    normalizedProduct.supplier?.url,
+    rawProduct.id,
+    rawProduct.productId,
+    rawProduct.masterProductId,
+    rawProduct.companyOsProductId,
+    rawProduct.sourceImportId,
+    rawProduct.sku,
+    rawProduct.productSku,
+    rawProduct.articleNumber,
+    rawProduct.elyonArticleNumber,
+    rawProduct.url,
+    rawProduct.sourceUrl,
+    rawProduct.supplierLink,
+    rawProduct.supplier?.url,
+    rawProduct.listing?.sku
+  ].map((value) => textFrom(value)).filter(Boolean);
+  return candidates.some((candidate) => candidate === id);
+};
+
+const readProductMasterKey = async (env, key) => {
+  try {
+    return parseStoredProductList(await redis(env, ["GET", key]));
+  } catch (error) {
+    console.error("elyon-jarvis-worker product source unavailable", error);
+    throw taskError("product_source_unavailable");
+  }
+};
+
+const loadProductForTask = async (env, productId) => {
+  const id = textFrom(productId, 200);
+  if (!id) throw taskError("invalid_product_id", { retryable: false });
+
+  for (const key of PRODUCT_MASTER_KEYS) {
+    const products = await readProductMasterKey(env, key);
+    for (const rawProduct of products) {
+      const normalized = normalizeProduct(rawProduct);
+      if (productIdentityMatches(rawProduct, normalized, id)) {
+        return {
+          product: normalized,
+          rawProduct,
+          source: key === "elyon_products" ? "seller_product_master" : "legacy_browser_imports"
+        };
+      }
+    }
+  }
+
+  throw taskError("product_not_found", { retryable: false });
+};
+
+const analyzeDataQuality = (product, rawProduct) => {
+  const source = { ...object(rawProduct), normalized: product };
+  const checks = [
+    { id: "title", weight: 10, ok: product.title && product.title !== "Unbenanntes Produkt" },
+    { id: "description", weight: 10, ok: textFrom(product.description) || textFrom(product.listing?.descriptionHtml) },
+    { id: "mainImage", weight: 9, ok: array(product.images).length > 0 },
+    { id: "purchasePrice", weight: 9, ok: Number(product.pricing?.buyPrice || 0) > 0 },
+    { id: "sellingPrice", weight: 9, ok: Number(product.pricing?.salePrice || 0) > 0 },
+    { id: "supplier", weight: 8, ok: textFrom(product.supplier?.url || product.supplier?.name) },
+    { id: "productId", weight: 7, ok: textFrom(product.id || product.sku || product.articleNumber) },
+    { id: "category", weight: 7, ok: hasPath(source, ["category", "categoryId", "listing.categoryId", "listing.category", "normalized.listing.categoryId"]) },
+    { id: "variants", weight: 5, ok: array(product.logistics?.variants).length > 0 || hasPath(source, ["variants", "options"]) },
+    { id: "shippingData", weight: 8, ok: textFrom(product.logistics?.deliveryTime || product.logistics?.shippingInfo) },
+    { id: "manufacturer", weight: 6, ok: hasContactData(rawProduct.manufacturer) || hasContactData(rawProduct.compliance?.manufacturer) || hasPath(source, ["manufacturerName", "gpsr.manufacturerName", "listing.compliance.manufacturer.companyName"]) },
+    { id: "euResponsiblePerson", weight: 5, ok: hasContactData(rawProduct.responsiblePerson) || hasContactData(rawProduct.compliance?.responsiblePerson) || hasPath(source, ["responsiblePersonName", "gpsr.responsiblePersonName", "listing.compliance.responsiblePerson.companyName"]) },
+    { id: "complianceData", weight: 7, ok: hasPath(source, ["compliance", "gpsr", "listing.compliance"]) }
+  ];
+
+  const total = checks.reduce((sum, check) => sum + check.weight, 0);
+  const passed = checks.filter((check) => Boolean(check.ok)).reduce((sum, check) => sum + check.weight, 0);
+  const missingFields = checks.filter((check) => !check.ok).map((check) => check.id);
+  const warnings = [];
+  if (product.readiness?.blockers?.length) warnings.push(...product.readiness.blockers.slice(0, 12));
+  if (product.readiness?.reviewItems?.length) warnings.push(...product.readiness.reviewItems.slice(0, 8));
+
+  return {
+    score: Math.round((passed / total) * 100),
+    missingFields,
+    warnings: [...new Set(warnings)]
+  };
+};
+
+const calculateEconomics = (product, rawProduct) => {
+  const source = { ...object(rawProduct), normalized: product };
+  const purchasePrice = firstNumberAt(source, [
+    "economics.purchasePrice",
+    "economics.buyPrice",
+    "pricing.buyPrice",
+    "buyPrice",
+    "costPrice",
+    "purchasePrice",
+    "sourceOnlinePrice",
+    "normalized.pricing.buyPrice"
+  ]);
+  const sellingPrice = firstNumberAt(source, [
+    "economics.salePrice",
+    "economics.sellingPrice",
+    "pricing.salePrice",
+    "salePrice",
+    "targetPrice",
+    "ebayPrice",
+    "retailPrice",
+    "normalized.pricing.salePrice"
+  ]);
+
+  if (purchasePrice === null || purchasePrice <= 0 || sellingPrice === null || sellingPrice <= 0) {
+    return {
+      purchasePrice: roundMoney(purchasePrice),
+      sellingPrice: roundMoney(sellingPrice),
+      absoluteMargin: null,
+      marginPercent: null,
+      knownAdditionalCosts: 0,
+      feeAmount: null,
+      status: "unknown",
+      minimumRule: "Mindestens 20 % Marge oder mindestens 5 EUR Gewinn.",
+      reasons: ["pricing_data_missing"]
+    };
+  }
+
+  const shippingCost = explicitNumberAt(source, ["economics.shippingCost", "economics.supplierShipping", "pricing.shippingCost", "shippingCost", "deliveryCost"]) ?? 0;
+  const importCosts = explicitNumberAt(source, ["economics.importCosts", "economics.estimatedImportCost", "pricing.importCosts", "importCosts", "estimatedImportCost"]) ?? 0;
+  const returnReserve = explicitNumberAt(source, ["economics.returnReserve", "pricing.returnReserve", "returnReserve", "returnsReserve"]) ?? 0;
+  const otherCosts = explicitNumberAt(source, ["economics.otherCosts", "pricing.otherCosts", "otherCosts", "additionalCosts"]) ?? 0;
+  const explicitFees = explicitNumberAt(source, ["economics.estimatedEbayFees", "economics.ebayFees", "pricing.estimatedFees", "estimatedEbayFees", "ebayFees"]);
+  const explicitMarketplaceFeePercent = explicitNumberAt(source, ["economics.marketplaceFeePercent", "pricing.marketplaceFeePercent", "marketplaceFeePercent"]);
+  const explicitPaymentFeePercent = explicitNumberAt(source, ["economics.paymentFeePercent", "pricing.paymentFeePercent", "paymentFeePercent"]);
+  const feeAmount = explicitFees !== null
+    ? explicitFees
+    : (explicitMarketplaceFeePercent !== null || explicitPaymentFeePercent !== null)
+      ? sellingPrice * (((explicitMarketplaceFeePercent ?? 0) + (explicitPaymentFeePercent ?? 0)) / 100)
+      : 0;
+
+  const knownAdditionalCosts = shippingCost + importCosts + returnReserve + otherCosts;
+  const absoluteMargin = sellingPrice - purchasePrice - knownAdditionalCosts - feeAmount;
+  const marginPercent = sellingPrice > 0 ? (absoluteMargin / sellingPrice) * 100 : null;
+  const pass = absoluteMargin >= 5 || (marginPercent ?? -Infinity) >= 20;
+  const status = absoluteMargin < 0 ? "fail" : pass ? "pass" : "review";
+  const reasons = [];
+  if (!pass) reasons.push("margin_below_threshold");
+  if (explicitFees === null && explicitMarketplaceFeePercent === null && explicitPaymentFeePercent === null) {
+    reasons.push("fees_not_provided");
+  }
+
+  return {
+    purchasePrice: roundMoney(purchasePrice),
+    sellingPrice: roundMoney(sellingPrice),
+    absoluteMargin: roundMoney(absoluteMargin),
+    marginPercent: roundPercent(marginPercent),
+    knownAdditionalCosts: roundMoney(knownAdditionalCosts),
+    feeAmount: explicitFees === null && explicitMarketplaceFeePercent === null && explicitPaymentFeePercent === null ? null : roundMoney(feeAmount),
+    status,
+    minimumRule: "Mindestens 20 % Marge oder mindestens 5 EUR Gewinn.",
+    reasons
+  };
+};
+
+const analyzeCompliance = (product, rawProduct, dataQuality) => {
+  const titleAndCategory = [
+    product.title,
+    rawProduct.category,
+    rawProduct.categoryName,
+    rawProduct.listing?.category,
+    rawProduct.productType
+  ].map((value) => textFrom(value).toLowerCase()).join(" ");
+  const riskyPattern = /\b(akku|batterie|battery|spielzeug|toy|baby|kosmetik|cosmetic|medizin|medical|lebensmittel|food|laser|magnet|elektrisch|electronics?|ce)\b/i;
+  const source = { ...object(rawProduct), normalized: product };
+  const missing = [];
+
+  if (!hasContactData(rawProduct.manufacturer) && !hasContactData(rawProduct.compliance?.manufacturer) && !hasPath(source, ["manufacturerName", "gpsr.manufacturerName", "listing.compliance.manufacturer.companyName"])) {
+    missing.push("manufacturer");
+  }
+  if (!hasContactData(rawProduct.responsiblePerson) && !hasContactData(rawProduct.compliance?.responsiblePerson) && !hasPath(source, ["responsiblePersonName", "gpsr.responsiblePersonName", "listing.compliance.responsiblePerson.companyName"])) {
+    missing.push("eu_responsible_person");
+  }
+  if (!hasPath(source, ["compliance", "gpsr", "listing.compliance"])) {
+    missing.push("compliance_data");
+  }
+
+  const warnings = [...array(product.compliance?.risks).map((entry) => textFrom(entry)).filter(Boolean)];
+  const complianceStatus = textFrom(product.compliance?.status || rawProduct.complianceStatus || rawProduct.compliance?.status).toLowerCase();
+  if (riskyPattern.test(titleAndCategory)) warnings.push("sensitive_product_class_review_required");
+  if (["blocked", "rejected", "risk", "risiko", "nicht freigegeben"].includes(complianceStatus)) warnings.push("blocking_compliance_status");
+
+  const risk = warnings.includes("blocking_compliance_status") || (riskyPattern.test(titleAndCategory) && missing.length >= 2)
+    ? "high"
+    : missing.length || warnings.length
+      ? "medium"
+      : dataQuality.missingFields.includes("complianceData")
+        ? "unknown"
+        : "low";
+
+  return {
+    risk,
+    missing,
+    warnings: [...new Set(warnings)]
+  };
+};
+
+const determineListingReadiness = ({ dataQuality, economics, compliance }) => {
+  const reasons = [];
+  const criticalMissing = dataQuality.missingFields.filter((field) => [
+    "title",
+    "description",
+    "mainImage",
+    "purchasePrice",
+    "sellingPrice",
+    "supplier",
+    "productId"
+  ].includes(field));
+
+  if (criticalMissing.length) reasons.push(...criticalMissing.map((field) => `missing_${field}`));
+  if (criticalMissing.length) reasons.push("missing_required_product_data");
+  if (economics.status === "unknown") reasons.push("pricing_data_missing");
+  if (economics.status === "review") reasons.push("margin_below_threshold");
+  if (economics.status === "fail") reasons.push("negative_margin");
+  if (compliance.missing.length) reasons.push("missing_compliance_data");
+  if (compliance.risk === "high") reasons.push("high_compliance_risk");
+  if (dataQuality.score < 70) reasons.push("data_quality_below_threshold");
+
+  const status = economics.status === "fail" || compliance.risk === "high" || dataQuality.score < 40
+    ? "reject"
+    : criticalMissing.length
+      ? "needs_data"
+      : economics.status !== "pass" || compliance.risk === "medium" || dataQuality.score < 85
+        ? "needs_review"
+        : "ready";
+
+  return {
+    status,
+    reasons: [...new Set(reasons)]
+  };
+};
+
+const recommendationFromReadiness = (listingReadiness) => {
+  if (listingReadiness.status === "ready") {
+    return { decision: "pass", reasons: [] };
+  }
+  if (listingReadiness.status === "reject") {
+    return { decision: "reject", reasons: listingReadiness.reasons };
+  }
+  return { decision: "review", reasons: listingReadiness.reasons };
+};
+
+const runProductCheck = async (task, env) => {
+  const productId = textFrom(task.payload?.productId || task.payload?.product_id || task.payload?.id, 200);
+  const loaded = await loadProductForTask(env, productId);
+  const { product, rawProduct, source } = loaded;
+  const dataQuality = analyzeDataQuality(product, rawProduct);
+  const economics = calculateEconomics(product, rawProduct);
+  const compliance = analyzeCompliance(product, rawProduct, dataQuality);
+  const listingReadiness = determineListingReadiness({ dataQuality, economics, compliance });
+  const recommendation = recommendationFromReadiness(listingReadiness);
+
+  return {
+    processed: true,
+    handler: "product-check",
+    productId,
+    productSource: source,
+    product: compactProductSnapshot(product),
+    dataQuality,
+    economics,
+    compliance,
+    listingReadiness,
+    recommendation,
+    cost: {
+      llmUsed: false,
+      model: null,
+      amount: 0
+    }
+  };
+};
+
 const RuntimeTestHandler = {
   agentName: "runtime-test-handler",
   async handle(task) {
     await Promise.resolve();
     return runtimeOutput(task.type);
+  }
+};
+
+const ProductCheckHandler = {
+  agentName: "product-check-handler",
+  async handle(task, env) {
+    return runProductCheck(task, env);
   }
 };
 
@@ -169,7 +564,7 @@ const UnsupportedTaskHandler = {
 
 const handlers = {
   "runtime-test": RuntimeTestHandler,
-  "product-check": RuntimeTestHandler
+  "product-check": ProductCheckHandler
 };
 
 const getHandler = (type) => {
@@ -461,7 +856,8 @@ const processValidQueueMessage = async (message, env, validation) => {
         taskId: task.id,
         type: task.type,
         attempt,
-        idempotencyKey: task.idempotencyKey
+        idempotencyKey: task.idempotencyKey,
+        payload: task.payload ?? {}
       }
     });
 
@@ -519,7 +915,7 @@ const processValidQueueMessage = async (message, env, validation) => {
       }
     }
 
-    const retrying = attempt < maxAttempts;
+    const retrying = isRetryableError(error) && attempt < maxAttempts;
     task = await updateTaskStores(env, task, {
       status: retrying ? "queued" : "failed",
       progress: retrying ? 0 : Number(task.progress ?? 0),

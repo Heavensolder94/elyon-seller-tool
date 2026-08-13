@@ -1,6 +1,6 @@
 # Elyon Jarvis Worker
 
-Cloudflare Worker for the Elyon Jarvis task gateway and Task Runtime V1.
+Cloudflare Worker for the Elyon Jarvis task gateway, Task Runtime V1, and safe product checks.
 
 ## Architecture
 
@@ -17,7 +17,7 @@ Queue messages stay small:
 ```json
 {
   "taskId": "UUID",
-  "type": "runtime-test"
+  "type": "product-check"
 }
 ```
 
@@ -45,7 +45,7 @@ POST /tasks
   -> HTTP response
   -> Queue consumer loads task
   -> queued -> running
-  -> RuntimeTestHandler
+  -> RuntimeTestHandler or ProductCheckHandler
   -> completed or failed
   -> Upstash updated
   -> Supabase updated
@@ -88,10 +88,10 @@ V1 intentionally includes only safe handlers:
 | Task type | Handler | Productive external action |
 | --- | --- | --- |
 | `runtime-test` | `runtime-test-handler` | No |
-| `product-check` | `runtime-test-handler` placeholder | No |
+| `product-check` | `product-check-handler` | No |
 | unknown | `unsupported-task-handler` | No |
 
-The V1 output is:
+The runtime-test output is:
 
 ```json
 {
@@ -102,6 +102,166 @@ The V1 output is:
 ```
 
 No eBay draft, live listing, supplier mutation, Nova mutation, Company OS mutation, Listing Designer action, or Auto Lister action is executed.
+
+## ProductCheckHandler V1
+
+`ProductCheckHandler` is the first domain handler for Jarvis Runtime. It processes tasks of type:
+
+```txt
+product-check
+```
+
+Input payload:
+
+```json
+{
+  "productId": "PRODUCT-MASTER-ID-OR-SKU"
+}
+```
+
+The queue message still contains only:
+
+```json
+{
+  "taskId": "task-id",
+  "type": "product-check"
+}
+```
+
+### Product Data Source
+
+The handler reads product data from the existing Seller Product Master in Upstash:
+
+```txt
+elyon_products
+```
+
+It can fall back to legacy browser imports:
+
+```txt
+elyon_browser_imports
+```
+
+This is read-only. The handler does not write product records, Company OS records, Nova records, supplier records, eBay drafts, or live eBay listings.
+
+### Checks
+
+ProductCheckHandler V1 performs deterministic checks only:
+
+- data quality and missing fields
+- purchase price, selling price, known explicit costs, margin, and margin percentage
+- Elyon minimum rule: at least 20 percent margin or at least 5 EUR profit
+- manufacturer, EU responsible person, GPSR/compliance data
+- sensitive product class indicators from existing title/category text
+- listing readiness and recommendation
+
+No LLM is called in V1. `model = null` and `cost = 0` are stored in `jarvis_agent_runs`.
+
+### Output Schema
+
+The task output is stable, structured, and machine-readable:
+
+```json
+{
+  "processed": true,
+  "handler": "product-check",
+  "productId": "prod-001",
+  "productSource": "seller_product_master",
+  "product": {
+    "id": "prod-001",
+    "articleNumber": "ELY-000001",
+    "sku": "ELY-000001",
+    "title": "Product title",
+    "source": "elyon_company_os",
+    "supplier": {
+      "id": null,
+      "name": "Supplier",
+      "url": "https://supplier.example"
+    }
+  },
+  "dataQuality": {
+    "score": 82,
+    "missingFields": [],
+    "warnings": []
+  },
+  "economics": {
+    "purchasePrice": 12.5,
+    "sellingPrice": 24.99,
+    "absoluteMargin": 12.49,
+    "marginPercent": 49.98,
+    "knownAdditionalCosts": 0,
+    "feeAmount": null,
+    "status": "pass",
+    "minimumRule": "Mindestens 20 % Marge oder mindestens 5 EUR Gewinn.",
+    "reasons": []
+  },
+  "compliance": {
+    "risk": "medium",
+    "missing": [],
+    "warnings": []
+  },
+  "listingReadiness": {
+    "status": "needs_review",
+    "reasons": []
+  },
+  "recommendation": {
+    "decision": "review",
+    "reasons": []
+  },
+  "cost": {
+    "llmUsed": false,
+    "model": null,
+    "amount": 0
+  }
+}
+```
+
+### Decisions
+
+Recommendation values:
+
+```txt
+pass
+review
+reject
+```
+
+Listing readiness values:
+
+```txt
+ready
+needs_data
+needs_review
+reject
+```
+
+Every non-pass decision includes reason codes, for example:
+
+```txt
+missing_mainImage
+missing_required_product_data
+pricing_data_missing
+margin_below_threshold
+negative_margin
+missing_compliance_data
+high_compliance_risk
+data_quality_below_threshold
+```
+
+### Error Codes
+
+Controlled ProductCheck errors and reason codes:
+
+```txt
+invalid_product_id
+product_not_found
+product_source_unavailable
+missing_required_product_data
+pricing_data_missing
+internal_error
+```
+
+`invalid_product_id` and `product_not_found` are non-retryable and fail the task after one consumer attempt. `product_source_unavailable` is retryable because it can be caused by temporary Upstash availability. `missing_required_product_data` and `pricing_data_missing` normally complete the task with `needs_data` or `needs_review`, so the missing facts remain visible in the structured output.
 
 ## Retry Behavior
 
@@ -149,6 +309,8 @@ If a completed idempotency record exists, the task is marked `completed` with th
 | `jarvis:task:<id>:attempt` | Current attempt counter | 24 hours |
 | `jarvis:idempotency:<key>` | Completed idempotency cache | 30 days |
 | `jarvis:lock:<resource>` | Reserved naming pattern for later locks | Depends on future lock |
+| `elyon_products` | Existing Seller Product Master source for ProductCheckHandler | Product Master policy |
+| `elyon_browser_imports` | Legacy read fallback for ProductCheckHandler | Legacy import policy |
 
 ## Supabase Tables
 
@@ -299,14 +461,45 @@ Supabase checks:
 - `jarvis_tasks.output.processed = true`
 - one `jarvis_agent_runs` row with `agent_name = runtime-test-handler`
 
+Safe product-check test:
+
+```bash
+curl -X POST "https://elyon-jarvis-worker.mailvahanam-raoul.workers.dev/tasks" \
+  -H "Content-Type: application/json" \
+  -d "{\"type\":\"product-check\",\"payload\":{\"productId\":\"TEST-ID\"}}"
+```
+
+Then poll:
+
+```bash
+curl "https://elyon-jarvis-worker.mailvahanam-raoul.workers.dev/tasks/<task-id>"
+```
+
+Expected success transition for an existing Product Master record:
+
+```txt
+queued -> running -> completed
+```
+
+Expected controlled failure for an invalid or unknown product:
+
+```txt
+failed
+```
+
+Supabase checks:
+
+- `jarvis_tasks.output.handler = product-check`
+- `jarvis_tasks.output.recommendation.decision` is `pass`, `review`, or `reject`
+- one `jarvis_agent_runs` row with `agent_name = product-check-handler`
+
 ## Next Steps
 
 - Dedicated dead-letter handling
 - Cancel endpoint
 - Cloudflare Queue dashboards and alerts
-- ProductCheckHandler
 - MarketAnalysisHandler
 - Memory Retrieval
 - Experiences
 - Skills / Playbooks
-- OpenRouter Model Router
+- Optional OpenRouter Model Router summaries for qualitative product review
