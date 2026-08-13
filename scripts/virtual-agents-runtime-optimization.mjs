@@ -169,21 +169,31 @@ const RUNTIME_LOAD_GROUP_BEFORE = `  async function loadGroup(groupId) {
     return scripts;
   }`;
 
-const RUNTIME_LOAD_GROUP_AFTER = `  async function loadGroup(groupId) {
+const RUNTIME_LOAD_GROUP_AFTER = `  const activationRequests = new Map();
+  const activationTimes = new Map();
+  const ACTIVATION_DEDUP_MS = 250;
+
+  async function loadGroup(groupId) {
     const entries = GROUPS[groupId];
     if (!entries) return [];
-    const scripts = await ensureGroup(groupId);
-    const now = Date.now();
-    const lastVirtualActivation = Number(loadGroup.virtualAgentsActivatedAt || 0);
-    const duplicateVirtualActivation = groupId === "virtualAgentsTab" && now - lastVirtualActivation < 250;
-    if (!duplicateVirtualActivation) {
-      if (groupId === "virtualAgentsTab") loadGroup.virtualAgentsActivatedAt = now;
-      activateGroup(groupId);
-      window.dispatchEvent(new CustomEvent("elyon:runtime-group-loaded", {
-        detail: { tabId: groupId, modules: entries.map((entry) => entry.src) },
-      }));
-    }
-    return scripts;
+    if (activationRequests.has(groupId)) return activationRequests.get(groupId);
+
+    const request = (async () => {
+      const scripts = await ensureGroup(groupId);
+      const now = Date.now();
+      const lastActivation = Number(activationTimes.get(groupId) || 0);
+      if (now - lastActivation >= ACTIVATION_DEDUP_MS) {
+        activationTimes.set(groupId, now);
+        activateGroup(groupId);
+        window.dispatchEvent(new CustomEvent("elyon:runtime-group-loaded", {
+          detail: { tabId: groupId, modules: entries.map((entry) => entry.src) },
+        }));
+      }
+      return scripts;
+    })().finally(() => activationRequests.delete(groupId));
+
+    activationRequests.set(groupId, request);
+    return request;
   }`;
 
 const LEGACY_RUNTIME_ENTRY = `      { src: "/seller-virtual-agents-legacy.js" },\n`;
@@ -212,10 +222,10 @@ export function optimizeWorkforceWorkspaceV3(source) {
 
 export function optimizeVirtualAgentsRuntimeLoader(source) {
   let output = replaceRequired(source, LEGACY_RUNTIME_ENTRY, "", "legacy virtual-agent runtime entry");
-  output = replaceRequired(output, RUNTIME_LOAD_GROUP_BEFORE, RUNTIME_LOAD_GROUP_AFTER, "virtual-agent duplicate activation");
+  output = replaceRequired(output, RUNTIME_LOAD_GROUP_BEFORE, RUNTIME_LOAD_GROUP_AFTER, "runtime group activation dedupe");
   output = output.replace(
     /const VERSION = "[^"]+";/,
-    'const VERSION = "virtual-agents-stable-20260813-3";'
+    'const VERSION = "menu-performance-20260813-1";'
   );
   return output;
 }
