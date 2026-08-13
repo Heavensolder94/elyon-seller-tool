@@ -10,6 +10,13 @@ import {
   optimizeWorkforceWorkspaceV3,
   optimizeVirtualAgentsRuntimeLoader,
 } from "./virtual-agents-runtime-optimization.mjs";
+import {
+  optimizeTaskPromptHelper,
+  optimizeWorkforceAgentBuilder,
+  optimizeWorkforceInterfaceV4,
+  optimizeWorkforceStructureV2,
+  optimizeWorkforceV2Operations,
+} from "./virtual-agents-render-storm-optimization.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const appRoot = path.resolve(scriptDir, "..");
@@ -87,10 +94,13 @@ function injectWorkforceV2IntoRuntimeLoader(source) {
     ].join("\n"))
     .replace(activationMarker, [
       activationMarker,
-      "      window.ElyonAIWorkforceV2?.render?.();",
-      "      window.ElyonAIWorkforceWorkspaceV3?.render?.();",
-      "      window.ElyonAIAgentBuilder?.refresh?.();",
-      "      window.ElyonAIWorkforceInterfaceV4?.refresh?.();",
+      "      const refreshWorkforceSupport = () => {",
+      "        window.ElyonAIWorkforceWorkspaceV3?.render?.();",
+      "        window.ElyonAIAgentBuilder?.refresh?.();",
+      "        window.ElyonAIWorkforceInterfaceV4?.refresh?.();",
+      "      };",
+      '      if ("requestIdleCallback" in window) window.requestIdleCallback(refreshWorkforceSupport, { timeout: 1200 });',
+      "      else window.setTimeout(refreshWorkforceSupport, 120);",
     ].join("\n"));
 }
 
@@ -170,21 +180,46 @@ for (const [source, destination] of filesToMirror) {
   await copyFile(sourcePath, destinationPath);
 }
 
-const [runtimeLoaderRaw, aiWorkforceClientRaw, advancedAgentSettingsRaw, workforceWorkspaceV3Raw] = await Promise.all([
+const [
+  runtimeLoaderRaw,
+  aiWorkforceClientRaw,
+  advancedAgentSettingsRaw,
+  workforceWorkspaceV3Raw,
+  workforceStructureV2Raw,
+  workforceV2OperationsRaw,
+  workforceInterfaceV4Raw,
+  workforceAgentBuilderRaw,
+  taskPromptHelperRaw,
+] = await Promise.all([
   readFile(path.join(appRoot, "seller-runtime-loader.js"), "utf8"),
   readFile(path.join(appRoot, "ai-workforce-client.js"), "utf8"),
   readFile(path.join(appRoot, "seller-ai-workforce-advanced-settings.js"), "utf8"),
   readFile(path.join(appRoot, "seller-ai-workforce-workspace-v3.js"), "utf8"),
+  readFile(path.join(appRoot, "seller-ai-workforce-structure-v2.js"), "utf8"),
+  readFile(path.join(appRoot, "seller-ai-workforce-v2-operations.js"), "utf8"),
+  readFile(path.join(appRoot, "seller-ai-workforce-interface-v4.js"), "utf8"),
+  readFile(path.join(appRoot, "seller-ai-workforce-agent-builder.js"), "utf8"),
+  readFile(path.join(appRoot, "seller-ai-task-prompt-helper.js"), "utf8"),
 ]);
 const runtimeLoaderSource = injectWorkforceV2IntoRuntimeLoader(optimizeVirtualAgentsRuntimeLoader(runtimeLoaderRaw));
 const aiWorkforceClientSource = optimizeAiWorkforceClient(aiWorkforceClientRaw);
 const advancedAgentSettingsSource = optimizeAdvancedAgentSettings(advancedAgentSettingsRaw);
 const workforceWorkspaceV3Source = optimizeWorkforceWorkspaceV3(workforceWorkspaceV3Raw);
+const workforceStructureV2Source = optimizeWorkforceStructureV2(workforceStructureV2Raw);
+const workforceV2OperationsSource = optimizeWorkforceV2Operations(workforceV2OperationsRaw);
+const workforceInterfaceV4Source = optimizeWorkforceInterfaceV4(workforceInterfaceV4Raw);
+const workforceAgentBuilderSource = optimizeWorkforceAgentBuilder(workforceAgentBuilderRaw);
+const taskPromptHelperSource = optimizeTaskPromptHelper(taskPromptHelperRaw);
 await Promise.all([
   writeFile(path.join(publicRoot, "seller-runtime-loader.js"), runtimeLoaderSource, "utf8"),
   writeFile(path.join(publicRoot, "ai-workforce-client.js"), aiWorkforceClientSource, "utf8"),
   writeFile(path.join(publicRoot, "seller-ai-workforce-advanced-settings.js"), advancedAgentSettingsSource, "utf8"),
   writeFile(path.join(publicRoot, "seller-ai-workforce-workspace-v3.js"), workforceWorkspaceV3Source, "utf8"),
+  writeFile(path.join(publicRoot, "seller-ai-workforce-structure-v2.js"), workforceStructureV2Source, "utf8"),
+  writeFile(path.join(publicRoot, "seller-ai-workforce-v2-operations.js"), workforceV2OperationsSource, "utf8"),
+  writeFile(path.join(publicRoot, "seller-ai-workforce-interface-v4.js"), workforceInterfaceV4Source, "utf8"),
+  writeFile(path.join(publicRoot, "seller-ai-workforce-agent-builder.js"), workforceAgentBuilderSource, "utf8"),
+  writeFile(path.join(publicRoot, "seller-ai-task-prompt-helper.js"), taskPromptHelperSource, "utf8"),
 ]);
 
 const desktopSourcePath = path.join(appRoot, "index.html");
@@ -232,4 +267,4 @@ const envStatus = {
 console.log("Google/security/AI env status:", JSON.stringify(envStatus));
 console.log("Desktop runtime extraction:", JSON.stringify(desktopRuntime.metrics));
 console.log("Desktop performance budget:", JSON.stringify(performanceAudit.metrics));
-console.log("Prepared Vercel output with stable delegated virtual-team V6, DeepSeek task prompt helper, lazy-loaded Elyon autonomy workspace v4, manager-default task routing, custom agent builder, manual task prompts, protected custom-agent execution, full internal automation, permission-gated external automation, and enforced performance budgets.");
+console.log("Prepared Vercel output with stable delegated virtual-team V6, DeepSeek task prompt helper, event-driven workforce support modules, manager-default task routing, custom agent builder, manual task prompts, protected custom-agent execution, full internal automation, permission-gated external automation, and enforced performance budgets.");

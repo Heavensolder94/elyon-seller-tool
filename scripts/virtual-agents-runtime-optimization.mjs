@@ -215,7 +215,7 @@ export function optimizeVirtualAgentsRuntimeLoader(source) {
   output = replaceRequired(output, RUNTIME_LOAD_GROUP_BEFORE, RUNTIME_LOAD_GROUP_AFTER, "virtual-agent duplicate activation");
   output = output.replace(
     /const VERSION = "[^"]+";/,
-    'const VERSION = "virtual-agents-stable-20260813-2";'
+    'const VERSION = "virtual-agents-stable-20260813-3";'
   );
   return output;
 }
