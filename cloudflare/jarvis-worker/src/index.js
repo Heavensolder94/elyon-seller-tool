@@ -20,7 +20,18 @@ const requireSupabase = (env) => {
 
 const hasSupabase = (env) => Boolean(env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY);
 
-const normalizeSupabaseUrl = (url) => String(url || "").replace(/\/+$/, "");
+const normalizeSupabaseUrl = (url) => {
+  const normalized = String(url || "").trim().replace(/\/+$/, "");
+  try {
+    const parsed = new URL(normalized);
+    if (parsed.protocol !== "https:") throw new Error("invalid_protocol");
+    return parsed.toString().replace(/\/+$/, "");
+  } catch {
+    throw new Error("supabase_invalid_url");
+  }
+};
+
+const isSupabaseSecretKey = (key) => String(key || "").startsWith("sb_secret_");
 
 const redis = async (env, command) => {
   requireRedis(env);
@@ -43,11 +54,18 @@ const redis = async (env, command) => {
 const supabaseRequest = async (env, path, init = {}) => {
   requireSupabase(env);
 
+  const supabaseKey = env.SUPABASE_SERVICE_ROLE_KEY;
+  const authHeaders = isSupabaseSecretKey(supabaseKey)
+    ? { apikey: supabaseKey }
+    : {
+        apikey: supabaseKey,
+        Authorization: `Bearer ${supabaseKey}`
+      };
+
   const response = await fetch(`${normalizeSupabaseUrl(env.SUPABASE_URL)}${path}`, {
     ...init,
     headers: {
-      apikey: env.SUPABASE_SERVICE_ROLE_KEY,
-      Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+      ...authHeaders,
       "Content-Type": "application/json",
       ...(init.headers || {})
     }
@@ -131,7 +149,7 @@ export default {
 
     try {
       if (request.method === "GET" && url.pathname === "/health") {
-        return json({ ok: true, service: "elyon-jarvis-worker", version: "0.2.0" });
+        return json({ ok: true, service: "elyon-jarvis-worker", version: "0.2.1" });
       }
 
       if (request.method === "GET" && url.pathname === "/redis/health") {
@@ -210,7 +228,7 @@ export default {
         return json({
           service: "elyon-jarvis-worker",
           status: "online",
-          version: "0.2.0",
+          version: "0.2.1",
           endpoints: ["/health", "/redis/health", "/supabase/health", "POST /tasks", "GET /tasks/:id"]
         });
       }
