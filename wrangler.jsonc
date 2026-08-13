@@ -1,0 +1,7 @@
+{
+  "$schema": "cloudflare/jarvis-worker/node_modules/wrangler/config-schema.json",
+  "name": "elyon-jarvis-worker",
+  "main": "cloudflare/jarvis-worker/src/index.js",
+  "compatibility_date": "2026-08-13",
+  "workers_dev": true
+}
