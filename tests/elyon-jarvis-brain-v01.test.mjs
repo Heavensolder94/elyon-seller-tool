@@ -93,6 +93,19 @@ test("Welche Mitarbeiter hast du explains the existing registry without delegati
   assert.equal(result.payload.plan.delegations.length, 0);
 });
 
+test("explicit delegate selection takes precedence over General Jarvis direct mode", async () => {
+  const result = await runJarvisBrain({
+    command: "Hi Jarvis",
+    agents,
+    explicitAgentId: "elyon-manager",
+    execute: false,
+  });
+  assert.equal(result.statusCode, 200);
+  assert.equal(result.payload.mode, "plan");
+  assert.equal(result.payload.plan.answerDirectly, false);
+  assert.equal(result.payload.plan.delegations[0].agentId, "elyon-manager");
+});
+
 test("generic product request without product context is handled as needs_input instead of an agent error", async () => {
   const result = await runJarvisBrain({
     command: "Prüfe ein Produkt.",
