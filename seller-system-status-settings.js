@@ -8,18 +8,28 @@
   const PANEL_SELECTOR = `[${PANEL_ATTRIBUTE}="1"], .seller-system-status-panel`;
   const EBAY_STATUS_URL = "/api/ebay/status?environment=production";
   const FINANCE_STATUS_URL = "/api/finance?action=status";
-  const STATUS_MAX_AGE_MS = 15000;
-  let observer = null;
+  const STATUS_MAX_AGE_MS = 2 * 60 * 1000;
+  const FINANCE_MAX_AGE_MS = 2 * 60 * 1000;
   let scheduled = false;
   let statusRequest = null;
   let statusRequestId = 0;
   let lastStatusCheckAt = 0;
   let lastConnected = null;
   let lastStatusError = "";
+  let financeRequest = null;
+  let financeCache = null;
+  let financeCheckedAt = 0;
 
   const text = (value) => String(value ?? "").trim();
   const normalized = (value) => text(value).toLocaleLowerCase("de-DE").replace(/\s+/g, " ");
   const notify = (message, eyebrow) => { if (typeof window.toast === "function") window.toast(message, eyebrow || "Seller Einstellungen"); };
+
+  function settingsIsActive() {
+    const settings = document.getElementById("settingsTab");
+    if (!settings) return false;
+    if (settings.classList.contains("active")) return true;
+    return document.getElementById("mainMenu")?.value === "settingsTab";
+  }
 
   function installStyles() {
     if (document.getElementById(STYLE_ID)) return;
@@ -204,11 +214,28 @@
     return statusRequest;
   }
 
-  async function financeStatus() {
-    const response = await fetch(FINANCE_STATUS_URL, { credentials: "same-origin", cache: "no-store", headers: { Accept: "application/json" } });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok || data.ok === false) throw new Error(data.message || data.error || `HTTP ${response.status}`);
-    return data;
+  async function financeStatus({ force = false } = {}) {
+    const now = Date.now();
+    if (!force && financeCache && financeCheckedAt && now - financeCheckedAt < FINANCE_MAX_AGE_MS) {
+      return financeCache;
+    }
+    if (financeRequest) return financeRequest;
+
+    financeRequest = fetch(FINANCE_STATUS_URL, {
+      credentials: "same-origin",
+      cache: "no-store",
+      headers: { Accept: "application/json" },
+    })
+      .then(async (response) => {
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || data.ok === false) throw new Error(data.message || data.error || `HTTP ${response.status}`);
+        financeCache = data;
+        financeCheckedAt = Date.now();
+        return data;
+      })
+      .finally(() => { financeRequest = null; });
+
+    return financeRequest;
   }
 
   async function saveFinanceSafety(safety, action) {
@@ -220,6 +247,7 @@
     });
     const saved = await save.json().catch(() => ({}));
     if (!save.ok || saved.ok === false) throw new Error(saved.message || saved.error || "Speichern fehlgeschlagen");
+    financeCheckedAt = 0;
     return saved;
   }
 
@@ -307,17 +335,16 @@
     else setTimeout(run, 0);
   }
 
-  function observeDashboardRenders() {
-    if (observer || !document.documentElement) return;
-    observer = new MutationObserver(() => scheduleMove());
-    observer.observe(document.documentElement, { childList: true, subtree: true });
+  function scheduleBoundedRepairs() {
+    [120, 450, 1000, 1800].forEach((delay) => setTimeout(() => {
+      if (settingsIsActive()) scheduleMove();
+    }, delay));
   }
 
   function install() {
     installStyles();
-    observeDashboardRenders();
     scheduleMove();
-    [120, 450, 1000, 1800].forEach((delay) => setTimeout(scheduleMove, delay));
+    scheduleBoundedRepairs();
   }
 
   function health() {
@@ -331,6 +358,7 @@
       ebayConnected: lastConnected,
       ebayStatusError: lastStatusError,
       ebayStatusCheckedAt: lastStatusCheckAt || null,
+      financeStatusCheckedAt: financeCheckedAt || null,
     };
   }
 
@@ -342,13 +370,23 @@
     health,
   };
 
+  document.addEventListener("change", (event) => {
+    if (event.target?.id === "mainMenu" && event.target.value === "settingsTab") scheduleMove();
+  }, true);
+  window.addEventListener("elyon:tab-changed", (event) => {
+    const tabId = event.detail?.tabId || event.detail;
+    if (tabId === "settingsTab") scheduleMove();
+  });
   window.addEventListener("elyon:seller-authenticated", () => {
+    if (!settingsIsActive()) return;
     scheduleMove();
     verifyEbayStatus({ force: true });
   });
-  window.addEventListener("focus", () => verifyEbayStatus());
+  window.addEventListener("focus", () => {
+    if (settingsIsActive()) verifyEbayStatus();
+  });
   document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") verifyEbayStatus();
+    if (document.visibilityState === "visible" && settingsIsActive()) verifyEbayStatus();
   });
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", install, { once: true });
   else install();

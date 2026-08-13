@@ -14,7 +14,7 @@ export function transformSellerRuntimeLoader(source) {
   output = replaceRequired(
     output,
     '      if (listingResult.status !== "fulfilled") throw listingResult.reason;\n\n      const items = Array.isArray(listingResult.value?.items) ? listingResult.value.items : [];',
-    '      if (listingResult.status !== "fulfilled") throw listingResult.reason;\n      window.__elyonSellerState = listingResult.value;\n\n      const items = Array.isArray(listingResult.value?.items) ? listingResult.value.items : [];',
+    '      if (listingResult.status !== "fulfilled") throw listingResult.reason;\n      window.__elyonSellerState = listingResult.value;\n      window.__elyonSellerStateLoadedAt = Date.now();\n\n      const items = Array.isArray(listingResult.value?.items) ? listingResult.value.items : [];',
     "runtime seller-state capture marker missing",
   );
   output = replaceRequired(
@@ -49,9 +49,41 @@ export function transformSellerDashboard(source) {
   let output = String(source || "");
   output = replaceRequired(
     output,
+    'export const FOCUS_REFRESH_COOLDOWN_MS = 60 * 1000;',
+    'export const FOCUS_REFRESH_COOLDOWN_MS = 2 * 60 * 1000;',
+    "dashboard focus cooldown marker missing",
+  );
+  output = replaceRequired(
+    output,
     'getJson("/api/ebay/listings?environment=production")',
-    'getJson("/api/ebay/seller-state?environment=production")',
+    'getSellerStateCached()',
     "dashboard seller-state endpoint marker missing",
+  );
+  output = replaceRequired(
+    output,
+    'function isDashboardVisible() {\n  return typeof document === "undefined" || document.visibilityState !== "hidden";\n}',
+    `async function getSellerStateCached() {
+  if (typeof window !== "undefined") {
+    const cached = window.__elyonSellerState;
+    const loadedAt = Number(window.__elyonSellerStateLoadedAt) || 0;
+    if (cached && loadedAt && Date.now() - loadedAt < FOCUS_REFRESH_COOLDOWN_MS) return cached;
+  }
+  const data = await getJson("/api/ebay/seller-state?environment=production");
+  if (typeof window !== "undefined") {
+    window.__elyonSellerState = data;
+    window.__elyonSellerStateLoadedAt = Date.now();
+  }
+  return data;
+}
+
+function isDashboardVisible() {
+  if (typeof document === "undefined") return true;
+  if (document.visibilityState === "hidden") return false;
+  const dashboard = document.getElementById("dashboardTab");
+  if (dashboard?.classList.contains("active")) return true;
+  return document.getElementById("mainMenu")?.value === "dashboardTab";
+}`,
+    "dashboard active visibility marker missing",
   );
   output = output
     .replaceAll(
