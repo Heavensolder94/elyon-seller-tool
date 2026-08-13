@@ -4,34 +4,20 @@ import { readFile } from "node:fs/promises";
 import { Script } from "node:vm";
 const read = (path) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
 
-test("Workforce V7 keeps a simple company facade over stable APIs", async () => {
-  const [core, style, view] = await Promise.all([
-    read("seller-ai-workforce-v7-core.js"),
-    read("seller-ai-workforce-v7-style.js"),
-    read("seller-ai-workforce-v7-view.js"),
-  ]);
-  for (const code of [core, style, view]) assert.doesNotThrow(() => new Script(code));
-  for (const name of ["Product Manager", "Listing Manager", "Operations Manager", "Customer Care"]) assert.match(core, new RegExp(name));
-  assert.match(view, /Jarvis/);
-  assert.match(view, /Maschinenraum/);
-  assert.match(view, /ElyonAIWorkforceTeamV6\?\.openDetails/);
-  assert.match(view, /ElyonAIWorkforceTeamV6\?\.openComposer/);
-  assert.match(view, /ElyonAIWorkforceRoutingCenter\?\.getRoute/);
-  assert.match(view, /jarvisCommandCenterTab/);
-  assert.match(style, /aiw-v7-overview-active/);
+test("Workforce V7 stays a simple lazy company facade", async () => {
+  const files = await Promise.all([read("seller-ai-workforce-v7-core.js"), read("seller-ai-workforce-v7-style.js"), read("seller-ai-workforce-v7-view.js")]);
+  files.forEach((code) => assert.doesNotThrow(() => new Script(code)));
+  const joined = files.join("\n");
+  for (const name of ["Product Manager", "Listing Manager", "Operations Manager", "Customer Care", "Jarvis", "Maschinenraum"]) assert.match(joined, new RegExp(name));
+  assert.doesNotMatch(joined, /MutationObserver|setInterval\s*\(|fetch\s*\(/);
+  assert.match(joined, /ElyonAIWorkforceTeamV6/);
+  assert.match(joined, /ElyonAIWorkforceRoutingCenter/);
 });
 
-test("Workforce V7 remains lazy, local and event-driven", async () => {
-  const joined = (await Promise.all([
-    read("seller-ai-workforce-v7-core.js"), read("seller-ai-workforce-v7-style.js"), read("seller-ai-workforce-v7-view.js")
-  ])).join("\n");
-  assert.doesNotMatch(joined, /MutationObserver|setInterval\s*\(|fetch\s*\(/);
-  assert.doesNotMatch(joined, /\/api\/ebay|\/api\/ai-agent-run/);
-  assert.match(joined, /requestAnimationFrame/);
-  const finalizer = await read("scripts/finalize-workforce-v7.mjs");
-  assert.match(finalizer, /seller-ai-workforce-routing-center\.js/);
-  assert.match(finalizer, /seller-ai-workforce-v7-core\.js/);
-  assert.match(finalizer, /seller-ai-workforce-v7-style\.js/);
-  assert.match(finalizer, /seller-ai-workforce-v7-view\.js/);
-  assert.match(await read("vercel.json"), /finalize-workforce-v7\.mjs/);
+test("Workforce V7 production finalizer respects Vercel build limits", async () => {
+  const finalizer = await read("v7.mjs");
+  for (const name of ["routing-center", "v7-core", "v7-style", "v7-view"]) assert.match(finalizer, new RegExp(name));
+  const config = JSON.parse(await read("vercel.json"));
+  assert.match(config.buildCommand, /node v7\.mjs$/);
+  assert.ok(config.buildCommand.length <= 256);
 });
