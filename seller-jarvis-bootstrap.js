@@ -5,12 +5,13 @@
     "/seller-jarvis-client.js",
     "/seller-jarvis-ui.js",
     "/seller-jarvis-command-center.js",
+    "/seller-jarvis-integration-center.js",
     "/seller-jarvis-companion-handoff.js",
     "/seller-jarvis-e1-cloud.js",
     "/seller-jarvis-e4-control.js",
     "/seller-jarvis-e5-pipeline.js",
   ];
-  const VERSION = "phase-e5-v1";
+  const VERSION = "phase-integration-center-v1";
 
   function existing(path) {
     return [...document.scripts].some((script) => {
@@ -37,11 +38,12 @@
       for (const file of FILES) await load(file);
       window.ElyonJarvisUI?.refresh?.();
       window.ElyonJarvisCommandCenter?.refresh?.();
+      window.ElyonJarvisIntegrationCenter?.refresh?.();
       window.ElyonJarvisE4Cloud?.render?.();
       window.ElyonJarvisE4Control?.render?.();
       window.ElyonJarvisE5Pipeline?.render?.();
     } catch (error) {
-      console.warn("[Elyon Jarvis] E5 Bootstrap fehlgeschlagen", error);
+      console.warn("[Elyon Jarvis] Integration Center Bootstrap fehlgeschlagen", error);
     }
   }
 
