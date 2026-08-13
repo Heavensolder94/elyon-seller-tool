@@ -1,6 +1,6 @@
 import { normalizeProduct } from "../../../lib/product-master-active.js";
 
-const WORKER_VERSION = "0.4.0";
+const WORKER_VERSION = "0.4.1";
 const TASK_TTL_SECONDS = 86400;
 const IDEMPOTENCY_TTL_SECONDS = 2592000;
 const DEFAULT_MAX_ATTEMPTS = 3;
@@ -36,6 +36,7 @@ const requireQueue = (env) => {
 
 const hasSupabase = (env) => Boolean(env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY);
 const hasQueue = (env) => Boolean(env.JARVIS_TASK_QUEUE && typeof env.JARVIS_TASK_QUEUE.send === "function");
+const hasSellerToolProductSource = (env) => Boolean(env.ELYON_SELLER_TOOL_URL && env.ELYON_SELLER_ACCESS_TOKEN);
 
 const normalizeSupabaseUrl = (url) => {
   const normalized = String(url || "").trim().replace(/\/+$/, "");
@@ -45,6 +46,17 @@ const normalizeSupabaseUrl = (url) => {
     return parsed.toString().replace(/\/+$/, "");
   } catch {
     throw new Error("supabase_invalid_url");
+  }
+};
+
+const normalizeSellerToolUrl = (url) => {
+  const normalized = String(url || "").trim().replace(/\/+$/, "");
+  try {
+    const parsed = new URL(normalized);
+    if (parsed.protocol !== "https:") throw new Error("invalid_protocol");
+    return parsed.toString().replace(/\/+$/, "");
+  } catch {
+    throw new Error("product_source_invalid_url");
   }
 };
 
@@ -63,7 +75,7 @@ const retryDelaySeconds = (attempt) => RETRY_DELAYS_SECONDS[Math.min(RETRY_DELAY
 
 const publicError = (error) => {
   if (!(error instanceof Error)) return "internal_error";
-  if (/^(upstash|supabase|queue)_/.test(error.message)) return error.message;
+  if (/^(upstash|supabase|queue|product_source)_/.test(error.message)) return error.message;
   return "internal_error";
 };
 
@@ -288,6 +300,53 @@ const productIdentityMatches = (rawProduct, normalizedProduct, productId) => {
   return candidates.some((candidate) => candidate === id);
 };
 
+const findProductInList = (products, id, source) => {
+  for (const rawProduct of Array.isArray(products) ? products : []) {
+    const normalized = normalizeProduct(rawProduct);
+    if (productIdentityMatches(rawProduct, normalized, id)) {
+      return { product: normalized, rawProduct, source };
+    }
+  }
+  return null;
+};
+
+const loadProductFromSellerTool = async (env, id) => {
+  if (!hasSellerToolProductSource(env)) return null;
+
+  let response;
+  try {
+    const baseUrl = normalizeSellerToolUrl(env.ELYON_SELLER_TOOL_URL);
+    response = await fetch(`${baseUrl}/api/products?includeLegacyImports=true`, {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        "x-elyon-seller-token": env.ELYON_SELLER_ACCESS_TOKEN
+      }
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message === "product_source_invalid_url") throw taskError(error.message, { retryable: false });
+    throw taskError("product_source_unavailable");
+  }
+
+  if (response.status === 401 || response.status === 403) {
+    throw taskError("product_source_auth_failed", { retryable: false });
+  }
+  if (!response.ok) {
+    throw taskError(`product_source_http_${response.status}`);
+  }
+
+  const body = await response.json().catch(() => null);
+  if (!body || body.ok !== true || !Array.isArray(body.products)) {
+    throw taskError("product_source_invalid_response");
+  }
+
+  const activeMatch = findProductInList(body.products, id, "seller_tool_product_master");
+  if (activeMatch) return activeMatch;
+
+  const legacyMatch = findProductInList(body.legacyBrowserImports, id, "seller_tool_legacy_imports");
+  return legacyMatch;
+};
+
 const readProductMasterKey = async (env, key) => {
   try {
     return parseStoredProductList(await redis(env, ["GET", key]));
@@ -301,20 +360,33 @@ const loadProductForTask = async (env, productId) => {
   const id = textFrom(productId, 200);
   if (!id) throw taskError("invalid_product_id", { retryable: false });
 
-  for (const key of PRODUCT_MASTER_KEYS) {
-    const products = await readProductMasterKey(env, key);
-    for (const rawProduct of products) {
-      const normalized = normalizeProduct(rawProduct);
-      if (productIdentityMatches(rawProduct, normalized, id)) {
-        return {
-          product: normalized,
-          rawProduct,
-          source: key === "elyon_products" ? "seller_product_master" : "legacy_browser_imports"
-        };
-      }
+  let sourceError = null;
+
+  if (hasSellerToolProductSource(env)) {
+    try {
+      const remoteProduct = await loadProductFromSellerTool(env, id);
+      if (remoteProduct) return remoteProduct;
+    } catch (error) {
+      sourceError = error;
+      console.error("elyon-jarvis-worker Seller Tool product lookup failed", safeError(error));
     }
   }
 
+  for (const key of PRODUCT_MASTER_KEYS) {
+    try {
+      const products = await readProductMasterKey(env, key);
+      const match = findProductInList(
+        products,
+        id,
+        key === "elyon_products" ? "worker_product_master" : "worker_legacy_browser_imports"
+      );
+      if (match) return match;
+    } catch (error) {
+      sourceError = sourceError || error;
+    }
+  }
+
+  if (sourceError) throw sourceError;
   throw taskError("product_not_found", { retryable: false });
 };
 
@@ -958,7 +1030,8 @@ const fetchHandler = async (request, env) => {
         ok: true,
         service: "jarvis-task-runtime",
         queue: hasQueue(env) ? "configured" : "missing",
-        maxAttempts: DEFAULT_MAX_ATTEMPTS
+        maxAttempts: DEFAULT_MAX_ATTEMPTS,
+        productSource: hasSellerToolProductSource(env) ? "seller-tool-api+worker-fallback" : "worker-fallback-only"
       });
     }
 
@@ -1052,5 +1125,6 @@ export default {
 };
 
 export {
+  loadProductForTask,
   processQueueMessage
 };
