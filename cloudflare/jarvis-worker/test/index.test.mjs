@@ -221,7 +221,7 @@ test("GET /health returns worker health", async () => {
   assert.deepEqual(await response.json(), {
     ok: true,
     service: "elyon-jarvis-worker",
-    version: "0.3.0"
+    version: "0.4.0"
   });
 });
 
@@ -353,6 +353,249 @@ test("processQueueMessage can be invoked directly for a consumer message", async
     const result = await processQueueMessage(message, envWithQueue(queue));
     assert.deepEqual(result.action, "ack");
     assert.equal(mock.supabaseTasks.get(body.task.id).status, "completed");
+  });
+});
+
+const validProduct = {
+  id: "prod-001",
+  sku: "ELY-000001",
+  title: "LED Schreibtischlampe mit USB",
+  description: "Dimmbarer LED Schreibtischlampen-Testdatensatz.",
+  images: ["https://example.test/lamp.jpg"],
+  supplierLink: "https://supplier.example.test/lamp",
+  category: "Haushalt",
+  variants: [{ sku: "ELY-000001-01", color: "schwarz" }],
+  shippingInfo: "7-10 Werktage",
+  buyPrice: 10,
+  salePrice: 24.99,
+  economics: {
+    shippingCost: 2,
+    marketplaceFeePercent: 10
+  },
+  manufacturer: {
+    name: "Example Manufacturer GmbH",
+    country: "DE"
+  },
+  responsiblePerson: {
+    name: "Example EU Responsible GmbH",
+    country: "DE"
+  },
+  compliance: {
+    status: "approved"
+  },
+  listing: {
+    categoryId: "123",
+    itemSpecifics: { Marke: "Elyon" },
+    conditionId: "1000"
+  }
+};
+
+const lowMarginProduct = {
+  ...validProduct,
+  id: "prod-low-margin",
+  sku: "ELY-000002",
+  buyPrice: 10,
+  salePrice: 11,
+  economics: {
+    shippingCost: 0,
+    marketplaceFeePercent: 0
+  }
+};
+
+const missingComplianceProduct = {
+  ...validProduct,
+  id: "prod-missing-compliance",
+  sku: "ELY-000003",
+  manufacturer: {},
+  responsiblePerson: {},
+  compliance: {},
+  gpsr: {}
+};
+
+const seedProducts = (mock, products, key = "elyon_products") => {
+  mock.redis.set(key, JSON.stringify(products));
+};
+
+test("product-check task is routed to ProductCheckHandler and completes with structured output", async () => {
+  const mock = createMockFetch();
+  const queue = makeQueue();
+  seedProducts(mock, [validProduct]);
+
+  await withMockFetch(mock.mockFetch, async () => {
+    const { body } = await createTask({
+      mockFetch: mock.mockFetch,
+      queue,
+      type: "product-check",
+      payload: { productId: "prod-001" }
+    });
+
+    assert.deepEqual(queue.messages, [{ taskId: body.task.id, type: "product-check" }]);
+
+    const message = makeMessage(queue.messages[0]);
+    await worker.queue({ messages: [message] }, envWithQueue(queue));
+
+    assert.equal(message.acked, true);
+    assert.equal(message.retries.length, 0);
+
+    const row = mock.supabaseTasks.get(body.task.id);
+    assert.equal(row.status, "completed");
+    assert.equal(row.output.processed, true);
+    assert.equal(row.output.handler, "product-check");
+    assert.equal(row.output.productId, "prod-001");
+    assert.equal(row.output.productSource, "seller_product_master");
+    assert.equal(row.output.dataQuality.score, 100);
+    assert.deepEqual(row.output.dataQuality.missingFields, []);
+    assert.equal(row.output.economics.purchasePrice, 10);
+    assert.equal(row.output.economics.sellingPrice, 24.99);
+    assert.equal(row.output.economics.status, "pass");
+    assert.equal(row.output.compliance.risk, "low");
+    assert.equal(row.output.listingReadiness.status, "ready");
+    assert.equal(row.output.recommendation.decision, "pass");
+    assert.deepEqual(row.output.cost, { llmUsed: false, model: null, amount: 0 });
+
+    const runs = [...mock.agentRuns.values()];
+    assert.equal(runs.length, 1);
+    assert.equal(runs[0].agent_name, "product-check-handler");
+    assert.equal(runs[0].status, "completed");
+    assert.equal(runs[0].input.payload.productId, "prod-001");
+    assert.equal(runs[0].output.handler, "product-check");
+    assert.equal(runs[0].model, null);
+    assert.equal(runs[0].cost, 0);
+
+    assert.equal(mock.calls.some((call) => /ebay|inventory|offer|supplier|company-os|nova/i.test(call.url)), false);
+  });
+});
+
+test("product-check fails safely when productId is missing", async () => {
+  const mock = createMockFetch();
+  const queue = makeQueue();
+
+  await withMutedConsoleError(() => withMockFetch(mock.mockFetch, async () => {
+    const { body } = await createTask({
+      mockFetch: mock.mockFetch,
+      queue,
+      type: "product-check",
+      payload: {}
+    });
+
+    const message = makeMessage(queue.messages[0]);
+    await worker.queue({ messages: [message] }, envWithQueue(queue));
+
+    const row = mock.supabaseTasks.get(body.task.id);
+    assert.equal(message.acked, true);
+    assert.equal(message.retries.length, 0);
+    assert.equal(row.status, "failed");
+    assert.equal(row.attempt_count, 1);
+    assert.equal(row.error, "invalid_product_id");
+    assert.equal([...mock.agentRuns.values()][0].status, "failed");
+  }));
+});
+
+test("product-check fails safely when the Product Master record is not found", async () => {
+  const mock = createMockFetch();
+  const queue = makeQueue();
+  seedProducts(mock, [validProduct]);
+
+  await withMutedConsoleError(() => withMockFetch(mock.mockFetch, async () => {
+    const { body } = await createTask({
+      mockFetch: mock.mockFetch,
+      queue,
+      type: "product-check",
+      payload: { productId: "missing-product" }
+    });
+
+    const message = makeMessage(queue.messages[0]);
+    await worker.queue({ messages: [message] }, envWithQueue(queue));
+
+    const row = mock.supabaseTasks.get(body.task.id);
+    assert.equal(message.acked, true);
+    assert.equal(message.retries.length, 0);
+    assert.equal(row.status, "failed");
+    assert.equal(row.attempt_count, 1);
+    assert.equal(row.error, "product_not_found");
+  }));
+});
+
+test("product-check reports low margin as review without inventing unavailable fees", async () => {
+  const mock = createMockFetch();
+  const queue = makeQueue();
+  seedProducts(mock, [lowMarginProduct]);
+
+  await withMockFetch(mock.mockFetch, async () => {
+    const { body } = await createTask({
+      mockFetch: mock.mockFetch,
+      queue,
+      type: "product-check",
+      payload: { productId: "prod-low-margin" }
+    });
+
+    await worker.queue({ messages: [makeMessage(queue.messages[0])] }, envWithQueue(queue));
+    const output = mock.supabaseTasks.get(body.task.id).output;
+    assert.equal(output.economics.absoluteMargin, 1);
+    assert.equal(output.economics.marginPercent, 9.09);
+    assert.equal(output.economics.status, "review");
+    assert.ok(output.economics.reasons.includes("margin_below_threshold"));
+    assert.equal(output.listingReadiness.status, "needs_review");
+    assert.equal(output.recommendation.decision, "review");
+  });
+});
+
+test("product-check flags missing compliance fields and listing readiness", async () => {
+  const mock = createMockFetch();
+  const queue = makeQueue();
+  seedProducts(mock, [missingComplianceProduct]);
+
+  await withMockFetch(mock.mockFetch, async () => {
+    const { body } = await createTask({
+      mockFetch: mock.mockFetch,
+      queue,
+      type: "product-check",
+      payload: { productId: "prod-missing-compliance" }
+    });
+
+    await worker.queue({ messages: [makeMessage(queue.messages[0])] }, envWithQueue(queue));
+    const output = mock.supabaseTasks.get(body.task.id).output;
+    assert.ok(output.dataQuality.score < 100);
+    assert.ok(output.dataQuality.missingFields.includes("manufacturer"));
+    assert.ok(output.dataQuality.missingFields.includes("euResponsiblePerson"));
+    assert.ok(output.dataQuality.missingFields.includes("complianceData"));
+    assert.equal(output.compliance.risk, "medium");
+    assert.ok(output.compliance.missing.includes("manufacturer"));
+    assert.ok(output.compliance.missing.includes("eu_responsible_person"));
+    assert.ok(output.listingReadiness.reasons.includes("missing_compliance_data"));
+    assert.equal(output.recommendation.decision, "review");
+  });
+});
+
+test("product-check idempotency prevents duplicate execution", async () => {
+  const mock = createMockFetch();
+  const queue = makeQueue();
+  seedProducts(mock, [validProduct]);
+  const key = "product-check:prod-001:v1";
+
+  await withMockFetch(mock.mockFetch, async () => {
+    const first = await createTask({
+      mockFetch: mock.mockFetch,
+      queue,
+      type: "product-check",
+      payload: { productId: "prod-001" },
+      idempotencyKey: key
+    });
+    await worker.queue({ messages: [makeMessage(queue.messages[0])] }, envWithQueue(queue));
+    assert.equal(mock.supabaseTasks.get(first.body.task.id).status, "completed");
+    assert.equal(mock.agentRuns.size, 1);
+
+    const second = await createTask({
+      mockFetch: mock.mockFetch,
+      queue,
+      type: "product-check",
+      payload: { productId: "prod-001" },
+      idempotencyKey: key
+    });
+    await worker.queue({ messages: [makeMessage(queue.messages[1])] }, envWithQueue(queue));
+
+    assert.equal(mock.supabaseTasks.get(second.body.task.id).status, "completed");
+    assert.equal(mock.agentRuns.size, 1);
   });
 });
 
