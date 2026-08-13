@@ -146,15 +146,17 @@ test("Jarvis deterministic summary surfaces blockers and partial failures", () =
   assert.deepEqual(summary.blockers, ["GPSR fehlt"]);
 });
 
-test("Phase C endpoint delegates only through the protected registry runner", async () => {
+test("Jarvis endpoint delegates through Brain and the protected registry runner", async () => {
   const source = await readFile(new URL("../api/jarvis.js", import.meta.url), "utf8");
   assert.match(source, /ai-agent-run-registry\.js/);
-  assert.match(source, /createJarvisPlan/);
+  assert.match(source, /runJarvisBrain/);
   assert.match(source, /action:\s*"run_agent"/);
   assert.match(source, /body\.execute === true/);
+  assert.match(source, /generalJarvisFallback:\s*true/);
   assert.match(source, /externalActionsLocked:\s*true/);
   assert.match(source, /livePublishingAllowed:\s*false/);
   assert.doesNotMatch(source, /publish_listing|place_supplier_order|issue_refund|send_customer_message/);
+  assert.doesNotMatch(source, /jarvis_no_suitable_agent/);
 });
 
 test("Jarvis browser client is valid JavaScript and exposes plan/execute/delegate", async () => {
