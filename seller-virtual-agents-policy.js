@@ -11,10 +11,7 @@
   const PANEL_ID = "elyonAiWorkforceTeamV6Panel";
   const CONFIG_SECTION_ID = "elyonAgentResourceConfig";
   let requestedTab = "";
-  let tabObserver = null;
-  let menuObserver = null;
   let scheduled = false;
-  let workforceObserver = null;
 
   const SKILL_TO_BACKEND = {
     "elyon-manager": "elyon-operations-manager",
@@ -331,6 +328,11 @@
     window.setTimeout(() => { if (button.isConnected) button.textContent = "KI, Tools & Memory speichern"; }, 1400);
   }
 
+  function refreshWorkforceConfiguration() {
+    patchWorkforceCards();
+    if (document.getElementById(PANEL_ID)) enhanceDetailsPanel();
+  }
+
   function installAgentConfigBridge() {
     document.addEventListener("click", (event) => {
       const target = event.target instanceof Element ? event.target : null;
@@ -348,21 +350,12 @@
       patchWorkforceCards();
       window.setTimeout(enhanceDetailsPanel, 30);
     });
-    window.addEventListener("storage", (event) => {
-      if (event.key === INTEGRATION_KEY || event.key === SETTINGS_KEY) {
-        patchWorkforceCards();
-        if (document.getElementById(PANEL_ID)) enhanceDetailsPanel();
-      }
+    window.addEventListener("elyon:runtime-group-loaded", (event) => {
+      if (event.detail?.tabId === TAB_ID) refreshWorkforceConfiguration();
     });
-
-    if (!workforceObserver) {
-      workforceObserver = new MutationObserver(() => {
-        patchWorkforceCards();
-        if (document.getElementById(PANEL_ID)) enhanceDetailsPanel();
-      });
-      workforceObserver.observe(document.body, { childList: true, subtree: true });
-    }
-    [100, 500, 1200, 2400].forEach((delay) => window.setTimeout(patchWorkforceCards, delay));
+    window.addEventListener("storage", (event) => {
+      if (event.key === INTEGRATION_KEY || event.key === SETTINGS_KEY) refreshWorkforceConfiguration();
+    });
   }
 
   function showDedicatedTab() {
@@ -371,10 +364,8 @@
     document.querySelectorAll(".tab").forEach((node) => node.classList.remove("active"));
     exposeTab();
     tab.classList.add("active");
-    tab.scrollIntoView?.({ block: "start", behavior: "smooth" });
-    window.ElyonAIWorkforceMountFix?.refresh?.();
-    window.ElyonAIWorkforce?.mount?.();
-    window.setTimeout(patchWorkforceCards, 40);
+    const menu = document.getElementById(MENU_ID);
+    if (menu) menu.value = TAB_ID;
     return true;
   }
 
@@ -384,7 +375,6 @@
     exposeTab();
     ensureMenuOption();
     syncRoleMetadata();
-    if (requestedTab === TAB_ID) showDedicatedTab();
   }
 
   function scheduleActivate() {
@@ -393,38 +383,16 @@
     requestAnimationFrame(activate);
   }
 
-  function observePolicyRewrites() {
-    const tab = document.getElementById(TAB_ID);
-    const menu = document.getElementById(MENU_ID);
-    if (tab && !tabObserver) {
-      tabObserver = new MutationObserver(scheduleActivate);
-      tabObserver.observe(tab, { attributes: true, attributeFilter: ["class", "hidden", "aria-hidden"] });
-    }
-    if (menu && !menuObserver) {
-      menuObserver = new MutationObserver(scheduleActivate);
-      menuObserver.observe(menu, { childList: true });
-    }
-    window.setTimeout(() => {
-      tabObserver?.disconnect();
-      menuObserver?.disconnect();
-      tabObserver = null;
-      menuObserver = null;
-      activate();
-    }, 2600);
-  }
-
   function install() {
     activate();
-    observePolicyRewrites();
     installAgentConfigBridge();
 
     document.addEventListener("change", (event) => {
       if (event.target?.id !== MENU_ID) return;
       requestedTab = event.target.value === TAB_ID ? TAB_ID : "";
-      if (requestedTab) window.setTimeout(showDedicatedTab, 0);
+      if (requestedTab) scheduleActivate();
     }, true);
 
-    [100, 650, 1750, 2400].forEach((delay) => window.setTimeout(activate, delay));
     window.addEventListener("elyon:tab-changed", (event) => {
       if (event.detail?.tabId === TAB_ID || event.detail === TAB_ID) {
         requestedTab = TAB_ID;
@@ -438,7 +406,10 @@
         requestedTab = TAB_ID;
         const menu = document.getElementById(MENU_ID);
         if (menu) menu.value = TAB_ID;
-        activate();
+        if (typeof window.showTab === "function") window.showTab(TAB_ID);
+        else showDedicatedTab();
+        scheduleActivate();
+        window.ElyonRuntimeLoader?.loadGroup?.(TAB_ID)?.catch?.(() => {});
       },
       root: () => document.getElementById(ROOT_ID),
       enhanceAgentDetails: enhanceDetailsPanel,
