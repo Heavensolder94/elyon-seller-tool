@@ -11,7 +11,7 @@
     "/seller-jarvis-e4-control.js",
     "/seller-jarvis-e5-pipeline.js",
   ];
-  const VERSION = "phase-integration-center-v1";
+  const VERSION = "phase-integration-center-v1-preview-1";
 
   function existing(path) {
     return [...document.scripts].some((script) => {
