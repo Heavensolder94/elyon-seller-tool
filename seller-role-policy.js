@@ -10,6 +10,8 @@
     { id: "automationTab", label: "Versand", role: "Versand und Tracking verwalten" },
     { id: "returnsTab", label: "Retouren", role: "Rückgaben und Verluste dokumentieren" },
     { id: "settingsTab", label: "Einstellungen", role: "eBay, Company OS, Sicherheit und Backups" },
+    { id: "virtualAgentsTab", label: "Virtuelle Mitarbeiter", role: "KI-Agenten, Aufgaben und Freigaben verwalten" },
+    { id: "jarvisIntegrationCenterTab", label: "Jarvis Integration Center", role: "KI-Modelle, APIs, Routing, Kosten und Logs verwalten" },
   ];
 
   const INACTIVE_MODULES = [
@@ -19,7 +21,6 @@
     { id: "financeTab", label: "Vorab-Kalkulation", reason: "Verbindliche Kalkulation kommt aus Company OS" },
     { id: "listingCheckTab", label: "Zweiter Listing-Check", reason: "Listing-Paket wird in Company OS abgeschlossen" },
     { id: "productStatusTab", label: "Doppelter Produktstatus", reason: "Product Master ist die einzige Seller-Wahrheit" },
-    { id: "virtualAgentsTab", label: "Virtuelle Mitarbeiter", reason: "Erst nach echten Verkäufen weiterführen" },
     { id: "trackingTab", label: "Gewinner-Tracking Labor", reason: "Später in Auswertung integrieren" },
     { id: "budgetTab", label: "Testbudget Labor", reason: "Aktuell nicht Teil des Seller-Betriebs" },
     { id: "priceTab", label: "Zielpreis Labor", reason: "Company OS liefert finale Kostenrechnung" },
@@ -167,7 +168,7 @@
       description: text(listing.descriptionHtml || server.listingDescription || server.description || product?.description),
       itemSpecifics: listing.itemSpecifics && typeof listing.itemSpecifics === "object" ? listing.itemSpecifics : {},
       conditionId: text(listing.conditionId || server.conditionId),
-      price: Number(pricing.salePrice ?? product?.salePrice ?? product?.sell ?? 0),
+      price: Number(pricing.salePrice ?? product?.salePrice ?? product?.sellPrice ?? 0),
       deliveryTime: text(logistics.deliveryTime || logistics.shippingInfo || server.deliveryTime),
       returnAddress: text(logistics.returnAddress || server.returnAddress),
       images: Array.isArray(server.images) ? server.images : Array.isArray(product?.images) ? product.images : [],
