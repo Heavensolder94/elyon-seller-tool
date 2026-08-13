@@ -1,0 +1,23 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "elyon-jarvis-worker",
+  "main": "src/index.js",
+  "compatibility_date": "2026-08-13",
+  "workers_dev": true,
+  "queues": {
+    "producers": [
+      {
+        "binding": "JARVIS_TASK_QUEUE",
+        "queue": "elyon-jarvis-jobs"
+      }
+    ],
+    "consumers": [
+      {
+        "queue": "elyon-jarvis-jobs",
+        "max_batch_size": 5,
+        "max_batch_timeout": 10,
+        "max_retries": 3
+      }
+    ]
+  }
+}
