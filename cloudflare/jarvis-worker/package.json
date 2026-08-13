@@ -1,0 +1,12 @@
+{
+  "name": "elyon-jarvis-worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "echo worker-ready"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}
