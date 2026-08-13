@@ -5,6 +5,7 @@
     "/seller-jarvis-client.js",
     "/seller-jarvis-ui.js",
     "/seller-jarvis-command-center.js",
+    "/seller-jarvis-openrouter-models.js",
     "/seller-jarvis-integration-center.js",
     "/seller-ai-workforce-builder-integration.js",
     "/seller-jarvis-companion-handoff.js",
@@ -12,7 +13,7 @@
     "/seller-jarvis-e4-control.js",
     "/seller-jarvis-e5-pipeline.js",
   ];
-  const VERSION = "phase-e5-v1-integration-center-v2";
+  const VERSION = "phase-e5-v1-openrouter-model-catalog-v1";
 
   function existing(path) {
     return [...document.scripts].some((script) => {
@@ -37,6 +38,7 @@
   async function boot() {
     try {
       for (const file of FILES) await load(file);
+      window.ElyonOpenRouterModelCatalog?.sync?.();
       window.ElyonJarvisUI?.refresh?.();
       window.ElyonJarvisCommandCenter?.refresh?.();
       window.ElyonJarvisIntegrationCenter?.refresh?.();
