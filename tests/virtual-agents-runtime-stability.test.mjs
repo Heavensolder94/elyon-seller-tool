@@ -107,19 +107,20 @@ test("desktop runtime no longer executes discarded legacy UI and coalesces dupli
 
   assert.doesNotMatch(optimized, /seller-virtual-agents-legacy\.js/);
   assert.match(optimized, /virtualAgentsTab:[\s\S]*ai-workforce-client\.js[\s\S]*ai-workforce-mount-fix\.js[\s\S]*seller-ai-workforce-advanced-settings\.js/);
-  assert.match(optimized, /virtual-agents-stable-20260813-2/);
+  assert.match(optimized, /virtual-agents-stable-20260813-3/);
   assert.match(optimized, /duplicateVirtualActivation/);
   assert.match(optimized, /now - lastVirtualActivation < 250/);
   assert.doesNotThrow(() => new Script(optimized, { filename: "seller-runtime-loader.js" }));
 });
 
-test("Vercel build does not force V2 V3 V4 and builder rerenders after the group loads", async () => {
+test("Vercel build keeps compatibility refreshes out of the critical activation path", async () => {
   const prepare = await source("scripts/prepare-vercel.mjs");
 
   assert.doesNotMatch(prepare, /ElyonAIWorkforceV2\?\.render/);
-  assert.doesNotMatch(prepare, /ElyonAIWorkforceWorkspaceV3\?\.render/);
-  assert.doesNotMatch(prepare, /ElyonAIAgentBuilder\?\.refresh/);
-  assert.doesNotMatch(prepare, /ElyonAIWorkforceInterfaceV4\?\.refresh/);
+  assert.match(prepare, /requestIdleCallback/);
+  assert.match(prepare, /window\.ElyonAIWorkforceWorkspaceV3\?\.render/);
+  assert.match(prepare, /window\.ElyonAIAgentBuilder\?\.refresh/);
+  assert.match(prepare, /window\.ElyonAIWorkforceInterfaceV4\?\.refresh/);
   assert.match(prepare, /optimizeWorkforceStructureV2/);
   assert.match(prepare, /optimizeWorkforceV2Operations/);
   assert.match(prepare, /optimizeWorkforceInterfaceV4/);
