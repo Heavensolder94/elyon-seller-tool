@@ -51,12 +51,32 @@ test("Jarvis D1 passes only a bounded current product and recent task context fr
   assert.doesNotMatch(source, /buyerEmail|shippingAddress|phoneNumber/);
 });
 
-test("Jarvis bootstrap is valid, event-driven, and loads client before UI", async () => {
+test("Jarvis bootstrap keeps startup lightweight and lazy-loads heavy workspaces", async () => {
   const source = await readFile(bootstrapUrl, "utf8");
   assert.doesNotThrow(() => new vm.Script(source));
+  assert.match(source, /const CORE_FILES =/);
+  assert.match(source, /const FEATURE_GROUPS =/);
+  assert.match(source, /await loadFiles\(CORE_FILES\)/);
+  assert.match(source, /jarvisCommandCenterTab/);
+  assert.match(source, /jarvisIntegrationCenterTab/);
+  assert.match(source, /virtualAgentsTab/);
+  assert.match(source, /elyon:tab-changed/);
   assert.match(source, /seller-jarvis-client\.js/);
   assert.match(source, /seller-jarvis-ui\.js/);
-  assert.match(source, /for \(const file of FILES\) await load\(file\)/);
+
+  const coreBlock = source.match(/const CORE_FILES = \[([\s\S]*?)\];/)?.[1] || "";
+  for (const heavyFile of [
+    "seller-jarvis-command-center.js",
+    "seller-jarvis-integration-center.js",
+    "seller-ai-workforce-builder-integration.js",
+    "seller-jarvis-e1-cloud.js",
+    "seller-jarvis-e4-control.js",
+    "seller-jarvis-e5-pipeline.js",
+  ]) {
+    assert.doesNotMatch(coreBlock, new RegExp(heavyFile.replaceAll(".", "\\.")));
+    assert.match(source, new RegExp(heavyFile.replaceAll(".", "\\.")));
+  }
+
   assert.doesNotMatch(source, /MutationObserver|setInterval/);
 });
 
