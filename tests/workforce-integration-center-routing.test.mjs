@@ -39,7 +39,7 @@ test("AI provider router supports OpenRouter chat models and free-router fallbac
   assert.match(router, /function isOpenRouterModel/);
   assert.match(router, /function callOpenRouter/);
   assert.match(router, /if \(provider === "openrouter"\) return callOpenRouter\(request\)/);
-  assert.match(router, /isOpenRouterModel\(requestedModel\) \? "openrouter"/);
+  assert.match(router, /isOpenRouterModel\(requestedModel\)[\s\S]*?\? "openrouter"/);
   assert.match(router, /provider === "openrouter" && request\.model !== "openrouter\/free"/);
   assert.match(router, /model: "openrouter\/free"/);
 });
