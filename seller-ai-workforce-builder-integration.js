@@ -8,14 +8,12 @@
   const FALLBACK_ATTR = "data-integration-fallback-model";
 
   const DEFAULT_MODELS = [
-    { id: "nemotron-3-ultra-free", name: "Nemotron 3 Ultra", provider: "OpenRouter", tier: "FREE" },
-    { id: "gpt-oss-20b-free", name: "GPT-OSS 20B", provider: "OpenRouter", tier: "FREE" },
-    { id: "north-mini-code-free", name: "North Mini Code", provider: "OpenRouter", tier: "FREE" },
-    { id: "lfm-2-5-2-6b-free", name: "LFM2.5-2.6B", provider: "OpenRouter", tier: "FREE" },
-    { id: "nemotron-nano-12b-vl-free", name: "Nemotron Nano 12B VL", provider: "OpenRouter", tier: "FREE" },
-    { id: "openrouter-free-router", name: "OpenRouter Free Models Router", provider: "OpenRouter", tier: "FREE" },
-    { id: "nemotron-3-5-lightning-free", name: "Nemotron 3.5 Lightning", provider: "OpenRouter", tier: "FREE" },
-    { id: "gemma-4-31b-free", name: "Gemma 4 31B", provider: "OpenRouter", tier: "FREE" },
+    { id: "nemotron-3-ultra-free", modelId: "nvidia/nemotron-3-ultra-550b-a55b:free", name: "Nemotron 3 Ultra", provider: "OpenRouter", tier: "FREE", kind: "chat" },
+    { id: "gpt-oss-20b-free", modelId: "openai/gpt-oss-20b:free", name: "GPT-OSS 20B", provider: "OpenRouter", tier: "FREE", kind: "chat" },
+    { id: "north-mini-code-free", modelId: "cohere/north-mini-code:free", name: "North Mini Code", provider: "OpenRouter", tier: "FREE", kind: "chat" },
+    { id: "nemotron-nano-12b-vl-free", modelId: "nvidia/nemotron-nano-12b-v2-vl:free", name: "Nemotron Nano 12B VL", provider: "OpenRouter", tier: "FREE", kind: "chat" },
+    { id: "openrouter-free-router", modelId: "openrouter/free", name: "OpenRouter Free Models Router", provider: "OpenRouter", tier: "FREE", kind: "router" },
+    { id: "gemma-4-31b-free", modelId: "google/gemma-4-31b-it:free", name: "Gemma 4 31B", provider: "OpenRouter", tier: "FREE", kind: "chat" },
   ];
 
   const text = (value, fallback = "") => value === null || value === undefined ? fallback : String(value).trim();
@@ -35,14 +33,44 @@
     catch { return false; }
   }
 
-  function models() {
+  function catalogModels() {
     const registry = readJson(REGISTRY_KEY, {});
-    const list = Array.isArray(registry?.models) ? registry.models.filter((model) => model?.enabled !== false) : [];
-    return list.length ? list : DEFAULT_MODELS;
+    return Array.isArray(registry?.models) && registry.models.length ? registry.models : DEFAULT_MODELS;
+  }
+
+  function models() {
+    return catalogModels().filter((model) => model?.enabled !== false);
+  }
+
+  function runtimeModelId(model) {
+    return text(model?.modelId || model?.runtimeModel || model?.providerModel || (model?.id === "openrouter-free-router" ? "openrouter/free" : ""));
+  }
+
+  function isChatRuntimeModel(model) {
+    const kind = text(model?.kind).toLowerCase();
+    return (!kind || kind === "chat" || kind === "router") && Boolean(runtimeModelId(model));
   }
 
   function openRouterModels() {
-    return models().filter((model) => text(model.provider).toLowerCase() === "openrouter");
+    return models().filter((model) => text(model.provider).toLowerCase() === "openrouter" && isChatRuntimeModel(model));
+  }
+
+  function normalizeLegacyModelOptions(root = document) {
+    const aliases = new Map(catalogModels().map((model) => [text(model?.id), model]).filter(([id]) => id));
+    const selectors = root.querySelectorAll?.('.elyon-model-picker,[data-resource-field="model"],[data-resource-field="fallbackModel"]') || [];
+    selectors.forEach((select) => {
+      if (!(select instanceof HTMLSelectElement)) return;
+      [...select.options].forEach((option) => {
+        const model = aliases.get(text(option.value));
+        if (!model) return;
+        if (text(model.provider).toLowerCase() !== "openrouter" || !isChatRuntimeModel(model)) {
+          option.remove();
+          return;
+        }
+        const runtimeId = runtimeModelId(model);
+        if (runtimeId) option.value = runtimeId;
+      });
+    });
   }
 
   function installStyles() {
@@ -63,7 +91,7 @@
   function optionMarkup(selected = "") {
     const list = openRouterModels();
     return `<option value="">Zentrale Vorgabe / Auto-Routing</option>${list.map((model) => {
-      const id = text(model.id || model.modelId || model.name);
+      const id = runtimeModelId(model);
       const name = text(model.name, id);
       const tier = text(model.tier || model.pricingTier);
       return `<option value="${escapeHtml(id)}" ${id === selected ? "selected" : ""}>${escapeHtml(name)}${tier ? ` · ${escapeHtml(tier)}` : ""}</option>`;
@@ -120,7 +148,7 @@
     }
 
     const currentAgent = currentAgentByForm(root);
-    const selected = text(currentAgent?.fallbackModel, "openrouter-free-router");
+    const selected = text(currentAgent?.fallbackModel, "openrouter/free");
     const select = fallback.querySelector("[data-integration-fallback-select]");
     if (select) {
       select.innerHTML = `<option value="">Kein spezieller Fallback</option>${optionMarkup(selected).replace('<option value="">Zentrale Vorgabe / Auto-Routing</option>', '')}`;
@@ -139,11 +167,12 @@
     if (!grid || grid.querySelector(".elyon-builder-integration-note")) return;
     const note = document.createElement("div");
     note.className = "elyon-builder-integration-note";
-    note.innerHTML = '<strong>Jarvis Integration Center:</strong> Bei OpenRouter stammen Primär- und Fallback-Modell direkt aus den dort aktivierten Modellen.';
+    note.innerHTML = '<strong>Jarvis Integration Center:</strong> Bei OpenRouter stammen Primär- und Fallback-Modell direkt aus den dort aktivierten Chat-Modellen mit verifizierter Runtime-ID.';
     grid.appendChild(note);
   }
 
   function enhance(root = document.getElementById(BUILDER_ID)) {
+    normalizeLegacyModelOptions(document);
     if (!root) return false;
     installStyles();
     const provider = root.querySelector('[data-builder-field="provider"]');
@@ -206,13 +235,14 @@
   }, true);
 
   const observer = new MutationObserver(() => {
+    normalizeLegacyModelOptions(document);
     const root = document.getElementById(BUILDER_ID);
     if (root) enhance(root);
   });
   observer.observe(document.documentElement, { childList: true, subtree: true });
 
   window.addEventListener("elyon:jarvis-integration-registry-changed", () => enhance());
-  window.ElyonAIWorkforceBuilderIntegration = { refresh: enhance, models: openRouterModels };
+  window.ElyonAIWorkforceBuilderIntegration = { refresh: enhance, models: openRouterModels, normalizeLegacyModelOptions };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => enhance(), { once: true });
   else enhance();
 })();
