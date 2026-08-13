@@ -1,6 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "npm test && VERCEL_FORCE_NO_BUILD_CACHE=1 node scripts/prepare-vercel.mjs && node scripts/prepare-agent-registry.mjs && node scripts/finalize-seller-os.mjs",
+  "buildCommand": "npm test && node scripts/prepare-without-soul.mjs pre && VERCEL_FORCE_NO_BUILD_CACHE=1 node scripts/prepare-vercel.mjs && node scripts/prepare-without-soul.mjs post && node scripts/prepare-agent-registry.mjs && node scripts/finalize-seller-os.mjs",
   "outputDirectory": "public",
   "regions": ["fra1"],
   "crons": [
@@ -26,7 +26,6 @@
     {"source":"/api/product-vision","destination":"/api/secure-agent-engine?action=ai-workflow"},
     {"source":"/api/ai","destination":"/api/secure-ai"},
     {"source":"/api/ai-router","destination":"/api/secure-ai?action=router"},
-    {"source":"/api/elyon-soul","destination":"/api/secure-elyon-soul"},
     {"source":"/api/elyon/products","destination":"/api/extension/import-product?collection=products"},
     {"source":"/api/google-sheets-sync","destination":"/api/secure-env-check"},
     {"source":"/api/cj/status","destination":"/api/cj/search?action=status"},
