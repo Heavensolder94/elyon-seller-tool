@@ -117,7 +117,7 @@
     const result = models
       .filter((model) => model?.enabled !== false && text(model.provider).toLowerCase() === "openrouter")
       .map((model) => ({
-        value: text(model.runtimeModel || model.providerModel || OPENROUTER_RUNTIME_MODELS[model.id]),
+        value: text(model.modelId || model.runtimeModel || model.providerModel || OPENROUTER_RUNTIME_MODELS[model.id]),
         label: `${text(model.name, model.id)}${model.tier ? ` · ${text(model.tier)}` : ""}${model.role ? ` · ${text(model.role)}` : ""}`,
       }))
       .filter((model) => model.value);
@@ -191,7 +191,7 @@
     section.className = "aiw-v3-modal-section";
     section.dataset.elyonModelRouting = "true";
     const registryModels = Array.isArray(integrationRegistry().models) ? integrationRegistry().models : [];
-    const unavailableCount = registryModels.filter((item) => item?.enabled !== false && text(item.provider).toLowerCase() === "openrouter" && !text(item.runtimeModel || item.providerModel || OPENROUTER_RUNTIME_MODELS[item.id])).length;
+    const unavailableCount = registryModels.filter((item) => item?.enabled !== false && text(item.provider).toLowerCase() === "openrouter" && !text(item.modelId || item.runtimeModel || item.providerModel || OPENROUTER_RUNTIME_MODELS[item.id])).length;
     section.innerHTML = `<h3>KI-Provider & Modell</h3><div class="aiw-v3-form-grid"><label class="aiw-v3-field"><span>Provider</span><select data-elyon-agent-provider>${optionsHtml(providers, provider)}</select></label><label class="aiw-v3-field"><span>Primäres Modell</span><select data-elyon-agent-model>${optionsHtml(models, currentModel || models[0]?.value || "")}</select></label></div><div class="aiw-v3-warning" style="margin-top:9px">Quelle: Jarvis Integration Center. Bei OpenRouter nutzt „Alternativen Provider verwenden“ zuerst den Free Models Router.${unavailableCount ? ` ${unavailableCount} aktive Spezial-/Legacy-Modelle sind nicht als Chat-Runtime auswählbar.` : ""}</div>`;
     const firstSection = panel.querySelector(".aiw-v3-modal-section");
     firstSection?.insertAdjacentElement("afterend", section);
