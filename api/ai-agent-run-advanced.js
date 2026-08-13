@@ -1,5 +1,6 @@
 import { requireSellerAccess } from "../lib/seller-access.js";
 import { routeAIRequest } from "../lib/ai-provider-router.js";
+import { getAgentRoutingPreference } from "../lib/ai-agent-routing-preferences.js";
 import {
   buildAgentMessages,
   buildContextPacket,
@@ -67,14 +68,16 @@ function sourceIdFromContext(context) {
   return text(context.productId || context.orderId || context.returnId || context.listingId || "", 300);
 }
 
-function agentConfiguration(body, definition, agentId) {
+function agentConfiguration(req, body, definition, agentId) {
   const source = plainObject(body.agent || body.configuration || body.settings);
+  const preference = getAgentRoutingPreference(req, agentId);
   const advanced = normalizeAdvancedSettings(agentId, source.advanced || body.advancedSettings);
   const requestedTemperature = finiteNumber(source.temperature ?? body.temperature);
+  const explicitFallback = source.allowFallback ?? body.allowFallback;
   return {
-    provider: text(source.provider || body.provider || definition.defaultProvider, 100).toLowerCase(),
-    model: text(source.model || body.model, 200),
-    allowFallback: source.allowFallback !== false && body.allowFallback !== false,
+    provider: text(source.provider || body.provider || preference.provider || definition.defaultProvider, 100).toLowerCase(),
+    model: text(source.model || body.model || preference.model, 200),
+    allowFallback: typeof explicitFallback === "boolean" ? explicitFallback : preference.allowFallback !== false,
     temperature: Math.max(0, Math.min(2, requestedTemperature ?? configuredTemperature(advanced))),
     maxTokens: Math.max(500, Math.min(12000, Math.trunc(finiteNumber(source.maxTokens ?? body.maxTokens) ?? advanced.common.maxTokens))),
     advanced,
@@ -119,7 +122,7 @@ function finalizeResult(agentId, result, context, advanced) {
   return sanitizeAgentResult(configured, { agentId, context });
 }
 
-async function runAgent(action, body) {
+async function runAgent(action, body, req) {
   const agentId = resolveAgentId(action, body);
   const definition = getAgentDefinition(agentId);
   if (!definition) {
@@ -137,7 +140,7 @@ async function runAgent(action, body) {
     : plainObject(body.input || body.context || body);
   const context = buildContextPacket(agentId, rawInput);
   const taskPrompt = text(body.taskPrompt || body.description || body.prompt, 8000);
-  const config = agentConfiguration(body, definition, agentId);
+  const config = agentConfiguration(req, body, definition, agentId);
   const startedAt = Date.now();
   let task = createWorkforceTask({
     id: body.task?.id,
@@ -299,6 +302,7 @@ export default async function handler(req, res) {
       providers: {
         openai: Boolean(process.env.OPENAI_API_KEY),
         deepseek: Boolean(process.env.DEEPSEEK_API_KEY),
+        openrouter: Boolean(process.env.OPENROUTER_API_KEY),
         local: true,
       },
       safety: {
@@ -317,7 +321,7 @@ export default async function handler(req, res) {
   try {
     const body = plainObject(req.body);
     const action = text(body.action, 100) || "run_agent";
-    const result = await runAgent(action, body);
+    const result = await runAgent(action, body, req);
     return res.status(result.statusCode).json(result.payload);
   } catch (error) {
     return res.status(500).json({
