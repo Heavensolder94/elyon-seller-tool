@@ -193,12 +193,6 @@
     }, 0);
   }
 
-  function scheduleEnhance() {
-    // The builder opens from explicit user actions. A few short, bounded retries cover
-    // its asynchronous render without observing every DOM mutation in the application.
-    [0, 30, 100].forEach((delay) => setTimeout(() => enhance(), delay));
-  }
-
   document.addEventListener("click", (event) => {
     const target = event.target instanceof Element ? event.target : null;
     if (!target) return;
@@ -206,10 +200,18 @@
       const root = target.closest(`#${BUILDER_ID}`);
       if (root) persistFallbackAfterSave(root);
     }
-    if (target.closest("[data-agent-builder-create],[data-custom-create],[data-custom-edit],[data-v6-create-custom],[data-v6-custom-edit]")) scheduleEnhance();
+    if (target.closest("[data-agent-builder-create],[data-custom-create],[data-custom-edit],[data-v6-create-custom],[data-v6-custom-edit]")) {
+      [0, 30, 100].forEach((delay) => setTimeout(() => enhance(), delay));
+    }
   }, true);
 
-  window.addEventListener("elyon:jarvis-integration-registry-changed", () => scheduleEnhance());
+  const observer = new MutationObserver(() => {
+    const root = document.getElementById(BUILDER_ID);
+    if (root) enhance(root);
+  });
+  observer.observe(document.documentElement, { childList: true, subtree: true });
+
+  window.addEventListener("elyon:jarvis-integration-registry-changed", () => enhance());
   window.ElyonAIWorkforceBuilderIntegration = { refresh: enhance, models: openRouterModels };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => enhance(), { once: true });
   else enhance();
