@@ -77,19 +77,31 @@ function injectDesktopSecurity(html) {
 
 function injectWorkforceV2IntoRuntimeLoader(source) {
   const entryMarker = '      { src: "/seller-ai-workforce-advanced-settings.js" },';
-  if (!source.includes(entryMarker)) {
+  const activationMarker = "      window.ElyonAIWorkforceAdvancedSettings?.refresh?.();";
+  if (!source.includes(entryMarker) || !source.includes(activationMarker)) {
     throw new Error("Virtual-Agent-Runtime konnte nicht um Workforce V4 erweitert werden.");
   }
-  return source.replace(entryMarker, [
-    entryMarker,
-    '      { src: "/seller-ai-workforce-v2-settings.js" },',
-    '      { src: "/seller-ai-workforce-structure-v2.js" },',
-    '      { src: "/seller-ai-workforce-v2-operations.js" },',
-    '      { src: "/seller-ai-workforce-workspace-v3.js" },',
-    '      { src: "/seller-ai-workforce-workspace-v3-policy.js" },',
-    '      { src: "/seller-ai-workforce-agent-builder.js" },',
-    '      { src: "/seller-ai-workforce-interface-v4.js" },',
-  ].join("\n"));
+  return source
+    .replace(entryMarker, [
+      entryMarker,
+      '      { src: "/seller-ai-workforce-v2-settings.js" },',
+      '      { src: "/seller-ai-workforce-structure-v2.js" },',
+      '      { src: "/seller-ai-workforce-v2-operations.js" },',
+      '      { src: "/seller-ai-workforce-workspace-v3.js" },',
+      '      { src: "/seller-ai-workforce-workspace-v3-policy.js" },',
+      '      { src: "/seller-ai-workforce-agent-builder.js" },',
+      '      { src: "/seller-ai-workforce-interface-v4.js" },',
+    ].join("\n"))
+    .replace(activationMarker, [
+      activationMarker,
+      "      const refreshWorkforceSupport = () => {",
+      "        window.ElyonAIWorkforceWorkspaceV3?.render?.();",
+      "        window.ElyonAIAgentBuilder?.refresh?.();",
+      "        window.ElyonAIWorkforceInterfaceV4?.refresh?.();",
+      "      };",
+      '      if ("requestIdleCallback" in window) window.requestIdleCallback(refreshWorkforceSupport, { timeout: 1200 });',
+      "      else window.setTimeout(refreshWorkforceSupport, 120);",
+    ].join("\n"));
 }
 
 const filesToMirror = [
