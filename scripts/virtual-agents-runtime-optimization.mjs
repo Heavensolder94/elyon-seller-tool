@@ -197,6 +197,8 @@ const RUNTIME_LOAD_GROUP_AFTER = `  const activationRequests = new Map();
   }`;
 
 const LEGACY_RUNTIME_ENTRY = `      { src: "/seller-virtual-agents-legacy.js" },\n`;
+const TEAM_V6_RUNTIME_ENTRY = `      { src: "/seller-ai-workforce-team-v6.js" },`;
+const ROUTING_CENTER_RUNTIME_ENTRY = `      { src: "/seller-ai-workforce-routing-center.js" },`;
 
 function replaceRequired(source, before, after, label) {
   if (!source.includes(before)) {
@@ -223,9 +225,17 @@ export function optimizeWorkforceWorkspaceV3(source) {
 export function optimizeVirtualAgentsRuntimeLoader(source) {
   let output = replaceRequired(source, LEGACY_RUNTIME_ENTRY, "", "legacy virtual-agent runtime entry");
   output = replaceRequired(output, RUNTIME_LOAD_GROUP_BEFORE, RUNTIME_LOAD_GROUP_AFTER, "runtime group activation dedupe");
+  if (!output.includes(ROUTING_CENTER_RUNTIME_ENTRY)) {
+    output = replaceRequired(
+      output,
+      TEAM_V6_RUNTIME_ENTRY,
+      `${TEAM_V6_RUNTIME_ENTRY}\n${ROUTING_CENTER_RUNTIME_ENTRY}`,
+      "workforce routing center runtime entry"
+    );
+  }
   output = output.replace(
     /const VERSION = "[^"]+";/,
-    'const VERSION = "menu-performance-20260813-1";'
+    'const VERSION = "workforce-routing-20260813-1";'
   );
   return output;
 }
