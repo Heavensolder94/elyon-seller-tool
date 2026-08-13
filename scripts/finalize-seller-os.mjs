@@ -5,6 +5,7 @@ import {
   transformSellerDashboard,
   transformSellerRuntimeLoader,
 } from "./seller-listing-parity-transform.mjs";
+import { optimizeCompanyEntryRuntime } from "./workforce-company-entry-runtime-optimization.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const appRoot = path.resolve(scriptDir, "..");
@@ -33,7 +34,7 @@ const [polishSource, orgchartSource, companyEntrySource, runtimeLoaderSource, da
 
 const productionPolish = polishSource
   .replace("Preview-only finishing pass.", "Production visual finishing pass.");
-const productionCompanyEntry = companyEntrySource
+const productionCompanyEntry = optimizeCompanyEntryRuntime(companyEntrySource)
   .replaceAll("elyonCompanyEntryPreviewStyles", "elyonCompanyEntryStyles")
   .replaceAll("ElyonAIWorkforceCompanyEntryPreview", "ElyonAIWorkforceCompanyEntry");
 
