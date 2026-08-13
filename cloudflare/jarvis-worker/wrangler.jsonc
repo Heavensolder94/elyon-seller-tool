@@ -1,7 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "elyon-jarvis-worker",
-  "main": "src/index.js",
+  "main": "src/index-enrichment-v2.js",
   "compatibility_date": "2026-08-13",
   "workers_dev": true,
   "queues": {
