@@ -107,7 +107,8 @@ test("desktop runtime coalesces duplicate activation for every lazy menu group",
 
   assert.doesNotMatch(optimized, /seller-virtual-agents-legacy\.js/);
   assert.match(optimized, /virtualAgentsTab:[\s\S]*ai-workforce-client\.js[\s\S]*ai-workforce-mount-fix\.js[\s\S]*seller-ai-workforce-advanced-settings\.js/);
-  assert.match(optimized, /menu-performance-20260813-1/);
+  assert.match(optimized, /workforce-routing-20260813-1/);
+  assert.match(optimized, /seller-ai-workforce-routing-center\.js/);
   assert.match(optimized, /const activationRequests = new Map\(\)/);
   assert.match(optimized, /const activationTimes = new Map\(\)/);
   assert.match(optimized, /const ACTIVATION_DEDUP_MS = 250/);
