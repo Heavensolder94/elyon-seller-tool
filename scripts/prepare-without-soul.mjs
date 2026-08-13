@@ -6,6 +6,7 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const appRoot = path.resolve(scriptDir, "..");
 const publicRoot = path.join(appRoot, "public");
 const indexPath = path.join(appRoot, "index.html");
+const backupPath = path.join(appRoot, ".elyon-index-before-soul-removal.tmp");
 const soulJsPath = path.join(appRoot, "elyon-soul.js");
 const soulCssPath = path.join(appRoot, "elyon-soul.css");
 const publicSoulJsPath = path.join(publicRoot, "elyon-soul.js");
@@ -17,27 +18,49 @@ function stripSoulAssets(html) {
     .replace(/^\s*<script\b[^>]*src=["']\/?elyon-soul\.js(?:\?[^"']*)?["'][^>]*>\s*<\/script>\s*$/gim, "");
 }
 
-const originalIndex = await readFile(indexPath, "utf8");
-const strippedIndex = stripSoulAssets(originalIndex);
+async function prepareBeforeBuild() {
+  const originalIndex = await readFile(indexPath, "utf8");
+  const strippedIndex = stripSoulAssets(originalIndex);
 
-if (strippedIndex === originalIndex) {
-  console.log("Elyon Soul: keine Legacy-Asset-Tags im Desktop-HTML gefunden.");
-}
-
-try {
-  // prepare-vercel.mjs hat historisch zwei Soul-Mirror-Eintraege. Die temporaeren
-  // Leerdateien halten diesen alten Build-Vertrag kompatibel, ohne Soul auszuliefern.
+  await writeFile(backupPath, originalIndex, "utf8");
   await writeFile(indexPath, strippedIndex, "utf8");
+
+  // prepare-vercel.mjs still contains two historical mirror entries. Temporary
+  // empty files satisfy that old build contract; they are removed after output.
   await writeFile(soulJsPath, "", "utf8");
   await writeFile(soulCssPath, "", "utf8");
+}
 
-  await import(`./prepare-vercel.mjs?without-soul=${Date.now()}`);
-} finally {
-  await writeFile(indexPath, originalIndex, "utf8");
+async function cleanupAfterBuild() {
+  try {
+    const originalIndex = await readFile(backupPath, "utf8");
+    await writeFile(indexPath, originalIndex, "utf8");
+  } catch {
+    // No backup means there is nothing to restore.
+  }
+
+  await rm(backupPath, { force: true });
   await rm(soulJsPath, { force: true });
   await rm(soulCssPath, { force: true });
   await rm(publicSoulJsPath, { force: true });
   await rm(publicSoulCssPath, { force: true });
 }
 
-console.log("Elyon Soul wurde aus dem ausgelieferten Seller-Tool entfernt.");
+const mode = String(process.argv[2] || "run").toLowerCase();
+
+if (mode === "pre") {
+  await prepareBeforeBuild();
+} else if (mode === "post") {
+  await cleanupAfterBuild();
+} else if (mode === "run") {
+  await prepareBeforeBuild();
+  try {
+    await import(`./prepare-vercel.mjs?without-soul=${Date.now()}`);
+  } finally {
+    await cleanupAfterBuild();
+  }
+} else {
+  throw new Error(`Unbekannter prepare-without-soul Modus: ${mode}`);
+}
+
+console.log(`Elyon Soul Build-Cleanup abgeschlossen (${mode}).`);
