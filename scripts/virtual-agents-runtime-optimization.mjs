@@ -111,6 +111,81 @@ const ADVANCED_INSTALL_AFTER = `  let updateScheduled = false;
     };
   }`;
 
+const WORKSPACE_V3_INSTALL_BEFORE = `  function install() {
+    ensureSettings();
+    installStyles();
+    render();
+    bindTriggers();
+    const observer = new MutationObserver(() => {
+      const grid = document.getElementById("aiwAgentGrid");
+      if (grid && !grid.querySelector(".aiw-v3")) queueRender();
+    });
+    observer.observe(document.documentElement, { childList: true, subtree: true });
+    window.addEventListener("elyon:ai-workforce-v2-task-updated", queueRender);
+    [100, 500, 1200].forEach((delay) => setTimeout(render, delay));
+  }`;
+
+const WORKSPACE_V3_INSTALL_AFTER = `  function workspaceIsActive() {
+    const tab = document.getElementById("virtualAgentsTab");
+    if (!tab) return false;
+    if (tab.classList.contains("active")) return true;
+    return document.getElementById("mainMenu")?.value === "virtualAgentsTab";
+  }
+
+  function refreshWorkspace() {
+    if (!workspaceIsActive()) return;
+    queueRender();
+  }
+
+  function install() {
+    ensureSettings();
+    installStyles();
+    render();
+    bindTriggers();
+
+    window.addEventListener("elyon:ai-workforce-v2-task-updated", refreshWorkspace);
+    window.addEventListener("elyon:runtime-group-loaded", (event) => {
+      if (event.detail?.tabId === "virtualAgentsTab") refreshWorkspace();
+    });
+    window.addEventListener("elyon:tab-changed", (event) => {
+      const tabId = event.detail?.tabId || event.detail;
+      if (tabId === "virtualAgentsTab") refreshWorkspace();
+    });
+    document.addEventListener("change", (event) => {
+      if (event.target?.id === "mainMenu" && event.target.value === "virtualAgentsTab") refreshWorkspace();
+    }, true);
+
+    [120, 450].forEach((delay) => setTimeout(refreshWorkspace, delay));
+  }`;
+
+const RUNTIME_LOAD_GROUP_BEFORE = `  async function loadGroup(groupId) {
+    const entries = GROUPS[groupId];
+    if (!entries) return [];
+    const scripts = await ensureGroup(groupId);
+    activateGroup(groupId);
+    window.dispatchEvent(new CustomEvent("elyon:runtime-group-loaded", {
+      detail: { tabId: groupId, modules: entries.map((entry) => entry.src) },
+    }));
+    return scripts;
+  }`;
+
+const RUNTIME_LOAD_GROUP_AFTER = `  async function loadGroup(groupId) {
+    const entries = GROUPS[groupId];
+    if (!entries) return [];
+    const scripts = await ensureGroup(groupId);
+    const now = Date.now();
+    const lastVirtualActivation = Number(loadGroup.virtualAgentsActivatedAt || 0);
+    const duplicateVirtualActivation = groupId === "virtualAgentsTab" && now - lastVirtualActivation < 250;
+    if (!duplicateVirtualActivation) {
+      if (groupId === "virtualAgentsTab") loadGroup.virtualAgentsActivatedAt = now;
+      activateGroup(groupId);
+      window.dispatchEvent(new CustomEvent("elyon:runtime-group-loaded", {
+        detail: { tabId: groupId, modules: entries.map((entry) => entry.src) },
+      }));
+    }
+    return scripts;
+  }`;
+
 const LEGACY_RUNTIME_ENTRY = `      { src: "/seller-virtual-agents-legacy.js" },\n`;
 
 function replaceRequired(source, before, after, label) {
@@ -131,11 +206,16 @@ export function optimizeAdvancedAgentSettings(source) {
   return replaceRequired(source, ADVANCED_INSTALL_BEFORE, ADVANCED_INSTALL_AFTER, "advanced settings observer");
 }
 
+export function optimizeWorkforceWorkspaceV3(source) {
+  return replaceRequired(source, WORKSPACE_V3_INSTALL_BEFORE, WORKSPACE_V3_INSTALL_AFTER, "workspace v3 global observer");
+}
+
 export function optimizeVirtualAgentsRuntimeLoader(source) {
   let output = replaceRequired(source, LEGACY_RUNTIME_ENTRY, "", "legacy virtual-agent runtime entry");
+  output = replaceRequired(output, RUNTIME_LOAD_GROUP_BEFORE, RUNTIME_LOAD_GROUP_AFTER, "virtual-agent duplicate activation");
   output = output.replace(
     /const VERSION = "[^"]+";/,
-    'const VERSION = "virtual-agents-stable-20260806-1";'
+    'const VERSION = "virtual-agents-stable-20260813-2";'
   );
   return output;
 }

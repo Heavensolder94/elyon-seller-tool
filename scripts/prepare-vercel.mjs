@@ -7,6 +7,7 @@ import { auditDesktopPerformance } from "./performance-budget.mjs";
 import {
   optimizeAdvancedAgentSettings,
   optimizeAiWorkforceClient,
+  optimizeWorkforceWorkspaceV3,
   optimizeVirtualAgentsRuntimeLoader,
 } from "./virtual-agents-runtime-optimization.mjs";
 
@@ -169,18 +170,21 @@ for (const [source, destination] of filesToMirror) {
   await copyFile(sourcePath, destinationPath);
 }
 
-const [runtimeLoaderRaw, aiWorkforceClientRaw, advancedAgentSettingsRaw] = await Promise.all([
+const [runtimeLoaderRaw, aiWorkforceClientRaw, advancedAgentSettingsRaw, workforceWorkspaceV3Raw] = await Promise.all([
   readFile(path.join(appRoot, "seller-runtime-loader.js"), "utf8"),
   readFile(path.join(appRoot, "ai-workforce-client.js"), "utf8"),
   readFile(path.join(appRoot, "seller-ai-workforce-advanced-settings.js"), "utf8"),
+  readFile(path.join(appRoot, "seller-ai-workforce-workspace-v3.js"), "utf8"),
 ]);
 const runtimeLoaderSource = injectWorkforceV2IntoRuntimeLoader(optimizeVirtualAgentsRuntimeLoader(runtimeLoaderRaw));
 const aiWorkforceClientSource = optimizeAiWorkforceClient(aiWorkforceClientRaw);
 const advancedAgentSettingsSource = optimizeAdvancedAgentSettings(advancedAgentSettingsRaw);
+const workforceWorkspaceV3Source = optimizeWorkforceWorkspaceV3(workforceWorkspaceV3Raw);
 await Promise.all([
   writeFile(path.join(publicRoot, "seller-runtime-loader.js"), runtimeLoaderSource, "utf8"),
   writeFile(path.join(publicRoot, "ai-workforce-client.js"), aiWorkforceClientSource, "utf8"),
   writeFile(path.join(publicRoot, "seller-ai-workforce-advanced-settings.js"), advancedAgentSettingsSource, "utf8"),
+  writeFile(path.join(publicRoot, "seller-ai-workforce-workspace-v3.js"), workforceWorkspaceV3Source, "utf8"),
 ]);
 
 const desktopSourcePath = path.join(appRoot, "index.html");
