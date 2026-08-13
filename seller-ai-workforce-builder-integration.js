@@ -8,14 +8,12 @@
   const FALLBACK_ATTR = "data-integration-fallback-model";
 
   const DEFAULT_MODELS = [
-    { id: "nemotron-3-ultra-free", name: "Nemotron 3 Ultra", provider: "OpenRouter", tier: "FREE" },
-    { id: "gpt-oss-20b-free", name: "GPT-OSS 20B", provider: "OpenRouter", tier: "FREE" },
-    { id: "north-mini-code-free", name: "North Mini Code", provider: "OpenRouter", tier: "FREE" },
-    { id: "lfm-2-5-2-6b-free", name: "LFM2.5-2.6B", provider: "OpenRouter", tier: "FREE" },
-    { id: "nemotron-nano-12b-vl-free", name: "Nemotron Nano 12B VL", provider: "OpenRouter", tier: "FREE" },
-    { id: "openrouter-free-router", name: "OpenRouter Free Models Router", provider: "OpenRouter", tier: "FREE" },
-    { id: "nemotron-3-5-lightning-free", name: "Nemotron 3.5 Lightning", provider: "OpenRouter", tier: "FREE" },
-    { id: "gemma-4-31b-free", name: "Gemma 4 31B", provider: "OpenRouter", tier: "FREE" },
+    { id: "nemotron-3-ultra-free", modelId: "nvidia/nemotron-3-ultra-550b-a55b:free", name: "Nemotron 3 Ultra", provider: "OpenRouter", tier: "FREE", kind: "chat" },
+    { id: "gpt-oss-20b-free", modelId: "openai/gpt-oss-20b:free", name: "GPT-OSS 20B", provider: "OpenRouter", tier: "FREE", kind: "chat" },
+    { id: "north-mini-code-free", modelId: "cohere/north-mini-code:free", name: "North Mini Code", provider: "OpenRouter", tier: "FREE", kind: "chat" },
+    { id: "nemotron-nano-12b-vl-free", modelId: "nvidia/nemotron-nano-12b-v2-vl:free", name: "Nemotron Nano 12B VL", provider: "OpenRouter", tier: "FREE", kind: "chat" },
+    { id: "openrouter-free-router", modelId: "openrouter/free", name: "OpenRouter Free Models Router", provider: "OpenRouter", tier: "FREE", kind: "router" },
+    { id: "gemma-4-31b-free", modelId: "google/gemma-4-31b-it:free", name: "Gemma 4 31B", provider: "OpenRouter", tier: "FREE", kind: "chat" },
   ];
 
   const text = (value, fallback = "") => value === null || value === undefined ? fallback : String(value).trim();
@@ -41,8 +39,17 @@
     return list.length ? list : DEFAULT_MODELS;
   }
 
+  function runtimeModelId(model) {
+    return text(model?.modelId || model?.runtimeModel || model?.providerModel || (model?.id === "openrouter-free-router" ? "openrouter/free" : ""));
+  }
+
+  function isChatRuntimeModel(model) {
+    const kind = text(model?.kind).toLowerCase();
+    return (!kind || kind === "chat" || kind === "router") && Boolean(runtimeModelId(model));
+  }
+
   function openRouterModels() {
-    return models().filter((model) => text(model.provider).toLowerCase() === "openrouter");
+    return models().filter((model) => text(model.provider).toLowerCase() === "openrouter" && isChatRuntimeModel(model));
   }
 
   function installStyles() {
@@ -63,11 +70,11 @@
   function optionMarkup(selected = "") {
     const list = openRouterModels();
     return `<option value="">Zentrale Vorgabe / Auto-Routing</option>${list.map((model) => {
-      const id = text(model.modelId || model.runtimeModel || model.providerModel || model.id || model.name);
+      const id = runtimeModelId(model);
       const name = text(model.name, id);
       const tier = text(model.tier || model.pricingTier);
       return `<option value="${escapeHtml(id)}" ${id === selected ? "selected" : ""}>${escapeHtml(name)}${tier ? ` · ${escapeHtml(tier)}` : ""}</option>`;
-    }).filter(Boolean).join("")}`;
+    }).join("")}`;
   }
 
   function replaceModelControl(root, provider) {
@@ -139,7 +146,7 @@
     if (!grid || grid.querySelector(".elyon-builder-integration-note")) return;
     const note = document.createElement("div");
     note.className = "elyon-builder-integration-note";
-    note.innerHTML = '<strong>Jarvis Integration Center:</strong> Bei OpenRouter stammen Primär- und Fallback-Modell direkt aus den dort aktivierten Modellen.';
+    note.innerHTML = '<strong>Jarvis Integration Center:</strong> Bei OpenRouter stammen Primär- und Fallback-Modell direkt aus den dort aktivierten Chat-Modellen mit verifizierter Runtime-ID.';
     grid.appendChild(note);
   }
 
