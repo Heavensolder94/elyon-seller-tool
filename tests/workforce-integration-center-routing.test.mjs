@@ -13,6 +13,7 @@ test("workforce autonomy reads concrete model IDs from Jarvis Integration Center
   assert.match(policy, /data-elyon-agent-model/);
   assert.match(policy, /data-elyon-model-routing/);
   assert.match(policy, /model\.modelId \|\| model\.runtimeModel \|\| model\.providerModel/);
+  assert.match(policy, /kind === "chat" \|\| kind === "router"/);
   assert.match(policy, /openrouter\/free/);
   assert.match(policy, /nvidia\/nemotron-3-ultra-550b-a55b:free/);
   assert.match(policy, /openai\/gpt-oss-20b:free/);
@@ -23,9 +24,11 @@ test("workforce autonomy reads concrete model IDs from Jarvis Integration Center
   assert.doesNotThrow(() => new Script(policy, { filename: "seller-ai-workforce-workspace-v3-policy.js" }));
 });
 
-test("custom agent builder submits OpenRouter modelId instead of UI alias", async () => {
+test("custom agent builder submits concrete chat runtime IDs and rejects non-chat catalog entries", async () => {
   const builder = await source("seller-ai-workforce-builder-integration.js");
-  assert.match(builder, /model\.modelId \|\| model\.runtimeModel \|\| model\.providerModel \|\| model\.id/);
+  assert.match(builder, /function runtimeModelId/);
+  assert.match(builder, /function isChatRuntimeModel/);
+  assert.match(builder, /kind === "chat" \|\| kind === "router"/);
   assert.match(builder, /fallbackModel, "openrouter\/free"/);
   assert.doesNotThrow(() => new Script(builder, { filename: "seller-ai-workforce-builder-integration.js" }));
 });
