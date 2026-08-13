@@ -1,12 +1,13 @@
 import { normalizeProduct } from "../../../lib/product-master-active.js";
 
-const WORKER_VERSION = "0.4.1";
+const WORKER_VERSION = "0.4.2";
 const TASK_TTL_SECONDS = 86400;
 const IDEMPOTENCY_TTL_SECONDS = 2592000;
 const DEFAULT_MAX_ATTEMPTS = 3;
 const RETRY_DELAYS_SECONDS = [15, 60];
 const TERMINAL_STATUSES = new Set(["completed", "failed", "cancelled"]);
 const PRODUCT_MASTER_KEYS = ["elyon_products", "elyon_browser_imports"];
+const ELYON_ARTICLE_NUMBER_PATTERN = /^ELY-\d{6,}$/i;
 
 const json = (data, init = {}) => Response.json(data, {
   ...init,
@@ -538,7 +539,27 @@ const analyzeCompliance = (product, rawProduct, dataQuality) => {
   };
 };
 
-const determineListingReadiness = ({ dataQuality, economics, compliance }) => {
+const productMasterReadinessReasons = (product) => {
+  const reasons = [];
+  const identityStatus = textFrom(product.identity?.status).toLowerCase();
+  const articleNumber = textFrom(product.articleNumber || product.sku || product.identity?.articleNumber).toUpperCase();
+  const identityMissing = identityStatus === "missing_elyon_article_number" || !ELYON_ARTICLE_NUMBER_PATTERN.test(articleNumber);
+
+  if (!identityMissing) return reasons;
+
+  reasons.push("missing_elyon_article_number");
+  if (object(product.approval).companyOsApproved !== true) reasons.push("company_os_approval_missing");
+  if (!textFrom(product.logistics?.returnAddress)) reasons.push("missing_return_address");
+  if (!Object.keys(object(product.listing?.itemSpecifics)).length) reasons.push("missing_item_specifics");
+  if (!textFrom(product.listing?.conditionId)) reasons.push("missing_condition_id");
+  if (textFrom(product.readiness?.state).toLowerCase() === "not_ready" && array(product.readiness?.blockers).length) {
+    reasons.push("product_master_not_ready");
+  }
+
+  return [...new Set(reasons)];
+};
+
+const determineListingReadiness = ({ product = {}, dataQuality, economics, compliance }) => {
   const reasons = [];
   const criticalMissing = dataQuality.missingFields.filter((field) => [
     "title",
@@ -549,9 +570,11 @@ const determineListingReadiness = ({ dataQuality, economics, compliance }) => {
     "supplier",
     "productId"
   ].includes(field));
+  const productMasterReasons = productMasterReadinessReasons(product);
 
   if (criticalMissing.length) reasons.push(...criticalMissing.map((field) => `missing_${field}`));
   if (criticalMissing.length) reasons.push("missing_required_product_data");
+  if (productMasterReasons.length) reasons.push(...productMasterReasons);
   if (economics.status === "unknown") reasons.push("pricing_data_missing");
   if (economics.status === "review") reasons.push("margin_below_threshold");
   if (economics.status === "fail") reasons.push("negative_margin");
@@ -561,7 +584,7 @@ const determineListingReadiness = ({ dataQuality, economics, compliance }) => {
 
   const status = economics.status === "fail" || compliance.risk === "high" || dataQuality.score < 40
     ? "reject"
-    : criticalMissing.length
+    : criticalMissing.length || productMasterReasons.length
       ? "needs_data"
       : economics.status !== "pass" || compliance.risk === "medium" || dataQuality.score < 85
         ? "needs_review"
@@ -580,6 +603,9 @@ const recommendationFromReadiness = (listingReadiness) => {
   if (listingReadiness.status === "reject") {
     return { decision: "reject", reasons: listingReadiness.reasons };
   }
+  if (listingReadiness.status === "needs_data") {
+    return { decision: "review", blocking: true, reasons: listingReadiness.reasons };
+  }
   return { decision: "review", reasons: listingReadiness.reasons };
 };
 
@@ -590,7 +616,7 @@ const runProductCheck = async (task, env) => {
   const dataQuality = analyzeDataQuality(product, rawProduct);
   const economics = calculateEconomics(product, rawProduct);
   const compliance = analyzeCompliance(product, rawProduct, dataQuality);
-  const listingReadiness = determineListingReadiness({ dataQuality, economics, compliance });
+  const listingReadiness = determineListingReadiness({ product, dataQuality, economics, compliance });
   const recommendation = recommendationFromReadiness(listingReadiness);
 
   return {
@@ -1125,6 +1151,9 @@ export default {
 };
 
 export {
+  determineListingReadiness,
   loadProductForTask,
-  processQueueMessage
+  processQueueMessage,
+  productMasterReadinessReasons,
+  recommendationFromReadiness
 };
