@@ -63,11 +63,11 @@
   function optionMarkup(selected = "") {
     const list = openRouterModels();
     return `<option value="">Zentrale Vorgabe / Auto-Routing</option>${list.map((model) => {
-      const id = text(model.id || model.modelId || model.name);
+      const id = text(model.modelId || model.runtimeModel || model.providerModel || model.id || model.name);
       const name = text(model.name, id);
       const tier = text(model.tier || model.pricingTier);
       return `<option value="${escapeHtml(id)}" ${id === selected ? "selected" : ""}>${escapeHtml(name)}${tier ? ` · ${escapeHtml(tier)}` : ""}</option>`;
-    }).join("")}`;
+    }).filter(Boolean).join("")}`;
   }
 
   function replaceModelControl(root, provider) {
@@ -120,7 +120,7 @@
     }
 
     const currentAgent = currentAgentByForm(root);
-    const selected = text(currentAgent?.fallbackModel, "openrouter-free-router");
+    const selected = text(currentAgent?.fallbackModel, "openrouter/free");
     const select = fallback.querySelector("[data-integration-fallback-select]");
     if (select) {
       select.innerHTML = `<option value="">Kein spezieller Fallback</option>${optionMarkup(selected).replace('<option value="">Zentrale Vorgabe / Auto-Routing</option>', '')}`;
