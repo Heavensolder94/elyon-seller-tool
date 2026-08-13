@@ -102,15 +102,33 @@ test("task prompt helper does not schedule a startup retry burst", async () => {
   assert.doesNotThrow(() => new Script(optimized, { filename: "seller-ai-task-prompt-helper.js" }));
 });
 
-test("desktop runtime no longer executes discarded legacy UI and coalesces duplicate virtual-agent activation", async () => {
+test("desktop runtime coalesces duplicate activation for every lazy menu group", async () => {
   const optimized = optimizeVirtualAgentsRuntimeLoader(await source("seller-runtime-loader.js"));
 
   assert.doesNotMatch(optimized, /seller-virtual-agents-legacy\.js/);
   assert.match(optimized, /virtualAgentsTab:[\s\S]*ai-workforce-client\.js[\s\S]*ai-workforce-mount-fix\.js[\s\S]*seller-ai-workforce-advanced-settings\.js/);
-  assert.match(optimized, /virtual-agents-stable-20260813-3/);
-  assert.match(optimized, /duplicateVirtualActivation/);
-  assert.match(optimized, /now - lastVirtualActivation < 250/);
+  assert.match(optimized, /menu-performance-20260813-1/);
+  assert.match(optimized, /const activationRequests = new Map\(\)/);
+  assert.match(optimized, /const activationTimes = new Map\(\)/);
+  assert.match(optimized, /const ACTIVATION_DEDUP_MS = 250/);
+  assert.match(optimized, /activationRequests\.has\(groupId\)/);
+  assert.match(optimized, /activationTimes\.get\(groupId\)/);
+  assert.match(optimized, /activationTimes\.set\(groupId, now\)/);
+  assert.doesNotMatch(optimized, /duplicateVirtualActivation/);
   assert.doesNotThrow(() => new Script(optimized, { filename: "seller-runtime-loader.js" }));
+});
+
+test("global virtual-agent policy is event-driven and does not scan the whole app", async () => {
+  const policy = await source("seller-virtual-agents-policy.js");
+
+  assert.doesNotMatch(policy, /new MutationObserver/);
+  assert.doesNotMatch(policy, /observe\(document\.body/);
+  assert.doesNotMatch(policy, /\[100, 500, 1200, 2400\]/);
+  assert.doesNotMatch(policy, /\[100, 650, 1750, 2400\]/);
+  assert.match(policy, /elyon:ai-workforce-team-v6-rendered/);
+  assert.match(policy, /elyon:runtime-group-loaded/);
+  assert.match(policy, /function refreshWorkforceConfiguration\(\)/);
+  assert.doesNotThrow(() => new Script(policy, { filename: "seller-virtual-agents-policy.js" }));
 });
 
 test("Vercel build keeps compatibility refreshes out of the critical activation path", async () => {
