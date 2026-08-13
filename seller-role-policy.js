@@ -21,6 +21,7 @@
     { id: "financeTab", label: "Vorab-Kalkulation", reason: "Verbindliche Kalkulation kommt aus Company OS" },
     { id: "listingCheckTab", label: "Zweiter Listing-Check", reason: "Listing-Paket wird in Company OS abgeschlossen" },
     { id: "productStatusTab", label: "Doppelter Produktstatus", reason: "Product Master ist die einzige Seller-Wahrheit" },
+    { id: "virtualAgentsTab", label: "Virtuelle Mitarbeiter", reason: "Legacy-Role-Policy wird anschließend durch seller-virtual-agents-policy.js gezielt reaktiviert" },
     { id: "trackingTab", label: "Gewinner-Tracking Labor", reason: "Später in Auswertung integrieren" },
     { id: "budgetTab", label: "Testbudget Labor", reason: "Aktuell nicht Teil des Seller-Betriebs" },
     { id: "priceTab", label: "Zielpreis Labor", reason: "Company OS liefert finale Kostenrechnung" },
