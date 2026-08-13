@@ -1,0 +1,80 @@
+name: Jarvis Product Enrichment Live Test Retry 3
+
+on:
+  push:
+    branches:
+      - ops/jarvis-product-enrichment-live-test-20260814
+    paths:
+      - .github/workflows/jarvis-product-enrichment-live-test-retry3.yml
+
+permissions:
+  contents: read
+
+jobs:
+  live-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Run exactly one controlled Product Enrichment task
+        shell: bash
+        env:
+          WORKER_URL: https://elyon-jarvis-worker.mailvahanam-raoul.workers.dev
+          PRODUCT_ID: "1005010346690326"
+          IDEMPOTENCY_KEY: elyon-live-product-enrichment-v1-20260814-1005010346690326-retry3
+        run: |
+          set -euo pipefail
+
+          CREATE_RESPONSE="$(curl --fail-with-body --silent --show-error \
+            --request POST \
+            --header 'Content-Type: application/json' \
+            --data "{\"type\":\"product-enrichment\",\"payload\":{\"productId\":\"${PRODUCT_ID}\"},\"idempotencyKey\":\"${IDEMPOTENCY_KEY}\"}" \
+            "${WORKER_URL}/tasks")"
+
+          echo "CREATE_RESPONSE=${CREATE_RESPONSE}"
+          TASK_ID="$(printf '%s' "$CREATE_RESPONSE" | python -c 'import json,sys; data=json.load(sys.stdin); print(data.get("task",{}).get("id") or data.get("taskId") or "")')"
+          if [ -z "$TASK_ID" ]; then
+            echo "Task ID missing"
+            exit 1
+          fi
+          echo "TASK_ID=${TASK_ID}"
+
+          FINAL=""
+          for _ in $(seq 1 120); do
+            RESPONSE="$(curl --fail-with-body --silent --show-error "${WORKER_URL}/tasks/${TASK_ID}")"
+            STATUS="$(printf '%s' "$RESPONSE" | python -c 'import json,sys; data=json.load(sys.stdin); print(data.get("task",{}).get("status") or "")')"
+            echo "TASK_STATUS=${STATUS}"
+            if [ "$STATUS" = "completed" ] || [ "$STATUS" = "failed" ] || [ "$STATUS" = "cancelled" ]; then
+              FINAL="$RESPONSE"
+              break
+            fi
+            sleep 2
+          done
+
+          if [ -z "$FINAL" ]; then
+            echo "Task did not reach a terminal status"
+            exit 1
+          fi
+
+          echo "FINAL_TASK=${FINAL}"
+          printf '%s' "$FINAL" | python -c '
+          import json,sys
+          data=json.load(sys.stdin)
+          task=data.get("task",{})
+          output=task.get("output") or {}
+          print("FINAL_STATUS=" + str(task.get("status")))
+          print("ERROR=" + str(task.get("error")))
+          print("HANDLER=" + str(output.get("handler")))
+          print("VERSION=" + str(output.get("version")))
+          print("PERSISTED=" + str(output.get("persisted")))
+          print("WRITE_BLOCKED_REASON=" + str(output.get("writeBlockedReason")))
+          print("AUTO_APPLIED=" + json.dumps(output.get("autoApplied",[]), ensure_ascii=False))
+          print("PENDING_REVIEW=" + json.dumps(output.get("pendingReview",[]), ensure_ascii=False))
+          print("UNRESOLVED=" + json.dumps(output.get("unresolved",[]), ensure_ascii=False))
+          print("CONFLICTS=" + json.dumps(output.get("conflicts",[]), ensure_ascii=False))
+          print("COST=" + json.dumps(output.get("cost",{}), ensure_ascii=False))
+          print("POST_CHECK=" + json.dumps(output.get("postCheck",{}), ensure_ascii=False))
+          if task.get("status") != "completed":
+              raise SystemExit(2)
+          if output.get("handler") != "product-enrichment":
+              raise SystemExit(3)
+          '
