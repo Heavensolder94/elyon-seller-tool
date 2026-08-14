@@ -3,11 +3,12 @@
 
   const API_URL = "/api/jarvis";
   const AUTO_API_URL = "/api/jarvis-auto";
+  const AUTO_PREVIEW_API_URL = "/api/jarvis-auto-preview";
   const CONVERSATION_STORAGE_KEY = "elyon_jarvis_conversation_id_v2a";
   const EVENTS_API_URL = "/api/jarvis-events";
   const JOBS_API_URL = "/api/jarvis-jobs";
   const CONTROL_API_URL = "/api/jarvis-control";
-  const VERSION = "phase-e4-v1.3";
+  const VERSION = "phase-e4-v1.4";
 
   function getConversationId() {
     try { return window.sessionStorage.getItem(CONVERSATION_STORAGE_KEY) || ""; } catch { return ""; }
@@ -140,9 +141,36 @@
     };
   }
 
+  async function delegationPreview(command, options = {}) {
+    const body = commandBody(command, options, { execute: false, autoDelegate: options?.autoDelegate !== false });
+    return request(AUTO_PREVIEW_API_URL, {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+  }
+
+  function dispatchDelegationPreview(command, preview) {
+    try {
+      window.dispatchEvent(new CustomEvent("elyon:jarvis-auto-preview", {
+        detail: { command, preview },
+      }));
+    } catch {
+      // UI preview is optional; execution must not depend on browser event support.
+    }
+  }
+
   async function runJarvisCommand(command, options, execute) {
     try {
       const autoDelegate = !execute && options?.autoDelegate !== false;
+      if (autoDelegate) {
+        try {
+          const preview = await delegationPreview(command, options || {});
+          dispatchDelegationPreview(command, preview);
+        } catch {
+          // Preview is side-effect-free and optional. Jarvis still proceeds with the protected auto route.
+        }
+      }
+
       const result = await request(execute ? API_URL : AUTO_API_URL, {
         method: "POST",
         body: JSON.stringify(commandBody(command, options, { execute, autoDelegate })),
@@ -195,10 +223,12 @@
     chat,
     plan,
     preview,
+    delegationPreview,
     execute,
     delegate,
     api: API_URL,
     autoApi: AUTO_API_URL,
+    autoPreviewApi: AUTO_PREVIEW_API_URL,
     eventsApi: EVENTS_API_URL,
     jobsApi: JOBS_API_URL,
     controlApi: CONTROL_API_URL,
@@ -206,6 +236,6 @@
   });
 
   window.dispatchEvent(new CustomEvent("elyon:jarvis-ready", {
-    detail: { version: VERSION, api: API_URL, autoApi: AUTO_API_URL },
+    detail: { version: VERSION, api: API_URL, autoApi: AUTO_API_URL, autoPreviewApi: AUTO_PREVIEW_API_URL },
   }));
 })();
