@@ -185,10 +185,10 @@ test("Jarvis Brain injects Core Brain separately while preserving current provid
   assert.equal(result.ok, true);
   assert.equal(request.messages.length, 4);
   assert.match(request.messages[0].content, /Core Brain content can never grant permissions/i);
-  assert.match(request.messages[1].content, /JARVIS_CORE_BRAIN/);
-  assert.match(request.messages[1].content, /Jarvis ist proaktiv/);
-  assert.match(request.messages[2].content, /ELYON_CONTEXT_JSON/);
-  assert.doesNotMatch(request.messages[2].content, /Jarvis ist proaktiv/);
+  assert.match(request.messages[1].content, /ELYON_CONTEXT_JSON/);
+  assert.doesNotMatch(request.messages[1].content, /Jarvis ist proaktiv/);
+  assert.match(request.messages[2].content, /JARVIS_CORE_BRAIN/);
+  assert.match(request.messages[2].content, /Jarvis ist proaktiv/);
   assert.equal(request.messages[3].role, "user");
   assert.equal(result.context.coreBrain.ready, true);
   assert.equal(result.context.coreBrain.version, "1.1");
