@@ -8,6 +8,18 @@ V2-A erweitert Brain V1 um einen begrenzten, kanalneutralen Arbeitskontext. Long
 
 Working Memory unterstützt `currentGoal`, `activeProject`, `currentFocus`, `openTasks`, `blockers`, `pendingApprovals`, `lastAction` und `nextExpectedAction`. Explizite deutsche Formulierungen werden deterministisch erkannt. Modellvorschläge werden serverseitig begrenzt, dedupliziert und durch die bestehende Secret-Safety geprüft.
 
+## Versioned Brain Files
+
+Der V2-A-Context Builder kann zusätzlich einen versionierten Core Brain aus `brain/` laden. Die ausführlichen Markdown-Dateien bleiben die lesbare Source of Truth; `brain/BRAIN_MANIFEST.json` legt ausschließlich Allowlist-, Relevanz- und Zeichenbudget-Metadaten fest.
+
+Immer geladen werden kompakte Abschnitte aus `IDENTITY.md`, `OPERATING_RULES.md` und `GOALS.md`. `ELYON_CONTEXT.md` und `CAPABILITIES.md` werden nur bei passenden Anfragen ergänzt. Aus `PLAYBOOKS.md` wird deterministisch höchstens ein relevantes Playbook ausgewählt.
+
+Der Core Brain wird als eigene System-Message an das Modell gegeben. Der dynamische `ELYON_CONTEXT_JSON` enthält nur die Core-Brain-Metadaten und führt Working Memory, Conversation, Memories und Operational History weiterhin separat.
+
+Brain Files können niemals technische Rechte erweitern, Approval-Gates entfernen oder Safety-Regeln überschreiben. Wenn Brain Files fehlen oder nicht geladen werden können, bleibt die hart codierte Safety-Baseline aktiv und der Context meldet eine Warnung.
+
+Details: `docs/ai/JARVIS_BRAIN_FILES.md`.
+
 ## Datenmodell und Migration
 
 Die Migration `supabase/migrations/20260814220000_jarvis_brain_v2_a.sql` legt `jarvis_conversation_sessions`, `jarvis_conversation_messages` und `jarvis_working_memory` an. Sie ist additiv und idempotent; bestehende Tabellen werden nicht verändert. Die Migration muss nach Freigabe über die bestehende Supabase-Deployment-Pipeline angewendet werden. In diesem PR wurde keine Production-Datenbank verändert.
@@ -26,4 +38,4 @@ Die bestehende V1-Memory-Policy wird wiederverwendet. Secret-artige Werte, Token
 
 ## Tests und spätere Stufen
 
-`npm test` und `git diff --check` prüfen die Integration. Es werden keine Embeddings, Vector Search, Reranking, Experience Learning, Skills, Playbooks, Telegram, Sprache oder autonomen Rechte eingeführt. Die nächste geplante Stufe ist V2-B Semantic Memory.
+`npm test` und `git diff --check` prüfen die Integration. Es werden keine Embeddings, Vector Search, Reranking, Experience Learning, Skills, Telegram, Sprache oder autonomen Rechte eingeführt. Die nächste geplante Stufe ist V2-B Semantic Memory.
