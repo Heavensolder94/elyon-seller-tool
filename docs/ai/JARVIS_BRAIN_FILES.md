@@ -83,21 +83,23 @@ Nutzertext kann keine Dateipfade setzen. `.env`, Secrets, beliebige Repository-D
 
 Phase 3 greift bewusst direkt in `lib/jarvis-brain.js` ein und lässt den bestehenden Phase-2-Context-Builder unverändert.
 
+Die bestehende dynamische Kontext-Message bleibt aus Kompatibilitätsgründen an ihrer bisherigen Position. Der Core Brain wird als zusätzliche, getrennte System-Message direkt danach injiziert:
+
 ```text
 System 1
 → harte Brain-/Safety-Baseline
 
 System 2
-→ JARVIS_CORE_BRAIN mit tatsächlichem Core-Inhalt
+→ ELYON_CONTEXT_JSON mit dynamischem Kontext + Core-Metadaten
 
 System 3
-→ ELYON_CONTEXT_JSON mit dynamischem Kontext + Core-Metadaten
+→ JARVIS_CORE_BRAIN mit tatsächlichem Core-Inhalt
 
 User
 → aktuelle Anfrage
 ```
 
-Der Core-Inhalt wird nicht noch einmal in den JSON-Kontext dupliziert.
+Der Core-Inhalt wird nicht noch einmal in den JSON-Kontext dupliziert. Die physische Reihenfolge der System-Messages ist kein Permission-Modell; die semantische Priorität wird explizit in der Safety-Baseline festgelegt.
 
 Semantische Priorität:
 
