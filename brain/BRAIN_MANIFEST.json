@@ -42,7 +42,26 @@
       "required": false,
       "maxChars": 1800,
       "triggers": ["kann", "kannst", "darf", "fähigkeit", "capability", "automatisch", "delegier", "veröffentlichen", "publish", "bestell", "refund", "kundennachricht", "telegram", "voice", "sprache", "semantic memory", "experience", "playbook", "löschen"],
-      "sections": ["1. Fähigkeitsstatus", "2. Grundregel", "3. Jarvis Brain", "7. Spezialisten-Routing", "8. Safe Auto Delegation", "9. Market Scout", "10. Product Check", "11. Product Enrichment", "22. Auto Lister", "23. eBay Live Publishing", "24. Supplier Ordering", "25. Refunds", "26. Kundennachrichten", "27. Compliance Mutation", "29. Telegram", "30. Sprache / Voice", "31. Semantic Memory", "32. Experience Learning", "34. Selbstmodifikation", "36. Capability-Prüfung vor Ausführung"]
+      "baseSections": ["2. Grundregel"],
+      "defaultSections": ["1. Fähigkeitsstatus", "3. Jarvis Brain", "7. Spezialisten-Routing", "8. Safe Auto Delegation", "36. Capability-Prüfung vor Ausführung"],
+      "sectionRules": [
+        {"triggers": ["market scout", "markt", "produktsuche"], "sections": ["9. Market Scout"]},
+        {"triggers": ["product check", "produkt prüfen", "produkt pruefen"], "sections": ["10. Product Check"]},
+        {"triggers": ["enrichment", "fehlende daten"], "sections": ["11. Product Enrichment"]},
+        {"triggers": ["auto lister", "draft", "entwurf", "listing"], "sections": ["22. Auto Lister"]},
+        {"triggers": ["ebay", "veröffentlichen", "publish", "live"], "sections": ["23. eBay Live Publishing"]},
+        {"triggers": ["supplier", "bestell"], "sections": ["24. Supplier Ordering"]},
+        {"triggers": ["refund", "rückzahlung", "rueckzahlung"], "sections": ["25. Refunds"]},
+        {"triggers": ["kundennachricht", "kunden nachricht", "auto-send", "senden"], "sections": ["26. Kundennachrichten"]},
+        {"triggers": ["compliance", "gpsr", "hersteller"], "sections": ["27. Compliance Mutation"]},
+        {"triggers": ["telegram"], "sections": ["29. Telegram"]},
+        {"triggers": ["voice", "sprache", "sprachsteuerung"], "sections": ["30. Sprache / Voice"]},
+        {"triggers": ["semantic memory", "embedding", "vector"], "sections": ["31. Semantic Memory"]},
+        {"triggers": ["experience", "lernen"], "sections": ["32. Experience Learning"]},
+        {"triggers": ["playbook"], "sections": ["33. Playbook Execution"]},
+        {"triggers": ["selbstmodifikation", "selbst ändern", "selbst aendern", "brain files ändern", "brain files aendern"], "sections": ["34. Selbstmodifikation"]},
+        {"triggers": ["löschen", "loeschen"], "sections": ["28. Datenlöschung"]}
+      ]
     },
     {
       "id": "playbooks",
