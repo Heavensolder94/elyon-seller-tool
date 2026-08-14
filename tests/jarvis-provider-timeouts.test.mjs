@@ -6,20 +6,30 @@ import { runJarvisBrain } from "../lib/jarvis-brain.js";
 
 const never = () => new Promise(() => {});
 
-test("Market Scout returns a controlled degraded result before a provider can exhaust the request", async () => {
+function abortableNever(_url, options = {}) {
+  return new Promise((_resolve, reject) => {
+    options.signal?.addEventListener("abort", () => {
+      const error = new Error("aborted");
+      error.name = "AbortError";
+      reject(error);
+    }, { once: true });
+  });
+}
+
+test("Market Scout queue submission degrades quickly instead of exhausting the request", async () => {
   const startedAt = Date.now();
   const result = await runMarketScout({
     command: "Finde 10 neue Produkte",
-    route: never,
-    timeoutMs: 100,
+    workerUrl: "https://worker.example.test",
+    fetchImpl: abortableNever,
+    queueTimeoutMs: 1000,
   });
   const elapsed = Date.now() - startedAt;
 
   assert.equal(result.ok, false);
-  assert.equal(result.reason, "market_scout_timeout");
-  assert.match(result.summary, /Zeitlimit/i);
-  assert.match(result.warnings.join(" "), /kontrolliert beendet/i);
-  assert.ok(elapsed < 1000, `Market Scout timeout guard was too slow: ${elapsed} ms`);
+  assert.equal(result.reason, "market_scout_queue_timeout");
+  assert.match(result.summary, /Hintergrundauftrag/i);
+  assert.ok(elapsed < 2000, `Market Scout queue timeout guard was too slow: ${elapsed} ms`);
 });
 
 test("Jarvis Brain bounds each model attempt and degrades instead of hanging indefinitely", async () => {
