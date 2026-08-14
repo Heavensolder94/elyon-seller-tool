@@ -8,7 +8,10 @@
   const EVENTS_API_URL = "/api/jarvis-events";
   const JOBS_API_URL = "/api/jarvis-jobs";
   const CONTROL_API_URL = "/api/jarvis-control";
-  const VERSION = "phase-e4-v1.4";
+  const VERSION = "phase-e4-v1.5";
+  const ASYNC_TASK_POLL_MS = 5000;
+  const ASYNC_TASK_MAX_POLLS = 120;
+  const trackedAsyncTasks = new Set();
 
   function getConversationId() {
     try { return window.sessionStorage.getItem(CONVERSATION_STORAGE_KEY) || ""; } catch { return ""; }
@@ -159,6 +162,113 @@
     }
   }
 
+  function formatEuro(value) {
+    const number = Number(value);
+    if (!Number.isFinite(number)) return "?";
+    try { return new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(number); } catch { return `${number.toFixed(2)} €`; }
+  }
+
+  function marketScoutAnswer(task = {}) {
+    const output = plainObject(task.output);
+    const candidates = Array.isArray(output.candidates) ? output.candidates : [];
+    if (!candidates.length) {
+      return output.summary || "Market Scout wurde abgeschlossen, hat aber keine ausreichend belegten Produktkandidaten geliefert.";
+    }
+    const lines = [
+      `Market Scout ist fertig: ${candidates.length} belastbare Produktkandidaten.`,
+      "",
+    ];
+    candidates.forEach((item, index) => {
+      const margin = Number(item.estimatedMarginPercent);
+      const marginText = Number.isFinite(margin) ? `${margin.toFixed(1)} % grobe Rohmarge` : "Marge offen";
+      lines.push(`${index + 1}. ${String(item.productName || "Produkt").trim()}`);
+      lines.push(`   EK ${formatEuro(item.purchasePrice)} · VK ${formatEuro(item.sellingPrice)} · ${marginText} · Risiko ${String(item.riskLevel || "unknown").toUpperCase()}`);
+      if (item.demandSignal) lines.push(`   Nachfrage: ${String(item.demandSignal).trim()}`);
+      if (item.rationale) lines.push(`   Warum interessant: ${String(item.rationale).trim()}`);
+      if (item.supplierUrl) lines.push(`   Supplier: ${String(item.supplierUrl).trim()}`);
+      const evidence = Array.isArray(item.evidence) ? item.evidence.find((entry) => entry?.url) : null;
+      if (evidence?.url) lines.push(`   Marktquelle: ${String(evidence.url).trim()}`);
+      lines.push("");
+    });
+    const warnings = Array.isArray(output.warnings) ? output.warnings.filter(Boolean) : [];
+    if (warnings.length) {
+      lines.push("Hinweise:");
+      warnings.slice(0, 5).forEach((warning) => lines.push(`- ${String(warning).trim()}`));
+      lines.push("");
+    }
+    lines.push("Die Margen sind Research-Schätzungen vor eBay-Gebühren, Retouren, Steuern und sonstigen Kosten. Nächster sinnvoller Schritt: die besten Kandidaten durch Product Check & Enrichment schicken.");
+    return lines.join("\n").trim();
+  }
+
+  function appendAsyncJarvisMessage(answer, titleText = "Jarvis · Market Scout") {
+    const feed = document.querySelector("#elyonJarvisPanel [data-jarvis-feed]");
+    if (!feed || !answer) return false;
+    const article = document.createElement("article");
+    article.className = "elyon-jarvis-message jarvis";
+    const head = document.createElement("div");
+    head.className = "elyon-jarvis-message-head";
+    const title = document.createElement("strong");
+    title.textContent = titleText;
+    const time = document.createElement("small");
+    time.textContent = new Date().toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+    head.append(title, time);
+    const body = document.createElement("p");
+    body.textContent = answer;
+    body.style.whiteSpace = "pre-wrap";
+    article.append(head, body);
+    feed.appendChild(article);
+    feed.scrollTop = feed.scrollHeight;
+    return true;
+  }
+
+  function wait(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  async function pollMarketScoutTask(taskMeta = {}) {
+    const id = String(taskMeta.id || "").trim();
+    const statusUrl = String(taskMeta.statusUrl || "").trim();
+    if (!id || !statusUrl || trackedAsyncTasks.has(id)) return;
+    trackedAsyncTasks.add(id);
+    try {
+      for (let attempt = 0; attempt < ASYNC_TASK_MAX_POLLS; attempt += 1) {
+        if (attempt > 0) await wait(ASYNC_TASK_POLL_MS);
+        let response;
+        try {
+          response = await fetch(statusUrl, { method: "GET", cache: "no-store", credentials: "omit" });
+        } catch {
+          continue;
+        }
+        if (!response.ok) continue;
+        const payload = await response.json().catch(() => ({}));
+        const task = payload?.task;
+        const state = String(task?.status || "").toLowerCase();
+        if (state === "completed") {
+          const answer = marketScoutAnswer(task);
+          appendAsyncJarvisMessage(answer);
+          try {
+            window.dispatchEvent(new CustomEvent("elyon:jarvis-async-result", { detail: { type: "market_scout", task, answer } }));
+          } catch { /* optional */ }
+          return;
+        }
+        if (["failed", "cancelled"].includes(state)) {
+          const reason = String(task?.error || task?.lastError || "Research-Auftrag fehlgeschlagen.").trim();
+          appendAsyncJarvisMessage(`Der Market-Scout-Hintergrundauftrag konnte nicht abgeschlossen werden: ${reason}`, "Jarvis · Market Scout Fehler");
+          return;
+        }
+      }
+      appendAsyncJarvisMessage("Der Market Scout läuft länger als erwartet. Der Auftrag bleibt im Jarvis Task Store gespeichert; du kannst im Seller Tool weiterarbeiten.", "Jarvis · Market Scout");
+    } finally {
+      trackedAsyncTasks.delete(id);
+    }
+  }
+
+  function trackAsyncMarketScout(payload = {}) {
+    const task = payload?.marketScout?.task;
+    if (!task?.id || !task?.statusUrl) return;
+    void pollMarketScoutTask(task);
+  }
+
   async function runJarvisCommand(command, options, execute) {
     try {
       const autoDelegate = !execute && options?.autoDelegate !== false;
@@ -176,6 +286,7 @@
         body: JSON.stringify(commandBody(command, options, { execute, autoDelegate })),
       });
       rememberConversationId(result);
+      trackAsyncMarketScout(result);
       return result;
     } catch (error) {
       if (error?.payload?.error === "jarvis_no_suitable_agent") {
