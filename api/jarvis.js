@@ -1,6 +1,7 @@
 import { requireSellerAccess } from "../lib/seller-access.js";
 import { listCombinedAgentRegistry } from "../lib/ai-agent-registry-store.js";
 import registryRunnerHandler from "./ai-agent-run-registry.js";
+import { runJarvisBrain } from "../lib/jarvis-brain.js";
 import {
   CAPABILITY_PROFILES,
   createJarvisPlan,
@@ -182,11 +183,41 @@ async function getRegistry() {
   };
 }
 
+function isMemoryRecallCommand(command) {
+  return /(?:wie lautet|wie war(?: nochmal)?|woran soll ich mich erinnern|was ist unsere|erinner(?:e|ung)).*(?:regel|compliance|freigabe|vorgabe|präferenz|entscheidung|memory|erinnerung)|(?:unsere|meine)\s+(?:compliance|business|geschäfts|system)\s*regel/i.test(text(command, 12000));
+}
+
+function shouldRouteToBrain(body, plan, command) {
+  const mode = text(body?.mode, 30).toLowerCase();
+  const hasExplicitSpecialist = Boolean(text(body?.agentId, 100) || text(body?.capability, 100));
+  if (hasExplicitSpecialist) return false;
+  if (body?.brain === true || mode === "brain") return true;
+  if (isMemoryRecallCommand(command)) return true;
+  if (/\b(?:jarvis|elyon)\b.*\b(?:system|aktuell|nächst(?:es|e)|naechstes|weiter|empfiehl|meinung|denkst)\b|\b(?:system|geschäft|geschaeft)\b.*\b(?:aktuell|status|aufgestellt)\b/i.test(command)) return true;
+  if (text(plan?.intent?.id, 100) === "generic") return true;
+  return plan?.executable === false;
+}
+
+async function executeBrain(command, registry, plan, body) {
+  return runJarvisBrain({
+    command,
+    registry,
+    plan,
+    requestContext: {
+      input: safeJson(body.input || {}),
+      context: safeJson(body.context || {}),
+      data: safeJson(body.data || {}),
+      sourceId: text(body.sourceId, 300),
+      sourceType: text(body.sourceType, 100),
+    },
+  });
+}
+
 export default async function handler(req, res) {
   if (!requireSellerAccess(req, res, { maxBodyBytes: 512 * 1024 })) return;
   res.setHeader("Cache-Control", "no-store");
   res.setHeader("X-Content-Type-Options", "nosniff");
-  res.setHeader("X-Elyon-Jarvis", "phase-c-v1");
+  res.setHeader("X-Elyon-Jarvis", "brain-v1");
   if (req.method === "OPTIONS") return res.status(204).end();
 
   try {
@@ -194,13 +225,20 @@ export default async function handler(req, res) {
       const registry = await getRegistry();
       return res.status(200).json({
         ok: true,
-        version: 1,
-        phase: "C",
+        version: 2,
+        phase: "Brain V1",
         jarvis: "ready",
-        mode: "registry_orchestrator",
+        mode: "brain_or_registry_orchestrator",
         agents: registry.agents.map(publicAgent),
         capabilities: Object.keys(CAPABILITY_PROFILES),
         storage: registry.storage,
+        brain: {
+          enabled: true,
+          version: "1",
+          generalConversation: true,
+          durableMemory: "supabase",
+          specialistRoutingPreserved: true,
+        },
         safety: {
           registryIsSourceOfTruth: true,
           deterministicAgentSelection: true,
@@ -239,9 +277,40 @@ export default async function handler(req, res) {
       return res.status(403).json({
         ok: false,
         error: "jarvis_action_blocked",
-        phase: "C",
+        phase: "Brain V1",
         plan,
         safety: { externalActionsLocked: true, livePublishingAllowed: false },
+      });
+    }
+
+    if (shouldRouteToBrain(body, plan, command)) {
+      const brain = await executeBrain(command, registry, plan, body);
+      const statusCode = brain.ok === false
+        ? (brain.mode === "brain_degraded" ? 503 : 502)
+        : 200;
+      return res.status(statusCode).json({
+        ...brain,
+        phase: "Brain V1",
+        plan: {
+          ...plan,
+          answerDirectly: true,
+          brainHandled: true,
+        },
+        summary: {
+          status: brain.ok === false ? "failed" : "completed",
+          summary: text(brain.answer || brain.message, 4000),
+          successful: brain.ok === false ? 0 : 1,
+          failed: brain.ok === false ? 1 : 0,
+          blockers: [],
+          warnings: Array.isArray(brain?.context?.warnings) ? brain.context.warnings : [],
+        },
+        safety: {
+          externalActionsLocked: true,
+          livePublishingAllowed: false,
+          answerDirectly: true,
+          nothingExecuted: true,
+          durableMemoryEnabled: true,
+        },
       });
     }
 
@@ -250,7 +319,7 @@ export default async function handler(req, res) {
       return res.status(422).json({
         ok: false,
         error: "jarvis_no_suitable_agent",
-        phase: "C",
+        phase: "Brain V1",
         mode: execute ? "execute" : "plan",
         plan,
       });
@@ -259,7 +328,7 @@ export default async function handler(req, res) {
     if (!execute) {
       return res.status(200).json({
         ok: true,
-        phase: "C",
+        phase: "Brain V1",
         mode: "plan",
         plan,
         summary: summarizeJarvisRuns(plan, []),
@@ -276,7 +345,7 @@ export default async function handler(req, res) {
     const successful = runs.some((run) => run.ok);
     return res.status(successful ? 200 : 502).json({
       ok: successful,
-      phase: "C",
+      phase: "Brain V1",
       mode: "execute",
       correlationId: plan.correlationId,
       plan,
@@ -298,4 +367,4 @@ export default async function handler(req, res) {
   }
 }
 
-export { executePlan, invokeRegistryRunner, publicAgent };
+export { executeBrain, executePlan, invokeRegistryRunner, isMemoryRecallCommand, publicAgent, shouldRouteToBrain };
