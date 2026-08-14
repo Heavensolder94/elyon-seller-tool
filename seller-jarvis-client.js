@@ -2,10 +2,19 @@
   "use strict";
 
   const API_URL = "/api/jarvis";
+  const CONVERSATION_STORAGE_KEY = "elyon_jarvis_conversation_id_v2a";
   const EVENTS_API_URL = "/api/jarvis-events";
   const JOBS_API_URL = "/api/jarvis-jobs";
   const CONTROL_API_URL = "/api/jarvis-control";
   const VERSION = "phase-e4-v1.1";
+
+  function getConversationId() {
+    try { return window.sessionStorage.getItem(CONVERSATION_STORAGE_KEY) || ""; } catch { return ""; }
+  }
+
+  function rememberConversationId(payload) {
+    try { if (payload?.conversationId) window.sessionStorage.setItem(CONVERSATION_STORAGE_KEY, String(payload.conversationId)); } catch { /* optional */ }
+  }
 
   function normalizeCommand(value) {
     return String(value || "")
@@ -110,15 +119,19 @@
 
   async function runJarvisCommand(command, options, execute) {
     try {
-      return await request(API_URL, {
+      const result = await request(API_URL, {
         method: "POST",
         body: JSON.stringify({
           ...options,
+          conversationId: options?.conversationId || getConversationId(),
+          channel: options?.channel || "seller_tool",
           command,
           execute,
           mode: execute ? "execute" : "plan",
         }),
       });
+      rememberConversationId(result);
+      return result;
     } catch (error) {
       if (error?.payload?.error === "jarvis_no_suitable_agent") {
         return directNoAgentFallback(command, error.payload);
