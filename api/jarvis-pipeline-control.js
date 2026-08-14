@@ -35,12 +35,13 @@ function publicSnapshot(snapshot = {}) {
       legalDataChangesAllowed: false,
     },
     reasons: Array.isArray(snapshot.reasons) ? snapshot.reasons.slice(0, 20).map((item) => text(item, 120)) : [],
+    autonomyPolicy: snapshot.autonomyPolicy || null,
   };
 }
 
 export default async function handler(req, res) {
   setSellerSecurityHeaders(res);
-  res.setHeader("X-Elyon-Jarvis-Pipeline-Control", "phase-e5-v1");
+  res.setHeader("X-Elyon-Jarvis-Pipeline-Control", "phase-e5-v2");
 
   if (req.method === "OPTIONS") {
     if (!requireSellerAccess(req, res, { maxBodyBytes: MAX_BODY_BYTES })) return;
@@ -56,7 +57,7 @@ export default async function handler(req, res) {
     }
 
     try {
-      const snapshot = await getJarvisPipelineControlSnapshot();
+      const snapshot = await getJarvisPipelineControlSnapshot({ e5V2: true });
       return res.status(200).json({ ok: true, ...publicSnapshot(snapshot) });
     } catch (error) {
       return res.status(503).json({
@@ -78,7 +79,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ ok: false, error: "pipeline_enabled_required", message: "enabled muss true oder false sein." });
     }
     await saveJarvisPipelineControl({ enabled: body.enabled });
-    const snapshot = await getJarvisPipelineControlSnapshot();
+    const snapshot = await getJarvisPipelineControlSnapshot({ e5V2: true });
     return res.status(200).json({ ok: true, ...publicSnapshot(snapshot) });
   } catch (error) {
     return res.status(500).json({
