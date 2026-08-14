@@ -6,7 +6,7 @@
   const EVENTS_API_URL = "/api/jarvis-events";
   const JOBS_API_URL = "/api/jarvis-jobs";
   const CONTROL_API_URL = "/api/jarvis-control";
-  const VERSION = "phase-e4-v1.1";
+  const VERSION = "phase-e4-v1.2";
 
   function getConversationId() {
     try { return window.sessionStorage.getItem(CONVERSATION_STORAGE_KEY) || ""; } catch { return ""; }
@@ -14,6 +14,10 @@
 
   function rememberConversationId(payload) {
     try { if (payload?.conversationId) window.sessionStorage.setItem(CONVERSATION_STORAGE_KEY, String(payload.conversationId)); } catch { /* optional */ }
+  }
+
+  function plainObject(value) {
+    return value && typeof value === "object" && !Array.isArray(value) ? value : {};
   }
 
   function normalizeCommand(value) {
@@ -119,11 +123,17 @@
 
   async function runJarvisCommand(command, options, execute) {
     try {
+      const conversationId = options?.conversationId || getConversationId();
+      const context = plainObject(options?.context);
       const result = await request(API_URL, {
         method: "POST",
         body: JSON.stringify({
           ...options,
-          conversationId: options?.conversationId || getConversationId(),
+          context: {
+            ...context,
+            ...(conversationId ? { jarvisConversationId: conversationId } : {}),
+          },
+          conversationId,
           channel: options?.channel || "seller_tool",
           command,
           execute,
