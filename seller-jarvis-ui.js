@@ -126,6 +126,7 @@
       @media(max-width:760px){.elyon-jarvis-floating{left:12px!important;right:12px!important;top:auto!important;bottom:12px!important;width:auto!important;max-height:calc(100vh - 24px)}.elyon-jarvis-panel{min-height:390px;max-height:calc(100vh - 24px);border-radius:20px}.elyon-jarvis-panel-head{cursor:default}.elyon-jarvis-drag-grip{display:none}.elyon-jarvis-quick{grid-template-columns:1fr}.elyon-jarvis-floating.minimized{left:auto!important;right:12px!important}.elyon-jarvis-floating.minimized .elyon-jarvis-dock{display:flex}.elyon-jarvis-dock-copy{display:none}}
       @media(prefers-reduced-motion:reduce){.elyon-jarvis-orb:before,.elyon-jarvis-floating[data-state="thinking"] .elyon-jarvis-orb,.elyon-jarvis-floating[data-state="working"] .elyon-jarvis-orb{animation:none!important}}
     `;
+    style.textContent += `.elyon-jarvis-rich{display:grid;gap:5px}.elyon-jarvis-rich strong{color:#f1f5f9}.elyon-jarvis-rich hr{width:100%;margin:4px 0;border:0;border-top:1px solid rgba(148,163,184,.18)}.elyon-jarvis-rich-line{display:block}.elyon-jarvis-rich-list{display:grid;gap:4px;margin:2px 0 2px 4px;padding-left:14px;color:#cbd5e1}.elyon-jarvis-rich-list li{padding-left:2px}`;
     document.head.appendChild(style);
   }
 
@@ -386,6 +387,33 @@
     return new Intl.DateTimeFormat("de-DE", { hour: "2-digit", minute: "2-digit" }).format(new Date());
   }
 
+  function richText(value) {
+    const source = text(value);
+    if (!source) return "";
+    const lines = escapeHtml(source).split(/\r?\n/);
+    const output = [];
+    let list = [];
+    const flushList = () => {
+      if (!list.length) return;
+      output.push(`<ul class="elyon-jarvis-rich-list">${list.join("")}</ul>`);
+      list = [];
+    };
+    for (const line of lines) {
+      const clean = line.trim();
+      if (!clean) { flushList(); output.push("<span class=\"elyon-jarvis-rich-line\"></span>"); continue; }
+      if (/^---+$/.test(clean)) { flushList(); output.push("<hr>"); continue; }
+      const bullet = clean.match(/^(?:[-*]|\d+[.)])\s+(.+)/);
+      if (bullet) {
+        list.push(`<li>${bullet[1].replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")}</li>`);
+        continue;
+      }
+      flushList();
+      output.push(`<span class="elyon-jarvis-rich-line">${clean.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")}</span>`);
+    }
+    flushList();
+    return `<div class="elyon-jarvis-rich">${output.join("")}</div>`;
+  }
+
   function pushHistory(entry) {
     state.history.push(entry);
     if (state.history.length > HISTORY_LIMIT) state.history.shift();
@@ -396,7 +424,7 @@
     const plan = payload?.plan || {};
     const delegations = Array.isArray(plan.delegations) ? plan.delegations : [];
     const summary = text(payload?.summary?.summary || payload?.summary || plan.summary || plan.objective, "Plan erstellt.");
-    return `${escapeHtml(summary)}${delegations.length ? `<div class="elyon-jarvis-delegations">${delegations.map((item, index) => `<div class="elyon-jarvis-delegation"><b>${index + 1}. ${escapeHtml(item.agentName || item.agentId)}</b><br>${escapeHtml(item.capability || item.reason || "Aufgabe")}</div>`).join("")}</div>` : ""}<button type="button" class="elyon-jarvis-run-last" data-jarvis-run-last>Plan jetzt ausführen</button>`;
+    return `${richText(summary)}${delegations.length ? `<div class="elyon-jarvis-delegations">${delegations.map((item, index) => `<div class="elyon-jarvis-delegation"><b>${index + 1}. ${escapeHtml(item.agentName || item.agentId)}</b><br>${escapeHtml(item.capability || item.reason || "Aufgabe")}</div>`).join("")}</div>` : ""}<button type="button" class="elyon-jarvis-run-last" data-jarvis-run-last>Plan jetzt ausführen</button>`;
   }
 
   function executeMarkup(payload) {
@@ -407,7 +435,7 @@
       const label = run.ok ? "✓" : "✕";
       return `<div class="elyon-jarvis-delegation"><b>${label} ${index + 1}. ${escapeHtml(run.agentName || run.agentId)}</b><br>${escapeHtml(result.summary || run.message || "Bearbeitet")}</div>`;
     }).join("")}</div>` : "";
-    return `${escapeHtml(summary)}${runMarkup}`;
+    return `${richText(summary)}${runMarkup}`;
   }
 
   function renderFeed() {
