@@ -424,7 +424,9 @@
     const plan = payload?.plan || {};
     const delegations = Array.isArray(plan.delegations) ? plan.delegations : [];
     const summary = text(payload?.summary?.summary || payload?.summary || plan.summary || plan.objective, "Plan erstellt.");
-    return `${richText(summary)}${delegations.length ? `<div class="elyon-jarvis-delegations">${delegations.map((item, index) => `<div class="elyon-jarvis-delegation"><b>${index + 1}. ${escapeHtml(item.agentName || item.agentId)}</b><br>${escapeHtml(item.capability || item.reason || "Aufgabe")}</div>`).join("")}</div>` : ""}<button type="button" class="elyon-jarvis-run-last" data-jarvis-run-last>Plan jetzt ausführen</button>`;
+    const scout = payload?.marketScoutPlan;
+    const scoutMarkup = scout ? `<div class="elyon-jarvis-market-plan"><strong>Market Scout V1</strong><br>${escapeHtml(String(scout.requestedCount))} Kandidaten, Draft-/Read-only-Recherche. Keine Produkte, Listings oder Lieferanten werden verändert.</div>` : "";
+    return `${richText(summary)}${scoutMarkup}${delegations.length ? `<div class="elyon-jarvis-delegations">${delegations.map((item, index) => `<div class="elyon-jarvis-delegation"><b>${index + 1}. ${escapeHtml(item.agentName || item.agentId)}</b><br>${escapeHtml(item.capability || item.reason || "Aufgabe")}</div>`).join("")}</div>` : ""}<button type="button" class="elyon-jarvis-run-last" data-jarvis-run-last>Plan jetzt ausführen</button>`;
   }
 
   function executeMarkup(payload) {
@@ -435,7 +437,9 @@
       const label = run.ok ? "✓" : "✕";
       return `<div class="elyon-jarvis-delegation"><b>${label} ${index + 1}. ${escapeHtml(run.agentName || run.agentId)}</b><br>${escapeHtml(result.summary || run.message || "Bearbeitet")}</div>`;
     }).join("")}</div>` : "";
-    return `${richText(summary)}${runMarkup}`;
+    const scout = payload?.marketScout;
+    const candidateMarkup = scout?.candidates?.length ? `<div class="elyon-jarvis-market-grid">${scout.candidates.map((item) => `<div class="elyon-jarvis-market-card"><strong>${escapeHtml(item.rank + ". " + item.productName)}</strong><small>${escapeHtml(item.category || "")}</small><div>${escapeHtml(item.demandSignal)} · Wettbewerb: ${escapeHtml(item.competitionLevel)} · Risiko: ${escapeHtml(item.riskLevel)}</div><div>EK: ${item.purchasePrice == null ? "unbekannt" : escapeHtml(String(item.purchasePrice))} · VK: ${item.sellingPrice == null ? "unbekannt" : escapeHtml(String(item.sellingPrice))} · Marge: ${item.estimatedMarginPercent == null ? "unbekannt" : escapeHtml(String(item.estimatedMarginPercent)) + "%"}</div><p>${escapeHtml(item.rationale || "Keine zusätzliche Begründung")}</p>${item.supplierUrl ? `<a href="${escapeHtml(item.supplierUrl)}" target="_blank" rel="noreferrer">Quelle öffnen</a>` : "<small>Keine verifizierte Quelle geliefert</small>"}</div>`).join("")}</div>` : "";
+    return `${richText(summary)}${scout?.warnings?.length ? richText("Warnungen:\n" + scout.warnings.map((w) => "- " + w).join("\n")) : ""}${candidateMarkup}${runMarkup}`;
   }
 
   function renderFeed() {
