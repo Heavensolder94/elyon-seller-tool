@@ -28,6 +28,13 @@ test("market scout sends web search and normalizes structured candidates", async
   assert.equal(request.allowFallback, false);
 });
 
+test("market scout marks missing source or prices as needs_research", async () => {
+  const result = await runMarketScout({ command: "Suche 1 Produktidee", route: async () => ({ ok: true, content: JSON.stringify({ candidates: [{ productName: "Unvollständig" }] }) }) });
+  assert.equal(result.status, "needs_research");
+  assert.equal(result.candidates[0].status, "needs_research");
+  assert.match(result.warnings.join(" "), /Quellen|Preisdaten|angeforderten/);
+});
+
 test("market scout never fabricates a result when provider is unavailable", async () => {
   const result = await runMarketScout({ command: "Suche Produktideen", route: async () => ({ ok: false }) });
   assert.equal(result.ok, false);
