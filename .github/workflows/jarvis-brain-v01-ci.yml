@@ -1,0 +1,29 @@
+name: Jarvis Brain V0.1 CI
+
+on:
+  push:
+    branches:
+      - feat/jarvis-brain-v01
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install dependencies
+        run: npm install --no-package-lock
+      - name: Run repository tests
+        run: npm test

@@ -1,11 +1,12 @@
 import { requireSellerAccess } from "../lib/seller-access.js";
-import { listCombinedAgentRegistry } from "../lib/ai-agent-registry-store.js";
 import registryRunnerHandler from "./ai-agent-run-registry.js";
+import { CAPABILITY_PROFILES } from "../lib/elyon-jarvis-core.js";
 import {
-  CAPABILITY_PROFILES,
-  createJarvisPlan,
-  summarizeJarvisRuns,
-} from "../lib/elyon-jarvis-core.js";
+  JARVIS_BRAIN_INTENTS,
+  JARVIS_BRAIN_VERSION,
+  runJarvisBrain,
+} from "../lib/elyon-jarvis-brain.js";
+import { listJarvisAgentRegistry } from "../lib/elyon-jarvis-agent-registry.js";
 
 function plainObject(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : {};
@@ -33,6 +34,7 @@ function safeJson(value, depth = 0) {
 
 function publicAgent(agent = {}) {
   const execution = plainObject(agent.execution);
+  const availability = plainObject(agent.availability);
   return {
     id: text(agent.id, 100),
     name: text(agent.name, 160),
@@ -42,7 +44,15 @@ function publicAgent(agent = {}) {
     enabled: agent.enabled !== false,
     locked: agent.locked === true,
     capabilities: (Array.isArray(agent.capabilities) ? agent.capabilities : []).slice(0, 40).map((entry) => text(entry, 300)).filter(Boolean),
+    requiredInput: (Array.isArray(agent.requiredInput) ? agent.requiredInput : []).slice(0, 20).map((entry) => text(entry, 100)).filter(Boolean),
+    outputType: text(agent.outputType, 100),
+    endpoint: text(agent.endpoint, 200),
+    handler: text(agent.handler, 100),
     autonomyMode: text(agent.autonomyMode, 50),
+    availability: {
+      available: availability.available !== false,
+      reason: text(availability.reason, 100),
+    },
     execution: {
       runner: text(execution.runner, 100),
       defaultAction: text(execution.defaultAction, 100),
@@ -175,18 +185,35 @@ async function executePlan(req, plan, body) {
 }
 
 async function getRegistry() {
-  const registry = await listCombinedAgentRegistry();
+  const registry = await listJarvisAgentRegistry();
   return {
     ...registry,
     agents: Array.isArray(registry.agents) ? registry.agents : [],
   };
 }
 
+function logBrainResult(payload, durationMs) {
+  const plan = plainObject(payload?.plan);
+  const delegations = Array.isArray(plan.delegations) ? plan.delegations : [];
+  console.info("[jarvis-brain]", {
+    requestId: text(payload?.requestId || plan.correlationId, 120),
+    brainVersion: JARVIS_BRAIN_VERSION,
+    intent: text(plan.intent?.id, 80),
+    selectedAgent: delegations.map((item) => text(item.agentId, 100)).filter(Boolean),
+    plan: text(payload?.mode, 30),
+    execution: payload?.mode === "execute" ? "executed" : payload?.mode === "plan" ? "planned" : "direct",
+    duration: durationMs,
+    result: text(payload?.summary?.status, 80),
+    error: text(payload?.error, 100),
+    fallbackUsed: payload?.routing?.fallbackUsed === true || payload?.ai?.fallbackUsed === true,
+  });
+}
+
 export default async function handler(req, res) {
   if (!requireSellerAccess(req, res, { maxBodyBytes: 512 * 1024 })) return;
   res.setHeader("Cache-Control", "no-store");
   res.setHeader("X-Content-Type-Options", "nosniff");
-  res.setHeader("X-Elyon-Jarvis", "phase-c-v1");
+  res.setHeader("X-Elyon-Jarvis", "brain-v0.1");
   if (req.method === "OPTIONS") return res.status(204).end();
 
   try {
@@ -194,16 +221,19 @@ export default async function handler(req, res) {
       const registry = await getRegistry();
       return res.status(200).json({
         ok: true,
-        version: 1,
-        phase: "C",
+        version: 2,
+        phase: "brain-v0.1",
+        brainVersion: JARVIS_BRAIN_VERSION,
         jarvis: "ready",
-        mode: "registry_orchestrator",
+        mode: "brain_orchestrator",
         agents: registry.agents.map(publicAgent),
+        intents: [...JARVIS_BRAIN_INTENTS],
         capabilities: Object.keys(CAPABILITY_PROFILES),
         storage: registry.storage,
         safety: {
           registryIsSourceOfTruth: true,
           deterministicAgentSelection: true,
+          generalJarvisFallback: true,
           externalActionsLocked: true,
           livePublishingAllowed: false,
           defaultExecutionMode: "plan",
@@ -222,80 +252,37 @@ export default async function handler(req, res) {
       return res.status(400).json({
         ok: false,
         error: "jarvis_command_required",
-        message: "Jarvis benötigt einen Auftrag oder ein Ziel.",
+        message: "Jarvis benötigt eine Nachricht, einen Auftrag oder ein Ziel.",
       });
     }
 
+    const startedAt = Date.now();
     const registry = await getRegistry();
-    const plan = createJarvisPlan({
+    const execute = body.execute === true || text(body.mode, 30).toLowerCase() === "execute";
+    const brainResult = await runJarvisBrain({
       command,
       agents: registry.agents,
+      input: plainObject(safeJson(body.input || body.context || body.data || {})) || {},
       explicitAgentId: text(body.agentId, 100),
       requestedCapability: text(body.capability, 100),
       maxAgents: body.maxAgents,
+      execute,
+      executePlan: (plan) => executePlan(req, plan, body),
     });
 
-    if (plan.status === "blocked") {
-      return res.status(403).json({
-        ok: false,
-        error: "jarvis_action_blocked",
-        phase: "C",
-        plan,
-        safety: { externalActionsLocked: true, livePublishingAllowed: false },
-      });
-    }
-
-    const execute = body.execute === true || text(body.mode, 30).toLowerCase() === "execute";
-    if (!plan.executable) {
-      return res.status(422).json({
-        ok: false,
-        error: "jarvis_no_suitable_agent",
-        phase: "C",
-        mode: execute ? "execute" : "plan",
-        plan,
-      });
-    }
-
-    if (!execute) {
-      return res.status(200).json({
-        ok: true,
-        phase: "C",
-        mode: "plan",
-        plan,
-        summary: summarizeJarvisRuns(plan, []),
-        safety: {
-          externalActionsLocked: true,
-          livePublishingAllowed: false,
-          nothingExecuted: true,
-        },
-      });
-    }
-
-    const runs = await executePlan(req, plan, body);
-    const summary = summarizeJarvisRuns(plan, runs);
-    const successful = runs.some((run) => run.ok);
-    return res.status(successful ? 200 : 502).json({
-      ok: successful,
-      phase: "C",
-      mode: "execute",
-      correlationId: plan.correlationId,
-      plan,
-      runs,
-      summary,
-      safety: {
-        externalActionsLocked: true,
-        livePublishingAllowed: false,
-        registryIsSourceOfTruth: true,
-        stopOnBlocker: body.stopOnBlocker !== false,
-      },
-    });
+    logBrainResult(brainResult.payload, Date.now() - startedAt);
+    return res.status(brainResult.statusCode).json(brainResult.payload);
   } catch (error) {
+    console.error("[jarvis-brain-error]", {
+      name: text(error?.name, 100),
+      code: text(error?.code, 100),
+    });
     return res.status(500).json({
       ok: false,
-      error: "jarvis_orchestration_failed",
-      message: text(error?.message, 2000) || "Jarvis konnte den Auftrag nicht orchestrieren.",
+      error: "jarvis_brain_failed",
+      message: "Jarvis konnte die Anfrage gerade nicht vollständig bearbeiten.",
     });
   }
 }
 
-export { executePlan, invokeRegistryRunner, publicAgent };
+export { executePlan, getRegistry, invokeRegistryRunner, publicAgent };
