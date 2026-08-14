@@ -2,11 +2,12 @@
   "use strict";
 
   const API_URL = "/api/jarvis";
+  const AUTO_API_URL = "/api/jarvis-auto";
   const CONVERSATION_STORAGE_KEY = "elyon_jarvis_conversation_id_v2a";
   const EVENTS_API_URL = "/api/jarvis-events";
   const JOBS_API_URL = "/api/jarvis-jobs";
   const CONTROL_API_URL = "/api/jarvis-control";
-  const VERSION = "phase-e4-v1.2";
+  const VERSION = "phase-e4-v1.3";
 
   function getConversationId() {
     try { return window.sessionStorage.getItem(CONVERSATION_STORAGE_KEY) || ""; } catch { return ""; }
@@ -95,7 +96,7 @@
   }
 
   async function status() {
-    return request(API_URL, { method: "GET" });
+    return request(AUTO_API_URL, { method: "GET" });
   }
 
   async function events(options = {}) {
@@ -121,24 +122,30 @@
     });
   }
 
+  function commandBody(command, options = {}, { execute = false, autoDelegate = false } = {}) {
+    const conversationId = options?.conversationId || getConversationId();
+    const context = plainObject(options?.context);
+    return {
+      ...options,
+      context: {
+        ...context,
+        ...(conversationId ? { jarvisConversationId: conversationId } : {}),
+      },
+      conversationId,
+      channel: options?.channel || "seller_tool",
+      command,
+      execute,
+      autoDelegate,
+      mode: execute ? "execute" : (autoDelegate ? "chat" : "plan"),
+    };
+  }
+
   async function runJarvisCommand(command, options, execute) {
     try {
-      const conversationId = options?.conversationId || getConversationId();
-      const context = plainObject(options?.context);
-      const result = await request(API_URL, {
+      const autoDelegate = !execute && options?.autoDelegate !== false;
+      const result = await request(execute ? API_URL : AUTO_API_URL, {
         method: "POST",
-        body: JSON.stringify({
-          ...options,
-          context: {
-            ...context,
-            ...(conversationId ? { jarvisConversationId: conversationId } : {}),
-          },
-          conversationId,
-          channel: options?.channel || "seller_tool",
-          command,
-          execute,
-          mode: execute ? "execute" : "plan",
-        }),
+        body: JSON.stringify(commandBody(command, options, { execute, autoDelegate })),
       });
       rememberConversationId(result);
       return result;
@@ -150,7 +157,20 @@
     }
   }
 
+  async function preview(command, options = {}) {
+    const result = await request(API_URL, {
+      method: "POST",
+      body: JSON.stringify(commandBody(command, options, { execute: false, autoDelegate: false })),
+    });
+    rememberConversationId(result);
+    return result;
+  }
+
   async function plan(command, options = {}) {
+    return runJarvisCommand(command, options, false);
+  }
+
+  async function chat(command, options = {}) {
     return runJarvisCommand(command, options, false);
   }
 
@@ -172,10 +192,13 @@
     jobs,
     control,
     updateControl,
+    chat,
     plan,
+    preview,
     execute,
     delegate,
     api: API_URL,
+    autoApi: AUTO_API_URL,
     eventsApi: EVENTS_API_URL,
     jobsApi: JOBS_API_URL,
     controlApi: CONTROL_API_URL,
@@ -183,6 +206,6 @@
   });
 
   window.dispatchEvent(new CustomEvent("elyon:jarvis-ready", {
-    detail: { version: VERSION, api: API_URL },
+    detail: { version: VERSION, api: API_URL, autoApi: AUTO_API_URL },
   }));
 })();
