@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { loadJarvisBrainFiles } from "../lib/jarvis-brain-files.js";
 import {
   getManagedJarvisFileDefinition,
   isManagedJarvisFile,
@@ -107,6 +108,39 @@ test("unregistered paths never become managed runtime files", async () => {
   assert.equal(calls, 0);
   assert.equal(result.managed, false);
   assert.equal(result.content, "repository-content");
+});
+
+test("Brain loader can consume one managed active file while all other files remain repository-backed", async () => {
+  const brain = await loadJarvisBrainFiles({
+    command: "Wer bist du und was sind deine Ziele?",
+    env: { JARVIS_FILE_STORE_ENABLED: "true" },
+    resolveManagedFile: async ({ identifier, fallback: fileFallback }) => {
+      if (identifier === "brain/GOALS.md") {
+        return {
+          content: "# 1. Oberstes Ziel\n\nManaged Goal aus dem File Store.",
+          source: "supabase",
+          version: 7,
+          managed: true,
+          warning: null,
+        };
+      }
+      return {
+        content: await fileFallback(),
+        source: "repository",
+        version: null,
+        managed: true,
+        warning: null,
+      };
+    },
+  });
+
+  assert.equal(brain.ready, true);
+  const goals = brain.core.find((entry) => entry.id === "goals");
+  const identity = brain.core.find((entry) => entry.id === "identity");
+  assert.match(goals.content, /Managed Goal aus dem File Store/);
+  assert.equal(goals.runtimeSource, "supabase");
+  assert.equal(goals.runtimeVersion, 7);
+  assert.equal(identity.runtimeSource, "repository");
 });
 
 test("managed file writes reject empty, oversized and secret-like content", () => {
