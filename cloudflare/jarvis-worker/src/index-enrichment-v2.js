@@ -9,10 +9,12 @@ import {
 } from "./product-enrichment.js";
 import { buildPreservingEnrichmentPatch } from "./enrichment-provenance-v2.js";
 import { researchWithOpenRouter } from "./openrouter-enrichment-research-v2.js";
-import { processEnrichmentMessageV2 } from "./enrichment-task-runtime-v2.js";
+import { getTask, processEnrichmentMessageV2, processTaskMessageV2 } from "./enrichment-task-runtime-v2.js";
+import { researchMarketScout } from "./market-scout-research.js";
 
-const WORKER_VERSION = "0.5.1";
+const WORKER_VERSION = "0.6.0";
 const ENRICHMENT_VERSION = "jarvis-product-enrichment-v1.1";
+const MARKET_SCOUT_VERSION = "jarvis-market-scout-async-v1";
 const ELYON_ARTICLE_NUMBER_PATTERN = /^ELY-\d{6,}$/i;
 
 const text = (value, max = 500) => String(value ?? "").trim().slice(0, max);
@@ -157,14 +159,67 @@ async function runProductEnrichmentV2(task, env) {
   };
 }
 
+async function runMarketScoutTask(task, env) {
+  return researchMarketScout({ env, payload: task.payload || {} });
+}
+
+function corsHeaders() {
+  return {
+    "cache-control": "no-store",
+    "access-control-allow-origin": "*",
+    "access-control-allow-methods": "GET, OPTIONS",
+    "access-control-allow-headers": "content-type",
+  };
+}
+
+function publicMarketScoutTask(task) {
+  return {
+    id: task.id,
+    type: task.type,
+    status: task.status,
+    progress: Number(task.progress || 0),
+    output: task.output ?? null,
+    error: task.error ?? null,
+    lastError: task.lastError ?? null,
+    createdAt: task.createdAt,
+    updatedAt: task.updatedAt,
+    startedAt: task.startedAt ?? null,
+    finishedAt: task.finishedAt ?? null,
+    attemptCount: Number(task.attemptCount || 0),
+  };
+}
+
+async function marketScoutStatus(request, env, url) {
+  if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders() });
+  if (request.method !== "GET") return Response.json({ ok: false, error: "method_not_allowed" }, { status: 405, headers: corsHeaders() });
+  const id = text(url.pathname.slice("/market-scout/tasks/".length), 100);
+  const token = text(url.searchParams.get("token"), 200);
+  if (!id || !token) return Response.json({ ok: false, error: "market_scout_task_access_denied" }, { status: 403, headers: corsHeaders() });
+  const task = await getTask(env, id);
+  if (!task || task.type !== "market-scout") return Response.json({ ok: false, error: "task_not_found" }, { status: 404, headers: corsHeaders() });
+  const expected = text(task.payload?.statusToken, 200);
+  if (!expected || expected !== token) return Response.json({ ok: false, error: "market_scout_task_access_denied" }, { status: 403, headers: corsHeaders() });
+  return Response.json({ ok: true, task: publicMarketScoutTask(task) }, { headers: corsHeaders() });
+}
+
 async function fetchHandler(request, env, ctx) {
   const url = new URL(request.url);
+  if (url.pathname.startsWith("/market-scout/tasks/")) {
+    try {
+      return await marketScoutStatus(request, env, url);
+    } catch (error) {
+      return Response.json({ ok: false, error: text(error?.message, 200) || "market_scout_status_failed" }, { status: 500, headers: corsHeaders() });
+    }
+  }
+
   if (request.method === "GET" && url.pathname === "/health") {
     return Response.json({
       ok: true,
       service: "elyon-jarvis-worker",
       version: WORKER_VERSION,
       productEnrichment: ENRICHMENT_VERSION,
+      marketScout: MARKET_SCOUT_VERSION,
+      marketScoutAsync: true,
       openRouterResearch: env.OPENROUTER_API_KEY ? "configured" : "missing",
       complianceAutoApply: false,
       costAccounting: "usage.cost",
@@ -186,6 +241,13 @@ async function fetchHandler(request, env, ctx) {
         costAccounting: true,
         provenanceRawReload: true,
       },
+      marketScout: {
+        enabled: true,
+        version: MARKET_SCOUT_VERSION,
+        asyncQueue: true,
+        openRouterResearch: env.OPENROUTER_API_KEY ? "configured" : "missing",
+        readOnly: true,
+      },
     }, { status: response.status, headers: { "cache-control": "no-store" } });
   }
 
@@ -199,6 +261,12 @@ export default {
     for (const message of batch.messages || []) {
       if (message?.body?.type === "product-enrichment") {
         await processEnrichmentMessageV2(message, env, runProductEnrichmentV2);
+      } else if (message?.body?.type === "market-scout") {
+        await processTaskMessageV2(message, env, {
+          type: "market-scout",
+          agentName: "market-scout-handler-v1",
+          handler: runMarketScoutTask,
+        });
       } else {
         baseMessages.push(message);
       }
@@ -207,4 +275,4 @@ export default {
   },
 };
 
-export { runProductEnrichmentV2 };
+export { runMarketScoutTask, runProductEnrichmentV2 };
