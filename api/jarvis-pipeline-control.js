@@ -78,7 +78,7 @@ export default async function handler(req, res) {
     if (typeof body.enabled !== "boolean") {
       return res.status(400).json({ ok: false, error: "pipeline_enabled_required", message: "enabled muss true oder false sein." });
     }
-    await saveJarvisPipelineControl({ enabled: body.enabled });
+    await saveJarvisPipelineControl({ enabled: body.enabled }, { e5V2: true });
     const snapshot = await getJarvisPipelineControlSnapshot({ e5V2: true });
     return res.status(200).json({ ok: true, ...publicSnapshot(snapshot) });
   } catch (error) {
