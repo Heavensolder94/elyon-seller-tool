@@ -37,7 +37,7 @@
     }
 
     const body = document.createElement("p");
-    body.textContent = text(payload?.answer, "Jarvis hat keine Antwort geliefert.");
+    body.textContent = text(payload.answer) || "Jarvis hat keine Antwort geliefert.";
     body.style.whiteSpace = "pre-wrap";
     message.appendChild(body);
     return true;
