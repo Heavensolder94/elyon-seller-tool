@@ -126,11 +126,11 @@ async function setCompleted(env, task) {
   }), "EX", String(IDEMPOTENCY_TTL_SECONDS)]);
 }
 
-async function createRun(env, task, attempt) {
+async function createRun(env, task, attempt, agentName = "jarvis-task-handler") {
   const run = {
     id: crypto.randomUUID(),
     task_id: task.id,
-    agent_name: "product-enrichment-handler-v2",
+    agent_name: text(agentName, 120) || "jarvis-task-handler",
     status: "running",
     input: { taskId: task.id, type: task.type, attempt, idempotencyKey: task.idempotencyKey, payload: task.payload ?? {} },
     output: null,
@@ -160,10 +160,11 @@ async function finishRun(env, run, patch) {
 const ack = (message) => { if (typeof message?.ack === "function") message.ack(); };
 const retry = (message, delaySeconds) => { if (typeof message?.retry === "function") message.retry({ delaySeconds }); };
 
-async function processEnrichmentMessageV2(message, env, handler) {
+async function processTaskMessageV2(message, env, { type, agentName, handler } = {}) {
   const taskId = text(message?.body?.taskId, 100);
-  const type = text(message?.body?.type, 100);
-  if (!taskId || type !== "product-enrichment") {
+  const messageType = text(message?.body?.type, 100);
+  const expectedType = text(type, 100);
+  if (!taskId || !expectedType || messageType !== expectedType || typeof handler !== "function") {
     ack(message);
     return { ok: false, action: "ack", error: "invalid_queue_message" };
   }
@@ -173,7 +174,7 @@ async function processEnrichmentMessageV2(message, env, handler) {
     ack(message);
     return { ok: false, action: "ack", error: "task_not_found" };
   }
-  if (task.type !== type) {
+  if (task.type !== messageType) {
     ack(message);
     return { ok: false, action: "ack", error: "task_type_mismatch" };
   }
@@ -202,7 +203,7 @@ async function processEnrichmentMessageV2(message, env, handler) {
   let run = null;
 
   try {
-    run = await createRun(env, task, attempt);
+    run = await createRun(env, task, attempt, agentName);
     task = await updateTask(env, task, { status: "running", progress: 10, attemptCount: attempt, startedAt: task.startedAt || startedAt, lastError: null });
     const output = await handler(task, env);
     const finishedAt = nowIso();
@@ -213,7 +214,7 @@ async function processEnrichmentMessageV2(message, env, handler) {
       output,
       error: null,
       duration_ms: durationMs,
-      model: output?.cost?.model || null,
+      model: output?.cost?.model || output?.model || null,
       cost: Number.isFinite(cost) ? cost : 0,
       finished_at: finishedAt,
     });
@@ -229,7 +230,7 @@ async function processEnrichmentMessageV2(message, env, handler) {
       try {
         await finishRun(env, run, { status: "failed", output: null, error: errorText, duration_ms: durationMs, model: null, cost: 0, finished_at: finishedAt });
       } catch (runError) {
-        console.error("elyon-jarvis enrichment v2 run update failed", runError);
+        console.error("elyon-jarvis task run update failed", runError);
       }
     }
     const retrying = error?.retryable !== false && attempt < maxAttempts;
@@ -250,4 +251,12 @@ async function processEnrichmentMessageV2(message, env, handler) {
   }
 }
 
-export { getTask, processEnrichmentMessageV2 };
+async function processEnrichmentMessageV2(message, env, handler) {
+  return processTaskMessageV2(message, env, {
+    type: "product-enrichment",
+    agentName: "product-enrichment-handler-v2",
+    handler,
+  });
+}
+
+export { getTask, processEnrichmentMessageV2, processTaskMessageV2 };
