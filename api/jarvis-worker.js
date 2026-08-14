@@ -1,5 +1,9 @@
 import crypto from "node:crypto";
 import { runJarvisWorker } from "../lib/elyon-jarvis-worker.js";
+import {
+  buildJarvisAutonomyEnv,
+  getJarvisE5ControlSnapshot,
+} from "../lib/elyon-jarvis-e5-v2-policy.js";
 
 function text(value, max = 4000) {
   const output = String(value ?? "").trim();
@@ -24,13 +28,13 @@ function authorizeCron(req, env = process.env) {
 export default async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
   res.setHeader("X-Content-Type-Options", "nosniff");
-  res.setHeader("X-Elyon-Jarvis-Worker", "phase-e4-v1");
+  res.setHeader("X-Elyon-Jarvis-Worker", "phase-e5-v2");
 
   if (req.method !== "GET") {
     return res.status(405).json({
       ok: false,
       error: "method_not_allowed",
-      message: "Der E4-Worker wird ausschließlich durch den geschützten Cloud-Cron aufgerufen.",
+      message: "Der E5-Worker wird ausschließlich durch den geschützten Cloud-Cron aufgerufen.",
     });
   }
 
@@ -46,7 +50,12 @@ export default async function handler(req, res) {
   }
 
   try {
-    const result = await runJarvisWorker({ limit: 2 });
+    const env = buildJarvisAutonomyEnv(process.env);
+    const result = await runJarvisWorker({
+      limit: 2,
+      env,
+      controlSnapshotImpl: (options = {}) => getJarvisE5ControlSnapshot({ ...options, e5V2: true }),
+    });
     return res.status(200).json(result);
   } catch (error) {
     const code = text(error?.code, 120) || "jarvis_worker_failed";
@@ -57,9 +66,9 @@ export default async function handler(req, res) {
     ].includes(code);
     return res.status(configurationError ? 503 : 500).json({
       ok: false,
-      phase: "E4",
+      phase: "E5",
       error: code,
-      message: text(error?.message, 2000) || "Jarvis E4 Worker konnte nicht ausgeführt werden.",
+      message: text(error?.message, 2000) || "Jarvis E5 Worker konnte nicht ausgeführt werden.",
       safety: {
         failClosed: true,
         externalActionsLocked: true,
