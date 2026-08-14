@@ -12,7 +12,7 @@
 
   function isDirectAnswer(payload = {}) {
     const mode = text(payload?.mode).toLowerCase();
-    if (["brain", "brain_auto_delegated", "direct", "memory_write"].includes(mode)) return true;
+    if (["brain", "direct", "memory_write"].includes(mode) || mode === "brain_auto_delegated") return true;
     if (payload?.plan?.brainHandled === true) return true;
     return payload?.plan?.answerDirectly === true && payload?.plan?.executable !== true;
   }
