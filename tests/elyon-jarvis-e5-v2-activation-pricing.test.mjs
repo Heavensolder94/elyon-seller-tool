@@ -98,11 +98,34 @@ test("E5 V2 activates an unconfigured pipeline through draft while live publishi
   assert.equal(snapshot.reasons.includes("pricing_unconfigured"), false);
 });
 
-test("an explicit E5 disable is preserved and never overridden by V2 activation", async () => {
+test("legacy V1 explicit off is migrated to the fresh E5 V2 default-on control", async () => {
   const redis = createRedisHarness();
   const env = { ...REDIS_ENV };
   await saveJarvisPipelineControl({ enabled: false }, {
     env,
+    fetchImpl: redis.fetchImpl,
+    now: "2026-08-14T18:04:00.000Z",
+  });
+
+  const snapshot = await getJarvisPipelineControlSnapshot({
+    env,
+    e5V2: true,
+    fetchImpl: redis.fetchImpl,
+    now: "2026-08-14T18:05:00.000Z",
+  });
+  assert.equal(snapshot.pipeline.enabled, true);
+  assert.equal(snapshot.pipeline.activation, "e5_v2_default");
+  assert.equal(snapshot.permissions.internalPipelineAllowed, true);
+  assert.equal(snapshot.permissions.ebayDraftAllowed, true);
+  assert.equal(snapshot.reasons.includes("full_product_pipeline_disabled"), false);
+});
+
+test("an explicit V2 E5 disable is preserved after migration", async () => {
+  const redis = createRedisHarness();
+  const env = { ...REDIS_ENV };
+  await saveJarvisPipelineControl({ enabled: false }, {
+    env,
+    e5V2: true,
     fetchImpl: redis.fetchImpl,
     now: "2026-08-14T18:05:00.000Z",
   });
@@ -145,9 +168,11 @@ test("E5 V2 wiring keeps external live actions locked", async () => {
     readFile(new URL("../lib/elyon-jarvis-pipeline-control-store.js", import.meta.url), "utf8"),
   ]);
 
+  assert.match(pipelineApi, /saveJarvisPipelineControl\(\{ enabled: body\.enabled \}, \{ e5V2: true \}\)/);
   assert.match(pipelineApi, /e5V2:\s*true/);
   assert.match(workerApi, /getJarvisE5ControlSnapshot/);
   assert.match(bridge, /e5V2:\s*true/);
+  assert.match(pipelineStore, /elyon:jarvis:pipeline-control:v2/);
   assert.match(pipelineStore, /ebayDraftAllowed/);
   for (const source of [pipelineApi, workerApi, pipelineStore]) {
     assert.match(source, /livePublishingAllowed:\s*false/);
