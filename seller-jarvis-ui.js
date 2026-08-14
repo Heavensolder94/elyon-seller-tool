@@ -126,6 +126,7 @@
       @media(max-width:760px){.elyon-jarvis-floating{left:12px!important;right:12px!important;top:auto!important;bottom:12px!important;width:auto!important;max-height:calc(100vh - 24px)}.elyon-jarvis-panel{min-height:390px;max-height:calc(100vh - 24px);border-radius:20px}.elyon-jarvis-panel-head{cursor:default}.elyon-jarvis-drag-grip{display:none}.elyon-jarvis-quick{grid-template-columns:1fr}.elyon-jarvis-floating.minimized{left:auto!important;right:12px!important}.elyon-jarvis-floating.minimized .elyon-jarvis-dock{display:flex}.elyon-jarvis-dock-copy{display:none}}
       @media(prefers-reduced-motion:reduce){.elyon-jarvis-orb:before,.elyon-jarvis-floating[data-state="thinking"] .elyon-jarvis-orb,.elyon-jarvis-floating[data-state="working"] .elyon-jarvis-orb{animation:none!important}}
     `;
+    style.textContent += `.elyon-jarvis-rich{display:grid;gap:5px}.elyon-jarvis-rich strong{color:#f1f5f9}.elyon-jarvis-rich hr{width:100%;margin:4px 0;border:0;border-top:1px solid rgba(148,163,184,.18)}.elyon-jarvis-rich-line{display:block}.elyon-jarvis-rich-list{display:grid;gap:4px;margin:2px 0 2px 4px;padding-left:14px;color:#cbd5e1}.elyon-jarvis-rich-list li{padding-left:2px}`;
     document.head.appendChild(style);
   }
 
@@ -386,6 +387,33 @@
     return new Intl.DateTimeFormat("de-DE", { hour: "2-digit", minute: "2-digit" }).format(new Date());
   }
 
+  function richText(value) {
+    const source = text(value);
+    if (!source) return "";
+    const lines = escapeHtml(source).split(/\r?\n/);
+    const output = [];
+    let list = [];
+    const flushList = () => {
+      if (!list.length) return;
+      output.push(`<ul class="elyon-jarvis-rich-list">${list.join("")}</ul>`);
+      list = [];
+    };
+    for (const line of lines) {
+      const clean = line.trim();
+      if (!clean) { flushList(); output.push("<span class=\"elyon-jarvis-rich-line\"></span>"); continue; }
+      if (/^---+$/.test(clean)) { flushList(); output.push("<hr>"); continue; }
+      const bullet = clean.match(/^(?:[-*]|\d+[.)])\s+(.+)/);
+      if (bullet) {
+        list.push(`<li>${bullet[1].replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")}</li>`);
+        continue;
+      }
+      flushList();
+      output.push(`<span class="elyon-jarvis-rich-line">${clean.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")}</span>`);
+    }
+    flushList();
+    return `<div class="elyon-jarvis-rich">${output.join("")}</div>`;
+  }
+
   function pushHistory(entry) {
     state.history.push(entry);
     if (state.history.length > HISTORY_LIMIT) state.history.shift();
@@ -396,7 +424,9 @@
     const plan = payload?.plan || {};
     const delegations = Array.isArray(plan.delegations) ? plan.delegations : [];
     const summary = text(payload?.summary?.summary || payload?.summary || plan.summary || plan.objective, "Plan erstellt.");
-    return `${escapeHtml(summary)}${delegations.length ? `<div class="elyon-jarvis-delegations">${delegations.map((item, index) => `<div class="elyon-jarvis-delegation"><b>${index + 1}. ${escapeHtml(item.agentName || item.agentId)}</b><br>${escapeHtml(item.capability || item.reason || "Aufgabe")}</div>`).join("")}</div>` : ""}<button type="button" class="elyon-jarvis-run-last" data-jarvis-run-last>Plan jetzt ausführen</button>`;
+    const scout = payload?.marketScoutPlan;
+    const scoutMarkup = scout ? `<div class="elyon-jarvis-market-plan"><strong>Market Scout V1</strong><br>${escapeHtml(String(scout.requestedCount))} Kandidaten, Draft-/Read-only-Recherche. Keine Produkte, Listings oder Lieferanten werden verändert.</div>` : "";
+    return `${richText(summary)}${scoutMarkup}${delegations.length ? `<div class="elyon-jarvis-delegations">${delegations.map((item, index) => `<div class="elyon-jarvis-delegation"><b>${index + 1}. ${escapeHtml(item.agentName || item.agentId)}</b><br>${escapeHtml(item.capability || item.reason || "Aufgabe")}</div>`).join("")}</div>` : ""}<button type="button" class="elyon-jarvis-run-last" data-jarvis-run-last>Plan jetzt ausführen</button>`;
   }
 
   function executeMarkup(payload) {
@@ -407,7 +437,9 @@
       const label = run.ok ? "✓" : "✕";
       return `<div class="elyon-jarvis-delegation"><b>${label} ${index + 1}. ${escapeHtml(run.agentName || run.agentId)}</b><br>${escapeHtml(result.summary || run.message || "Bearbeitet")}</div>`;
     }).join("")}</div>` : "";
-    return `${escapeHtml(summary)}${runMarkup}`;
+    const scout = payload?.marketScout;
+    const candidateMarkup = scout?.candidates?.length ? `<div class="elyon-jarvis-market-grid">${scout.candidates.map((item) => `<div class="elyon-jarvis-market-card"><strong>${escapeHtml(item.rank + ". " + item.productName)}</strong><small>${escapeHtml(item.category || "")} · ${escapeHtml(item.status === "needs_research" ? "Weitere Recherche nötig" : "Recherche belegt")}</small><div>${escapeHtml(item.demandSignal)} · Wettbewerb: ${escapeHtml(item.competitionLevel)} · Risiko: ${escapeHtml(item.riskLevel)}</div><div>EK: ${item.purchasePrice == null ? "nicht belegt" : escapeHtml(String(item.purchasePrice))} · VK: ${item.sellingPrice == null ? "nicht belegt" : escapeHtml(String(item.sellingPrice))} · Marge: ${item.estimatedMarginPercent == null ? "nicht berechnet" : escapeHtml(String(item.estimatedMarginPercent)) + "%"}</div><p>${escapeHtml(item.rationale || "Keine zusätzliche Begründung")}</p>${item.supplierUrl ? `<a href="${escapeHtml(item.supplierUrl)}" target="_blank" rel="noreferrer">Quelle öffnen</a>` : "<small>Keine verifizierte Quelle geliefert</small>"}</div>`).join("")}</div>` : "";
+    return `${richText(summary)}${scout?.warnings?.length ? richText("Warnungen:\n" + scout.warnings.map((w) => "- " + w).join("\n")) : ""}${candidateMarkup}${runMarkup}`;
   }
 
   function renderFeed() {

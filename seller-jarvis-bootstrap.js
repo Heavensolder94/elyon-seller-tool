@@ -30,6 +30,7 @@
   const FILES = [
     "/seller-jarvis-client.js",
     "/seller-jarvis-ui.js",
+    "/seller-jarvis-ui-response-adapter.js",
     "/seller-jarvis-command-center.js",
     "/seller-jarvis-integration-center.js",
     "/seller-ai-workforce-builder-integration.js",
@@ -90,6 +91,7 @@
       syncModelCatalog();
       for (const file of FILES) await load(file);
       window.ElyonJarvisUI?.refresh?.();
+      window.ElyonJarvisUIResponseAdapter?.refreshSystemStatus?.();
       window.ElyonJarvisCommandCenter?.refresh?.();
       window.ElyonJarvisIntegrationCenter?.refresh?.();
       window.ElyonAIWorkforceBuilderIntegration?.refresh?.();

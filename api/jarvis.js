@@ -2,7 +2,11 @@ import { requireSellerAccess } from "../lib/seller-access.js";
 import { listCombinedAgentRegistry } from "../lib/ai-agent-registry-store.js";
 import registryRunnerHandler from "./ai-agent-run-registry.js";
 import { runJarvisBrain } from "../lib/jarvis-brain.js";
+import { isMarketScoutCommand, runMarketScout } from "../lib/jarvis-market-scout.js";
 import { explicitMemoryFromCommand } from "../lib/jarvis-memory-policy.js";
+import { appendConversationMessage, getOrCreateConversation, updateConversationSummary } from "../lib/jarvis-conversation-store.js";
+import { readWorkingMemory, upsertWorkingMemory } from "../lib/jarvis-working-memory-store.js";
+import { buildWorkingMemorySummary, mergeWorkingMemoryState, parseWorkingMemoryCommand } from "../lib/jarvis-working-memory-policy.js";
 import {
   CAPABILITY_PROFILES,
   createJarvisPlan,
@@ -161,6 +165,9 @@ async function executePlan(req, plan, body) {
       priority: text(body.priority, 50) || "medium",
       sourceId: text(body.sourceId, 300),
       sourceType: text(body.sourceType, 100),
+      conversationId: text(body.conversationId || body.conversation_id, 100),
+      channel: text(body.channel, 50) || "seller_tool",
+      scope: text(body.scope, 100) || "seller",
       input,
     });
     runs.push({
@@ -215,6 +222,34 @@ async function executeBrain(command, registry, plan, body) {
   });
 }
 
+async function prepareConversation(body) {
+  try {
+    return { session: await getOrCreateConversation({ conversationId: text(body.conversationId || body.conversation_id, 100), channel: text(body.channel, 50) || "seller_tool", scope: text(body.scope, 100) || "seller" }), warnings: [] };
+  } catch {
+    return { session: { id: text(body.conversationId || body.conversation_id, 100) || crypto.randomUUID(), channel: text(body.channel, 50) || "seller_tool", scope: text(body.scope, 100) || "seller", summary: "" }, warnings: ["conversation_session_unavailable"] };
+  }
+}
+
+async function persistBrainState(command, brain, session, warnings = []) {
+  if (!session?.id) return { workingMemory: null, warnings };
+  try {
+    const deterministic = parseWorkingMemoryCommand(command) || {};
+    const candidate = brain?.workingMemoryUpdate?.shouldUpdate ? brain.workingMemoryUpdate : {};
+    const current = await readWorkingMemory({ conversationId: session.id, scope: session.scope });
+    const mergedCandidate = { ...candidate, ...deterministic };
+    for (const key of ["openTasks", "blockers", "pendingApprovals"]) {
+      if (Array.isArray(deterministic[key])) mergedCandidate[key] = [...(current?.state?.[key] || []), ...deterministic[key]];
+    }
+    const state = mergeWorkingMemoryState(current?.state || {}, mergedCandidate);
+    const stored = await upsertWorkingMemory({ conversationId: session.id, scope: session.scope, state });
+    const summary = buildWorkingMemorySummary(stored.state);
+    if (summary) await updateConversationSummary({ conversationId: session.id, summary });
+    return { workingMemory: stored.state, warnings };
+  } catch {
+    return { workingMemory: null, warnings: [...warnings, "working_memory_unavailable"] };
+  }
+}
+
 export default async function handler(req, res) {
   if (!requireSellerAccess(req, res, { maxBodyBytes: 512 * 1024 })) return;
   res.setHeader("Cache-Control", "no-store");
@@ -228,7 +263,7 @@ export default async function handler(req, res) {
       return res.status(200).json({
         ok: true,
         version: 2,
-        phase: "Brain V1",
+        phase: "Brain V2-A",
         jarvis: "ready",
         mode: "brain_or_registry_orchestrator",
         agents: registry.agents.map(publicAgent),
@@ -236,9 +271,13 @@ export default async function handler(req, res) {
         storage: registry.storage,
         brain: {
           enabled: true,
-          version: "1",
+          version: "2-A",
           generalConversation: true,
           durableMemory: "supabase",
+          workingMemory: true,
+          conversationSessions: true,
+          semanticMemory: false,
+          experienceLearning: false,
           specialistRoutingPreserved: true,
         },
         safety: {
@@ -279,20 +318,47 @@ export default async function handler(req, res) {
       return res.status(403).json({
         ok: false,
         error: "jarvis_action_blocked",
-        phase: "Brain V1",
+        phase: "Brain V2-A",
         plan,
         safety: { externalActionsLocked: true, livePublishingAllowed: false },
       });
     }
 
+    const marketScoutRequest = isMarketScoutCommand(command, plan);
+    const execute = body.execute === true || text(body.mode, 30).toLowerCase() === "execute";
+    if (marketScoutRequest && execute) {
+      const scout = await runMarketScout({ command });
+      const successful = scout.ok === true;
+      return res.status(successful ? 200 : 503).json({
+        ok: successful,
+        phase: "Brain V2-A",
+        mode: scout.mode,
+        marketScout: scout,
+        plan: { ...plan, status: successful ? "ready" : "needs_attention", executable: true, handler: "product-discovery-v1", answerDirectly: true },
+        summary: { status: successful ? "completed" : "failed", summary: scout.summary || scout.warnings?.[0] || "Market Scout konnte keine verlässliche Recherche liefern.", successful: successful ? 1 : 0, failed: successful ? 0 : 1, blockers: [], warnings: scout.warnings || [] },
+        safety: { externalActionsLocked: true, livePublishingAllowed: false, draftOnly: true, nothingMutated: true },
+      });
+    }
+
+    const conversationResult = await prepareConversation(body);
+    const session = conversationResult.session;
+    const conversationWarnings = conversationResult.warnings;
+    try { await appendConversationMessage({ conversationId: session.id, role: "user", content: command }); } catch { conversationWarnings.push("conversation_history_unavailable"); }
+
     if (shouldRouteToBrain(body, plan, command)) {
       const brain = await executeBrain(command, registry, plan, body);
+      const stateResult = await persistBrainState(command, brain, session, conversationWarnings);
+      try { if (brain.answer) await appendConversationMessage({ conversationId: session.id, role: "assistant", content: brain.answer }); } catch { stateResult.warnings.push("conversation_history_unavailable"); }
       const statusCode = brain.ok === false
         ? (brain.mode === "brain_degraded" ? 503 : 502)
         : 200;
       return res.status(statusCode).json({
         ...brain,
-        phase: "Brain V1",
+        phase: "Brain V2-A",
+        conversationId: session.id,
+        conversation: { id: session.id, channel: session.channel, scope: session.scope },
+        workingMemory: stateResult.workingMemory,
+        contextWarnings: stateResult.warnings,
         plan: {
           ...plan,
           answerDirectly: true,
@@ -304,7 +370,7 @@ export default async function handler(req, res) {
           successful: brain.ok === false ? 0 : 1,
           failed: brain.ok === false ? 1 : 0,
           blockers: [],
-          warnings: Array.isArray(brain?.context?.warnings) ? brain.context.warnings : [],
+          warnings: [...(Array.isArray(brain?.context?.warnings) ? brain.context.warnings : []), ...stateResult.warnings],
         },
         safety: {
           externalActionsLocked: true,
@@ -316,7 +382,17 @@ export default async function handler(req, res) {
       });
     }
 
-    const execute = body.execute === true || text(body.mode, 30).toLowerCase() === "execute";
+    if (marketScoutRequest && !execute) {
+      return res.status(200).json({
+        ok: true,
+        phase: "Brain V2-A",
+        mode: "plan",
+        marketScoutPlan: { handler: "product-discovery-v1", requestedCount: Math.min(20, Number(command.match(/\b(\d{1,3})\s*(?:produkt|ideen|kandidaten)/i)?.[1] || 10)), draftOnly: true, execution: "explicit_execute_only", externalActionsLocked: true },
+        plan: { ...plan, status: "ready", executable: true, handler: "product-discovery-v1" },
+        summary: { status: "ready", summary: "Market Scout ist für eine read-only Recherche im Draft-Modus bereit.", successful: 0, failed: 0, blockers: [], warnings: [] },
+        safety: { externalActionsLocked: true, livePublishingAllowed: false, draftOnly: true, nothingExecuted: true },
+      });
+    }
     if (!plan.executable) {
       return res.status(422).json({
         ok: false,

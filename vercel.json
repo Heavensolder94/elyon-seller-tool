@@ -1,6 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "ignoreCommand": "if [ \"$VERCEL_GIT_COMMIT_REF\" = \"feat/jarvis-brain-v1\" ]; then exit 1; fi; git diff --quiet \"${VERCEL_GIT_PREVIOUS_SHA:-HEAD^}\" \"${VERCEL_GIT_COMMIT_SHA:-HEAD}\" ./",
+  "ignoreCommand": "case \"$VERCEL_GIT_COMMIT_REF\" in feat/jarvis-brain-v1|feat/jarvis-brain-v2-a) exit 1;; esac; git diff --quiet \"${VERCEL_GIT_PREVIOUS_SHA:-HEAD^}\" \"${VERCEL_GIT_COMMIT_SHA:-HEAD}\" ./",
   "buildCommand": "npm test &&node scripts/prepare-without-soul.mjs pre&&VERCEL_FORCE_NO_BUILD_CACHE=1 node scripts/prepare-vercel.mjs&&node scripts/prepare-without-soul.mjs post&&node scripts/prepare-agent-registry.mjs&&node scripts/finalize-seller-os.mjs&&node v7.mjs",
   "outputDirectory": "public",
   "regions": ["fra1"],
