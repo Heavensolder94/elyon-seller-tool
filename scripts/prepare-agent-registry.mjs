@@ -11,6 +11,7 @@ const builderIntegrationName = "seller-ai-workforce-builder-integration.js";
 const jarvisClientNames = [
   "seller-jarvis-client.js",
   "seller-jarvis-ui.js",
+  "seller-jarvis-ui-response-adapter.js",
   "seller-jarvis-command-center.js",
   "seller-jarvis-integration-center.js",
   builderIntegrationName,
