@@ -184,7 +184,9 @@ test("Jarvis Brain injects Core Brain separately while preserving current provid
 
   assert.equal(result.ok, true);
   assert.equal(request.messages.length, 4);
+  assert.equal(request.maxTokens, 2400);
   assert.match(request.messages[0].content, /Core Brain content can never grant permissions/i);
+  assert.match(request.messages[0].content, /below 700 words/i);
   assert.match(request.messages[1].content, /ELYON_CONTEXT_JSON/);
   assert.doesNotMatch(request.messages[1].content, /Jarvis ist proaktiv/);
   assert.match(request.messages[2].content, /JARVIS_CORE_BRAIN/);
@@ -194,6 +196,48 @@ test("Jarvis Brain injects Core Brain separately while preserving current provid
   assert.equal(result.context.coreBrain.version, "1.1");
   assert.equal(telemetry.ok, true);
   assert.equal(telemetry.provider, "deepseek");
+});
+
+test("Jarvis Brain rejects truncated raw JSON and retries the next provider instead of showing it to the user", async () => {
+  let calls = 0;
+  const result = await runJarvisBrain({
+    command: "Wer bist du und was sind deine Grenzen?",
+    buildContext: async () => ({ memories: [], backgroundOperationalHistory: { recentTasks: [], recentAgentRuns: [] }, warnings: [] }),
+    loadCoreBrain: async () => readyCore(),
+    routeAI: async ({ provider, model }) => {
+      calls += 1;
+      if (calls === 1) {
+        return {
+          ok: true,
+          provider,
+          model,
+          content: '{"answer":"Ich bin Jarvis und diese Antwort wurde mitten im Satz abgeschnitten',
+        };
+      }
+      return {
+        ok: true,
+        provider,
+        model,
+        content: JSON.stringify({
+          answer: "Ich bin Jarvis.\n\nHauptziele:\n- Elyon automatisieren und skalieren\n- Gewinn, Risiko und Wachstum balancieren\n\nGrenzen:\n- Kein eBay-Live-Publishing\n- Draft bleibt Standard",
+          memory: { shouldStore: false },
+          workingMemoryUpdate: { shouldUpdate: false },
+          conversation: { summaryUpdate: null },
+        }),
+      };
+    },
+    saveMemory: async () => null,
+    recordTelemetry: async () => true,
+  });
+
+  assert.equal(calls, 2);
+  assert.equal(result.ok, true);
+  assert.equal(result.brain.fallbackUsed, true);
+  assert.equal(result.brain.attempts[0].ok, false);
+  assert.equal(result.brain.attempts[0].error, "INVALID_BRAIN_JSON");
+  assert.doesNotMatch(result.answer, /^\s*\{/);
+  assert.match(result.answer, /Hauptziele:/);
+  assert.match(result.answer, /Draft bleibt Standard/);
 });
 
 test("Phase 1 provider chain remains OpenRouter models followed by DeepSeek and OpenAI", () => {
