@@ -2,6 +2,7 @@ import { requireSellerAccess } from "../lib/seller-access.js";
 import { listCombinedAgentRegistry } from "../lib/ai-agent-registry-store.js";
 import registryRunnerHandler from "./ai-agent-run-registry.js";
 import { runJarvisBrain } from "../lib/jarvis-brain.js";
+import { isMarketScoutCommand, runMarketScout } from "../lib/jarvis-market-scout.js";
 import { explicitMemoryFromCommand } from "../lib/jarvis-memory-policy.js";
 import { appendConversationMessage, getOrCreateConversation, updateConversationSummary } from "../lib/jarvis-conversation-store.js";
 import { readWorkingMemory, upsertWorkingMemory } from "../lib/jarvis-working-memory-store.js";
@@ -323,6 +324,22 @@ export default async function handler(req, res) {
       });
     }
 
+    const marketScoutRequest = isMarketScoutCommand(command, plan);
+    const execute = body.execute === true || text(body.mode, 30).toLowerCase() === "execute";
+    if (marketScoutRequest && execute) {
+      const scout = await runMarketScout({ command });
+      const successful = scout.ok === true;
+      return res.status(successful ? 200 : 503).json({
+        ok: successful,
+        phase: "Brain V2-A",
+        mode: scout.mode,
+        marketScout: scout,
+        plan: { ...plan, status: successful ? "ready" : "needs_attention", executable: true, handler: "product-discovery-v1", answerDirectly: true },
+        summary: { status: successful ? "completed" : "failed", summary: scout.summary || scout.warnings?.[0] || "Market Scout konnte keine verlässliche Recherche liefern.", successful: successful ? 1 : 0, failed: successful ? 0 : 1, blockers: [], warnings: scout.warnings || [] },
+        safety: { externalActionsLocked: true, livePublishingAllowed: false, draftOnly: true, nothingMutated: true },
+      });
+    }
+
     const conversationResult = await prepareConversation(body);
     const session = conversationResult.session;
     const conversationWarnings = conversationResult.warnings;
@@ -365,7 +382,17 @@ export default async function handler(req, res) {
       });
     }
 
-    const execute = body.execute === true || text(body.mode, 30).toLowerCase() === "execute";
+    if (marketScoutRequest && !execute) {
+      return res.status(200).json({
+        ok: true,
+        phase: "Brain V2-A",
+        mode: "plan",
+        marketScoutPlan: { handler: "product-discovery-v1", requestedCount: Math.min(20, Number(command.match(/\b(\d{1,3})\s*(?:produkt|ideen|kandidaten)/i)?.[1] || 10)), draftOnly: true, execution: "explicit_execute_only", externalActionsLocked: true },
+        plan: { ...plan, status: "ready", executable: true, handler: "product-discovery-v1" },
+        summary: { status: "ready", summary: "Market Scout ist für eine read-only Recherche im Draft-Modus bereit.", successful: 0, failed: 0, blockers: [], warnings: [] },
+        safety: { externalActionsLocked: true, livePublishingAllowed: false, draftOnly: true, nothingExecuted: true },
+      });
+    }
     if (!plan.executable) {
       return res.status(422).json({
         ok: false,
