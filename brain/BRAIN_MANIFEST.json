@@ -1,0 +1,91 @@
+{
+  "version": "1.1",
+  "maxCoreChars": 12000,
+  "requiredCoreIds": ["identity", "operating_rules", "goals"],
+  "files": [
+    {
+      "id": "identity",
+      "path": "brain/IDENTITY.md",
+      "mode": "always",
+      "required": true,
+      "maxChars": 1700,
+      "sections": ["Kernidentität", "Verhältnis zum Nutzer", "Widerspruch", "Proaktivität", "Persönlichkeit", "Kommunikationsstil", "Wahrheit und Realität", "Autorität und Grenzen", "Kurzdefinition"]
+    },
+    {
+      "id": "operating_rules",
+      "path": "brain/OPERATING_RULES.md",
+      "mode": "always",
+      "required": true,
+      "maxChars": 2200,
+      "sections": ["1. Grundhierarchie", "2. Wahrheit vor Gefälligkeit", "3. Verifizieren vor Behaupten", "4. Lesen vor Ändern", "5. Bestehendes vor Neuem", "8. Keine erfundenen Daten", "9. Quellenprinzip", "13. Widerspruchspflicht", "14. Reversible Schritte bevorzugen", "15. Draft-first-Prinzip", "16. Compliance-Prinzip", "17. Freigaben respektieren", "18. Rechte nicht erfinden", "24. Secrets", "26. Keine Erfolgshalluzination", "28. Keine stillen Side Effects", "Technische Durchsetzung"]
+    },
+    {
+      "id": "goals",
+      "path": "brain/GOALS.md",
+      "mode": "always",
+      "required": true,
+      "maxChars": 1700,
+      "sections": ["1. Oberstes Ziel", "2. Ziel 1 – Elyon automatisieren", "3. Automatisierung bedeutet nicht maximale Autonomie", "4. Ziel 2 – Elyon skalierbar machen", "8. Ziel 4 – Gewinn verbessern", "10. Ziel 5 – Zeit sparen", "13. Entscheidungsbalance", "19. Mehrere Horizonte gleichzeitig", "27. Kein Wachstum durch Qualitätsverlust", "29. Zielpriorisierung", "Kurzdefinition"]
+    },
+    {
+      "id": "elyon_context",
+      "path": "brain/ELYON_CONTEXT.md",
+      "mode": "relevant",
+      "required": false,
+      "maxChars": 1800,
+      "triggers": ["elyon", "seller tool", "company os", "nova", "product master", "listing designer", "auto lister", "cloudflare", "supabase", "upstash", "openrouter", "deepseek", "openai", "ebay", "agent", "worker", "produkt"],
+      "sections": ["1. Was ist Elyon?", "4. Company OS", "5. Product Master", "9. Business Workflow", "11. Compliance", "12. Jarvis Brain", "16. Daten- und Wahrheitsprinzip", "17. Statisches Wissen vs. Live-Zustand", "18. Keine parallelen Systeme ohne Grund", "20. Kurzmodell für Jarvis"]
+    },
+    {
+      "id": "capabilities",
+      "path": "brain/CAPABILITIES.md",
+      "mode": "relevant",
+      "required": false,
+      "maxChars": 1800,
+      "triggers": ["kann", "kannst", "darf", "fähigkeit", "capability", "status", "automatisch", "delegier", "veröffentlichen", "publish", "bestell", "refund", "kundennachricht", "telegram", "voice", "sprache", "semantic memory", "experience", "playbook", "löschen"],
+      "baseSections": ["2. Grundregel", "37. Kein statischer Live-Status"],
+      "defaultSections": ["1. Fähigkeitsstatus", "3. Jarvis Brain", "7. Spezialisten-Routing", "8. Safe Auto Delegation", "36. Capability-Prüfung vor Ausführung"],
+      "sectionRules": [
+        {"triggers": ["product check", "produkt prüfen", "produkt pruefen"], "sections": ["10. Product Check"]},
+        {"triggers": ["enrichment", "fehlende daten", "daten ergänzen", "daten ergaenzen"], "sections": ["11. Product Enrichment"]},
+        {"triggers": ["auto lister", "draft", "entwurf", "listing"], "sections": ["22. Auto Lister"]},
+        {"triggers": ["ebay", "veröffentlichen", "publish", "live"], "sections": ["23. eBay Live Publishing"]},
+        {"triggers": ["supplier", "bestell"], "sections": ["24. Supplier Ordering"]},
+        {"triggers": ["refund", "rückzahlung", "rueckzahlung"], "sections": ["25. Refunds"]},
+        {"triggers": ["kundennachricht", "kunden nachricht", "auto-send", "senden"], "sections": ["26. Kundennachrichten"]},
+        {"triggers": ["compliance", "gpsr", "hersteller"], "sections": ["27. Compliance Mutation"]},
+        {"triggers": ["telegram"], "sections": ["29. Telegram"]},
+        {"triggers": ["voice", "sprache", "sprachsteuerung"], "sections": ["30. Sprache / Voice"]},
+        {"triggers": ["semantic memory", "embedding", "vector"], "sections": ["31. Semantic Memory"]},
+        {"triggers": ["experience", "lernen"], "sections": ["32. Experience Learning"]},
+        {"triggers": ["playbook"], "sections": ["33. Playbook Execution"]},
+        {"triggers": ["selbstmodifikation", "brain files ändern", "brain files aendern"], "sections": ["34. Selbstmodifikation"]},
+        {"triggers": ["löschen", "loeschen"], "sections": ["28. Datenlöschung"]}
+      ]
+    },
+    {
+      "id": "playbooks",
+      "path": "brain/PLAYBOOKS.md",
+      "mode": "playbook",
+      "required": false,
+      "maxChars": 2800,
+      "playbooks": [
+        {
+          "id": "product_enrichment",
+          "heading": "PLAYBOOK 02 – Product Enrichment",
+          "triggers": ["enrichment", "fehlende daten", "daten ergänzen", "daten ergaenzen", "produktdaten ergänzen", "produktdaten ergaenzen", "herstellerdaten recherchieren", "gpsr recherchieren"]
+        },
+        {
+          "id": "product_check",
+          "heading": "PLAYBOOK 01 – Product Check",
+          "triggers": ["product check", "produkt prüfen", "produkt pruefen", "produkt bewerten", "listing readiness", "wirtschaftlichkeit prüfen", "wirtschaftlichkeit pruefen"]
+        },
+        {
+          "id": "listing_draft",
+          "heading": "PLAYBOOK 03 – Listing-Vorbereitung bis eBay Draft",
+          "triggers": ["listing", "listingfertig", "listing fertig", "draft", "entwurf", "artikelmerkmale", "item specifics", "auto lister", "ebay draft"]
+        }
+      ]
+    }
+  ]
+}
