@@ -5,7 +5,62 @@
   const EVENTS_API_URL = "/api/jarvis-events";
   const JOBS_API_URL = "/api/jarvis-jobs";
   const CONTROL_API_URL = "/api/jarvis-control";
-  const VERSION = "phase-e4-v1";
+  const VERSION = "phase-e4-v1.1";
+
+  function normalizeCommand(value) {
+    return String(value || "")
+      .trim()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/ß/g, "ss")
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim();
+  }
+
+  function directNoAgentFallback(command, payload = {}) {
+    const normalized = normalizeCommand(command);
+    let answer = "Ich bin da. Für diese Anfrage brauche ich keinen Spezial-Agenten. Sag mir einfach, was du wissen, prüfen oder erledigen möchtest.";
+
+    if (/^(jarvis|jarvis bist du da|bist du da jarvis|hey jarvis|hallo jarvis)$/.test(normalized)) {
+      answer = "Ja, ich bin da. Was möchtest du als Nächstes in Elyon prüfen oder erledigen?";
+    } else if (/^(hi|hallo|hey|moin|servus)( jarvis)?$/.test(normalized)) {
+      answer = "Hi. Jarvis ist da. Was möchtest du als Nächstes in Elyon prüfen oder erledigen?";
+    }
+
+    const sourcePlan = payload?.plan && typeof payload.plan === "object" ? payload.plan : {};
+    return {
+      ok: true,
+      phase: payload?.phase || "C",
+      mode: "direct",
+      answer,
+      plan: {
+        ...sourcePlan,
+        status: "ready",
+        executable: false,
+        answerDirectly: true,
+        fallbackReason: "no_suitable_agent",
+      },
+      routing: {
+        attemptedSpecialist: true,
+        fallbackUsed: true,
+      },
+      summary: {
+        status: "completed",
+        summary: answer,
+        successful: 0,
+        failed: 0,
+        blockers: [],
+        warnings: Array.isArray(sourcePlan.warnings) ? sourcePlan.warnings : [],
+      },
+      safety: {
+        externalActionsLocked: true,
+        livePublishingAllowed: false,
+        answerDirectly: true,
+        nothingExecuted: true,
+      },
+    };
+  }
 
   async function request(url, options = {}) {
     const response = await fetch(url, {
@@ -53,28 +108,31 @@
     });
   }
 
+  async function runJarvisCommand(command, options, execute) {
+    try {
+      return await request(API_URL, {
+        method: "POST",
+        body: JSON.stringify({
+          ...options,
+          command,
+          execute,
+          mode: execute ? "execute" : "plan",
+        }),
+      });
+    } catch (error) {
+      if (error?.payload?.error === "jarvis_no_suitable_agent") {
+        return directNoAgentFallback(command, error.payload);
+      }
+      throw error;
+    }
+  }
+
   async function plan(command, options = {}) {
-    return request(API_URL, {
-      method: "POST",
-      body: JSON.stringify({
-        ...options,
-        command,
-        execute: false,
-        mode: "plan",
-      }),
-    });
+    return runJarvisCommand(command, options, false);
   }
 
   async function execute(command, options = {}) {
-    return request(API_URL, {
-      method: "POST",
-      body: JSON.stringify({
-        ...options,
-        command,
-        execute: true,
-        mode: "execute",
-      }),
-    });
+    return runJarvisCommand(command, options, true);
   }
 
   async function delegate(agentId, command, options = {}) {
