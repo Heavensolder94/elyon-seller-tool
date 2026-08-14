@@ -2,7 +2,8 @@
   "use strict";
 
   const PANEL_ID = "elyonJarvisPanel";
-  const VERSION = "jarvis-ui-response-adapter-v1";
+  const VERSION = "jarvis-ui-response-adapter-v2";
+  const directAnswers = new Map();
 
   function text(value, fallback = "") {
     if (value === null || value === undefined) return fallback;
@@ -16,23 +17,50 @@
     return payload?.plan?.answerDirectly === true && payload?.plan?.executable !== true;
   }
 
+  function jarvisMessages() {
+    return Array.from(document.querySelectorAll(`#${PANEL_ID} .elyon-jarvis-message.jarvis`));
+  }
+
   function latestJarvisMessage() {
-    const messages = document.querySelectorAll(`#${PANEL_ID} .elyon-jarvis-message.jarvis`);
+    const messages = jarvisMessages();
     return messages.length ? messages[messages.length - 1] : null;
+  }
+
+  function replaceMessageBody(message, payload = {}) {
+    if (!message) return false;
+    const head = message.querySelector(".elyon-jarvis-message-head");
+    const title = head?.querySelector("strong");
+    if (title) title.textContent = payload?.mode === "memory_write" ? "Jarvis · Erinnerung" : "Jarvis";
+
+    for (const child of Array.from(message.children)) {
+      if (child !== head) child.remove();
+    }
+
+    const body = document.createElement("p");
+    body.textContent = text(payload?.answer, "Jarvis hat keine Antwort geliefert.");
+    body.style.whiteSpace = "pre-wrap";
+    message.appendChild(body);
+    return true;
+  }
+
+  function rememberDirectAnswer(message, payload) {
+    const messages = jarvisMessages();
+    const index = messages.indexOf(message);
+    if (index >= 0) directAnswers.set(index, { mode: payload?.mode, answer: text(payload?.answer) });
+  }
+
+  function repairRememberedDirectAnswers() {
+    const messages = jarvisMessages();
+    for (const [index, payload] of directAnswers.entries()) {
+      if (messages[index]) replaceMessageBody(messages[index], payload);
+    }
   }
 
   function renderDirectAnswer(payload = {}) {
     const message = latestJarvisMessage();
     if (!message) return false;
-    const title = message.querySelector(".elyon-jarvis-message-head strong");
-    const body = message.querySelector("p");
-    if (title) title.textContent = payload?.mode === "memory_write" ? "Jarvis · Erinnerung" : "Jarvis";
-    if (body && text(payload?.answer)) {
-      body.textContent = text(payload.answer);
-      body.style.whiteSpace = "pre-wrap";
-    }
-    message.querySelectorAll("[data-jarvis-run-last]").forEach((button) => button.remove());
-    return true;
+    rememberDirectAnswer(message, payload);
+    return replaceMessageBody(message, payload);
   }
 
   function removeInvalidRunButton(payload = {}) {
@@ -81,6 +109,7 @@
     const payload = event?.detail?.payload || {};
     if (isDirectAnswer(payload)) renderDirectAnswer(payload);
     removeInvalidRunButton(payload);
+    repairRememberedDirectAnswers();
   });
 
   window.addEventListener("elyon:seller-authenticated", () => refreshSystemStatus());
