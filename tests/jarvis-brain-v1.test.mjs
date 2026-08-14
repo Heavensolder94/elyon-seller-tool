@@ -6,8 +6,10 @@ import {
   DEFAULT_BRAIN_MODEL,
   extractBrainPayload,
   runJarvisBrain,
+  selectBrainAttempts,
   selectBrainModels,
 } from "../lib/jarvis-brain.js";
+import { parseRetryAfterSeconds } from "../lib/ai-provider-router.js";
 import { isMemoryRecallCommand, shouldRouteToBrain } from "../api/jarvis.js";
 import { rankMemories } from "../lib/jarvis-context-builder.js";
 import { containsSensitiveText, explicitMemoryFromCommand, normalizeBrainMemoryCandidate } from "../lib/jarvis-memory-policy.js";
@@ -15,6 +17,31 @@ import { supabaseHeaders } from "../lib/jarvis-memory-store.js";
 
 test("Brain models default to Ultra, Super and OpenRouter free router", () => {
   assert.deepEqual(selectBrainModels({}), [DEFAULT_BRAIN_MODEL, DEFAULT_BRAIN_FALLBACK_MODEL, "openrouter/free"]);
+});
+
+test("Brain provider chain adds DeepSeek and OpenAI after OpenRouter", () => {
+  assert.deepEqual(selectBrainAttempts({}), [
+    { provider: "openrouter", model: DEFAULT_BRAIN_MODEL },
+    { provider: "openrouter", model: DEFAULT_BRAIN_FALLBACK_MODEL },
+    { provider: "openrouter", model: "openrouter/free" },
+    { provider: "deepseek", model: undefined },
+    { provider: "openai", model: undefined },
+  ]);
+});
+
+test("Brain provider chain accepts dedicated cross-provider model overrides", () => {
+  const attempts = selectBrainAttempts({
+    JARVIS_BRAIN_DEEPSEEK_MODEL: "deepseek-v4-flash",
+    JARVIS_BRAIN_OPENAI_MODEL: "gpt-4o-mini",
+  });
+  assert.equal(attempts[3].model, "deepseek-v4-flash");
+  assert.equal(attempts[4].model, "gpt-4o-mini");
+});
+
+test("Retry-After metadata is normalized without response bodies", () => {
+  assert.equal(parseRetryAfterSeconds("12"), 12);
+  assert.equal(parseRetryAfterSeconds("Thu, 01 Jan 1970 00:00:20 GMT", 10000), 10);
+  assert.equal(parseRetryAfterSeconds("invalid"), null);
 });
 
 test("Brain payload parses fenced JSON", () => {
@@ -95,12 +122,12 @@ test("general Brain falls back to second model and stores a durable candidate", 
     command: "Welche Compliance-Regel gilt für den nächsten Produktcheck?",
     env: {},
     buildContext: async () => ({ memories: [], recentTasks: [], recentAgentRuns: [], warnings: [] }),
-    routeAI: async ({ model }) => {
-      calls.push(model);
-      if (calls.length === 1) return { ok: false, error: { code: "RATE_LIMIT" } };
+    routeAI: async ({ provider, model }) => {
+      calls.push({ provider, model });
+      if (calls.length === 1) return { ok: false, provider, model, error: { code: "RATE_LIMIT", type: "rate_limit", status: 429 } };
       return {
         ok: true,
-        provider: "openrouter",
+        provider,
         model,
         content: JSON.stringify({
           answer: "Die Prüfung braucht weiterhin eine Freigabe.",
@@ -127,6 +154,74 @@ test("general Brain falls back to second model and stores a durable candidate", 
   assert.equal(saved.length, 1);
   assert.equal(saved[0].memoryType, "business_rule");
   assert.equal(result.memory.stored, true);
+  assert.equal(result.brain.attempts[0].status, 429);
+});
+
+test("Brain crosses from OpenRouter to DeepSeek after all OpenRouter attempts fail", async () => {
+  const calls = [];
+  const result = await runJarvisBrain({
+    command: "Hallo Jarvis",
+    env: { JARVIS_BRAIN_DEEPSEEK_MODEL: "deepseek-v4-flash" },
+    buildContext: async () => ({ memories: [], backgroundOperationalHistory: {}, warnings: [] }),
+    routeAI: async ({ provider, model }) => {
+      calls.push({ provider, model });
+      if (provider === "openrouter") {
+        return {
+          ok: false,
+          provider,
+          model,
+          error: {
+            code: calls.length === 1 ? "RATE_LIMIT" : "SERVER_ERROR",
+            type: calls.length === 1 ? "rate_limit" : "server",
+            status: calls.length === 1 ? 429 : 503,
+            retryAfterSeconds: calls.length === 1 ? 30 : null,
+            message: "sensitive provider body must not enter attempts",
+          },
+        };
+      }
+      return {
+        ok: true,
+        provider: "deepseek",
+        model: "deepseek-v4-flash",
+        content: JSON.stringify({ answer: "Fallback erfolgreich.", memory: { shouldStore: false } }),
+      };
+    },
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.brain.provider, "deepseek");
+  assert.equal(result.brain.model, "deepseek-v4-flash");
+  assert.equal(result.brain.fallbackUsed, true);
+  assert.equal(calls.length, 4);
+  assert.deepEqual(calls.map((call) => call.provider), ["openrouter", "openrouter", "openrouter", "deepseek"]);
+  assert.equal(result.brain.attempts[0].status, 429);
+  assert.equal(result.brain.attempts[0].retryAfterSeconds, 30);
+  assert.equal("message" in result.brain.attempts[0], false);
+});
+
+test("Brain reaches OpenAI only after OpenRouter and DeepSeek fail", async () => {
+  const calls = [];
+  const result = await runJarvisBrain({
+    command: "Hallo Jarvis",
+    env: { JARVIS_BRAIN_DEEPSEEK_MODEL: "deepseek-v4-flash", JARVIS_BRAIN_OPENAI_MODEL: "gpt-4o-mini" },
+    buildContext: async () => ({ memories: [], backgroundOperationalHistory: {}, warnings: [] }),
+    routeAI: async ({ provider, model }) => {
+      calls.push({ provider, model });
+      if (provider !== "openai") return { ok: false, provider, model, error: { code: "SERVER_ERROR", type: "server", status: 503 } };
+      return {
+        ok: true,
+        provider: "openai",
+        model: "gpt-4o-mini",
+        content: JSON.stringify({ answer: "OpenAI Fallback erfolgreich.", memory: { shouldStore: false } }),
+      };
+    },
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.brain.provider, "openai");
+  assert.equal(result.brain.fallbackUsed, true);
+  assert.equal(calls.length, 5);
+  assert.deepEqual(calls.map((call) => call.provider), ["openrouter", "openrouter", "openrouter", "deepseek", "openai"]);
 });
 
 test("explicit memory writes deterministically without requiring an LLM", async () => {
@@ -151,17 +246,23 @@ test("explicit memory writes deterministically without requiring an LLM", async 
   assert.equal(saved[0].content.instruction, "Compliance immer erst nach meiner Freigabe.");
 });
 
-test("Brain degrades transparently when all models fail", async () => {
+test("Brain degrades transparently only after all providers fail", async () => {
+  const calls = [];
   const result = await runJarvisBrain({
     command: "Hallo Jarvis",
     env: {},
     buildContext: async () => ({ memories: [], recentTasks: [], recentAgentRuns: [], warnings: [] }),
-    routeAI: async () => ({ ok: false, error: { code: "NO_MODEL" } }),
+    routeAI: async ({ provider, model }) => {
+      calls.push({ provider, model });
+      return { ok: false, provider, model, error: { code: "NO_MODEL", type: "server", status: 503 } };
+    },
   });
   assert.equal(result.ok, false);
   assert.equal(result.mode, "brain_degraded");
   assert.equal(result.brain.available, false);
-  assert.match(result.answer, /OpenRouter/i);
+  assert.equal(calls.length, 5);
+  assert.deepEqual(calls.map((call) => call.provider), ["openrouter", "openrouter", "openrouter", "deepseek", "openai"]);
+  assert.match(result.answer, /Provider/i);
 });
 
 test("API routing keeps specialist commands out of the general Brain", () => {
