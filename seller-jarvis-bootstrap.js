@@ -30,6 +30,7 @@
   const FILES = [
     "/seller-jarvis-client.js",
     "/seller-jarvis-ui.js",
+    "/seller-jarvis-ui-window-controls.js",
     "/seller-jarvis-ui-response-adapter.js",
     "/seller-jarvis-command-center.js",
     "/seller-jarvis-integration-center.js",
