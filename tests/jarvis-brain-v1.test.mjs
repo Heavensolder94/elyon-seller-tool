@@ -171,4 +171,5 @@ test("API routing keeps specialist commands out of the general Brain", () => {
   assert.equal(shouldRouteToBrain({}, genericPlan, "Hallo Jarvis"), true);
   assert.equal(isMemoryRecallCommand("Wie lautet unsere Compliance-Regel?"), true);
   assert.equal(shouldRouteToBrain({}, { executable: true, intent: { id: "compliance" } }, "Wie lautet unsere Compliance-Regel?"), true);
+  assert.equal(shouldRouteToBrain({}, { executable: true, intent: { id: "compliance" } }, "Merke dir: Compliance immer erst nach meiner Freigabe."), true);
 });
