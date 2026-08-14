@@ -34,7 +34,7 @@
       "required": false,
       "maxChars": 1800,
       "triggers": ["elyon", "seller tool", "company os", "nova", "product master", "listing designer", "auto lister", "cloudflare", "supabase", "upstash", "openrouter", "deepseek", "openai", "ebay", "agent", "worker", "produkt"],
-      "sections": ["1. Was ist Elyon?", "4. Company OS", "5. Product Master", "9. Business Workflow", "11. Compliance", "12. Jarvis Brain", "16. Daten- und Wahrheitsprinzip", "17. Statisches Wissen vs. Live-Zustand", "18. Keine parallelen Systeme ohne Grund", "20. Kurzmodell für Jarvis"]
+      "sections": ["17. Statisches Wissen vs. Live-Zustand", "16. Daten- und Wahrheitsprinzip", "1. Was ist Elyon?", "4. Company OS", "5. Product Master", "9. Business Workflow", "11. Compliance", "12. Jarvis Brain", "18. Keine parallelen Systeme ohne Grund", "20. Kurzmodell für Jarvis"]
     },
     {
       "id": "capabilities",
