@@ -51,6 +51,38 @@ test("memory ranking prefers command-relevant memory", () => {
   assert.equal(ranked[0].memoryType, "business_rule");
 });
 
+test("Brain recall sends relevant durable memory in bounded context", async () => {
+  let brainMessages = [];
+  const result = await runJarvisBrain({
+    command: "Wie lautet unsere Compliance-Regel?",
+    env: {},
+    buildContext: async () => ({
+      memories: [{
+        memoryType: "business_rule",
+        content: { instruction: "Compliance erst nach meiner Freigabe." },
+        importance: 0.95,
+        confidence: 1,
+      }],
+      recentTasks: [],
+      recentAgentRuns: [],
+      warnings: [],
+    }),
+    routeAI: async ({ messages }) => {
+      brainMessages = messages;
+      return {
+        ok: true,
+        provider: "openrouter",
+        model: DEFAULT_BRAIN_MODEL,
+        content: JSON.stringify({ answer: "Compliance braucht deine Freigabe.", memory: { shouldStore: false } }),
+      };
+    },
+  });
+
+  assert.equal(result.mode, "brain");
+  assert.equal(result.context.memoriesLoaded, 1);
+  assert.match(brainMessages[1].content, /Compliance erst nach meiner Freigabe/);
+});
+
 test("Supabase sb_secret uses apikey without Bearer header", () => {
   assert.deepEqual(supabaseHeaders("sb_secret_test"), { apikey: "sb_secret_test" });
   assert.equal(supabaseHeaders("legacy-jwt").Authorization, "Bearer legacy-jwt");
