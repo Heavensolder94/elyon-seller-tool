@@ -31,10 +31,10 @@ test("Brain provider chain adds DeepSeek and OpenAI after OpenRouter", () => {
 
 test("Brain provider chain accepts dedicated cross-provider model overrides", () => {
   const attempts = selectBrainAttempts({
-    JARVIS_BRAIN_DEEPSEEK_MODEL: "deepseek-chat",
+    JARVIS_BRAIN_DEEPSEEK_MODEL: "deepseek-v4-flash",
     JARVIS_BRAIN_OPENAI_MODEL: "gpt-4o-mini",
   });
-  assert.equal(attempts[3].model, "deepseek-chat");
+  assert.equal(attempts[3].model, "deepseek-v4-flash");
   assert.equal(attempts[4].model, "gpt-4o-mini");
 });
 
@@ -161,7 +161,7 @@ test("Brain crosses from OpenRouter to DeepSeek after all OpenRouter attempts fa
   const calls = [];
   const result = await runJarvisBrain({
     command: "Hallo Jarvis",
-    env: { JARVIS_BRAIN_DEEPSEEK_MODEL: "deepseek-chat" },
+    env: { JARVIS_BRAIN_DEEPSEEK_MODEL: "deepseek-v4-flash" },
     buildContext: async () => ({ memories: [], backgroundOperationalHistory: {}, warnings: [] }),
     routeAI: async ({ provider, model }) => {
       calls.push({ provider, model });
@@ -182,7 +182,7 @@ test("Brain crosses from OpenRouter to DeepSeek after all OpenRouter attempts fa
       return {
         ok: true,
         provider: "deepseek",
-        model: "deepseek-chat",
+        model: "deepseek-v4-flash",
         content: JSON.stringify({ answer: "Fallback erfolgreich.", memory: { shouldStore: false } }),
       };
     },
@@ -190,7 +190,7 @@ test("Brain crosses from OpenRouter to DeepSeek after all OpenRouter attempts fa
 
   assert.equal(result.ok, true);
   assert.equal(result.brain.provider, "deepseek");
-  assert.equal(result.brain.model, "deepseek-chat");
+  assert.equal(result.brain.model, "deepseek-v4-flash");
   assert.equal(result.brain.fallbackUsed, true);
   assert.equal(calls.length, 4);
   assert.deepEqual(calls.map((call) => call.provider), ["openrouter", "openrouter", "openrouter", "deepseek"]);
@@ -203,7 +203,7 @@ test("Brain reaches OpenAI only after OpenRouter and DeepSeek fail", async () =>
   const calls = [];
   const result = await runJarvisBrain({
     command: "Hallo Jarvis",
-    env: { JARVIS_BRAIN_DEEPSEEK_MODEL: "deepseek-chat", JARVIS_BRAIN_OPENAI_MODEL: "gpt-4o-mini" },
+    env: { JARVIS_BRAIN_DEEPSEEK_MODEL: "deepseek-v4-flash", JARVIS_BRAIN_OPENAI_MODEL: "gpt-4o-mini" },
     buildContext: async () => ({ memories: [], backgroundOperationalHistory: {}, warnings: [] }),
     routeAI: async ({ provider, model }) => {
       calls.push({ provider, model });
