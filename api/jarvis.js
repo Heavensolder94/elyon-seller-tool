@@ -2,6 +2,7 @@ import { requireSellerAccess } from "../lib/seller-access.js";
 import { listCombinedAgentRegistry } from "../lib/ai-agent-registry-store.js";
 import registryRunnerHandler from "./ai-agent-run-registry.js";
 import { runJarvisBrain } from "../lib/jarvis-brain.js";
+import { explicitMemoryFromCommand } from "../lib/jarvis-memory-policy.js";
 import {
   CAPABILITY_PROFILES,
   createJarvisPlan,
@@ -191,6 +192,7 @@ function shouldRouteToBrain(body, plan, command) {
   const mode = text(body?.mode, 30).toLowerCase();
   const hasExplicitSpecialist = Boolean(text(body?.agentId, 100) || text(body?.capability, 100));
   if (hasExplicitSpecialist) return false;
+  if (explicitMemoryFromCommand(command)) return true;
   if (body?.brain === true || mode === "brain") return true;
   if (isMemoryRecallCommand(command)) return true;
   if (/\b(?:jarvis|elyon)\b.*\b(?:system|aktuell|nächst(?:es|e)|naechstes|weiter|empfiehl|meinung|denkst)\b|\b(?:system|geschäft|geschaeft)\b.*\b(?:aktuell|status|aufgestellt)\b/i.test(command)) return true;
