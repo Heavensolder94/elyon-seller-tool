@@ -2,7 +2,7 @@
   "use strict";
 
   const PANEL_ID = "elyonJarvisPanel";
-  const VERSION = "jarvis-ui-response-adapter-v2";
+  const VERSION = "jarvis-ui-response-adapter-v3";
   const directAnswers = new Map();
 
   function text(value, fallback = "") {
@@ -12,7 +12,7 @@
 
   function isDirectAnswer(payload = {}) {
     const mode = text(payload?.mode).toLowerCase();
-    if (["brain", "direct", "memory_write"].includes(mode)) return true;
+    if (["brain", "direct", "memory_write"].includes(mode) || mode === "brain_auto_delegated") return true;
     if (payload?.plan?.brainHandled === true) return true;
     return payload?.plan?.answerDirectly === true && payload?.plan?.executable !== true;
   }
@@ -68,6 +68,20 @@
     latestJarvisMessage()?.querySelectorAll("[data-jarvis-run-last]").forEach((button) => button.remove());
   }
 
+  function decorateAutoMode() {
+    const shell = document.getElementById(PANEL_ID);
+    if (!shell) return false;
+    const primary = shell.querySelector("[data-jarvis-plan]");
+    const execute = shell.querySelector("[data-jarvis-execute]");
+    const input = shell.querySelector("[data-jarvis-panel-input]");
+    const statusHint = shell.querySelector(".elyon-jarvis-status-copy span");
+    if (primary) primary.textContent = "Jarvis starten";
+    if (execute) execute.textContent = "Direkt ausführen";
+    if (input) input.placeholder = "Frag Jarvis oder gib einen Auftrag – sichere interne Aufgaben delegiert er selbst …";
+    if (statusHint) statusHint.textContent = "Auto-Delegation intern · externe Aktionen bleiben gesperrt";
+    return true;
+  }
+
   function applyStatus(payload = null, error = null) {
     const shell = document.getElementById(PANEL_ID);
     if (!shell) return;
@@ -82,6 +96,7 @@
       stateNodes.forEach((node) => { node.textContent = "BEREIT"; });
       const brainVersion = text(payload?.brain?.version);
       if (statusCopy) statusCopy.textContent = brainVersion ? `Jarvis Brain ${brainVersion}` : "Jarvis Command HUD";
+      decorateAutoMode();
       return;
     }
 
@@ -110,8 +125,10 @@
     if (isDirectAnswer(payload)) renderDirectAnswer(payload);
     removeInvalidRunButton(payload);
     repairRememberedDirectAnswers();
+    decorateAutoMode();
   });
 
+  window.addEventListener("elyon:jarvis-ready", () => decorateAutoMode());
   window.addEventListener("elyon:seller-authenticated", () => refreshSystemStatus());
   window.addEventListener("elyon:seller-auth-ready", (event) => {
     if (event?.detail?.authenticated) refreshSystemStatus();
@@ -124,7 +141,11 @@
     version: VERSION,
     isDirectAnswer,
     refreshSystemStatus,
+    decorateAutoMode,
   });
 
-  queueMicrotask(() => refreshSystemStatus());
+  queueMicrotask(() => {
+    decorateAutoMode();
+    refreshSystemStatus();
+  });
 })();
