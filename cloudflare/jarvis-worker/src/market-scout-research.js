@@ -111,6 +111,7 @@ function boundedNumber(value, fallback, min, max) {
 }
 
 function parseJson(value) {
+  if (value && typeof value === "object" && !Array.isArray(value)) return value;
   const raw = text(value, 60000);
   if (!raw) return null;
   const candidates = [raw, raw.replace(/^```(?:json)?/i, "").replace(/```$/i, "").trim()];
@@ -124,6 +125,40 @@ function parseJson(value) {
     } catch {}
   }
   return null;
+}
+
+function messageContentText(content) {
+  if (typeof content === "string") return text(content, 60000);
+  if (Array.isArray(content)) {
+    return content.map((part) => {
+      if (typeof part === "string") return part;
+      if (typeof part?.text === "string") return part.text;
+      if (typeof part?.content === "string") return part.content;
+      if (part?.json && typeof part.json === "object") return JSON.stringify(part.json);
+      return "";
+    }).filter(Boolean).join("\n");
+  }
+  if (content && typeof content === "object") {
+    if (typeof content.text === "string") return text(content.text, 60000);
+    if (typeof content.content === "string") return text(content.content, 60000);
+    try { return JSON.stringify(content).slice(0, 60000); } catch { return ""; }
+  }
+  return "";
+}
+
+function parseMessageJson(message = {}) {
+  const content = message?.content;
+  if (content && typeof content === "object" && !Array.isArray(content) && Array.isArray(content.candidates)) return content;
+  if (Array.isArray(content)) {
+    for (const part of content) {
+      const direct = part?.json && typeof part.json === "object" ? part.json : null;
+      if (direct && Array.isArray(direct.candidates)) return direct;
+      const parsedPart = parseJson(part?.text || part?.content || "");
+      if (parsedPart && Array.isArray(parsedPart.candidates)) return parsedPart;
+    }
+  }
+  const parsed = parseJson(messageContentText(content));
+  return parsed && Array.isArray(parsed.candidates) ? parsed : null;
 }
 
 function defaultProfile(payload = {}) {
@@ -217,6 +252,18 @@ function researchPrompt({ payload, profile, count, excludedNames = [], batchInde
   ].join("\n\n");
 }
 
+function repairPrompt(rawContent) {
+  return [
+    "Repair the following Market Scout model output into the required JSON schema.",
+    "Do not research, add, infer, or invent any new product facts, URLs, prices, margins, supplier terms, or demand claims.",
+    "Preserve only claims that are explicitly present in the supplied output.",
+    "If a candidate cannot satisfy the required fields from the supplied output alone, omit that candidate.",
+    "Return only the JSON object required by the response schema.",
+    "RAW MODEL OUTPUT:",
+    text(rawContent, 30000),
+  ].join("\n\n");
+}
+
 async function fetchWithTimeout(url, init, timeoutMs = REQUEST_TIMEOUT_MS) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort("market_scout_timeout"), Math.max(1000, Number(timeoutMs) || REQUEST_TIMEOUT_MS));
@@ -225,6 +272,15 @@ async function fetchWithTimeout(url, init, timeoutMs = REQUEST_TIMEOUT_MS) {
   } finally {
     clearTimeout(timer);
   }
+}
+
+function openRouterHeaders(env) {
+  return {
+    Authorization: `Bearer ${env.OPENROUTER_API_KEY}`,
+    "Content-Type": "application/json",
+    "HTTP-Referer": text(env.OPENROUTER_HTTP_REFERER || env.ELYON_SELLER_TOOL_URL || "https://elyonsellertool.vercel.app", 500),
+    "X-Title": text(env.OPENROUTER_APP_NAME || "Elyon Jarvis", 200),
+  };
 }
 
 function searchTool(env) {
@@ -245,6 +301,82 @@ function isDailyQuotaError(message) {
   return /free-models-per-day|daily\s+(?:rate\s+)?limit|add\s+\d+\s+credits/i.test(text(message, 800));
 }
 
+function usageFromBody(body = {}) {
+  const usage = object(body?.usage);
+  const toolUse = object(usage.server_tool_use);
+  return {
+    inputTokens: Number(usage.prompt_tokens ?? usage.input_tokens ?? 0),
+    outputTokens: Number(usage.completion_tokens ?? usage.output_tokens ?? 0),
+    totalTokens: Number(usage.total_tokens ?? 0),
+    webSearchRequests: Number(toolUse.web_search_requests || 0),
+    amount: Number.isFinite(Number(usage.cost)) ? Number(usage.cost) : 0,
+  };
+}
+
+function mergeUsage(left, right) {
+  return {
+    inputTokens: Number(left?.inputTokens || 0) + Number(right?.inputTokens || 0),
+    outputTokens: Number(left?.outputTokens || 0) + Number(right?.outputTokens || 0),
+    totalTokens: Number(left?.totalTokens || 0) + Number(right?.totalTokens || 0),
+    webSearchRequests: Number(left?.webSearchRequests || 0) + Number(right?.webSearchRequests || 0),
+    amount: Number(left?.amount || 0) + Number(right?.amount || 0),
+  };
+}
+
+async function repairInvalidMarketScoutJson({ env, requestedModel, rawContent, timeoutMs }) {
+  const source = text(rawContent, 30000);
+  if (!source) {
+    const error = new Error("openrouter_invalid_market_scout_json");
+    error.retryable = false;
+    throw error;
+  }
+
+  const repairModel = text(env.OPENROUTER_REPAIR_MODEL || requestedModel || DEFAULT_MODEL, 200);
+  let response;
+  try {
+    response = await fetchWithTimeout(ENDPOINT, {
+      method: "POST",
+      headers: openRouterHeaders(env),
+      body: JSON.stringify({
+        model: repairModel,
+        messages: [{ role: "user", content: repairPrompt(source) }],
+        response_format: MARKET_SCOUT_RESPONSE_FORMAT,
+        plugins: [{ id: "response-healing" }],
+        provider: { require_parameters: true },
+        temperature: 0,
+        max_tokens: 2800,
+      }),
+    }, timeoutMs);
+  } catch (error) {
+    const wrapped = new Error(error?.name === "AbortError" ? "market_scout_repair_timeout" : text(error?.message, 300) || "market_scout_repair_network_error");
+    wrapped.retryable = true;
+    throw wrapped;
+  }
+
+  const rawText = await response.text();
+  let body = null;
+  try { body = rawText ? JSON.parse(rawText) : null; } catch {}
+  if (!response.ok) {
+    const message = text(body?.error?.message || body?.message || `openrouter_http_${response.status}`, 500);
+    const error = new Error(message);
+    error.retryable = !isDailyQuotaError(message) && ([408, 409, 429].includes(response.status) || response.status >= 500);
+    throw error;
+  }
+
+  const parsed = parseMessageJson(body?.choices?.[0]?.message || {});
+  if (!parsed) {
+    const error = new Error("openrouter_invalid_market_scout_json");
+    error.retryable = false;
+    throw error;
+  }
+
+  return {
+    parsed,
+    model: text(body?.model, 200) || repairModel,
+    usage: usageFromBody(body),
+  };
+}
+
 async function runBatch({ env, payload, profile, count, excludedNames, batchIndex }) {
   if (!env?.OPENROUTER_API_KEY) {
     const error = new Error("openrouter_not_configured");
@@ -258,12 +390,7 @@ async function runBatch({ env, payload, profile, count, excludedNames, batchInde
   try {
     response = await fetchWithTimeout(ENDPOINT, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${env.OPENROUTER_API_KEY}`,
-        "Content-Type": "application/json",
-        "HTTP-Referer": text(env.OPENROUTER_HTTP_REFERER || env.ELYON_SELLER_TOOL_URL || "https://elyonsellertool.vercel.app", 500),
-        "X-Title": text(env.OPENROUTER_APP_NAME || "Elyon Jarvis", 200),
-      },
+      headers: openRouterHeaders(env),
       body: JSON.stringify({
         model: requestedModel,
         messages: [{ role: "user", content: researchPrompt({ payload, profile, count, excludedNames, batchIndex }) }],
@@ -293,39 +420,40 @@ async function runBatch({ env, payload, profile, count, excludedNames, batchInde
   }
 
   const message = body?.choices?.[0]?.message || {};
-  const parsed = parseJson(message.content);
-  if (!parsed || !Array.isArray(parsed.candidates)) {
-    const error = new Error("openrouter_invalid_market_scout_json");
-    error.retryable = true;
-    throw error;
+  let parsed = parseMessageJson(message);
+  let model = text(body?.model, 200) || requestedModel;
+  let combinedUsage = usageFromBody(body);
+  let repaired = false;
+  if (!parsed) {
+    const repairSource = messageContentText(message.content) || text(message.reasoning, 30000) || (() => {
+      try { return JSON.stringify(message).slice(0, 30000); } catch { return ""; }
+    })();
+    const repair = await repairInvalidMarketScoutJson({ env, requestedModel, rawContent: repairSource, timeoutMs });
+    parsed = repair.parsed;
+    model = repair.model || model;
+    combinedUsage = mergeUsage(combinedUsage, repair.usage);
+    repaired = true;
   }
 
   const normalized = parsed.candidates.slice(0, count).map(normalizeCandidate).filter((item) => item.productName);
   const candidates = normalized.filter((item) => candidateMeetsProfile(item, profile));
   const localWarnings = array(parsed.warnings).slice(0, 10).map((entry) => text(entry, 400)).filter(Boolean);
+  if (repaired) localWarnings.push("Die Modellantwort wurde automatisch in das erwartete strukturierte Format repariert.");
   if (normalized.length > candidates.length) {
     localWarnings.push(`${normalized.length - candidates.length} Kandidat(en) wurden wegen MOQ/Dropshipping-Fit, Risiko, Preisbereich oder Zielmarge verworfen.`);
   }
 
-  const usage = object(body?.usage);
-  const toolUse = object(usage.server_tool_use);
   const annotations = array(message.annotations)
     .filter((entry) => entry?.type === "url_citation")
     .map((entry) => safeUrl(entry?.url_citation?.url))
     .filter(Boolean);
   return {
-    model: text(body?.model, 200) || requestedModel,
+    model,
     summary: text(parsed.summary, 1600),
     warnings: localWarnings,
     candidates,
     citations: annotations,
-    usage: {
-      inputTokens: usage.prompt_tokens ?? usage.input_tokens ?? 0,
-      outputTokens: usage.completion_tokens ?? usage.output_tokens ?? 0,
-      totalTokens: usage.total_tokens ?? 0,
-      webSearchRequests: Number(toolUse.web_search_requests || 0),
-      amount: Number.isFinite(Number(usage.cost)) ? Number(usage.cost) : 0,
-    },
+    usage: combinedUsage,
   };
 }
 
