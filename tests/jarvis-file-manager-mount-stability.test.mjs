@@ -23,12 +23,24 @@ test("Brain Control mount bridge loads directly after File Manager and is copied
   assert.doesNotThrow(() => new Function(bridge));
 });
 
-test("Brain Control mount bridge restores a removed panel without background polling", async () => {
+test("Brain Control uses a persistent sibling host outside the Command Center render tree", async () => {
+  const bridge = await source("seller-jarvis-file-manager-mount-bridge.js");
+
+  assert.match(bridge, /jarvisBrainControlPersistentHost/);
+  assert.match(bridge, /function ensurePersistentHost/);
+  assert.match(bridge, /tab\.insertAdjacentElement\("afterend", host\)/);
+  assert.match(bridge, /function movePanelToPersistentHost/);
+  assert.match(bridge, /host\.appendChild\(panel\)/);
+  assert.match(bridge, /syncHostVisibility/);
+  assert.match(bridge, /menu\?\.value === TAB_ID/);
+});
+
+test("Brain Control persistent host still restores a missing panel without background polling", async () => {
   const bridge = await source("seller-jarvis-file-manager-mount-bridge.js");
 
   assert.match(bridge, /window\.ElyonJarvisFileManager\?\.refresh\?\.\(\)/);
   assert.match(bridge, /window\.ElyonJarvisFileManagerActions\?\.bindRoot\?\.\(\)/);
-  assert.match(bridge, /tabObserver\.observe\(tab, \{ childList: true, subtree: true \}\)/);
+  assert.match(bridge, /attributeFilter: \["class"\]/);
   assert.match(bridge, /requestAnimationFrame\(reconcile\)/);
   assert.doesNotMatch(bridge, /setInterval\s*\(/);
   assert.doesNotMatch(bridge, /setTimeout\s*\(/);
