@@ -55,6 +55,10 @@ jobs:
       - name: Run tests
         run: npm test
 
+      - name: Run Jarvis worker tests
+        working-directory: cloudflare/jarvis-worker
+        run: npm test
+
       - name: Build Vercel output
         run: npm run build
 
