@@ -2,7 +2,13 @@
   "use strict";
 
   const REGISTRY_KEY = "elyon_jarvis_integration_registry_v1";
-  const VERSION = "phase-e5-v1-openrouter-registry-v2";
+  const VERSION = "phase-e5-v1-openrouter-registry-v9-unified-jarvis-hub";
+  const BRAIN_CONTROL_ROOT_ID = "jarvisFileManagerPanel";
+  const BRAIN_CONTROL_MODULES = [
+    ["/seller-jarvis-file-manager.js", "ElyonJarvisFileManager"],
+    ["/seller-jarvis-file-manager-actions.js", "ElyonJarvisFileManagerActions"],
+    ["/seller-jarvis-file-manager-mount-bridge.js", "ElyonJarvisFileManagerMountBridge"],
+  ];
   const MODEL_ROWS = [
     ["nemotron-3-ultra-free","nvidia/nemotron-3-ultra-550b-a55b:free","Nemotron 3 Ultra","OpenRouter","NVIDIA","Brain","chat","configured",true,100,["Reasoning","Agents","Tools","Long Context"]],
     ["nemotron-3-super-free","nvidia/nemotron-3-super-120b-a12b:free","Nemotron 3 Super","OpenRouter","NVIDIA","Brain","chat","configured",true,95,["Reasoning","Agents","Tools","Long Context"]],
@@ -33,13 +39,20 @@
     "/seller-jarvis-ui-window-controls.js",
     "/seller-jarvis-ui-response-adapter.js",
     "/seller-jarvis-command-center.js",
+    "/seller-jarvis-file-manager.js",
+    "/seller-jarvis-file-manager-actions.js",
+    "/seller-jarvis-file-manager-mount-bridge.js",
     "/seller-jarvis-integration-center.js",
+    "/seller-jarvis-hub.js",
     "/seller-ai-workforce-builder-integration.js",
     "/seller-jarvis-companion-handoff.js",
     "/seller-jarvis-e1-cloud.js",
     "/seller-jarvis-e4-control.js",
     "/seller-jarvis-e5-pipeline.js",
   ];
+
+  let brainRecoveryPromise = null;
+  let brainGuardInstalled = false;
 
   function modelFromRow(row) {
     const [id, modelId, name, provider, vendor, role, kind, status, enabled, priority, capabilities] = row;
@@ -50,15 +63,15 @@
     const canonical = MODEL_ROWS.map(modelFromRow);
     let registry = {};
     try { registry = JSON.parse(localStorage.getItem(REGISTRY_KEY) || "{}") || {}; } catch { registry = {}; }
-    const existing = Array.isArray(registry.models) ? registry.models : [];
-    const previousById = new Map(existing.filter(Boolean).map((model) => [String(model.id || ""), model]));
+    const existingModels = Array.isArray(registry.models) ? registry.models : [];
+    const previousById = new Map(existingModels.filter(Boolean).map((model) => [String(model.id || ""), model]));
     const canonicalIds = new Set(canonical.map((model) => model.id));
     registry.models = canonical.map((model) => {
       const previous = previousById.get(model.id) || {};
       const forceDisabled = model.status === "unavailable" || model.status === "provider_key_required";
       return { ...previous, ...model, enabled: forceDisabled ? false : (typeof previous.enabled === "boolean" ? previous.enabled : model.enabled) };
     });
-    existing.forEach((model) => {
+    existingModels.forEach((model) => {
       const id = String(model?.id || "");
       if (id && !canonicalIds.has(id)) registry.models.push(model);
     });
@@ -67,40 +80,105 @@
     return true;
   }
 
-  function existing(path) {
-    return [...document.scripts].some((script) => {
+  function scriptFor(path) {
+    return [...document.scripts].find((script) => {
       try { return new URL(script.src, window.location.href).pathname === path; }
       catch { return false; }
-    });
+    }) || null;
   }
 
-  function load(path) {
-    if (existing(path)) return Promise.resolve();
+  function existing(path) {
+    return Boolean(scriptFor(path));
+  }
+
+  function load(path, { force = false } = {}) {
+    if (!force && existing(path)) return Promise.resolve();
     return new Promise((resolve, reject) => {
       const script = document.createElement("script");
-      script.src = `${path}?v=${VERSION}`;
+      const recovery = force ? `&recovery=${Date.now()}` : "";
+      script.src = `${path}?v=${VERSION}${recovery}`;
       script.defer = true;
       script.dataset.elyonJarvisModule = path;
+      if (force) script.dataset.elyonJarvisRecovery = "1";
       script.addEventListener("load", () => resolve(), { once: true });
       script.addEventListener("error", () => reject(new Error(`Jarvis-Modul konnte nicht geladen werden: ${path}`)), { once: true });
       document.head.appendChild(script);
     });
   }
 
+  async function ensureBrainControl() {
+    const commandCenter = document.querySelector("#jarvisCommandCenterTab .jarvis-cc");
+    if (!commandCenter) return false;
+
+    if (document.getElementById(BRAIN_CONTROL_ROOT_ID) && window.ElyonJarvisFileManager) {
+      window.ElyonJarvisFileManagerActions?.bindRoot?.();
+      window.ElyonJarvisFileManagerMountBridge?.reconcile?.();
+      return true;
+    }
+
+    if (brainRecoveryPromise) return brainRecoveryPromise;
+    brainRecoveryPromise = (async () => {
+      for (const [path, globalName] of BRAIN_CONTROL_MODULES) {
+        if (!window[globalName]) await load(path, { force: true });
+      }
+      window.ElyonJarvisFileManager?.mount?.();
+      await window.ElyonJarvisFileManager?.refresh?.(true);
+      window.ElyonJarvisFileManagerActions?.bindRoot?.();
+      window.ElyonJarvisFileManagerMountBridge?.reconcile?.();
+      return Boolean(document.getElementById(BRAIN_CONTROL_ROOT_ID));
+    })().catch((error) => {
+      console.warn("[Elyon Jarvis] Brain Control Recovery fehlgeschlagen", error);
+      return false;
+    }).finally(() => {
+      brainRecoveryPromise = null;
+    });
+    return brainRecoveryPromise;
+  }
+
+  function installBrainControlGuard() {
+    if (brainGuardInstalled || !document.body) return false;
+    brainGuardInstalled = true;
+    const schedule = () => queueMicrotask(() => {
+      const commandCenter = document.querySelector("#jarvisCommandCenterTab .jarvis-cc");
+      if (commandCenter && !document.getElementById(BRAIN_CONTROL_ROOT_ID)) ensureBrainControl();
+    });
+    const observer = new MutationObserver(schedule);
+    observer.observe(document.body, { childList: true, subtree: true });
+    window.addEventListener("elyon:jarvis-command-center-rendered", schedule);
+    window.addEventListener("elyon:tab-changed", schedule);
+    window.addEventListener("elyon:seller-authenticated", schedule);
+    window.ElyonJarvisBrainControlGuard = Object.freeze({ ensure: ensureBrainControl, schedule, observer });
+    schedule();
+    return true;
+  }
+
   async function boot() {
+    syncModelCatalog();
+    installBrainControlGuard();
+
+    for (const file of FILES) {
+      try {
+        await load(file);
+      } catch (error) {
+        console.warn(`[Elyon Jarvis] Modul konnte nicht geladen werden: ${file}`, error);
+      }
+      if (file === "/seller-jarvis-command-center.js") installBrainControlGuard();
+    }
+
     try {
-      syncModelCatalog();
-      for (const file of FILES) await load(file);
       window.ElyonJarvisUI?.refresh?.();
       window.ElyonJarvisUIResponseAdapter?.refreshSystemStatus?.();
       window.ElyonJarvisCommandCenter?.refresh?.();
+      await ensureBrainControl();
       window.ElyonJarvisIntegrationCenter?.refresh?.();
+      window.ElyonJarvisHub?.mount?.();
+      window.ElyonJarvisHub?.refresh?.();
       window.ElyonAIWorkforceBuilderIntegration?.refresh?.();
       window.ElyonJarvisE4Cloud?.render?.();
       window.ElyonJarvisE4Control?.render?.();
       window.ElyonJarvisE5Pipeline?.render?.();
     } catch (error) {
-      console.warn("[Elyon Jarvis] Integration Center Bootstrap fehlgeschlagen", error);
+      console.warn("[Elyon Jarvis] Integration Center Bootstrap Abschluss fehlgeschlagen", error);
     }
   }
 

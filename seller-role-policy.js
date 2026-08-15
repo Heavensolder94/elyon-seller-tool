@@ -11,6 +11,7 @@
     { id: "returnsTab", label: "Retouren", role: "Rückgaben und Verluste dokumentieren" },
     { id: "settingsTab", label: "Einstellungen", role: "eBay, Company OS, Sicherheit und Backups" },
     { id: "virtualAgentsTab", label: "Virtuelle Mitarbeiter", role: "KI-Agenten, Aufgaben und Freigaben verwalten" },
+    { id: "jarvisCommandCenterTab", label: "◉ JARVIS / Brain Control", role: "Jarvis Command Center, Brain Health, Dateien, Drafts und Freigaben verwalten" },
     { id: "jarvisIntegrationCenterTab", label: "Jarvis Integration Center", role: "KI-Modelle, APIs, Routing, Kosten und Logs verwalten" },
   ];
 
@@ -148,7 +149,7 @@
       const server = item?.rawServerProduct || item?.raw || item || {};
       return [item?.id, item?.sellerToolMasterProductId, server.id, server.companyOsProductId]
         .map(text)
-        .includes(selectedId);
+        .includes(selectedId));
     }) || list[0] || null;
   }
 

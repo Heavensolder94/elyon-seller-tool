@@ -10,6 +10,7 @@ export const QUICKSTART_PRIMARY_WORKFLOW = Object.freeze([
 ]);
 
 export const QUICKSTART_SECONDARY_LINKS = Object.freeze([
+  Object.freeze({ id: "jarvis", icon: "◉", label: "JARVIS", description: "Übersicht, Brain, Integrationen, Modelle und Systemsteuerung öffnen.", tab: "jarvisCommandCenterTab" }),
   Object.freeze({ id: "agents", icon: "🧑‍💼", label: "Virtuelle Mitarbeiter", description: "KI-Agenten, Aufgaben und Freigaben öffnen.", tab: "virtualAgentsTab", runtimeGroup: "virtualAgentsTab" }),
   Object.freeze({ id: "settings", icon: "⚙️", label: "System- & API-Einstellungen", description: "eBay, Product Master, Integrationen und Systemstatus prüfen.", tab: "settingsTab", runtimeGroup: "settingsTab", anchor: "elyonSystemDataStatusSettings" }),
 ]);
@@ -36,6 +37,7 @@ export function routeForTab(tabId) {
     automationTab: "shipping",
     invoiceTab: "invoices",
     returnsTab: "returns",
+    jarvisCommandCenterTab: "jarvis",
     virtualAgentsTab: "agents",
     settingsTab: "settings",
   };

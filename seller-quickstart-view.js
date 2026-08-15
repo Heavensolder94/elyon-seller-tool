@@ -49,7 +49,7 @@ export function installQuickstartStyles(documentRef) {
     #${PANEL_ID} .eq-route strong{font-size:15px;line-height:1.3}
     #${PANEL_ID} .eq-route span{color:#cbd5e1;font-size:11px;line-height:1.45;font-weight:600}
     #${PANEL_ID} .eq-route em{margin-top:auto;font-style:normal;color:#93c5fd;font-size:11px;font-weight:850}
-    #${PANEL_ID} .eq-secondary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}
+    #${PANEL_ID} .eq-secondary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:11px}
     #${PANEL_ID} .eq-secondary button{display:flex;justify-content:space-between;align-items:center;gap:14px;text-align:left;padding:15px 16px;background:rgba(255,255,255,.05);border:1px solid rgba(148,163,184,.13)}
     #${PANEL_ID} .eq-secondary-copy{display:grid;gap:4px}
     #${PANEL_ID} .eq-secondary-copy strong{font-size:14px}
@@ -57,7 +57,7 @@ export function installQuickstartStyles(documentRef) {
     #${PANEL_ID} .eq-footer{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;padding-top:4px}
     #${PANEL_ID} .eq-footer .checkrow{margin:0}
     #${PANEL_ID} .eq-note{padding:11px 13px;border-radius:15px;background:rgba(59,130,246,.09);border:1px solid rgba(96,165,250,.17);color:#dbeafe;font-size:12px;line-height:1.45}
-    @media(max-width:900px){#${PANEL_ID} .eq-workflow{grid-template-columns:repeat(2,minmax(0,1fr))}#${PANEL_ID} .eq-status{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    @media(max-width:900px){#${PANEL_ID} .eq-workflow{grid-template-columns:repeat(2,minmax(0,1fr))}#${PANEL_ID} .eq-status{grid-template-columns:repeat(2,minmax(0,1fr))}#${PANEL_ID} .eq-secondary{grid-template-columns:1fr}}
     @media(max-width:620px){#${PANEL_ID} .eq-workflow,#${PANEL_ID} .eq-secondary,#${PANEL_ID} .eq-status{grid-template-columns:1fr}#${PANEL_ID} .eq-focus{grid-template-columns:1fr}#${PANEL_ID} .eq-route{min-height:auto}}
   `;
   documentRef.head.appendChild(style);

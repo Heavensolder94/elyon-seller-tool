@@ -21,7 +21,7 @@ brain/
 └── PLAYBOOKS.md
 ```
 
-Die Markdown-Dateien sind die lesbare Source of Truth. Das Manifest enthält ausschließlich technische Lade-, Routing- und Budget-Metadaten.
+Die Markdown-Dateien bleiben der deployte Repository-Fallback und die kontrollierte Git-Referenz. Das Manifest enthält ausschließlich technische Lade-, Routing- und Budget-Metadaten und bleibt in Phase 3 lokal versioniert.
 
 ## Pflicht-Core
 
@@ -71,13 +71,29 @@ Das Routing ist deterministisch und benötigt keinen zusätzlichen LLM-Aufruf. E
 1. Manifest laden und strukturell validieren,
 2. Dateipfade gegen eine feste Allowlist prüfen,
 3. Pflicht-Core-Definitionen validieren,
-4. Markdown-Dateien lokal laden und pro Node-Prozess cachen,
+4. Brain-Dokumente über den kontrollierten Resolver laden,
 5. definierte Abschnitte extrahieren,
 6. höchstens ein Playbook auswählen,
 7. das Zeichenbudget anwenden,
 8. `ready`, `requiredMissing`, `loaded`, `playbook`, `budget` und echte Warnungen zurückgeben.
 
 Nutzertext kann keine Dateipfade setzen. `.env`, Secrets, beliebige Repository-Dateien und Path Traversal sind nicht zugelassen.
+
+### Optionaler Managed File Store
+
+Der Jarvis File Manager V1 ergänzt einen opt-in Resolver. Standardmäßig ist er deaktiviert:
+
+```text
+JARVIS_FILE_STORE_ENABLED=false
+```
+
+Dann lädt Jarvis wie bisher direkt aus `brain/*.md`.
+
+Wird der Store nach Migration und Smoke Test bewusst aktiviert, versucht der Resolver für registrierte Brain-Dokumente eine aktive Supabase-Version zu laden. Fehlt diese Version oder schlägt der Supabase-Read fehl, wird automatisch die deployte Repository-Datei verwendet.
+
+Das Manifest selbst wird nicht aus Supabase geladen. Pfad-Allowlist, Abschnittsregeln, Pflicht-Core und Budgets bleiben dadurch weiterhin im versionierten Code kontrolliert.
+
+Details: `docs/ai/JARVIS_FILE_MANAGER_V1.md`.
 
 ## Prompt-Aufbau
 
@@ -165,8 +181,12 @@ Ausführung und Erfolg werden getrennt behandelt. Jarvis darf Erfolg nur melden,
 - Erhalt der Phase-1-Providerkette,
 - Erhalt der Phase-2-Telemetrie.
 
+`tests/jarvis-file-manager-v1.test.mjs` ergänzt Tests für Registry, File-Store-Opt-in, Supabase-/Repository-Fallback, Versionierung und Protected Writes.
+
 ## Deployment
 
-Brain Files werden über Git versioniert und mit dem Vercel-Deployment ausgeliefert. Die Jarvis-Runtime darf diese Core-Dateien nicht selbst verändern.
+Die Repository-Dateien werden weiterhin über Git versioniert und mit dem Vercel-Deployment ausgeliefert. Sie bleiben der sichere Fallback und können durch `JARVIS_FILE_STORE_ENABLED=false` jederzeit wieder alleinige Runtime-Quelle werden.
 
-Core-Änderungen erfolgen ausschließlich kontrolliert über Branch, PR, Tests und Preview-Verifikation.
+Die File-Manager-Foundation aktiviert keine Jarvis-Selbständerung. Neue Managed-Versionen werden zunächst als Draft gespeichert und müssen separat aktiviert werden. Protected-Dateien bleiben für normale Writes blockiert.
+
+Core-Änderungen an der Repository-Referenz erfolgen weiterhin kontrolliert über Branch, PR, Tests und Preview-Verifikation.
