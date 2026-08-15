@@ -8,6 +8,7 @@
   const ALLOWED_MODE = "plan";
   const MAX_COMMAND_LENGTH = 2000;
   const TAB_ID = "jarvisCommandCenterTab";
+  const INBOX_MODULE = "/seller-jarvis-inbox.js";
 
   const text = (value) => String(value ?? "").trim();
 
@@ -61,9 +62,30 @@
     return prefill(handoff);
   }
 
+  function loadInbox() {
+    if (window.ElyonJarvisInbox || document.querySelector(`script[data-elyon-jarvis-inbox="1"]`)) {
+      window.ElyonJarvisInbox?.mount?.();
+      return true;
+    }
+    const script = document.createElement("script");
+    script.src = `${INBOX_MODULE}?v=jarvis-inbox-v1`;
+    script.defer = true;
+    script.dataset.elyonJarvisInbox = "1";
+    script.addEventListener("load", () => window.ElyonJarvisInbox?.mount?.(), { once: true });
+    script.addEventListener("error", () => console.warn("[Elyon Jarvis] Inbox-Modul konnte nicht geladen werden."), { once: true });
+    document.head.appendChild(script);
+    return true;
+  }
+
+  function boot() {
+    consume();
+    loadInbox();
+  }
+
   window.ElyonJarvisCompanionHandoff = Object.freeze({
     consume,
     prefill,
+    loadInbox,
     safety: Object.freeze({
       acceptedSource: ALLOWED_SOURCE,
       acceptedMode: ALLOWED_MODE,
@@ -72,6 +94,6 @@
     }),
   });
 
-  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", consume, { once: true });
-  else consume();
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot, { once: true });
+  else boot();
 })();
