@@ -10,6 +10,82 @@ const object = (value) => value && typeof value === "object" && !Array.isArray(v
 const array = (value) => Array.isArray(value) ? value : [];
 const unique = (items) => [...new Set(items.filter(Boolean))];
 
+const MARKET_SCOUT_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    summary: { type: "string" },
+    warnings: { type: "array", items: { type: "string" } },
+    candidates: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          productName: { type: "string" },
+          category: { type: "string" },
+          rationale: { type: "string" },
+          demandSignal: { type: "string" },
+          competitionLevel: { type: "string", enum: ["low", "medium", "high", "unknown"] },
+          purchasePrice: { type: "number" },
+          sellingPrice: { type: "number" },
+          supplierSource: { type: "string" },
+          supplierUrl: { type: "string" },
+          supplierRegion: { type: "string" },
+          dropshippingSupported: { type: "boolean" },
+          supplierShipsPerOrder: { type: "boolean" },
+          minimumOrderQuantity: { type: "integer", minimum: 1 },
+          fulfillmentEvidence: { type: "string" },
+          riskLevel: { type: "string", enum: ["low", "medium", "high", "unknown"] },
+          risks: { type: "array", items: { type: "string" } },
+          evidence: {
+            type: "array",
+            items: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                url: { type: "string" },
+                label: { type: "string" },
+                type: { type: "string", enum: ["supplier", "market", "manufacturer", "price", "web"] },
+              },
+              required: ["url", "label", "type"],
+            },
+          },
+        },
+        required: [
+          "productName",
+          "category",
+          "rationale",
+          "demandSignal",
+          "competitionLevel",
+          "purchasePrice",
+          "sellingPrice",
+          "supplierSource",
+          "supplierUrl",
+          "supplierRegion",
+          "dropshippingSupported",
+          "supplierShipsPerOrder",
+          "minimumOrderQuantity",
+          "fulfillmentEvidence",
+          "riskLevel",
+          "risks",
+          "evidence"
+        ],
+      },
+    },
+  },
+  required: ["summary", "warnings", "candidates"],
+};
+
+const MARKET_SCOUT_RESPONSE_FORMAT = {
+  type: "json_schema",
+  json_schema: {
+    name: "elyon_market_scout",
+    strict: true,
+    schema: MARKET_SCOUT_SCHEMA,
+  },
+};
+
 function safeUrl(value) {
   const candidate = text(value, 2000);
   if (!candidate) return "";
@@ -69,17 +145,23 @@ function normalizeCandidate(candidate, index) {
   const sellingPrice = number(item.sellingPrice);
   const estimatedMarginPercent = purchasePrice !== null && sellingPrice > 0
     ? Number((((sellingPrice - purchasePrice) / sellingPrice) * 100).toFixed(2))
-    : number(item.estimatedMarginPercent);
+    : null;
   const supplierUrl = safeUrl(item.supplierUrl);
-  const evidence = array(item.evidence).map((entry) => {
-    if (typeof entry === "string") return { url: safeUrl(entry), label: "source", type: "web" };
-    return {
-      url: safeUrl(entry?.url || entry?.sourceUrl),
-      label: text(entry?.label || entry?.title || entry?.evidence, 300),
-      type: text(entry?.type || entry?.sourceType, 80) || "web",
-    };
-  }).filter((entry) => entry.url);
-  const complete = Boolean(supplierUrl || evidence.length) && purchasePrice !== null && sellingPrice !== null;
+  const evidence = array(item.evidence).map((entry) => ({
+    url: safeUrl(entry?.url || entry?.sourceUrl),
+    label: text(entry?.label || entry?.title || entry?.evidence, 300),
+    type: text(entry?.type || entry?.sourceType, 80).toLowerCase() || "web",
+  })).filter((entry) => entry.url);
+  const minimumOrderQuantity = Number.isFinite(Number(item.minimumOrderQuantity))
+    ? Math.max(1, Math.round(Number(item.minimumOrderQuantity)))
+    : null;
+  const dropshippingSupported = item.dropshippingSupported === true;
+  const supplierShipsPerOrder = item.supplierShipsPerOrder === true;
+  const fulfillmentEvidence = text(item.fulfillmentEvidence, 600);
+  const hasIndependentMarketEvidence = evidence.some((entry) => ["market", "price", "web"].includes(entry.type));
+  const dropshippingFit = dropshippingSupported && supplierShipsPerOrder && minimumOrderQuantity === 1 && Boolean(fulfillmentEvidence);
+  const complete = Boolean(supplierUrl) && hasIndependentMarketEvidence && purchasePrice !== null && sellingPrice !== null && dropshippingFit;
+
   return {
     rank: index + 1,
     productName: text(item.productName || item.name, 220),
@@ -93,11 +175,24 @@ function normalizeCandidate(candidate, index) {
     marginBasis: purchasePrice !== null && sellingPrice !== null ? "gross_before_marketplace_fees_and_returns" : "unknown",
     supplierSource: text(item.supplierSource, 180) || "unknown",
     supplierUrl: supplierUrl || null,
+    supplierRegion: text(item.supplierRegion, 120) || "unknown",
+    dropshippingSupported,
+    supplierShipsPerOrder,
+    minimumOrderQuantity,
+    fulfillmentEvidence: fulfillmentEvidence || null,
     riskLevel: text(item.riskLevel, 40).toLowerCase() || "unknown",
     risks: array(item.risks).slice(0, 8).map((entry) => text(entry, 300)).filter(Boolean),
     evidence,
-    status: complete ? "research_only" : "needs_research",
+    status: complete ? "research_only" : "rejected_supplier_fit",
   };
+}
+
+function candidateMeetsProfile(candidate, profile) {
+  if (candidate.status !== "research_only") return false;
+  if (!["low", "medium"].includes(candidate.riskLevel)) return false;
+  if (!Number.isFinite(candidate.sellingPrice) || candidate.sellingPrice < profile.sellingPriceMin || candidate.sellingPrice > profile.sellingPriceMax) return false;
+  if (!Number.isFinite(candidate.estimatedMarginPercent) || candidate.estimatedMarginPercent < profile.targetMarginPercent) return false;
+  return true;
 }
 
 function researchPrompt({ payload, profile, count, excludedNames = [], batchIndex = 0 }) {
@@ -112,11 +207,13 @@ function researchPrompt({ payload, profile, count, excludedNames = [], batchInde
     "Avoid supplements, medical products, cosmetics, weapons, age-restricted products, counterfeit/branded-copy risks, high-voltage/mains electronics, batteries and children's safety products unless the evidence makes the risk clearly acceptable.",
     "Use current web search efficiently. Do not fetch full pages in this discovery pass unless the search evidence itself is insufficient.",
     "For EACH candidate verify a plausible supplier source AND at least one independent demand/market signal.",
-    "Never invent prices, demand, margins, supplier URLs, eBay evidence, compliance facts, or availability.",
+    "CRITICAL DROPSHIPPING FIT: only include a candidate when supplier evidence explicitly supports dropshipping or single-order fulfillment, the supplier ships individual customer orders, and MOQ is 1. Wholesale/manufacturer offers with MOQ above 1 are NOT valid candidates and must be omitted.",
+    "Do not infer dropshipping support from a generic wholesale page. dropshippingSupported, supplierShipsPerOrder, minimumOrderQuantity and fulfillmentEvidence must be grounded in supplier evidence.",
+    "Never invent prices, demand, margins, supplier URLs, eBay evidence, fulfillment terms, compliance facts, or availability.",
     "purchasePrice and sellingPrice must be supported by web evidence. If you cannot verify both, omit the candidate and continue researching.",
-    "estimatedMarginPercent is only a rough gross margin before eBay fees, returns, taxes and other costs; do not present it as net profit.",
-    "Return ONLY JSON.",
-    "Shape: {\"summary\":\"string\",\"warnings\":[\"string\"],\"candidates\":[{\"productName\":\"string\",\"category\":\"string\",\"rationale\":\"string\",\"demandSignal\":\"string\",\"competitionLevel\":\"low|medium|high|unknown\",\"purchasePrice\":number,\"sellingPrice\":number,\"supplierSource\":\"string\",\"supplierUrl\":\"https://...\",\"riskLevel\":\"low|medium|high|unknown\",\"risks\":[\"string\"],\"evidence\":[{\"url\":\"https://...\",\"label\":\"short evidence\",\"type\":\"supplier|market|manufacturer|web\"}]}]}",
+    `Selling price must be between ${profile.sellingPriceMin} and ${profile.sellingPriceMax} EUR and rough gross margin must be at least ${profile.targetMarginPercent}%.`,
+    "estimatedMarginPercent is calculated by the system from purchasePrice and sellingPrice; do not add that field.",
+    "Return ONLY the JSON object required by the response schema.",
   ].join("\n\n");
 }
 
@@ -144,13 +241,17 @@ function searchTool(env) {
   };
 }
 
+function isDailyQuotaError(message) {
+  return /free-models-per-day|daily\s+(?:rate\s+)?limit|add\s+\d+\s+credits/i.test(text(message, 800));
+}
+
 async function runBatch({ env, payload, profile, count, excludedNames, batchIndex }) {
   if (!env?.OPENROUTER_API_KEY) {
     const error = new Error("openrouter_not_configured");
     error.retryable = false;
     throw error;
   }
-  const model = text(env.OPENROUTER_RESEARCH_MODEL || env.OPENROUTER_MODEL || DEFAULT_MODEL, 200);
+  const requestedModel = text(env.OPENROUTER_RESEARCH_MODEL || env.OPENROUTER_MODEL || DEFAULT_MODEL, 200);
   const timeoutMs = boundedNumber(env.OPENROUTER_RESEARCH_TIMEOUT_MS, REQUEST_TIMEOUT_MS, 30000, 120000);
   const maxToolCalls = boundedNumber(env.OPENROUTER_RESEARCH_MAX_TOOL_CALLS, MAX_TOOL_CALLS, 1, 6);
   let response;
@@ -164,10 +265,13 @@ async function runBatch({ env, payload, profile, count, excludedNames, batchInde
         "X-Title": text(env.OPENROUTER_APP_NAME || "Elyon Jarvis", 200),
       },
       body: JSON.stringify({
-        model,
+        model: requestedModel,
         messages: [{ role: "user", content: researchPrompt({ payload, profile, count, excludedNames, batchIndex }) }],
         tools: [searchTool(env)],
         max_tool_calls: maxToolCalls,
+        response_format: MARKET_SCOUT_RESPONSE_FORMAT,
+        plugins: [{ id: "response-healing" }],
+        provider: { require_parameters: true },
         temperature: 0.1,
         max_tokens: 2800,
       }),
@@ -182,8 +286,9 @@ async function runBatch({ env, payload, profile, count, excludedNames, batchInde
   let body = null;
   try { body = rawText ? JSON.parse(rawText) : null; } catch {}
   if (!response.ok) {
-    const error = new Error(text(body?.error?.message || body?.message || `openrouter_http_${response.status}`, 500));
-    error.retryable = [408, 409, 429].includes(response.status) || response.status >= 500;
+    const message = text(body?.error?.message || body?.message || `openrouter_http_${response.status}`, 500);
+    const error = new Error(message);
+    error.retryable = !isDailyQuotaError(message) && ([408, 409, 429].includes(response.status) || response.status >= 500);
     throw error;
   }
 
@@ -195,6 +300,13 @@ async function runBatch({ env, payload, profile, count, excludedNames, batchInde
     throw error;
   }
 
+  const normalized = parsed.candidates.slice(0, count).map(normalizeCandidate).filter((item) => item.productName);
+  const candidates = normalized.filter((item) => candidateMeetsProfile(item, profile));
+  const localWarnings = array(parsed.warnings).slice(0, 10).map((entry) => text(entry, 400)).filter(Boolean);
+  if (normalized.length > candidates.length) {
+    localWarnings.push(`${normalized.length - candidates.length} Kandidat(en) wurden wegen MOQ/Dropshipping-Fit, Risiko, Preisbereich oder Zielmarge verworfen.`);
+  }
+
   const usage = object(body?.usage);
   const toolUse = object(usage.server_tool_use);
   const annotations = array(message.annotations)
@@ -202,10 +314,10 @@ async function runBatch({ env, payload, profile, count, excludedNames, batchInde
     .map((entry) => safeUrl(entry?.url_citation?.url))
     .filter(Boolean);
   return {
-    model,
+    model: text(body?.model, 200) || requestedModel,
     summary: text(parsed.summary, 1600),
-    warnings: array(parsed.warnings).slice(0, 10).map((entry) => text(entry, 400)).filter(Boolean),
-    candidates: parsed.candidates.slice(0, count).map(normalizeCandidate).filter((item) => item.productName),
+    warnings: localWarnings,
+    candidates,
     citations: annotations,
     usage: {
       inputTokens: usage.prompt_tokens ?? usage.input_tokens ?? 0,
@@ -308,8 +420,8 @@ async function researchMarketScout({ env, payload = {} } = {}) {
     count: candidates.length,
     profile,
     summary: candidates.length === requestedCount
-      ? `${candidates.length} belegte Produktkandidaten wurden im Hintergrund recherchiert.`
-      : `${candidates.length} belastbare Produktkandidaten wurden gefunden; fehlende Kandidaten wurden nicht erfunden.`,
+      ? `${candidates.length} belegte Dropshipping-Produktkandidaten wurden im Hintergrund recherchiert.`
+      : `${candidates.length} belastbare Dropshipping-Produktkandidaten wurden gefunden; fehlende Kandidaten wurden nicht erfunden.`,
     warnings: unique(warnings).slice(0, 12),
     candidates,
     citations: unique(successful.flatMap((entry) => entry.citations)),
@@ -335,4 +447,4 @@ async function researchMarketScout({ env, payload = {} } = {}) {
   };
 }
 
-export { researchMarketScout };
+export { MARKET_SCOUT_RESPONSE_FORMAT, researchMarketScout };
