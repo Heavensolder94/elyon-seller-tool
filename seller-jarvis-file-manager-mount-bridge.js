@@ -3,7 +3,7 @@
 
   const TAB_ID = "jarvisCommandCenterTab";
   const ROOT_ID = "jarvisFileManagerPanel";
-  const VERSION = "v1.1-stable-mount";
+  const VERSION = "v1.2-stable-mount";
 
   let tabObserver = null;
   let bodyObserver = null;
@@ -24,7 +24,11 @@
       window.ElyonJarvisFileManager?.refresh?.();
     }
     const next = hostState();
-    return Boolean(next.panel && next.shell?.contains(next.panel));
+    if (next.panel && next.shell?.contains(next.panel)) {
+      window.ElyonJarvisFileManagerActions?.bindRoot?.();
+      return true;
+    }
+    return false;
   }
 
   function schedule() {
@@ -38,6 +42,7 @@
     tabObserver = new MutationObserver(() => {
       const { shell, panel } = hostState();
       if (shell && (!panel || !shell.contains(panel))) schedule();
+      else window.ElyonJarvisFileManagerActions?.bindRoot?.();
     });
     tabObserver.observe(tab, { childList: true, subtree: true });
   }
