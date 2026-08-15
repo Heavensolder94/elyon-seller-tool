@@ -1,30 +1,49 @@
-# Jarvis File Manager V1 — Foundation + Brain-Center-UI
+# Jarvis File Manager V1.2 — Brain Control + Unified JARVIS Hub
 
 ## Ziel
 
-Der Jarvis File Manager macht ausgewählte Brain-, Playbook- und Policy-Dateien zentral sichtbar und später kontrolliert versioniert verwaltbar, ohne die bestehende Jarvis-Runtime oder Safety-Gates zu umgehen.
+Der Jarvis File Manager macht die ausgewählten Brain-Dateien zentral sichtbar und kontrolliert versioniert bearbeitbar, ohne bestehende Safety-, Auth- oder Runtime-Gates zu umgehen.
 
-Die Runtime bleibt bewusst **opt-in**. Ohne explizite Aktivierung bleibt das bisherige Repository-Loading unverändert aktiv.
-
-## Sicherheitsprinzip
+Die aktive Brain-Runtime bleibt weiterhin **opt-in**:
 
 ```text
 JARVIS_FILE_STORE_ENABLED != true
-→ Repository brain/*.md
-→ bestehendes Verhalten
+→ Repository brain/*.md bleibt Runtime-Quelle
 
 JARVIS_FILE_STORE_ENABLED = true
 → aktive Supabase-Version versuchen
-→ fehlt die Version oder schlägt der Read fehl: Repository-Fallback
+→ bei fehlender/fehlerhafter Managed-Version: Repository-Fallback
 ```
 
-Das `brain/BRAIN_MANIFEST.json` bleibt weiterhin lokal versioniert und bestimmt Pfade, Pflicht-Core, Abschnitte, Budgets und Playbook-Routing. Nutzertext kann weiterhin keine beliebigen Dateipfade in die Runtime einschleusen.
+Ein gespeicherter Draft ändert dadurch nicht automatisch das Verhalten von Jarvis.
+
+## Unified JARVIS Hub
+
+Der Seller Tool Hauptbereich zeigt nur noch einen zentralen Eintrag:
+
+```text
+◉ JARVIS
+```
+
+Der frühere separate Hauptmenüpunkt `Jarvis Integration Center` ist kein eigener Navigationsbereich mehr. Seine bestehenden Funktionen bleiben erhalten und werden intern über den JARVIS Hub verwendet.
+
+Innerhalb von JARVIS gibt es fünf Bereiche:
+
+- **Übersicht** — bestehendes Jarvis Command Center, Status, Aufgaben und Betriebsinformationen
+- **Brain** — Brain Control / File Manager mit Health, Dateien, Diff, Versionen und Edit-Workflow
+- **Integrationen** — APIs, Provider und Routing
+- **Modelle** — KI-Modellregistry und lokale Modellfreigaben
+- **System** — Runtime-Status, Logs und beobachtete Kosten
+
+Technisch bleibt `jarvisCommandCenterTab` der kompatible Top-Level-Route-Key. `seller-jarvis-hub.js` steuert die interne Ansicht und verwendet die vorhandenen Module weiter, statt ihre Business-Logik zu duplizieren.
+
+Das bisherige `jarvisIntegrationCenterTab` bleibt nur ein internes Legacy-/Kompatibilitätsziel. Der Hub entfernt seinen Menüeintrag und fängt direkte Legacy-Aktivierungen ab.
 
 ## Managed Registry
 
-`lib/jarvis-file-registry.js` enthält die explizite Allowlist der verwaltbaren Dateien.
+`lib/jarvis-file-registry.js` enthält die explizite Allowlist.
 
-V1 umfasst nur:
+V1.2 verwaltet:
 
 - `brain/IDENTITY.md`
 - `brain/ELYON_CONTEXT.md`
@@ -33,21 +52,29 @@ V1 umfasst nur:
 - `brain/GOALS.md`
 - `brain/PLAYBOOKS.md`
 
-`.env`, Source Code, API-Routen, Secrets und beliebige Repository-Dateien sind nicht registriert und dadurch nicht über den File Manager adressierbar.
+Nicht verwaltbar sind insbesondere:
+
+- `.env`
+- Secrets / Credentials
+- Source Code
+- API-Routen
+- beliebige nicht registrierte Repository-Dateien
+
+Das `brain/BRAIN_MANIFEST.json` bleibt repository-lokal und kontrolliert Pfade, Pflicht-Core, Abschnitte, Budgets und Playbook-Routing.
 
 ## Protected Files
 
-Folgende Dateien sind in V1 als `protected` markiert:
+Als besonders geschützt gelten:
 
 - Identity
 - Operating Rules
 - Capabilities
 
-Normale Version-Writes auf geschützte Dateien werden in `lib/jarvis-file-store.js` blockiert. Eine spätere Admin-/Review-Runtime darf einen Protected-Write nur über einen expliziten, serverseitig kontrollierten Pfad erlauben.
+Protected-Dateien benötigen im V1.2-Workflow eine zusätzliche explizite Bestätigung. Der Browser allein kann den Schutz nicht umgehen; die Prüfung erfolgt serverseitig.
 
 ## Supabase-Schema
 
-Migration:
+Basis-Migration:
 
 `supabase/migrations/20260815014500_jarvis_file_manager_v1.sql`
 
@@ -55,33 +82,47 @@ Security-Hardening:
 
 `supabase/migrations/20260815015200_jarvis_file_manager_v1_security_hardening.sql`
 
+V1.2 Workflow-Erweiterung ergänzt den kontrollierten Draft-/Approval-/Activation-/Rollback-Pfad.
+
 Tabellen:
 
 ### `jarvis_files`
 
-Dateiregistry und Pointer auf die aktive Version.
+Dateiregistry und Pointer auf die aktive Managed-Version.
 
 ### `jarvis_file_versions`
 
-Unveränderliche Versionen mit Content, Versionsnummer, Ersteller, Status und Änderungszusammenfassung.
+Immutable Versionen mit Inhalt, Versionsnummer, Status, Ersteller und Änderungszusammenfassung.
 
 ### `jarvis_file_change_requests`
 
-Grundlage für spätere Jarvis-Vorschläge und Approval-Workflow. In V1 wird noch kein autonomer Änderungsworkflow aktiviert.
+Änderungsvorschläge und Approval-Zustand. Eine Freigabe bleibt getrennt von der späteren Aktivierung.
 
-RLS ist auf allen drei Tabellen aktiviert. Für `activate_jarvis_file_version` ist die Ausführung auf `service_role` beschränkt.
+Die File-Manager-RPCs sind ausschließlich serverseitig über `service_role` erreichbar; `anon` und `authenticated` erhalten keinen direkten Execute-Zugriff.
 
-## Versionierung
+## V1.2 Edit-Workflow
 
-Neue Inhalte werden zuerst als `draft` angelegt.
+Der Benutzerfluss lautet:
 
-Aktivierung erfolgt separat über die DB-Funktion:
+```text
+Bearbeiten
+→ Änderung als Draft speichern
+→ Diff / Review
+→ Freigeben
+→ Aktivieren
+```
 
-`activate_jarvis_file_version(file_id, version)`
+Zusätzlich ist ein Rollback auf ältere immutable Versionen bzw. auf den Repository-Fallback möglich.
 
-Damit wird ein Write nicht automatisch zur Runtime-Version.
+Wichtige Regeln:
 
-Zusätzlich unterstützt der Store `expectedActiveVersion`. Damit können spätere UI-Writes veraltete Bearbeitungsstände erkennen und mit `jarvis_file_version_conflict` abbrechen, statt Änderungen still zu überschreiben.
+1. **Save ist nicht Activate.** Ein neuer Inhalt wird zunächst Draft.
+2. **Approval ist nicht Activate.** Freigabe und Aktivierung sind zwei separate Aktionen.
+3. **Protected Files** benötigen zusätzliche bewusste Bestätigung.
+4. **Optimistic Concurrency** verhindert stille Überschreibungen, wenn sich die aktive Basis seit Beginn der Bearbeitung geändert hat.
+5. Eine neue Bearbeitung darf keine bereits genehmigte ältere Fassung still wiederverwenden.
+6. Secret-/Credential-artige Inhalte werden serverseitig abgelehnt.
+7. Die Runtime übernimmt Managed-Versionen nur, wenn `JARVIS_FILE_STORE_ENABLED=true` ist.
 
 ## Runtime Resolver
 
@@ -89,180 +130,154 @@ Zusätzlich unterstützt der Store `expectedActiveVersion`. Damit können späte
 
 `lib/jarvis-brain-files.js` behält weiterhin:
 
-- die feste Manifest-Allowlist,
-- Pflicht-Core-Checks,
-- Abschnittsextraktion,
-- Zeichenbudgets,
-- Playbook-Auswahl,
-- Fail-Closed bei wirklich fehlendem Pflicht-Core.
+- feste Manifest-Allowlist
+- Pflicht-Core-Checks
+- Abschnittsextraktion
+- Zeichenbudgets
+- Playbook-Auswahl
+- Fail-Closed bei wirklich fehlendem Pflicht-Core
 
-Zusätzlich trägt ein geladener Core-Eintrag intern `runtimeSource` und `runtimeVersion`.
+Geladene Core-Einträge tragen intern `runtimeSource` und `runtimeVersion`.
 
-## Brain-Center-UI
+## Brain Control
 
-`seller-jarvis-file-manager.js` integriert den File Manager additiv in den bestehenden `jarvisCommandCenterTab`.
+`seller-jarvis-file-manager.js` stellt die Brain-Dateien dar.
 
-Die Oberfläche übernimmt die bestehende Jarvis-Command-Center-Sprache:
+Die Dateien sind funktional gruppiert:
 
-- dunkle Glas-Karten,
-- blaue/violette Akzente,
-- kompakte Status-Pills,
-- responsive Kartenstruktur,
-- keine neue parallele Navigation.
-
-### V1.1 UX-Struktur
-
-Die Dateien werden nicht mehr als reine Dateiliste dargestellt, sondern funktional gruppiert:
-
-- **Core Brain**: Identity, Elyon Context, Goals
-- **Rules & Safety**: Operating Rules, Capabilities
-- **Execution**: Playbooks
-
-Jede Datei zeigt zusätzlich eine kurze fachliche Erklärung, damit die Funktion der Brain-Datei ohne Kenntnis des Repository-Pfads verständlich ist.
+- **Core Brain** — Identity, Elyon Context, Goals
+- **Rules & Safety** — Operating Rules, Capabilities
+- **Execution** — Playbooks
 
 ### Brain Health
 
-Die Read-only API berechnet einen transparenten Brain-Health-Status aus Registry- und Versionsmetadaten:
+- `healthy` — Pflicht-Core vollständig, keine Konflikte, kein offener Draft
+- `attention` — Pflicht-Core vollständig, aber mindestens ein Draft wartet auf Review
+- `critical` — Pflichtdatei fehlt oder aktive Versionsreferenz ist inkonsistent
 
-- `healthy`: alle Pflicht-Core-Dateien registriert, keine Versionskonflikte, kein offener Draft
-- `attention`: Pflicht-Core vollständig, aber mindestens ein Draft wartet auf Review
-- `critical`: eine Pflichtdatei fehlt oder `active_version` verweist auf keine bekannte Versionsmetadatei
+Die UI zeigt unter anderem:
 
-Die UI zeigt dazu:
+- Core Ready
+- Protected Ready
+- Draft-Anzahl
+- Conflict-Anzahl
 
-- Core Ready,
-- Protected Ready,
-- Draft-Anzahl,
-- Conflict-Anzahl.
-
-Ein Draft gilt bewusst nicht als Runtime-Fehler. Er führt nur zu `attention`, weil die aktive Quelle unverändert bleibt.
+Ein Draft ist kein Runtime-Fehler. Er verändert die aktive Quelle nicht automatisch.
 
 ### Dateistatus
 
-Jede Datei erhält einen expliziten operativen Status:
+- `ACTIVE`
+- `DRAFT`
+- `FALLBACK`
+- `CONFLICT`
+- `MISSING`
+- `UNREGISTERED`
+- zusätzlicher `PROTECTED`-Hinweis
 
-- `ACTIVE`: aktive Supabase-Version vorhanden und konsistent
-- `DRAFT`: mindestens ein nicht aktiver Draft wartet auf Review
-- `FALLBACK`: Repository ist die aktive Quelle
-- `CONFLICT`: aktive Versionsreferenz ist inkonsistent
-- `MISSING`: erforderlicher Registry-Eintrag fehlt
-- `UNREGISTERED`: optionaler Registry-Eintrag fehlt
-- `PROTECTED`: zusätzlicher UI-Hinweis für besonders geschützte Dateien
+### Diff und Historie
 
-Aktive Quelle und Draft-Zustand bleiben getrennt. Ein Supabase-Draft wird niemals als aktiv dargestellt.
+Die Review-Ansicht enthält:
 
-### Diff und Versionshistorie
+1. zeilenbasierten Diff
+2. vollständigen Side-by-Side-Vergleich
+3. Versionshistorie mit Version, Status, Zusammenfassung, Ersteller und Zeitpunkt
 
-Die Detailansicht enthält in V1.1 drei Ebenen:
-
-1. **Zeilenbasierter Diff** ohne externe Bibliothek:
-   - Grün = hinzugefügt
-   - Rot = entfernt
-   - unveränderte Zeilen werden auf Kontext reduziert
-2. **Vollständiger Side-by-Side-Vergleich** von aktiver Quelle und neuestem Draft
-3. **Versionshistorie** mit Versionsnummer, Status, Änderungszusammenfassung, Ersteller und Zeitpunkt
-
-Die Historie ist read-only. Es gibt noch keine Auswahl einer alten Version als aktive Runtime-Version.
-
-### Read-only API
+## API-Sicherheit
 
 `GET /api/jarvis-files`
 
-liefert Metadaten für Übersicht, Health, operative Statuswerte und eine begrenzte Versionshistorie pro verwalteter Datei.
+liefert Übersicht, Brain Health, operative Statuswerte und Versionsmetadaten.
 
 `GET /api/jarvis-files?key=brain.goals`
 
-liefert die aktive Datei, den neuesten Draft und die Versionshistorie für die Detail-/Diff-Ansicht.
+liefert Detaildaten, aktive Quelle, neuesten Draft und Historie.
 
-Der Endpunkt:
+V1.2 Mutation-Aktionen laufen getrennt über die geschützte File-Actions-API. Alle Browserzugriffe benötigen die bestehende Seller-Session. Supabase-Service-Role-Schlüssel werden niemals an den Browser ausgegeben.
 
-- erfordert die bestehende Seller-Session über `requireSellerAccess`,
-- verwendet serverseitig den Supabase-Service-Role-Zugriff,
-- akzeptiert nur Dateien aus der festen Jarvis-Registry,
-- erlaubt in dieser Stufe ausschließlich `GET`,
-- bietet keine Aktivierungs-, Delete- oder Write-Operation an.
+Die Mutations-API bietet ausschließlich klar definierte Workflow-Aktionen; es existiert kein freier „beliebige Datei überschreiben“-Endpunkt.
 
-Die Browser-UI erhält daher keinen Supabase-Service-Key und kann keinen Draft versehentlich aktivieren.
+## GOALS-Pilot
 
-## Aktueller GOALS-Pilot
+Der initiale GOALS-Pilot wurde als Supabase Draft angelegt. Solange keine Version aktiv geschaltet und der Runtime Store nicht aktiviert wird, bleibt das Repository die Runtime-Quelle.
 
-`brain/GOALS.md` liegt zusätzlich als Supabase-Version `1` mit Status `draft` vor.
-
-Aktueller Zustand:
+Beispielzustand:
 
 ```text
 aktive Quelle: Repository / GitHub
-Supabase Draft: v1
-active_version: NULL
+Supabase Draft: vorhanden
+JARVIS_FILE_STORE_ENABLED: false
 ```
-
-Die UI muss genau diesen Unterschied anzeigen.
 
 ## Feature Flag
 
+Standard:
+
 ```text
 JARVIS_FILE_STORE_ENABLED=false
 ```
 
-Standard ist AUS.
+Vor einer Runtime-Aktivierung müssen mindestens geprüft sein:
 
-Der Flag darf erst nach diesen Schritten auf `true` gesetzt werden:
+1. Migrationen erfolgreich
+2. Registry vollständig
+3. gewünschte Versionen vorhanden
+4. Versionen bewusst freigegeben und aktiviert
+5. Preview-Smoke-Test erfolgreich
+6. Pflicht-Core (`identity`, `operating_rules`, `goals`) vollständig
+7. Preview-ENV separat von Production geprüft
 
-1. Supabase-Migration erfolgreich ausgeführt.
-2. Registry-Zeilen vorhanden.
-3. Gewünschte Dateien als Versionen angelegt.
-4. Versionen bewusst aktiviert.
-5. Preview-Smoke-Test bestätigt Repository-Fallback und Managed Loading.
-6. Pflicht-Core (`identity`, `operating_rules`, `goals`) vollständig geprüft.
+Production darf nicht beiläufig über einen UI-Test eingeschaltet werden.
 
-## Was diese V1-Stufe noch NICHT macht
+## Was V1.2 weiterhin NICHT erlaubt
 
-- keine Jarvis-Selbständerung,
-- keine automatische Aktivierung nach Save,
-- kein Browser-Write auf Brain-Dateien,
-- kein GitHub-Writeback,
-- kein Aktivieren/Rollback aus der UI,
-- keine Änderung an Auth-/Safety-Gates,
-- keine Änderung an eBay-/Supplier-/Refund-/Compliance-Permissions.
-
-Die sichtbare UI ist absichtlich read-only, bis Draft-Erstellung, Freigabe, Aktivierung und Rollback als separater sicherer Workflow implementiert und getestet sind.
+- keine autonome Jarvis-Selbständerung ohne Benutzerworkflow
+- keine automatische Aktivierung nach Save
+- keine freie Bearbeitung beliebiger Source-Dateien
+- kein Zugriff auf Secrets oder Environment-Variablen über Brain Control
+- kein automatischer GitHub-Writeback
+- keine Ausweitung von Auth-/Safety-Gates
+- keine automatische eBay-Live-Veröffentlichung
+- keine Supplier Orders, Refunds, Kundennachrichten oder Legal-Data-Writes durch diesen File-Manager-Workflow
 
 ## Rollback
 
-Sofortiger Runtime-Rollback:
+Runtime-Fallback:
 
 ```text
 JARVIS_FILE_STORE_ENABLED=false
 ```
 
-Damit verwendet der Loader wieder ausschließlich die Repository-Dateien. Die Supabase-Versionen bleiben für Diagnose oder spätere Wiederaktivierung erhalten.
+Damit verwendet der Loader wieder Repository-Dateien. Supabase-Versionen bleiben für Audit, Diagnose und spätere Wiederaktivierung erhalten.
 
-Die UI selbst ist additiv über `seller-jarvis-bootstrap.js` geladen und verändert keine bestehenden Tabs oder lokalen Datenstrukturen.
+Ein Versions-Rollback löscht keine Historie, sondern setzt kontrolliert eine frühere immutable Version als Ziel.
+
+## UI-Stabilität
+
+Brain Control verwendet den persistenten Host `jarvisBrainControlPersistentHost`, damit Command-Center-Re-Renders seine Oberfläche nicht zerstören.
+
+Der Unified Hub verschiebt Command Center oder Brain Control nicht zwischen Render-Bäumen. Er steuert ihre Sichtbarkeit über einen stabilen Top-Level-Zustand und verwendet das bestehende Integration Center intern weiter.
+
+Der Hub ist event-/observer-basiert und verwendet kein Hintergrund-Polling.
 
 ## Tests
 
-`tests/jarvis-file-manager-v1.test.mjs` prüft unter anderem:
+Die Testabdeckung umfasst unter anderem:
 
-- feste Registry und Blockade unbekannter Pfade,
-- Opt-in-Verhalten,
-- Repository-Fallback bei deaktiviertem Store,
-- Repository-Fallback bei Supabase-Fehlern,
-- Laden einer aktiven Managed-Version,
-- gemischtes Laden aus Supabase + Repository,
-- Protected-Write-Blockade,
-- Secret-Filter,
-- Größenlimit,
-- Draft-first bei neuen Versionen,
-- Optimistic-Concurrency-Konflikte.
-
-`tests/jarvis-file-manager-ui.test.mjs` prüft zusätzlich:
-
-- korrekte Trennung von aktiver Repository-Quelle und Supabase-Draft,
-- Brain-Health `attention` bei offenem Draft,
-- `critical` bei fehlendem Pflicht-Core oder Versionskonflikt,
-- operative Statuswerte `draft`, `fallback`, `active`, `conflict`,
-- Detailvergleich und Versionshistorie,
-- weiterhin explizites Opt-in für den Runtime Store,
-- Laden/Kopieren des UI-Assets nach dem bestehenden Jarvis Command Center,
-- sichtbare Gruppierung in Core Brain, Rules & Safety und Execution,
-- vorhandene Diff-Logik und den Read-only-/Aktivierung-gesperrt-Sicherheitsstatus.
+- Registry-Allowlist und unbekannte Pfade
+- Repository-Fallback
+- Runtime-Opt-in
+- Protected-Write-Gates
+- Secret-Filter
+- Größenlimit
+- Draft-first
+- Optimistic Concurrency
+- Draft → Approval → Activation → Rollback
+- Brain Health und Dateistatus
+- Diff und Versionshistorie
+- stabilen Brain-Control-Mount
+- Bootstrap-Recovery
+- genau einen sichtbaren JARVIS-Einstieg
+- fünf interne Hub-Bereiche
+- Entfernung des Legacy-Integration-Center-Menüpunkts
+- Wiederverwendung der bestehenden Integration-Center-Funktionen
+- keine Polling-Schleife im Unified Hub
