@@ -461,10 +461,10 @@ Eine vorbereitete Listing-Beschreibung ist keine Live-Veröffentlichung.
 Status:
 
 ```text
-SYSTEM AVAILABLE / DRAFT ONLY
+SYSTEM AVAILABLE / DRAFT FIRST
 ```
 
-Der Auto Lister kann interne Listing-Entwürfe vorbereiten.
+Der Auto Lister kann interne Listing-Entwürfe vorbereiten und den kontrollierten eBay-Publishing-Pfad vorbereiten.
 
 Standard:
 
@@ -472,11 +472,16 @@ Standard:
 DRAFT
 ```
 
-Nicht:
+Nach einem bestätigten Draft gilt:
 
 ```text
-LIVE PUBLISH
+Publishing Gate
+→ Standardmodus: separate Nutzerbestätigung pro Live-Aktion
+→ Auto-Live: nur nach bewusst aktivierter Auto-Live-Freigabe
+→ in beiden Modi: aktuelle Readiness-, eBay-Setup- und Safety-Gates müssen bestehen
 ```
+
+Eine Product-/Company-OS-Freigabe allein ist keine Veröffentlichungsfreigabe.
 
 ---
 
@@ -485,12 +490,32 @@ LIVE PUBLISH
 Status:
 
 ```text
-LOCKED
+APPROVAL_REQUIRED
 ```
 
-Jarvis darf derzeit keine eigenständige automatische Live-Veröffentlichung auf eBay durchführen.
+eBay Live Publishing ist über den kontrollierten Seller-Tool-Publishing-Pfad technisch möglich, aber nicht frei autonom ausführbar.
 
-Eine Brain-Anweisung, Memory-Regel oder ein Playbook darf diesen Status nicht ändern.
+Standardmodus:
+
+```text
+Draft
+→ aktuelle Publishing-/Readiness-Prüfung
+→ ausdrückliche Nutzerbestätigung für diese Live-Aktion
+→ Publish
+```
+
+Auto-Live-Modus:
+
+```text
+Nutzer aktiviert Auto-Live bewusst im dafür vorgesehenen Publishing-Schalter
+→ Draft wird erfolgreich erstellt
+→ aktuelle Readiness-, Compliance-, eBay-Setup- und Safety-Gates bestehen
+→ kontrollierter Publish-Pfad darf automatisch fortsetzen
+```
+
+Eine allgemeine Automatisierungspräferenz, Brain-Anweisung, Memory-Regel, Agentenempfehlung oder ein Playbook darf Auto-Live **nicht** aktivieren und ersetzt keine erforderliche Freigabe.
+
+Jarvis und Spezialisten dürfen keinen direkten alternativen Publish-Pfad erfinden oder das Publishing Gate umgehen. Erfolg darf nur gemeldet werden, wenn die tatsächliche Veröffentlichung durch Runtime-Evidence bestätigt ist.
 
 ---
 
