@@ -42,9 +42,11 @@ function candidate(name, index) {
 test("async Market Scout splits larger research into bounded batches and returns verified candidates", async () => {
   const originalFetch = globalThis.fetch;
   let calls = 0;
+  const requests = [];
   globalThis.fetch = async (_url, options = {}) => {
     calls += 1;
     const request = JSON.parse(options.body);
+    requests.push(request);
     const prompt = request.messages?.[0]?.content || "";
     const count = Number(prompt.match(/Find exactly (\d+)/i)?.[1] || 1);
     const offset = (calls - 1) * 5;
@@ -71,12 +73,24 @@ test("async Market Scout splits larger research into bounded batches and returns
     assert.equal(result.safety.supplierOrderingAllowed, false);
     assert.equal(result.candidates[0].marginBasis, "gross_before_marketplace_fees_and_returns");
     assert.equal(result.cost.webSearchRequests, 2);
+
+    for (const request of requests) {
+      assert.equal(request.max_tool_calls, 3);
+      assert.equal(request.tools.length, 1);
+      assert.equal(request.tools[0].type, "openrouter:web_search");
+      assert.equal(request.tools[0].parameters.engine, "exa");
+      assert.equal(request.tools[0].parameters.mode, "fast");
+      assert.equal(request.tools[0].parameters.max_uses, 3);
+      assert.equal(request.tools[0].parameters.max_results, 4);
+      assert.equal(request.tools[0].parameters.max_total_results, 10);
+      assert.equal(request.tools[0].parameters.max_characters, 2000);
+    }
   } finally {
     globalThis.fetch = originalFetch;
   }
 });
 
-test("async Market Scout does not invent candidates when all research batches fail", async () => {
+test("async Market Scout preserves provider failure when every research batch fails", async () => {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async () => Response.json({ error: { message: "provider unavailable" } }, { status: 503 });
   try {
@@ -85,7 +99,23 @@ test("async Market Scout does not invent candidates when all research batches fa
         env: { OPENROUTER_API_KEY: "test" },
         payload: { command: "Finde 5 Produkte", requestedCount: 5 },
       }),
-      /market_scout_no_verified_candidates/
+      /provider unavailable/
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("async Market Scout does not retry a successful research response with zero verified candidates", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => openRouterResponse([]);
+  try {
+    await assert.rejects(
+      () => researchMarketScout({
+        env: { OPENROUTER_API_KEY: "test" },
+        payload: { command: "Finde ein Produkt", requestedCount: 1 },
+      }),
+      (error) => error?.message === "market_scout_no_verified_candidates" && error?.retryable === false
     );
   } finally {
     globalThis.fetch = originalFetch;
