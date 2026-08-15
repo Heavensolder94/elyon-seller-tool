@@ -4,19 +4,129 @@
   const TAB_ID = "jarvisCommandCenterTab";
   const ROOT_ID = "jarvisFileManagerPanel";
   const DETAIL_MODAL_ID = "jarvisFileManagerModal";
-  const VERSION = "v1.2-ui-reconcile";
+  const ACTIONS_PATH = "/seller-jarvis-file-manager-actions.js";
+  const VERSION = "v1.2-ui-reconcile-2";
 
   let tabObserver = null;
   let bodyObserver = null;
   let modalObserver = null;
   let observedModal = null;
   let scheduled = false;
+  let actionsPromise = null;
 
   function hostState() {
     const tab = document.getElementById(TAB_ID);
     const shell = tab?.querySelector(".jarvis-cc") || null;
     const panel = document.getElementById(ROOT_ID);
     return { tab, shell, panel };
+  }
+
+  function existingScript(path) {
+    return [...document.scripts].find((script) => {
+      try { return new URL(script.src, window.location.href).pathname === path; }
+      catch { return false; }
+    }) || null;
+  }
+
+  function loadActions() {
+    if (window.ElyonJarvisFileManagerActions?.openEditor) {
+      window.ElyonJarvisFileManagerActions.mount?.();
+      window.ElyonJarvisFileManagerActions.bindRoot?.();
+      return Promise.resolve(window.ElyonJarvisFileManagerActions);
+    }
+    if (actionsPromise) return actionsPromise;
+
+    actionsPromise = new Promise((resolve, reject) => {
+      const already = existingScript(ACTIONS_PATH);
+      if (already) {
+        const finish = () => {
+          if (!window.ElyonJarvisFileManagerActions?.openEditor) {
+            reject(new Error("jarvis_file_manager_actions_not_initialized"));
+            return;
+          }
+          window.ElyonJarvisFileManagerActions.mount?.();
+          window.ElyonJarvisFileManagerActions.bindRoot?.();
+          resolve(window.ElyonJarvisFileManagerActions);
+        };
+        if (already.dataset.elyonJarvisActionsLoaded === "1") finish();
+        else {
+          already.addEventListener("load", finish, { once: true });
+          already.addEventListener("error", () => reject(new Error("jarvis_file_manager_actions_load_failed")), { once: true });
+          queueMicrotask(() => {
+            if (window.ElyonJarvisFileManagerActions?.openEditor) finish();
+          });
+        }
+        return;
+      }
+
+      const script = document.createElement("script");
+      script.src = `${ACTIONS_PATH}?v=${encodeURIComponent(VERSION)}`;
+      script.defer = true;
+      script.dataset.elyonJarvisActionsFallback = "1";
+      script.addEventListener("load", () => {
+        script.dataset.elyonJarvisActionsLoaded = "1";
+        if (!window.ElyonJarvisFileManagerActions?.openEditor) {
+          reject(new Error("jarvis_file_manager_actions_not_initialized"));
+          return;
+        }
+        window.ElyonJarvisFileManagerActions.mount?.();
+        window.ElyonJarvisFileManagerActions.bindRoot?.();
+        resolve(window.ElyonJarvisFileManagerActions);
+      }, { once: true });
+      script.addEventListener("error", () => reject(new Error("jarvis_file_manager_actions_load_failed")), { once: true });
+      document.head.appendChild(script);
+    }).catch((error) => {
+      actionsPromise = null;
+      throw error;
+    });
+
+    return actionsPromise;
+  }
+
+  async function openEditor(key, button) {
+    const cleanKey = String(key || "").trim();
+    if (!cleanKey) return false;
+    const previous = button?.textContent || "Bearbeiten";
+    if (button) {
+      button.disabled = true;
+      button.textContent = "Lade Editor …";
+    }
+    try {
+      const actions = await loadActions();
+      await actions.openEditor(cleanKey);
+      return true;
+    } catch (error) {
+      console.error("[Jarvis Brain Control] Edit Workflow konnte nicht geladen werden", error);
+      window.alert?.("Der Jarvis Edit-Workflow konnte nicht geladen werden. Bitte Seite einmal neu laden. Wenn der Fehler bleibt, ist das Preview-Asset nicht verfügbar.");
+      return false;
+    } finally {
+      if (button) {
+        button.disabled = false;
+        button.textContent = previous;
+      }
+    }
+  }
+
+  function ensureEditButtons(panel) {
+    if (!panel) return false;
+    panel.querySelectorAll("[data-jarvis-file-key]").forEach((card) => {
+      const key = String(card.dataset.jarvisFileKey || "").trim();
+      const actions = card.querySelector(".jarvis-fm-file-actions");
+      if (!key || !actions) return;
+      let button = actions.querySelector("[data-jarvis-file-edit]");
+      if (!button) {
+        button = document.createElement("button");
+        button.type = "button";
+        button.className = "jarvis-fm-btn jarvis-fm-edit-btn";
+        button.dataset.jarvisFileEdit = key;
+        button.textContent = "Bearbeiten";
+        const review = actions.querySelector("[data-jarvis-file-open]");
+        if (review) actions.insertBefore(button, review);
+        else actions.prepend(button);
+      }
+      button.onclick = () => openEditor(key, button);
+    });
+    return true;
   }
 
   function patchPanel(panel) {
@@ -45,6 +155,7 @@
       foot.textContent = "Änderungen laufen kontrolliert über Draft → Review → Freigabe → Aktivierung. Geschützte Core-Dateien verlangen eine zusätzliche Bestätigung.";
     }
 
+    ensureEditButtons(panel);
     window.ElyonJarvisFileManagerActions?.bindRoot?.();
     return true;
   }
@@ -136,6 +247,9 @@
     schedule,
     patchPanel,
     patchDetailModal,
+    ensureEditButtons,
+    loadActions,
+    openEditor,
   });
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", bind, { once: true });
