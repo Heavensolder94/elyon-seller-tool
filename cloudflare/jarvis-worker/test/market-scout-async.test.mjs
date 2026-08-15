@@ -22,6 +22,19 @@ function openRouterResponse(candidates, cost = 0.001) {
   });
 }
 
+function invalidOpenRouterResponse(content = "not valid json") {
+  return Response.json({
+    choices: [{ message: { content, annotations: [] } }],
+    usage: {
+      prompt_tokens: 100,
+      completion_tokens: 50,
+      total_tokens: 150,
+      cost: 0.0005,
+      server_tool_use: { web_search_requests: 1 },
+    },
+  });
+}
+
 function candidate(name, index, patch = {}) {
   return {
     productName: name,
@@ -98,6 +111,60 @@ test("async Market Scout splits larger research into bounded batches and returns
       assert.equal(request.plugins?.[0]?.id, "response-healing");
       assert.equal(request.provider?.require_parameters, true);
     }
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("async Market Scout repairs malformed research JSON once without repeating web search", async () => {
+  const originalFetch = globalThis.fetch;
+  const requests = [];
+  globalThis.fetch = async (_url, options = {}) => {
+    const request = JSON.parse(options.body);
+    requests.push(request);
+    if (requests.length === 1) {
+      return invalidOpenRouterResponse("Product opportunity found, but the response wrapper was malformed.");
+    }
+    return openRouterResponse([candidate("Repair Product", 1)]);
+  };
+
+  try {
+    const result = await researchMarketScout({
+      env: { OPENROUTER_API_KEY: "test", OPENROUTER_MODEL: "openrouter/free" },
+      payload: { command: "Finde ein Produkt", requestedCount: 1 },
+    });
+
+    assert.equal(result.count, 1);
+    assert.equal(result.candidates[0].productName, "Repair Product");
+    assert.equal(requests.length, 2);
+    assert.equal(requests[0].tools?.[0]?.type, "openrouter:web_search");
+    assert.equal(requests[1].tools, undefined);
+    assert.equal(requests[1].max_tool_calls, undefined);
+    assert.equal(requests[1].response_format?.type, "json_schema");
+    assert.equal(requests[1].plugins?.[0]?.id, "response-healing");
+    assert.match(result.warnings.join(" "), /automatisch.*strukturiert/i);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("async Market Scout stops after one failed JSON repair instead of repeating the same research three times", async () => {
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls += 1;
+    return invalidOpenRouterResponse("still not json");
+  };
+
+  try {
+    await assert.rejects(
+      () => researchMarketScout({
+        env: { OPENROUTER_API_KEY: "test" },
+        payload: { command: "Finde ein Produkt", requestedCount: 1 },
+      }),
+      (error) => error?.message === "openrouter_invalid_market_scout_json" && error?.retryable === false
+    );
+    assert.equal(calls, 2);
   } finally {
     globalThis.fetch = originalFetch;
   }
