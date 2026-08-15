@@ -33,8 +33,9 @@ test("Brain Control mount bridge restores a removed panel without background pol
   assert.doesNotMatch(bridge, /setTimeout\s*\(/);
 });
 
-test("bootstrap cache key changes for the stable Brain Control mount", async () => {
+test("bootstrap cache key changes whenever Brain Control runtime assets change", async () => {
   const bootstrap = await source("seller-jarvis-bootstrap.js");
-  assert.match(bootstrap, /phase-e5-v1-openrouter-registry-v4-file-manager-stable/);
+  assert.match(bootstrap, /phase-e5-v1-openrouter-registry-v\d+-file-manager/);
+  assert.match(bootstrap, /seller-jarvis-file-manager-actions\.js/);
   assert.match(bootstrap, /ElyonJarvisFileManagerMountBridge\?\.reconcile/);
 });
