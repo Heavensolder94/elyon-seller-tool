@@ -16,12 +16,12 @@ function fileStoreEnabled(env = process.env) {
 
 function normalizeVersionMeta(row = {}) {
   return {
-    fileId: text(row.file_id, 100),
+    fileId: text(row.file_id ?? row.fileId, 100),
     version: Number(row.version) || 0,
     status: text(row.status, 40) || "unknown",
-    changeSummary: text(row.change_summary, 1000) || null,
-    createdBy: text(row.created_by, 160) || null,
-    createdAt: text(row.created_at, 100) || null,
+    changeSummary: text(row.change_summary ?? row.changeSummary, 1000) || null,
+    createdBy: text(row.created_by ?? row.createdBy, 160) || null,
+    createdAt: text(row.created_at ?? row.createdAt, 100) || null,
   };
 }
 
