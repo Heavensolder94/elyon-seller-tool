@@ -2,7 +2,8 @@ const ENDPOINT = "https://openrouter.ai/api/v1/chat/completions";
 const DEFAULT_MODEL = "openrouter/free";
 const MAX_CANDIDATES = 20;
 const BATCH_SIZE = 5;
-const REQUEST_TIMEOUT_MS = 120000;
+const REQUEST_TIMEOUT_MS = 90000;
+const MAX_TOOL_CALLS = 3;
 
 const text = (value, max = 4000) => String(value ?? "").trim().slice(0, max);
 const object = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : {};
@@ -25,6 +26,12 @@ function number(value) {
   const raw = text(value, 80).replace(/\s/g, "").replace(",", ".");
   const match = raw.match(/-?\d+(?:\.\d+)?/);
   return match ? Number(match[0]) : null;
+}
+
+function boundedNumber(value, fallback, min, max) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.max(min, Math.min(max, parsed));
 }
 
 function parseJson(value) {
@@ -103,7 +110,8 @@ function researchPrompt({ payload, profile, count, excludedNames = [], batchInde
     excludedNames.length ? `Do not repeat these products: ${JSON.stringify(excludedNames.slice(0, 30))}` : "Avoid near-duplicate products.",
     "Prefer evergreen, low-to-medium risk products with manageable return risk and low regulatory burden.",
     "Avoid supplements, medical products, cosmetics, weapons, age-restricted products, counterfeit/branded-copy risks, high-voltage/mains electronics, batteries and children's safety products unless the evidence makes the risk clearly acceptable.",
-    "Use current web search. For EACH candidate verify a plausible supplier source AND at least one independent demand/market signal.",
+    "Use current web search efficiently. Do not fetch full pages in this discovery pass unless the search evidence itself is insufficient.",
+    "For EACH candidate verify a plausible supplier source AND at least one independent demand/market signal.",
     "Never invent prices, demand, margins, supplier URLs, eBay evidence, compliance facts, or availability.",
     "purchasePrice and sellingPrice must be supported by web evidence. If you cannot verify both, omit the candidate and continue researching.",
     "estimatedMarginPercent is only a rough gross margin before eBay fees, returns, taxes and other costs; do not present it as net profit.",
@@ -122,6 +130,20 @@ async function fetchWithTimeout(url, init, timeoutMs = REQUEST_TIMEOUT_MS) {
   }
 }
 
+function searchTool(env) {
+  return {
+    type: "openrouter:web_search",
+    parameters: {
+      engine: text(env.OPENROUTER_RESEARCH_SEARCH_ENGINE, 40) || "exa",
+      mode: text(env.OPENROUTER_RESEARCH_SEARCH_MODE, 40) || "fast",
+      max_results: boundedNumber(env.OPENROUTER_RESEARCH_MAX_RESULTS, 4, 1, 8),
+      max_total_results: boundedNumber(env.OPENROUTER_RESEARCH_MAX_TOTAL_RESULTS, 10, 1, 20),
+      max_uses: boundedNumber(env.OPENROUTER_RESEARCH_MAX_SEARCHES, 3, 1, 5),
+      max_characters: boundedNumber(env.OPENROUTER_RESEARCH_MAX_CHARACTERS, 2000, 500, 5000),
+    },
+  };
+}
+
 async function runBatch({ env, payload, profile, count, excludedNames, batchIndex }) {
   if (!env?.OPENROUTER_API_KEY) {
     const error = new Error("openrouter_not_configured");
@@ -129,6 +151,8 @@ async function runBatch({ env, payload, profile, count, excludedNames, batchInde
     throw error;
   }
   const model = text(env.OPENROUTER_RESEARCH_MODEL || env.OPENROUTER_MODEL || DEFAULT_MODEL, 200);
+  const timeoutMs = boundedNumber(env.OPENROUTER_RESEARCH_TIMEOUT_MS, REQUEST_TIMEOUT_MS, 30000, 120000);
+  const maxToolCalls = boundedNumber(env.OPENROUTER_RESEARCH_MAX_TOOL_CALLS, MAX_TOOL_CALLS, 1, 6);
   let response;
   try {
     response = await fetchWithTimeout(ENDPOINT, {
@@ -142,14 +166,12 @@ async function runBatch({ env, payload, profile, count, excludedNames, batchInde
       body: JSON.stringify({
         model,
         messages: [{ role: "user", content: researchPrompt({ payload, profile, count, excludedNames, batchIndex }) }],
-        tools: [
-          { type: "openrouter:web_search", parameters: { engine: "auto", max_results: 6, max_total_results: 16, search_context_size: "low" } },
-          { type: "openrouter:web_fetch" },
-        ],
+        tools: [searchTool(env)],
+        max_tool_calls: maxToolCalls,
         temperature: 0.1,
-        max_tokens: 3500,
+        max_tokens: 2800,
       }),
-    });
+    }, timeoutMs);
   } catch (error) {
     const wrapped = new Error(error?.name === "AbortError" ? "market_scout_provider_timeout" : text(error?.message, 300) || "market_scout_network_error");
     wrapped.retryable = true;
@@ -207,6 +229,10 @@ function dedupeCandidates(candidates) {
   return output;
 }
 
+function firstResearchFailure(settled) {
+  return settled.find((entry) => entry.status === "rejected")?.reason || null;
+}
+
 async function researchMarketScout({ env, payload = {} } = {}) {
   const requestedCount = Math.max(1, Math.min(MAX_CANDIDATES, Number(payload.requestedCount || payload.profile?.requestedCount || 10) || 10));
   const profile = defaultProfile(payload);
@@ -252,8 +278,16 @@ async function researchMarketScout({ env, payload = {} } = {}) {
 
   candidates = candidates.slice(0, requestedCount).map((candidate, index) => ({ ...candidate, rank: index + 1 }));
   if (!candidates.length) {
+    if (!successful.length) {
+      const failure = firstResearchFailure(settled);
+      const error = failure instanceof Error
+        ? failure
+        : new Error(text(failure?.message, 300) || "market_scout_research_failed");
+      error.retryable = settled.some((entry) => entry.status === "rejected" && entry.reason?.retryable !== false);
+      throw error;
+    }
     const error = new Error("market_scout_no_verified_candidates");
-    error.retryable = settled.some((entry) => entry.status === "rejected" && entry.reason?.retryable !== false);
+    error.retryable = false;
     throw error;
   }
   if (candidates.length < requestedCount) warnings.push(`Nur ${candidates.length} von ${requestedCount} Kandidaten konnten ausreichend belegt werden.`);
