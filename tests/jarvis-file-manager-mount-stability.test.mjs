@@ -27,10 +27,21 @@ test("Brain Control mount bridge restores a removed panel without background pol
   const bridge = await source("seller-jarvis-file-manager-mount-bridge.js");
 
   assert.match(bridge, /window\.ElyonJarvisFileManager\?\.refresh\?\.\(\)/);
+  assert.match(bridge, /window\.ElyonJarvisFileManagerActions\?\.bindRoot\?\.\(\)/);
   assert.match(bridge, /tabObserver\.observe\(tab, \{ childList: true, subtree: true \}\)/);
   assert.match(bridge, /requestAnimationFrame\(reconcile\)/);
   assert.doesNotMatch(bridge, /setInterval\s*\(/);
   assert.doesNotMatch(bridge, /setTimeout\s*\(/);
+});
+
+test("V1.2 reconciler removes stale read-only semantics after every Brain Control render", async () => {
+  const bridge = await source("seller-jarvis-file-manager-mount-bridge.js");
+
+  assert.match(bridge, /EDIT WORKFLOW V1\.2/);
+  assert.match(bridge, /APPROVAL ERFORDERLICH/);
+  assert.match(bridge, /Draft → Review → Freigabe → Aktivierung/);
+  assert.match(bridge, /Sicherheitsmodus V1\.2/);
+  assert.match(bridge, /observeDetailModal/);
 });
 
 test("bootstrap cache key changes whenever Brain Control runtime assets change", async () => {
