@@ -110,25 +110,69 @@ Die Oberfläche übernimmt die bestehende Jarvis-Command-Center-Sprache:
 - responsive Kartenstruktur,
 - keine neue parallele Navigation.
 
-Der Bereich zeigt für jede registrierte Brain-Datei getrennt:
+### V1.1 UX-Struktur
 
-- aktive Quelle (`GitHub Repository` oder `Supabase`),
-- aktive Versionsnummer,
-- vorhandene Draft-Version,
-- `protected`-/Core-Status,
-- Repository- und Draft-Inhalt im Vergleich.
+Die Dateien werden nicht mehr als reine Dateiliste dargestellt, sondern funktional gruppiert:
 
-Dadurch wird ein in Supabase vorhandener Draft nicht fälschlich als aktive Runtime-Datei dargestellt.
+- **Core Brain**: Identity, Elyon Context, Goals
+- **Rules & Safety**: Operating Rules, Capabilities
+- **Execution**: Playbooks
+
+Jede Datei zeigt zusätzlich eine kurze fachliche Erklärung, damit die Funktion der Brain-Datei ohne Kenntnis des Repository-Pfads verständlich ist.
+
+### Brain Health
+
+Die Read-only API berechnet einen transparenten Brain-Health-Status aus Registry- und Versionsmetadaten:
+
+- `healthy`: alle Pflicht-Core-Dateien registriert, keine Versionskonflikte, kein offener Draft
+- `attention`: Pflicht-Core vollständig, aber mindestens ein Draft wartet auf Review
+- `critical`: eine Pflichtdatei fehlt oder `active_version` verweist auf keine bekannte Versionsmetadatei
+
+Die UI zeigt dazu:
+
+- Core Ready,
+- Protected Ready,
+- Draft-Anzahl,
+- Conflict-Anzahl.
+
+Ein Draft gilt bewusst nicht als Runtime-Fehler. Er führt nur zu `attention`, weil die aktive Quelle unverändert bleibt.
+
+### Dateistatus
+
+Jede Datei erhält einen expliziten operativen Status:
+
+- `ACTIVE`: aktive Supabase-Version vorhanden und konsistent
+- `DRAFT`: mindestens ein nicht aktiver Draft wartet auf Review
+- `FALLBACK`: Repository ist die aktive Quelle
+- `CONFLICT`: aktive Versionsreferenz ist inkonsistent
+- `MISSING`: erforderlicher Registry-Eintrag fehlt
+- `UNREGISTERED`: optionaler Registry-Eintrag fehlt
+- `PROTECTED`: zusätzlicher UI-Hinweis für besonders geschützte Dateien
+
+Aktive Quelle und Draft-Zustand bleiben getrennt. Ein Supabase-Draft wird niemals als aktiv dargestellt.
+
+### Diff und Versionshistorie
+
+Die Detailansicht enthält in V1.1 drei Ebenen:
+
+1. **Zeilenbasierter Diff** ohne externe Bibliothek:
+   - Grün = hinzugefügt
+   - Rot = entfernt
+   - unveränderte Zeilen werden auf Kontext reduziert
+2. **Vollständiger Side-by-Side-Vergleich** von aktiver Quelle und neuestem Draft
+3. **Versionshistorie** mit Versionsnummer, Status, Änderungszusammenfassung, Ersteller und Zeitpunkt
+
+Die Historie ist read-only. Es gibt noch keine Auswahl einer alten Version als aktive Runtime-Version.
 
 ### Read-only API
 
 `GET /api/jarvis-files`
 
-liefert ausschließlich Metadaten für die Übersicht.
+liefert Metadaten für Übersicht, Health, operative Statuswerte und eine begrenzte Versionshistorie pro verwalteter Datei.
 
 `GET /api/jarvis-files?key=brain.goals`
 
-liefert die aktive Datei und den neuesten Draft für die Detail-/Diff-Ansicht.
+liefert die aktive Datei, den neuesten Draft und die Versionshistorie für die Detail-/Diff-Ansicht.
 
 Der Endpunkt:
 
@@ -177,6 +221,7 @@ Der Flag darf erst nach diesen Schritten auf `true` gesetzt werden:
 - keine automatische Aktivierung nach Save,
 - kein Browser-Write auf Brain-Dateien,
 - kein GitHub-Writeback,
+- kein Aktivieren/Rollback aus der UI,
 - keine Änderung an Auth-/Safety-Gates,
 - keine Änderung an eBay-/Supplier-/Refund-/Compliance-Permissions.
 
@@ -213,7 +258,11 @@ Die UI selbst ist additiv über `seller-jarvis-bootstrap.js` geladen und veränd
 `tests/jarvis-file-manager-ui.test.mjs` prüft zusätzlich:
 
 - korrekte Trennung von aktiver Repository-Quelle und Supabase-Draft,
-- Detailvergleich von aktivem Inhalt und Draft,
+- Brain-Health `attention` bei offenem Draft,
+- `critical` bei fehlendem Pflicht-Core oder Versionskonflikt,
+- operative Statuswerte `draft`, `fallback`, `active`, `conflict`,
+- Detailvergleich und Versionshistorie,
 - weiterhin explizites Opt-in für den Runtime Store,
 - Laden/Kopieren des UI-Assets nach dem bestehenden Jarvis Command Center,
-- sichtbaren Read-only-/Aktivierung-gesperrt-Sicherheitsstatus.
+- sichtbare Gruppierung in Core Brain, Rules & Safety und Execution,
+- vorhandene Diff-Logik und den Read-only-/Aktivierung-gesperrt-Sicherheitsstatus.
