@@ -67,9 +67,10 @@ test("V1.2 edit entry is created by the stable mount and can lazy-load the actio
   assert.match(bridge, /actions\.openEditor\(cleanKey\)/);
 });
 
-test("bootstrap cache key changes whenever Brain Control runtime assets change", async () => {
+test("bootstrap cache key changes whenever Brain Control or unified Jarvis runtime assets change", async () => {
   const bootstrap = await source("seller-jarvis-bootstrap.js");
-  assert.match(bootstrap, /phase-e5-v1-openrouter-registry-v\d+-file-manager/);
+  assert.match(bootstrap, /phase-e5-v1-openrouter-registry-v\d+-(?:file-manager|unified-jarvis-hub)/);
   assert.match(bootstrap, /seller-jarvis-file-manager-actions\.js/);
+  assert.match(bootstrap, /seller-jarvis-hub\.js/);
   assert.match(bootstrap, /ElyonJarvisFileManagerMountBridge\?\.reconcile/);
 });
