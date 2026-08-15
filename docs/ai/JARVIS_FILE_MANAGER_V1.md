@@ -1,10 +1,10 @@
-# Jarvis File Manager V1 — Foundation
+# Jarvis File Manager V1 — Foundation + Brain-Center-UI
 
 ## Ziel
 
-Der Jarvis File Manager soll ausgewählte Brain-, Playbook-, Policy- und spätere Knowledge-/Prompt-Dateien versioniert verwaltbar machen, ohne die bestehende Jarvis-Runtime oder Safety-Gates zu umgehen.
+Der Jarvis File Manager macht ausgewählte Brain-, Playbook- und Policy-Dateien zentral sichtbar und später kontrolliert versioniert verwaltbar, ohne die bestehende Jarvis-Runtime oder Safety-Gates zu umgehen.
 
-Die Foundation ist bewusst **opt-in**. Ohne explizite Aktivierung bleibt das bisherige Repository-Loading unverändert aktiv.
+Die Runtime bleibt bewusst **opt-in**. Ohne explizite Aktivierung bleibt das bisherige Repository-Loading unverändert aktiv.
 
 ## Sicherheitsprinzip
 
@@ -51,6 +51,10 @@ Migration:
 
 `supabase/migrations/20260815014500_jarvis_file_manager_v1.sql`
 
+Security-Hardening:
+
+`supabase/migrations/20260815015200_jarvis_file_manager_v1_security_hardening.sql`
+
 Tabellen:
 
 ### `jarvis_files`
@@ -63,9 +67,9 @@ Unveränderliche Versionen mit Content, Versionsnummer, Ersteller, Status und Ä
 
 ### `jarvis_file_change_requests`
 
-Grundlage für spätere Jarvis-Vorschläge und Approval-Workflow. In der Foundation wird noch kein autonomer Änderungsworkflow aktiviert.
+Grundlage für spätere Jarvis-Vorschläge und Approval-Workflow. In V1 wird noch kein autonomer Änderungsworkflow aktiviert.
 
-RLS ist auf allen drei Tabellen aktiviert. Für `activate_jarvis_file_version` wird die Ausführung auf `service_role` beschränkt.
+RLS ist auf allen drei Tabellen aktiviert. Für `activate_jarvis_file_version` ist die Ausführung auf `service_role` beschränkt.
 
 ## Versionierung
 
@@ -92,7 +96,63 @@ Zusätzlich unterstützt der Store `expectedActiveVersion`. Damit können späte
 - Playbook-Auswahl,
 - Fail-Closed bei wirklich fehlendem Pflicht-Core.
 
-Zusätzlich trägt ein geladener Core-Eintrag intern `runtimeSource` und `runtimeVersion`. Dadurch kann das spätere Brain Center anzeigen, ob eine Datei aus Git oder Supabase stammt.
+Zusätzlich trägt ein geladener Core-Eintrag intern `runtimeSource` und `runtimeVersion`.
+
+## Brain-Center-UI
+
+`seller-jarvis-file-manager.js` integriert den File Manager additiv in den bestehenden `jarvisCommandCenterTab`.
+
+Die Oberfläche übernimmt die bestehende Jarvis-Command-Center-Sprache:
+
+- dunkle Glas-Karten,
+- blaue/violette Akzente,
+- kompakte Status-Pills,
+- responsive Kartenstruktur,
+- keine neue parallele Navigation.
+
+Der Bereich zeigt für jede registrierte Brain-Datei getrennt:
+
+- aktive Quelle (`GitHub Repository` oder `Supabase`),
+- aktive Versionsnummer,
+- vorhandene Draft-Version,
+- `protected`-/Core-Status,
+- Repository- und Draft-Inhalt im Vergleich.
+
+Dadurch wird ein in Supabase vorhandener Draft nicht fälschlich als aktive Runtime-Datei dargestellt.
+
+### Read-only API
+
+`GET /api/jarvis-files`
+
+liefert ausschließlich Metadaten für die Übersicht.
+
+`GET /api/jarvis-files?key=brain.goals`
+
+liefert die aktive Datei und den neuesten Draft für die Detail-/Diff-Ansicht.
+
+Der Endpunkt:
+
+- erfordert die bestehende Seller-Session über `requireSellerAccess`,
+- verwendet serverseitig den Supabase-Service-Role-Zugriff,
+- akzeptiert nur Dateien aus der festen Jarvis-Registry,
+- erlaubt in dieser Stufe ausschließlich `GET`,
+- bietet keine Aktivierungs-, Delete- oder Write-Operation an.
+
+Die Browser-UI erhält daher keinen Supabase-Service-Key und kann keinen Draft versehentlich aktivieren.
+
+## Aktueller GOALS-Pilot
+
+`brain/GOALS.md` liegt zusätzlich als Supabase-Version `1` mit Status `draft` vor.
+
+Aktueller Zustand:
+
+```text
+aktive Quelle: Repository / GitHub
+Supabase Draft: v1
+active_version: NULL
+```
+
+Die UI muss genau diesen Unterschied anzeigen.
 
 ## Feature Flag
 
@@ -111,17 +171,16 @@ Der Flag darf erst nach diesen Schritten auf `true` gesetzt werden:
 5. Preview-Smoke-Test bestätigt Repository-Fallback und Managed Loading.
 6. Pflicht-Core (`identity`, `operating_rules`, `goals`) vollständig geprüft.
 
-## Was V1 Foundation noch NICHT macht
+## Was diese V1-Stufe noch NICHT macht
 
-- keine UI im Brain Center,
-- keine automatische Migration des Markdown-Inhalts in Supabase,
 - keine Jarvis-Selbständerung,
 - keine automatische Aktivierung nach Save,
+- kein Browser-Write auf Brain-Dateien,
 - kein GitHub-Writeback,
 - keine Änderung an Auth-/Safety-Gates,
 - keine Änderung an eBay-/Supplier-/Refund-/Compliance-Permissions.
 
-Diese Funktionen werden erst auf der getesteten Foundation aufgebaut.
+Die sichtbare UI ist absichtlich read-only, bis Draft-Erstellung, Freigabe, Aktivierung und Rollback als separater sicherer Workflow implementiert und getestet sind.
 
 ## Rollback
 
@@ -132,6 +191,8 @@ JARVIS_FILE_STORE_ENABLED=false
 ```
 
 Damit verwendet der Loader wieder ausschließlich die Repository-Dateien. Die Supabase-Versionen bleiben für Diagnose oder spätere Wiederaktivierung erhalten.
+
+Die UI selbst ist additiv über `seller-jarvis-bootstrap.js` geladen und verändert keine bestehenden Tabs oder lokalen Datenstrukturen.
 
 ## Tests
 
@@ -148,3 +209,11 @@ Damit verwendet der Loader wieder ausschließlich die Repository-Dateien. Die Su
 - Größenlimit,
 - Draft-first bei neuen Versionen,
 - Optimistic-Concurrency-Konflikte.
+
+`tests/jarvis-file-manager-ui.test.mjs` prüft zusätzlich:
+
+- korrekte Trennung von aktiver Repository-Quelle und Supabase-Draft,
+- Detailvergleich von aktivem Inhalt und Draft,
+- weiterhin explizites Opt-in für den Runtime Store,
+- Laden/Kopieren des UI-Assets nach dem bestehenden Jarvis Command Center,
+- sichtbaren Read-only-/Aktivierung-gesperrt-Sicherheitsstatus.
