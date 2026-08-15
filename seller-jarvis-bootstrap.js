@@ -2,7 +2,7 @@
   "use strict";
 
   const REGISTRY_KEY = "elyon_jarvis_integration_registry_v1";
-  const VERSION = "phase-e5-v1-openrouter-registry-v8-file-manager-v12-self-heal";
+  const VERSION = "phase-e5-v1-openrouter-registry-v9-unified-jarvis-hub";
   const BRAIN_CONTROL_ROOT_ID = "jarvisFileManagerPanel";
   const BRAIN_CONTROL_MODULES = [
     ["/seller-jarvis-file-manager.js", "ElyonJarvisFileManager"],
@@ -43,6 +43,7 @@
     "/seller-jarvis-file-manager-actions.js",
     "/seller-jarvis-file-manager-mount-bridge.js",
     "/seller-jarvis-integration-center.js",
+    "/seller-jarvis-hub.js",
     "/seller-ai-workforce-builder-integration.js",
     "/seller-jarvis-companion-handoff.js",
     "/seller-jarvis-e1-cloud.js",
@@ -170,6 +171,8 @@
       window.ElyonJarvisCommandCenter?.refresh?.();
       await ensureBrainControl();
       window.ElyonJarvisIntegrationCenter?.refresh?.();
+      window.ElyonJarvisHub?.mount?.();
+      window.ElyonJarvisHub?.refresh?.();
       window.ElyonAIWorkforceBuilderIntegration?.refresh?.();
       window.ElyonJarvisE4Cloud?.render?.();
       window.ElyonJarvisE4Control?.render?.();
