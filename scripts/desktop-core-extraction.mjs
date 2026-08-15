@@ -3,6 +3,7 @@ import { Script } from "node:vm";
 const XLSX_CDN_URL = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
 const XLSX_TAG_PATTERN = /\s*<script\s+src=["']https:\/\/cdn\.jsdelivr\.net\/npm\/xlsx@0\.18\.5\/dist\/xlsx\.full\.min\.js["']><\/script>\s*/;
 const INLINE_APP_PATTERN = /<script>\s*'use strict';[\s\S]*?<\/script>/g;
+const RETIRED_NAV_OPTION_PATTERN = /\s*<option\s+value=["']marketCheckTab["'][^>]*>[\s\S]*?<\/option>/g;
 
 function scriptBody(block) {
   return block
@@ -40,7 +41,8 @@ export function extractDesktopRuntime(html, { version = Date.now() } = {}) {
   new Script(coreCode, { filename: "seller-app-core.js" });
   new Script(agentsCode, { filename: "seller-virtual-agents-legacy.js" });
 
-  let optimizedHtml = html.replace(XLSX_TAG_PATTERN, "\n");
+  let optimizedHtml = html.replace(RETIRED_NAV_OPTION_PATTERN, "");
+  optimizedHtml = optimizedHtml.replace(XLSX_TAG_PATTERN, "\n");
   optimizedHtml = optimizedHtml.replace(coreBlock, `<script src="/seller-app-core.js?v=${version}"></script>`);
   optimizedHtml = optimizedHtml.replace(agentsBlock, "");
 
