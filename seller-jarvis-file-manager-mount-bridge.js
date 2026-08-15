@@ -5,9 +5,10 @@
   const ROOT_ID = "jarvisFileManagerPanel";
   const HOST_ID = "jarvisBrainControlPersistentHost";
   const HOST_STYLE_ID = "jarvisBrainControlPersistentHostStyles";
+  const HOST_FALLBACK_ATTR = "data-jarvis-brain-host-fallback";
   const DETAIL_MODAL_ID = "jarvisFileManagerModal";
   const ACTIONS_PATH = "/seller-jarvis-file-manager-actions.js";
-  const VERSION = "v1.2-persistent-host-1";
+  const VERSION = "v1.2-persistent-host-2";
 
   let tabObserver = null;
   let bodyObserver = null;
@@ -30,10 +31,22 @@
     style.id = HOST_STYLE_ID;
     style.textContent = `
       #${HOST_ID}{display:none;min-width:0;margin-top:16px;margin-bottom:34px}
-      #${HOST_ID}.active{display:block}
+      #${TAB_ID}.active + #${HOST_ID},#${HOST_ID}.active{display:block!important}
       #${HOST_ID} > #${ROOT_ID}{margin:0}
+      #${HOST_ID} [${HOST_FALLBACK_ATTR}]{display:block;padding:18px;border-radius:24px;background:linear-gradient(145deg,rgba(15,23,42,.72),rgba(8,17,31,.82));border:1px solid rgba(96,165,250,.22);color:#dbeafe;box-shadow:0 18px 50px rgba(2,6,23,.18)}
+      #${HOST_ID} [${HOST_FALLBACK_ATTR}] strong{display:block;font-size:16px;margin-bottom:5px}
+      #${HOST_ID} [${HOST_FALLBACK_ATTR}] span{font-size:10px;color:#93a4b8}
     `;
     document.head.appendChild(style);
+  }
+
+  function ensureFallback(host) {
+    if (!host || document.getElementById(ROOT_ID) || host.querySelector(`[${HOST_FALLBACK_ATTR}]`)) return false;
+    const fallback = document.createElement("div");
+    fallback.setAttribute(HOST_FALLBACK_ATTR, "1");
+    fallback.innerHTML = "<strong>◉ Jarvis Brain Control</strong><span>Brain Control wird geladen …</span>";
+    host.appendChild(fallback);
+    return true;
   }
 
   function ensurePersistentHost(tab) {
@@ -48,6 +61,7 @@
     } else if (host.previousElementSibling !== tab) {
       tab.insertAdjacentElement("afterend", host);
     }
+    ensureFallback(host);
     return host;
   }
 
@@ -57,6 +71,7 @@
     const active = tab.classList.contains("active") || menu?.value === TAB_ID;
     host.classList.toggle("active", Boolean(active));
     host.setAttribute("aria-hidden", active ? "false" : "true");
+    host.style.display = active ? "block" : "";
     return active;
   }
 
@@ -221,6 +236,7 @@
   function movePanelToPersistentHost(panel, host) {
     if (!panel || !host) return false;
     if (panel.parentElement !== host) host.appendChild(panel);
+    host.querySelector(`[${HOST_FALLBACK_ATTR}]`)?.remove();
     return panel.parentElement === host;
   }
 
@@ -238,6 +254,7 @@
       window.ElyonJarvisFileManager?.refresh?.();
       panel = document.getElementById(ROOT_ID);
       if (!panel) {
+        ensureFallback(host);
         queueMicrotask(() => schedule());
         return false;
       }
@@ -267,7 +284,8 @@
     if (tab) {
       bodyObserver?.disconnect();
       bodyObserver = null;
-      ensurePersistentHost(tab);
+      const host = ensurePersistentHost(tab);
+      if (host) syncHostVisibility(tab, host);
       observeTab(tab);
       observeDetailModal();
       schedule();
@@ -280,7 +298,8 @@
         if (!nextTab) return;
         bodyObserver?.disconnect();
         bodyObserver = null;
-        ensurePersistentHost(nextTab);
+        const host = ensurePersistentHost(nextTab);
+        if (host) syncHostVisibility(nextTab, host);
         observeTab(nextTab);
         observeDetailModal();
         schedule();
@@ -308,6 +327,7 @@
     patchDetailModal,
     ensureEditButtons,
     ensurePersistentHost,
+    ensureFallback,
     syncHostVisibility,
     movePanelToPersistentHost,
     loadActions,
