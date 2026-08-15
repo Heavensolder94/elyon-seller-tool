@@ -8,10 +8,13 @@
   const EVENTS_API_URL = "/api/jarvis-events";
   const JOBS_API_URL = "/api/jarvis-jobs";
   const CONTROL_API_URL = "/api/jarvis-control";
-  const VERSION = "phase-e4-v1.6";
+  const VERSION = "phase-e4-v1.7";
   const ASYNC_TASK_POLL_MS = 5000;
   const ASYNC_TASK_MAX_POLLS = 120;
+  const ASYNC_MESSAGE_STORAGE_KEY = "elyon_jarvis_async_messages_v1";
+  const ASYNC_MESSAGE_LIMIT = 20;
   const trackedAsyncTasks = new Set();
+  let asyncMessageObserver = null;
 
   function getConversationId() {
     try { return window.sessionStorage.getItem(CONVERSATION_STORAGE_KEY) || ""; } catch { return ""; }
@@ -158,7 +161,7 @@
         detail: { command, preview },
       }));
     } catch {
-      // UI preview is optional; execution must not depend on browser event support.
+      // UI preview is side-effect-free and optional. Execution must not depend on browser event support.
     }
   }
 
@@ -204,25 +207,121 @@
     return lines.join("\n").trim();
   }
 
-  function appendAsyncJarvisMessage(answer, titleText = "Jarvis · Market Scout") {
+  function taskProgress(task = {}) {
+    const state = String(task.status || "").toLowerCase();
+    if (state === "completed") return 100;
+    const value = Number(task.progress || 0);
+    if (!Number.isFinite(value)) return state === "running" ? 10 : 0;
+    return Math.max(0, Math.min(99, Math.round(value)));
+  }
+
+  function setAsyncHudStatus(kind, progress = 0) {
+    const shell = document.getElementById("elyonJarvisPanel");
+    if (!shell) return false;
+    const normalized = kind === "working" ? "working" : kind === "error" ? "error" : "ready";
+    shell.dataset.state = normalized;
+    const label = normalized === "working"
+      ? `IN ARBEIT · ${Math.max(0, Math.min(99, Math.round(Number(progress) || 0)))}%`
+      : normalized === "error"
+        ? "FEHLER"
+        : "BEREIT";
+    shell.querySelectorAll("[data-jarvis-state]").forEach((node) => { node.textContent = label; });
+    shell.querySelectorAll("[data-jarvis-live]").forEach((node) => { node.textContent = "ONLINE"; });
+    return true;
+  }
+
+  function readAsyncMessages() {
+    try {
+      const parsed = JSON.parse(window.sessionStorage.getItem(ASYNC_MESSAGE_STORAGE_KEY) || "[]");
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function writeAsyncMessages(messages) {
+    try {
+      window.sessionStorage.setItem(ASYNC_MESSAGE_STORAGE_KEY, JSON.stringify(messages.slice(-ASYNC_MESSAGE_LIMIT)));
+    } catch {
+      // Async result persistence is best-effort in restricted browser contexts.
+    }
+  }
+
+  function safeAsyncDomId(value) {
+    return String(value || "async-message").replace(/[^a-zA-Z0-9_-]+/g, "_").slice(0, 180);
+  }
+
+  function rememberAsyncMessage(record) {
+    const messages = readAsyncMessages().filter((entry) => entry?.id !== record.id);
+    messages.push(record);
+    writeAsyncMessages(messages);
+  }
+
+  function renderAsyncJarvisMessage(record = {}) {
     const feed = document.querySelector("#elyonJarvisPanel [data-jarvis-feed]");
-    if (!feed || !answer) return false;
+    if (!feed || !record.text) return false;
+    const domId = safeAsyncDomId(record.id);
+    if (feed.querySelector(`[data-jarvis-async-id="${domId}"]`)) return true;
+
     const article = document.createElement("article");
-    article.className = "elyon-jarvis-message jarvis";
+    article.className = `elyon-jarvis-message ${record.kind === "error" ? "error" : "jarvis"}`;
+    article.dataset.jarvisAsyncId = domId;
     const head = document.createElement("div");
     head.className = "elyon-jarvis-message-head";
     const title = document.createElement("strong");
-    title.textContent = titleText;
+    title.textContent = record.title || "Jarvis · Market Scout";
     const time = document.createElement("small");
-    time.textContent = new Date().toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+    time.textContent = record.time || new Date().toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
     head.append(title, time);
     const body = document.createElement("p");
-    body.textContent = answer;
+    body.textContent = record.text;
     body.style.whiteSpace = "pre-wrap";
     article.append(head, body);
     feed.appendChild(article);
     feed.scrollTop = feed.scrollHeight;
     return true;
+  }
+
+  function restoreAsyncJarvisMessages() {
+    for (const record of readAsyncMessages()) renderAsyncJarvisMessage(record);
+  }
+
+  function ensureAsyncMessageObserver() {
+    if (asyncMessageObserver || typeof MutationObserver !== "function") return;
+    const shell = document.getElementById("elyonJarvisPanel");
+    if (!shell) return;
+    asyncMessageObserver = new MutationObserver(() => {
+      queueMicrotask(() => restoreAsyncJarvisMessages());
+    });
+    asyncMessageObserver.observe(shell, { childList: true, subtree: true });
+  }
+
+  function appendAsyncJarvisMessage(answer, titleText = "Jarvis · Market Scout", options = {}) {
+    if (!answer) return false;
+    const record = {
+      id: String(options.id || `market-scout-${Date.now()}`),
+      kind: options.kind === "error" ? "error" : "jarvis",
+      title: titleText,
+      text: String(answer),
+      time: new Date().toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" }),
+    };
+    rememberAsyncMessage(record);
+    ensureAsyncMessageObserver();
+    return renderAsyncJarvisMessage(record);
+  }
+
+  function marketScoutFailureMessage(reason) {
+    const value = String(reason || "Research-Auftrag fehlgeschlagen.").trim();
+    if (/openrouter_invalid_market_scout_json/i.test(value)) {
+      return "OpenRouter hat auch nach dem automatischen Reparaturversuch kein gültiges strukturiertes Rechercheergebnis geliefert. Der Auftrag wurde sicher beendet; es wurden keine Produkte erfunden.";
+    }
+    if (/market_scout_no_verified_candidates/i.test(value)) {
+      return "Es wurden keine Produktkandidaten gefunden, die unsere Quellen-, Dropshipping-, MOQ-, Risiko- und Margenregeln sicher erfüllen. Es wurden keine Ersatzkandidaten erfunden.";
+    }
+    if (/free-models-per-day|daily.*limit/i.test(value)) {
+      return "Das tägliche OpenRouter-Free-Modell-Limit ist erreicht. Der Auftrag wurde beendet und wird nicht sinnlos erneut versucht.";
+    }
+    return value;
   }
 
   function wait(ms) {
@@ -234,6 +333,10 @@
     const statusUrl = String(taskMeta.statusUrl || "").trim();
     if (!id || !statusUrl || trackedAsyncTasks.has(id)) return;
     trackedAsyncTasks.add(id);
+    let highestProgress = taskProgress(taskMeta);
+    setTimeout(() => setAsyncHudStatus("working", highestProgress), 0);
+    ensureAsyncMessageObserver();
+
     try {
       for (let attempt = 0; attempt < ASYNC_TASK_MAX_POLLS; attempt += 1) {
         if (attempt > 0) await wait(ASYNC_TASK_POLL_MS);
@@ -247,21 +350,43 @@
         const payload = await response.json().catch(() => ({}));
         const task = payload?.task;
         const state = String(task?.status || "").toLowerCase();
+        highestProgress = Math.max(highestProgress, taskProgress(task));
+
+        if (["queued", "running"].includes(state)) {
+          setAsyncHudStatus("working", highestProgress);
+          continue;
+        }
+
         if (state === "completed") {
           const answer = marketScoutAnswer(task);
-          appendAsyncJarvisMessage(answer);
+          appendAsyncJarvisMessage(answer, "Jarvis · Market Scout", { id: `market-scout:${id}:completed` });
+          trackedAsyncTasks.delete(id);
+          if (!trackedAsyncTasks.size) setAsyncHudStatus("ready", 100);
           try {
             window.dispatchEvent(new CustomEvent("elyon:jarvis-async-result", { detail: { type: "market_scout", task, answer } }));
           } catch { /* optional */ }
           return;
         }
+
         if (["failed", "cancelled"].includes(state)) {
-          const reason = String(task?.error || task?.lastError || "Research-Auftrag fehlgeschlagen.").trim();
-          appendAsyncJarvisMessage(`Der Market-Scout-Hintergrundauftrag konnte nicht abgeschlossen werden: ${reason}`, "Jarvis · Market Scout Fehler");
+          const reason = marketScoutFailureMessage(task?.error || task?.lastError);
+          const answer = `Der Market-Scout-Hintergrundauftrag konnte nicht abgeschlossen werden: ${reason}`;
+          appendAsyncJarvisMessage(answer, "Jarvis · Market Scout Fehler", { id: `market-scout:${id}:failed`, kind: "error" });
+          trackedAsyncTasks.delete(id);
+          if (!trackedAsyncTasks.size) setAsyncHudStatus("error", highestProgress);
+          try {
+            window.dispatchEvent(new CustomEvent("elyon:jarvis-async-result", { detail: { type: "market_scout", task, answer, failed: true } }));
+          } catch { /* optional */ }
           return;
         }
       }
-      appendAsyncJarvisMessage("Der Market Scout läuft länger als erwartet. Der Auftrag bleibt im Jarvis Task Store gespeichert; du kannst im Seller Tool weiterarbeiten.", "Jarvis · Market Scout");
+
+      appendAsyncJarvisMessage(
+        "Der Market Scout läuft länger als erwartet. Der Auftrag bleibt im Jarvis Task Store gespeichert; du kannst im Seller Tool weiterarbeiten.",
+        "Jarvis · Market Scout",
+        { id: `market-scout:${id}:long-running` }
+      );
+      setAsyncHudStatus("working", highestProgress);
     } finally {
       trackedAsyncTasks.delete(id);
     }
@@ -349,6 +474,18 @@
     controlApi: CONTROL_API_URL,
     version: VERSION,
   });
+
+  window.addEventListener("elyon:jarvis-ui-result", () => {
+    setTimeout(() => {
+      ensureAsyncMessageObserver();
+      restoreAsyncJarvisMessages();
+    }, 0);
+  });
+
+  setTimeout(() => {
+    ensureAsyncMessageObserver();
+    restoreAsyncJarvisMessages();
+  }, 0);
 
   window.dispatchEvent(new CustomEvent("elyon:jarvis-ready", {
     detail: { version: VERSION, api: API_URL, autoApi: AUTO_API_URL, autoPreviewApi: AUTO_PREVIEW_API_URL },
