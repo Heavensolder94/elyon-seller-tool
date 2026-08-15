@@ -18,6 +18,7 @@ const jarvisClientNames = [
   "seller-jarvis-file-manager-actions.js",
   "seller-jarvis-file-manager-mount-bridge.js",
   "seller-jarvis-integration-center.js",
+  "seller-jarvis-hub.js",
   builderIntegrationName,
   "seller-jarvis-companion-handoff.js",
   "seller-jarvis-e1-cloud.js",
@@ -43,18 +44,14 @@ function replaceMarkedBlock(source, startMarker, endMarker, content) {
   return `${source.slice(0, bodyEnd)}${startMarker}\n${content}\n${endMarker}\n${source.slice(bodyEnd)}`;
 }
 
-function injectIntegrationMenuOption(source) {
-  const value = "jarvisIntegrationCenterTab";
-  if (source.includes(`value="${value}"`)) return source;
-  const marker = '<option value="virtualAgentsTab">10. 🧑‍💼 Virtuelle Mitarbeiter / KI-Agenten</option>';
-  if (!source.includes(marker)) return source;
-  return source.replace(marker, `${marker}\n      <option value="${value}">11. ⌘ Jarvis Integration Center</option>`);
+function normalizeJarvisMenu(source) {
+  return source.replace(/\s*<option value="jarvisIntegrationCenterTab">[^<]*<\/option>/g, "");
 }
 
 function injectDesktopHtml(source) {
-  const withMenu = injectIntegrationMenuOption(source);
+  const normalized = normalizeJarvisMenu(source);
   const content = `<script defer src="/${jarvisBootstrapName}?v=${Date.now()}"></script>`;
-  return replaceMarkedBlock(withMenu, "<!-- ELYON_JARVIS_D1 -->", "<!-- /ELYON_JARVIS_D1 -->", content);
+  return replaceMarkedBlock(normalized, "<!-- ELYON_JARVIS_D1 -->", "<!-- /ELYON_JARVIS_D1 -->", content);
 }
 
 function injectMobileHtml(source) {
@@ -93,6 +90,6 @@ await Promise.all([
   writeFile(mobilePath, injectMobileHtml(mobileSource), "utf8"),
 ]);
 
-console.log("Prepared persistent Elyon Agent Registry plus one-script Jarvis D1/D2/D3/E1/E4/E5 bootstrap with Integration Center, Brain File Manager V1.2 actions, stable mount bridge and employee-builder model bridge for desktop and mobile.");
+console.log("Prepared persistent Elyon Agent Registry plus one-script Jarvis D1/D2/D3/E1/E4/E5 bootstrap with unified JARVIS Hub, Brain File Manager V1.2, Integration Center internals and employee-builder model bridge for desktop and mobile.");
 
-export { builderIntegrationName, clientNames, injectDesktopHtml, injectIntegrationMenuOption, injectMobileHtml, injectRuntimeLoader, jarvisBootstrapName, jarvisClientNames, registryClientName };
+export { builderIntegrationName, clientNames, injectDesktopHtml, injectMobileHtml, injectRuntimeLoader, jarvisBootstrapName, jarvisClientNames, normalizeJarvisMenu, registryClientName };
