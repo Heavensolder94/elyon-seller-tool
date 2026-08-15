@@ -1,6 +1,7 @@
 import { normalizeProduct } from "../../../lib/product-master-active.js";
+import { researchMarketScout } from "./market-scout-research.js";
 
-const WORKER_VERSION = "0.4.2";
+const WORKER_VERSION = "0.4.3";
 const TASK_TTL_SECONDS = 86400;
 const IDEMPOTENCY_TTL_SECONDS = 2592000;
 const DEFAULT_MAX_ATTEMPTS = 3;
@@ -653,6 +654,13 @@ const ProductCheckHandler = {
   }
 };
 
+const MarketScoutHandler = {
+  agentName: "market-scout-handler-v1",
+  async handle(task, env) {
+    return researchMarketScout({ env, payload: object(task.payload) });
+  }
+};
+
 const UnsupportedTaskHandler = {
   agentName: "unsupported-task-handler",
   async handle() {
@@ -662,7 +670,8 @@ const UnsupportedTaskHandler = {
 
 const handlers = {
   "runtime-test": RuntimeTestHandler,
-  "product-check": ProductCheckHandler
+  "product-check": ProductCheckHandler,
+  "market-scout": MarketScoutHandler
 };
 
 const getHandler = (type) => {
@@ -970,14 +979,16 @@ const processValidQueueMessage = async (message, env, validation) => {
     const output = await handler.handle(task, env);
     const finishedAt = nowIso();
     const durationMs = Math.max(0, Date.parse(finishedAt) - Date.parse(startedAt));
+    const outputModel = textFrom(output?.model, 200) || null;
+    const outputCost = Number.isFinite(Number(output?.cost?.amount)) ? Number(output.cost.amount) : 0;
 
     await finishAgentRun(env, run, {
       status: "completed",
       output,
       error: null,
       duration_ms: durationMs,
-      model: null,
-      cost: 0,
+      model: outputModel,
+      cost: outputCost,
       finished_at: finishedAt
     });
 
@@ -1057,7 +1068,8 @@ const fetchHandler = async (request, env) => {
         service: "jarvis-task-runtime",
         queue: hasQueue(env) ? "configured" : "missing",
         maxAttempts: DEFAULT_MAX_ATTEMPTS,
-        productSource: hasSellerToolProductSource(env) ? "seller-tool-api+worker-fallback" : "worker-fallback-only"
+        productSource: hasSellerToolProductSource(env) ? "seller-tool-api+worker-fallback" : "worker-fallback-only",
+        taskHandlers: Object.keys(handlers)
       });
     }
 
@@ -1151,6 +1163,7 @@ export default {
 };
 
 export {
+  MarketScoutHandler,
   determineListingReadiness,
   loadProductForTask,
   processQueueMessage,
