@@ -26,8 +26,9 @@ test("Command Center directly remounts Brain Control after every full render", a
   );
 });
 
-test("Bootstrap cache key advances for self-healing Brain Control integration", async () => {
+test("Bootstrap cache key advances for self-healing Brain Control and unified Jarvis Hub", async () => {
   const bootstrap = await source("seller-jarvis-bootstrap.js");
-  assert.match(bootstrap, /v8-file-manager-v12-self-heal/);
+  assert.match(bootstrap, /v9-unified-jarvis-hub/);
   assert.match(bootstrap, /ensureBrainControl/);
+  assert.match(bootstrap, /seller-jarvis-hub\.js/);
 });
