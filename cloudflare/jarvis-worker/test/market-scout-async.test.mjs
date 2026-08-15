@@ -22,7 +22,7 @@ function openRouterResponse(candidates, cost = 0.001) {
   });
 }
 
-function candidate(name, index) {
+function candidate(name, index, patch = {}) {
   return {
     productName: name,
     category: "Haushalt",
@@ -33,13 +33,19 @@ function candidate(name, index) {
     sellingPrice: 30 + index,
     supplierSource: "Supplier",
     supplierUrl: `https://supplier.example.test/${index}`,
+    supplierRegion: "EU",
+    dropshippingSupported: true,
+    supplierShipsPerOrder: true,
+    minimumOrderQuantity: 1,
+    fulfillmentEvidence: "Supplier explicitly offers single-order dropshipping fulfillment with MOQ 1.",
     riskLevel: "low",
     risks: [],
     evidence: [{ url: `https://market.example.test/${index}`, label: "market evidence", type: "market" }],
+    ...patch,
   };
 }
 
-test("async Market Scout splits larger research into bounded batches and returns verified candidates", async () => {
+test("async Market Scout splits larger research into bounded batches and returns verified dropshipping candidates", async () => {
   const originalFetch = globalThis.fetch;
   let calls = 0;
   const requests = [];
@@ -72,6 +78,9 @@ test("async Market Scout splits larger research into bounded batches and returns
     assert.equal(result.safety.livePublishingAllowed, false);
     assert.equal(result.safety.supplierOrderingAllowed, false);
     assert.equal(result.candidates[0].marginBasis, "gross_before_marketplace_fees_and_returns");
+    assert.equal(result.candidates[0].dropshippingSupported, true);
+    assert.equal(result.candidates[0].supplierShipsPerOrder, true);
+    assert.equal(result.candidates[0].minimumOrderQuantity, 1);
     assert.equal(result.cost.webSearchRequests, 2);
 
     for (const request of requests) {
@@ -84,7 +93,38 @@ test("async Market Scout splits larger research into bounded batches and returns
       assert.equal(request.tools[0].parameters.max_results, 4);
       assert.equal(request.tools[0].parameters.max_total_results, 10);
       assert.equal(request.tools[0].parameters.max_characters, 2000);
+      assert.equal(request.response_format?.type, "json_schema");
+      assert.equal(request.response_format?.json_schema?.strict, true);
+      assert.equal(request.plugins?.[0]?.id, "response-healing");
+      assert.equal(request.provider?.require_parameters, true);
     }
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("async Market Scout rejects wholesale MOQ candidates that are not single-order dropshipping", async () => {
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls += 1;
+    return openRouterResponse([candidate("Bulk Silicone Bag", 1, {
+      dropshippingSupported: false,
+      supplierShipsPerOrder: false,
+      minimumOrderQuantity: 500,
+      fulfillmentEvidence: "Wholesale MOQ is 500 units.",
+    })]);
+  };
+
+  try {
+    await assert.rejects(
+      () => researchMarketScout({
+        env: { OPENROUTER_API_KEY: "test" },
+        payload: { command: "Finde ein Dropshipping-Produkt", requestedCount: 1 },
+      }),
+      (error) => error?.message === "market_scout_no_verified_candidates" && error?.retryable === false
+    );
+    assert.equal(calls, 2);
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -100,6 +140,24 @@ test("async Market Scout preserves provider failure when every research batch fa
         payload: { command: "Finde 5 Produkte", requestedCount: 5 },
       }),
       /provider unavailable/
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("async Market Scout marks daily free-model quota as non-retryable", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => Response.json({
+    error: { message: "Rate limit exceeded: free-models-per-day. Add 10 credits to unlock 1000 free model requests per day" },
+  }, { status: 429 });
+  try {
+    await assert.rejects(
+      () => researchMarketScout({
+        env: { OPENROUTER_API_KEY: "test" },
+        payload: { command: "Finde ein Produkt", requestedCount: 1 },
+      }),
+      (error) => /free-models-per-day/.test(error?.message || "") && error?.retryable === false
     );
   } finally {
     globalThis.fetch = originalFetch;
