@@ -55,9 +55,9 @@ jobs:
       - name: Run tests
         run: npm test
 
-      - name: Run Jarvis worker tests
+      - name: Run Market Scout worker tests
         working-directory: cloudflare/jarvis-worker
-        run: npm test
+        run: node --test test/market-scout-async.test.mjs
 
       - name: Build Vercel output
         run: npm run build
