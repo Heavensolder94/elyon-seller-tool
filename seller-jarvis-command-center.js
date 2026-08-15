@@ -342,6 +342,13 @@
           <div class="jarvis-cc-chat" data-jarvis-cc-chat>${renderHistory()}</div>
         </section>
       </div>`;
+
+    window.dispatchEvent(new CustomEvent("elyon:jarvis-command-center-rendered", { detail: { tabId: TAB_ID } }));
+    queueMicrotask(() => {
+      window.ElyonJarvisFileManager?.refresh?.();
+      window.ElyonJarvisFileManagerActions?.bindRoot?.();
+      window.ElyonJarvisFileManagerMountBridge?.reconcile?.();
+    });
   }
 
   function renderHistory() {
