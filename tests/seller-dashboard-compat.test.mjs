@@ -89,6 +89,28 @@ test("mounts the Seller cockpit without deleting legacy dashboard elements", asy
   assert.equal(parent.children.length, 2);
 });
 
+test("merges the legacy Rechnungen menu entry into the Finanzen workspace", async () => {
+  const source = await readFile(new URL("../seller-dashboard-compat.js", import.meta.url), "utf8");
+  const { documentRef } = createDocumentFixture();
+  const menu = createNode(documentRef, "select", "mainMenu", "");
+  const invoiceOption = createNode(documentRef, "option", "", "");
+  invoiceOption.value = "invoiceTab";
+  invoiceOption.textContent = "5. Rechnungen";
+  invoiceOption.parentNode = menu;
+  menu.children.push(invoiceOption);
+  menu.options = menu.children;
+  menu.value = "invoiceTab";
+
+  const windowRef = { document: documentRef };
+  vm.runInNewContext(source, { window: windowRef, globalThis: windowRef });
+
+  assert.equal(menu.options.length, 1);
+  assert.equal(menu.options[0].value, "financeTab");
+  assert.equal(menu.options[0].textContent, "5. Finanzen");
+  assert.equal(menu.value, "financeTab");
+  assert.equal(menu.options[0].dataset.elyonFinanceMenuMerged, "true");
+});
+
 test("loads the compatibility layer before role policy and dashboard module", async () => {
   const source = await readFile(new URL("../scripts/prepare-vercel.mjs", import.meta.url), "utf8");
   const compatIndex = source.indexOf("/seller-dashboard-compat.js");
