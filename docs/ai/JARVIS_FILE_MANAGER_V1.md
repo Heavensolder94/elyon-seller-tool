@@ -1,4 +1,4 @@
-# Jarvis File Manager V1.2 — Brain Control + Unified JARVIS Hub
+# Jarvis File Manager V1.2 — Brain Control + vereinfachter JARVIS Hub
 
 ## Ziel
 
@@ -17,7 +17,7 @@ JARVIS_FILE_STORE_ENABLED = true
 
 Ein gespeicherter Draft ändert dadurch nicht automatisch das Verhalten von Jarvis.
 
-## Unified JARVIS Hub
+## Vereinfachter JARVIS Hub
 
 Der Seller Tool Hauptbereich zeigt nur noch einen zentralen Eintrag:
 
@@ -27,13 +27,19 @@ Der Seller Tool Hauptbereich zeigt nur noch einen zentralen Eintrag:
 
 Der frühere separate Hauptmenüpunkt `Jarvis Integration Center` ist kein eigener Navigationsbereich mehr. Seine bestehenden Funktionen bleiben erhalten und werden intern über den JARVIS Hub verwendet.
 
-Innerhalb von JARVIS gibt es fünf Bereiche:
+Die normale Oberfläche hat nur drei primäre Bereiche:
 
-- **Übersicht** — bestehendes Jarvis Command Center, Status, Aufgaben und Betriebsinformationen
-- **Brain** — Brain Control / File Manager mit Health, Dateien, Diff, Versionen und Edit-Workflow
-- **Integrationen** — APIs, Provider und Routing
-- **Modelle** — KI-Modellregistry und lokale Modellfreigaben
-- **System** — Runtime-Status, Logs und beobachtete Kosten
+- **JARVIS** — Auftragseingabe, Hinweise mit Handlungsbedarf und letzte Aktionen
+- **Gehirn** — Identität, Elyon-Wissen, Ziele, Regeln, Fähigkeiten und Abläufe
+- **System** — einfacher Gesundheitscheck für Brain, Memory, Pipeline und Safety
+
+Technische Informationen sind bewusst eine Ebene tiefer gelegt:
+
+- Auf der JARVIS-Startseite blendet **Mehr anzeigen** zusätzliche Metriken, Agenten, Jobs, Pipeline und Chat-Historie ein.
+- Im Gehirn blendet **Technische Details** Health-Metriken, Runtime-/Versionsstatus, Dateipfade und weitere Diagnoseinformationen ein.
+- Im System blendet **Technische Details** die Unterbereiche Status, Integrationen, KI-Modelle, Routing, Kosten und Logs ein.
+
+Damit bleibt die tägliche Bedienung auf Entscheidungen und Aufgaben fokussiert, während Diagnose- und Entwicklerdaten weiterhin verfügbar sind.
 
 Technisch bleibt `jarvisCommandCenterTab` der kompatible Top-Level-Route-Key. `seller-jarvis-hub.js` steuert die interne Ansicht und verwendet die vorhandenen Module weiter, statt ihre Business-Logik zu duplizieren.
 
@@ -143,11 +149,16 @@ Geladene Core-Einträge tragen intern `runtimeSource` und `runtimeVersion`.
 
 `seller-jarvis-file-manager.js` stellt die Brain-Dateien dar.
 
-Die Dateien sind funktional gruppiert:
+In der normalen Gehirn-Ansicht werden technische Dateinamen durch verständliche Begriffe ergänzt bzw. ersetzt:
 
-- **Core Brain** — Identity, Elyon Context, Goals
-- **Rules & Safety** — Operating Rules, Capabilities
-- **Execution** — Playbooks
+- **Identität** — wer Jarvis ist
+- **Elyon-Wissen** — stabiler Systemkontext
+- **Ziele** — permanente Prioritäten und Optimierungsrichtung
+- **Regeln** — verbindliche Arbeits- und Sicherheitsregeln
+- **Fähigkeiten** — was Jarvis darf und kann
+- **Abläufe** — wiederverwendbare Playbooks
+
+Die bestehende technische Gruppierung und alle Runtime-/Versionsinformationen bleiben unter **Technische Details** erhalten.
 
 ### Brain Health
 
@@ -155,16 +166,11 @@ Die Dateien sind funktional gruppiert:
 - `attention` — Pflicht-Core vollständig, aber mindestens ein Draft wartet auf Review
 - `critical` — Pflichtdatei fehlt oder aktive Versionsreferenz ist inkonsistent
 
-Die UI zeigt unter anderem:
-
-- Core Ready
-- Protected Ready
-- Draft-Anzahl
-- Conflict-Anzahl
-
 Ein Draft ist kein Runtime-Fehler. Er verändert die aktive Quelle nicht automatisch.
 
 ### Dateistatus
+
+Technisch verfügbar bleiben:
 
 - `ACTIVE`
 - `DRAFT`
@@ -255,7 +261,7 @@ Ein Versions-Rollback löscht keine Historie, sondern setzt kontrolliert eine fr
 
 Brain Control verwendet den persistenten Host `jarvisBrainControlPersistentHost`, damit Command-Center-Re-Renders seine Oberfläche nicht zerstören.
 
-Der Unified Hub verschiebt Command Center oder Brain Control nicht zwischen Render-Bäumen. Er steuert ihre Sichtbarkeit über einen stabilen Top-Level-Zustand und verwendet das bestehende Integration Center intern weiter.
+Der Hub verschiebt Command Center oder Brain Control nicht zwischen Render-Bäumen. Er steuert ihre Sichtbarkeit über einen stabilen Top-Level-Zustand und verwendet das bestehende Integration Center intern weiter.
 
 Der Hub ist event-/observer-basiert und verwendet kein Hintergrund-Polling.
 
@@ -277,7 +283,8 @@ Die Testabdeckung umfasst unter anderem:
 - stabilen Brain-Control-Mount
 - Bootstrap-Recovery
 - genau einen sichtbaren JARVIS-Einstieg
-- fünf interne Hub-Bereiche
+- genau drei primäre Hub-Bereiche: JARVIS, Gehirn, System
+- technische Details als Opt-in statt Standardansicht
 - Entfernung des Legacy-Integration-Center-Menüpunkts
 - Wiederverwendung der bestehenden Integration-Center-Funktionen
-- keine Polling-Schleife im Unified Hub
+- keine Polling-Schleife im JARVIS Hub
