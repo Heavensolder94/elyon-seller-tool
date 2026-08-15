@@ -51,13 +51,21 @@ test("Jarvis D1 passes only a bounded current product and recent task context fr
   assert.doesNotMatch(source, /buyerEmail|shippingAddress|phoneNumber/);
 });
 
-test("Jarvis bootstrap is valid, event-driven, and loads client before UI", async () => {
+test("Jarvis bootstrap is valid, event-driven, loads client before UI and tolerates isolated module failures", async () => {
   const source = await readFile(bootstrapUrl, "utf8");
   assert.doesNotThrow(() => new vm.Script(source));
   assert.match(source, /seller-jarvis-client\.js/);
   assert.match(source, /seller-jarvis-ui\.js/);
-  assert.match(source, /for \(const file of FILES\) await load\(file\)/);
-  assert.doesNotMatch(source, /MutationObserver|setInterval/);
+  const filesStart = source.indexOf("const FILES = [");
+  const filesEnd = source.indexOf("];", filesStart);
+  assert.ok(filesStart >= 0 && filesEnd > filesStart);
+  const filesBlock = source.slice(filesStart, filesEnd);
+  assert.ok(filesBlock.indexOf("seller-jarvis-client.js") < filesBlock.indexOf("seller-jarvis-ui.js"));
+  assert.match(source, /for \(const file of FILES\)/);
+  assert.match(source, /try \{[\s\S]*await load\(file\)/);
+  assert.match(source, /installBrainControlGuard/);
+  assert.match(source, /MutationObserver/);
+  assert.doesNotMatch(source, /setInterval\s*\(/);
 });
 
 test("desktop build uses exactly one Jarvis D1 startup script", async () => {
