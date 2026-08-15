@@ -30,9 +30,14 @@ test("Jarvis client surfaces failed Market Scout tasks as a visible error messag
   assert.match(source, /openrouter_invalid_market_scout_json/);
 });
 
-test("Jarvis HUD shows working state with backend progress percentage", () => {
+test("Jarvis HUD shows working state with server-backed and interpolated progress", () => {
   assert.match(source, /IN ARBEIT · \$\{/);
   assert.match(source, /taskProgress\(task/);
-  assert.match(source, /setAsyncHudStatus\("working"/);
+  assert.match(source, /estimatedAsyncProgress/);
+  assert.match(source, /ASYNC_PROGRESS_MAX_BEFORE_COMPLETE\s*=\s*92/);
+  assert.match(source, /setInterval\(refreshProgressHud, ASYNC_PROGRESS_TICK_MS\)/);
+  assert.match(source, /Math\.max\(floor/);
+  assert.match(source, /setAsyncHudStatus\("working", 100\)/);
+  assert.match(source, /ASYNC_COMPLETE_HOLD_MS/);
   assert.match(source, /\[data-jarvis-state\]/);
 });
