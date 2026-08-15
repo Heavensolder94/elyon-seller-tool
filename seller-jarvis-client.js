@@ -8,9 +8,12 @@
   const EVENTS_API_URL = "/api/jarvis-events";
   const JOBS_API_URL = "/api/jarvis-jobs";
   const CONTROL_API_URL = "/api/jarvis-control";
-  const VERSION = "phase-e4-v1.7";
+  const VERSION = "phase-e4-v1.8";
   const ASYNC_TASK_POLL_MS = 5000;
   const ASYNC_TASK_MAX_POLLS = 120;
+  const ASYNC_PROGRESS_TICK_MS = 1000;
+  const ASYNC_PROGRESS_MAX_BEFORE_COMPLETE = 92;
+  const ASYNC_COMPLETE_HOLD_MS = 900;
   const ASYNC_MESSAGE_STORAGE_KEY = "elyon_jarvis_async_messages_v1";
   const ASYNC_MESSAGE_LIMIT = 20;
   const trackedAsyncTasks = new Set();
@@ -215,13 +218,43 @@
     return Math.max(0, Math.min(99, Math.round(value)));
   }
 
+  function estimatedAsyncProgress({ state, serverProgress, runningSince }) {
+    const normalized = String(state || "").toLowerCase();
+    const floor = Math.max(0, Math.min(ASYNC_PROGRESS_MAX_BEFORE_COMPLETE, Math.round(Number(serverProgress) || 0)));
+    if (normalized === "queued") return Math.max(5, floor);
+    if (normalized !== "running") return floor;
+
+    const elapsedSeconds = runningSince ? Math.max(0, (Date.now() - runningSince) / 1000) : 0;
+    const checkpoints = [
+      [0, 10],
+      [10, 16],
+      [20, 24],
+      [35, 34],
+      [50, 44],
+      [70, 54],
+      [95, 64],
+      [125, 73],
+      [165, 81],
+      [220, 87],
+      [300, 90],
+      [420, ASYNC_PROGRESS_MAX_BEFORE_COMPLETE],
+    ];
+
+    let estimated = 10;
+    for (const [seconds, progress] of checkpoints) {
+      if (elapsedSeconds >= seconds) estimated = progress;
+      else break;
+    }
+    return Math.max(floor, Math.min(ASYNC_PROGRESS_MAX_BEFORE_COMPLETE, estimated));
+  }
+
   function setAsyncHudStatus(kind, progress = 0) {
     const shell = document.getElementById("elyonJarvisPanel");
     if (!shell) return false;
     const normalized = kind === "working" ? "working" : kind === "error" ? "error" : "ready";
     shell.dataset.state = normalized;
     const label = normalized === "working"
-      ? `IN ARBEIT · ${Math.max(0, Math.min(99, Math.round(Number(progress) || 0)))}%`
+      ? `IN ARBEIT · ${Math.max(0, Math.min(100, Math.round(Number(progress) || 0)))}%`
       : normalized === "error"
         ? "FEHLER"
         : "BEREIT";
@@ -333,8 +366,22 @@
     const statusUrl = String(taskMeta.statusUrl || "").trim();
     if (!id || !statusUrl || trackedAsyncTasks.has(id)) return;
     trackedAsyncTasks.add(id);
-    let highestProgress = taskProgress(taskMeta);
-    setTimeout(() => setAsyncHudStatus("working", highestProgress), 0);
+
+    let taskState = String(taskMeta.status || "queued").toLowerCase();
+    let serverProgress = taskProgress(taskMeta);
+    let highestProgress = estimatedAsyncProgress({ state: taskState, serverProgress, runningSince: null });
+    let runningSince = taskState === "running" ? Date.now() : null;
+    let progressTimer = null;
+
+    const refreshProgressHud = () => {
+      if (!["queued", "running"].includes(taskState)) return;
+      const next = estimatedAsyncProgress({ state: taskState, serverProgress, runningSince });
+      highestProgress = Math.max(highestProgress, next);
+      setAsyncHudStatus("working", highestProgress);
+    };
+
+    setTimeout(refreshProgressHud, 0);
+    progressTimer = setInterval(refreshProgressHud, ASYNC_PROGRESS_TICK_MS);
     ensureAsyncMessageObserver();
 
     try {
@@ -350,7 +397,10 @@
         const payload = await response.json().catch(() => ({}));
         const task = payload?.task;
         const state = String(task?.status || "").toLowerCase();
-        highestProgress = Math.max(highestProgress, taskProgress(task));
+        taskState = state;
+        serverProgress = taskProgress(task);
+        if (state === "running" && !runningSince) runningSince = Date.now();
+        highestProgress = Math.max(highestProgress, estimatedAsyncProgress({ state, serverProgress, runningSince }));
 
         if (["queued", "running"].includes(state)) {
           setAsyncHudStatus("working", highestProgress);
@@ -358,10 +408,16 @@
         }
 
         if (state === "completed") {
+          if (progressTimer) clearInterval(progressTimer);
+          progressTimer = null;
+          setAsyncHudStatus("working", 100);
           const answer = marketScoutAnswer(task);
           appendAsyncJarvisMessage(answer, "Jarvis · Market Scout", { id: `market-scout:${id}:completed` });
           trackedAsyncTasks.delete(id);
-          if (!trackedAsyncTasks.size) setAsyncHudStatus("ready", 100);
+          if (!trackedAsyncTasks.size) {
+            await wait(ASYNC_COMPLETE_HOLD_MS);
+            setAsyncHudStatus("ready", 100);
+          }
           try {
             window.dispatchEvent(new CustomEvent("elyon:jarvis-async-result", { detail: { type: "market_scout", task, answer } }));
           } catch { /* optional */ }
@@ -369,6 +425,8 @@
         }
 
         if (["failed", "cancelled"].includes(state)) {
+          if (progressTimer) clearInterval(progressTimer);
+          progressTimer = null;
           const reason = marketScoutFailureMessage(task?.error || task?.lastError);
           const answer = `Der Market-Scout-Hintergrundauftrag konnte nicht abgeschlossen werden: ${reason}`;
           appendAsyncJarvisMessage(answer, "Jarvis · Market Scout Fehler", { id: `market-scout:${id}:failed`, kind: "error" });
@@ -388,6 +446,7 @@
       );
       setAsyncHudStatus("working", highestProgress);
     } finally {
+      if (progressTimer) clearInterval(progressTimer);
       trackedAsyncTasks.delete(id);
     }
   }
