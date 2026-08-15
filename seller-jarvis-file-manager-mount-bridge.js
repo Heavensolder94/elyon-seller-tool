@@ -3,9 +3,11 @@
 
   const TAB_ID = "jarvisCommandCenterTab";
   const ROOT_ID = "jarvisFileManagerPanel";
+  const HOST_ID = "jarvisBrainControlPersistentHost";
+  const HOST_STYLE_ID = "jarvisBrainControlPersistentHostStyles";
   const DETAIL_MODAL_ID = "jarvisFileManagerModal";
   const ACTIONS_PATH = "/seller-jarvis-file-manager-actions.js";
-  const VERSION = "v1.2-ui-reconcile-2";
+  const VERSION = "v1.2-persistent-host-1";
 
   let tabObserver = null;
   let bodyObserver = null;
@@ -18,7 +20,44 @@
     const tab = document.getElementById(TAB_ID);
     const shell = tab?.querySelector(".jarvis-cc") || null;
     const panel = document.getElementById(ROOT_ID);
-    return { tab, shell, panel };
+    const host = document.getElementById(HOST_ID);
+    return { tab, shell, panel, host };
+  }
+
+  function installHostStyles() {
+    if (document.getElementById(HOST_STYLE_ID)) return;
+    const style = document.createElement("style");
+    style.id = HOST_STYLE_ID;
+    style.textContent = `
+      #${HOST_ID}{display:none;min-width:0;margin-top:16px;margin-bottom:34px}
+      #${HOST_ID}.active{display:block}
+      #${HOST_ID} > #${ROOT_ID}{margin:0}
+    `;
+    document.head.appendChild(style);
+  }
+
+  function ensurePersistentHost(tab) {
+    if (!tab?.parentNode) return null;
+    installHostStyles();
+    let host = document.getElementById(HOST_ID);
+    if (!host) {
+      host = document.createElement("section");
+      host.id = HOST_ID;
+      host.dataset.jarvisBrainPersistentHost = "1";
+      tab.insertAdjacentElement("afterend", host);
+    } else if (host.previousElementSibling !== tab) {
+      tab.insertAdjacentElement("afterend", host);
+    }
+    return host;
+  }
+
+  function syncHostVisibility(tab, host) {
+    if (!tab || !host) return false;
+    const menu = document.getElementById("mainMenu");
+    const active = tab.classList.contains("active") || menu?.value === TAB_ID;
+    host.classList.toggle("active", Boolean(active));
+    host.setAttribute("aria-hidden", active ? "false" : "true");
+    return active;
   }
 
   function existingScript(path) {
@@ -179,19 +218,33 @@
     modalObserver.observe(modal, { childList: true, subtree: true });
   }
 
+  function movePanelToPersistentHost(panel, host) {
+    if (!panel || !host) return false;
+    if (panel.parentElement !== host) host.appendChild(panel);
+    return panel.parentElement === host;
+  }
+
   function reconcile() {
     scheduled = false;
-    const { shell, panel } = hostState();
-    if (!shell) return false;
+    const current = hostState();
+    if (!current.tab) return false;
 
-    if (!panel || !shell.contains(panel)) {
+    const host = ensurePersistentHost(current.tab);
+    if (!host) return false;
+    syncHostVisibility(current.tab, host);
+
+    let panel = document.getElementById(ROOT_ID);
+    if (!panel) {
       window.ElyonJarvisFileManager?.refresh?.();
+      panel = document.getElementById(ROOT_ID);
+      if (!panel) {
+        queueMicrotask(() => schedule());
+        return false;
+      }
     }
 
-    const next = hostState();
-    if (!next.panel || !next.shell?.contains(next.panel)) return false;
-
-    patchPanel(next.panel);
+    movePanelToPersistentHost(panel, host);
+    patchPanel(panel);
     observeDetailModal();
     patchDetailModal();
     return true;
@@ -206,7 +259,7 @@
   function observeTab(tab) {
     tabObserver?.disconnect();
     tabObserver = new MutationObserver(schedule);
-    tabObserver.observe(tab, { childList: true, subtree: true });
+    tabObserver.observe(tab, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
   }
 
   function bind() {
@@ -214,6 +267,7 @@
     if (tab) {
       bodyObserver?.disconnect();
       bodyObserver = null;
+      ensurePersistentHost(tab);
       observeTab(tab);
       observeDetailModal();
       schedule();
@@ -226,6 +280,7 @@
         if (!nextTab) return;
         bodyObserver?.disconnect();
         bodyObserver = null;
+        ensurePersistentHost(nextTab);
         observeTab(nextTab);
         observeDetailModal();
         schedule();
@@ -235,10 +290,14 @@
     return false;
   }
 
+  document.addEventListener("change", (event) => {
+    if (event.target?.id === "mainMenu") schedule();
+  }, true);
   window.addEventListener("elyon:tab-changed", schedule);
   window.addEventListener("elyon:seller-authenticated", schedule);
   window.addEventListener("elyon:jarvis-ui-result", schedule);
   window.addEventListener("elyon:jarvis-command-center-result", schedule);
+  window.addEventListener("elyon:jarvis-command-center-rendered", schedule);
 
   window.ElyonJarvisFileManagerMountBridge = Object.freeze({
     version: VERSION,
@@ -248,6 +307,9 @@
     patchPanel,
     patchDetailModal,
     ensureEditButtons,
+    ensurePersistentHost,
+    syncHostVisibility,
+    movePanelToPersistentHost,
     loadActions,
     openEditor,
   });
