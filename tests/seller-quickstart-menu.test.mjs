@@ -25,11 +25,13 @@ test("uses the current Seller workflow in the required order", () => {
   assert.deepEqual(QUICKSTART_PRIMARY_WORKFLOW.map((route) => route.step), [1, 2, 3, 4, 5, 6, 7, 8]);
 });
 
-test("offers virtual employees and system/API settings as secondary areas", () => {
+test("offers Jarvis, virtual employees and system/API settings as secondary areas", () => {
   assert.deepEqual(QUICKSTART_SECONDARY_LINKS.map((route) => route.label), [
+    "JARVIS / Brain Control",
     "Virtuelle Mitarbeiter",
     "System- & API-Einstellungen",
   ]);
+  assert.equal(QUICKSTART_SECONDARY_LINKS[0].tab, "jarvisCommandCenterTab");
 });
 
 test("does not advertise retired Shopify, calculation or laboratory areas", () => {
@@ -46,6 +48,9 @@ test("maps dashboard tasks to the modern workflow", () => {
   assert.equal(selectQuickstartRecommendation([
     { title: "3 Produkte listingbereit", detail: "Paket prüfen", tab: "ebayListingTab", tone: "success" },
   ]).routeId, "listingPackage");
+  assert.equal(selectQuickstartRecommendation([
+    { title: "Jarvis prüfen", detail: "Brain Control öffnen", tab: "jarvisCommandCenterTab", tone: "info" },
+  ]).routeId, "jarvis");
   assert.equal(selectQuickstartRecommendation([], { products: 0 }).routeId, "companyOs");
 });
 
