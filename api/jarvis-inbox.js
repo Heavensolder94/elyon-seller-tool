@@ -3,7 +3,7 @@ import { getJarvisInboxItem, listJarvisInbox, updateJarvisInboxState, UUID_PATTE
 import { runMarketScout } from "../lib/jarvis-market-scout.js";
 
 const COMPANY_OS_DEFAULT_URL = "https://elyon-company-os.vercel.app";
-const ALLOWED_ACTIONS = new Set(["open", "approve", "reject", "archive", "retry", "transfer_to_nova"]);
+const ALLOWED_ACTIONS = new Set(["open", "approve", "reject", "archive", "trash", "restore", "delete_permanent", "retry", "transfer_to_nova"]);
 
 function text(value, max = 2000) {
   return String(value ?? "").trim().slice(0, max);
@@ -167,6 +167,9 @@ export default async function handler(req, res) {
         capabilities: {
           novaTransferConfigured: config.configured,
           retryMarketScout: true,
+          trash: true,
+          permanentInboxDelete: true,
+          technicalTaskDelete: false,
         },
       });
     } catch (error) {
@@ -194,9 +197,27 @@ export default async function handler(req, res) {
     const item = await getJarvisInboxItem({ taskId, itemKey, env: process.env });
     if (!item) return res.status(404).json({ ok: false, error: "jarvis_inbox_item_not_found" });
 
-    if (["open", "approve", "reject", "archive"].includes(action)) {
+    if (["open", "approve", "reject", "archive", "trash", "restore", "delete_permanent"].includes(action)) {
+      if (action === "restore" && item.state !== "trashed") {
+        return res.status(409).json({ ok: false, error: "jarvis_inbox_item_not_trashed", message: "Nur Einträge im Papierkorb können wiederhergestellt werden." });
+      }
+      if (action === "delete_permanent" && item.state !== "trashed") {
+        return res.status(409).json({ ok: false, error: "jarvis_inbox_delete_requires_trash", message: "Ein Eintrag muss zuerst in den Papierkorb verschoben werden." });
+      }
       const workflow = await updateJarvisInboxState({ taskId, itemKey, action, env: process.env });
-      return res.status(200).json({ ok: true, action, workflow });
+      return res.status(200).json({
+        ok: true,
+        action,
+        workflow,
+        audit: {
+          technicalTaskRetained: true,
+          taskId,
+        },
+      });
+    }
+
+    if (item.state === "trashed") {
+      return res.status(409).json({ ok: false, error: "jarvis_inbox_item_trashed", message: "Der Eintrag liegt im Papierkorb. Stelle ihn zuerst wieder her." });
     }
 
     if (action === "retry") {
