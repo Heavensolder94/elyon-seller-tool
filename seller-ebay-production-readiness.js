@@ -116,7 +116,7 @@
   function hideLegacyLock(host) {
     host.querySelectorAll(".seller-selling-disabled").forEach((node) => { node.style.display = "none"; });
     host.querySelectorAll(".seller-selling-lock").forEach((node) => {
-      if (/API-Übergabe gesperrt|noch keinen geprüften Inventory/i.test(node.textContent || "")) node.style.display = "none";
+      if (/API-Übergabe gesperrt|noch keinen geprüften Inventory|Veröffentlichung bleibt manuell|automatische eBay-Veröffentlichung.*gesperrt/i.test(node.textContent || "")) node.style.display = "none";
     });
   }
 
@@ -233,6 +233,8 @@
     const server = object(product.rawServerProduct || product.raw || product);
     const listing = object(server.listing || product.listing);
     const draft = object(listing.autoListerDraft || product.autoListerDraft);
+    const publishing = readSelections();
+    const autoPublishEnabled = publishing.autoPublishEnabled === true;
     const now = new Date().toISOString();
     const nextDraft = {
       ...draft,
@@ -242,7 +244,11 @@
       marketplaceId: text(result.marketplaceId || draft.marketplaceId || "EBAY_DE"),
       ebayInventoryDraftCreated: Boolean(result.draftCreated || draft.ebayInventoryDraftCreated),
       publishEndpointAvailable: true,
-      automaticPublishingAllowed: false,
+      manualApprovalRequired: !autoPublishEnabled,
+      automaticPublishingAllowed: autoPublishEnabled,
+      autonomousPostingAllowed: false,
+      publishingMode: autoPublishEnabled ? "auto_after_readiness" : "manual_approval",
+      publishingApprovalSource: autoPublishEnabled ? "user_enabled_auto_live" : "per_listing_confirmation",
       setupSelection: selectedSetupPayload(),
       updatedAt: now,
     };
