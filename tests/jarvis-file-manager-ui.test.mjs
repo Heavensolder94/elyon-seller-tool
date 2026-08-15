@@ -133,17 +133,23 @@ test("File Store runtime flag remains explicit opt-in", () => {
   assert.equal(fileStoreEnabled({ JARVIS_FILE_STORE_ENABLED: "true" }), true);
 });
 
-test("Brain File Manager asset is copied and loads V1.1 health, grouping, diff and history UI", async () => {
+test("Brain File Manager asset is copied and loads health, grouping, diff, history and V1.2 recovery wiring", async () => {
   const bootstrap = await readFile(new URL("seller-jarvis-bootstrap.js", root), "utf8");
   const prepare = await readFile(new URL("scripts/prepare-agent-registry.mjs", root), "utf8");
   const ui = await readFile(new URL("seller-jarvis-file-manager.js", root), "utf8");
 
   assert.match(bootstrap, /\/seller-jarvis-file-manager\.js/);
   assert.match(prepare, /"seller-jarvis-file-manager\.js"/);
+  const filesStart = bootstrap.indexOf("const FILES = [");
+  const filesEnd = bootstrap.indexOf("];", filesStart);
+  assert.ok(filesStart >= 0 && filesEnd > filesStart, "normal Jarvis module list must exist");
+  const filesBlock = bootstrap.slice(filesStart, filesEnd);
   assert.ok(
-    bootstrap.indexOf('"/seller-jarvis-command-center.js"') < bootstrap.indexOf('"/seller-jarvis-file-manager.js"'),
-    "File Manager must load after the Command Center mount exists"
+    filesBlock.indexOf('"/seller-jarvis-command-center.js"') < filesBlock.indexOf('"/seller-jarvis-file-manager.js"'),
+    "normal File Manager load must follow the Command Center"
   );
+  assert.match(bootstrap, /BRAIN_CONTROL_MODULES/);
+  assert.match(bootstrap, /ensureBrainControl/);
   assert.match(ui, /Brain Center · File Manager/);
   assert.match(ui, /Jarvis Brain Health/);
   assert.match(ui, /Core Brain/);
