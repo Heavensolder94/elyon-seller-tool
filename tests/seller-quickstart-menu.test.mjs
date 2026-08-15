@@ -25,13 +25,14 @@ test("uses the current Seller workflow in the required order", () => {
   assert.deepEqual(QUICKSTART_PRIMARY_WORKFLOW.map((route) => route.step), [1, 2, 3, 4, 5, 6, 7, 8]);
 });
 
-test("offers Jarvis, virtual employees and system/API settings as secondary areas", () => {
+test("offers one unified Jarvis entry plus virtual employees and system/API settings", () => {
   assert.deepEqual(QUICKSTART_SECONDARY_LINKS.map((route) => route.label), [
-    "JARVIS / Brain Control",
+    "JARVIS",
     "Virtuelle Mitarbeiter",
     "System- & API-Einstellungen",
   ]);
   assert.equal(QUICKSTART_SECONDARY_LINKS[0].tab, "jarvisCommandCenterTab");
+  assert.match(QUICKSTART_SECONDARY_LINKS[0].description, /Übersicht, Brain, Integrationen, Modelle und System/);
 });
 
 test("does not advertise retired Shopify, calculation or laboratory areas", () => {
