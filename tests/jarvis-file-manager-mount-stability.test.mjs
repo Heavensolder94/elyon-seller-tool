@@ -44,6 +44,17 @@ test("V1.2 reconciler removes stale read-only semantics after every Brain Contro
   assert.match(bridge, /observeDetailModal/);
 });
 
+test("V1.2 edit entry is created by the stable mount and can lazy-load the action module", async () => {
+  const bridge = await source("seller-jarvis-file-manager-mount-bridge.js");
+
+  assert.match(bridge, /data-jarvis-file-key/);
+  assert.match(bridge, /data-jarvis-file-edit/);
+  assert.match(bridge, /button\.textContent = "Bearbeiten"/);
+  assert.match(bridge, /seller-jarvis-file-manager-actions\.js/);
+  assert.match(bridge, /loadActions/);
+  assert.match(bridge, /actions\.openEditor\(cleanKey\)/);
+});
+
 test("bootstrap cache key changes whenever Brain Control runtime assets change", async () => {
   const bootstrap = await source("seller-jarvis-bootstrap.js");
   assert.match(bootstrap, /phase-e5-v1-openrouter-registry-v\d+-file-manager/);
