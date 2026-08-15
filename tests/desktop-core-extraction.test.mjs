@@ -16,12 +16,15 @@ test("desktop build extracts both large inline application scripts", async () =>
   assert.match(result.agentsCode, /const STORAGE_KEY = 'elyon_ai_agents_settings'/);
 });
 
-test("retired Konkurrenz / Marktcheck navigation is removed from the desktop build", async () => {
+test("retired seller navigation modules are removed from the desktop build", async () => {
   const source = await readFile(sourceUrl, "utf8");
   const result = extractDesktopRuntime(source, { version: 123 });
 
-  assert.match(source, /<option value="marketCheckTab">11\. Konkurrenz \/ Marktcheck<\/option>/);
-  assert.doesNotMatch(result.html, /<option\s+value=["']marketCheckTab["']/);
+  const retiredTabs = ["marketCheckTab", "financeTab", "listingCheckTab", "productStatusTab"];
+  for (const tabId of retiredTabs) {
+    assert.match(source, new RegExp(`<option\\s+value=["']${tabId}["']`));
+    assert.doesNotMatch(result.html, new RegExp(`<option\\s+value=["']${tabId}["']`));
+  }
 });
 
 test("Excel support remains available but loads only when an Excel file is selected", async () => {
