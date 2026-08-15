@@ -151,7 +151,8 @@ test("Brain File Manager asset is copied and loads V1.1 health, grouping, diff a
   assert.match(ui, /Execution/);
   assert.match(ui, /Versionshistorie/);
   assert.match(ui, /function lineDiff/);
-  assert.match(ui, /jarvis-fm-diff-line add/);
+  assert.match(ui, /\.jarvis-fm-diff-line\.add/);
+  assert.match(ui, /row\.type === "add"/);
   assert.match(ui, /AKTIVIERUNG GESPERRT/);
   assert.match(ui, /GitHub · Repository/);
 });
