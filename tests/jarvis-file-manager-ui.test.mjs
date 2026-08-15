@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
 import {
+  buildBrainHealth,
   buildJarvisFileDetail,
   buildJarvisFileManagerSnapshot,
+  fileOperationalStatus,
   fileStoreEnabled,
 } from "../api/jarvis-files.js";
 
@@ -59,7 +61,7 @@ function requestStub(url) {
   throw new Error(`unexpected_request:${url}`);
 }
 
-test("File Manager snapshot separates active repository source from Supabase draft", async () => {
+test("File Manager snapshot separates active repository source from Supabase draft and exposes health", async () => {
   const snapshot = await buildJarvisFileManagerSnapshot({
     env: { JARVIS_FILE_STORE_ENABLED: "false" },
     request: requestStub,
@@ -71,12 +73,20 @@ test("File Manager snapshot separates active repository source from Supabase dra
   assert.equal(snapshot.stats.managed, 6);
   assert.equal(snapshot.stats.drafts, 1);
   assert.equal(snapshot.stats.repositoryActive, 6);
+  assert.equal(snapshot.stats.conflicts, 0);
+  assert.equal(snapshot.health.status, "attention");
+  assert.equal(snapshot.health.requiredReady, 3);
+  assert.equal(snapshot.health.requiredTotal, 3);
+  assert.equal(snapshot.health.draftCount, 1);
+  assert.equal(snapshot.health.conflictCount, 0);
   assert.equal(goals.activeSource, "repository");
   assert.equal(goals.activeVersion, null);
+  assert.equal(goals.operationalStatus, "draft");
   assert.equal(goals.latestDraft.version, 1);
+  assert.equal(goals.versionHistory.length, 1);
 });
 
-test("File Manager detail compares repository active content with latest draft", async () => {
+test("File Manager detail compares repository active content and exposes immutable history metadata", async () => {
   const content = "# Elyon Jarvis — Goals\n\nStable goals.";
   const detail = await buildJarvisFileDetail({
     identifier: "brain.goals",
@@ -90,6 +100,31 @@ test("File Manager detail compares repository active content with latest draft",
   assert.equal(detail.active.content, content);
   assert.equal(detail.draft.version, 1);
   assert.equal(detail.draft.identicalToActive, true);
+  assert.equal(detail.history.length, 1);
+  assert.equal(detail.history[0].version, 1);
+  assert.equal(detail.history[0].status, "draft");
+  assert.equal(detail.history[0].changeSummary, "Initial import");
+});
+
+test("Brain health becomes critical for missing required files or active-version conflicts", () => {
+  const missing = { key: "brain.identity", required: true, protected: true, registered: false, operationalStatus: "missing" };
+  const conflict = { key: "brain.goals", required: true, protected: false, registered: true, operationalStatus: "conflict" };
+  const healthyRequired = { key: "brain.operating_rules", required: true, protected: true, registered: true, operationalStatus: "fallback" };
+  const health = buildBrainHealth([missing, conflict, healthyRequired]);
+
+  assert.equal(health.status, "critical");
+  assert.equal(health.requiredReady, 2);
+  assert.equal(health.requiredTotal, 3);
+  assert.equal(health.conflictCount, 1);
+  assert.deepEqual(health.missingRequired, ["brain.identity"]);
+  assert.deepEqual(health.conflicts, ["brain.goals"]);
+});
+
+test("Operational status distinguishes draft, fallback, active and conflict", () => {
+  assert.equal(fileOperationalStatus({ registered: true, latestDraft: { version: 2 }, activeSource: "repository" }), "draft");
+  assert.equal(fileOperationalStatus({ registered: true, latestDraft: null, activeSource: "repository" }), "fallback");
+  assert.equal(fileOperationalStatus({ registered: true, latestDraft: null, activeSource: "supabase", activeVersion: 2, activeMeta: { version: 2 } }), "active");
+  assert.equal(fileOperationalStatus({ registered: true, latestDraft: null, activeSource: "supabase", activeVersion: 2, activeMeta: null }), "conflict");
 });
 
 test("File Store runtime flag remains explicit opt-in", () => {
@@ -98,7 +133,7 @@ test("File Store runtime flag remains explicit opt-in", () => {
   assert.equal(fileStoreEnabled({ JARVIS_FILE_STORE_ENABLED: "true" }), true);
 });
 
-test("Brain File Manager asset is copied and loaded after Jarvis Command Center", async () => {
+test("Brain File Manager asset is copied and loads V1.1 health, grouping, diff and history UI", async () => {
   const bootstrap = await readFile(new URL("seller-jarvis-bootstrap.js", root), "utf8");
   const prepare = await readFile(new URL("scripts/prepare-agent-registry.mjs", root), "utf8");
   const ui = await readFile(new URL("seller-jarvis-file-manager.js", root), "utf8");
@@ -110,7 +145,13 @@ test("Brain File Manager asset is copied and loaded after Jarvis Command Center"
     "File Manager must load after the Command Center mount exists"
   );
   assert.match(ui, /Brain Center · File Manager/);
-  assert.match(ui, /Read-only UI/);
-  assert.match(ui, /Aktivierung gesperrt/);
+  assert.match(ui, /Jarvis Brain Health/);
+  assert.match(ui, /Core Brain/);
+  assert.match(ui, /Rules & Safety/);
+  assert.match(ui, /Execution/);
+  assert.match(ui, /Versionshistorie/);
+  assert.match(ui, /function lineDiff/);
+  assert.match(ui, /jarvis-fm-diff-line add/);
+  assert.match(ui, /AKTIVIERUNG GESPERRT/);
   assert.match(ui, /GitHub · Repository/);
 });
