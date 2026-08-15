@@ -97,6 +97,7 @@ async function buildJarvisFileManagerSnapshot({
   request = supabaseJarvisRequest,
 } = {}) {
   const definitions = listManagedJarvisFiles();
+  const runtimeStoreEnabled = fileStoreEnabled(env);
   const [files, versionRows] = await Promise.all([
     listJarvisFiles({ env, request }),
     readVersionMetadata({ env, request }),
@@ -111,12 +112,16 @@ async function buildJarvisFileManagerSnapshot({
     const activeMeta = file?.activeVersion
       ? versions.find((version) => version.version === file.activeVersion) || null
       : null;
+    const runtimeUsesStore = runtimeStoreEnabled && Boolean(file?.activeVersion && activeMeta);
     const item = {
       ...definition,
       registered: Boolean(file),
       fileId: file?.id || null,
       activeVersion: file?.activeVersion ?? null,
-      activeSource: file?.activeVersion ? "supabase" : "repository",
+      storeActiveVersion: file?.activeVersion ?? null,
+      activeSource: runtimeUsesStore ? "supabase" : "repository",
+      storeActiveSource: file?.activeVersion ? "supabase" : "repository",
+      runtimeVersion: runtimeUsesStore ? file.activeVersion : null,
       latestVersion: latest?.version || null,
       latestDraft,
       activeMeta,
@@ -134,15 +139,16 @@ async function buildJarvisFileManagerSnapshot({
     if (file.latestDraft) acc.drafts += 1;
     if (file.activeSource === "supabase") acc.supabaseActive += 1;
     else acc.repositoryActive += 1;
+    if (file.storeActiveVersion) acc.storeActive += 1;
     if (file.operationalStatus === "conflict") acc.conflicts += 1;
     if (!file.registered) acc.unregistered += 1;
     return acc;
-  }, { managed: 0, protected: 0, drafts: 0, supabaseActive: 0, repositoryActive: 0, conflicts: 0, unregistered: 0 });
+  }, { managed: 0, protected: 0, drafts: 0, supabaseActive: 0, repositoryActive: 0, storeActive: 0, conflicts: 0, unregistered: 0 });
 
   return {
     ok: true,
     readOnly: true,
-    runtimeFileStoreEnabled: fileStoreEnabled(env),
+    runtimeFileStoreEnabled: runtimeStoreEnabled,
     checkedAt: new Date().toISOString(),
     health: buildBrainHealth(managed),
     stats,
@@ -162,17 +168,18 @@ async function buildJarvisFileDetail({
   const summary = snapshot.files.find((file) => file.key === definition.key);
   if (!summary?.registered || !summary.fileId) throw new Error("jarvis_file_registry_row_missing");
 
-  const [repositoryContent, activeVersion, draftVersion] = await Promise.all([
+  const [repositoryContent, storeActiveVersion, draftVersion] = await Promise.all([
     readRepositoryFile(definition, repositoryReader),
-    summary.activeVersion
-      ? getJarvisFileVersion({ fileId: summary.fileId, version: summary.activeVersion, env, request })
+    summary.storeActiveVersion
+      ? getJarvisFileVersion({ fileId: summary.fileId, version: summary.storeActiveVersion, env, request })
       : Promise.resolve(null),
     summary.latestDraft?.version
       ? getJarvisFileVersion({ fileId: summary.fileId, version: summary.latestDraft.version, env, request })
       : Promise.resolve(null),
   ]);
 
-  const activeContent = activeVersion?.content ?? repositoryContent;
+  const runtimeUsesStore = summary.activeSource === "supabase" && Boolean(storeActiveVersion);
+  const activeContent = runtimeUsesStore ? storeActiveVersion.content : repositoryContent;
   const draftContent = draftVersion?.content ?? null;
   return {
     ok: true,
@@ -181,8 +188,12 @@ async function buildJarvisFileDetail({
     history: summary.versionHistory || [],
     active: {
       source: summary.activeSource,
-      version: summary.activeVersion,
+      version: runtimeUsesStore ? summary.runtimeVersion : null,
       content: activeContent,
+    },
+    store: {
+      activeVersion: summary.storeActiveVersion,
+      content: storeActiveVersion?.content ?? null,
     },
     draft: draftVersion ? {
       version: draftVersion.version,
