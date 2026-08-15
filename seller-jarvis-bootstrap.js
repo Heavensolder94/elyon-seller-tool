@@ -2,7 +2,7 @@
   "use strict";
 
   const REGISTRY_KEY = "elyon_jarvis_integration_registry_v1";
-  const VERSION = "phase-e5-v1-openrouter-registry-v2";
+  const VERSION = "phase-e5-v1-openrouter-registry-v3-file-manager";
   const MODEL_ROWS = [
     ["nemotron-3-ultra-free","nvidia/nemotron-3-ultra-550b-a55b:free","Nemotron 3 Ultra","OpenRouter","NVIDIA","Brain","chat","configured",true,100,["Reasoning","Agents","Tools","Long Context"]],
     ["nemotron-3-super-free","nvidia/nemotron-3-super-120b-a12b:free","Nemotron 3 Super","OpenRouter","NVIDIA","Brain","chat","configured",true,95,["Reasoning","Agents","Tools","Long Context"]],
@@ -33,6 +33,7 @@
     "/seller-jarvis-ui-window-controls.js",
     "/seller-jarvis-ui-response-adapter.js",
     "/seller-jarvis-command-center.js",
+    "/seller-jarvis-file-manager.js",
     "/seller-jarvis-integration-center.js",
     "/seller-ai-workforce-builder-integration.js",
     "/seller-jarvis-companion-handoff.js",
@@ -94,6 +95,7 @@
       window.ElyonJarvisUI?.refresh?.();
       window.ElyonJarvisUIResponseAdapter?.refreshSystemStatus?.();
       window.ElyonJarvisCommandCenter?.refresh?.();
+      window.ElyonJarvisFileManager?.refresh?.();
       window.ElyonJarvisIntegrationCenter?.refresh?.();
       window.ElyonAIWorkforceBuilderIntegration?.refresh?.();
       window.ElyonJarvisE4Cloud?.render?.();
