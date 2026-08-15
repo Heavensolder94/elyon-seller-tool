@@ -4,6 +4,9 @@
   "main": "cloudflare/jarvis-worker/src/index.js",
   "compatibility_date": "2026-08-13",
   "workers_dev": true,
+  "vars": {
+    "OPENROUTER_REPAIR_MODEL": "openai/gpt-4.1-mini"
+  },
   "queues": {
     "producers": [
       {
