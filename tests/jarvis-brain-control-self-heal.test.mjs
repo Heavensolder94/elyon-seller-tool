@@ -39,5 +39,6 @@ test("one failed Jarvis module no longer aborts the remaining bootstrap sequence
   assert.match(bootstrap, /for \(const file of FILES\)/);
   assert.match(bootstrap, /Modul konnte nicht geladen werden/);
   assert.match(bootstrap, /await ensureBrainControl\(\)/);
-  assert.match(bootstrap, /v8-file-manager-v12-self-heal/);
+  assert.match(bootstrap, /v9-unified-jarvis-hub/);
+  assert.match(bootstrap, /seller-jarvis-hub\.js/);
 });
