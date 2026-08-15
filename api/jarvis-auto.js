@@ -263,42 +263,60 @@ export default async function handler(req, res) {
       }
 
       const scout = await runMarketScout({ command });
-      const scoutContext = compactScout(scout);
-      const { brain, stateResult } = await runBrainResponse({
-        command,
-        registry,
-        plan,
-        body,
-        session,
-        warnings,
-        executionContext: { type: "market_scout", executed: true, readOnly: true, result: scoutContext },
-      });
-      const answer = brain?.ok === false
-        ? (scout.summary || "Ich habe die Markt-Recherche ausgeführt, konnte die Ergebnisse aber gerade nicht sprachlich zusammenfassen.")
-        : text(brain.answer, 12000);
+      const answer = text(scout.summary, 12000) || "Der Market-Scout-Auftrag konnte nicht vorbereitet werden.";
+      const stateResult = await persistBrainState(command, scout.ok === true ? {
+        workingMemoryUpdate: {
+          shouldUpdate: true,
+          openTasks: [`Market Scout ${text(scout.task?.id, 120)}: ${Number(scout.requestedCount || 0)} Produktkandidaten recherchieren`],
+          lastAction: "Market Scout als Hintergrundrecherche gestartet",
+          nextExpectedAction: "Market-Scout-Ergebnis prüfen und geeignete Kandidaten in Product Check & Enrichment übergeben",
+        },
+      } : { workingMemoryUpdate: { shouldUpdate: false } }, session, warnings);
       await appendAssistant(session, answer, stateResult.warnings);
+      const queued = scout.ok === true && scout.status === "queued";
       return res.status(200).json({
-        ...brain,
         ok: true,
         phase: "Brain V2-A.1",
-        mode: "brain_auto_delegated",
+        mode: queued ? "brain_async_delegated" : "brain_auto_delegated",
         answer,
         conversationId: session.id,
         conversation: { id: session.id, channel: session.channel, scope: session.scope },
         workingMemory: stateResult.workingMemory,
         contextWarnings: stateResult.warnings,
         marketScout: scout,
-        autoDelegation: { executed: true, type: "market_scout", readOnly: true, successful: scout.ok === true },
-        plan: { ...plan, status: scout.ok === true ? "completed" : "needs_attention", executable: false, answerDirectly: true, brainHandled: true, autoDelegated: true, handler: "product-discovery-v1" },
+        autoDelegation: {
+          executed: scout.ok === true,
+          type: "market_scout",
+          readOnly: true,
+          async: queued,
+          status: queued ? "queued" : "failed",
+          successful: scout.ok === true,
+        },
+        plan: {
+          ...plan,
+          status: queued ? "queued" : "needs_attention",
+          executable: false,
+          answerDirectly: true,
+          brainHandled: true,
+          autoDelegated: scout.ok === true,
+          handler: "product-discovery-v1-async",
+        },
         summary: {
-          status: scout.ok === true ? "completed" : "partial",
+          status: queued ? "queued" : "partial",
           summary: answer,
           successful: scout.ok === true ? 1 : 0,
           failed: scout.ok === true ? 0 : 1,
           blockers: [],
           warnings: scout.warnings || [],
         },
-        safety: { externalActionsLocked: true, livePublishingAllowed: false, draftOnly: true, readOnlyResearch: true, nothingMutated: true },
+        safety: {
+          externalActionsLocked: true,
+          livePublishingAllowed: false,
+          draftOnly: true,
+          readOnlyResearch: true,
+          nothingMutated: true,
+          browserIndependent: queued,
+        },
       });
     }
 
