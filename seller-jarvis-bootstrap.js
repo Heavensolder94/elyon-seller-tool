@@ -2,7 +2,7 @@
   "use strict";
 
   const REGISTRY_KEY = "elyon_jarvis_integration_registry_v1";
-  const VERSION = "phase-e5-v1-openrouter-registry-v5-file-manager-v12";
+  const VERSION = "phase-e5-v1-openrouter-registry-v6-file-manager-v12-ui-fix";
   const MODEL_ROWS = [
     ["nemotron-3-ultra-free","nvidia/nemotron-3-ultra-550b-a55b:free","Nemotron 3 Ultra","OpenRouter","NVIDIA","Brain","chat","configured",true,100,["Reasoning","Agents","Tools","Long Context"]],
     ["nemotron-3-super-free","nvidia/nemotron-3-super-120b-a12b:free","Nemotron 3 Super","OpenRouter","NVIDIA","Brain","chat","configured",true,95,["Reasoning","Agents","Tools","Long Context"]],
