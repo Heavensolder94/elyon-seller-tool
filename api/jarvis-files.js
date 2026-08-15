@@ -1,9 +1,17 @@
-import path from "node:path";
 import { readFile } from "node:fs/promises";
 import { requireSellerAccess } from "../lib/seller-access.js";
 import { listManagedJarvisFiles, getManagedJarvisFileDefinition } from "../lib/jarvis-file-registry.js";
 import { getJarvisFileVersion, listJarvisFiles } from "../lib/jarvis-file-store.js";
 import { supabaseJarvisRequest } from "../lib/jarvis-memory-store.js";
+
+const REPOSITORY_FILE_URLS = Object.freeze({
+  "brain/IDENTITY.md": new URL("../brain/IDENTITY.md", import.meta.url),
+  "brain/ELYON_CONTEXT.md": new URL("../brain/ELYON_CONTEXT.md", import.meta.url),
+  "brain/OPERATING_RULES.md": new URL("../brain/OPERATING_RULES.md", import.meta.url),
+  "brain/CAPABILITIES.md": new URL("../brain/CAPABILITIES.md", import.meta.url),
+  "brain/GOALS.md": new URL("../brain/GOALS.md", import.meta.url),
+  "brain/PLAYBOOKS.md": new URL("../brain/PLAYBOOKS.md", import.meta.url),
+});
 
 function text(value, max = 1000) {
   const output = String(value ?? "").trim();
@@ -39,10 +47,9 @@ function groupVersions(rows = []) {
 }
 
 async function readRepositoryFile(definition, repositoryReader = readFile) {
-  const fullPath = path.resolve(process.cwd(), definition.path);
-  const root = path.resolve(process.cwd());
-  if (!fullPath.startsWith(`${root}${path.sep}`)) throw new Error("jarvis_file_path_invalid");
-  return repositoryReader(fullPath, "utf8");
+  const fileUrl = REPOSITORY_FILE_URLS[definition?.path];
+  if (!fileUrl) throw new Error("jarvis_file_path_invalid");
+  return repositoryReader(fileUrl, "utf8");
 }
 
 async function readVersionMetadata({ env = process.env, request = supabaseJarvisRequest } = {}) {
@@ -214,6 +221,7 @@ export default async function handler(req, res) {
 }
 
 export {
+  REPOSITORY_FILE_URLS,
   buildBrainHealth,
   buildJarvisFileDetail,
   buildJarvisFileManagerSnapshot,
