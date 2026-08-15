@@ -27,15 +27,22 @@ test("selected eBay policies are restored after selling-flow rerenders", () => {
   assert.match(visibility, /checkSetup/);
 });
 
-test("live publishing remains manual and explicitly confirmed", () => {
+test("live publishing stays approval-gated for manual and Auto-Live modes", () => {
   assert.match(productionUi, /PUBLISH_EBAY_OFFER/);
   assert.match(productionUi, /WITHDRAW_EBAY_OFFER/);
   assert.match(productionUi, /kostenpflichtig und öffentlich/i);
-  assert.match(productionUi, /confirm\(/);
+  assert.match(productionUi, /window\.confirm/);
+  assert.match(productionUi, /autoPublishEnabled/);
+  assert.match(productionUi, /Automatisch live veröffentlichen/);
+  assert.match(productionUi, /if \(readSelections\(\)\.autoPublishEnabled === true\)/);
+  assert.match(productionUi, /manualApprovalRequired: !autoPublishEnabled/);
+  assert.match(productionUi, /automaticPublishingAllowed: autoPublishEnabled/);
+  assert.match(productionUi, /autonomousPostingAllowed: false/);
+  assert.match(productionUi, /publishingMode: autoPublishEnabled \? "auto_after_readiness" : "manual_approval"/);
   assert.doesNotMatch(productionUi, /setInterval\([^)]*publish/i);
 });
 
-test("draft, publish and withdraw are separate user actions", () => {
+test("draft, publish and withdraw are separate controlled actions", () => {
   assert.match(productionUi, /create-draft/);
   assert.match(productionUi, /api\("publish"/);
   assert.match(productionUi, /api\("withdraw"/);

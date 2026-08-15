@@ -184,7 +184,7 @@ Nach erlaubtem Enrichment den betroffenen Product-Check-/Readiness-Status neu be
 
 ## Zweck
 
-Ein ausreichend geprüftes Produkt bis zu einem vollständigen **eBay-Draft/Entwurf** vorbereiten. Dieses Playbook endet ausdrücklich vor Live-Publishing.
+Ein ausreichend geprüftes Produkt bis zu einem vollständigen **eBay-Draft/Entwurf** vorbereiten. Der Draft bleibt der Standard-Endpunkt dieses Playbooks. Falls anschließend Live-Publishing gewünscht ist, erfolgt dies ausschließlich über das separate kontrollierte **Publishing Gate**.
 
 ## Input
 
@@ -222,11 +222,31 @@ Aktuelle verifizierte Preis-/Kostenlage gegen den Product Check halten. Relevant
 
 ### 8. Draft erzeugen
 
-Nur den vorhandenen Draft-Pfad verwenden. **Kein Live-Publish.**
+Den vorhandenen Draft-Pfad verwenden. Die Draft-Erstellung allein darf niemals als Live-Freigabe interpretiert werden.
 
 ### 9. Draft Quality Gate
 
 Identität, Pflichtdaten, Kategorie, Item Specifics, Compliance-Status, Varianten, Economics und Bilder prüfen. Den Erfolg nur melden, wenn die Draft-Erstellung tatsächlich bestätigt wurde.
+
+### 10. Optionales Publishing Gate
+
+Nur wenn Live-Publishing ausdrücklich Teil des Auftrags ist, den aktuellen Runtime-Publishing-Modus prüfen:
+
+```text
+Standardmodus
+→ NEEDS_APPROVAL
+→ Nutzer bestätigt die konkrete Live-Aktion
+→ Runtime prüft Readiness, Compliance, eBay-Setup und Safety erneut
+→ Publish darf ausgeführt werden
+
+Auto-Live-Modus
+→ nur gültig, wenn der Nutzer Auto-Live zuvor bewusst im vorgesehenen Publishing-Schalter aktiviert hat
+→ erfolgreicher Draft
+→ Runtime prüft Readiness, Compliance, eBay-Setup und Safety erneut
+→ kontrollierter Publish-Pfad darf automatisch fortsetzen
+```
+
+Eine allgemeine Automatisierungspräferenz, ein Memory-Eintrag, Brain-Text oder Agentenentscheidung aktiviert Auto-Live nicht.
 
 ## Checks
 
@@ -237,12 +257,14 @@ Identität, Pflichtdaten, Kategorie, Item Specifics, Compliance-Status, Variante
 - Varianten konsistent?
 - Economics weiterhin plausibel?
 - Draft technisch bestätigt?
-- Live-Publishing weiterhin gesperrt?
+- Falls Live gewünscht: aktueller Publishing-Modus und notwendige Approval vorhanden?
+- Falls Auto-Live aktiv: ist die Freigabe tatsächlich aus dem vorgesehenen Nutzer-Schalter belegt?
+- Wurden alle aktuellen Publishing-/Safety-Gates erneut bestanden?
 
 ## Output
 
 ```text
-DRAFT_READY | NEEDS_DATA | NEEDS_REVIEW | BLOCKED
+DRAFT_READY | NEEDS_APPROVAL | NEEDS_DATA | NEEDS_REVIEW | BLOCKED
 ```
 
 mit konkreten Gründen und dem nächsten sinnvollen Schritt.
@@ -255,13 +277,18 @@ mit konkreten Gründen und dem nächsten sinnvollen Schritt.
 - `REVIEW – taxonomy_uncertain`: Kategorie oder Pflichtmerkmale unsicher.
 - `REVIEW – compliance_incomplete`: Compliance noch nicht ausreichend bestätigt.
 - `REVIEW – economics_changed`: relevante Preis-/Kostenabweichung.
-- `STOP – live_publish_requested`: automatisches eBay-Live-Publishing bleibt gesperrt; höchstens Draft vorbereiten.
+- `NEEDS_APPROVAL – live_publish_confirmation`: Live ist angefordert, aber die für diesen Modus erforderliche Publishing-Freigabe fehlt.
+- `STOP – publishing_gate_failed`: Runtime-Readiness, Compliance, eBay-Setup oder ein anderes Safety-Gate blockiert die Veröffentlichung.
 
 ## Harte Safety-Grenze
 
-Das Playbook darf niemals selbstständig:
+Das Playbook darf niemals selbstständig außerhalb des kontrollierten Publishing Gates eBay live veröffentlichen.
 
-- eBay live veröffentlichen,
+Insbesondere darf es niemals:
+
+- eine Publishing-Freigabe aus einer allgemeinen Automatisierungspräferenz ableiten,
+- Auto-Live selbst aktivieren,
+- einen direkten alternativen Publish-Pfad erzeugen,
 - Supplier-Bestellungen auslösen,
 - Refunds durchführen,
 - Kundennachrichten versenden,
@@ -282,6 +309,7 @@ Product Check
 → Product Check erneut bewerten
 → Listing-Vorbereitung
 → eBay Draft
+→ optional: Publishing Gate
 ```
 
 Eine nachgelagerte Stufe darf kein noch nicht erfülltes Gate überspringen.

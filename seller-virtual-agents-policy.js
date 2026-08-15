@@ -274,9 +274,9 @@
         <label><input type="checkbox" data-resource-tool="memoryEnabled" ${current.memoryEnabled ? "checked" : ""}> Memory lesen</label>
         <label><input type="checkbox" data-resource-tool="memoryWrite" ${current.memoryWrite ? "checked" : ""}> Erfahrungen speichern</label>
         <label><input type="checkbox" data-resource-tool="createDraft" ${current.tools.createDraft ? "checked" : ""}> eBay-Entwurf vorbereiten</label>
-        <label title="Live-Publishing bleibt systemweit gesperrt"><input type="checkbox" disabled> eBay live veröffentlichen</label>
+        <label title="Direktes Agenten-Publishing bleibt deaktiviert; Live läuft ausschließlich über das kontrollierte Publishing Gate."><input type="checkbox" disabled> eBay direkt live veröffentlichen</label>
       </div>
-      <div class="elyon-agent-resource-note">Diese Auswahl kommt aus dem Jarvis Integration Center. Live-Publishing bleibt systemweit gesperrt.</div>
+      <div class="elyon-agent-resource-note">Direktes Agenten-Publishing bleibt deaktiviert. eBay Live ist ausschließlich über das kontrollierte Publishing Gate möglich: standardmäßig mit separater Nutzerbestätigung; Auto-Live nur nach bewusster Aktivierung und bestandenen Gates.</div>
       <button type="button" class="aiw-secondary elyon-agent-resource-save" data-resource-save="${escapeHtml(backendId)}">KI, Tools & Memory speichern</button>
     </div>`;
   }

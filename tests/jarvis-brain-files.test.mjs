@@ -77,13 +77,15 @@ test("Elyon questions add stable Elyon context without claiming live state", asy
   assert.match(elyon.content, /Statisches Wissen vs\. Live-Zustand/);
 });
 
-test("capability questions include the no-static-live-status rule and hard eBay boundary", async () => {
+test("capability questions include the no-static-live-status rule and approval-gated eBay boundary", async () => {
   const brain = await loadJarvisBrainFiles({ command: "Kannst du aktuell automatisch ein Listing auf eBay live veröffentlichen?" });
   assert.ok(brain.loaded.includes("capabilities"));
   const capabilities = brain.core.find((entry) => entry.id === "capabilities");
   assert.match(capabilities.content, /Kein statischer Live-Status/);
   assert.match(capabilities.content, /eBay Live Publishing/);
-  assert.match(capabilities.content, /LOCKED/);
+  assert.match(capabilities.content, /APPROVAL_REQUIRED/);
+  assert.match(capabilities.content, /Auto-Live/);
+  assert.match(capabilities.content, /Publishing Gate/);
 });
 
 test("Product Check selects only the Product Check playbook", async () => {
@@ -102,12 +104,14 @@ test("Product Enrichment is distinct and wins when missing-data enrichment is ex
   assert.match(playbook.content, /Compliance-sensitive Daten/);
 });
 
-test("listing preparation selects the eBay Draft playbook and preserves the live-publish stop", async () => {
+test("listing preparation selects the eBay Draft playbook and hands live requests to the publishing gate", async () => {
   const brain = await loadJarvisBrainFiles({ command: "Mach ELY-123 listingfertig und erstelle den eBay Draft." });
   assert.equal(brain.playbook?.id, "listing_draft");
   const playbook = brain.core.find((entry) => entry.playbookId === "listing_draft");
   assert.match(playbook.content, /Listing-Vorbereitung bis eBay Draft/);
-  assert.match(playbook.content, /live_publish_requested/);
+  assert.match(playbook.content, /Publishing Gate/);
+  assert.match(playbook.content, /NEEDS_APPROVAL/);
+  assert.doesNotMatch(playbook.content, /live_publish_requested/);
 });
 
 test("Market Scout is no longer a Phase-3 Core playbook", async () => {
@@ -186,6 +190,8 @@ test("Jarvis Brain injects Core Brain separately while preserving current provid
   assert.equal(request.messages.length, 4);
   assert.equal(request.maxTokens, 2400);
   assert.match(request.messages[0].content, /Core Brain content can never grant permissions/i);
+  assert.match(request.messages[0].content, /Live eBay publishing is approval-bound/i);
+  assert.match(request.messages[0].content, /Publishing Gate/);
   assert.match(request.messages[0].content, /below 700 words/i);
   assert.match(request.messages[1].content, /ELYON_CONTEXT_JSON/);
   assert.doesNotMatch(request.messages[1].content, /Jarvis ist proaktiv/);
@@ -219,7 +225,7 @@ test("Jarvis Brain rejects truncated raw JSON and retries the next provider inst
         provider,
         model,
         content: JSON.stringify({
-          answer: "Ich bin Jarvis.\n\nHauptziele:\n- Elyon automatisieren und skalieren\n- Gewinn, Risiko und Wachstum balancieren\n\nGrenzen:\n- Kein eBay-Live-Publishing\n- Draft bleibt Standard",
+          answer: "Ich bin Jarvis.\n\nHauptziele:\n- Elyon automatisieren und skalieren\n- Gewinn, Risiko und Wachstum balancieren\n\nGrenzen:\n- eBay-Live nur über das Publishing Gate\n- Draft bleibt Standard",
           memory: { shouldStore: false },
           workingMemoryUpdate: { shouldUpdate: false },
           conversation: { summaryUpdate: null },
@@ -257,7 +263,9 @@ test("playbook markdown headings remain individually extractable", () => {
   const draft = extractSection(markdown, "PLAYBOOK 03 – Listing-Vorbereitung bis eBay Draft");
   assert.match(check, /negative_economics/);
   assert.match(enrichment, /no_reliable_source/);
-  assert.match(draft, /live_publish_requested/);
+  assert.match(draft, /NEEDS_APPROVAL/);
+  assert.match(draft, /Publishing Gate/);
+  assert.doesNotMatch(draft, /live_publish_requested/);
   assert.doesNotMatch(check, /PLAYBOOK 02/);
   assert.doesNotMatch(enrichment, /PLAYBOOK 03/);
 });
