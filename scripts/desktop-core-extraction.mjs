@@ -3,7 +3,7 @@ import { Script } from "node:vm";
 const XLSX_CDN_URL = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
 const XLSX_TAG_PATTERN = /\s*<script\s+src=["']https:\/\/cdn\.jsdelivr\.net\/npm\/xlsx@0\.18\.5\/dist\/xlsx\.full\.min\.js["']><\/script>\s*/;
 const INLINE_APP_PATTERN = /<script>\s*'use strict';[\s\S]*?<\/script>/g;
-const RETIRED_NAV_OPTION_PATTERN = /\s*<option\s+value=["']marketCheckTab["'][^>]*>[\s\S]*?<\/option>/g;
+const RETIRED_NAV_OPTION_PATTERN = /\s*<option\s+value=["'](?:marketCheckTab|financeTab|listingCheckTab|productStatusTab)["'][^>]*>[\s\S]*?<\/option>/g;
 
 function scriptBody(block) {
   return block
