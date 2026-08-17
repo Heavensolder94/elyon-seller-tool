@@ -18,11 +18,18 @@ test("Finance V2 resolves month, previous month and quarter periods", () => {
   const month = resolveFinancePeriod("month", now);
   const previous = resolveFinancePeriod("previous_month", now);
   const quarter = resolveFinancePeriod("quarter", now);
+  // The period boundaries are intentionally local-calendar boundaries. Do not
+  // inspect their UTC serialization with `slice(0, 7)`: in a positive offset
+  // timezone August 1st serializes to July 31st UTC.
+  const localMonthKey = (value) => {
+    const date = new Date(value);
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+  };
   assert.match(month.label, /August 2026/i);
-  assert.equal(month.start.slice(0, 7), "2026-08");
-  assert.equal(previous.start.slice(0, 7), "2026-07");
+  assert.equal(localMonthKey(month.start), "2026-08");
+  assert.equal(localMonthKey(previous.start), "2026-07");
   assert.equal(quarter.label, "Q3 2026");
-  assert.equal(quarter.start.slice(0, 7), "2026-07");
+  assert.equal(localMonthKey(quarter.start), "2026-07");
 });
 
 test("Finance V2 filters transactions to the selected period", () => {
