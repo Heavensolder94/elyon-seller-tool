@@ -21,6 +21,7 @@ const jarvisClientNames = [
   "seller-jarvis-hub.js",
   builderIntegrationName,
   "seller-jarvis-companion-handoff.js",
+  "seller-jarvis-inbox.js",
   "seller-jarvis-e1-cloud.js",
   "seller-jarvis-e4-control.js",
   "seller-jarvis-e5-pipeline.js",
@@ -90,6 +91,6 @@ await Promise.all([
   writeFile(mobilePath, injectMobileHtml(mobileSource), "utf8"),
 ]);
 
-console.log("Prepared persistent Elyon Agent Registry plus one-script Jarvis D1/D2/D3/E1/E4/E5 bootstrap with unified JARVIS Hub, Brain File Manager V1.2, Integration Center internals and employee-builder model bridge for desktop and mobile.");
+console.log("Prepared persistent Elyon Agent Registry plus one-script Jarvis D1/D2/D3/E1/E4/E5 bootstrap with unified JARVIS Hub, Brain File Manager V1.2, Integration Center internals, Jarvis Inbox V1 and employee-builder model bridge for desktop and mobile.");
 
 export { builderIntegrationName, clientNames, injectDesktopHtml, injectMobileHtml, injectRuntimeLoader, jarvisBootstrapName, jarvisClientNames, normalizeJarvisMenu, registryClientName };
