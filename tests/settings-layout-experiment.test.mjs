@@ -11,8 +11,43 @@ function syntaxCheck(relativePath) {
 test("settings experiment separates configuration into three clear areas", async () => {
   const source = await readFile(new URL("../seller-settings-layout-experiment.js", import.meta.url), "utf8");
   assert.match(source, /1\. 🔌 Integrationen & API-Verbindungen/);
-  assert.match(source, /2\. 🔄 Daten & Synchronisierung/);
+  assert.match(source, /2\. ☁️ Daten, Backup & Export/);
   assert.match(source, /3\. 🩺 Systemstatus & Diagnose/);
+});
+
+test("data sync settings document the new source-of-truth roles", async () => {
+  const source = await readFile(new URL("../seller-settings-layout-experiment.js", import.meta.url), "utf8");
+  assert.match(source, /Product Master/);
+  assert.match(source, /Server Operations/);
+  assert.match(source, /Lokale Browserdaten/);
+  assert.match(source, /Google Sheets/);
+  assert.match(source, /googleSheetsRole: "optional_export_legacy"/);
+  assert.match(source, /localStorageRole: "working_copy_fallback"/);
+});
+
+test("legacy bidirectional sync is moved behind migration tooling and blocked", async () => {
+  const source = await readFile(new URL("../seller-settings-layout-experiment.js", import.meta.url), "utf8");
+  assert.match(source, /Erweiterte Legacy- & Migrationswerkzeuge/);
+  assert.match(source, /"loadAllGoogleSheetsBtn"/);
+  assert.match(source, /"reconcileAllGoogleSheetsBtn"/);
+  assert.match(source, /BLOCKED_LEGACY_ACTION_IDS/);
+  assert.match(source, /control\.disabled = true/);
+  assert.match(source, /bidirectionalImport: "blocked_pending_preview_diff"/);
+});
+
+test("legacy Google Sheets auto reconcile is disabled during migration", async () => {
+  const source = await readFile(new URL("../seller-settings-layout-experiment.js", import.meta.url), "utf8");
+  assert.match(source, /elyon_google_sheets_auto_sync_enabled/);
+  assert.match(source, /localStorage\.setItem\(AUTO_SYNC_KEY, "no"\)/);
+  assert.match(source, /window\.scheduleGoogleSheetsAutoSync/);
+  assert.match(source, /autoReconcile: "disabled"/);
+});
+
+test("Google Sheets push action is presented as optional export", async () => {
+  const source = await readFile(new URL("../seller-settings-layout-experiment.js", import.meta.url), "utf8");
+  assert.match(source, /Nach Google Sheets exportieren/);
+  assert.match(source, /Google Sheets ist nur noch Export\/Backup/);
+  assert.match(source, /Product Master bleibt unverändert/);
 });
 
 test("duplicate settings order import is hidden without deleting its controls", async () => {
