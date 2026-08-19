@@ -6,19 +6,20 @@ import {
 
 const TEST_RESET_CONFIRMATION = "TEST RESET";
 const ARTICLE_NUMBER_PATTERN = /^ELY-\d{6,}$/i;
-const VARIANT_SKU_PATTERN = /^ELY-\d{6,}-\d{2,}$/i;
-const HARD_REFERENCE_FIELDS = new Set([
+const HARD_BUSINESS_REFERENCE_FIELDS = new Set([
   "ebayItemId",
-  "ebayOfferId",
-  "offerId",
-  "ebayDraftId",
   "orderId",
   "ebayOrderId",
   "transactionId",
   "ebayPublishedAt",
-  "ebayDraftCreatedAt",
   "orderedAt",
   "manuallyListedAt",
+]);
+const CLEANABLE_TEST_REFERENCE_FIELDS = new Set([
+  "ebayOfferId",
+  "offerId",
+  "ebayDraftId",
+  "ebayDraftCreatedAt",
 ]);
 
 function text(value) {
@@ -54,7 +55,7 @@ function findHardReference(value, path = "", depth = 0, seen = new Set()) {
   seen.add(value);
   if (!Array.isArray(value)) {
     for (const [key, raw] of Object.entries(value)) {
-      if (HARD_REFERENCE_FIELDS.has(key) && text(raw)) {
+      if (HARD_BUSINESS_REFERENCE_FIELDS.has(key) && text(raw)) {
         return { path: path ? `${path}.${key}` : key, field: key, value: text(raw).slice(0, 160) };
       }
     }
@@ -71,20 +72,47 @@ function findHardReference(value, path = "", depth = 0, seen = new Set()) {
   return null;
 }
 
+function collectCleanableReferences(value, path = "", depth = 0, seen = new Set(), matches = []) {
+  if (!value || typeof value !== "object" || depth > 8 || seen.has(value)) return matches;
+  seen.add(value);
+  if (!Array.isArray(value)) {
+    for (const [key, raw] of Object.entries(value)) {
+      if (!CLEANABLE_TEST_REFERENCE_FIELDS.has(key) || !text(raw)) continue;
+      matches.push({ path: path ? `${path}.${key}` : key, field: key, value: text(raw).slice(0, 160) });
+    }
+  }
+  const entries = Array.isArray(value) ? value.entries() : Object.entries(value);
+  for (const [key, child] of entries) {
+    if (!child || typeof child !== "object") continue;
+    collectCleanableReferences(child, path ? `${path}.${key}` : String(key), depth + 1, seen, matches);
+  }
+  return matches;
+}
+
 export function inspectSellerTestIdentityReset(products = [], env = process.env) {
   const list = Array.isArray(products) ? products : [];
+  const testProducts = list.filter((product) => articleNumberOf(product));
   const blockers = [];
-  list.forEach((product, index) => {
+  const cleanups = [];
+
+  testProducts.forEach((product, index) => {
     const found = findHardReference(product, `products[${index}]`);
-    if (!found) return;
-    blockers.push({
-      ...found,
+    if (found) {
+      blockers.push({
+        ...found,
+        id: text(product?.id || product?.articleNumber || product?.sku),
+        articleNumber: articleNumberOf(product),
+        title: text(product?.title || product?.name).slice(0, 180),
+      });
+    }
+    collectCleanableReferences(product, `products[${index}]`).forEach((reference) => cleanups.push({
+      ...reference,
       id: text(product?.id || product?.articleNumber || product?.sku),
       articleNumber: articleNumberOf(product),
       title: text(product?.title || product?.name).slice(0, 180),
-    });
+    }));
   });
-  const testProducts = list.filter((product) => articleNumberOf(product));
+
   return {
     enabled: resetEnabled(env),
     totalProducts: list.length,
@@ -92,6 +120,8 @@ export function inspectSellerTestIdentityReset(products = [], env = process.env)
     articleNumbers: testProducts.map(articleNumberOf).filter(Boolean).sort(),
     blockerCount: blockers.length,
     blockers: blockers.slice(0, 20),
+    cleanupCount: cleanups.length,
+    cleanupReferences: cleanups.slice(0, 40),
     ready: resetEnabled(env) && blockers.length === 0,
   };
 }
@@ -139,6 +169,7 @@ export default async function handler(req, res) {
       deleted: cleanup.removed.length,
       remaining: cleanup.items.length,
       removed: cleanup.removed,
+      cleanedDraftReferences: report.cleanupCount,
       blockerCount: 0,
       storage,
       message: `${cleanup.removed.length} Testprodukte mit Elyon-Artikelnummer aus dem Seller Product Master entfernt.`,
