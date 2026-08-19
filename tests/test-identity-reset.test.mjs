@@ -18,13 +18,38 @@ test("seller test reset removes only Elyon-numbered test products", () => {
   assert.equal(result.items[0].id, "legacy");
 });
 
-test("seller test reset is blocked by real eBay or order references", () => {
+test("seller test draft and offer refs are cleanup candidates, not blockers", () => {
   const report = inspectSellerTestIdentityReset([
+    { id: "a", articleNumber: "ELY-000017", ebayDraftId: "draft-123", offerId: "offer-123", listingStatus: "draft" },
+  ], {});
+  assert.equal(report.blockerCount, 0);
+  assert.equal(report.cleanupCount, 2);
+  assert.equal(report.ready, true);
+});
+
+test("seller test reset is blocked by real live eBay or order references", () => {
+  const itemReport = inspectSellerTestIdentityReset([
     { id: "a", articleNumber: "ELY-000017", ebayItemId: "123456789" },
   ], {});
-  assert.equal(report.blockerCount, 1);
-  assert.equal(report.ready, false);
-  assert.equal(report.blockers[0].field, "ebayItemId");
+  assert.equal(itemReport.blockerCount, 1);
+  assert.equal(itemReport.ready, false);
+  assert.equal(itemReport.blockers[0].field, "ebayItemId");
+
+  const orderReport = inspectSellerTestIdentityReset([
+    { id: "b", articleNumber: "ELY-000018", orderId: "ORDER-1" },
+  ], {});
+  assert.equal(orderReport.blockerCount, 1);
+  assert.equal(orderReport.blockers[0].field, "orderId");
+});
+
+test("seller test reset ignores unrelated non-Elyon products", () => {
+  const report = inspectSellerTestIdentityReset([
+    { id: "legacy", sku: "SUP-123", ebayItemId: "real-item" },
+    { id: "test", articleNumber: "ELY-000017" },
+  ], {});
+  assert.equal(report.testProductCount, 1);
+  assert.equal(report.blockerCount, 0);
+  assert.equal(report.ready, true);
 });
 
 test("seller test reset allows Company OS transfer timestamps during explicit test cleanup", () => {
