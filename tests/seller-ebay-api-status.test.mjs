@@ -27,6 +27,25 @@ test("status messages no longer confuse API reachability with OAuth connection",
   assert.match(source, /eBay API wird geprüft/);
 });
 
+test("one verified eBay state updates both overview and detailed settings status", async () => {
+  const source = await readFile(new URL("../seller-ebay-api-status.js", import.meta.url), "utf8");
+  assert.match(source, /DETAIL_RESULT_ID = "setIntEbayStatus"/);
+  assert.match(source, /OVERVIEW_RESULT_ID = "intEbayStatus"/);
+  assert.match(source, /function applyOverviewState/);
+  assert.match(source, /oauthConnected === true/);
+  assert.match(source, /label: "Verbunden"/);
+  assert.match(source, /applyOverviewState\(state/);
+});
+
+test("unified eBay state also refreshes the system status row and badge", async () => {
+  const source = await readFile(new URL("../seller-ebay-api-status.js", import.meta.url), "utf8");
+  assert.match(source, /function ebayStatusRows/);
+  assert.match(source, /"ebay oauth"/);
+  assert.match(source, /function ebayHeroBadges/);
+  assert.match(source, /\.sd-badge/);
+  assert.match(source, /row\.dataset\.ebayStatusVerified/);
+});
+
 test("legacy API status button is captured exactly once and remains reusable", async () => {
   const source = await readFile(new URL("../seller-ebay-api-status.js", import.meta.url), "utf8");
   assert.match(source, /setEbayConnectPlanBtn/);

@@ -2,7 +2,8 @@
   "use strict";
 
   const BUTTON_ID = "setEbayConnectPlanBtn";
-  const RESULT_ID = "setIntEbayStatus";
+  const DETAIL_RESULT_ID = "setIntEbayStatus";
+  const OVERVIEW_RESULT_ID = "intEbayStatus";
   const TAXONOMY_STATUS_URL = "/api/ebay-taxonomy?action=status";
   const OAUTH_STATUS_URL = "/api/ebay/status?environment=production";
   const MAX_AGE_MS = 2 * 60 * 1000;
@@ -12,6 +13,7 @@
   let scheduled = false;
 
   const text = (value) => String(value ?? "").trim();
+  const normalized = (value) => text(value).toLocaleLowerCase("de-DE").replace(/\s+/g, " ");
 
   function settingsIsActive() {
     const settings = document.getElementById("settingsTab");
@@ -36,19 +38,69 @@
     return data;
   }
 
-  function resultNode() {
-    return document.getElementById(RESULT_ID);
+  function detailResultNode() {
+    return document.getElementById(DETAIL_RESULT_ID);
+  }
+
+  function overviewResultNode() {
+    return document.getElementById(OVERVIEW_RESULT_ID);
   }
 
   function buttonNode() {
     return document.getElementById(BUTTON_ID);
   }
 
+  function ebayStatusRows() {
+    return [...document.querySelectorAll(".sd-status")].filter((row) =>
+      normalized(row.querySelector("span")?.textContent) === "ebay oauth",
+    );
+  }
+
+  function ebayHeroBadges() {
+    return [...document.querySelectorAll(".sd-badge")].filter((badge) =>
+      normalized(badge.textContent).startsWith("ebay "),
+    );
+  }
+
+  function overviewCopy(state) {
+    if (state.status === "checking") return { label: "Wird geprüft …", tone: "warn", status: "checking" };
+    if (state.oauthConnected === true) return { label: "Verbunden", tone: "good", status: "connected" };
+    if (state.oauthConnected === false) return { label: "Nicht verbunden", tone: "bad", status: "disconnected" };
+    return { label: "Status nicht abrufbar", tone: "warn", status: "unknown" };
+  }
+
+  function applyOverviewState(state, detailLabel) {
+    const overview = overviewCopy(state);
+    const overviewNode = overviewResultNode();
+    if (overviewNode) {
+      overviewNode.textContent = overview.label;
+      overviewNode.dataset.ebayStatus = overview.status;
+      overviewNode.classList.remove("good", "warn", "bad", "success", "warning", "error");
+      overviewNode.classList.add(overview.tone);
+      overviewNode.title = detailLabel || overview.label;
+    }
+
+    ebayStatusRows().forEach((row) => {
+      const value = row.querySelector("strong");
+      if (!value) return;
+      value.classList.remove("sd-good", "sd-warn", "sd-bad");
+      value.classList.add(overview.tone === "good" ? "sd-good" : overview.tone === "bad" ? "sd-bad" : "sd-warn");
+      value.textContent = overview.status === "checking" ? "wird geprüft …" : overview.label.toLocaleLowerCase("de-DE");
+      value.title = detailLabel || overview.label;
+      row.dataset.ebayStatusVerified = overview.status === "checking" ? "checking" : "1";
+    });
+
+    ebayHeroBadges().forEach((badge) => {
+      badge.classList.remove("good", "warn", "bad");
+      badge.classList.add(overview.tone);
+      badge.textContent = `eBay ${overview.status === "checking" ? "wird geprüft …" : overview.label.toLocaleLowerCase("de-DE")}`;
+      badge.title = detailLabel || overview.label;
+    });
+  }
+
   function applyResult(state) {
     lastResult = state;
-    const node = resultNode();
-    if (!node) return;
-
+    const node = detailResultNode();
     const checking = state.status === "checking";
     const apiReachable = state.apiReachable === true;
     const oauthConnected = state.oauthConnected === true;
@@ -73,12 +125,16 @@
       tone = "error";
     }
 
-    node.textContent = label;
-    node.dataset.ebayApiStatus = checking ? "checking" : apiReachable ? "reachable" : apiUnknown ? "unknown" : "unreachable";
-    node.dataset.ebayOauthStatus = checking ? "checking" : oauthConnected ? "connected" : "disconnected";
-    node.classList.remove("success", "warning", "error", "ok", "bad", "warn");
-    node.classList.add(tone);
-    node.title = text(state.detail) || label;
+    if (node) {
+      node.textContent = label;
+      node.dataset.ebayApiStatus = checking ? "checking" : apiReachable ? "reachable" : apiUnknown ? "unknown" : "unreachable";
+      node.dataset.ebayOauthStatus = checking ? "checking" : oauthConnected ? "connected" : "disconnected";
+      node.classList.remove("success", "warning", "error", "ok", "bad", "warn");
+      node.classList.add(tone);
+      node.title = text(state.detail) || label;
+    }
+
+    applyOverviewState(state, text(state.detail) || label);
   }
 
   async function checkEbayApiStatus({ force = false } = {}) {
@@ -95,7 +151,7 @@
       button.setAttribute("aria-busy", "true");
       button.textContent = "eBay wird geprüft …";
     }
-    applyResult({ status: "checking", apiReachable: null, oauthConnected: null, detail: "Offizielle eBay-API und OAuth-Verbindung werden getrennt geprüft." });
+    applyResult({ status: "checking", apiReachable: null, oauthConnected: null, detail: "Offizielle eBay-API und OAuth-Verbindung werden gemeinsam geprüft." });
 
     request = Promise.allSettled([
       fetchJson(TAXONOMY_STATUS_URL),
@@ -148,7 +204,7 @@
     const button = buttonNode();
     if (!button) return;
     button.type = "button";
-    button.title = "Offizielle eBay-API und OAuth-Verbindung getrennt prüfen";
+    button.title = "Offizielle eBay-API und OAuth-Verbindung gemeinsam prüfen";
     if (!button.dataset.elyonEbayStatusReady) {
       button.dataset.elyonEbayStatusReady = "1";
       setTimeout(() => checkEbayApiStatus(), 0);
