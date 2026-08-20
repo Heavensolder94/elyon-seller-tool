@@ -12,7 +12,8 @@ test("production compatibility layer retires every pre-eBay workspace", () => {
   }
   assert.match(compatSource, /RETIRED_PRE_EBAY_TABS\.forEach\(\(id\) => hideNode/);
   assert.match(compatSource, /RETIRED_PRE_EBAY_TABS\.has\(String\(menu\.value/);
-  assert.match(compatSource, /if \(RETIRED_PRE_EBAY_TABS\.has\(value\)\) removeOption/);
+  assert.match(compatSource, /RETIRED_PRE_EBAY_TABS\.has\(String\(option\?\.value \|\| ""\)\)/);
+  assert.match(compatSource, /removeOption\(menu, option\)/);
 });
 
 test("legacy pre-eBay launchers cannot reopen retired workspaces", () => {
