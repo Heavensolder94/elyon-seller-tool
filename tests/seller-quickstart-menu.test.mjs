@@ -10,19 +10,25 @@ import {
 } from "../seller-quickstart-core.js";
 
 const expectedWorkflow = [
-  "Company OS Eingang",
-  "Seller Product Master",
-  "Listing-Paket",
-  "eBay",
+  "eBay-Entwürfe",
+  "Aktive Listings",
   "Bestellungen",
   "Versand",
-  "Rechnungen",
+  "Finanzen",
   "Retouren",
 ];
 
-test("uses the current Seller workflow in the required order", () => {
+test("uses the post-eBay Seller workflow in the required order", () => {
   assert.deepEqual(QUICKSTART_PRIMARY_WORKFLOW.map((route) => route.label), expectedWorkflow);
-  assert.deepEqual(QUICKSTART_PRIMARY_WORKFLOW.map((route) => route.step), [1, 2, 3, 4, 5, 6, 7, 8]);
+  assert.deepEqual(QUICKSTART_PRIMARY_WORKFLOW.map((route) => route.step), [1, 2, 3, 4, 5, 6]);
+  assert.deepEqual(QUICKSTART_PRIMARY_WORKFLOW.map((route) => route.tab), [
+    "draftsTab",
+    "activeListingsTab",
+    "ordersTab",
+    "automationTab",
+    "financeTab",
+    "returnsTab",
+  ]);
 });
 
 test("offers one unified Jarvis entry plus virtual employees and system/API settings", () => {
@@ -35,24 +41,41 @@ test("offers one unified Jarvis entry plus virtual employees and system/API sett
   assert.match(QUICKSTART_SECONDARY_LINKS[0].description, /Übersicht, Brain, Integrationen, Modelle und System/);
 });
 
-test("does not advertise retired Shopify, calculation or laboratory areas", () => {
+test("does not advertise pre-eBay preparation or retired laboratory areas", () => {
   const visibleCopy = [...QUICKSTART_PRIMARY_WORKFLOW, ...QUICKSTART_SECONDARY_LINKS]
     .flatMap((route) => [route.label, route.description])
     .join(" ");
-  assert.doesNotMatch(visibleCopy, /Shopify|Kalkulation|Labor|Produktprüfung|Marktcheck/i);
+  assert.doesNotMatch(visibleCopy, /Shopify|Kalkulation|Labor|Produktprüfung|Marktcheck|Listing Designer|Auto Lister|Company OS Eingang|Listing-Paket/i);
 });
 
-test("maps dashboard tasks to the modern workflow", () => {
+test("maps dashboard tasks to the post-eBay workflow", () => {
   assert.equal(selectQuickstartRecommendation([
     { title: "2 Bestellungen offen", detail: "Versand prüfen", tab: "ordersTab", tone: "warning" },
   ]).routeId, "orders");
   assert.equal(selectQuickstartRecommendation([
-    { title: "3 Produkte listingbereit", detail: "Paket prüfen", tab: "ebayListingTab", tone: "success" },
-  ]).routeId, "listingPackage");
+    { title: "3 eBay-Entwürfe", detail: "UNPUBLISHED prüfen", tab: "draftsTab", tone: "info" },
+  ]).routeId, "drafts");
+  assert.equal(selectQuickstartRecommendation([
+    { title: "5 aktive Listings", detail: "Bestand prüfen", tab: "activeListingsTab", tone: "success" },
+  ]).routeId, "activeListings");
   assert.equal(selectQuickstartRecommendation([
     { title: "Jarvis prüfen", detail: "Brain Control öffnen", tab: "jarvisCommandCenterTab", tone: "info" },
   ]).routeId, "jarvis");
-  assert.equal(selectQuickstartRecommendation([], { products: 0 }).routeId, "companyOs");
+});
+
+test("ignores legacy pre-eBay dashboard tasks", () => {
+  const recommendation = selectQuickstartRecommendation([
+    { title: "3 Produkte listingbereit", detail: "Paket prüfen", tab: "ebayListingTab", tone: "success" },
+  ], { activeListings: 2 });
+  assert.equal(recommendation.routeId, "activeListings");
+  assert.doesNotMatch(recommendation.title, /listingbereit/i);
+});
+
+test("uses real post-eBay pipeline counts for fallback recommendations", () => {
+  assert.equal(selectQuickstartRecommendation([], { openOrders: 2 }).routeId, "orders");
+  assert.equal(selectQuickstartRecommendation([], { draftListings: 3 }).routeId, "drafts");
+  assert.equal(selectQuickstartRecommendation([], { activeListings: 4 }).routeId, "activeListings");
+  assert.equal(selectQuickstartRecommendation([], {}).routeId, "activeListings");
 });
 
 test("refreshes only on an explicit menu opening with a ready, idle dashboard", () => {
@@ -85,6 +108,8 @@ test("quickstart contains no direct Product Master or eBay API request", async (
   assert.doesNotMatch(source, /\/api\/products|\/api\/ebay\/status|\/api\/ebay\/orders/);
   assert.match(source, /installDashboardBridge/);
   assert.match(source, /elyonSellerDashboard/);
+  assert.match(source, /draftListings/);
+  assert.match(source, /activeListings/);
 });
 
 test("runtime loader keeps quickstart lazy and supports automatic visible-modal hydration", async () => {

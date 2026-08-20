@@ -53,10 +53,12 @@ test("runtime loader separates selling, settings, products and agents", async ()
   assert.equal(new Set(lazyPaths).size, lazyPaths.length);
 });
 
-test("quickstart loads the selling workspace before listing navigation", async () => {
+test("quickstart opens eBay inventory workspaces instead of the legacy selling workspace", async () => {
   const core = await readFile(new URL("../seller-quickstart-core.js", import.meta.url), "utf8");
-  assert.match(core, /id: "listingPackage"[\s\S]*runtimeGroup: "ebayListingTab"/);
-  assert.match(core, /id: "ebay"[\s\S]*runtimeGroup: "ebayListingTab"/);
+  assert.match(core, /id: "drafts"[\s\S]*runtimeGroup: "draftsTab"/);
+  assert.match(core, /id: "activeListings"[\s\S]*runtimeGroup: "activeListingsTab"/);
+  assert.doesNotMatch(core, /id: "listingPackage"/);
+  assert.doesNotMatch(core, /runtimeGroup: "ebayListingTab"/);
 });
 
 test("protected seller APIs wait for the authentication check", async () => {
