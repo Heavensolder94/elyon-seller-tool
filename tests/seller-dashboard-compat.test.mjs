@@ -20,6 +20,7 @@ function createNode(documentRef, tagName, id = "", className = "") {
     id,
     dataset: {},
     attributes: {},
+    hidden: false,
     style: {
       values: {},
       setProperty(name, value, priority = "") {
@@ -66,6 +67,16 @@ function createDocumentFixture() {
   return { documentRef, parent, legacy, sentinel };
 }
 
+function addMenuOption(documentRef, menu, value, textContent) {
+  const option = createNode(documentRef, "option", "", "");
+  option.value = value;
+  option.textContent = textContent;
+  option.parentNode = menu;
+  menu.children.push(option);
+  menu.options = menu.children;
+  return option;
+}
+
 test("mounts the Seller cockpit without deleting legacy dashboard elements", async () => {
   const source = await readFile(new URL("../seller-dashboard-compat.js", import.meta.url), "utf8");
   const { documentRef, parent, legacy, sentinel } = createDocumentFixture();
@@ -93,22 +104,56 @@ test("merges the legacy Rechnungen menu entry into the Finanzen workspace", asyn
   const source = await readFile(new URL("../seller-dashboard-compat.js", import.meta.url), "utf8");
   const { documentRef } = createDocumentFixture();
   const menu = createNode(documentRef, "select", "mainMenu", "");
-  const invoiceOption = createNode(documentRef, "option", "", "");
-  invoiceOption.value = "invoiceTab";
-  invoiceOption.textContent = "5. Rechnungen";
-  invoiceOption.parentNode = menu;
-  menu.children.push(invoiceOption);
-  menu.options = menu.children;
+  const invoiceOption = addMenuOption(documentRef, menu, "invoiceTab", "5. Rechnungen");
   menu.value = "invoiceTab";
 
   const windowRef = { document: documentRef };
   vm.runInNewContext(source, { window: windowRef, globalThis: windowRef });
 
   assert.equal(menu.options.length, 1);
-  assert.equal(menu.options[0].value, "financeTab");
-  assert.equal(menu.options[0].textContent, "5. Finanzen");
+  assert.equal(invoiceOption.value, "financeTab");
+  assert.equal(invoiceOption.textContent, "5. Finanzen");
   assert.equal(menu.value, "financeTab");
-  assert.equal(menu.options[0].dataset.elyonFinanceMenuMerged, "true");
+  assert.equal(invoiceOption.dataset.elyonFinanceMenuMerged, "true");
+});
+
+test("removes product preparation and selling from the normal SellerTool navigation", async () => {
+  const source = await readFile(new URL("../seller-dashboard-compat.js", import.meta.url), "utf8");
+  const { documentRef } = createDocumentFixture();
+  const menu = createNode(documentRef, "select", "mainMenu", "");
+  addMenuOption(documentRef, menu, "dashboardTab", "1. Übersicht");
+  addMenuOption(documentRef, menu, "productListTab", "2. Produkte");
+  addMenuOption(documentRef, menu, "ebayListingTab", "3. Verkaufen");
+  const draftOption = addMenuOption(documentRef, menu, "draftsTab", "4. Listing-Entwürfe");
+  const activeOption = addMenuOption(documentRef, menu, "activeListingsTab", "5. Aktive Listings");
+  menu.value = "ebayListingTab";
+
+  const productTab = createNode(documentRef, "section", "productListTab", "tab");
+  const sellingTab = createNode(documentRef, "section", "ebayListingTab", "tab");
+  const launcher = createNode(documentRef, "button", "launcherGenerator", "");
+  const windowRef = { document: documentRef };
+
+  vm.runInNewContext(source, { window: windowRef, globalThis: windowRef });
+
+  const values = menu.options.map((option) => option.value);
+  assert.deepEqual(values, ["dashboardTab", "draftsTab", "activeListingsTab"]);
+  assert.equal(menu.value, "dashboardTab");
+  assert.match(draftOption.textContent, /eBay-Entwürfe/);
+  assert.match(activeOption.textContent, /Aktive Listings/);
+  assert.equal(productTab.hidden, true);
+  assert.equal(sellingTab.hidden, true);
+  assert.equal(launcher.hidden, true);
+  assert.equal(productTab.dataset.elyonRetiredPreEbay, "true");
+  assert.equal(sellingTab.dataset.elyonRetiredPreEbay, "true");
+});
+
+test("dashboard cleanup removes pre-eBay operational cues without deleting eBay views", async () => {
+  const source = await readFile(new URL("../seller-dashboard-compat.js", import.meta.url), "utf8");
+  assert.match(source, /Listingbereit/);
+  assert.match(source, /Datenqualität und Blocker/);
+  assert.match(source, /activeListingsTab/);
+  assert.match(source, /eBay ist die Quelle für Entwürfe, aktive Listings/);
+  assert.match(source, /Product-Master-Anreicherung/);
 });
 
 test("loads the compatibility layer before role policy and dashboard module", async () => {
