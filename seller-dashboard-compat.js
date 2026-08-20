@@ -9,8 +9,13 @@
   const FINANCE_MERGE_MARKER = "elyonFinanceMenuMerged";
   const NAV_OBSERVER_MARKER = "elyonPostEbayNavigationObserver";
   const DASHBOARD_OBSERVER_MARKER = "elyonPostEbayDashboardObserver";
-  const RETIRED_PRE_EBAY_TABS = new Set(["productListTab", "ebayListingTab"]);
-  const RETIRED_PRE_EBAY_LAUNCHERS = ["launcherGenerator"];
+  const RETIRED_PRE_EBAY_TABS = new Set([
+    "productSearchTab",
+    "productAnalysisTab",
+    "productListTab",
+    "ebayListingTab",
+  ]);
+  const RETIRED_PRE_EBAY_LAUNCHERS = ["launcherNewProduct", "launcherBoard", "launcherGenerator"];
 
   function install(documentRef) {
     const doc = documentRef || global.document;
@@ -161,6 +166,8 @@
 
     return {
       cleaned: true,
+      sourcingHidden: Boolean(doc.getElementById("productSearchTab")),
+      analysisHidden: Boolean(doc.getElementById("productAnalysisTab")),
       productsHidden: Boolean(doc.getElementById("productListTab")),
       sellingHidden: Boolean(doc.getElementById("ebayListingTab")),
     };
