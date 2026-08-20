@@ -63,6 +63,31 @@
     });
   }
 
+  function hideCjOverviewMetric() {
+    const value = document.getElementById("intCjStatus");
+    const metric = value?.closest(".metric");
+    if (!metric) return false;
+
+    metric.hidden = true;
+    metric.classList.add("hidden");
+    metric.setAttribute("aria-hidden", "true");
+    metric.dataset.elyonOverviewHidden = "cj";
+
+    const dashboard = metric.parentElement;
+    if (dashboard?.classList.contains("dashboard")) {
+      dashboard.dataset.elyonIntegrationOverview = "1";
+      dashboard.style.gridTemplateColumns = "repeat(auto-fit,minmax(220px,1fr))";
+    }
+
+    const card = metric.closest(".card");
+    const hint = card?.querySelector(":scope > .hint");
+    if (hint && /Backend,\s*eBay,\s*CJ\s+und\s+weitere\s+Verbindungen/i.test(text(hint.textContent))) {
+      hint.textContent = "Backend, eBay und weitere Verbindungen zentral einrichten und technisch prüfen.";
+    }
+
+    return true;
+  }
+
   function normalizeExportResult(card) {
     const result = card?.querySelector("#googleSheetsSyncResult");
     if (!result) return;
@@ -169,6 +194,7 @@
     scheduled = false;
     applyLabel();
     hideRetiredShopifyLab();
+    hideCjOverviewMetric();
     cleanupGoogleSheetsCard();
   }
 
@@ -201,9 +227,11 @@
   window.ElyonSettingsLegacyCleanup = {
     apply: applyAll,
     hideRetiredShopifyLab,
+    hideCjOverviewMetric,
     cleanupGoogleSheetsCard,
     audit: {
       shopifyLab: "hidden_retired_module",
+      cjOverview: "hidden_keep_integration_tools",
       legacySyncDashboard: "collapsed_migration_only",
       googleSheetsPrimaryAction: "manual_export",
     },

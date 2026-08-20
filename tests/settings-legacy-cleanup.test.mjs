@@ -16,6 +16,17 @@ test("settings cleanup hides retired Shopify Lab navigation", async () => {
   assert.match(source, /shopifyLab: "hidden_retired_module"/);
 });
 
+test("settings cleanup hides CJ only from the top integration overview", async () => {
+  const source = await readFile(new URL("../seller-ai-settings-label.js", import.meta.url), "utf8");
+  assert.match(source, /hideCjOverviewMetric/);
+  assert.match(source, /document\.getElementById\("intCjStatus"\)/);
+  assert.match(source, /metric\.hidden = true/);
+  assert.match(source, /repeat\(auto-fit,minmax\(220px,1fr\)\)/);
+  assert.match(source, /Backend, eBay und weitere Verbindungen zentral einrichten und technisch prüfen/);
+  assert.match(source, /cjOverview: "hidden_keep_integration_tools"/);
+  assert.doesNotMatch(source, /document\.getElementById\("setIntCjStatus"\)/);
+});
+
 test("settings cleanup removes the old sync dashboard from the normal view", async () => {
   const source = await readFile(new URL("../seller-ai-settings-label.js", import.meta.url), "utf8");
   assert.match(source, /#googleSheetsSyncStatus/);
