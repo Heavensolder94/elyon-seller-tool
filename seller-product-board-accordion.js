@@ -2,10 +2,14 @@
   "use strict";
 
   const LIST_SELECTOR = "#productListTab #list";
+  const CARD_SELECTOR = ".product-card:not(.small-card)";
   const STYLE_ID = "elyonProductBoardAccordionStyles";
   const CONTROLS_ID = "elyonProductBoardAccordionControls";
-  const EXPANDED_STORAGE_KEY = "elyonProductBoardExpandedCardsV2";
-  const LEGACY_EXPANDED_STORAGE_KEY = "elyonProductBoardExpandedCardsV1";
+  const EXPANDED_STORAGE_KEY = "elyonProductBoardExpandedCardsV3";
+  const LEGACY_STORAGE_KEYS = [
+    "elyonProductBoardExpandedCardsV1",
+    "elyonProductBoardExpandedCardsV2",
+  ];
   const CARD_CLASS = "elyon-board-accordion-card";
   const EXPANDED_CLASS = "elyon-board-card-expanded";
   const TOGGLE_SELECTOR = "[data-elyon-board-toggle]";
@@ -20,7 +24,7 @@
 
   function resetLegacyExpandedState() {
     try {
-      localStorage.removeItem(LEGACY_EXPANDED_STORAGE_KEY);
+      LEGACY_STORAGE_KEYS.forEach((key) => localStorage.removeItem(key));
     } catch {}
   }
 
@@ -39,13 +43,29 @@
     } catch {}
   }
 
+  function isBoardCard(card, list = document.querySelector(LIST_SELECTOR)) {
+    return Boolean(
+      list
+      && card instanceof HTMLElement
+      && list.contains(card)
+      && card.matches(CARD_SELECTOR)
+      && !card.closest(".kanban-board, .kanban-column, .kanban-shell"),
+    );
+  }
+
   function getCardProductId(card) {
     const aiButton = card.querySelector('[id^="productAiBtn_"]');
     if (aiButton?.id) return aiButton.id.replace(/^productAiBtn_/, "");
 
-    const productButton = [...card.querySelectorAll("button")].find((button) => {
+    const stable = card.querySelector("[data-elyon-stable-id]")?.dataset.elyonStableId;
+    if (stable) return safeText(stable);
+
+    const deleteId = card.querySelector("[data-elyon-delete-product]")?.dataset.elyonDeleteProduct;
+    if (deleteId) return safeText(deleteId);
+
+    const productButton = [...card.querySelectorAll("button[onclick]")].find((button) => {
       const handler = safeText(button.getAttribute("onclick"));
-      return /(?:editProduct|removeProduct|duplicateProduct|stopProduct)\s*\(/.test(handler);
+      return /(?:editProduct|removeProduct|duplicateProduct|stopProduct|prepareProductForEbayDraft)\s*\(/.test(handler);
     });
     const handler = safeText(productButton?.getAttribute("onclick"));
     const match = handler.match(/\((?:'|")?([^)'"\s]+)(?:'|")?\)/);
@@ -59,8 +79,8 @@
     const title = safeText(card.querySelector(".product-title")?.textContent).toLocaleLowerCase("de-DE");
     if (title) return `title:${title}`;
     const list = card.closest("#list");
-    const position = list ? [...list.children].indexOf(card) : -1;
-    return `position:${position}`;
+    const cards = list ? [...list.querySelectorAll(CARD_SELECTOR)].filter((entry) => isBoardCard(entry, list)) : [];
+    return `position:${Math.max(0, cards.indexOf(card))}`;
   }
 
   function getProductRecord(card) {
@@ -146,19 +166,16 @@
   }
 
   function syncNativeDetails(card, expanded) {
-    card.querySelectorAll(":scope > :first-child .details-box").forEach((details) => {
+    card.querySelectorAll(".details-box").forEach((details) => {
       if (details.tagName === "DETAILS") details.open = expanded;
     });
   }
 
   function setCardExpanded(card, expanded, persist = true) {
-    if (!(card instanceof HTMLElement)) return;
+    if (!isBoardCard(card)) return;
     const key = card.dataset.elyonProductCardKey || getCardKey(card);
     card.dataset.elyonProductCardKey = key;
 
-    // Persist first. The Product Board can re-render immediately after a click;
-    // storing the intended state before DOM mutations prevents that render from
-    // restoring the previous value.
     if (persist) {
       const keys = loadExpandedKeys();
       if (expanded) keys.add(key);
@@ -186,8 +203,7 @@
   }
 
   function decorateCard(card) {
-    if (!(card instanceof HTMLElement)) return;
-    if (card.classList.contains("small-card") || card.closest(".kanban-board, .kanban-column, .kanban-shell")) return;
+    if (!isBoardCard(card)) return;
 
     const wasDecorated = card.dataset.elyonAccordionReady === "true";
     const key = getCardKey(card);
@@ -197,8 +213,6 @@
     addToggle(card);
     ensureEssentialPills(card);
 
-    // A new card is closed by default. Only an explicit user choice stored in
-    // the current storage version can restore it as expanded after a re-render.
     const expanded = wasDecorated
       ? card.classList.contains(EXPANDED_CLASS)
       : loadExpandedKeys().has(key);
@@ -208,9 +222,7 @@
   function getBoardCards() {
     const list = document.querySelector(LIST_SELECTOR);
     if (!list) return [];
-    return [...list.children].filter(
-      (child) => child instanceof HTMLElement && child.classList.contains("product-card") && !child.classList.contains("small-card"),
-    );
+    return [...list.querySelectorAll(CARD_SELECTOR)].filter((card) => isBoardCard(card, list));
   }
 
   function setAllCards(expanded) {
@@ -236,7 +248,7 @@
     controls.id = CONTROLS_ID;
     controls.className = "elyon-product-board-accordion-controls";
     controls.innerHTML = `
-      <span class="muted">Standardmäßig geschlossen · Titel, Kennzahlen und Status bleiben sichtbar</span>
+      <span class="muted">Standardmäßig geschlossen · kompakte Vorschau mit Titel, Kennzahlen, Status und Score</span>
       <div>
         <button type="button" class="secondary" data-elyon-board-expand-all>Alle aufklappen</button>
         <button type="button" class="secondary" data-elyon-board-collapse-all>Alle einklappen</button>
@@ -251,8 +263,8 @@
 
     const toggle = target.closest(TOGGLE_SELECTOR);
     if (toggle) {
-      const card = toggle.closest(`${LIST_SELECTOR} > .product-card`);
-      if (!card) return;
+      const card = toggle.closest(".product-card");
+      if (!isBoardCard(card)) return;
       event.preventDefault();
       event.stopPropagation();
       setCardExpanded(card, !card.classList.contains(EXPANDED_CLASS));
@@ -286,37 +298,39 @@
     style.textContent = `
       .elyon-product-board-accordion-controls{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:0 0 14px;padding:10px 12px;border-radius:16px;background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.08)}
       .elyon-product-board-accordion-controls>div{display:flex;gap:8px;flex-wrap:wrap}.elyon-product-board-accordion-controls button{padding:8px 11px;border-radius:11px;font-size:12px}
-      #list>.${CARD_CLASS}{position:relative;grid-template-columns:minmax(0,1fr) minmax(210px,280px);align-items:start;transition:border-color .18s ease,box-shadow .18s ease,background .18s ease,padding .18s ease}
-      #list>.${CARD_CLASS}:not(.${EXPANDED_CLASS}){grid-template-columns:minmax(0,1fr) minmax(132px,170px);align-items:center;gap:10px;padding:13px 14px;background:rgba(2,6,23,.44)}
-      #list>.${CARD_CLASS}:not(.${EXPANDED_CLASS})>:first-child{min-width:0}
-      #list>.${CARD_CLASS}:not(.${EXPANDED_CLASS})>:first-child .ai-product-card,
-      #list>.${CARD_CLASS}:not(.${EXPANDED_CLASS})>:first-child .details-box,
-      #list>.${CARD_CLASS}:not(.${EXPANDED_CLASS})>.actions,
-      #list>.${CARD_CLASS}:not(.${EXPANDED_CLASS})>.elyon-board-delete-quick{display:none!important}
-      #list>.${CARD_CLASS}:not(.${EXPANDED_CLASS})>:first-child .product-title{margin:0 6px 5px 0;font-size:16px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-      #list>.${CARD_CLASS}:not(.${EXPANDED_CLASS})>:first-child .muted{display:-webkit-box;overflow:hidden;-webkit-box-orient:vertical;-webkit-line-clamp:1;line-clamp:1;font-size:11px;line-height:1.35}
-      #list>.${CARD_CLASS}:not(.${EXPANDED_CLASS})>:first-child .pill-row{flex-wrap:nowrap;max-height:26px;margin-top:7px;overflow:hidden}
-      #list>.${CARD_CLASS}:not(.${EXPANDED_CLASS})>:first-child .pill{flex:0 0 auto;padding:4px 7px;font-size:10px;white-space:nowrap}
-      #list>.${CARD_CLASS}:not(.${EXPANDED_CLASS})>.score-wrap{min-width:0}
-      #list>.${CARD_CLASS}:not(.${EXPANDED_CLASS})>.score-wrap .score-top{margin-bottom:5px}
-      #list>.${CARD_CLASS}:not(.${EXPANDED_CLASS})>.score-wrap .score-number{font-size:22px}
-      #list>.${CARD_CLASS}:not(.${EXPANDED_CLASS})>.score-wrap .progress{height:7px}
-      #list>.${CARD_CLASS}>.elyon-product-card-toggle{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;width:100%;margin-top:2px;padding:10px 13px;border-radius:13px;background:rgba(255,255,255,.055);border:1px solid rgba(148,163,184,.14);color:#dbeafe;font-size:12px}
-      #list>.${CARD_CLASS}:not(.${EXPANDED_CLASS})>.elyon-product-card-toggle{margin-top:0;padding:7px 10px;font-size:11px}
-      #list>.${CARD_CLASS}>.elyon-product-card-toggle:hover{background:rgba(59,130,246,.12);border-color:rgba(96,165,250,.28)}
-      #list>.${CARD_CLASS}>.elyon-product-card-toggle .elyon-card-chevron{font-size:18px;line-height:1;transition:transform .18s ease}
-      #list>.${CARD_CLASS}.${EXPANDED_CLASS}{border-color:rgba(96,165,250,.32);box-shadow:0 22px 64px rgba(0,0,0,.28),0 0 0 3px rgba(59,130,246,.06)}
-      #list>.${CARD_CLASS}.${EXPANDED_CLASS}>.actions{grid-column:1/-1;display:flex!important;flex-direction:row;flex-wrap:wrap;padding-top:13px;border-top:1px solid rgba(148,163,184,.13)}
-      #list>.${CARD_CLASS}.${EXPANDED_CLASS}>.actions button{flex:1 1 180px}
-      #list>.${CARD_CLASS} .elyon-essential-pill{background:rgba(59,130,246,.1);border-color:rgba(96,165,250,.2);color:#dbeafe}
+      #productListTab #list .${CARD_CLASS}{position:relative;transition:border-color .18s ease,box-shadow .18s ease,background .18s ease,padding .18s ease}
+      #productListTab #list .${CARD_CLASS}:not(.${EXPANDED_CLASS}){grid-template-columns:minmax(0,1fr) minmax(132px,170px)!important;align-items:center!important;gap:10px!important;padding:13px 14px!important;background:rgba(2,6,23,.44)!important}
+      #productListTab #list .${CARD_CLASS}:not(.${EXPANDED_CLASS})>:first-child{min-width:0}
+      #productListTab #list .${CARD_CLASS}:not(.${EXPANDED_CLASS}) .ai-product-card,
+      #productListTab #list .${CARD_CLASS}:not(.${EXPANDED_CLASS}) .details-box,
+      #productListTab #list .${CARD_CLASS}:not(.${EXPANDED_CLASS})>.actions,
+      #productListTab #list .${CARD_CLASS}:not(.${EXPANDED_CLASS})>.elyon-board-delete-quick,
+      #productListTab #list .${CARD_CLASS}:not(.${EXPANDED_CLASS}) .elyon-product-decision-note{display:none!important}
+      #productListTab #list .${CARD_CLASS}:not(.${EXPANDED_CLASS})>:first-child .product-title{margin:0 6px 5px 0!important;font-size:16px!important;line-height:1.25!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      #productListTab #list .${CARD_CLASS}:not(.${EXPANDED_CLASS})>:first-child .muted{display:-webkit-box;overflow:hidden;-webkit-box-orient:vertical;-webkit-line-clamp:1;line-clamp:1;font-size:11px!important;line-height:1.35!important}
+      #productListTab #list .${CARD_CLASS}:not(.${EXPANDED_CLASS})>:first-child .pill-row{flex-wrap:nowrap!important;max-height:27px;margin-top:7px!important;overflow:hidden}
+      #productListTab #list .${CARD_CLASS}:not(.${EXPANDED_CLASS})>:first-child .pill{flex:0 0 auto;padding:4px 7px!important;font-size:10px!important;white-space:nowrap}
+      #productListTab #list .${CARD_CLASS}:not(.${EXPANDED_CLASS}) .score-wrap{min-width:0!important;padding:0!important}
+      #productListTab #list .${CARD_CLASS}:not(.${EXPANDED_CLASS}) .score-wrap>*{display:none!important}
+      #productListTab #list .${CARD_CLASS}:not(.${EXPANDED_CLASS}) .score-wrap>.score-top{display:flex!important;margin-bottom:5px!important}
+      #productListTab #list .${CARD_CLASS}:not(.${EXPANDED_CLASS}) .score-wrap>.progress{display:block!important;height:7px!important}
+      #productListTab #list .${CARD_CLASS}:not(.${EXPANDED_CLASS}) .score-wrap>.pill-row{display:flex!important;flex-wrap:nowrap!important;max-height:27px;margin-top:7px!important;overflow:hidden}
+      #productListTab #list .${CARD_CLASS}:not(.${EXPANDED_CLASS}) .score-wrap .score-number{font-size:22px!important}
+      #productListTab #list .${CARD_CLASS}>.elyon-product-card-toggle{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;width:100%;margin-top:2px;padding:10px 13px;border-radius:13px;background:rgba(255,255,255,.055);border:1px solid rgba(148,163,184,.14);color:#dbeafe;font-size:12px}
+      #productListTab #list .${CARD_CLASS}:not(.${EXPANDED_CLASS})>.elyon-product-card-toggle{margin-top:0;padding:7px 10px;font-size:11px}
+      #productListTab #list .${CARD_CLASS}>.elyon-product-card-toggle:hover{background:rgba(59,130,246,.12);border-color:rgba(96,165,250,.28)}
+      #productListTab #list .${CARD_CLASS}>.elyon-product-card-toggle .elyon-card-chevron{font-size:18px;line-height:1;transition:transform .18s ease}
+      #productListTab #list .${CARD_CLASS}.${EXPANDED_CLASS}{border-color:rgba(96,165,250,.32);box-shadow:0 22px 64px rgba(0,0,0,.28),0 0 0 3px rgba(59,130,246,.06)}
+      #productListTab #list .${CARD_CLASS}.${EXPANDED_CLASS}>.actions{grid-column:1/-1;display:flex!important;flex-direction:row;flex-wrap:wrap;padding-top:13px;border-top:1px solid rgba(148,163,184,.13)}
+      #productListTab #list .${CARD_CLASS}.${EXPANDED_CLASS}>.actions button{flex:1 1 180px}
+      #productListTab #list .${CARD_CLASS} .elyon-essential-pill{background:rgba(59,130,246,.1);border-color:rgba(96,165,250,.2);color:#dbeafe}
       @media(max-width:760px){
         .elyon-product-board-accordion-controls{align-items:stretch}.elyon-product-board-accordion-controls>div{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}
-        #list>.${CARD_CLASS},#list>.${CARD_CLASS}:not(.${EXPANDED_CLASS}){grid-template-columns:1fr}
-        #list>.${CARD_CLASS}>.score-wrap{grid-column:1}
-        #list>.${CARD_CLASS}:not(.${EXPANDED_CLASS})>.score-wrap{padding-top:8px;border-top:1px solid rgba(148,163,184,.1)}
-        #list>.${CARD_CLASS}.${EXPANDED_CLASS}>.actions button{flex-basis:calc(50% - 8px)}
+        #productListTab #list .${CARD_CLASS},#productListTab #list .${CARD_CLASS}:not(.${EXPANDED_CLASS}){grid-template-columns:1fr!important}
+        #productListTab #list .${CARD_CLASS}:not(.${EXPANDED_CLASS}) .score-wrap{padding-top:8px!important;border-top:1px solid rgba(148,163,184,.1)}
+        #productListTab #list .${CARD_CLASS}.${EXPANDED_CLASS}>.actions button{flex-basis:calc(50% - 8px)}
       }
-      @media(max-width:460px){#list>.${CARD_CLASS}.${EXPANDED_CLASS}>.actions button{flex-basis:100%}}
+      @media(max-width:460px){#productListTab #list .${CARD_CLASS}.${EXPANDED_CLASS}>.actions button{flex-basis:100%}}
     `;
     document.head.appendChild(style);
   }
@@ -354,12 +368,6 @@
     resetLegacyExpandedState();
     installClickHandler();
     decorateBoard();
-    let tries = 0;
-    const retry = window.setInterval(() => {
-      tries += 1;
-      decorateBoard();
-      if (document.querySelector(LIST_SELECTOR) || tries >= 30) window.clearInterval(retry);
-    }, 300);
     window.addEventListener("elyon:products-updated", scheduleDecorate);
     window.addEventListener("storage", (event) => {
       if (event.key === EXPANDED_STORAGE_KEY) scheduleDecorate();
@@ -367,6 +375,7 @@
   }
 
   window.ElyonProductBoardAccordion = {
+    implementation: "single-observer-v3",
     refresh: scheduleDecorate,
     expandAll: () => setAllCards(true),
     collapseAll: () => setAllCards(false),

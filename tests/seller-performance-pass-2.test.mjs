@@ -65,11 +65,28 @@ test("production dashboard transform reuses seller-state and ignores focus refre
   assert.match(runtime, /window\.__elyonSellerStateLoadedAt = Date\.now\(\)/);
 });
 
+test("Product Board has exactly one active observer path and no retry polling", async () => {
+  const [base, compat] = await Promise.all([
+    read("seller-product-board-accordion.js"),
+    read("seller-product-board-accordion-compat.js"),
+  ]);
+  const combined = `${base}\n${compat}`;
+
+  assert.equal((combined.match(/new MutationObserver/g) || []).length, 1);
+  assert.equal((combined.match(/addEventListener\("click"/g) || []).length, 1);
+  assert.doesNotMatch(combined, /setInterval/);
+  assert.match(base, /implementation: "single-observer-v3"/);
+  assert.match(base, /list\.querySelectorAll\(CARD_SELECTOR\)/);
+  assert.match(compat, /delegated: true/);
+});
+
 test("performance pass files are valid JavaScript", () => {
   for (const relativePath of [
     "seller-system-status-settings.js",
     "seller-ebay-api-status.js",
     "seller-ebay-listing-sync.js",
+    "seller-product-board-accordion.js",
+    "seller-product-board-accordion-compat.js",
     "scripts/seller-listing-parity-transform.mjs",
   ]) {
     execFileSync(process.execPath, ["--check", fileURLToPath(new URL(`../${relativePath}`, import.meta.url))], { stdio: "pipe" });
