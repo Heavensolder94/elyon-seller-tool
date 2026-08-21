@@ -32,15 +32,18 @@ test("seller-state uses My eBay ActiveList for real active listings", async () =
   execFileSync(process.execPath, ["--check", fileURLToPath(sourceUrl)]);
 });
 
-test("Elyon draft registry only exposes registered offers that are still UNPUBLISHED", async () => {
+test("Elyon draft registry exposes only observed UNPUBLISHED drafts and keeps lifecycle history", async () => {
   const sourceUrl = new URL("../lib/ebay-draft-registry.js", import.meta.url);
   const source = await readFile(sourceUrl, "utf8");
   assert.match(source, /elyon_ebay_draft_registry_v1/);
   assert.match(source, /registerElyonDraft/);
-  assert.match(source, /record\.state === "draft" && status === "UNPUBLISHED"/);
+  assert.match(source, /reconcileElyonDraftRecords/);
+  assert.match(source, /inventoryState === "UNPUBLISHED"/);
   assert.match(source, /source: "elyon_inventory_draft"/);
-  assert.match(source, /record\.state === "draft" && status === "PUBLISHED"/);
-  assert.match(source, /state: "published"/);
+  assert.match(source, /inventoryState === "PUBLISHED"/);
+  assert.match(source, /missing\(record, "removed"/);
+  assert.match(source, /missing\(record, "ended"/);
+  assert.match(source, /visibilityMode === "seller_hub_feed"/);
   assert.doesNotMatch(source, /startsWith\(["']ELYON/);
   execFileSync(process.execPath, ["--check", fileURLToPath(sourceUrl)]);
 });
@@ -53,7 +56,7 @@ test("seller-state counts only reconciled Elyon drafts, not every UNPUBLISHED In
   assert.match(source, /const items = \[\.\.\.draftItems, \.\.\.activeListings\]/);
   assert.match(source, /drafts: draftItems\.length/);
   assert.match(source, /draftSource: "elyon_draft_registry_plus_ebay_inventory"/);
-  assert.match(source, /Gezählt werden nur eBay-Entwürfe, die Elyon selbst erstellt/);
+  assert.match(source, /zwei erfolgreichen eBay-Abgleichen/);
   assert.doesNotMatch(source, /drafts:\s*number\(inventorySnapshot/);
 });
 
@@ -70,13 +73,15 @@ test("successful Elyon lifecycle actions update the persistent draft registry", 
   execFileSync(process.execPath, ["--check", fileURLToPath(sourceUrl)]);
 });
 
-test("listing status UI shows simple numeric draft and active counts", async () => {
+test("listing status UI shows numeric live counts plus lifecycle history", async () => {
   const sourceUrl = new URL("../seller-ebay-listing-sync.js", import.meta.url);
   const source = await readFile(sourceUrl, "utf8");
   assert.match(source, /\/api\/ebay\/seller-state\?environment=production/);
   assert.match(source, /<small>Entwürfe<\/small><strong>\$\{draftsAvailable \? drafts : "!"\}/);
   assert.match(source, /<small>Aktive Listings<\/small><strong>\$\{active\}/);
-  assert.match(source, /von Elyon erstellte eBay-Entwürfe/i);
+  assert.match(source, /<small>Entfernt<\/small>/);
+  assert.match(source, /<small>Beendet<\/small>/);
+  assert.match(source, /zwei erfolgreiche Abgleiche/i);
   assert.doesNotMatch(source, /Seller Hub · Entwürfe/);
   assert.doesNotMatch(source, /Inventory API · UNPUBLISHED/);
   assert.doesNotMatch(source, /sync-listings/);

@@ -148,6 +148,8 @@ export async function fetchSellerState(environment) {
     fetchInventoryOfferSnapshot(session.environment),
   ]);
 
+  // Active-list retrieval is authoritative for live listings. If it fails, do
+  // not reconcile absences into ended/removed states.
   if (activeResult.status !== "fulfilled") throw activeResult.reason;
 
   const activeListings = activeResult.value.items;
@@ -156,13 +158,22 @@ export async function fetchSellerState(environment) {
     : { items: [], counts: { active: 0, drafts: 0, other: 0 }, total: 0, inventoryItemCount: 0, error: text(inventoryResult.reason?.message) };
 
   let draftItems = [];
-  let draftRegistry = { count: 0, registered: 0, storage: { persisted: false, mode: "unavailable" } };
+  let draftRegistry = {
+    count: 0,
+    registered: 0,
+    lifecycle: { counts: { draft: 0, published: 0, removed: 0, ended: 0 }, changes: [], missingConfirmations: 2 },
+    storage: { persisted: false, mode: "unavailable" },
+  };
   let draftError = "";
+
+  // Missing records are only meaningful when BOTH eBay snapshots succeeded.
+  // This prevents token errors/timeouts from being interpreted as deletion.
   if (inventoryResult.status === "fulfilled") {
     try {
       draftRegistry = await reconcileElyonDraftRegistry({
         environment: session.environment,
         inventoryItems: inventorySnapshot.items,
+        activeListings,
       });
       draftItems = draftRegistry.drafts;
     } catch (error) {
@@ -173,6 +184,7 @@ export async function fetchSellerState(environment) {
   }
 
   const items = [...draftItems, ...activeListings];
+  const lifecycleCounts = draftRegistry.lifecycle?.counts || {};
 
   return {
     environment: session.environment,
@@ -187,7 +199,19 @@ export async function fetchSellerState(environment) {
       registered: number(draftRegistry.registered),
       message: draftError
         ? `Elyon-Entwürfe konnten nicht vollständig geprüft werden: ${draftError}`
-        : "Gezählt werden nur eBay-Entwürfe, die Elyon selbst erstellt und im Entwurfsregister gespeichert hat.",
+        : "Elyon gleicht Entwürfe und Listings über stabile eBay-IDs/SKUs ab. Ein Fehlen wird erst nach zwei erfolgreichen eBay-Abgleichen als entfernt oder beendet gewertet.",
+    },
+    ebayLifecycle: {
+      reliable: !draftError,
+      missingConfirmations: number(draftRegistry.lifecycle?.missingConfirmations) || 2,
+      counts: {
+        draft: number(lifecycleCounts.draft),
+        active: number(lifecycleCounts.published),
+        removed: number(lifecycleCounts.removed),
+        ended: number(lifecycleCounts.ended),
+      },
+      changes: Array.isArray(draftRegistry.lifecycle?.changes) ? draftRegistry.lifecycle.changes : [],
+      safety: "absence_requires_two_successful_snapshots",
     },
     inventoryOffers: {
       ...inventorySnapshot,
@@ -196,6 +220,8 @@ export async function fetchSellerState(environment) {
     counts: {
       active: activeListings.length,
       drafts: draftItems.length,
+      removed: number(lifecycleCounts.removed),
+      ended: number(lifecycleCounts.ended),
       inventoryUnpublished: number(inventorySnapshot?.counts?.drafts),
       inventoryPublished: number(inventorySnapshot?.counts?.active),
       inventoryOther: number(inventorySnapshot?.counts?.other),
