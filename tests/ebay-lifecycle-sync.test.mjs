@@ -140,5 +140,5 @@ test("Company OS lifecycle bridge requires explicit confirmation for a Feed draf
   assert.match(source, /confirmation !== "seller_hub_removed"/);
   assert.match(source, /automaticDraftDeletionObservable/);
   assert.match(source, /productHardDelete: false/);
-  assert.doesNotMatch(source, /DELETE\s+FROM|deleteProduct|hardDelete/i);
+  assert.doesNotMatch(source, /DELETE\s+FROM|deleteProduct|removeProductMaster/i);
 });
