@@ -1,3 +1,5 @@
+import { routeAIRequest } from "../lib/ai-provider-router.js";
+
 const STORE_URL = process.env.ELYON_AGENT_RUNTIME_STORE_URL || "";
 const STORE_TOKEN = process.env.ELYON_AGENT_RUNTIME_STORE_TOKEN || "";
 const STORE_KEY = process.env.ELYON_AGENT_RUNTIME_KEY || "elyon:agent-runtime";
@@ -115,16 +117,44 @@ async function handleProductVision(body, res) {
 async function handleAiPrompt(body, res) {
   const prompt = String(body.prompt || "").trim();
   if (!prompt) return res.status(400).json({ ok: false, error: "Prompt fehlt." });
-  try {
-    const data = await callOpenAI({
-      model: process.env.OPENAI_MODEL || "gpt-4o-mini",
-      input: `Du bist Elyon Brain im Mobile Command Center. Gib kurze, praktische Hilfe. Kontext: ${body.context || ""}\n\nFrage: ${prompt}`,
-      max_output_tokens: 700
+
+  const result = await routeAIRequest({
+    provider: "deepseek",
+    task: "mobile_command_center_text",
+    prompt: `Du bist Elyon Brain im Mobile Command Center. Gib kurze, praktische Hilfe. Kontext: ${body.context || ""}\n\nFrage: ${prompt}`,
+    temperature: 0.2,
+    maxTokens: 700,
+    allowFallback: true,
+    safety: {
+      securityMode: true,
+      sandboxMode: true,
+      autonomyLocked: true,
+      requiresLiveAction: false,
+      userApproved: false,
+    },
+  });
+
+  if (!result.ok) {
+    return res.status(200).json({
+      ok: false,
+      answer: "Live Brain konnte nicht antworten.",
+      error: result.error?.message || "AI Fehler",
+      source: "ai-workflow",
+      provider: result.provider || null,
+      model: result.model || null,
+      fallbackUsed: Boolean(result.fallbackUsed),
     });
-    return res.status(200).json({ ok: true, answer: extractOutputText(data) || "Keine Antwort erzeugt.", source: "ai-workflow" });
-  } catch (error) {
-    return res.status(200).json({ ok: false, answer: "Live Brain konnte nicht antworten.", error: error.message || "AI Fehler", source: "ai-workflow" });
   }
+
+  return res.status(200).json({
+    ok: true,
+    answer: result.content || "Keine Antwort erzeugt.",
+    source: "ai-workflow",
+    provider: result.provider,
+    model: result.model,
+    fallbackUsed: Boolean(result.fallbackUsed),
+    usage: result.usage || null,
+  });
 }
 
 async function readStore() {
@@ -151,7 +181,7 @@ async function readAiWorkflowStore() {
 
 async function writeAiWorkflowStore(payload) {
   if (!STORE_URL || !STORE_TOKEN) return false;
-  const response = await fetch(`${STORE_URL.replace(/\/+$/, "")}/set/${encodeURIComponent(AI_WORKFLOW_STORE_KEY)}/${encodeURIComponent(JSON.stringify(payload))}`, { headers: { Authorization: `Bearer ${STORE_TOKEN}` } });
+  const response = await fetch(`${STORE_URL.replace(/\/+$/, "")}/set/${encodeURIComponent(STORE_KEY)}/${encodeURIComponent(JSON.stringify(payload))}`, { headers: { Authorization: `Bearer ${STORE_TOKEN}` } });
   return response.ok;
 }
 
