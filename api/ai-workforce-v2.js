@@ -240,6 +240,7 @@ async function runManager(body, req) {
     workflowId: body.workflowId,
     parentTaskId: taskId,
     goal: text(body.goal || body.taskPrompt || body.prompt, 4000) || (workflowType === "operations" ? "Operativen Seller-Betrieb prüfen" : "Produkt intern vollständig prüfen"),
+    allowedAgentIds: Array.isArray(body.allowedAgentIds) ? body.allowedAgentIds : undefined,
     executeAgent: (meta) => executeDelegatedAgent(req, meta, body.test === true),
   });
 
