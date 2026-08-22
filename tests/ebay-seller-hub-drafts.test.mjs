@@ -22,6 +22,8 @@ test("Seller Hub draft CSV mirrors the downloaded draft template shape", () => {
   assert.equal(built.marketplaceId, "EBAY_DE");
   assert.equal(built.imageCount, 2);
   assert.equal(built.condition, "NEW");
+  assert.equal(built.descriptionDesigned, false);
+  assert.equal(built.descriptionTheme, "plain");
   assert.doesNotMatch(built.csv, /^\uFEFF/);
   assert.ok(built.csv.endsWith("\r\n"));
 
@@ -35,6 +37,28 @@ test("Seller Hub draft CSV mirrors the downloaded draft template shape", () => {
   assert.match(lines[4], /,19\.99,1,/);
   assert.match(lines[4], /,NEW,/);
   assert.match(lines[4], /"Kompaktes Ladegerät, mit Komma und ""Zitat""\.<br>Zweite Zeile\."/);
+});
+
+test("Seller Hub draft can render an Elyon visual description design", () => {
+  const built = buildSellerHubDraftCsv({
+    marketplaceId: "EBAY_DE",
+    sourceProductId: "amazon:B0DESIGN123",
+    sku: "AMZ-B0DESIGN123",
+    categoryId: "12345",
+    title: "USB C Ladegerät 20W",
+    description: "Kompaktes Ladegerät für Smartphone und Tablet.",
+    itemSpecifics: { Marke: ["Elyon Test"], Leistung: ["20 W"] },
+    images: ["https://example.test/product.jpg"],
+    useDescriptionDesign: true,
+    descriptionTheme: "carbon",
+  });
+
+  assert.equal(built.descriptionDesigned, true);
+  assert.equal(built.descriptionTheme, "carbon");
+  assert.match(built.csv, /<!doctype html>/i);
+  assert.match(built.csv, /class=""elyon""/);
+  assert.match(built.csv, /--brand:#0b1117/);
+  assert.match(built.csv, /USB C Ladegerät 20W/);
 });
 
 test("Seller Hub draft maps marketplace metadata into the Action header", () => {
