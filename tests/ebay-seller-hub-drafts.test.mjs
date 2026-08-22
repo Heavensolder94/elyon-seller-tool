@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 import { buildSellerHubDraftCsv, parseSellerHubDraftResult } from "../lib/ebay-seller-hub-drafts.js";
 
-test("Seller Hub draft CSV uses the current draft template headers", () => {
+test("Seller Hub draft CSV uses the current draft template headers without BOM", () => {
   const built = buildSellerHubDraftCsv({
     sourceProductId: "amazon:B0TEST1234",
     sku: "AMZ-B0TEST1234",
@@ -20,7 +20,10 @@ test("Seller Hub draft CSV uses the current draft template headers", () => {
   assert.equal(built.categoryId, "12345");
   assert.equal(built.imageCount, 2);
   assert.equal(built.condition, "NEW");
-  assert.ok(built.csv.startsWith("\uFEFF\"Action\",\"Custom label (SKU)\",\"Category ID\",\"Title\",\"UPC\",\"Price\",\"Quantity\",\"Item photo URL\",\"Condition ID\",\"Description\",\"Format\""));
+  assert.equal(built.csv.charCodeAt(0), '"'.charCodeAt(0));
+  assert.ok(built.csv.startsWith("\"Action\",\"Custom label (SKU)\",\"Category ID\",\"Title\",\"UPC\",\"Price\",\"Quantity\",\"Item photo URL\",\"Condition ID\",\"Description\",\"Format\""));
+  assert.ok(built.csv.endsWith("\r\n"));
+  assert.doesNotMatch(built.csv, /^\uFEFF/);
   assert.match(built.csv, /\"Draft\",\"AMZ-B0TEST1234\",\"12345\"/);
   assert.match(built.csv, /\"19\.99\",\"1\"/);
   assert.match(built.csv, /\"NEW\"/);
@@ -66,4 +69,10 @@ test("Seller Hub draft result parser extracts eBay Trading errors", () => {
   assert.equal(parsed.errors[0].code, "21916884");
   assert.equal(parsed.errors[0].severity, "Error");
   assert.equal(parsed.errors[0].message, "The condition value is not valid for this draft template.");
+});
+
+test("Seller Hub draft result parser keeps BAF.Error.5 visible", () => {
+  const parsed = parseSellerHubDraftResult('Line Number,Action,Status,ErrorCode,ErrorMessage\r\n2,Draft,Failure,BAF.Error.5,Unable to find Task Action Id for task Draft');
+  assert.match(parsed.preview, /BAF\.Error\.5/);
+  assert.match(parsed.preview, /Unable to find Task Action Id/);
 });
