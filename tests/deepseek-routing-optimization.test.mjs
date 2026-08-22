@@ -118,14 +118,16 @@ test("Seller product search is DeepSeek-first and keeps structured response meta
   });
 });
 
-test("Malformed DeepSeek structured output retries once with OpenAI", async () => {
+test("Incomplete DeepSeek structured output retries once with OpenAI", async () => {
   await withAiEnv(async () => {
     const previousFetch = global.fetch;
     const urls = [];
     global.fetch = async (url) => {
       const value = String(url);
       urls.push(value);
-      if (value.includes("api.deepseek.com")) return providerResponse("kein json", { model: "deepseek-v4-flash" });
+      if (value.includes("api.deepseek.com")) {
+        return providerResponse(JSON.stringify({ title: "Nur Titel, Vertrag unvollständig" }), { model: "deepseek-v4-flash" });
+      }
       if (value.includes("api.openai.com")) {
         return providerResponse(JSON.stringify({
           title: "19er Set Kleiderbügel Weiß Anti-Rutsch",
@@ -223,6 +225,17 @@ test("Mobile text uses DeepSeek but image analysis remains on OpenAI Vision", as
 test("Profit Analyst defaults to DeepSeek without overriding an explicit user route", () => {
   assert.equal(getAgentRoutingPreference({ headers: {} }, "elyon-profit-analyst").provider, "deepseek");
 
+  const generatedDefaultCookie = encodeURIComponent(JSON.stringify({
+    agents: {
+      "elyon-profit-analyst": { provider: "openrouter", model: "", allowFallback: true },
+    },
+  }));
+  const generatedDefault = getAgentRoutingPreference({
+    headers: { cookie: `elyon_ai_routing_v1=${generatedDefaultCookie}` },
+  }, "elyon-profit-analyst");
+  assert.equal(generatedDefault.provider, "deepseek");
+  assert.equal(generatedDefault.allowFallback, true);
+
   const cookie = encodeURIComponent(JSON.stringify({
     agents: {
       "elyon-profit-analyst": { provider: "openai", model: "gpt-4o-mini", allowFallback: false },
@@ -234,6 +247,17 @@ test("Profit Analyst defaults to DeepSeek without overriding an explicit user ro
   assert.equal(explicit.provider, "openai");
   assert.equal(explicit.model, "gpt-4o-mini");
   assert.equal(explicit.allowFallback, false);
+
+  const openRouterCookie = encodeURIComponent(JSON.stringify({
+    agents: {
+      "elyon-profit-analyst": { provider: "openrouter", model: "openrouter/free", allowFallback: true },
+    },
+  }));
+  const explicitOpenRouter = getAgentRoutingPreference({
+    headers: { cookie: `elyon_ai_routing_v1=${openRouterCookie}` },
+  }, "elyon-profit-analyst");
+  assert.equal(explicitOpenRouter.provider, "openrouter");
+  assert.equal(explicitOpenRouter.model, "openrouter/free");
 });
 
 test("Agent engine keeps separate workflow storage key and OpenAI Vision model", () => {
