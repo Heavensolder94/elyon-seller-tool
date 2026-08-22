@@ -35,15 +35,33 @@ const STRUCTURE_BOOT_AFTER = `  window.ElyonAIWorkforceV2 = { agents: AGENTS, re
   else installRuntimeApi();`;
 
 const OPERATIONS_INSTALL_BEFORE = `  function install() {
-    installButton();
-    const observer = new MutationObserver(installButton);
+    installButtons();
+    const observer = new MutationObserver(installButtons);
     observer.observe(document.documentElement, { childList: true, subtree: true });
-    [100, 400, 900, 1800].forEach((delay) => setTimeout(installButton, delay));
-    if (window.ElyonAIWorkforceV2) window.ElyonAIWorkforceV2.runOperations = runOperations;
+    [100, 400, 900, 1800].forEach((delay) => setTimeout(installButtons, delay));
+    window.addEventListener("elyon:ai-workforce-routing-updated", installButtons);
+    window.addEventListener("elyon:ai-agent-resource-settings-changed", installButtons);
+    if (window.ElyonAIWorkforceV2) {
+      window.ElyonAIWorkforceV2.runOperations = runOperations;
+      window.ElyonAIWorkforceV2.runProductTeam = runProductTeam;
+      window.ElyonAIWorkforceV2.runManagerWorkflow = runManagerWorkflow;
+    }
   }`;
 
 const OPERATIONS_INSTALL_AFTER = `  function install() {
-    if (window.ElyonAIWorkforceV2) window.ElyonAIWorkforceV2.runOperations = runOperations;
+    const refreshButtons = () => requestAnimationFrame(installButtons);
+    installButtons();
+    window.addEventListener("elyon:ai-workforce-routing-updated", refreshButtons);
+    window.addEventListener("elyon:ai-agent-resource-settings-changed", refreshButtons);
+    window.addEventListener("elyon:ai-workforce-v2-task-updated", refreshButtons);
+    window.addEventListener("elyon:runtime-group-loaded", (event) => {
+      if (event.detail?.tabId === "virtualAgentsTab") refreshButtons();
+    });
+    if (window.ElyonAIWorkforceV2) {
+      window.ElyonAIWorkforceV2.runOperations = runOperations;
+      window.ElyonAIWorkforceV2.runProductTeam = runProductTeam;
+      window.ElyonAIWorkforceV2.runManagerWorkflow = runManagerWorkflow;
+    }
   }`;
 
 const INTERFACE_INSTALL_BEFORE = `  function installObserver() {

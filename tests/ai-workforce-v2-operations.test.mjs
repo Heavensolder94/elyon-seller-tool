@@ -9,8 +9,13 @@ test("operations control parses and is lazy-loaded with workforce v2", async () 
     readFile(new URL("../scripts/prepare-vercel.mjs", import.meta.url), "utf8"),
   ]);
   assert.doesNotThrow(() => new vm.Script(source));
-  assert.match(source, /workflowType: "operations"/);
+  assert.match(source, /runManagerWorkflow\("operations"/);
   assert.match(source, /Betrieb prüfen/);
+  assert.match(source, /Betrieb delegieren/);
+  assert.match(source, /Produktteam ausführen/);
+  assert.match(source, /autoDelegate/);
+  assert.match(source, /allowedAgentIds/);
+  assert.match(source, /childTasks/);
   assert.match(source, /runOperations/);
   assert.match(build, /seller-ai-workforce-v2-operations\.js/);
   assert.match(build, /injectWorkforceV2IntoRuntimeLoader/);
