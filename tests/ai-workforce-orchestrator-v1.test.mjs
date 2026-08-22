@@ -8,7 +8,7 @@ import {
   taskOutcome,
 } from "../lib/ai-workforce-orchestrator-v1.js";
 
-function completedTask(agentId, meta = {}, resultStatus = "passed") {
+function completedTask(agentId, meta = {}, resultStatus = "passed", generatedContent = {}) {
   const now = new Date().toISOString();
   return {
     id: `task-${agentId}-${Math.random().toString(36).slice(2, 7)}`,
@@ -19,8 +19,12 @@ function completedTask(agentId, meta = {}, resultStatus = "passed") {
     result: {
       status: resultStatus,
       summary: `${agentId} ${resultStatus}`,
+      findings: [],
+      recommendations: [],
+      missingFacts: [],
       blockers: resultStatus === "blocked" ? ["kritischer Blocker"] : [],
       warnings: resultStatus === "warning" ? ["manuelle Prüfung nötig"] : [],
+      generatedContent,
     },
     errors: [],
     createdAt: now,
@@ -61,7 +65,7 @@ test("product manager runs four waves and parallelizes compliance plus profit", 
   });
 
   assert.equal(MAX_PARALLEL_DELEGATIONS, 3);
-  assert.deepEqual(PRODUCT_WAVES, [
+  assert.deepEqual(PRODUCT_WAVES.map((wave) => [...wave]), [
     ["elyon-product-data-specialist"],
     ["elyon-compliance-specialist", "elyon-profit-specialist"],
     ["elyon-listing-specialist"],
@@ -74,6 +78,51 @@ test("product manager runs four waves and parallelizes compliance plus profit", 
   assert.equal(maxActive, 2);
   assert.deepEqual(calls.map((entry) => entry.stage), [1, 2, 2, 3, 4]);
   assert.ok(result.childTasks.every((task) => taskOutcome(task) === "completed"));
+});
+
+test("manager propagates sanitized specialist results and generated listing to later waves", async () => {
+  let listingSawAnalysis = false;
+  let qualitySawGeneratedDraft = false;
+  const result = await runManagerOrchestration({
+    workflowType: "product",
+    context: {
+      product: {
+        id: "p-propagation",
+        title: "Alter Produkttitel",
+        listingDraft: { title: "Alter Produkttitel", description: "Alt" },
+      },
+    },
+    allowedAgentIds: allSpecialists,
+    executeAgent: async (meta) => {
+      if (meta.agentId === "elyon-listing-specialist") {
+        listingSawAnalysis = Boolean(
+          meta.context.agentResults?.["elyon-compliance-specialist"] &&
+          meta.context.agentResults?.["elyon-profit-specialist"]
+        );
+        return completedTask(meta.agentId, meta, "passed", {
+          title: "Neuer Elyon Listing Titel",
+          description: "Neue kontrollierte Beschreibung",
+          aspects: { Material: "Polyester" },
+          price: 29.99,
+          ignoredUnsafeShape: { arbitrary: true },
+        });
+      }
+      if (meta.agentId === "elyon-draft-quality-guard") {
+        qualitySawGeneratedDraft =
+          meta.context.listingDraft?.title === "Neuer Elyon Listing Titel" &&
+          meta.context.product?.listingDraft?.description === "Neue kontrollierte Beschreibung" &&
+          meta.context.agentResults?.["elyon-listing-specialist"]?.status === "passed";
+      }
+      return completedTask(meta.agentId, meta);
+    },
+  });
+
+  assert.equal(result.status, "manual_approval_required");
+  assert.equal(listingSawAnalysis, true);
+  assert.equal(qualitySawGeneratedDraft, true);
+  assert.ok(result.contextUpdates.includes("listingDraft"));
+  assert.ok(result.contextUpdates.includes("elyon-listing-specialist:agentResult"));
+  assert.equal("finalContext" in result, false);
 });
 
 test("manager stops before listing when compliance requests manual review", async () => {
@@ -153,6 +202,7 @@ test("manager API and browser control expose orchestration without external acti
   assert.match(api, /allowedAgentIds/);
   assert.match(api, /childTasks/);
   assert.match(api, /advancedAgentHandler/);
+  assert.match(api, /readinessFindings/);
   assert.match(api, /automaticPublishing: false/);
   assert.match(api, /automaticOrdering: false/);
   assert.match(ui, /autoDelegate/);
