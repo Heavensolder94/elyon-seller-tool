@@ -10,10 +10,10 @@ import {
   backendAgentId,
   evaluateDraftQuality,
   listAgentStructure,
+  readinessFindings,
 } from "../lib/ai-workforce-structure-v2.js";
 
 const DELEGATED_ACTIONS = Object.freeze({
-  "elyon-product-data-specialist": "analyze_product",
   "elyon-compliance-specialist": "analyze_product",
   "elyon-profit-specialist": "analyze_product",
   "elyon-listing-specialist": "analyze_listing",
@@ -77,6 +77,39 @@ function createTask({ agentId, title, result, sourceId = "", id = "", status = "
   };
 }
 
+function runProductDataCheck(meta) {
+  const startedAt = Date.now();
+  const readiness = readinessFindings(meta.context);
+  const status = readiness.blockers.length ? "blocked" : readiness.warnings.length ? "warning" : "passed";
+  const result = {
+    summary: status === "passed"
+      ? "Produktdaten sind für die nächsten internen Prüfungen ausreichend dokumentiert."
+      : status === "blocked"
+        ? "Kritische Produktgrundlagen fehlen; der Manager darf nicht weiter delegieren."
+        : "Produktdaten enthalten offene Hinweise, die vor weiterer Delegation geprüft werden müssen.",
+    status,
+    confidence: 1,
+    findings: [],
+    recommendations: status === "passed" ? ["Compliance und Profit können intern geprüft werden."] : ["Fehlende oder unklare Produktdaten prüfen."],
+    missingFacts: readiness.blockers,
+    warnings: readiness.warnings,
+    blockers: readiness.blockers,
+    suggestedActions: [],
+    generatedContent: { readiness: { blockers: readiness.blockers, warnings: readiness.warnings } },
+    assumptions: [],
+  };
+  const task = createTask({
+    agentId: "elyon-product-data-specialist",
+    title: "Product Data Specialist · Manager-Delegation",
+    result,
+    sourceId: meta.sourceId,
+    status: status === "blocked" ? "blocked" : status === "passed" ? "draft_ready" : "approval_required",
+    model: "deterministic-product-readiness-v1",
+  });
+  task.durationMs = Date.now() - startedAt;
+  return task;
+}
+
 function runDraftQuality(body) {
   const startedAt = Date.now();
   const context = plainObject(body.input || body.context || body.data);
@@ -86,6 +119,7 @@ function runDraftQuality(body) {
     title: text(body.title, 500) || "Draft Quality Guard · eBay-Entwurf prüfen",
     result,
     sourceId: body.sourceId,
+    status: result.status === "blocked" ? "blocked" : result.status === "passed" ? "draft_ready" : "approval_required",
   });
   task.durationMs = Date.now() - startedAt;
   return task;
@@ -169,6 +203,9 @@ async function invokeAdvancedAgent(req, meta, testMode) {
 }
 
 async function executeDelegatedAgent(req, meta, testMode) {
+  if (meta.agentId === "elyon-product-data-specialist") {
+    return decorateDelegatedTask(runProductDataCheck(meta), meta);
+  }
   if (meta.agentId === "elyon-draft-quality-guard") {
     return decorateDelegatedTask(runDraftQuality({
       input: meta.context,
