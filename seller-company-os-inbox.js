@@ -306,7 +306,7 @@
         throw error;
       }
       const products = (Array.isArray(data.products) ? data.products : [])
-        .filter((product) => product?.source === "elyon_company_os" || product?.approval?.companyOsApproved === true);
+        .filter((product) => product?.source === "elyon_company_os" && product?.approval?.companyOsApproved === true);
       render(products);
       const ready = products.filter((product) => product?.readiness?.state === "ready_for_manual_listing").length;
       setStatus(`🟢 ${products.length} freigegebene${products.length === 1 ? "s" : ""} Produkt${products.length === 1 ? "" : "e"} geladen · ${ready} ohne Seller-Blocker.`, "ok");

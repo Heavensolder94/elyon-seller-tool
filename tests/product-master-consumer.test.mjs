@@ -133,20 +133,104 @@ test("temporary Company OS outage falls back to a visibly stale v2 cache without
   assert.equal(result.products[0].sellerView.freshness, "stale");
 });
 
+test("successful empty Company OS snapshots replace the v2 cache", async () => {
+  const writes = [];
+  const empty = await loadProductMasterForSeller({
+    env: { COMPANY_OS_SYNC_CODE: "sync-secret" },
+    fetchImpl: async () => response({ ok: true, products: [] }),
+    readCache: async () => [canonical],
+    writeCache: async (records) => {
+      writes.push(records);
+      return { persisted: true, mode: "test" };
+    },
+  });
+  assert.deepEqual(empty.products, []);
+  assert.deepEqual(writes, [[]]);
+
+  await assert.rejects(
+    () => loadProductMasterForSeller({
+      env: { COMPANY_OS_SYNC_CODE: "sync-secret" },
+      fetchImpl: async () => response({ ok: false, error: "upstream_unavailable" }, 503),
+      readCache: async () => writes.at(-1),
+      readLegacy: async () => [],
+    }),
+    (error) => error.code === "upstream_unavailable",
+  );
+});
+
+test("Company OS review stages never become final Seller approval", () => {
+  for (const stage of ["product_review", "market_review", "review"]) {
+    const product = adaptProductMasterForSeller({
+      ...canonical,
+      workflow: { stage, status: "pending_review", active: true, rejected: false },
+      channels: { ebay: { status: "NOT_STARTED", withdrawn: false } },
+    });
+    assert.equal(product.readiness.state, "needs_review");
+    assert.equal(product.approval.companyOsApproved, false);
+  }
+});
+
 test("order/listing identity resolution is deterministic and never uses title matching", () => {
   assert.equal(resolveProductMasterRecord([canonical], { listingId: "offer-1274" }), canonical);
   assert.equal(resolveProductMasterRecord([canonical], { offerId: "offer-1274" }), canonical);
   assert.equal(resolveProductMasterRecord([canonical], { sku: "SUP-RED-L" }), canonical);
+  assert.equal(resolveProductMasterRecord([canonical], { sku: "ELY-001274-02" }), canonical);
   assert.equal(resolveProductMasterRecord([canonical], { title: "Organizer" }), null);
+});
+
+test("ambiguous supplier SKUs never select an arbitrary Elyon product", () => {
+  const other = structuredClone(canonical);
+  other.identity = {
+    ...other.identity,
+    productId: "company-product-2",
+    companyOsProductId: "company-product-2",
+    articleNumber: "ELY-001275",
+    sku: "ELY-001275",
+  };
+  other.product = { ...other.product, title: "Other Organizer" };
+  assert.equal(resolveProductMasterRecord([canonical, other], { supplierSku: "SUP-RED-L" }), null);
+});
+
+test("ambiguous eBay listing IDs never select an arbitrary Elyon product", () => {
+  const first = structuredClone(canonical);
+  const second = structuredClone(canonical);
+  first.channels.ebay.listingId = "listing-conflict";
+  second.identity = {
+    ...second.identity,
+    productId: "company-product-2",
+    companyOsProductId: "company-product-2",
+    articleNumber: "ELY-001275",
+    sku: "ELY-001275",
+  };
+  second.channels.ebay.listingId = "listing-conflict";
+  assert.equal(resolveProductMasterRecord([first, second], { listingId: "listing-conflict" }), null);
+});
+
+test("conflicting identity fields never override each other by precedence", () => {
+  const first = structuredClone(canonical);
+  const second = structuredClone(canonical);
+  second.identity = {
+    ...second.identity,
+    productId: "company-product-2",
+    companyOsProductId: "company-product-2",
+    articleNumber: "ELY-001275",
+    sku: "ELY-001275",
+  };
+  second.channels.ebay.offerId = "offer-1275";
+  assert.equal(resolveProductMasterRecord([first, second], {
+    sku: "ELY-001274",
+    offerId: "offer-1275",
+  }), null);
 });
 
 test("withdrawn Company OS channel state remains visible to the Seller consumer", () => {
   const withdrawn = {
     ...canonical,
-    channels: { ebay: { ...canonical.channels.ebay, status: "NOT_STARTED", withdrawn: true, offerId: "offer-1274" } },
+    channels: { ebay: { ...canonical.channels.ebay, status: "LIVE", withdrawn: true, offerId: "offer-1274" } },
   };
   const product = adaptProductMasterForSeller(withdrawn);
   assert.equal(product.channels.ebay.withdrawn, true);
-  assert.equal(product.channels.ebay.status, "NOT_STARTED");
-  assert.equal(product.listing.status, "NOT_STARTED");
+  assert.equal(product.channels.ebay.status, "WITHDRAWN");
+  assert.equal(product.listing.status, "WITHDRAWN");
+  assert.equal(product.approval.companyOsApproved, false);
 });

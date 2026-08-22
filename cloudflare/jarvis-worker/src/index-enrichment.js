@@ -16,7 +16,6 @@ const IDEMPOTENCY_TTL_SECONDS = 2592000;
 const MAX_ATTEMPTS = 3;
 const RETRY_DELAYS_SECONDS = [15, 60];
 const TERMINAL_STATUSES = new Set(["completed", "failed", "cancelled"]);
-const ELYON_ARTICLE_NUMBER_PATTERN = /^ELY-\d{6,}$/i;
 
 const nowIso = () => new Date().toISOString();
 const text = (value, max = 500) => String(value ?? "").trim().slice(0, max);
@@ -27,19 +26,6 @@ const isRetryableError = (error) => error?.retryable !== false;
 const taskKey = (id) => `jarvis:task:${id}`;
 const taskAttemptKey = (id) => `jarvis:task:${id}:attempt`;
 const idempotencyKey = (key) => `jarvis:idempotency:${key}`;
-
-const normalizeSellerToolUrl = (url) => {
-  const normalized = text(url, 1000).replace(/\/+$/, "");
-  try {
-    const parsed = new URL(normalized);
-    if (parsed.protocol !== "https:") throw new Error("invalid_protocol");
-    return parsed.toString().replace(/\/+$/, "");
-  } catch {
-    const error = new Error("product_source_invalid_url");
-    error.retryable = false;
-    throw error;
-  }
-};
 
 const requireRedis = (env) => {
   if (!env.UPSTASH_REDIS_REST_URL || !env.UPSTASH_REDIS_REST_TOKEN) throw new Error("upstash_not_configured");
@@ -219,42 +205,10 @@ const finishAgentRun = (env, run, patch) => supabaseRequest(
   }
 );
 
-const persistSellerProductPatch = async (env, product, patch) => {
-  if (!env.ELYON_SELLER_TOOL_URL || !env.ELYON_SELLER_ACCESS_TOKEN) {
-    const error = new Error("product_source_write_not_configured");
-    error.retryable = false;
-    throw error;
-  }
-  const articleNumber = text(product?.articleNumber || product?.sku, 100).toUpperCase();
-  if (!ELYON_ARTICLE_NUMBER_PATTERN.test(articleNumber)) {
-    const error = new Error("product_identity_not_write_ready");
-    error.retryable = false;
-    throw error;
-  }
-  const response = await fetch(`${normalizeSellerToolUrl(env.ELYON_SELLER_TOOL_URL)}/api/products`, {
-    method: "POST",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-      "x-elyon-seller-token": env.ELYON_SELLER_ACCESS_TOKEN,
-    },
-    body: JSON.stringify({
-      product: {
-        id: product.id,
-        articleNumber,
-        sku: articleNumber,
-        ...patch,
-      },
-    }),
-  });
-  const body = await response.json().catch(() => null);
-  if (response.status === 401 || response.status === 403) {
-    const error = new Error("product_source_auth_failed");
-    error.retryable = false;
-    throw error;
-  }
-  if (!response.ok || body?.ok !== true) throw new Error(body?.error || `product_source_write_http_${response.status}`);
-  return body.product || null;
+const persistSellerProductPatch = async () => {
+  const error = new Error("product_master_read_only");
+  error.retryable = false;
+  throw error;
 };
 
 const persistChildProductCheckTask = async (env, parentTask, productId) => {
@@ -370,7 +324,7 @@ const runProductEnrichment = async (task, env) => {
     now,
   });
 
-  const writable = source === "seller_tool_product_master" && ELYON_ARTICLE_NUMBER_PATTERN.test(text(reloaded.product.articleNumber || reloaded.product.sku, 100));
+  const writable = false;
   const hasWrite = checkedAutoApply.length > 0 || Object.keys(provenancePatch.enrichment?.fields || {}).length > 0;
   let persisted = false;
   if (writable && hasWrite) {
@@ -402,7 +356,9 @@ const runProductEnrichment = async (task, env) => {
     lowConfidence: initial.lowConfidence.map((finding) => finding.field),
     conflicts: allConflicts.map((finding) => ({ field: finding.field, existingValue: finding.existingValue || null, proposedValue: finding.value })),
     persisted,
-    writeBlockedReason: writable ? null : "product_master_identity_or_source_not_write_ready",
+    writeBlockedReason: hasWrite
+      ? source === "seller_tool_product_master" ? "product_master_read_only" : "product_master_identity_or_source_not_write_ready"
+      : null,
     citations: research.citations,
     postCheck,
     cost: {

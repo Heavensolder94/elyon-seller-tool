@@ -13,7 +13,6 @@ import { processEnrichmentMessageV2 } from "./enrichment-task-runtime-v2.js";
 
 const WORKER_VERSION = "0.5.1";
 const ENRICHMENT_VERSION = "jarvis-product-enrichment-v1.1";
-const ELYON_ARTICLE_NUMBER_PATTERN = /^ELY-\d{6,}$/i;
 
 const text = (value, max = 500) => String(value ?? "").trim().slice(0, max);
 const nowIso = () => new Date().toISOString();
@@ -102,7 +101,7 @@ async function runProductEnrichmentV2(task, env) {
   });
 
   const articleNumber = text(reloaded.product.articleNumber || reloaded.product.sku, 100).toUpperCase();
-  const writable = source === "seller_tool_product_master" && ELYON_ARTICLE_NUMBER_PATTERN.test(articleNumber);
+  const writable = false;
   const hasResearchMetadata = Object.keys(provenancePatch.enrichment?.fields || {}).length > 0;
   const hasWrite = checkedAutoApply.length > 0 || hasResearchMetadata;
   let persisted = false;
@@ -140,7 +139,9 @@ async function runProductEnrichmentV2(task, env) {
       proposedValue: finding.value,
     })),
     persisted,
-    writeBlockedReason: writable ? null : "product_master_identity_or_source_not_write_ready",
+    writeBlockedReason: hasWrite
+      ? source === "seller_tool_product_master" ? "product_master_read_only" : "product_master_identity_or_source_not_write_ready"
+      : null,
     citations: research.citations,
     postCheck,
     cost: {

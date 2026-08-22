@@ -1,4 +1,4 @@
-import { loadProductMasterForSeller, productMasterIdentityValues } from "../../lib/product-master-consumer.js";
+import { loadProductMasterForSeller, resolveProductMasterRecord } from "../../lib/product-master-consumer.js";
 import { requireSellerAccess } from "../../lib/seller-access.js";
 
 function text(value) {
@@ -10,17 +10,22 @@ async function loadProducts() {
   return result.products;
 }
 
-function matchesProduct(product, identity) {
-  const wanted = text(identity).toLocaleUpperCase("de-DE");
-  return Boolean(wanted && productMasterIdentityValues(product).some((value) => value === wanted));
-}
-
 export default async function handler(req, res) {
   if (!requireSellerAccess(req, res, { maxBodyBytes: 64 * 1024 })) return;
   try {
     const products = await loadProducts();
     const identity = text(req.query?.id || req.query?.articleNumber || req.query?.sku || req.query?.listingId || req.query?.offerId);
-    const product = identity ? products.find((candidate) => matchesProduct(candidate, identity)) : null;
+    const product = identity ? resolveProductMasterRecord(products, {
+      articleNumber: identity,
+      sku: identity,
+      listingId: identity,
+      offerId: identity,
+      productId: identity,
+      companyOsProductId: identity,
+      productKey: identity,
+      sourceImportId: identity,
+      supplierSku: identity,
+    }) : null;
     if (!product) return res.status(404).json({ ok: false, error: "Produkt nicht gefunden" });
 
     return res.status(200).json({

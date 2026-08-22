@@ -19,6 +19,7 @@ test("Company OS inbox requires an explicit working-copy action", () => {
   assert.match(inboxSource, /Erst dein Klick erstellt eine lokale Arbeitskopie/);
   assert.match(inboxSource, /Arbeitskopie übernehmen/);
   assert.match(inboxSource, /Listing-Paket öffnen/);
+  assert.match(inboxSource, /product\?\.source === "elyon_company_os" && product\?\.approval\?\.companyOsApproved === true/);
   assert.doesNotMatch(inboxSource, /localStorage\.setItem\(LOCAL_KEY[^\n]+refresh/);
 });
 
