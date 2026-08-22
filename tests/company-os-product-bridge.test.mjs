@@ -3,7 +3,6 @@ import test from "node:test";
 
 import { validateBridgeAccess } from "../lib/bridge-access.js";
 import { isReviewedCompanyProduct } from "../api/integrations/company-os/products.js";
-import { upsertProductMasterItem } from "../lib/product-master-store.js";
 
 function req(secret, body = {}) {
   return { method: "POST", headers: { "x-elyon-bridge-secret": secret }, body };
@@ -38,32 +37,11 @@ test("only finally approved Company OS products pass the bridge", () => {
   assert.equal(isReviewedCompanyProduct({ reviewStatus: "approved", status: "bereit_manuell_einstellen" }), true);
 });
 
-test("repeated Company OS transfers update one Product Master item", () => {
-  const first = upsertProductMasterItem([], {
-    id: "company-product-1",
-    sourceImportId: "nova-import-1",
-    title: "Testprodukt",
-    description: "Vollständige Beschreibung",
-    images: ["https://example.com/image.jpg"],
-    supplierUrl: "https://supplier.example/product/1",
-    buyPrice: 10,
-    salePrice: 24.99,
-  });
-  assert.equal(first.status, "saved");
-  assert.equal(first.items.length, 1);
-
-  const second = upsertProductMasterItem(first.items, {
-    id: "company-product-1",
-    sourceImportId: "nova-import-1",
-    title: "Testprodukt aktualisiert",
-    description: "Vollständige Beschreibung",
-    images: ["https://example.com/image.jpg"],
-    supplierUrl: "https://supplier.example/product/1",
-    buyPrice: 10,
-    salePrice: 29.99,
-  });
-  assert.equal(second.status, "updated");
-  assert.equal(second.items.length, 1);
-  assert.equal(second.product.title, "Testprodukt aktualisiert");
-  assert.equal(second.product.pricing.salePrice, 29.99);
+test("Company OS handoff no longer writes a competing Seller Product Master", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const source = await readFile(new URL("../api/integrations/company-os/products.js", import.meta.url), "utf8");
+  assert.match(source, /product_master_read_only/);
+  assert.match(source, /consumerRoute: "\/api\/products"/);
+  assert.equal(source.includes("writeProductMasterList"), false);
+  assert.equal(source.includes("upsertProductMasterItem"), false);
 });

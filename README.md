@@ -47,6 +47,12 @@ Wichtig:
 
 ## Was das Tool kann
 
+### Product Master v2 Consumer
+
+Company OS / Product Master v2 ist die kanonische Quelle für Elyon-Identität, Produktdaten, Pricing, Listing Intent und eBay Channel State. Das Seller Tool liest diese Projection read-only und ergänzt operative Daten wie Orders, Versand, Rechnungen und Retouren. `elyonProducts` ist nur eine lokale Arbeitskopie; das Seller Tool erzeugt keine neue `ELY-xxxxxx`-Identität.
+
+Für den serverseitigen Consumer werden `ELYON_COMPANY_OS_URL` und der serverseitige Sync-Code (`ELYON_COMPANY_OS_SYNC_CODE` oder `COMPANY_OS_SYNC_CODE`) benötigt. Rohimporte ohne Elyon-Identität werden nicht als Seller-Produkte übernommen.
+
 ### Produktworkflow
 
 - Produkte sammeln, bewerten und pflegen

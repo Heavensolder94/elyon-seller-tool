@@ -13,7 +13,10 @@ import {
   withdrawEbayOffer,
   publicEbayError,
 } from "../../lib/ebay-production.js";
-import { readProductMasterList, writeProductMasterList } from "../../lib/product-master-store.js";
+import {
+  loadProductMasterForSeller,
+  productMasterIdentityValues,
+} from "../../lib/product-master-consumer.js";
 
 function text(value) {
   return String(value ?? "").trim();
@@ -342,6 +345,8 @@ async function fetchListingItems(environment) {
 }
 
 function identityValues(entry = {}) {
+  const v2Values = productMasterIdentityValues(entry);
+  if (v2Values.size) return v2Values;
   const raw = entry?.raw && typeof entry.raw === "object" ? entry.raw : {};
   const listing = entry?.listing && typeof entry.listing === "object" ? entry.listing : {};
   const rawListing = raw?.listing && typeof raw.listing === "object" ? raw.listing : {};
@@ -403,21 +408,19 @@ async function handleSyncListings(req, res) {
   }
   const environment = environmentFrom(req);
   const result = await fetchListingItems(environment);
-  const products = await readProductMasterList("elyon_products");
-  const next = [...products];
+  const projection = await loadProductMasterForSeller();
+  const products = projection.products;
   const matched = [];
   const unmatched = [];
   const ambiguous = [];
   for (const item of result.items) {
-    const matches = next
-      .map((entry, index) => ({ entry, index }))
+    const matches = products
+      .map((entry) => ({ entry }))
       .filter(({ entry }) => {
         const ids = identityValues(entry);
-        return [item.sku, item.offerId, item.listingId].map(text).filter(Boolean).some((id) => ids.has(id));
+        return [item.sku, item.offerId, item.listingId].map((id) => text(id).toUpperCase()).filter(Boolean).some((id) => ids.has(id));
       });
     if (matches.length === 1) {
-      const syncedAt = result.syncedAt;
-      next[matches[0].index] = mergeListingMetadata(matches[0].entry, item, syncedAt);
       matched.push({ offerId: item.offerId, sku: item.sku, listingId: item.listingId });
     } else if (matches.length > 1) {
       ambiguous.push({ offerId: item.offerId, sku: item.sku, listingId: item.listingId, matches: matches.length });
@@ -425,7 +428,6 @@ async function handleSyncListings(req, res) {
       unmatched.push({ offerId: item.offerId, sku: item.sku, listingId: item.listingId, title: item.title });
     }
   }
-  const storage = matched.length ? await writeProductMasterList("elyon_products", next) : { persisted: false, mode: "read_only_no_matches" };
   return res.status(200).json({
     ok: true,
     environment,
@@ -436,8 +438,12 @@ async function handleSyncListings(req, res) {
     ambiguous: ambiguous.length,
     unmatchedItems: unmatched,
     ambiguousItems: ambiguous,
-    storage,
-    message: "Nur eindeutig zuordenbare bestehende Produkte wurden aktualisiert. Unbekannte oder mehrdeutige Angebote wurden nicht angelegt.",
+    storage: { persisted: false, mode: "consumer_projection_read_only", source: projection.source },
+    productMaster: {
+      source: projection.source,
+      freshness: projection.freshness,
+    },
+    message: "eBay-Angebote wurden nur gegen die Company-OS-Product-Master-Projektion zugeordnet. Seller Tool schreibt keine fachlichen Produktdaten zurück.",
   });
 }
 

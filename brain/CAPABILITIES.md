@@ -285,7 +285,7 @@ AVAILABLE / DELEGATABLE
 
 Jarvis kann über vorhandene Systempfade Product-Master-Daten lesen beziehungsweise Spezialisten damit arbeiten lassen.
 
-Product Master bleibt Source of Truth.
+Company OS Product Master v2 bleibt die kanonische Source of Truth; das Seller Tool liest ihn als Consumer.
 
 ---
 
@@ -297,7 +297,7 @@ Status:
 LIMITED / APPROVAL_BOUND
 ```
 
-Änderungen sind nur über bestehende kontrollierte Systempfade zulässig.
+Änderungen sind nur über bestehende kontrollierte Company-OS-Systempfade zulässig. Das Seller Tool darf keine konkurrierenden Product-Master-Writes ausführen.
 
 Jarvis darf insbesondere nicht:
 

@@ -161,19 +161,8 @@ function replaceStoredProduct(updated) {
 
 async function persistProduct(updated) {
   replaceStoredProduct(updated);
-  const payload = sellerProductPayload(updated);
-  const response = await fetch("/api/products", {
-    method: "POST",
-    credentials: "same-origin",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify({ product: payload }),
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok || data.ok === false) {
-    throw new Error(data.message || data.error || `HTTP ${response.status}`);
-  }
   window.dispatchEvent(new CustomEvent("elyon:seller-product-selected", { detail: { product: updated } }));
-  return data;
+  return { ok: true, mode: "local_working_copy", product: updated };
 }
 
 function parseJsonField(id, fallback = {}) {
@@ -379,11 +368,11 @@ function renderAutoListerPanel() {
       const updated = mergeSellerProductWithDraft(product, draft);
       replaceStoredProduct(updated);
       const status = document.getElementById("sellerAutoStatus");
-      if (status) status.textContent = "Lokal gespeichert. Product Master wird aktualisiert …";
+      if (status) status.textContent = "Arbeitskopie lokal gespeichert. Company OS Product Master bleibt unverändert …";
       await persistProduct(updated);
       if (status) {
         status.className = "seller-selling-statusline good";
-        status.textContent = "Interner Auto-Lister-Entwurf wurde im Seller Product Master gespeichert. Keine eBay-Live-Aktion ausgeführt.";
+        status.textContent = "Interner Auto-Lister-Entwurf wurde nur in der lokalen Seller-Arbeitskopie gespeichert. Keine eBay-Live-Aktion ausgeführt.";
       }
       renderDesignerContext();
     } catch (error) {
@@ -477,7 +466,7 @@ function renderReadyPanel() {
     try {
       const updated = mergeSellerManualListingMeta(product, itemId, status);
       replaceStoredProduct(updated);
-      statusNode.textContent = "Lokal gespeichert. Product Master wird aktualisiert …";
+      statusNode.textContent = "Arbeitskopie lokal gespeichert. Company OS Product Master bleibt unverändert …";
       await persistProduct(updated);
       statusNode.className = "seller-selling-statusline good";
       statusNode.textContent = "Seller-Status und eBay-Artikelnummer wurden intern gespeichert. Keine eBay-Live-Aktion ausgeführt.";
@@ -505,7 +494,7 @@ function buildShell(tab) {
     <div class="card">
       <div class="seller-selling-head">
         <div><div class="badge">Elyon Seller Tool</div><h2>Verkaufen</h2><p>Vom freigegebenen Product-Master-Datensatz über den Listing Designer und Auto Lister bis zum kontrollierten manuellen eBay-Listing.</p></div>
-        <div class="seller-selling-status"><span class="pill">Keine automatische Veröffentlichung</span><span class="pill">Product Master bleibt Hauptquelle</span></div>
+        <div class="seller-selling-status"><span class="pill">Keine automatische Veröffentlichung</span><span class="pill">Company OS Product Master · read-only</span></div>
       </div>
       <nav class="seller-selling-nav" aria-label="Verkaufsbereiche">
         <button type="button" data-selling-nav="designer"><strong>1 · Listing Designer</strong><span>Titel, Beschreibung, SEO und Design bearbeiten</span></button>

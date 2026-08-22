@@ -32,6 +32,7 @@ const number = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(
 const money = (value) => euro.format(number(value));
 const count = (value) => whole.format(number(value));
 const percent = (value) => `${decimal.format(number(value))} %`;
+const ELYON_SKU_PATTERN = /^ELY-\d{6,}(?:-\d{2,})?$/i;
 
 function escapeHtml(value) {
   return text(value)
@@ -50,6 +51,21 @@ function asDate(value) {
 function formattedDate(value) {
   const date = asDate(value);
   return date ? dateTime.format(date) : "–";
+}
+
+function orderProductReference(item = {}) {
+  const sku = text(item.sku);
+  const listingId = text(item.listingId || item.legacyItemId || item.itemId);
+  const articleMatch = sku.match(/^ELY-(\d{6,})(?:-\d{2,})?$/i);
+  return {
+    articleNumber: articleMatch ? `ELY-${articleMatch[1]}`.toUpperCase() : "",
+    sku,
+    supplierSku: sku && !ELYON_SKU_PATTERN.test(sku) ? sku : "",
+    offerId: text(item.offerId || item.offer?.offerId),
+    listingId,
+    productId: text(item.productId || item.companyOsProductId),
+    source: "ebay_order_product_reference",
+  };
 }
 
 function readRange() {
@@ -148,6 +164,7 @@ export function normalizeEbayListing(item = {}) {
 function normalizeLineItem(item = {}) {
   return {
     itemId: text(item.legacyItemId || item.itemId || item.legacyItemID || item.sku || item.lineItemId),
+    productReference: orderProductReference(item),
     title: text(item.title || item.lineItemTitle || item.sku) || "eBay-Artikel",
     quantity: Math.max(1, number(item.quantity, 1)),
     // eBay Fulfillment API: lineItemCost is already unit price × quantity.

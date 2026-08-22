@@ -87,6 +87,8 @@ const openOrder = {
   lineItems: [
     {
       legacyItemId: "111",
+      sku: "ELY-001274",
+      offerId: "offer-1274",
       title: "Testprodukt A",
       quantity: 2,
       lineItemCost: { value: "50.00", currency: "EUR" },
@@ -139,6 +141,10 @@ test("normalizes eBay orders without exposing raw credentials", () => {
   assert.equal(order.isFulfilled, false);
   assert.equal(order.lineItems[0].itemId, "111");
   assert.equal(order.lineItems[0].lineTotal, 50);
+  assert.equal(order.lineItems[0].productReference.articleNumber, "ELY-001274");
+  assert.equal(order.lineItems[0].productReference.sku, "ELY-001274");
+  assert.equal(order.lineItems[0].productReference.offerId, "offer-1274");
+  assert.equal(order.lineItems[0].productReference.listingId, "111");
 });
 
 test("builds honest seller metrics from Product Master, eBay listings and eBay orders", () => {

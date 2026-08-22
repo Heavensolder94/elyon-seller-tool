@@ -1,14 +1,14 @@
 # Elyon Seller Tool – aktive und inaktive Module
 
-**Stand: 20.08.2026**
+**Stand: 22.08.2026**
 
 ## Verbindliche Rolle
 
 ```text
 Elyon Nova sammelt Produkt- und Lieferantendaten.
 Company OS prüft Produkt, Markt, Compliance und Wirtschaftlichkeit.
-Company OS erstellt das Listing im Listing Designer / Auto Lister und übergibt es an eBay.
-Das Seller Tool beginnt ab eBay und verwaltet den laufenden Seller-Betrieb.
+Company OS besitzt den Product Master v2, erstellt das Listing im Listing Designer / Auto Lister und steuert den eBay-Channel-State.
+Das Seller Tool konsumiert diese Produktwahrheit ab eBay und verwaltet den laufenden Seller-Betrieb.
 ```
 
 ## Verbindlicher Gesamtworkflow
@@ -54,7 +54,9 @@ Nova
 
 - **eBay Inventory API** ist die verbindliche Quelle für eBay-Entwürfe und aktive Listings.
 - **eBay Orders API** ist die verbindliche Quelle für eBay-Bestellungen.
-- **Product Master** bleibt serverseitige Produktquelle für Anreicherung, Zuordnung, Lieferant, EK und Gewinninformationen; er erzeugt im Seller Tool keine Listings.
+- **Company OS Product Master v2** ist die kanonische Quelle für Identität, Produktdaten, Supplier, Pricing, Compliance, Listing Intent und eBay Channel State.
+- **Seller Tool `/api/products`** ist ausschließlich eine read-only Consumer-Projection; `elyonProducts` bleibt lokale Working Copy/Cache und erzeugt keine neue Elyon-Identität.
+- **Supplier-SKU und Elyon-SKU** bleiben getrennte Referenzen; Orders verknüpfen sich über ELY-SKU, Offer-ID, Listing-ID oder Product-ID.
 - **Lokale Browserdaten** sind nur Arbeitskopie/Fallback und keine führende Datenquelle.
 - **Google Sheets** ist optionaler Export-/Backup-/Migrationskanal und kein Datenmaster.
 
@@ -85,7 +87,8 @@ Die zugrunde liegenden Legacy-Listing-Komponenten werden zunächst nicht hart ge
 - Keine automatische Kundennachricht ohne separat freigegebene Automation.
 - Keine erfundenen Produkt-, Compliance-, Hersteller- oder Sicherheitsdaten.
 - eBay-Entwürfe und aktive Listings werden nicht aus Product-Master-Statuswerten erfunden; eBay ist dafür die Quelle der Wahrheit.
-- Product-Master-Daten dürfen eBay-Bestand nur anreichern, nicht ersetzen.
+- Product-Master-v2-Daten dürfen eBay-Bestand fachlich anreichern; die bestehende eBay-Engine führt nur die operative, manuell bestätigte API-Aktion aus.
+- Product-Master-Writes im Seller Tool sind deprecated und blockiert. Rohimporte ohne ELY-Identität bleiben außerhalb der Seller-Projection.
 - Finance verwendet echte operative Daten; Schätzwerte müssen als solche gekennzeichnet bleiben.
 - Legacy-Pre-eBay-Module dürfen nicht erneut prominent in Navigation oder Quickstart aktiviert werden, ohne die Systemrolle bewusst zu ändern.
 

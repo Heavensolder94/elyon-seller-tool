@@ -54,16 +54,8 @@ function replaceStoredProduct(updated) {
 
 async function persistProduct(updated) {
   replaceStoredProduct(updated);
-  const response = await fetch("/api/products", {
-    method: "POST",
-    credentials: "same-origin",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify({ product: sellerProductPayload(updated) }),
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok || data.ok === false) throw new Error(data.message || data.error || `HTTP ${response.status}`);
   window.dispatchEvent(new CustomEvent("elyon:seller-product-selected", { detail: { product: updated } }));
-  return data;
+  return { ok: true, mode: "local_working_copy", product: updated };
 }
 
 function readUi() {
@@ -314,7 +306,7 @@ async function saveParity(view, initialState) {
     const draft = buildParityDraft(currentProduct, { ...view, itemSpecifics: overrides.itemSpecifics }, overrides);
     const updated = mergeProductWithParityDraft(currentProduct, draft);
     replaceStoredProduct(updated);
-    setStatus(`Lokal gespeichert · Prüfung ${draft.readiness.score} %. Product Master wird aktualisiert …`);
+    setStatus(`Arbeitskopie lokal gespeichert · Prüfung ${draft.readiness.score} %. Company OS Product Master bleibt unverändert …`);
     await persistProduct(updated);
     currentProduct = updated;
     setStatus(`Vollständiger Auto-Lister-Entwurf gespeichert · ${draft.readiness.score} %. Keine eBay-Live-Aktion ausgeführt.`, draft.readiness.ready ? "good" : "bad");

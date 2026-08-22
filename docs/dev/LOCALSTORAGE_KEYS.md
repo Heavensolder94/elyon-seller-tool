@@ -44,7 +44,7 @@ Zweck:
 
 Zweck:
 
-- bewusst erzeugte lokale Arbeitskopien aus dem Seller Product Master
+- bewusst erzeugte lokale Arbeitskopien aus der Company-OS-Product-Master-v2-Projection
 - Grundlage der bestehenden Produktansicht sowie des Seller-Bereichs `Verkaufen`
 - bleibt eine Arbeitskopie und nicht die verbindliche Hauptdatenquelle
 
@@ -52,7 +52,8 @@ Regeln:
 
 - vorhandene Datensätze und unbekannte Felder erhalten
 - Listing-Daten nur additiv ergänzen
-- nach Änderungen den geschützten Server Product Master aktualisieren
+- Änderungen bleiben lokale Working-Copy-/operative Snapshot-Daten; der kanonische Product Master wird ausschließlich in Company OS geändert
+- keine neue Elyon-Artikelnummer aus dieser Arbeitskopie erzeugen
 
 ### `elyonSelectedSellerProductId`
 
@@ -99,7 +100,7 @@ Beispiel:
 }
 ```
 
-Die eigentlichen Designer-Daten werden additiv im Product Master unter `listing.descriptionDesign` und `listing.descriptionDesignDraft` gespeichert.
+Die Designer-Daten werden in der Seller-Arbeitskopie nur für die lokale operative Vorbereitung gehalten. Der kanonische Listing-Stand bleibt Company-OS-owned.
 
 ### `elyon_seller_auto_lister_parity_v1`
 
@@ -120,7 +121,7 @@ Beispiel:
 }
 ```
 
-Die eigentlichen Auto-Lister-Daten werden additiv im Product Master unter `listing.autoListerDraft`, `listing.categoryMetadata`, `listing.compliance`, `listing.gpsr` und den Variantenfeldern gespeichert.
+Auto-Lister-Daten bleiben in dieser Phase lokale Arbeitskopie; der kanonische Listing-/Compliance-Stand wird aus Company OS gelesen und dort gepflegt.
 
 ## Vorbereitete oder zu prüfende Keys
 

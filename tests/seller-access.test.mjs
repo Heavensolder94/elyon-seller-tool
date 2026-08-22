@@ -113,7 +113,7 @@ test("signed seller session authenticates without storing the raw token", () => 
   }
 });
 
-test("product master rejects authenticated writes without persistent storage", async () => {
+test("product master rejects authenticated writes because Company OS owns the canonical record", async () => {
   const previous = process.env.ELYON_SELLER_ACCESS_TOKEN;
   const redisUrl = process.env.UPSTASH_REDIS_REST_URL;
   const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN;
@@ -131,8 +131,10 @@ test("product master rejects authenticated writes without persistent storage", a
     delete process.env.KV_REST_API_TOKEN;
     const res = responseMock();
     await productHandler({ method: "POST", headers: { cookie }, body: { title: "Test" }, query: {} }, res);
-    assert.equal(res.statusCode, 503);
-    assert.equal(res.body.error, "persistent_storage_required");
+    assert.equal(res.statusCode, 409);
+    assert.equal(res.body.error, "product_master_read_only");
+    assert.equal(res.body.ownerSystem, "elyon_company_os");
+    assert.equal(res.body.safety.createsIdentity, false);
   } finally {
     if (previous === undefined) delete process.env.ELYON_SELLER_ACCESS_TOKEN;
     else process.env.ELYON_SELLER_ACCESS_TOKEN = previous;

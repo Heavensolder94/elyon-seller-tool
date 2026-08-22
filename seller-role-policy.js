@@ -149,7 +149,7 @@
       const server = item?.rawServerProduct || item?.raw || item || {};
       return [item?.id, item?.sellerToolMasterProductId, server.id, server.companyOsProductId]
         .map(text)
-        .includes(selectedId));
+        .includes(selectedId);
     }) || list[0] || null;
   }
 
@@ -214,28 +214,8 @@
     });
     localStorage.setItem(LOCAL_KEY, JSON.stringify(next));
 
-    try {
-      const response = await fetch("/api/products", {
-        method: "POST",
-        credentials: "same-origin",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({
-          product: {
-            ...view.server,
-            ebayItemId: itemId,
-            listingStatus: status,
-            listing: { ...(view.server.listing || {}), ebayItemId: itemId, status },
-            updatedAt: new Date().toISOString(),
-          },
-        }),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok || data.ok === false) throw new Error(data.message || data.error || `HTTP ${response.status}`);
-      statusNode.textContent = "Seller-Status und eBay-Artikelnummer wurden gespeichert. Es wurde kein eBay-Angebot veröffentlicht.";
-      renderListingPackage();
-    } catch (error) {
-      statusNode.textContent = `Lokal gespeichert, Serveraktualisierung fehlgeschlagen: ${error.message}`;
-    }
+    statusNode.textContent = "Lokale Seller-Arbeitskopie aktualisiert. Company OS Product Master bleibt unverändert; es wurde kein eBay-Angebot veröffentlicht.";
+    renderListingPackage();
   }
 
   function renderListingPackage() {

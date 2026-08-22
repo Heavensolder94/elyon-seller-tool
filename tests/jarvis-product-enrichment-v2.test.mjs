@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import enrichmentWorker, { runProductEnrichmentV2 } from "../cloudflare/jarvis-worker/src/index-enrichment-v2.js";
+import { persistSellerProductPatch } from "../cloudflare/jarvis-worker/src/index-enrichment.js";
 import {
   buildPreservingEnrichmentPatch,
   existingEnrichmentFields,
@@ -11,6 +12,28 @@ test("hardened enrichment worker exports fetch, queue and handler", () => {
   assert.equal(typeof enrichmentWorker.fetch, "function");
   assert.equal(typeof enrichmentWorker.queue, "function");
   assert.equal(typeof runProductEnrichmentV2, "function");
+});
+
+test("enrichment cannot write the Seller Product Master after consumer migration", async () => {
+  let fetchCalls = 0;
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => {
+    fetchCalls += 1;
+    throw new Error("unexpected_external_write");
+  };
+  try {
+    await assert.rejects(
+      () => persistSellerProductPatch(
+        { ELYON_SELLER_TOOL_URL: "https://seller.example", ELYON_SELLER_ACCESS_TOKEN: "seller-secret" },
+        { articleNumber: "ELY-001274" },
+        { enrichment: { fields: { material: { value: "ABS" } } } },
+      ),
+      (error) => error.message === "product_master_read_only" && error.retryable === false,
+    );
+    assert.equal(fetchCalls, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test("provenance survives nested raw normalization layers", () => {

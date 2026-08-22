@@ -119,7 +119,7 @@
 
   function idsOf(product) {
     const raw = product?.rawServerProduct || product?.raw || product || {};
-    return [product?.id, product?.sellerToolMasterProductId, raw.id, raw.companyOsProductId, raw.sourceImportId]
+    return [product?.articleNumber, product?.sku, product?.id, product?.sellerToolMasterProductId, raw.articleNumber, raw.identity?.articleNumber, raw.identity?.sku, raw.id, raw.companyOsProductId, raw.sourceImportId]
       .map(text)
       .filter(Boolean);
   }
@@ -138,7 +138,13 @@
     const copy = {
       id: text(product.id),
       sellerToolMasterProductId: text(product.id),
+      productId: text(product.productId || product.identity?.productId),
       companyOsProductId: text(product.raw?.companyOsProductId || product.companyOsProductId),
+      productKey: text(product.productKey || product.identity?.productKey),
+      sourceImportId: text(product.sourceImportId || product.identity?.sourceImportId),
+      articleNumber: text(product.articleNumber || product.identity?.articleNumber),
+      sku: text(product.sku || product.identity?.sku || product.articleNumber),
+      supplierSku: text(product.supplierSku || product.identity?.supplierSku),
       name: text(product.title),
       title: text(product.title),
       description: text(product.description),
@@ -300,7 +306,7 @@
         throw error;
       }
       const products = (Array.isArray(data.products) ? data.products : [])
-        .filter((product) => product?.source === "elyon_company_os" || product?.approval?.companyOsApproved === true);
+        .filter((product) => product?.source === "elyon_company_os" && product?.approval?.companyOsApproved === true);
       render(products);
       const ready = products.filter((product) => product?.readiness?.state === "ready_for_manual_listing").length;
       setStatus(`🟢 ${products.length} freigegebene${products.length === 1 ? "s" : ""} Produkt${products.length === 1 ? "" : "e"} geladen · ${ready} ohne Seller-Blocker.`, "ok");
