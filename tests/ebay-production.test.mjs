@@ -75,6 +75,7 @@ test("eBay payload uses verified item specifics and complete seller setup", () =
     paymentPolicyId: "payment-1",
     returnPolicyId: "return-1",
   });
+  assert.equal(built.offerPayload.regulatory, undefined);
 });
 
 test("missing eBay policies and location remain blocking", () => {
@@ -92,6 +93,7 @@ test("missing eBay policies and location remain blocking", () => {
   assert.ok(built.blockers.some((entry) => entry.includes("Versandrichtlinie")));
   assert.ok(built.blockers.some((entry) => entry.includes("Zahlungsrichtlinie")));
   assert.ok(built.blockers.some((entry) => entry.includes("Rücknahmerichtlinie")));
+  assert.equal(built.offerPayload.regulatory, undefined);
 });
 
 test("GPSR manufacturer and responsible person map to Inventory offer regulatory fields", () => {
@@ -129,6 +131,42 @@ test("GPSR manufacturer and responsible person map to Inventory offer regulatory
   }, { marketplaceId: "EBAY_DE", selected: {} });
 
   assert.equal(built.offerPayload.regulatory.manufacturer.companyName, "Hersteller GmbH");
-  assert.deepEqual(built.offerPayload.regulatory.responsiblePersons[0].types, ["EUResponsiblePerson"]);
+  assert.deepEqual(built.offerPayload.regulatory.responsiblePersons[0].types, ["EU_RESPONSIBLE_PERSON"]);
   assert.deepEqual(built.offerPayload.regulatory.productSafety.statements, ["EBPSS101"]);
+});
+
+test("Amazon extension top-level GPSR contacts are preserved for eBay", () => {
+  const built = buildEbayPayloads({
+    title: "Amazon Import Testprodukt mit vollständigen GPSR Kontakten",
+    description: "Beschreibung für den direkten Amazon-Importer eBay-Draft Test.",
+    categoryId: "12345",
+    conditionEnum: "NEW",
+    price: 22.99,
+    images: ["https://example.test/image.jpg"],
+    itemSpecifics: { Produktart: ["Testprodukt"] },
+    merchantLocationKey: "location-1",
+    fulfillmentPolicyId: "fulfillment-1",
+    paymentPolicyId: "payment-1",
+    returnPolicyId: "return-1",
+    manufacturer: {
+      companyName: "Hersteller GmbH",
+      addressLine1: "Musterstraße 1",
+      city: "Berlin",
+      postalCode: "10115",
+      country: "DE",
+      email: "kontakt@example.test",
+    },
+    responsiblePerson: {
+      companyName: "EU Verantwortlich GmbH",
+      addressLine1: "Europastraße 2",
+      city: "Köln",
+      postalCode: "50667",
+      country: "DE",
+      email: "gpsr@example.test",
+    },
+  }, { marketplaceId: "EBAY_DE", selected: {} });
+
+  assert.equal(built.offerPayload.regulatory.manufacturer.companyName, "Hersteller GmbH");
+  assert.equal(built.offerPayload.regulatory.responsiblePersons[0].companyName, "EU Verantwortlich GmbH");
+  assert.deepEqual(built.offerPayload.regulatory.responsiblePersons[0].types, ["EU_RESPONSIBLE_PERSON"]);
 });
