@@ -62,6 +62,8 @@
   function normalize(item) {
     const id = text(first(item, (layer) => layer.id || layer.masterProductId || layer.productId));
     const companyOsProductId = text(first(item, (layer) => layer.companyOsProductId));
+    const articleNumber = text(first(item, (layer) => layer.articleNumber || layer.identity?.articleNumber || layer.sku || layer.identity?.sku));
+    const supplierSku = text(first(item, (layer) => layer.supplierSku || layer.identity?.supplierSku));
     const title = text(first(item, (layer) => layer.title || layer.name || layer.productName)) || "Unbenanntes Produkt";
     const supplier = text(first(item, (layer) => {
       if (layer.supplier && typeof layer.supplier === "object") return layer.supplier.name;
@@ -88,6 +90,9 @@
       id: id || companyOsProductId || supplierUrl || `import-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       sellerToolMasterProductId: id || companyOsProductId,
       companyOsProductId,
+      articleNumber,
+      sku: articleNumber || text(first(item, (layer) => layer.sku || layer.identity?.sku)),
+      supplierSku,
       title,
       name: title,
       supplier,
@@ -214,7 +219,7 @@
           <div class="elyon-import-copy">
             <strong>${escapeHtml(item.title)}</strong>
             <span>${escapeHtml(item.supplier)} · Status: ${escapeHtml(item.status)}</span>
-            <span class="elyon-import-id">Interne Seller-ID: ${escapeHtml(item.sellerToolMasterProductId || item.id)}</span>
+             <span class="elyon-import-id">Elyon-Artikelnummer: ${escapeHtml(item.articleNumber || "nicht vergeben")}</span>
           </div>
           <div class="elyon-import-values">
             <div class="elyon-import-value"><small>EK</small><b>${escapeHtml(money(item.buyPrice))}</b></div>

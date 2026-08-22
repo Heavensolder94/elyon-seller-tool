@@ -97,10 +97,10 @@ test("eBay draft paths prefer main and variant Elyon SKUs", () => {
   assert.equal(deterministicEbaySku({ sku: "ELY-000001-03", sourceProductId: "nova_1", title: "Test" }), "ELY-000001-03");
 });
 
-test("Company OS bridge requires and persists unified Elyon identity without enabling live publishing", () => {
-  assert.match(bridgeSource, /company_os_article_number_required/);
-  assert.match(bridgeSource, /articleNumber,/);
-  assert.match(bridgeSource, /sku: articleNumber/);
-  assert.match(bridgeSource, /autonomousPostingAllowed: false/);
+test("Company OS bridge is a read-only compatibility route without live publishing", () => {
+  assert.match(bridgeSource, /product_master_read_only/);
+  assert.match(bridgeSource, /consumerRoute: "\/api\/products"/);
+  assert.match(bridgeSource, /ownerSystem: "elyon_company_os"/);
   assert.match(bridgeSource, /automaticListing: false/);
+  assert.equal(bridgeSource.includes("upsertProductMasterItem"), false);
 });

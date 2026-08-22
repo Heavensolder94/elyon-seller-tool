@@ -61,16 +61,8 @@ function replaceStoredProduct(updated) {
 
 async function persistProduct(updated) {
   replaceStoredProduct(updated);
-  const response = await fetch("/api/products", {
-    method: "POST",
-    credentials: "same-origin",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify({ product: sellerProductPayload(updated) }),
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok || data.ok === false) throw new Error(data.message || data.error || `HTTP ${response.status}`);
   window.dispatchEvent(new CustomEvent("elyon:seller-product-selected", { detail: { product: updated } }));
-  return data;
+  return { ok: true, mode: "local_working_copy", product: updated };
 }
 
 function readUi() {
@@ -343,11 +335,11 @@ function bindVisualEvents() {
       try {
         const updated = mergeProductWithVisualDraft(currentProduct, draft);
         replaceStoredProduct(updated);
-        setStatus("Lokal gespeichert. Product Master wird aktualisiert …");
+        setStatus("Arbeitskopie lokal gespeichert. Company OS Product Master bleibt unverändert …");
         await persistProduct(updated);
         currentProduct = updated;
         draft = normalizeVisualDraft(storedDesign(updated));
-        setStatus("Visuelles Listing-Paket im Seller Product Master gespeichert. Keine eBay-Live-Aktion ausgeführt.", "good");
+        setStatus("Visuelles Listing-Paket nur in der lokalen Seller-Arbeitskopie gespeichert. Keine eBay-Live-Aktion ausgeführt.", "good");
       } catch (error) {
         setStatus(`Lokal gespeichert, Serveraktualisierung fehlgeschlagen: ${error.message}`, "bad");
       } finally {

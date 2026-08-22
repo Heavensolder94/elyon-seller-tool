@@ -89,7 +89,7 @@ Historische oder alternative Datenwege dürfen die Company-OS-Prüfung nicht sti
 
 ## 5. Product Master
 
-Der Seller Product Master ist die maßgebliche Produktquelle für den Seller-Workflow.
+Der Company-OS Product Master v2 ist die maßgebliche fachliche Produktquelle für den gesamten Seller-Workflow. Das Seller Tool konsumiert ihn und führt nur operative Seller-Daten.
 
 Jarvis soll vorhandene Product-Master-Daten gegenüber lokalen Kopien oder älteren Importzuständen bevorzugen.
 
@@ -206,10 +206,10 @@ Produktprüfung
 Marktentscheidung
         │
         ▼
-Company-OS-Freigabe
+Company-OS-Freigabe und stabile ELY-Identität
         │
         ▼
-Seller Product Master
+Company OS Product Master v2
         │
         ▼
 Listing Designer

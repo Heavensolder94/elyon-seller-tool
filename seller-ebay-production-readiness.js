@@ -273,14 +273,6 @@
       updatedAt: now,
     };
     replaceStoredProduct(updated);
-    const response = await fetch("/api/products", {
-      method: "POST",
-      credentials: "same-origin",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify({ product: updated.rawServerProduct }),
-    });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok || data.ok === false) throw new Error(data.message || data.error || "Seller Product Master konnte nicht aktualisiert werden.");
     window.dispatchEvent(new CustomEvent("elyon:seller-product-selected", { detail: { product: updated } }));
     return updated;
   }

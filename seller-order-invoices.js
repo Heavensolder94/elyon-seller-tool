@@ -81,6 +81,22 @@
   }
   const settings = () => readJson(SETTINGS_KEY, {}).settings || {};
   const notify = (message, eyebrow) => { if (typeof window.toast === 'function') window.toast(message, eyebrow || 'Bestellzentrale'); };
+  const ELYON_SKU_PATTERN = /^ELY-\d{6,}(?:-\d{2,})?$/i;
+
+  function productReferenceFromLine(line) {
+    const sku = text(line && line.sku);
+    const listingId = text(line && (line.listingId || line.legacyItemId || line.itemId));
+    const articleMatch = sku.match(/^ELY-(\d{6,})(?:-\d{2,})?$/i);
+    return {
+      articleNumber: articleMatch ? `ELY-${articleMatch[1]}`.toUpperCase() : '',
+      sku,
+      supplierSku: sku && !ELYON_SKU_PATTERN.test(sku) ? sku : '',
+      offerId: text(line && (line.offerId || line.offer && line.offer.offerId)),
+      listingId,
+      productId: text(line && (line.productId || line.companyOsProductId)),
+      source: 'ebay_order_product_reference',
+    };
+  }
 
   function normalizeOrder(order) {
     const id = text(order && (order.orderId || order.legacyOrderId || order.id));
@@ -96,7 +112,7 @@
       ebayStatus: text(order && (order.orderFulfillmentStatus || order.orderPaymentStatus) || 'UNKNOWN').toUpperCase(),
       buyerName: text(ship.fullName || order && order.buyer && order.buyer.username),
       address: [address.addressLine1, address.addressLine2, [address.postalCode, address.city].filter(Boolean).join(' '), address.countryCode].filter(Boolean),
-      lines: lines.map((line) => ({ itemId: text(line && (line.legacyItemId || line.itemId || line.sku || line.lineItemId || line.title)), title: text(line && line.title || 'Artikel'), quantity: Math.max(1, num(line && line.quantity)), total: num(line && line.lineItemCost && line.lineItemCost.value), currency })),
+      lines: lines.map((line) => ({ itemId: text(line && (line.legacyItemId || line.itemId || line.sku || line.lineItemId || line.title)), productReference: productReferenceFromLine(line), title: text(line && line.title || 'Artikel'), quantity: Math.max(1, num(line && line.quantity)), total: num(line && line.lineItemCost && line.lineItemCost.value), currency })),
       total,
       currency,
     };

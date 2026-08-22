@@ -119,7 +119,7 @@
 
   function idsOf(product) {
     const raw = product?.rawServerProduct || product?.raw || product || {};
-    return [product?.id, product?.sellerToolMasterProductId, raw.id, raw.companyOsProductId, raw.sourceImportId]
+    return [product?.articleNumber, product?.sku, product?.id, product?.sellerToolMasterProductId, raw.articleNumber, raw.identity?.articleNumber, raw.identity?.sku, raw.id, raw.companyOsProductId, raw.sourceImportId]
       .map(text)
       .filter(Boolean);
   }
@@ -138,7 +138,13 @@
     const copy = {
       id: text(product.id),
       sellerToolMasterProductId: text(product.id),
+      productId: text(product.productId || product.identity?.productId),
       companyOsProductId: text(product.raw?.companyOsProductId || product.companyOsProductId),
+      productKey: text(product.productKey || product.identity?.productKey),
+      sourceImportId: text(product.sourceImportId || product.identity?.sourceImportId),
+      articleNumber: text(product.articleNumber || product.identity?.articleNumber),
+      sku: text(product.sku || product.identity?.sku || product.articleNumber),
+      supplierSku: text(product.supplierSku || product.identity?.supplierSku),
       name: text(product.title),
       title: text(product.title),
       description: text(product.description),

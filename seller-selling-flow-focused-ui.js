@@ -65,16 +65,8 @@ function replaceStoredProduct(updated) {
 
 async function persistProduct(updated) {
   replaceStoredProduct(updated);
-  const response = await fetch("/api/products", {
-    method: "POST",
-    credentials: "same-origin",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify({ product: sellerProductPayload(updated) }),
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok || data.ok === false) throw new Error(data.message || data.error || `HTTP ${response.status}`);
   window.dispatchEvent(new CustomEvent("elyon:seller-product-selected", { detail: { product: updated } }));
-  return data;
+  return { ok: true, mode: "local_working_copy", product: updated };
 }
 
 function installStyles() {
@@ -325,7 +317,7 @@ async function saveFocusedListing() {
     });
     const updated = mergeSellerProductWithDraft(product, draft);
     replaceStoredProduct(updated);
-    setStatus("focusedSellingStep1Status", "Lokal gespeichert. Seller Product Master wird aktualisiert …");
+    setStatus("focusedSellingStep1Status", "Arbeitskopie lokal gespeichert. Company OS Product Master bleibt unverändert …");
     await persistProduct(updated);
     setStatus("focusedSellingStep1Status", "Listing-Entwurf gespeichert. Keine eBay-Live-Aktion ausgeführt.", "good");
     scheduleRefresh();

@@ -63,15 +63,7 @@ function replaceStoredProduct(updated) {
 
 async function persistProduct(updated) {
   replaceStoredProduct(updated);
-  const response = await fetch("/api/products", {
-    method: "POST",
-    credentials: "same-origin",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify({ product: sellerProductPayload(updated) }),
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok || data.ok === false) throw new Error(data.message || data.error || `HTTP ${response.status}`);
-  return data;
+  return { ok: true, mode: "local_working_copy", product: updated };
 }
 
 function runtimeState(product) {

@@ -30,14 +30,12 @@ test("delete repair supports UUID and Product Master identities", async () => {
   assert.match(source, /productIdentifiers/);
 });
 
-test("delete repair removes server record before local working copy", async () => {
+test("delete repair removes only the local working copy", async () => {
   const source = await readFile(new URL("../seller-product-delete.js", import.meta.url), "utf8");
-  const serverIndex = source.indexOf("await deleteServerProduct(deleteId)");
-  const localIndex = source.indexOf("removeLocalProduct(product)", serverIndex);
-  assert.ok(serverIndex > 0);
-  assert.ok(localIndex > serverIndex);
-  assert.match(source, /method: "DELETE"/);
-  assert.match(source, /\/api\/products/);
+  assert.equal(source.includes("deleteServerProduct"), false);
+  assert.equal(source.includes("deleteServerProducts"), false);
+  assert.match(source, /removeLocalProduct\(product\)/);
+  assert.match(source, /Company-OS-Product-Master-Datensatz bleibt unverändert/);
   assert.match(source, /elyon:product-deleted/);
 });
 
@@ -46,7 +44,8 @@ test("collapsed product cards expose a dedicated confirmed delete action", async
   assert.match(source, /elyon-board-delete-quick/);
   assert.match(source, /Artikel löschen/);
   assert.match(source, /window\.confirm/);
-  assert.match(source, /Product Board und dem Seller Product Master/);
+  assert.match(source, /lokale Seller-Arbeitskopie/);
+  assert.match(source, /Company OS Product Master bleibt unverändert/);
 });
 
 test("Product Board exposes a right-aligned delete-all button with two-step confirmation", async () => {
@@ -60,26 +59,20 @@ test("Product Board exposes a right-aligned delete-all button with two-step conf
   assert.match(source, /elyonDeleteAllProducts/);
 });
 
-test("bulk delete uses one protected Product Master API request before clearing local data", async () => {
+test("bulk delete clears local working copies without a Product Master API request", async () => {
   const source = await readFile(new URL("../seller-product-delete.js", import.meta.url), "utf8");
-  const serverIndex = source.indexOf("await deleteServerProducts(uniqueIds)");
-  const localIndex = source.indexOf("clearLocalProducts()", serverIndex);
-  assert.ok(serverIndex > 0);
-  assert.ok(localIndex > serverIndex);
-  assert.match(source, /DELETE_SELECTED_PRODUCTS/);
-  assert.match(source, /body: JSON\.stringify\(\{ ids, confirmation: DELETE_ALL_CONFIRMATION \}\)/);
+  assert.equal(source.includes("deleteServerProducts"), false);
+  assert.match(source, /clearLocalProducts\(\)/);
+  assert.match(source, /Company OS Product Master bleibt unverändert/);
   assert.match(source, /elyon:products-bulk-deleted/);
 });
 
-test("Product API validates and executes bounded bulk deletion in one persisted write", async () => {
+test("Product API rejects all Product Master writes as read-only", async () => {
   const source = await readFile(new URL("../api/products/index.js", import.meta.url), "utf8");
-  assert.match(source, /BULK_DELETE_CONFIRMATION = "DELETE_SELECTED_PRODUCTS"/);
-  assert.match(source, /MAX_BULK_DELETE_ITEMS = 500/);
-  assert.match(source, /requestedBulkDeleteIds/);
-  assert.match(source, /bulk_delete_confirmation_required/);
-  assert.match(source, /bulk_delete_limit_exceeded/);
-  assert.match(source, /ids\.forEach/);
-  assert.match(source, /bulk: true/);
+  assert.match(source, /product_master_read_only/);
+  assert.match(source, /ownerSystem: "elyon_company_os"/);
+  assert.match(source, /createsIdentity: false/);
+  assert.equal(source.includes("writeProductMasterList"), false);
 });
 
 test("Vercel build mirrors and loads delete repair after the accordion", async () => {

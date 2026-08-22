@@ -6,7 +6,6 @@
   const EXPANDED_KEY = "elyonProductBoardExpandedCardsV2";
   const STYLE_ID = "elyonProductDeleteStyles";
   const DELETE_ALL_SELECTOR = "[data-elyon-delete-all-products]";
-  const DELETE_ALL_CONFIRMATION = "DELETE_SELECTED_PRODUCTS";
   const DELETE_ALL_TYPED_PHRASE = "ALLE LÖSCHEN";
   const busy = new Set();
   let deleteAllBusy = false;
@@ -131,7 +130,7 @@
       button.type = "button";
       button.classList.add("danger");
       if (!/löschen/i.test(text(button.textContent))) button.textContent = "Löschen";
-      button.title = "Artikel dauerhaft aus Product Board und Seller Product Master löschen";
+      button.title = "Lokale Seller-Arbeitskopie löschen; Company OS Product Master bleibt unverändert";
     });
   }
 
@@ -150,7 +149,7 @@
     if (!deleteAllBusy) button.textContent = "🗑️ Alles löschen";
     button.disabled = deleteAllBusy || count === 0;
     button.title = count
-      ? `Alle ${count} Produkte dauerhaft aus Product Board und Seller Product Master löschen`
+      ? `Alle ${count} lokalen Arbeitskopien löschen; Company OS bleibt unverändert`
       : "Keine Produkte zum Löschen vorhanden";
   }
 
@@ -178,7 +177,7 @@
       if (actions.querySelector(":scope > .elyon-delete-note")) return;
       const note = document.createElement("p");
       note.className = "elyon-delete-note";
-      note.textContent = "Löschen entfernt den Artikel nach Bestätigung dauerhaft aus dem Product Board und dem serverseitigen Seller Product Master.";
+      note.textContent = "Löschen entfernt nach Bestätigung nur die lokale Seller-Arbeitskopie. Der kanonische Company-OS-Product-Master-Datensatz bleibt unverändert.";
       actions.appendChild(note);
     });
   }
@@ -234,36 +233,6 @@
     localStorage.removeItem(EXPANDED_KEY);
   }
 
-  async function deleteServerProduct(identifier) {
-    const response = await fetch(`/api/products?${new URLSearchParams({ id: identifier })}`, {
-      method: "DELETE",
-      credentials: "same-origin",
-      headers: { Accept: "application/json" },
-    });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok || data.ok === false) {
-      throw new Error(data.message || data.error || `HTTP ${response.status}`);
-    }
-    return data;
-  }
-
-  async function deleteServerProducts(ids) {
-    const response = await fetch("/api/products", {
-      method: "DELETE",
-      credentials: "same-origin",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ ids, confirmation: DELETE_ALL_CONFIRMATION }),
-    });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok || data.ok === false || data.bulk !== true) {
-      throw new Error(data.message || data.error || `HTTP ${response.status}`);
-    }
-    return data;
-  }
-
   async function deleteProductReliable(identifier, button = null, card = null) {
     const product = findProduct(identifier, card);
     if (!product) {
@@ -279,7 +248,7 @@
     if (busy.has(deleteId) || deleteAllBusy) return false;
 
     const label = text(product.name || product.title || product.listingTitle) || "diesen Artikel";
-    const confirmed = window.confirm(`Artikel wirklich dauerhaft löschen?\n\n${label}\n\nEr wird aus dem Product Board und dem Seller Product Master entfernt.`);
+    const confirmed = window.confirm(`Lokale Arbeitskopie wirklich löschen?\n\n${label}\n\nDer kanonische Company-OS-Product-Master-Datensatz bleibt unverändert.`);
     if (!confirmed) return false;
 
     busy.add(deleteId);
@@ -291,7 +260,6 @@
     }
 
     try {
-      await deleteServerProduct(deleteId);
       removeLocalProduct(product);
       card?.remove();
       window.dispatchEvent(new CustomEvent("elyon:products-updated", { detail: { product, reason: "deleted" } }));
@@ -300,7 +268,7 @@
         if (typeof window.render === "function") window.render();
         else if (typeof render === "function") render();
       } catch {}
-      notify(`Artikel „${label}“ wurde dauerhaft gelöscht.`);
+      notify(`Lokale Arbeitskopie „${label}“ wurde gelöscht.`);
       return true;
     } catch (error) {
       notify(`Artikel wurde nicht gelöscht: ${error.message}`, true);
@@ -335,7 +303,7 @@
 
     const count = productsList.length;
     const confirmed = window.confirm(
-      `Wirklich alle ${count} Produkte dauerhaft löschen?\n\nSie werden aus dem Product Board und dem serverseitigen Seller Product Master entfernt. Dieser Vorgang kann nicht rückgängig gemacht werden.`,
+      `Wirklich alle ${count} lokalen Arbeitskopien löschen?\n\nCompany OS Product Master bleibt unverändert. Dieser lokale Vorgang kann nicht rückgängig gemacht werden.`,
     );
     if (!confirmed) return false;
 
@@ -354,23 +322,18 @@
     }
 
     try {
-      const result = await deleteServerProducts(uniqueIds);
       clearLocalProducts();
       document.querySelectorAll("#productListTab #list > .product-card, #productListTab #list > .kanban-shell").forEach((node) => node.remove());
       window.dispatchEvent(new CustomEvent("elyon:products-updated", {
-        detail: { reason: "bulk_deleted", count, serverDeleted: Number(result.deleted) || 0 },
+        detail: { reason: "bulk_deleted", count, serverDeleted: 0 },
       }));
-      window.dispatchEvent(new CustomEvent("elyon:products-bulk-deleted", { detail: result }));
+      window.dispatchEvent(new CustomEvent("elyon:products-bulk-deleted", { detail: { deleted: 0, localDeleted: count, bulk: true } }));
       try {
         if (typeof window.render === "function") window.render();
         else if (typeof render === "function") render();
       } catch {}
 
-      const serverDeleted = Number(result.deleted) || 0;
-      const staleLocal = Math.max(0, count - serverDeleted);
-      notify(staleLocal
-        ? `Product Board geleert: ${serverDeleted} serverseitige Produkte gelöscht und ${staleLocal} veraltete lokale Einträge entfernt.`
-        : `Alle ${count} Produkte wurden dauerhaft gelöscht.`);
+      notify(`Alle ${count} lokalen Arbeitskopien wurden gelöscht.`);
       return true;
     } catch (error) {
       notify(`Produkte wurden nicht gelöscht: ${error.message}`, true);

@@ -1,8 +1,45 @@
-import { mergeProductLists, normalizeProduct } from "../../lib/product-master.js";
+import { loadProductMasterForSeller, productMasterIdentityValues } from "../../lib/product-master-consumer.js";
+import { requireSellerAccess } from "../../lib/seller-access.js";
 
-function getRedisConfig(){const pairs=[{source:"custom_upstash_backup",url:process.env.UPSTASH_BACKUP_URL,token:process.env.UPSTASH_BACKUP_TOKEN},{source:"upstash_redis_rest",url:process.env.UPSTASH_REDIS_REST_URL,token:process.env.UPSTASH_REDIS_REST_TOKEN},{source:"vercel_kv_rest",url:process.env.KV_REST_API_URL,token:process.env.KV_REST_API_TOKEN}];return pairs.find(p=>p.url&&p.token)||{source:"memory",url:"",token:""};}
-async function redisCommand(command){const {url,token}=getRedisConfig(); if(!url||!token) return null; const response=await fetch(url.replace(/\/$/,""),{method:"POST",headers:{Authorization:`Bearer ${token}`,"Content-Type":"application/json",Accept:"application/json"},body:JSON.stringify(command)}); if(!response.ok) throw new Error(`Redis REST ${response.status}`); return response.json().catch(()=>null);}
-function parseStoredList(raw){if(Array.isArray(raw)) return raw; if(typeof raw!=="string") return []; try{return JSON.parse(raw||"[]");}catch{return [];}}
-async function readList(key){const data=await redisCommand(["GET",key]); return parseStoredList(data?.result);}
-async function loadProducts(){const cfg=getRedisConfig(); if(!cfg.url||!cfg.token){return Array.isArray(globalThis.__elyonProductMaster)?globalThis.__elyonProductMaster:[];} const [a,b]=await Promise.all([readList("elyon_products"),readList("elyon_browser_imports")]); return mergeProductLists(a,b);}
-export default async function handler(req,res){try{const products=await loadProducts(); const id=String(req.query?.id||"").trim(); const product=id?products.find(p=>p.id===id||p.supplier?.url===id):null; if(!product){return res.status(404).json({ok:false,error:"Produkt nicht gefunden"});} const p=normalizeProduct(product); return res.status(200).json({ok:true,status:"draft_prepared",productId:p.id,draft:{title:(p.title||"Produkt").slice(0,80),description:p.description||"Bitte Beschreibung prüfen",price:p.pricing?.salePrice||null,images:p.images||[],manualApprovalRequired:true,automaticPublishAllowed:false},safety:{automaticListing:false,automaticOrder:false}});}catch(error){return res.status(500).json({ok:false,error:error?.message||"Draft Fehler"});}}
+function text(value) {
+  return String(value ?? "").trim();
+}
+
+async function loadProducts() {
+  const result = await loadProductMasterForSeller();
+  return result.products;
+}
+
+function matchesProduct(product, identity) {
+  const wanted = text(identity).toLocaleUpperCase("de-DE");
+  return Boolean(wanted && productMasterIdentityValues(product).some((value) => value === wanted));
+}
+
+export default async function handler(req, res) {
+  if (!requireSellerAccess(req, res, { maxBodyBytes: 64 * 1024 })) return;
+  try {
+    const products = await loadProducts();
+    const identity = text(req.query?.id || req.query?.articleNumber || req.query?.sku || req.query?.listingId || req.query?.offerId);
+    const product = identity ? products.find((candidate) => matchesProduct(candidate, identity)) : null;
+    if (!product) return res.status(404).json({ ok: false, error: "Produkt nicht gefunden" });
+
+    return res.status(200).json({
+      ok: true,
+      status: "draft_prepared",
+      productId: product.identity.productId || product.identity.companyOsProductId || product.identity.articleNumber,
+      sourceOfTruth: "company_os_canonical_state",
+      draft: {
+        title: text(product.listing?.title || product.title || "Produkt").slice(0, 80),
+        description: product.listing?.descriptionHtml || product.description || "Bitte Beschreibung prüfen",
+        price: product.economics?.salePrice ?? null,
+        images: Array.isArray(product.images) ? product.images : [],
+        manualApprovalRequired: true,
+        automaticPublishAllowed: false,
+        channelState: product.channels?.ebay || null,
+      },
+      safety: { automaticListing: false, automaticOrder: false },
+    });
+  } catch (error) {
+    return res.status(Number(error?.status || 503)).json({ ok: false, error: error?.message || "Draft Fehler" });
+  }
+}
