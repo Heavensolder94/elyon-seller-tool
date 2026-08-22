@@ -8,7 +8,7 @@ import {
   applyExtensionSellerSession,
   extensionSellerSession,
 } from "../lib/seller-extension-bridge.js";
-import extensionActionHandler from "../api/ebay/extension-action.js";
+import extensionActionHandler, { normalizeExtensionEbayPayload } from "../api/ebay/extension-action.js";
 
 function responseMock() {
   return {
@@ -107,4 +107,24 @@ test("extension eBay endpoint only exposes the explicit lifecycle allowlist", as
   }, res);
   assert.equal(res.statusCode, 400);
   assert.equal(res.body.error, "seller_extension_action_not_allowed");
+});
+
+test("extension eBay payload is normalized to Inventory API field limits", () => {
+  const longDescription = "D".repeat(4500);
+  const longName = "N".repeat(45);
+  const longValue = "V".repeat(60);
+  const payload = normalizeExtensionEbayPayload({
+    description: longDescription,
+    itemSpecifics: {
+      [longName]: [longValue, longValue],
+      Marke: ["Testmarke"],
+    },
+    images: ["http://invalid.example/image.jpg", "https://example.com/a.jpg", "https://example.com/a.jpg"],
+  });
+
+  assert.equal(payload.description.length, 4000);
+  const names = Object.keys(payload.itemSpecifics);
+  assert.equal(names.some((name) => name.length > 40), false);
+  assert.equal(Object.values(payload.itemSpecifics).flat().some((value) => value.length > 50), false);
+  assert.deepEqual(payload.images, ["https://example.com/a.jpg"]);
 });
