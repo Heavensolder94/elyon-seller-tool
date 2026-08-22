@@ -121,43 +121,87 @@ function safeAiOptions({ task, prompt, maxTokens, provider = TEXT_PRIMARY_PROVID
   };
 }
 
-async function callStructuredAI({ task, prompt, maxTokens }) {
+function validNumber(value) {
+  return Number.isFinite(Number(value));
+}
+
+function hasStringArray(value) {
+  return Array.isArray(value) && value.every((entry) => typeof entry === "string");
+}
+
+function isValidProductSearchResult(value) {
+  return Boolean(
+    value && typeof value === "object" && !Array.isArray(value) &&
+    typeof value.query === "string" &&
+    typeof value.recommendedQuery === "string" &&
+    hasStringArray(value.queryExpansion) &&
+    hasStringArray(value.searchAngles) &&
+    hasStringArray(value.titleIdeas) &&
+    hasStringArray(value.riskWarnings) &&
+    value.score && typeof value.score === "object" &&
+    validNumber(value.score.searchPotential) &&
+    validNumber(value.score.competition) &&
+    validNumber(value.score.risk) &&
+    validNumber(value.score.total)
+  );
+}
+
+function isValidListingOptimizerResult(value) {
+  return Boolean(
+    value && typeof value === "object" && !Array.isArray(value) &&
+    typeof value.title === "string" &&
+    typeof value.subtitle === "string" &&
+    hasStringArray(value.bulletPoints) &&
+    typeof value.description === "string" &&
+    hasStringArray(value.seoKeywords) &&
+    hasStringArray(value.riskWarnings) &&
+    value.score && typeof value.score === "object" &&
+    validNumber(value.score.title) &&
+    validNumber(value.score.seo) &&
+    validNumber(value.score.description) &&
+    validNumber(value.score.risk) &&
+    validNumber(value.score.total)
+  );
+}
+
+async function callStructuredAI({ task, prompt, maxTokens, validate }) {
+  const validator = typeof validate === "function" ? validate : (value) => Boolean(value);
   const primary = await routeAIRequest(safeAiOptions({ task, prompt, maxTokens }));
   if (!primary.ok) throw aiFailure(primary, "KI-Anfrage fehlgeschlagen.");
 
   const parsedPrimary = parseJsonObjectFromText(primary.content);
-  if (parsedPrimary) return { data: parsedPrimary, ai: primary };
+  if (parsedPrimary && validator(parsedPrimary)) return { data: parsedPrimary, ai: primary };
 
   // A provider can return HTTP 200 while still violating the JSON contract.
-  // Retry exactly once with OpenAI instead of silently accepting malformed data.
+  // Retry exactly once with OpenAI instead of silently accepting incomplete data.
   if (primary.provider !== "openai") {
-    const repairFallback = await routeAIRequest(safeAiOptions({
+    const contractFallback = await routeAIRequest(safeAiOptions({
       task: `${task}:json-fallback`,
       prompt,
       maxTokens,
       provider: "openai",
       allowFallback: false,
     }));
-    if (repairFallback.ok) {
-      const parsedFallback = parseJsonObjectFromText(repairFallback.content);
-      if (parsedFallback) {
+    if (contractFallback.ok) {
+      const parsedFallback = parseJsonObjectFromText(contractFallback.content);
+      if (parsedFallback && validator(parsedFallback)) {
         return {
           data: parsedFallback,
-          ai: { ...repairFallback, fallbackUsed: true },
+          ai: { ...contractFallback, fallbackUsed: true },
         };
       }
     } else {
-      throw aiFailure(repairFallback, "OpenAI-Fallback für strukturierte KI-Ausgabe fehlgeschlagen.");
+      throw aiFailure(contractFallback, "OpenAI-Fallback für strukturierte KI-Ausgabe fehlgeschlagen.");
     }
   }
 
-  const error = new Error("KI lieferte auch nach dem kontrollierten Fallback kein valides JSON.");
+  const error = new Error("KI lieferte auch nach dem kontrollierten Fallback keine vollständige valide JSON-Ausgabe.");
   error.status = 502;
   error.details = {
     provider: primary.provider || null,
     model: primary.model || null,
     fallbackUsed: Boolean(primary.fallbackUsed),
-    code: "INVALID_AI_JSON",
+    code: "INVALID_AI_JSON_CONTRACT",
   };
   throw error;
 }
@@ -314,6 +358,7 @@ async function handleProductSearch(req, res, body) {
       task: "product-search",
       prompt: buildProductSearchPrompt(payload),
       maxTokens: 1200,
+      validate: isValidProductSearchResult,
     });
 
     return res.status(200).json({
@@ -353,6 +398,7 @@ async function handleListingOptimizer(req, res, body) {
       task: "listing-optimizer",
       prompt: buildListingOptimizerPrompt(payload),
       maxTokens: 1400,
+      validate: isValidListingOptimizerResult,
     });
 
     return res.status(200).json({
