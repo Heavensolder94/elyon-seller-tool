@@ -97,6 +97,18 @@ test("extension eBay endpoint fails closed without a signed seller session", asy
   assert.equal(res.body.error, "seller_extension_session_missing");
 });
 
+test("extension listing AI action is allowlisted but still requires a signed session", async () => {
+  const res = responseMock();
+  await extensionActionHandler({
+    method: "POST",
+    headers: {},
+    query: {},
+    body: { action: "listing-ai", payload: { product: {}, draft: {}, strength: 55 } },
+  }, res);
+  assert.equal(res.statusCode, 403);
+  assert.equal(res.body.error, "seller_extension_session_missing");
+});
+
 test("extension eBay endpoint only exposes the explicit lifecycle allowlist", async () => {
   const res = responseMock();
   await extensionActionHandler({
