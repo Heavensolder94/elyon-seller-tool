@@ -1,7 +1,8 @@
 import ebayHandler from "./index.js";
 import { applyExtensionSellerSession } from "../../lib/seller-extension-bridge.js";
+import { createSellerHubDraft, getSellerHubDraftTask } from "../../lib/ebay-seller-hub-drafts.js";
 
-const ALLOWED_ACTIONS = new Set(["setup", "create-draft", "draft", "publish", "withdraw"]);
+const ALLOWED_ACTIONS = new Set(["setup", "create-draft", "draft", "draft-status", "publish", "withdraw"]);
 const EBAY_INVENTORY_DESCRIPTION_MAX = 4000;
 const EBAY_ASPECT_NAME_MAX = 40;
 const EBAY_ASPECT_VALUE_MAX = 50;
@@ -100,11 +101,17 @@ export default async function handler(req, res) {
     req?.body?.payload && typeof req.body.payload === "object" ? req.body.payload : {},
   );
 
-  req.query = { ...(req.query || {}), action };
-  req.body = payload;
-  req.method = "POST";
-
   try {
+    if (action === "create-draft" || action === "draft") {
+      return res.status(200).json(await createSellerHubDraft(payload, payload.environment));
+    }
+    if (action === "draft-status") {
+      return res.status(200).json(await getSellerHubDraftTask(payload, payload.environment));
+    }
+
+    req.query = { ...(req.query || {}), action };
+    req.body = payload;
+    req.method = "POST";
     return await ebayHandler(req, res);
   } catch (error) {
     const failure = publicBridgeError(error);
