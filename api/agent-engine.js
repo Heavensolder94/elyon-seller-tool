@@ -181,7 +181,7 @@ async function readAiWorkflowStore() {
 
 async function writeAiWorkflowStore(payload) {
   if (!STORE_URL || !STORE_TOKEN) return false;
-  const response = await fetch(`${STORE_URL.replace(/\/+$/, "")}/set/${encodeURIComponent(STORE_KEY)}/${encodeURIComponent(JSON.stringify(payload))}`, { headers: { Authorization: `Bearer ${STORE_TOKEN}` } });
+  const response = await fetch(`${STORE_URL.replace(/\/+$/, "")}/set/${encodeURIComponent(AI_WORKFLOW_STORE_KEY)}/${encodeURIComponent(JSON.stringify(payload))}`, { headers: { Authorization: `Bearer ${STORE_TOKEN}` } });
   return response.ok;
 }
 
