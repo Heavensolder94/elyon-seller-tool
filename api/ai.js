@@ -1,23 +1,7 @@
 import { routeAIRequest } from "../lib/ai-provider-router.js";
 
-const OPENAI_RESPONSES_ENDPOINT = "https://api.openai.com/v1/responses";
-
-const DEFAULT_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
-
-const MODEL_BY_TASK = {
-  category: DEFAULT_MODEL,
-  tags: DEFAULT_MODEL,
-  title: DEFAULT_MODEL,
-  description: DEFAULT_MODEL,
-  product_score: DEFAULT_MODEL,
-  assistant: DEFAULT_MODEL,
-  "product-search": DEFAULT_MODEL,
-  "listing-optimizer": DEFAULT_MODEL,
-};
-
-function chooseModel(task) {
-  return MODEL_BY_TASK[task] || DEFAULT_MODEL;
-}
+const TEXT_PRIMARY_PROVIDER = "deepseek";
+const JSON_RESPONSE_FORMAT = Object.freeze({ type: "json_object" });
 
 function jsonError(res, status, error, details) {
   return res.status(status).json({
@@ -57,24 +41,6 @@ function normalizeList(value) {
   return Array.from(new Set(list.map((item) => readText(item)).filter(Boolean)));
 }
 
-function extractOutputText(data) {
-  if (typeof data?.output_text === "string" && data.output_text.trim()) {
-    return data.output_text.trim();
-  }
-
-  const output = Array.isArray(data?.output) ? data.output : [];
-  for (const item of output) {
-    const content = Array.isArray(item?.content) ? item.content : [];
-    for (const part of content) {
-      if (typeof part?.text === "string" && part.text.trim()) {
-        return part.text.trim();
-      }
-    }
-  }
-
-  return "";
-}
-
 function parseJsonObjectFromText(value) {
   if (!value) return null;
   if (typeof value === "object") return value;
@@ -87,16 +53,14 @@ function parseJsonObjectFromText(value) {
   ];
   const start = text.indexOf("{");
   const end = text.lastIndexOf("}");
-  if (start >= 0 && end > start) {
-    candidates.push(text.slice(start, end + 1));
-  }
+  if (start >= 0 && end > start) candidates.push(text.slice(start, end + 1));
 
   for (const candidate of candidates) {
     try {
       const parsed = JSON.parse(candidate);
       if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) return parsed;
     } catch {
-      // Providers sometimes wrap JSON in Markdown. Try the next candidate.
+      // Some providers wrap JSON in Markdown. Try the next representation.
     }
   }
   return null;
@@ -106,45 +70,7 @@ function withStructuredTaskResult(result) {
   if (!result || !result.ok || result.task !== "product_decision") return result;
   const parsed = parseJsonObjectFromText(result.result || result.content);
   if (!parsed) return result;
-  return {
-    ...result,
-    result: parsed,
-  };
-}
-
-async function createOpenAIResponse(payload) {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    const error = new Error("OPENAI_API_KEY fehlt.");
-    error.status = 500;
-    throw error;
-  }
-
-  const response = await fetch(OPENAI_RESPONSES_ENDPOINT, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify(payload),
-  });
-
-  const rawText = await response.text();
-  let data = null;
-  try {
-    data = rawText ? JSON.parse(rawText) : null;
-  } catch {
-    data = null;
-  }
-
-  if (!response.ok) {
-    const error = new Error(readText(data?.error?.message || data?.message || rawText || "OpenAI request failed."));
-    error.status = response.status || 500;
-    error.details = data;
-    throw error;
-  }
-
-  return data;
+  return { ...result, result: parsed };
 }
 
 function buildSimplePrompt(task, prompt, body) {
@@ -152,12 +78,88 @@ function buildSimplePrompt(task, prompt, body) {
     `Task: ${task || "general"}`,
     `Prompt: ${prompt}`,
   ];
-
   if (body && typeof body === "object") {
     parts.push(`Context: ${JSON.stringify(body).slice(0, 6000)}`);
   }
-
   return parts.join("\n\n");
+}
+
+function safeAiStatus(result, fallback = 502) {
+  const status = Number(result?.error?.status);
+  return Number.isInteger(status) && status >= 400 && status <= 599 ? status : fallback;
+}
+
+function aiFailure(result, fallbackMessage) {
+  const error = new Error(readText(result?.error?.message) || fallbackMessage);
+  error.status = safeAiStatus(result);
+  error.details = {
+    provider: result?.provider || null,
+    model: result?.model || null,
+    fallbackUsed: Boolean(result?.fallbackUsed),
+    code: result?.error?.code || null,
+    type: result?.error?.type || null,
+  };
+  return error;
+}
+
+function safeAiOptions({ task, prompt, maxTokens, provider = TEXT_PRIMARY_PROVIDER, allowFallback = true }) {
+  return {
+    provider,
+    task,
+    prompt,
+    temperature: 0.2,
+    maxTokens,
+    allowFallback,
+    responseFormat: JSON_RESPONSE_FORMAT,
+    safety: {
+      securityMode: true,
+      sandboxMode: true,
+      autonomyLocked: true,
+      requiresLiveAction: false,
+      userApproved: false,
+    },
+  };
+}
+
+async function callStructuredAI({ task, prompt, maxTokens }) {
+  const primary = await routeAIRequest(safeAiOptions({ task, prompt, maxTokens }));
+  if (!primary.ok) throw aiFailure(primary, "KI-Anfrage fehlgeschlagen.");
+
+  const parsedPrimary = parseJsonObjectFromText(primary.content);
+  if (parsedPrimary) return { data: parsedPrimary, ai: primary };
+
+  // A provider can return HTTP 200 while still violating the JSON contract.
+  // Retry exactly once with OpenAI instead of silently accepting malformed data.
+  if (primary.provider !== "openai") {
+    const repairFallback = await routeAIRequest(safeAiOptions({
+      task: `${task}:json-fallback`,
+      prompt,
+      maxTokens,
+      provider: "openai",
+      allowFallback: false,
+    }));
+    if (repairFallback.ok) {
+      const parsedFallback = parseJsonObjectFromText(repairFallback.content);
+      if (parsedFallback) {
+        return {
+          data: parsedFallback,
+          ai: { ...repairFallback, fallbackUsed: true },
+        };
+      }
+    } else {
+      throw aiFailure(repairFallback, "OpenAI-Fallback für strukturierte KI-Ausgabe fehlgeschlagen.");
+    }
+  }
+
+  const error = new Error("KI lieferte auch nach dem kontrollierten Fallback kein valides JSON.");
+  error.status = 502;
+  error.details = {
+    provider: primary.provider || null,
+    model: primary.model || null,
+    fallbackUsed: Boolean(primary.fallbackUsed),
+    code: "INVALID_AI_JSON",
+  };
+  throw error;
 }
 
 function buildProductSearchPayload(body) {
@@ -205,12 +207,7 @@ function normalizeProductSearchResult(rawResult) {
     searchAngles,
     titleIdeas,
     riskWarnings,
-    score: {
-      searchPotential,
-      competition,
-      risk,
-      total,
-    },
+    score: { searchPotential, competition, risk, total },
   };
 }
 
@@ -221,58 +218,16 @@ function buildProductSearchPrompt(payload) {
     "Arbeite serios, eBay-tauglich und vorsichtig mit Risiken.",
     "Erfinde keine Marken, keine Zertifizierungen und keine unrealistischen Versprechen.",
     "Warn bei moeglichen Risiken wie Batterie, WEEE, EPR, LUCID, Markenrecht oder zu hoher Konkurrenz.",
-    "Antworte ausschliesslich als valides JSON und sonst mit nichts.",
+    "Antworte ausschliesslich als valides JSON mit query, recommendedQuery, queryExpansion, searchAngles, titleIdeas, riskWarnings und score.",
+    "score muss searchPotential, competition, risk und total als Zahlen enthalten.",
     "",
     JSON.stringify(payload, null, 2),
   ].join("\n");
 }
 
-function buildProductSearchSchema() {
-  return {
-    type: "json_schema",
-    json_schema: {
-      name: "ai_product_search_result_v1",
-      strict: true,
-      schema: {
-        type: "object",
-        additionalProperties: false,
-        properties: {
-          query: { type: "string" },
-          recommendedQuery: { type: "string" },
-          queryExpansion: { type: "array", items: { type: "string" } },
-          searchAngles: { type: "array", items: { type: "string" } },
-          titleIdeas: { type: "array", items: { type: "string" } },
-          riskWarnings: { type: "array", items: { type: "string" } },
-          score: {
-            type: "object",
-            additionalProperties: false,
-            properties: {
-              searchPotential: { type: "number" },
-              competition: { type: "number" },
-              risk: { type: "number" },
-              total: { type: "number" },
-            },
-            required: ["searchPotential", "competition", "risk", "total"],
-          },
-        },
-        required: [
-          "query",
-          "recommendedQuery",
-          "queryExpansion",
-          "searchAngles",
-          "titleIdeas",
-          "riskWarnings",
-          "score",
-        ],
-      },
-    },
-  };
-}
-
 function buildListingOptimizerPayload(body) {
   const product = body?.product || {};
   const mode = readText(body?.mode || body?.requestedMode || "regenerate") || "regenerate";
-
   return {
     mode,
     product: {
@@ -337,75 +292,11 @@ function buildListingOptimizerPrompt(payload) {
     "Wenn keine Marke in den Produktdaten genannt wird, erfinde keine Marke.",
     "Verwende die Begriffe 'original', 'offiziell' oder 'zertifiziert' nur, wenn sie wirklich sicher sind.",
     "Mache keine unrealistischen Lieferzeitversprechen und keine Heilversprechen.",
-    "Antworte ausschliesslich als valides JSON und sonst mit nichts.",
+    "Antworte ausschliesslich als valides JSON mit title, subtitle, bulletPoints, description, seoKeywords, riskWarnings und score.",
+    "score muss title, seo, description, risk und total als Zahlen enthalten.",
     "",
     JSON.stringify(payload, null, 2),
   ].join("\n");
-}
-
-function buildListingOptimizerSchema() {
-  return {
-    type: "json_schema",
-    json_schema: {
-      name: "ai_listing_optimizer_result_v1",
-      strict: true,
-      schema: {
-        type: "object",
-        additionalProperties: false,
-        properties: {
-          title: { type: "string" },
-          subtitle: { type: "string" },
-          bulletPoints: { type: "array", items: { type: "string" } },
-          description: { type: "string" },
-          seoKeywords: { type: "array", items: { type: "string" } },
-          riskWarnings: { type: "array", items: { type: "string" } },
-          score: {
-            type: "object",
-            additionalProperties: false,
-            properties: {
-              title: { type: "number" },
-              seo: { type: "number" },
-              description: { type: "number" },
-              risk: { type: "number" },
-              total: { type: "number" },
-            },
-            required: ["title", "seo", "description", "risk", "total"],
-          },
-        },
-        required: [
-          "title",
-          "subtitle",
-          "bulletPoints",
-          "description",
-          "seoKeywords",
-          "riskWarnings",
-          "score",
-        ],
-      },
-    },
-  };
-}
-
-async function callJsonOpenAI({ prompt, schema, name, description, maxOutputTokens }) {
-  const response = await createOpenAIResponse({
-    model: DEFAULT_MODEL,
-    input: prompt,
-    text: {
-      format: schema,
-    },
-    max_output_tokens: maxOutputTokens,
-    metadata: {
-      name,
-      description,
-    },
-  });
-
-  const text = extractOutputText(response);
-  try {
-    return JSON.parse(text);
-  } catch {
-    throw new Error("OpenAI lieferte kein valides JSON.");
-  }
 }
 
 async function handleProductSearch(req, res, body) {
@@ -419,12 +310,10 @@ async function handleProductSearch(req, res, body) {
   }
 
   try {
-    const result = await callJsonOpenAI({
+    const { data, ai } = await callStructuredAI({
+      task: "product-search",
       prompt: buildProductSearchPrompt(payload),
-      schema: buildProductSearchSchema(),
-      name: "product_search_optimizer_v1",
-      description: "Strukturierte Produktsuche-Analyse fuer Elyon Seller Tool",
-      maxOutputTokens: 1200,
+      maxTokens: 1200,
     });
 
     return res.status(200).json({
@@ -432,16 +321,14 @@ async function handleProductSearch(req, res, body) {
       source: "ai-product-search",
       task: "product-search",
       mode: payload.mode,
-      model: DEFAULT_MODEL,
-      ...normalizeProductSearchResult(result),
+      provider: ai.provider,
+      model: ai.model,
+      fallbackUsed: Boolean(ai.fallbackUsed),
+      usage: ai.usage || null,
+      ...normalizeProductSearchResult(data),
     });
   } catch (error) {
-    return jsonError(
-      res,
-      error.status || 500,
-      error.message || "KI Produktsuche fehlgeschlagen.",
-      error.details || null
-    );
+    return jsonError(res, error.status || 500, error.message || "KI Produktsuche fehlgeschlagen.", error.details || null);
   }
 }
 
@@ -462,12 +349,10 @@ async function handleListingOptimizer(req, res, body) {
   }
 
   try {
-    const result = await callJsonOpenAI({
+    const { data, ai } = await callStructuredAI({
+      task: "listing-optimizer",
       prompt: buildListingOptimizerPrompt(payload),
-      schema: buildListingOptimizerSchema(),
-      name: "listing_optimizer_v1",
-      description: "Strukturierte eBay-Listing-Ausgabe fuer Elyon Seller Tool",
-      maxOutputTokens: 1400,
+      maxTokens: 1400,
     });
 
     return res.status(200).json({
@@ -475,16 +360,14 @@ async function handleListingOptimizer(req, res, body) {
       source: "ai-listing-optimizer",
       task: "listing-optimizer",
       mode: payload.mode,
-      model: DEFAULT_MODEL,
-      ...normalizeListingOptimizerResult(result),
+      provider: ai.provider,
+      model: ai.model,
+      fallbackUsed: Boolean(ai.fallbackUsed),
+      usage: ai.usage || null,
+      ...normalizeListingOptimizerResult(data),
     });
   } catch (error) {
-    return jsonError(
-      res,
-      error.status || 500,
-      error.message || "KI Listing Optimizer fehlgeschlagen.",
-      error.details || null
-    );
+    return jsonError(res, error.status || 500, error.message || "KI Listing Optimizer fehlgeschlagen.", error.details || null);
   }
 }
 
@@ -516,53 +399,61 @@ async function handleCentralAiRouter(req, res, body) {
     allowFallback: body.allowFallback,
     context: body.context,
     safety: body.safety,
+    responseFormat: body.responseFormat,
   });
 
   return res.status(result.ok ? 200 : 400).json(withStructuredTaskResult(result));
+}
+
+async function handleGeneralTextTask(req, res, body, task) {
+  const prompt = readText(body.prompt);
+  if (!prompt) return res.status(400).json({ ok: false, error: "Prompt fehlt" });
+
+  const result = await routeAIRequest({
+    provider: TEXT_PRIMARY_PROVIDER,
+    task: task || "general",
+    prompt: buildSimplePrompt(task, prompt, body),
+    temperature: typeof body.temperature === "number" ? body.temperature : 0.2,
+    maxTokens: typeof body.maxTokens === "number" ? body.maxTokens : undefined,
+    allowFallback: body.allowFallback !== false,
+    safety: {
+      securityMode: true,
+      sandboxMode: true,
+      autonomyLocked: true,
+      requiresLiveAction: false,
+      userApproved: false,
+    },
+  });
+
+  if (!result.ok) {
+    return res.status(safeAiStatus(result, 500)).json({
+      ok: false,
+      error: result.error?.message || "KI-Anfrage fehlgeschlagen.",
+      provider: result.provider,
+      modelUsed: result.model,
+      fallbackUsed: Boolean(result.fallbackUsed),
+    });
+  }
+
+  return res.status(200).json({
+    ok: true,
+    task,
+    provider: result.provider,
+    modelUsed: result.model,
+    fallbackUsed: Boolean(result.fallbackUsed),
+    usage: result.usage || null,
+    result: result.content,
+  });
 }
 
 export default async function handler(req, res) {
   const body = readBody(req);
   const task = readText(body.task || req.query?.task || req.query?.action || req.query?.endpoint || "");
 
-  if (task === "router") {
-    return handleCentralAiRouter(req, res, body);
-  }
+  if (task === "router") return handleCentralAiRouter(req, res, body);
+  if (task === "product-search") return handleProductSearch(req, res, body);
+  if (task === "listing-optimizer") return handleListingOptimizer(req, res, body);
+  if (req.method !== "POST") return res.status(405).json({ ok: false, error: "Method not allowed" });
 
-  if (task === "product-search") {
-    return handleProductSearch(req, res, body);
-  }
-
-  if (task === "listing-optimizer") {
-    return handleListingOptimizer(req, res, body);
-  }
-
-  if (req.method !== "POST") {
-    return res.status(405).json({ ok: false, error: "Method not allowed" });
-  }
-
-  const prompt = readText(body.prompt);
-  if (!prompt) {
-    return res.status(400).json({ ok: false, error: "Prompt fehlt" });
-  }
-
-  try {
-    const model = chooseModel(task);
-    const response = await createOpenAIResponse({
-      model,
-      input: buildSimplePrompt(task, prompt, body),
-    });
-
-    return res.status(200).json({
-      ok: true,
-      task,
-      modelUsed: model,
-      result: extractOutputText(response),
-    });
-  } catch (error) {
-    return res.status(500).json({
-      ok: false,
-      error: error.message,
-    });
-  }
+  return handleGeneralTextTask(req, res, body, task);
 }
