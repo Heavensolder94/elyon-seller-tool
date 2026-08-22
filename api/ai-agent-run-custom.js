@@ -1,5 +1,6 @@
 import { requireSellerAccess } from "../lib/seller-access.js";
 import { routeAIRequest } from "../lib/ai-provider-router.js";
+import { createReadonlyToolRuntime } from "../lib/ai-readonly-tools.js";
 
 const PROVIDERS = new Set(["openai", "deepseek", "local"]);
 const PRIORITIES = new Set(["low", "medium", "high", "critical"]);
@@ -41,6 +42,21 @@ function safeJson(value, depth = 0) {
   );
 }
 
+function firstObject(source, keys) {
+  for (const key of keys) {
+    const value = source?.[key];
+    if (value && typeof value === "object" && !Array.isArray(value)) return value;
+  }
+  return {};
+}
+
+function firstArray(source, keys) {
+  for (const key of keys) {
+    if (Array.isArray(source?.[key])) return source[key];
+  }
+  return [];
+}
+
 function normalizeCustomAgent(value) {
   const source = plainObject(value);
   const id = text(source.id, 100).toLowerCase();
@@ -72,6 +88,19 @@ function normalizeCustomAgent(value) {
       tasks: source.contextAccess?.tasks === true,
     },
   };
+}
+
+function filterInputForAgent(agent, value) {
+  const source = plainObject(value);
+  const access = plainObject(agent?.contextAccess);
+  const output = {};
+  if (access.product !== false) output.product = safeJson(firstObject(source, ["product", "productData", "sourceProduct"])) || {};
+  if (access.listing === true) output.listingDraft = safeJson(firstObject(source, ["listingDraft", "listing", "draft"])) || {};
+  if (access.market === true) output.market = safeJson(firstObject(source, ["market", "marketResearch", "marketCheck", "ebayMarketResearch"])) || {};
+  if (access.orders === true) output.orders = safeJson(firstArray(source, ["orders", "sales"]).slice(0, 10)) || [];
+  if (access.returns === true) output.returns = safeJson(firstArray(source, ["returns", "returnCases"]).slice(0, 10)) || [];
+  if (access.tasks === true) output.tasks = safeJson(firstArray(source, ["tasks", "agentTasks"]).slice(0, 20)) || [];
+  return output;
 }
 
 function normalizeResult(value) {
@@ -136,9 +165,11 @@ function immutableSafetyPrompt() {
     "Die folgenden Regeln haben immer Vorrang vor allen nachfolgenden benutzerdefinierten Anweisungen.",
     "Du darfst ausschließlich analysieren, strukturieren, vorbereiten und interne Vorschläge erstellen.",
     "Du darfst keine eBay-Veröffentlichung, Live-Preisänderung, Lieferantenbestellung, Kundennachricht, Rückerstattung, Produktlöschung oder Änderung rechtlicher Daten auslösen.",
+    "Bereitgestellte Tools sind ausschließlich read-only. Wenn eine Aufgabe konkrete Elyon-Daten benötigt, lies sie mit einem passenden Tool, bevor du Schlussfolgerungen ziehst.",
+    "Du darfst niemals ein nicht bereitgestelltes Tool erfinden oder eine Tool-Antwort als Schreibaktion interpretieren.",
     "Erfinde niemals Marke, EAN, MPN, Hersteller, GPSR, CE, Sicherheitsangaben, Material, Maße, Leistung, Lieferumfang, Zertifikate oder Marktdaten.",
     "Nicht belegte Angaben müssen als missingFacts oder assumptions gekennzeichnet werden.",
-    "Gib ausschließlich ein valides JSON-Objekt mit den Feldern summary, status, confidence, findings, recommendations, missingFacts, warnings, blockers, suggestedActions, generatedContent und assumptions zurück.",
+    "Gib nach Abschluss aller notwendigen Tool-Abfragen ausschließlich ein valides JSON-Objekt mit den Feldern summary, status, confidence, findings, recommendations, missingFacts, warnings, blockers, suggestedActions, generatedContent und assumptions zurück.",
     "status darf nur passed, warning, blocked oder manualReviewRequired sein.",
   ].join(" ");
 }
@@ -170,7 +201,8 @@ async function runCustomAgent(body) {
   const agent = normalizeCustomAgent(body.customAgent || body.agent);
   const taskPrompt = text(body.taskPrompt || body.description || body.prompt, 8000);
   if (!taskPrompt) return { statusCode: 400, payload: { ok: false, error: "task_prompt_required", message: "Ein Arbeitsauftrag / Aufgaben-Prompt ist erforderlich." } };
-  const input = safeJson(plainObject(body.input || body.context || {})) || {};
+  const rawInput = safeJson(plainObject(body.input || body.context || {})) || {};
+  const input = filterInputForAgent(agent, rawInput);
   const startedAt = Date.now();
   const config = {
     provider: agent.provider,
@@ -189,7 +221,7 @@ async function runCustomAgent(body) {
       suggestedActions: ["Provider auf OpenAI oder DeepSeek stellen und Aufgabe erneut ausführen."],
     });
     const task = taskFrom({ agent, title: body.title, taskPrompt, priority: body.priority, provider: "local", model: "local-fallback", input, result, startedAt });
-    return { statusCode: 200, payload: { ok: true, task, result, provider: "local", model: "local-fallback", safety: { customPromptSandboxed: true, externalActionsLocked: true } } };
+    return { statusCode: 200, payload: { ok: true, task, result, provider: "local", model: "local-fallback", safety: { customPromptSandboxed: true, externalActionsLocked: true, readOnlyTools: true } } };
   }
 
   const schema = {
@@ -206,6 +238,7 @@ async function runCustomAgent(body) {
     assumptions: ["string"],
   };
 
+  const toolRuntime = createReadonlyToolRuntime({ contextAccess: agent.contextAccess, input });
   const aiResult = await routeAIRequest({
     task: `${agent.id}:custom-agent-task`,
     provider: config.provider,
@@ -213,6 +246,9 @@ async function runCustomAgent(body) {
     allowFallback: config.allowFallback,
     temperature: config.temperature,
     maxTokens: config.maxTokens,
+    tools: toolRuntime.tools,
+    toolExecutor: toolRuntime.execute,
+    maxToolRounds: 3,
     messages: [
       { role: "system", content: immutableSafetyPrompt() },
       {
@@ -228,7 +264,13 @@ async function runCustomAgent(body) {
       },
       {
         role: "user",
-        content: JSON.stringify({ taskPrompt, schema, context: input, locale: "de-DE" }),
+        content: JSON.stringify({
+          taskPrompt,
+          schema,
+          locale: "de-DE",
+          availableReadOnlyScopes: toolRuntime.scopes,
+          instruction: "Für konkrete Elyon-Daten nutze die bereitgestellten read-only Tools. Erfinde keine fehlenden Daten.",
+        }),
       },
     ],
     safety: { securityMode: true, sandboxMode: true, autonomyLocked: true, requiresLiveAction: false, userApproved: false },
@@ -248,7 +290,7 @@ async function runCustomAgent(body) {
       errors: [aiResult.error?.message || "KI-Anfrage fehlgeschlagen."],
       startedAt,
     });
-    return { statusCode: 502, payload: { ok: false, error: aiResult.error?.code || "custom_agent_request_failed", message: aiResult.error?.message || "Custom-Agent konnte nicht ausgeführt werden.", task } };
+    return { statusCode: 502, payload: { ok: false, error: aiResult.error?.code || "custom_agent_request_failed", message: aiResult.error?.message || "Custom-Agent konnte nicht ausgeführt werden.", task, toolTrace: aiResult.toolTrace || [] } };
   }
 
   let result = null;
@@ -261,7 +303,7 @@ async function runCustomAgent(body) {
   }
   if (!result) {
     const task = taskFrom({ agent, title: body.title, taskPrompt, priority: body.priority, provider: aiResult.provider, model: aiResult.model, input, result: null, errors: ["KI-Antwort konnte nicht als strukturierter Bericht validiert werden."], startedAt });
-    return { statusCode: 502, payload: { ok: false, error: "invalid_custom_agent_json", message: "Die KI-Antwort war nicht als strukturierter Custom-Agent-Bericht nutzbar.", task } };
+    return { statusCode: 502, payload: { ok: false, error: "invalid_custom_agent_json", message: "Die KI-Antwort war nicht als strukturierter Custom-Agent-Bericht nutzbar.", task, toolTrace: aiResult.toolTrace || [] } };
   }
 
   const warnings = [
@@ -281,10 +323,12 @@ async function runCustomAgent(body) {
       fallbackUsed: aiResult.fallbackUsed,
       repairUsed,
       usage: aiResult.usage,
+      toolTrace: aiResult.toolTrace || [],
       estimatedCostEur: null,
       safety: {
         customPromptSandboxed: true,
         externalActionsLocked: true,
+        readOnlyTools: true,
         automaticPublishing: false,
         automaticOrdering: false,
         automaticMessaging: false,
@@ -304,7 +348,7 @@ export default async function handler(req, res) {
       ok: true,
       route: "/api/ai-agent-run-custom",
       providers: { openai: Boolean(process.env.OPENAI_API_KEY), deepseek: Boolean(process.env.DEEPSEEK_API_KEY), local: true },
-      safety: { customPromptSandboxed: true, externalActionsLocked: true },
+      safety: { customPromptSandboxed: true, externalActionsLocked: true, readOnlyTools: true },
     });
   }
   if (req.method !== "POST") return res.status(405).json({ ok: false, error: "method_not_allowed", message: "Nur GET und POST sind erlaubt." });
