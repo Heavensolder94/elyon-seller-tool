@@ -21,6 +21,7 @@ test("Seller Hub draft CSV mirrors the downloaded draft template shape", () => {
   assert.equal(built.categoryId, "12345");
   assert.equal(built.marketplaceId, "EBAY_DE");
   assert.equal(built.imageCount, 2);
+  assert.equal(built.itemSpecificCount, 0);
   assert.equal(built.condition, "NEW");
   assert.equal(built.descriptionDesigned, false);
   assert.equal(built.descriptionTheme, "plain");
@@ -55,10 +56,35 @@ test("Seller Hub draft can render an Elyon visual description design", () => {
 
   assert.equal(built.descriptionDesigned, true);
   assert.equal(built.descriptionTheme, "carbon");
+  assert.equal(built.itemSpecificCount, 2);
   assert.match(built.csv, /<!doctype html>/i);
   assert.match(built.csv, /class=""elyon""/);
   assert.match(built.csv, /--brand:#0b1117/);
   assert.match(built.csv, /USB C Ladegerät 20W/);
+});
+
+test("Seller Hub draft writes item specifics as C: columns", () => {
+  const built = buildSellerHubDraftCsv({
+    marketplaceId: "EBAY_DE",
+    categoryId: "12345",
+    title: "Powerbank 10000 mAh USB-C",
+    itemSpecifics: {
+      Konnektivität: ["USB-C", "USB-A"],
+      "Anzahl der Anschlüsse": ["2"],
+      Spannung: ["5 V", "9 V"],
+      "C:Kabelloser Ladestandard": ["Qi2"],
+    },
+  });
+
+  assert.equal(built.itemSpecificCount, 4);
+  const lines = built.csv.split("\r\n");
+  assert.match(lines[3], /C:Konnektivität/);
+  assert.match(lines[3], /C:Anzahl der Anschlüsse/);
+  assert.match(lines[3], /C:Spannung/);
+  assert.match(lines[3], /C:Kabelloser Ladestandard/);
+  assert.match(lines[4], /USB-C\|USB-A/);
+  assert.match(lines[4], /5 V\|9 V/);
+  assert.match(lines[4], /Qi2/);
 });
 
 test("Seller Hub draft maps marketplace metadata into the Action header", () => {
