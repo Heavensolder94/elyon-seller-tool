@@ -1,8 +1,9 @@
 import ebayHandler from "./index.js";
+import sellerListingAiHandler from "../seller-listing-ai.js";
 import { applyExtensionSellerSession } from "../../lib/seller-extension-bridge.js";
 import { createSellerHubDraft, getSellerHubDraftTask } from "../../lib/ebay-seller-hub-drafts.js";
 
-const ALLOWED_ACTIONS = new Set(["setup", "create-draft", "draft", "draft-status", "publish", "withdraw"]);
+const ALLOWED_ACTIONS = new Set(["setup", "create-draft", "draft", "draft-status", "publish", "withdraw", "listing-ai"]);
 const EBAY_INVENTORY_DESCRIPTION_MAX = 4000;
 const EBAY_ASPECT_NAME_MAX = 40;
 const EBAY_ASPECT_VALUE_MAX = 50;
@@ -58,14 +59,14 @@ function publicBridgeError(error) {
   const status = Number(error?.status || 500);
   const details = error?.details && typeof error.details === "object" ? error.details : undefined;
   if (details) {
-    console.error("[ebay-extension-action] eBay failure details", JSON.stringify(details));
+    console.error("[ebay-extension-action] Seller bridge failure details", JSON.stringify(details));
   }
   return {
     status,
     body: {
       ok: false,
-      error: error?.code || "seller_extension_ebay_error",
-      message: error?.message || "eBay-Entwurf konnte nicht erstellt werden.",
+      error: error?.code || "seller_extension_action_error",
+      message: error?.message || "Seller-Aktion konnte nicht ausgeführt werden.",
       ...(details ? { details } : {}),
     },
   };
@@ -107,6 +108,12 @@ export default async function handler(req, res) {
     }
     if (action === "draft-status") {
       return res.status(200).json(await getSellerHubDraftTask(payload, payload.environment));
+    }
+    if (action === "listing-ai") {
+      req.query = { ...(req.query || {}), source: "amazon-importer-extension" };
+      req.body = payload;
+      req.method = "POST";
+      return await sellerListingAiHandler(req, res);
     }
 
     req.query = { ...(req.query || {}), action };
