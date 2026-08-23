@@ -51,6 +51,40 @@ const ACTIVATION_AFTER = `  function ensureCompanyHost() {
         #elyonAiWorkforce.aiw-company-view>#elyonWorkforceCompanyHost{display:block!important}
         #elyonAiWorkforce.aiw-company-view>:not(#elyonWorkforceCompanyHost):not(#elyonWorkforceCompanySwitcher){display:none!important}
         #virtualAgentsSettingsRoot:has(>#elyonAiWorkforce.aiw-company-view)>:not(#elyonAiWorkforce){display:none!important}
+
+        /* The company cockpit is the normal employee UI. Remove the legacy
+           framing only while this view is active; advanced controls keep the
+           original shell when explicitly opened. */
+        #virtualAgentsTab:has(#elyonAiWorkforce.aiw-company-view)>.card{
+          padding:0!important;
+          border:0!important;
+          background:transparent!important;
+          box-shadow:none!important;
+          backdrop-filter:none!important;
+        }
+        #virtualAgentsTab:has(#elyonAiWorkforce.aiw-company-view)>.card>.settings-agents-header{
+          display:none!important;
+        }
+        #virtualAgentsTab:has(#elyonAiWorkforce.aiw-company-view) #virtualAgentsSettingsRoot{
+          display:block!important;
+          margin:0!important;
+          gap:0!important;
+        }
+        #virtualAgentsTab:has(#elyonAiWorkforce.aiw-company-view) #elyonAiWorkforce{
+          width:100%!important;
+          max-width:none!important;
+          margin:0!important;
+          padding:0!important;
+          border:0!important;
+          background:transparent!important;
+          box-shadow:none!important;
+        }
+
+        /* Jarvis remains a separate orchestration surface. Its minimized dock
+           must not sit on top of the dedicated employee cockpit/navigation. */
+        body:has(#virtualAgentsTab.active) .elyon-jarvis-floating.minimized{
+          display:none!important;
+        }
       \`;
       document.head.appendChild(style);
     }
