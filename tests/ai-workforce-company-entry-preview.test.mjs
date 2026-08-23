@@ -30,11 +30,11 @@ test("technical workforce controls are isolated in the explicit advanced host", 
   assert.match(source, /data-elyon-workforce-advanced-host/);
   assert.match(source, /Technische Workforce-Steuerung/);
   assert.match(source, /data-company-view="company"/);
-  assert.match(source, /data-company-view="advanced"/);
   assert.match(source, /requestedView: "company"/);
   assert.match(source, /function adoptLegacySurfaces\(\)/);
   assert.match(source, /advanced\.appendChild\(node\)/);
   assert.match(source, /target\.dataset\.workforceOwner = "advanced"/);
+  assert.match(source, /function openAdvanced/);
 });
 
 test("company view owns the tab shell while advanced controls remain recoverable", async () => {
