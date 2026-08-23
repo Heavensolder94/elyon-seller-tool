@@ -8,14 +8,27 @@ function syntaxCheck(relativePath) {
   execFileSync(process.execPath, ["--check", fileURLToPath(new URL(`../${relativePath}`, import.meta.url))], { stdio: "pipe" });
 }
 
-test("AI Workforce is moved into the dedicated virtual agents root without a global observer", async () => {
+test("AI Workforce is moved into the dedicated virtual agents root without replacing existing dashboard content", async () => {
   const source = await readFile(new URL("../ai-workforce-mount-fix.js", import.meta.url), "utf8");
   assert.match(source, /virtualAgentsSettingsRoot/);
   assert.match(source, /virtualAgentsTab/);
   assert.match(source, /elyonAiWorkforce/);
-  assert.match(source, /root\.replaceChildren\(shell\)/);
+  assert.match(source, /root\.appendChild\(shell\)/);
+  assert.doesNotMatch(source, /root\.replaceChildren\(shell\)/);
   assert.doesNotMatch(source, /MutationObserver/);
   assert.doesNotMatch(source, /window\.addEventListener\("focus"/);
+});
+
+test("dedicated virtual agents root keeps the task center that must survive workforce mounting", async () => {
+  const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  const rootStart = html.indexOf('id="virtualAgentsSettingsRoot"');
+  const rootEnd = html.indexOf("</section>", rootStart);
+  const rootMarkup = html.slice(rootStart, rootEnd);
+
+  assert.ok(rootStart >= 0);
+  assert.match(rootMarkup, /AI Task Center/);
+  assert.match(rootMarkup, /data-task-action="create-task"/);
+  assert.match(rootMarkup, /task-center-empty/);
 });
 
 test("mount fix reacts only when the virtual agents area is opened or loaded", async () => {
