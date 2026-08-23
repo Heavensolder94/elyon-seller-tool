@@ -12,6 +12,7 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const appRoot = path.resolve(scriptDir, "..");
 const publicRoot = path.join(appRoot, "public");
 const SELLER_OS_VERSION = "20260823-workforce-cockpit-4";
+const WORKFORCE_ASSET_VERSION = "workforce-cockpit-20260823-2";
 
 const sourcePolishPath = path.join(appRoot, "elyon-preview-polish.css");
 const sourceOrgchartPath = path.join(appRoot, "seller-ai-workforce-orgchart-v1.js");
@@ -56,7 +57,8 @@ const runtimeWithSellerOs = runtimeWithoutSellerOs.replace(teamMarker, [
   '      { src: "/seller-ai-workforce-orgchart-v1.js" },',
   '      { src: "/seller-ai-workforce-company-entry.js" },',
 ].join("\n"));
-const productionRuntimeLoader = transformSellerRuntimeLoader(runtimeWithSellerOs);
+const productionRuntimeLoader = transformSellerRuntimeLoader(runtimeWithSellerOs)
+  .replace(/const VERSION = "[^"]+";/, `const VERSION = "${WORKFORCE_ASSET_VERSION}";`);
 const productionDashboard = transformSellerDashboard(dashboardSource);
 
 if (!htmlSource.includes("</head>")) {
