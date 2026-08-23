@@ -15,8 +15,8 @@ import {
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const appRoot = path.resolve(scriptDir, "..");
 const publicRoot = path.join(appRoot, "public");
-const SELLER_OS_VERSION = "20260823-workforce-cockpit-7";
-const WORKFORCE_ASSET_VERSION = "workforce-cockpit-20260823-5";
+const SELLER_OS_VERSION = "20260823-workforce-cockpit-8";
+const WORKFORCE_ASSET_VERSION = "workforce-cockpit-20260823-6";
 
 const sourcePolishPath = path.join(appRoot, "elyon-preview-polish.css");
 const sourceOrgchartPath = path.join(appRoot, "seller-ai-workforce-orgchart-v1.js");
@@ -103,4 +103,4 @@ await Promise.all([
   writeFile(outputHtmlPath, productionHtml, "utf8"),
 ]);
 
-console.log(`Finalized production Seller OS ${SELLER_OS_VERSION} with post-eBay navigation contract, listing parity safeguards and stable workforce cockpit mount.`);
+console.log(`Finalized production Seller OS ${SELLER_OS_VERSION} with post-eBay navigation contract, listing parity safeguards and single-owner workforce cockpit.`);
