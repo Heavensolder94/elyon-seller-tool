@@ -6,11 +6,12 @@ import {
   transformSellerRuntimeLoader,
 } from "./seller-listing-parity-transform.mjs";
 import { optimizeCompanyEntryRuntime } from "./workforce-company-entry-runtime-optimization.mjs";
+import { stabilizeWorkforceCockpitMount } from "./workforce-cockpit-mount-transform.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const appRoot = path.resolve(scriptDir, "..");
 const publicRoot = path.join(appRoot, "public");
-const SELLER_OS_VERSION = "20260823-workforce-cockpit-2";
+const SELLER_OS_VERSION = "20260823-workforce-cockpit-3";
 
 const sourcePolishPath = path.join(appRoot, "elyon-preview-polish.css");
 const sourceOrgchartPath = path.join(appRoot, "seller-ai-workforce-orgchart-v1.js");
@@ -37,6 +38,7 @@ const [polishSource, orgchartSource, companyEntrySource, taskCenterSource, runti
 
 const productionPolish = polishSource
   .replace("Preview-only finishing pass.", "Production visual finishing pass.");
+const productionOrgchart = stabilizeWorkforceCockpitMount(orgchartSource);
 const productionCompanyEntry = optimizeCompanyEntryRuntime(companyEntrySource)
   .replaceAll("elyonCompanyEntryPreviewStyles", "elyonCompanyEntryStyles")
   .replaceAll("ElyonAIWorkforceCompanyEntryPreview", "ElyonAIWorkforceCompanyEntry");
@@ -80,7 +82,7 @@ const productionHtml = cleanedHtml.replace("</head>", `  ${sellerOsAssets}\n</he
 
 await Promise.all([
   writeFile(outputPolishPath, productionPolish, "utf8"),
-  writeFile(outputOrgchartPath, orgchartSource, "utf8"),
+  writeFile(outputOrgchartPath, productionOrgchart, "utf8"),
   writeFile(outputCompanyEntryPath, productionCompanyEntry, "utf8"),
   writeFile(outputTaskCenterPath, taskCenterSource, "utf8"),
   writeFile(runtimeLoaderPath, productionRuntimeLoader, "utf8"),
@@ -88,4 +90,4 @@ await Promise.all([
   writeFile(outputHtmlPath, productionHtml, "utf8"),
 ]);
 
-console.log(`Finalized production Seller OS ${SELLER_OS_VERSION} with Seller Hub listing parity safeguards and lightweight AI Task Center runtime.`);
+console.log(`Finalized production Seller OS ${SELLER_OS_VERSION} with Seller Hub listing parity safeguards and stable workforce cockpit mount.`);
