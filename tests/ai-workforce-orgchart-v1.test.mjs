@@ -5,6 +5,7 @@ import { readFile } from "node:fs/promises";
 
 const sourceUrl = new URL("../seller-ai-workforce-orgchart-v1.js", import.meta.url);
 const finalizerUrl = new URL("../scripts/finalize-seller-os.mjs", import.meta.url);
+const runtimeOptimizationUrl = new URL("../scripts/virtual-agents-runtime-optimization.mjs", import.meta.url);
 
 test("workforce team cockpit is valid browser JavaScript", async () => {
   const source = await readFile(sourceUrl, "utf8");
@@ -122,4 +123,11 @@ test("production finalizer still ships the cockpit lazily through the existing w
   assert.match(source, /seller-ai-workforce-company-entry\.js/);
   assert.match(source, /data-elyon-seller-os-design/);
   assert.match(source, /data-elyon-seller-os-polish/);
+});
+
+test("workforce lazy assets are cache-busted for the cockpit release", async () => {
+  const source = await readFile(runtimeOptimizationUrl, "utf8");
+  assert.match(source, /WORKFORCE_ASSET_VERSION = "workforce-cockpit-20260823-1"/);
+  assert.match(source, /`const VERSION = "\$\{WORKFORCE_ASSET_VERSION\}";`/);
+  assert.doesNotMatch(source, /workforce-routing-20260813-1/);
 });
