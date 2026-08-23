@@ -22,10 +22,11 @@ test("AI Workforce is moved into the dedicated virtual agents root without repla
 test("dedicated virtual agents root keeps the task center that must survive workforce mounting", async () => {
   const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
   const rootStart = html.indexOf('id="virtualAgentsSettingsRoot"');
-  const rootEnd = html.indexOf("</section>", rootStart);
-  const rootMarkup = html.slice(rootStart, rootEnd);
+  const nextTab = html.indexOf('<section id="returnsTab"', rootStart);
+  const rootMarkup = html.slice(rootStart, nextTab);
 
   assert.ok(rootStart >= 0);
+  assert.ok(nextTab > rootStart);
   assert.match(rootMarkup, /AI Task Center/);
   assert.match(rootMarkup, /data-task-action="create-task"/);
   assert.match(rootMarkup, /task-center-empty/);
