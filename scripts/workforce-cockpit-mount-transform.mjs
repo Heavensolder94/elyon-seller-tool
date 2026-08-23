@@ -15,37 +15,37 @@ const RENDER_BEFORE = `  function render() {
     return true;
   }`;
 
-const RENDER_AFTER = `  function cockpitMountTarget() {
+const RENDER_AFTER = `  const COMPANY_HOST_ID = "elyonWorkforceCompanyHost";
+
+  function cockpitMountTarget() {
     const shell = document.getElementById("elyonAiWorkforce");
     if (!shell) return null;
 
-    const current = shell.querySelector(".aiw-v6-team");
-    if (current) return { node: current, replaceNode: true };
-
-    const teamButton = shell.querySelector('[data-v3-view="team"].active');
-    if (!teamButton) return null;
-    const section = [...shell.querySelectorAll(".aiw-v3-section")].find((item) =>
-      item.querySelector(".aiw-v3-agent-list") || item.querySelector(".aiw-org")
-    );
-    return section ? { node: section, replaceNode: false } : null;
+    let host = document.getElementById(COMPANY_HOST_ID);
+    if (!host) {
+      host = document.createElement("div");
+      host.id = COMPANY_HOST_ID;
+      host.setAttribute("data-elyon-workforce-company-host", "true");
+      shell.appendChild(host);
+    } else if (host.parentElement !== shell) {
+      shell.appendChild(host);
+    }
+    return host;
   }
 
   function render() {
     installStyles();
-    const target = cockpitMountTarget();
-    if (!target) return false;
+    const host = cockpitMountTarget();
+    if (!host) return false;
     const sig = signature();
-    const existing = target.node.matches?.(".aiw-org") ? target.node : target.node.querySelector?.(".aiw-org");
+    const existing = host.firstElementChild?.classList?.contains("aiw-org") ? host.firstElementChild : null;
     if (existing?.dataset.orgSignature === sig) return true;
     const wrapper = document.createElement("div");
     wrapper.innerHTML = markup();
     const replacement = wrapper.firstElementChild;
     if (!replacement) return false;
     replacement.dataset.orgSignature = sig;
-    if (target.replaceNode) target.node.replaceWith(replacement);
-    else target.node.replaceChildren(replacement);
-    const nav = document.querySelector('#elyonAiWorkforce [data-v3-view="team"]');
-    if (nav) nav.innerHTML = "◉ Team-Cockpit";
+    host.replaceChildren(replacement);
     return true;
   }`;
 
