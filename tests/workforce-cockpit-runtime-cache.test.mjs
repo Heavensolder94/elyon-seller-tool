@@ -9,8 +9,8 @@ const orgchartUrl = new URL("../seller-ai-workforce-orgchart-v1.js", import.meta
 test("production versions the outer runtime loader and the lazy workforce assets", async () => {
   const finalizer = await readFile(finalizerUrl, "utf8");
 
-  assert.match(finalizer, /SELLER_OS_VERSION = "20260823-workforce-cockpit-8"/);
-  assert.match(finalizer, /WORKFORCE_ASSET_VERSION = "workforce-cockpit-20260823-6"/);
+  assert.match(finalizer, /SELLER_OS_VERSION = "20260823-workforce-cockpit-9"/);
+  assert.match(finalizer, /WORKFORCE_ASSET_VERSION = "workforce-cockpit-20260823-7"/);
   assert.match(finalizer, /seller-runtime-loader\\\.js/);
   assert.match(finalizer, /seller-runtime-loader\.js\?v=\$\{SELLER_OS_VERSION\}/);
   assert.match(finalizer, /const VERSION = "\$\{WORKFORCE_ASSET_VERSION\}"/);
@@ -44,4 +44,37 @@ test("overview prioritizes decisions and live activity before employee cards", a
   assert.ok(decisionIndex >= 0, "decision panel missing");
   assert.ok(activityIndex > decisionIndex, "activity should follow decisions");
   assert.ok(employeeIndex > activityIndex, "employee cards should follow operational status");
+});
+
+test("virtual employees uses business statuses and understandable cockpit metrics", async () => {
+  const orgchart = await readFile(orgchartUrl, "utf8");
+  const output = stabilizeWorkforceCockpitMount(orgchart);
+
+  assert.doesNotMatch(output, /<small>Mitarbeiter aktiv<\/small>/);
+  assert.match(output, /<small>Mitarbeiter<\/small>/);
+  assert.match(output, /einsatzbereit/);
+  assert.match(output, /<small>Arbeiten gerade<\/small>/);
+  assert.match(output, /<small>Offene Aufgaben<\/small>/);
+  assert.match(output, /Wartet auf dich/);
+  assert.match(output, /Deaktiviert/);
+  assert.match(output, /Fehler/);
+  assert.match(output, /Arbeitet/);
+  assert.match(output, /Bereit/);
+  assert.match(output, /\$\{running\.length\} laufend/);
+  assert.doesNotMatch(output, /\$\{running\.length\} aktiv/);
+});
+
+test("tasks are grouped by human-readable work state and team navigation says Mitarbeiter", async () => {
+  const orgchart = await readFile(orgchartUrl, "utf8");
+  const output = stabilizeWorkforceCockpitMount(orgchart);
+
+  assert.match(output, /data-org-view="team">Mitarbeiter<\/button>/);
+  assert.match(output, /data-org-task-filter="\$\{id\}"/);
+  assert.match(output, /\["running", "Laufend"\]/);
+  assert.match(output, /\["waiting", "Wartend"\]/);
+  assert.match(output, /\["done", "Erledigt"\]/);
+  assert.match(output, /\["error", "Fehler"\]/);
+  assert.match(output, /Alle Mitarbeiter-Aufgaben/);
+  assert.match(output, /Fähigkeiten ansehen/);
+  assert.match(output, /taskFilter: state\.taskFilter/);
 });
