@@ -38,9 +38,13 @@ export function alignSellerProductionNavigation(source) {
 
 export function ensureVirtualEmployeesCompanyActivation(source) {
   const input = String(source || "");
-  if (input.includes(COMPANY_ACTIVATION)) return input;
+  if (!input.includes(TEAM_RENDER_MARKER) && input.includes(COMPANY_ACTIVATION)) return input;
   if (!input.includes(TEAM_RENDER_MARKER)) {
     throw new Error("Seller production runtime transform failed: Team V6 activation marker not found.");
   }
-  return input.replace(TEAM_RENDER_MARKER, `${TEAM_RENDER_MARKER}\n${COMPANY_ACTIVATION}`);
+
+  // The normal virtual-employees tab has exactly one visual owner: the company
+  // cockpit. Team V6 remains loaded as a technical dependency and is rendered
+  // only when the explicit advanced view asks for it.
+  return input.replace(TEAM_RENDER_MARKER, COMPANY_ACTIVATION);
 }
