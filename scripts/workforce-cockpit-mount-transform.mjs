@@ -18,17 +18,17 @@ const RENDER_BEFORE = `  function render() {
 const RENDER_AFTER = `  const COMPANY_HOST_ID = "elyonWorkforceCompanyHost";
 
   function cockpitMountTarget() {
-    const shell = document.getElementById("elyonAiWorkforce");
-    if (!shell) return null;
+    const root = document.getElementById("virtualAgentsSettingsRoot");
+    if (!root) return null;
 
     let host = document.getElementById(COMPANY_HOST_ID);
     if (!host) {
       host = document.createElement("div");
       host.id = COMPANY_HOST_ID;
       host.setAttribute("data-elyon-workforce-company-host", "true");
-      shell.appendChild(host);
-    } else if (host.parentElement !== shell) {
-      shell.appendChild(host);
+      root.prepend(host);
+    } else if (host.parentElement !== root) {
+      root.prepend(host);
     }
     return host;
   }
@@ -66,11 +66,17 @@ function promoteOperationalPanels(source) {
   return source.replace(before, [DECISION_PANEL, ACTIVITY_BLOCK, EMPLOYEE_GRID].join("\n"));
 }
 
+function scopeCockpitStyles(source) {
+  return source
+    .replaceAll("#elyonAiWorkforce .aiw-org", "#elyonWorkforceCompanyHost .aiw-org")
+    .replaceAll("#elyonAiWorkforce.aiw-company-view #elyonWorkforceCompanySwitcher", "#elyonWorkforceCompanyHost #elyonWorkforceCompanySwitcher");
+}
+
 export function stabilizeWorkforceCockpitMount(source) {
   const input = String(source || "");
   if (!input.includes(RENDER_BEFORE)) {
     throw new Error("Workforce cockpit mount transform failed: render signature not found.");
   }
   const mounted = input.replace(RENDER_BEFORE, RENDER_AFTER);
-  return promoteOperationalPanels(mounted);
+  return promoteOperationalPanels(scopeCockpitStyles(mounted));
 }
