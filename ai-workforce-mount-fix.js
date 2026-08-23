@@ -29,7 +29,7 @@
     }
     if (!shell) return false;
 
-    if (shell.parentElement !== root) root.replaceChildren(shell);
+    if (shell.parentElement !== root) root.appendChild(shell);
 
     shell.classList.add("aiw-dedicated-tab");
     root.dataset.elyonWorkforceReady = "1";
