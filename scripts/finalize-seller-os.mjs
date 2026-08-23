@@ -11,8 +11,8 @@ import { stabilizeWorkforceCockpitMount } from "./workforce-cockpit-mount-transf
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const appRoot = path.resolve(scriptDir, "..");
 const publicRoot = path.join(appRoot, "public");
-const SELLER_OS_VERSION = "20260823-workforce-cockpit-4";
-const WORKFORCE_ASSET_VERSION = "workforce-cockpit-20260823-2";
+const SELLER_OS_VERSION = "20260823-workforce-cockpit-5";
+const WORKFORCE_ASSET_VERSION = "workforce-cockpit-20260823-3";
 
 const sourcePolishPath = path.join(appRoot, "elyon-preview-polish.css");
 const sourceOrgchartPath = path.join(appRoot, "seller-ai-workforce-orgchart-v1.js");
