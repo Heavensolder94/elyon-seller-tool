@@ -49,10 +49,28 @@ const RENDER_AFTER = `  const COMPANY_HOST_ID = "elyonWorkforceCompanyHost";
     return true;
   }`;
 
+const EMPLOYEE_GRID = '      <div class="aiw-cockpit-grid">${TEAM.map(employeeCard).join("")}</div>';
+const DECISION_PANEL = '      <section class="aiw-org-panel" data-org-anchor="decisions"><div class="aiw-org-panel-head"><div><h4>🚨 Deine Entscheidungen</h4><p>Nur Freigaben, Blocker, Fehler und echte Prüffälle.</p></div><span class="aiw-org-count">${decisionCount}</span></div>${decisions(5)}</section>';
+const ACTIVITY_BLOCK = [
+  '      <div class="aiw-cockpit-two">',
+  '        <section class="aiw-org-panel"><div class="aiw-org-panel-head"><div><h4>⚡ Gerade in Arbeit</h4><p>Live aus den bestehenden Workforce-Tasks.</p></div><span class="aiw-org-count">${Math.min(runningCount, 8)}</span></div>${currentWork(6)}</section>',
+  '        <section class="aiw-org-panel"><div class="aiw-org-panel-head"><div><h4>✅ Zuletzt erledigt</h4><p>Die jüngsten abgeschlossenen Team-Aufgaben.</p></div><span class="aiw-org-count">${Math.min(all.filter((task) => GOOD.has(status(task))).length, 8)}</span></div>${completed(6)}</section>',
+  '      </div>',
+].join("\n");
+
+function promoteOperationalPanels(source) {
+  const before = [EMPLOYEE_GRID, DECISION_PANEL, ACTIVITY_BLOCK].join("\n");
+  if (!source.includes(before)) {
+    throw new Error("Workforce cockpit layout transform failed: overview order signature not found.");
+  }
+  return source.replace(before, [DECISION_PANEL, ACTIVITY_BLOCK, EMPLOYEE_GRID].join("\n"));
+}
+
 export function stabilizeWorkforceCockpitMount(source) {
   const input = String(source || "");
   if (!input.includes(RENDER_BEFORE)) {
     throw new Error("Workforce cockpit mount transform failed: render signature not found.");
   }
-  return input.replace(RENDER_BEFORE, RENDER_AFTER);
+  const mounted = input.replace(RENDER_BEFORE, RENDER_AFTER);
+  return promoteOperationalPanels(mounted);
 }
