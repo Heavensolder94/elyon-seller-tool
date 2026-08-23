@@ -53,8 +53,8 @@ test("normal virtual employees activation has exactly one visual owner", async (
 
 test("finalizer versions runtime, role policy and single-owner workforce assets", async () => {
   const source = await readFile(finalizerUrl, "utf8");
-  assert.match(source, /SELLER_OS_VERSION = "20260823-workforce-cockpit-8"/);
-  assert.match(source, /WORKFORCE_ASSET_VERSION = "workforce-cockpit-20260823-6"/);
+  assert.match(source, /SELLER_OS_VERSION = "20260823-workforce-cockpit-9"/);
+  assert.match(source, /WORKFORCE_ASSET_VERSION = "workforce-cockpit-20260823-7"/);
   assert.match(source, /alignSellerProductionNavigation\(rolePolicySource\)/);
   assert.match(source, /ensureVirtualEmployeesCompanyActivation/);
   assert.match(source, /seller-role-policy\.js\?v=\$\{SELLER_OS_VERSION\}/);
