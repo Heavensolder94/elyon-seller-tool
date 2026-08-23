@@ -42,6 +42,19 @@ test("virtual agents are active and can no longer be re-hidden by the seller rol
   assert.match(activationPolicy, /registry\.active\.push/);
 });
 
+test("production keeps the company structure as the virtual employees page instead of the Jarvis V7 overlay", async () => {
+  const finalize = await readFile(new URL("../scripts/finalize-seller-os.mjs", import.meta.url), "utf8");
+  const v7 = await readFile(new URL("../v7.mjs", import.meta.url), "utf8");
+
+  assert.match(finalize, /seller-ai-workforce-orgchart-v1\.js/);
+  assert.match(finalize, /seller-ai-workforce-company-entry\.js/);
+  assert.match(finalize, /runtimeWithSellerOs/);
+  assert.match(v7, /replace\(/);
+  assert.match(v7, /seller-ai-workforce-v7-/);
+  assert.doesNotMatch(v7, /const entries =/);
+  assert.doesNotMatch(v7, /clean\.replace\(marker/);
+});
+
 test("desktop build activates the tab before installing the lazy workforce loader", async () => {
   const build = await readFile(new URL("../scripts/prepare-vercel.mjs", import.meta.url), "utf8");
   const runtime = await readFile(new URL("../seller-runtime-loader.js", import.meta.url), "utf8");
@@ -65,4 +78,5 @@ test("virtual agents activation files are valid JavaScript", () => {
   syntaxCheck("seller-virtual-agents-policy.js");
   syntaxCheck("seller-runtime-loader.js");
   syntaxCheck("scripts/prepare-vercel.mjs");
+  syntaxCheck("v7.mjs");
 });
