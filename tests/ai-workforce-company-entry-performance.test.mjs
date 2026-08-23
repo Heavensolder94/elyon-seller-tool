@@ -7,15 +7,19 @@ import { optimizeCompanyEntryRuntime } from "../scripts/workforce-company-entry-
 const entryUrl = new URL("../seller-ai-workforce-company-entry-preview.js", import.meta.url);
 const finalizerUrl = new URL("../scripts/finalize-seller-os.mjs", import.meta.url);
 
-test("production company entry coalesces repeated tab activation into one frame", async () => {
+test("production company entry coalesces activation and owns a dedicated company host", async () => {
   const source = await readFile(entryUrl, "utf8");
   const optimized = optimizeCompanyEntryRuntime(source);
 
   assert.doesNotThrow(() => new vm.Script(optimized));
   assert.match(optimized, /activationQueued: false/);
   assert.match(optimized, /requestAnimationFrame\(activateCompanyView\)/);
-  assert.match(optimized, /state\.activationQueued \|\| state\.activating/);
-  assert.match(optimized, /shell\.classList\.contains\("aiw-company-view"\)/);
+  assert.match(optimized, /COMPANY_HOST_ID = "elyonWorkforceCompanyHost"/);
+  assert.match(optimized, /function ensureCompanyHost\(\)/);
+  assert.match(optimized, /shell\.classList\.add\("aiw-company-view"\)/);
+  assert.match(optimized, /ElyonAIWorkforceOrgchartV1\?\.render\?\.\(\)/);
+  assert.match(optimized, /#virtualAgentsSettingsRoot:has\(>#elyonAiWorkforce\.aiw-company-view\)>:not\(#elyonAiWorkforce\)/);
+  assert.doesNotMatch(optimized, /if \(!teamButton\) return false/);
   assert.doesNotMatch(optimized, /\[0, 80, 250, 700\]/);
   assert.doesNotMatch(optimized, /window\.setTimeout\(renderCompanyTree, 35\)/);
 });
