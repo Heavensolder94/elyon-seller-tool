@@ -10,7 +10,7 @@ import { optimizeCompanyEntryRuntime } from "./workforce-company-entry-runtime-o
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const appRoot = path.resolve(scriptDir, "..");
 const publicRoot = path.join(appRoot, "public");
-const SELLER_OS_VERSION = "20260813-task-center-live-1";
+const SELLER_OS_VERSION = "20260823-workforce-cockpit-2";
 
 const sourcePolishPath = path.join(appRoot, "elyon-preview-polish.css");
 const sourceOrgchartPath = path.join(appRoot, "seller-ai-workforce-orgchart-v1.js");
@@ -68,6 +68,7 @@ const sellerOsAssets = [
 ].join("\n");
 
 const cleanedHtml = htmlSource
+  .replace(/<script defer src="\/seller-runtime-loader\.js(?:\?v=[^"]*)?"><\/script>/, `<script defer src="/seller-runtime-loader.js?v=${SELLER_OS_VERSION}"></script>`)
   .replace(/\s*<link[^>]+data-elyon-seller-os-design=["']true["'][^>]*>\s*/gi, "\n")
   .replace(/\s*<link[^>]+data-elyon-seller-os-polish=["']true["'][^>]*>\s*/gi, "\n")
   .replace(/\s*<script[^>]+data-elyon-task-center-live=["']true["'][^>]*><\/script>\s*/gi, "\n")
