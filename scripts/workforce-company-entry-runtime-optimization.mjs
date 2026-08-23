@@ -1,5 +1,7 @@
 const STATE_BEFORE = '  const state = { activating: false, requestedView: "company" };';
-const STATE_AFTER = '  const state = { activating: false, activationQueued: false, requestedView: "company" };';
+const STATE_AFTER = `  const COMPANY_HOST_ID = "elyonWorkforceCompanyHost";
+  const COMPANY_HOST_STYLE_ID = "elyonWorkforceCompanyHostStyles";
+  const state = { activating: false, activationQueued: false, requestedView: "company" };`;
 
 const ACTIVATION_BEFORE = `  function activateCompanyView() {
     if (state.activating || state.requestedView !== "company" || !virtualAreaIsActive()) return false;
@@ -27,20 +29,51 @@ const ACTIVATION_BEFORE = `  function activateCompanyView() {
     [0, 80, 250, 700].forEach((delay) => window.setTimeout(activateCompanyView, delay));
   }`;
 
-const ACTIVATION_AFTER = `  function activateCompanyView() {
+const ACTIVATION_AFTER = `  function ensureCompanyHost() {
+    const shell = document.getElementById("elyonAiWorkforce");
+    if (!shell) return null;
+
+    let host = document.getElementById(COMPANY_HOST_ID);
+    if (!host) {
+      host = document.createElement("div");
+      host.id = COMPANY_HOST_ID;
+      host.setAttribute("data-elyon-workforce-company-host", "true");
+      shell.appendChild(host);
+    } else if (host.parentElement !== shell) {
+      shell.appendChild(host);
+    }
+
+    if (!document.getElementById(COMPANY_HOST_STYLE_ID)) {
+      const style = document.createElement("style");
+      style.id = COMPANY_HOST_STYLE_ID;
+      style.textContent = \`
+        #elyonWorkforceCompanyHost{display:none;width:100%}
+        #elyonAiWorkforce.aiw-company-view>#elyonWorkforceCompanyHost{display:block!important}
+        #elyonAiWorkforce.aiw-company-view>:not(#elyonWorkforceCompanyHost):not(#elyonWorkforceCompanySwitcher){display:none!important}
+        #virtualAgentsSettingsRoot:has(>#elyonAiWorkforce.aiw-company-view)>:not(#elyonAiWorkforce){display:none!important}
+      \`;
+      document.head.appendChild(style);
+    }
+
+    return host;
+  }
+
+  function activateCompanyView() {
     state.activationQueued = false;
     if (state.activating || state.requestedView !== "company" || !virtualAreaIsActive()) return false;
     const shell = document.getElementById("elyonAiWorkforce");
-    const teamButton = shell?.querySelector('[data-v3-view="team"]');
     if (!shell) return false;
     ensureSwitcher();
-    if (shell.classList.contains("aiw-company-view") && shell.querySelector(".aiw-org")) return true;
-    if (!teamButton) return false;
+    const host = ensureCompanyHost();
+    if (!host) return false;
+    if (shell.classList.contains("aiw-company-view") && host.querySelector(".aiw-org")) return true;
 
     state.activating = true;
     try {
-      if (!teamButton.classList.contains("active")) teamButton.click();
-      renderCompanyTree();
+      state.requestedView = "company";
+      shell.classList.add("aiw-company-view");
+      window.ElyonAIWorkforceOrgchartV1?.render?.();
+      ensureSwitcher();
       return true;
     } finally {
       state.activating = false;
