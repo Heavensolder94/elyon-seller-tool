@@ -59,7 +59,7 @@ test("production finalizer ships the lightweight task center independently of th
   assert.match(source, /seller-ai-task-center-live\.js/);
   assert.match(source, /data-elyon-task-center-live="true"/);
   assert.match(source, /writeFile\(outputTaskCenterPath, taskCenterSource/);
-  assert.match(source, /20260823-workforce-cockpit-7/);
+  assert.match(source, /20260823-workforce-cockpit-8/);
 });
 
 test("desktop HTML keeps a clear fallback mount for the live task center", async () => {
