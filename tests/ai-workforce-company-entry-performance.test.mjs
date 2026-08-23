@@ -19,6 +19,8 @@ test("production company entry coalesces activation and owns a dedicated company
   assert.match(optimized, /shell\.classList\.add\("aiw-company-view"\)/);
   assert.match(optimized, /ElyonAIWorkforceOrgchartV1\?\.render\?\.\(\)/);
   assert.match(optimized, /#virtualAgentsSettingsRoot:has\(>#elyonAiWorkforce\.aiw-company-view\)>:not\(#elyonAiWorkforce\)/);
+  assert.match(optimized, /#virtualAgentsTab:has\(#elyonAiWorkforce\.aiw-company-view\)>\.card>\.settings-agents-header/);
+  assert.match(optimized, /body:has\(#virtualAgentsTab\.active\) \.elyon-jarvis-floating\.minimized/);
   assert.doesNotMatch(optimized, /if \(!teamButton\) return false/);
   assert.doesNotMatch(optimized, /\[0, 80, 250, 700\]/);
   assert.doesNotMatch(optimized, /window\.setTimeout\(renderCompanyTree, 35\)/);
