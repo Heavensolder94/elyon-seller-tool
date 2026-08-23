@@ -43,20 +43,18 @@ test("production menu follows the documented post-eBay Seller Tool workflow with
   assert.doesNotMatch(output, /id: "financeTab", label: "Vorab-Kalkulation"/);
 });
 
-test("production runtime explicitly restores the company cockpit when virtual employees opens", async () => {
+test("normal virtual employees activation has exactly one visual owner", async () => {
   const runtime = transformSellerRuntimeLoader(await readFile(runtimeUrl, "utf8"));
   const output = ensureVirtualEmployeesCompanyActivation(runtime);
-  const teamIndex = output.indexOf("window.ElyonAIWorkforceTeamV6?.render?.();");
-  const companyIndex = output.indexOf("window.ElyonAIWorkforceCompanyEntry?.showCompany?.();");
 
-  assert.ok(teamIndex >= 0);
-  assert.ok(companyIndex > teamIndex);
+  assert.match(output, /window\.ElyonAIWorkforceCompanyEntry\?\.showCompany\?\.\(\);/);
+  assert.doesNotMatch(output, /window\.ElyonAIWorkforceTeamV6\?\.render\?\.\(\);/);
 });
 
-test("finalizer versions both runtime loader and role policy for the repaired production contract", async () => {
+test("finalizer versions runtime, role policy and single-owner workforce assets", async () => {
   const source = await readFile(finalizerUrl, "utf8");
-  assert.match(source, /SELLER_OS_VERSION = "20260823-workforce-cockpit-7"/);
-  assert.match(source, /WORKFORCE_ASSET_VERSION = "workforce-cockpit-20260823-5"/);
+  assert.match(source, /SELLER_OS_VERSION = "20260823-workforce-cockpit-8"/);
+  assert.match(source, /WORKFORCE_ASSET_VERSION = "workforce-cockpit-20260823-6"/);
   assert.match(source, /alignSellerProductionNavigation\(rolePolicySource\)/);
   assert.match(source, /ensureVirtualEmployeesCompanyActivation/);
   assert.match(source, /seller-role-policy\.js\?v=\$\{SELLER_OS_VERSION\}/);
