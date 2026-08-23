@@ -13,41 +13,46 @@ test("company entry adapter is valid browser JavaScript", async () => {
   assert.match(source, /ElyonAIWorkforceCompanyEntryPreview/);
 });
 
-test("virtual employees open directly into the company team view", async () => {
+test("virtual employees open directly into the single-owner company cockpit", async () => {
   const source = await readFile(entryUrl, "utf8");
-  assert.match(source, /data-v3-view="team"/);
-  assert.match(source, /teamButton\.click\(\)/);
-  assert.match(source, /ElyonAIWorkforceTeamV6\?\.render/);
+  assert.match(source, /COMPANY_HOST_ID = "elyonWorkforceCompanyHost"/);
+  assert.match(source, /ADVANCED_HOST_ID = "elyonWorkforceAdvancedHost"/);
   assert.match(source, /ElyonAIWorkforceOrgchartV1\?\.render/);
-  assert.match(source, /event\.detail\?\.tabId === TAB_ID/);
+  assert.match(source, /handleTabEvent\(event\.detail\?\.tabId \|\| event\.detail\)/);
   assert.match(source, /event\.target\?\.id === "mainMenu"/);
+  assert.match(source, /target\.dataset\.workforceOwner = "company"/);
+  assert.doesNotMatch(source, /teamButton/);
+  assert.doesNotMatch(source, /data-v3-view="team"/);
 });
 
-test("virtual employees visibly expose company and advanced views", async () => {
+test("technical workforce controls are isolated in the explicit advanced host", async () => {
   const source = await readFile(entryUrl, "utf8");
-  assert.match(source, /elyonWorkforceCompanySwitcher/);
-  assert.match(source, /🏢 Firmenstruktur/);
-  assert.match(source, /⚙ Erweiterte Steuerung/);
+  assert.match(source, /data-elyon-workforce-advanced-host/);
+  assert.match(source, /Technische Workforce-Steuerung/);
   assert.match(source, /data-company-view="company"/);
   assert.match(source, /data-company-view="advanced"/);
   assert.match(source, /requestedView: "company"/);
+  assert.match(source, /function adoptLegacySurfaces\(\)/);
+  assert.match(source, /advanced\.appendChild\(node\)/);
+  assert.match(source, /target\.dataset\.workforceOwner = "advanced"/);
 });
 
-test("company view is a focus workspace without the legacy side columns", async () => {
+test("company view owns the tab shell while advanced controls remain recoverable", async () => {
   const source = await readFile(entryUrl, "utf8");
-  assert.match(source, /aiw-company-view/);
-  assert.match(source, /:has\(\.aiw-org\)/);
-  assert.match(source, /aiw-v3-nav[\s\S]*aiw-v3-side[\s\S]*display:none!important/);
-  assert.match(source, /aiw-v3-layout[\s\S]*display:block!important/);
+  assert.match(source, /data-workforce-owner="company"/);
+  assert.match(source, /data-workforce-owner="advanced"/);
+  assert.match(source, /settings-agents-header\{display:none!important\}/);
   assert.match(source, /openAdvanced/);
-  assert.doesNotMatch(source, /data-org-advanced-view/);
+  assert.match(source, /refreshAdvancedSurfaces/);
 });
 
-test("company entry uses only bounded activation retries", async () => {
+test("company entry is event driven without polling or retry storms", async () => {
   const source = await readFile(entryUrl, "utf8");
   assert.doesNotMatch(source, /MutationObserver/);
   assert.doesNotMatch(source, /setInterval\(/);
-  assert.match(source, /\[0, 80, 250, 700\]/);
+  assert.doesNotMatch(source, /\[0, 80, 250, 700\]/);
+  assert.match(source, /elyon:runtime-group-loaded/);
+  assert.match(source, /elyon:tab-changed/);
 });
 
 test("production finalizer keeps company UI lazy and exposes production asset names", async () => {
