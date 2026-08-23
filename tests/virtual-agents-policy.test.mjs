@@ -15,11 +15,25 @@ test("dedicated virtual employees tab and mount root exist in the desktop shell"
   assert.match(html, /id="virtualAgentsSettingsRoot"/);
 });
 
-test("virtual agents policy reverses the obsolete inactive-role decision", async () => {
-  const legacyPolicy = await readFile(new URL("../seller-role-policy.js", import.meta.url), "utf8");
+test("virtual agents are active and can no longer be re-hidden by the seller role policy", async () => {
+  const rolePolicy = await readFile(new URL("../seller-role-policy.js", import.meta.url), "utf8");
   const activationPolicy = await readFile(new URL("../seller-virtual-agents-policy.js", import.meta.url), "utf8");
+  const activeStart = rolePolicy.indexOf("const ACTIVE_MODULES");
+  const inactiveStart = rolePolicy.indexOf("const INACTIVE_MODULES");
+  const inactiveEnd = rolePolicy.indexOf("\n  ];", inactiveStart);
+  const activeBlock = rolePolicy.slice(activeStart, inactiveStart);
+  const inactiveBlock = rolePolicy.slice(inactiveStart, inactiveEnd);
 
-  assert.match(legacyPolicy, /id: "virtualAgentsTab"[^\n]+reason:/);
+  assert.ok(activeStart >= 0);
+  assert.ok(inactiveStart > activeStart);
+  assert.ok(inactiveEnd > inactiveStart);
+  assert.match(activeBlock, /id: "virtualAgentsTab"/);
+  assert.doesNotMatch(inactiveBlock, /id: "virtualAgentsTab"/);
+  assert.match(rolePolicy, /window\.setTimeout\(apply, 500\)/);
+  assert.match(rolePolicy, /window\.setTimeout\(apply, 1600\)/);
+
+  // Keep the activation policy as a compatibility guard for older cached DOM state,
+  // but the role policy itself must never classify the tab as inactive again.
   assert.match(activationPolicy, /classList\.remove\("elyon-role-hidden"\)/);
   assert.match(activationPolicy, /tab\.hidden = false/);
   assert.match(activationPolicy, /removeAttribute\("aria-hidden"\)/);
@@ -47,6 +61,7 @@ test("desktop build activates the tab before installing the lazy workforce loade
 });
 
 test("virtual agents activation files are valid JavaScript", () => {
+  syntaxCheck("seller-role-policy.js");
   syntaxCheck("seller-virtual-agents-policy.js");
   syntaxCheck("seller-runtime-loader.js");
   syntaxCheck("scripts/prepare-vercel.mjs");
