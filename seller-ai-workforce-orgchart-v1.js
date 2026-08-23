@@ -8,34 +8,10 @@
   const EXPANDED_KEY = "elyon_ai_orgchart_expanded_v1";
 
   const TEAM = [
-    {
-      id: "product",
-      name: "Product Manager",
-      icon: "📦",
-      subtitle: "Produktdaten, Compliance & Wirtschaftlichkeit",
-      agents: ["elyon-product-data-specialist", "elyon-compliance-specialist", "elyon-profit-specialist"],
-    },
-    {
-      id: "listing",
-      name: "Listing Manager",
-      icon: "🛒",
-      subtitle: "Listings, SEO & Entwurfsprüfung",
-      agents: ["elyon-listing-specialist", "elyon-draft-quality-guard"],
-    },
-    {
-      id: "operations",
-      name: "Operations Manager",
-      icon: "🚚",
-      subtitle: "Bestellungen, Versand & Fulfillment",
-      agents: ["elyon-order-specialist"],
-    },
-    {
-      id: "care",
-      name: "Customer Care",
-      icon: "💬",
-      subtitle: "Kundenservice, Reklamationen & Retouren",
-      agents: ["elyon-customer-support-specialist"],
-    },
+    { id: "product", name: "Product Manager", icon: "📦", subtitle: "Produktdaten, Compliance & Wirtschaftlichkeit", agents: ["elyon-product-data-specialist", "elyon-compliance-specialist", "elyon-profit-specialist"] },
+    { id: "listing", name: "Listing Manager", icon: "🛒", subtitle: "Listings, SEO & Entwurfsprüfung", agents: ["elyon-listing-specialist", "elyon-draft-quality-guard"] },
+    { id: "operations", name: "Operations Manager", icon: "🚚", subtitle: "Bestellungen, Versand & Fulfillment", agents: ["elyon-order-specialist"] },
+    { id: "care", name: "Customer Care", icon: "💬", subtitle: "Kundenservice, Reklamationen & Retouren", agents: ["elyon-customer-support-specialist"] },
   ];
 
   const PEOPLE = {
@@ -78,15 +54,12 @@
   const BAD = new Set(["blocked", "failed", "rejected"]);
   const WARN = new Set(["warning", "manualReviewRequired", "approval_required", "draft_ready"]);
   const GOOD = new Set(["passed", "completed", "approved"]);
-  const state = { expanded: new Set(), queued: false };
+  const state = { expanded: new Set(), queued: false, view: "overview", filter: "" };
 
   const text = (value, fallback = "") => value == null ? fallback : String(value).trim();
   const esc = (value) => text(value)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
+    .replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;").replaceAll("'", "&#039;");
 
   const read = (key, fallback) => {
     try {
@@ -98,9 +71,7 @@
   };
 
   const write = (key, value) => {
-    try {
-      localStorage.setItem(key, JSON.stringify(value));
-    } catch {}
+    try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
   };
 
   const status = (task) => text(task?.result?.status || task?.status, "idle");
@@ -127,9 +98,13 @@
     return value?.agents && typeof value.agents === "object" ? value.agents : {};
   }
 
-  function mode(id) {
+  function rawMode(id) {
     const item = settings()[id] || {};
-    const value = text(item.autonomyMode || item.autonomy?.mode || (id === "elyon-manager" ? "auto_internal" : "manual"));
+    return text(item.autonomyMode || item.autonomy?.mode || (id === "elyon-manager" ? "auto_internal" : "manual"));
+  }
+
+  function mode(id) {
+    const value = rawMode(id);
     return MODES[value] || value;
   }
 
@@ -156,21 +131,18 @@
     return agentId === "elyon-manager" ? "manager" : TEAM.find((item) => item.agents.includes(agentId))?.id || "manager";
   }
 
+  function departmentName(task) {
+    const agent = visibleAgent(task);
+    if (agent === "elyon-manager") return "Elyon Manager";
+    return TEAM.find((item) => item.agents.includes(agent))?.name || (PEOPLE[agent] || ["", "Elyon Mitarbeiter"])[1];
+  }
+
   function statusLabel(task) {
     return ({
-      queued: "Wartet",
-      analyzing: "Arbeitet",
-      running: "Arbeitet",
-      passed: "Bestanden",
-      completed: "Abgeschlossen",
-      approved: "Freigegeben",
-      draft_ready: "Entwurf fertig",
-      warning: "Warnung",
-      manualReviewRequired: "Prüfung nötig",
-      approval_required: "Freigabe nötig",
-      blocked: "Blockiert",
-      failed: "Fehler",
-      rejected: "Abgelehnt",
+      queued: "Wartet", analyzing: "Arbeitet", running: "Arbeitet",
+      passed: "Bestanden", completed: "Abgeschlossen", approved: "Freigegeben",
+      draft_ready: "Entwurf fertig", warning: "Warnung", manualReviewRequired: "Prüfung nötig",
+      approval_required: "Freigabe nötig", blocked: "Blockiert", failed: "Fehler", rejected: "Abgelehnt",
     })[status(task)] || "Bereit";
   }
 
@@ -189,6 +161,16 @@
     }
   }
 
+  function isToday(task) {
+    const value = timestamp(task);
+    if (!value) return false;
+    const date = new Date(value);
+    const now = new Date();
+    return date.getFullYear() === now.getFullYear()
+      && date.getMonth() === now.getMonth()
+      && date.getDate() === now.getDate();
+  }
+
   function customAgents() {
     const list = read(CUSTOM_KEY, []);
     return Array.isArray(list) ? list.filter((item) => item?.id && item?.name) : [];
@@ -199,139 +181,84 @@
     const style = document.createElement("style");
     style.id = STYLE_ID;
     style.textContent = `
-      #elyonAiWorkforce .aiw-org{
-        display:grid!important;
-        gap:28px!important;
-        width:100%!important;
-        max-width:1240px!important;
-        margin:0 auto!important;
-        color:#f4f6f8;
-      }
-      .aiw-org-head{display:flex;justify-content:space-between;gap:20px;align-items:flex-start;padding:2px 2px 0}
-      .aiw-org-head h3{margin:0!important;font-size:22px!important;line-height:1.2!important;letter-spacing:-.02em}
-      .aiw-org-head p{max-width:650px;margin:7px 0 0!important;color:#8d98a7!important;font-size:12px!important;line-height:1.5!important}
-      .aiw-org-head-note{display:flex;align-items:center;gap:7px;color:#8d98a7;font-size:10px;white-space:nowrap;padding-top:4px}
+      #elyonAiWorkforce .aiw-org{display:grid!important;gap:20px!important;width:100%!important;max-width:1280px!important;margin:0 auto!important;color:#f4f6f8}
+      #elyonAiWorkforce.aiw-company-view #elyonWorkforceCompanySwitcher{display:none!important}
+      .aiw-org-head{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;padding:2px 2px 0}
+      .aiw-org-head h3{margin:0!important;font-size:22px!important;letter-spacing:-.02em}
+      .aiw-org-head p{max-width:720px;margin:6px 0 0!important;color:#8d98a7!important;font-size:11px!important;line-height:1.5!important}
+      .aiw-org-head-note{display:inline-flex;align-items:center;gap:7px;color:#9aa6b5;font-size:9px;white-space:nowrap;padding-top:4px}
       .aiw-org-head-note:before{content:"";width:7px;height:7px;border-radius:50%;background:#35c46a;box-shadow:0 0 0 4px rgba(53,196,106,.08)}
-      .aiw-org-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-      .aiw-org-primary{background:#4f8cff!important;color:#fff!important;border-color:#4f8cff!important;font-weight:650!important}
-      .aiw-org-primary:hover{filter:brightness(1.06)}
-
-      .aiw-org-tree{display:grid;gap:0}
-      .aiw-org-manager-wrap{position:relative;display:flex;justify-content:center;padding-bottom:34px}
-      .aiw-org-manager-wrap:after{content:"";position:absolute;left:50%;bottom:0;width:1px;height:34px;background:rgba(121,149,184,.26)}
-      .aiw-org-manager{
-        width:min(820px,100%);
-        display:grid;
-        grid-template-columns:minmax(0,1fr) auto;
-        gap:22px;
-        align-items:center;
-        padding:22px 24px;
-        border:1px solid rgba(79,140,255,.32);
-        border-radius:16px;
-        background:linear-gradient(135deg,rgba(79,140,255,.11),rgba(17,24,33,.98) 58%);
-        box-shadow:0 14px 42px rgba(0,0,0,.14);
-      }
-      .aiw-org-person{display:flex;gap:14px;align-items:flex-start;min-width:0}
-      .aiw-org-avatar{width:46px;height:46px;flex:0 0 46px;display:grid;place-items:center;border-radius:12px;background:rgba(79,140,255,.1);border:1px solid rgba(79,140,255,.16);font-size:22px}
+      .aiw-cockpit-nav{display:flex;gap:6px;align-items:center;overflow:auto;padding:5px;border:1px solid rgba(255,255,255,.07);border-radius:11px;background:#0e151e}
+      .aiw-cockpit-nav button{min-height:32px!important;padding:6px 10px!important;border:1px solid transparent!important;border-radius:8px!important;background:transparent!important;color:#8996a6!important;font-size:9px!important;white-space:nowrap;box-shadow:none!important}
+      .aiw-cockpit-nav button.active{color:#f5f7fa!important;background:#182331!important;border-color:rgba(79,140,255,.18)!important}
+      .aiw-cockpit-nav .aiw-cockpit-settings{margin-left:auto!important;color:#a8b4c2!important}
+      .aiw-cockpit-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+      .aiw-cockpit-metric{padding:13px 14px;border:1px solid rgba(255,255,255,.07);border-radius:11px;background:#111821}
+      .aiw-cockpit-metric small{display:block;color:#6f7c8b;font-size:8px;text-transform:uppercase;letter-spacing:.055em}
+      .aiw-cockpit-metric strong{display:block;margin-top:5px;color:#f3f6f9;font-size:20px;font-variant-numeric:tabular-nums}
+      .aiw-cockpit-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+      .aiw-cockpit-card{display:grid;gap:12px;padding:16px;border:1px solid rgba(255,255,255,.075);border-radius:12px;background:#111821;box-shadow:0 7px 20px rgba(0,0,0,.06)}
+      .aiw-cockpit-card:hover{border-color:rgba(79,140,255,.22)}
+      .aiw-cockpit-card-top,.aiw-cockpit-card-foot,.aiw-org-panel-head,.aiw-org-custom-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+      .aiw-cockpit-id,.aiw-org-person,.aiw-org-id{display:flex;gap:10px;min-width:0;align-items:flex-start}
+      .aiw-org-avatar{width:40px;height:40px;flex:0 0 40px;display:grid;place-items:center;border-radius:10px;background:rgba(79,140,255,.09);border:1px solid rgba(79,140,255,.14);font-size:19px}
       .aiw-org-copy{min-width:0}
-      .aiw-org-copy h4{margin:0!important;font-size:15px!important;line-height:1.25!important}
-      .aiw-org-copy small{display:block;margin-top:3px;color:#657181;font-size:9px;text-transform:uppercase;letter-spacing:.06em}
-      .aiw-org-copy p{max-width:520px;margin:8px 0 0!important;color:#9aa6b5!important;font-size:11px!important;line-height:1.55!important}
-      .aiw-org-manager-side{display:grid;gap:10px;justify-items:end}
-      .aiw-org-manager-state{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}
-      .aiw-org-status,.aiw-org-mode{display:inline-flex;align-items:center;gap:6px;min-height:27px;padding:4px 8px;border:1px solid rgba(255,255,255,.075);border-radius:999px;background:rgba(255,255,255,.025);color:#9aa6b5;font-size:9px;white-space:nowrap}
-      .aiw-org-status:before{content:"";width:7px;height:7px;border-radius:50%;background:#657181}
+      .aiw-org-copy h4{margin:0!important;font-size:13px!important;line-height:1.25!important}
+      .aiw-org-copy small{display:block;margin-top:3px;color:#7d8998;font-size:8.5px;line-height:1.45}
+      .aiw-org-copy p{margin:6px 0 0!important;color:#9aa6b5!important;font-size:9px!important;line-height:1.5!important}
+      .aiw-org-status,.aiw-org-mode{display:inline-flex;align-items:center;gap:6px;min-height:24px;padding:3px 7px;border:1px solid rgba(255,255,255,.075);border-radius:999px;background:rgba(255,255,255,.025);color:#9aa6b5;font-size:8px;white-space:nowrap}
+      .aiw-org-status:before{content:"";width:6px;height:6px;border-radius:50%;background:#657181}
       .aiw-org-status.good:before{background:#35c46a}.aiw-org-status.running:before{background:#4f8cff}.aiw-org-status.warn:before{background:#f1ae42}.aiw-org-status.bad:before{background:#ee6464}
-
-      .aiw-org-branches{
-        position:relative;
-        display:grid;
-        grid-template-columns:repeat(2,minmax(280px,1fr));
-        gap:24px;
-        padding-top:34px;
-      }
-      .aiw-org-branches:before{content:"";position:absolute;top:0;left:25%;right:25%;height:1px;background:rgba(121,149,184,.26)}
-      .aiw-org-dept{position:relative;min-width:0}
-      .aiw-org-dept:before{content:"";position:absolute;left:50%;top:-34px;width:1px;height:34px;background:rgba(121,149,184,.26)}
-      .aiw-org-card{
-        display:grid;
-        grid-template-rows:auto auto auto;
-        gap:14px;
-        min-height:190px;
-        padding:20px;
-        border:1px solid rgba(255,255,255,.075);
-        border-radius:14px;
-        background:#111821;
-        box-shadow:0 10px 28px rgba(0,0,0,.09);
-      }
-      .aiw-org-card:hover{border-color:rgba(79,140,255,.22);transform:translateY(-1px);transition:border-color .16s ease,transform .16s ease}
-      .aiw-org-card-top,.aiw-org-foot,.aiw-org-panel-head,.aiw-org-custom-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
-      .aiw-org-id{display:flex;gap:11px;min-width:0;align-items:flex-start}
-      .aiw-org-id .aiw-org-avatar{width:40px;height:40px;flex-basis:40px;font-size:19px;background:rgba(255,255,255,.03);border-color:rgba(255,255,255,.06)}
-      .aiw-org-card .aiw-org-copy h4{font-size:14px!important}
-      .aiw-org-card .aiw-org-copy small{font-size:9px!important;line-height:1.45!important;text-transform:none;letter-spacing:0;color:#8d98a7}
-      .aiw-org-meta{display:flex;gap:10px;flex-wrap:wrap;align-items:center;color:#7f8b9b;font-size:9px}
-      .aiw-org-meta span{display:inline-flex;align-items:center;gap:5px}
-      .aiw-org-meta span+span:before{content:"·";color:#4d5968;margin-right:3px}
-      .aiw-org-foot{align-items:center;margin-top:auto}
-      .aiw-org-foot .aiw-org-actions{margin-left:auto}
-      .aiw-org-toggle{min-height:33px!important;padding:6px 10px!important;font-size:9px!important}
-      .aiw-org-card .aiw-org-primary{min-height:33px!important;padding:6px 11px!important;font-size:9px!important}
-
-      .aiw-org-specialists{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px;margin:10px 0 0;padding:12px;border:1px solid rgba(255,255,255,.06);border-radius:11px;background:rgba(255,255,255,.012)}
-      .aiw-org-specialists[hidden]{display:none!important}
-      .aiw-org-specialist{display:grid;grid-template-columns:32px minmax(0,1fr);gap:9px;align-items:center;padding:9px 10px;border:1px solid rgba(255,255,255,.055);border-radius:9px;background:#0f151d}
-      .aiw-org-specialist>span:first-child{display:grid;place-items:center;width:32px;height:32px;border-radius:8px;background:rgba(255,255,255,.035)}
-      .aiw-org-specialist strong{display:block;font-size:9px;color:#dce2e9;line-height:1.3}
-      .aiw-org-specialist small{display:block;margin-top:4px;color:#657181;font-size:8px}
-      .aiw-org-specialist .aiw-org-status{min-height:20px;padding:2px 6px;font-size:8px}
-
-      .aiw-org-work{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
-      .aiw-org-panel,.aiw-org-custom{padding:18px;border:1px solid rgba(255,255,255,.075);border-radius:14px;background:#111821}
-      .aiw-org-panel h4,.aiw-org-custom h4{margin:0!important;font-size:13px!important}
-      .aiw-org-panel p,.aiw-org-custom p{margin:5px 0 0!important;color:#657181!important;font-size:9px!important;line-height:1.45!important}
-      .aiw-org-count{min-width:28px;height:28px;display:grid;place-items:center;border-radius:999px;border:1px solid rgba(255,255,255,.07);font-size:9px;color:#9aa6b5}
-      .aiw-org-list{display:grid;gap:7px;margin-top:12px}
-      .aiw-org-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px 11px;border:1px solid rgba(255,255,255,.055);border-radius:9px;background:rgba(255,255,255,.012)}
+      .aiw-cockpit-now{min-height:31px;color:#9ba8b7;font-size:9px;line-height:1.5}
+      .aiw-cockpit-now strong{color:#dce3ea}
+      .aiw-cockpit-meta{display:flex;gap:9px;flex-wrap:wrap;color:#728091;font-size:8px}
+      .aiw-org-actions{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+      .aiw-org-primary{background:#4f8cff!important;color:#fff!important;border-color:#4f8cff!important;font-weight:650!important}
+      .aiw-org-actions button{min-height:30px!important;padding:5px 9px!important;border-radius:8px!important;font-size:8.5px!important}
+      .aiw-cockpit-card-foot{align-items:center;margin-top:auto}
+      .aiw-cockpit-card-foot .aiw-org-actions{margin-left:auto}
+      .aiw-org-panel,.aiw-org-custom{padding:15px;border:1px solid rgba(255,255,255,.075);border-radius:12px;background:#111821}
+      .aiw-org-panel h4,.aiw-org-custom h4{margin:0!important;font-size:12px!important}
+      .aiw-org-panel p,.aiw-org-custom p{margin:4px 0 0!important;color:#657181!important;font-size:8.5px!important;line-height:1.45!important}
+      .aiw-org-count{min-width:25px;height:25px;display:grid;place-items:center;border-radius:999px;border:1px solid rgba(255,255,255,.07);font-size:8.5px;color:#9aa6b5}
+      .aiw-org-list{display:grid;gap:7px;margin-top:10px}
+      .aiw-org-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;padding:9px 10px;border:1px solid rgba(255,255,255,.055);border-radius:8px;background:rgba(255,255,255,.012)}
       .aiw-org-row strong{display:block;color:#dce2e9;font-size:9px;line-height:1.35}
       .aiw-org-row span{display:block;margin-top:3px;color:#788493;font-size:8px;line-height:1.45}
-      .aiw-org-row.activity{grid-template-columns:44px minmax(0,1fr);align-items:start}
+      .aiw-org-row.activity{grid-template-columns:44px minmax(0,1fr) auto;align-items:start}
       .aiw-org-time{color:#657181!important;font-variant-numeric:tabular-nums}
       .aiw-org-row button{min-height:28px!important;padding:4px 8px!important;font-size:8px!important}
-      .aiw-org-empty{margin-top:12px;padding:15px;border:1px dashed rgba(255,255,255,.08);border-radius:10px;color:#7f8b9b;font-size:9px;text-align:center;background:rgba(255,255,255,.008)}
-      .aiw-org-custom-list{display:grid;gap:7px;margin-top:12px}
-      .aiw-org-custom-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px 11px;border:1px solid rgba(255,255,255,.055);border-radius:9px;background:rgba(255,255,255,.012)}
+      .aiw-org-empty{margin-top:10px;padding:14px;border:1px dashed rgba(255,255,255,.08);border-radius:9px;color:#7f8b9b;font-size:9px;text-align:center;background:rgba(255,255,255,.008)}
+      .aiw-cockpit-stack{display:grid;gap:12px}
+      .aiw-cockpit-two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+      .aiw-cockpit-filter{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:2px;color:#8190a1;font-size:9px}
+      .aiw-cockpit-filter strong{color:#dce3ea}
+      .aiw-org-tree{display:grid;gap:0}
+      .aiw-org-manager-wrap{position:relative;display:flex;justify-content:center;padding-bottom:28px}
+      .aiw-org-manager-wrap:after{content:"";position:absolute;left:50%;bottom:0;width:1px;height:28px;background:rgba(121,149,184,.24)}
+      .aiw-org-manager{width:min(800px,100%);display:grid;grid-template-columns:minmax(0,1fr) auto;gap:18px;align-items:center;padding:17px 19px;border:1px solid rgba(79,140,255,.27);border-radius:12px;background:linear-gradient(135deg,rgba(79,140,255,.09),rgba(17,24,33,.98) 58%)}
+      .aiw-org-manager-side{display:grid;gap:8px;justify-items:end}
+      .aiw-org-manager-state{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+      .aiw-org-branches{position:relative;display:grid;grid-template-columns:repeat(2,minmax(280px,1fr));gap:18px;padding-top:28px}
+      .aiw-org-branches:before{content:"";position:absolute;top:0;left:25%;right:25%;height:1px;background:rgba(121,149,184,.24)}
+      .aiw-org-dept{position:relative;min-width:0}
+      .aiw-org-dept:before{content:"";position:absolute;left:50%;top:-28px;width:1px;height:28px;background:rgba(121,149,184,.24)}
+      .aiw-org-card{display:grid;gap:11px;min-height:160px;padding:15px;border:1px solid rgba(255,255,255,.075);border-radius:11px;background:#111821}
+      .aiw-org-card-top,.aiw-org-foot{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+      .aiw-org-meta{display:flex;gap:8px;flex-wrap:wrap;color:#7f8b9b;font-size:8px}
+      .aiw-org-foot{align-items:center;margin-top:auto}.aiw-org-foot .aiw-org-actions{margin-left:auto}
+      .aiw-org-specialists{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:7px;margin:8px 0 0;padding:10px;border:1px solid rgba(255,255,255,.06);border-radius:9px;background:rgba(255,255,255,.012)}
+      .aiw-org-specialists[hidden]{display:none!important}
+      .aiw-org-specialist{display:grid;grid-template-columns:30px minmax(0,1fr);gap:8px;align-items:center;padding:8px 9px;border:1px solid rgba(255,255,255,.055);border-radius:8px;background:#0f151d}
+      .aiw-org-specialist>span:first-child{display:grid;place-items:center;width:30px;height:30px;border-radius:7px;background:rgba(255,255,255,.035)}
+      .aiw-org-specialist strong{display:block;font-size:8.5px;color:#dce2e9}.aiw-org-specialist small{display:block;margin-top:3px;color:#657181;font-size:8px}
+      .aiw-org-custom-list{display:grid;gap:7px;margin-top:10px}
+      .aiw-org-custom-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;padding:9px 10px;border:1px solid rgba(255,255,255,.055);border-radius:8px;background:rgba(255,255,255,.012)}
       .aiw-org-custom-row strong{font-size:9px}.aiw-org-custom-row small{display:block;margin-top:2px;color:#657181;font-size:8px}
-
-      @media(min-width:1500px){
-        #elyonAiWorkforce .aiw-org{max-width:1420px!important}
-        .aiw-org-branches{grid-template-columns:repeat(4,minmax(260px,1fr));gap:18px}
-        .aiw-org-branches:before{left:12.5%;right:12.5%}
-        .aiw-org-card{min-height:204px;padding:18px}
-      }
-      @media(max-width:900px){
-        .aiw-org{gap:22px!important}
-        .aiw-org-head{flex-direction:column;gap:8px}
-        .aiw-org-manager{grid-template-columns:1fr;padding:19px}
-        .aiw-org-manager-side{justify-items:start}
-        .aiw-org-manager-state{justify-content:flex-start}
-        .aiw-org-branches{grid-template-columns:1fr;gap:16px;padding:0 0 0 22px;border-left:1px solid rgba(121,149,184,.22)}
-        .aiw-org-branches:before{display:none}
-        .aiw-org-dept:before{left:-22px;top:28px;width:22px;height:1px}
-        .aiw-org-manager-wrap{justify-content:stretch;padding-bottom:24px}
-        .aiw-org-manager-wrap:after{left:22px;height:24px}
-        .aiw-org-work{grid-template-columns:1fr}
-      }
-      @media(max-width:620px){
-        .aiw-org-manager,.aiw-org-card,.aiw-org-panel,.aiw-org-custom{padding:15px}
-        .aiw-org-card-top,.aiw-org-foot,.aiw-org-custom-head{flex-direction:column;align-items:stretch}
-        .aiw-org-card .aiw-org-status{width:max-content}
-        .aiw-org-foot .aiw-org-actions{width:100%;margin-left:0}
-        .aiw-org-foot .aiw-org-actions button{flex:1}
-        .aiw-org-specialists{grid-template-columns:1fr}
-        .aiw-org-custom-row{grid-template-columns:1fr}
-      }
-      @media(prefers-reduced-motion:reduce){.aiw-org-card{transition:none!important}.aiw-org-card:hover{transform:none}}
+      @media(min-width:1500px){#elyonAiWorkforce .aiw-org{max-width:1420px!important}.aiw-cockpit-grid{grid-template-columns:repeat(4,minmax(230px,1fr))}.aiw-org-branches{grid-template-columns:repeat(4,minmax(240px,1fr));gap:14px}.aiw-org-branches:before{left:12.5%;right:12.5%}}
+      @media(max-width:900px){.aiw-cockpit-metrics,.aiw-cockpit-grid,.aiw-cockpit-two{grid-template-columns:1fr 1fr}.aiw-org-head{flex-direction:column}.aiw-org-manager{grid-template-columns:1fr}.aiw-org-manager-side{justify-items:start}.aiw-org-manager-state{justify-content:flex-start}.aiw-org-branches{grid-template-columns:1fr;gap:14px;padding:0 0 0 20px;border-left:1px solid rgba(121,149,184,.22)}.aiw-org-branches:before{display:none}.aiw-org-dept:before{left:-20px;top:27px;width:20px;height:1px}.aiw-org-manager-wrap{justify-content:stretch;padding-bottom:22px}.aiw-org-manager-wrap:after{left:20px;height:22px}}
+      @media(max-width:620px){.aiw-cockpit-metrics,.aiw-cockpit-grid,.aiw-cockpit-two{grid-template-columns:1fr}.aiw-cockpit-nav .aiw-cockpit-settings{margin-left:0!important}.aiw-cockpit-card-top,.aiw-cockpit-card-foot,.aiw-org-card-top,.aiw-org-foot,.aiw-org-custom-head{flex-direction:column;align-items:stretch}.aiw-cockpit-card-foot .aiw-org-actions,.aiw-org-foot .aiw-org-actions{margin-left:0}.aiw-org-actions button{flex:1}.aiw-org-row.activity{grid-template-columns:40px minmax(0,1fr)}.aiw-org-row.activity button{grid-column:2}.aiw-org-custom-row{grid-template-columns:1fr}.aiw-org-specialists{grid-template-columns:1fr}}
+      @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
     `;
     document.head.appendChild(style);
   }
@@ -342,107 +269,160 @@
     return `<div class="aiw-org-specialist"><span>${icon}</span><div><strong>${esc(name)}</strong><small><span class="aiw-org-status ${tone}">${esc(label)}</span></small></div></div>`;
   }
 
+  function employeeCard(item) {
+    const list = taskSet(item.agents);
+    const [tone, label] = statusMeta(list);
+    const running = list.filter((task) => RUNNING.has(status(task)));
+    const open = list.filter(needsDecision).length;
+    const doneToday = list.filter((task) => GOOD.has(status(task)) && isToday(task)).length;
+    const current = running[0] || list.find(needsDecision) || null;
+    const currentText = current
+      ? `<strong>${esc(statusLabel(current))}:</strong> ${esc(text(current.title, summary(current))).slice(0, 125)}`
+      : "Keine laufende Aufgabe · bereit für einen neuen Auftrag.";
+
+    return `<article class="aiw-cockpit-card" data-cockpit-employee="${item.id}">
+      <div class="aiw-cockpit-card-top">
+        <div class="aiw-cockpit-id"><span class="aiw-org-avatar">${item.icon}</span><div class="aiw-org-copy"><h4>${esc(item.name)}</h4><small>${esc(item.subtitle)}</small></div></div>
+        <span class="aiw-org-status ${tone}">${esc(label)}</span>
+      </div>
+      <div class="aiw-cockpit-now">${currentText}</div>
+      <div class="aiw-cockpit-meta"><span>${running.length} aktiv</span><span>${open} Entscheidung${open === 1 ? "" : "en"}</span><span>${doneToday} heute erledigt</span></div>
+      <div class="aiw-cockpit-card-foot"><span class="aiw-org-mode">${item.agents.length} Skill${item.agents.length === 1 ? "" : "s"}</span><div class="aiw-org-actions">
+        <button class="aiw-org-primary" data-v6-assign="${item.id}">Auftrag geben</button>
+        <button class="aiw-secondary" data-v6-details="${item.id}">Details</button>
+        <button class="aiw-secondary" data-org-view="tasks" data-org-filter="${item.id}">Aktivität</button>
+      </div></div>
+    </article>`;
+  }
+
+  function taskRows(list, emptyText) {
+    if (!list.length) return `<div class="aiw-org-empty">${esc(emptyText)}</div>`;
+    return `<div class="aiw-org-list">${list.map((task) => {
+      const dept = departmentFor(visibleAgent(task));
+      return `<div class="aiw-org-row activity"><span class="aiw-org-time">${esc(clock(task))}</span><div><strong>${esc(departmentName(task))} · ${esc(statusLabel(task))}</strong><span>${esc(text(task.title, "Aufgabe"))}: ${esc(summary(task)).slice(0, 180)}</span></div><button class="aiw-secondary" data-v6-details="${dept}">Details</button></div>`;
+    }).join("")}</div>`;
+  }
+
+  function decisions(limit = 8) {
+    return taskRows(tasks().filter(needsDecision).slice(0, limit), "✓ Aktuell ist keine Entscheidung notwendig.");
+  }
+
+  function currentWork(limit = 8) {
+    return taskRows(tasks().filter((task) => RUNNING.has(status(task))).slice(0, limit), "Aktuell arbeitet kein Mitarbeiter an einer Aufgabe.");
+  }
+
+  function completed(limit = 8) {
+    return taskRows(tasks().filter((task) => GOOD.has(status(task))).slice(0, limit), "Noch keine abgeschlossenen Aufgaben vorhanden.");
+  }
+
+  function overview() {
+    const all = tasks();
+    const runningCount = all.filter((task) => RUNNING.has(status(task))).length;
+    const decisionCount = all.filter(needsDecision).length;
+    const doneToday = all.filter((task) => GOOD.has(status(task)) && isToday(task)).length;
+    const activeTeam = TEAM.filter((item) => item.agents.some((id) => rawMode(id) !== "off")).length;
+
+    return `<div class="aiw-cockpit-stack">
+      <div class="aiw-cockpit-metrics">
+        <div class="aiw-cockpit-metric"><small>Mitarbeiter aktiv</small><strong>${activeTeam}/${TEAM.length}</strong></div>
+        <div class="aiw-cockpit-metric"><small>Aufgaben laufen</small><strong>${runningCount}</strong></div>
+        <div class="aiw-cockpit-metric"><small>Entscheidungen</small><strong>${decisionCount}</strong></div>
+        <div class="aiw-cockpit-metric"><small>Heute erledigt</small><strong>${doneToday}</strong></div>
+      </div>
+      <div class="aiw-cockpit-grid">${TEAM.map(employeeCard).join("")}</div>
+      <section class="aiw-org-panel" data-org-anchor="decisions"><div class="aiw-org-panel-head"><div><h4>🚨 Deine Entscheidungen</h4><p>Nur Freigaben, Blocker, Fehler und echte Prüffälle.</p></div><span class="aiw-org-count">${decisionCount}</span></div>${decisions(5)}</section>
+      <div class="aiw-cockpit-two">
+        <section class="aiw-org-panel"><div class="aiw-org-panel-head"><div><h4>⚡ Gerade in Arbeit</h4><p>Live aus den bestehenden Workforce-Tasks.</p></div><span class="aiw-org-count">${Math.min(runningCount, 8)}</span></div>${currentWork(6)}</section>
+        <section class="aiw-org-panel"><div class="aiw-org-panel-head"><div><h4>✅ Zuletzt erledigt</h4><p>Die jüngsten abgeschlossenen Team-Aufgaben.</p></div><span class="aiw-org-count">${Math.min(all.filter((task) => GOOD.has(status(task))).length, 8)}</span></div>${completed(6)}</section>
+      </div>
+    </div>`;
+  }
+
+  function tasksView() {
+    const dept = TEAM.find((item) => item.id === state.filter) || null;
+    const list = (dept ? taskSet(dept.agents) : tasks()).slice(0, 30);
+    return `<section class="aiw-org-panel">
+      <div class="aiw-cockpit-filter"><span>${dept ? `Aktivität von <strong>${esc(dept.name)}</strong>` : "<strong>Alle Team-Aufgaben</strong>"}</span>${dept ? '<button class="aiw-secondary" data-org-view="tasks">Alle anzeigen</button>' : ""}</div>
+      <div class="aiw-org-panel-head"><div><h4>Aufgaben</h4><p>Laufende, offene und abgeschlossene Arbeit in einer Liste.</p></div><span class="aiw-org-count">${list.length}</span></div>
+      ${taskRows(list, "Noch keine Aufgaben im Workforce-Verlauf.")}
+    </section>`;
+  }
+
+  function decisionsView() {
+    const list = tasks().filter(needsDecision);
+    return `<section class="aiw-org-panel"><div class="aiw-org-panel-head"><div><h4>Entscheidungen</h4><p>Alle Fälle, die deine Prüfung, Freigabe oder Aufmerksamkeit benötigen.</p></div><span class="aiw-org-count">${list.length}</span></div>${taskRows(list.slice(0, 30), "✓ Keine offenen Entscheidungen.")}</section>`;
+  }
+
   function department(item) {
     const list = taskSet(item.agents);
     const [tone, label] = statusMeta(list);
     const expanded = state.expanded.has(item.id);
     const open = list.filter(needsDecision).length;
     const running = list.filter((task) => RUNNING.has(status(task))).length;
-    const openLabel = `${open} offen`;
-    const runningLabel = running ? `${running} aktiv` : "Bereit";
-
     return `<article class="aiw-org-dept" data-org-department="${item.id}">
       <div class="aiw-org-card">
-        <div class="aiw-org-card-top">
-          <div class="aiw-org-id">
-            <span class="aiw-org-avatar">${item.icon}</span>
-            <div class="aiw-org-copy"><h4>${esc(item.name)}</h4><small>${esc(item.subtitle)}</small></div>
-          </div>
-          <span class="aiw-org-status ${tone}">${esc(label)}</span>
-        </div>
-        <div class="aiw-org-meta"><span>${item.agents.length} Spezialist${item.agents.length === 1 ? "" : "en"}</span><span>${esc(runningLabel)}</span><span>${esc(openLabel)}</span></div>
-        <div class="aiw-org-foot">
-          <div class="aiw-org-actions">
-            <button class="aiw-secondary aiw-org-toggle" data-org-toggle="${item.id}" aria-expanded="${expanded}">${expanded ? "Team schließen" : "Team ansehen"}</button>
-            <button class="aiw-org-primary" data-v6-assign="${item.id}">Auftrag geben</button>
-          </div>
-        </div>
+        <div class="aiw-org-card-top"><div class="aiw-org-id"><span class="aiw-org-avatar">${item.icon}</span><div class="aiw-org-copy"><h4>${esc(item.name)}</h4><small>${esc(item.subtitle)}</small></div></div><span class="aiw-org-status ${tone}">${esc(label)}</span></div>
+        <div class="aiw-org-meta"><span>${item.agents.length} Spezialist${item.agents.length === 1 ? "" : "en"}</span><span>${running} aktiv</span><span>${open} offen</span></div>
+        <div class="aiw-org-foot"><div class="aiw-org-actions"><button class="aiw-secondary" data-org-toggle="${item.id}" aria-expanded="${expanded}">${expanded ? "Team schließen" : "Team ansehen"}</button><button class="aiw-secondary" data-v6-details="${item.id}">Details</button><button class="aiw-org-primary" data-v6-assign="${item.id}">Auftrag geben</button></div></div>
       </div>
       <div class="aiw-org-specialists" ${expanded ? "" : "hidden"}>${item.agents.map(person).join("")}</div>
     </article>`;
   }
 
-  function decisions() {
-    const list = tasks().filter(needsDecision).slice(0, 6);
-    if (!list.length) return `<div class="aiw-org-empty">✓ Dein Team arbeitet selbstständig. Aktuell ist keine Entscheidung notwendig.</div>`;
-    return `<div class="aiw-org-list">${list.map((task) => {
-      const agent = visibleAgent(task);
-      return `<div class="aiw-org-row"><div><strong>${esc((PEOPLE[agent] || ["", "Elyon Mitarbeiter"])[1])} · ${esc(statusLabel(task))}</strong><span>${esc(text(task.title, "Aufgabe"))}: ${esc(summary(task)).slice(0, 170)}</span></div><button class="aiw-secondary" data-v6-details="${departmentFor(agent)}">Prüfen</button></div>`;
-    }).join("")}</div>`;
-  }
-
-  function activity() {
-    const list = tasks().slice(0, 8);
-    if (!list.length) return `<div class="aiw-org-empty">Noch keine Teamaktivität. Gib dem Elyon Manager den ersten Auftrag.</div>`;
-    return `<div class="aiw-org-list">${list.map((task) => {
-      const agent = visibleAgent(task);
-      return `<div class="aiw-org-row activity"><span class="aiw-org-time">${esc(clock(task))}</span><div><strong>${esc((PEOPLE[agent] || ["", "Elyon Mitarbeiter"])[1])}</strong><span>${esc(text(task.title, summary(task))).slice(0, 170)} · ${esc(statusLabel(task))}</span></div></div>`;
-    }).join("")}</div>`;
-  }
-
   function custom() {
     const list = customAgents();
-    return `<section class="aiw-org-custom">
-      <div class="aiw-org-custom-head">
-        <div><h4>Eigene Mitarbeiter</h4><p>Spezialrollen für Aufgaben außerhalb des Kernteams.</p></div>
-        <button class="aiw-secondary" data-v6-create-custom>＋ Mitarbeiter einstellen</button>
-      </div>
-      ${list.length
-        ? `<div class="aiw-org-custom-list">${list.map((agent) => `<div class="aiw-org-custom-row"><div><strong>${esc(agent.icon || "🤖")} ${esc(agent.name)}</strong><small>${esc(agent.role || "Eigener Mitarbeiter")}</small></div><div class="aiw-org-actions"><button data-v6-custom-assign="${esc(agent.id)}">Auftrag</button><button class="aiw-secondary" data-v6-custom-edit="${esc(agent.id)}">Bearbeiten</button></div></div>`).join("")}</div>`
-        : `<div class="aiw-org-empty">Noch keine eigenen Mitarbeiter eingestellt.</div>`}
+    return `<section class="aiw-org-custom"><div class="aiw-org-custom-head"><div><h4>Eigene Mitarbeiter</h4><p>Spezialrollen für Aufgaben außerhalb des Kernteams.</p></div><button class="aiw-secondary" data-v6-create-custom>＋ Mitarbeiter einstellen</button></div>
+      ${list.length ? `<div class="aiw-org-custom-list">${list.map((agent) => `<div class="aiw-org-custom-row"><div><strong>${esc(agent.icon || "🤖")} ${esc(agent.name)}</strong><small>${esc(agent.role || "Eigener Mitarbeiter")}</small></div><div class="aiw-org-actions"><button data-v6-custom-assign="${esc(agent.id)}">Auftrag</button><button class="aiw-secondary" data-v6-custom-edit="${esc(agent.id)}">Bearbeiten</button></div></div>`).join("")}</div>` : `<div class="aiw-org-empty">Noch keine eigenen Mitarbeiter eingestellt.</div>`}
     </section>`;
   }
 
-  function markup() {
+  function teamView() {
     const all = tasks();
     const managerTasks = taskSet(["elyon-manager"]);
     const [tone, label] = statusMeta(managerTasks.length ? managerTasks : all);
-    const decisionCount = all.filter(needsDecision).length;
-
-    return `<div class="aiw-v6-team aiw-org">
-      <header class="aiw-org-head">
-        <div><h3>Dein Elyon Unternehmen</h3><p>Der Elyon Manager führt dein digitales Team. Die Hauptansicht zeigt bewusst nur Geschäftsleitung, Abteilungen und echte Entscheidungen.</p></div>
-        <div class="aiw-org-head-note">${decisionCount ? `${decisionCount} Entscheidung${decisionCount === 1 ? "" : "en"} offen` : "Keine offenen Entscheidungen"}</div>
-      </header>
+    return `<div class="aiw-cockpit-stack">
       <div class="aiw-org-tree">
-        <div class="aiw-org-manager-wrap">
-          <article class="aiw-org-manager">
-            <div class="aiw-org-person">
-              <span class="aiw-org-avatar">🧠</span>
-              <div class="aiw-org-copy"><h4>Elyon Manager</h4><small>Geschäftsleitung · Zentrale Steuerung</small><p>Steuert dein digitales Team, verteilt Aufgaben und meldet sich bei notwendigen Entscheidungen.</p></div>
-            </div>
-            <div class="aiw-org-manager-side">
-              <div class="aiw-org-manager-state"><span class="aiw-org-status ${tone}">${esc(label)}</span><span class="aiw-org-mode">${esc(mode("elyon-manager"))}</span></div>
-              <div class="aiw-org-actions"><button class="aiw-secondary" data-org-scroll="activity">Aktivität</button><button class="aiw-org-primary" data-v6-assign="manager">＋ Auftrag geben</button></div>
-            </div>
-          </article>
-        </div>
+        <div class="aiw-org-manager-wrap"><article class="aiw-org-manager">
+          <div class="aiw-org-person"><span class="aiw-org-avatar">🧠</span><div class="aiw-org-copy"><h4>Elyon Manager</h4><small>Geschäftsleitung · Zentrale Steuerung</small><p>Steuert das digitale Team, verteilt Aufgaben und meldet sich nur bei notwendigen Entscheidungen.</p></div></div>
+          <div class="aiw-org-manager-side"><div class="aiw-org-manager-state"><span class="aiw-org-status ${tone}">${esc(label)}</span><span class="aiw-org-mode">${esc(mode("elyon-manager"))}</span></div><div class="aiw-org-actions"><button class="aiw-secondary" data-v6-details="manager">Details</button><button class="aiw-org-primary" data-v6-assign="manager">＋ Auftrag geben</button></div></div>
+        </article></div>
         <div class="aiw-org-branches">${TEAM.map(department).join("")}</div>
-      </div>
-      <div class="aiw-org-work">
-        <section class="aiw-org-panel" data-org-anchor="decisions"><div class="aiw-org-panel-head"><div><h4>Braucht deine Entscheidung</h4><p>Nur Freigaben, Blocker, Fehler und echte Prüffälle.</p></div><span class="aiw-org-count">${decisionCount}</span></div>${decisions()}</section>
-        <section class="aiw-org-panel" data-org-anchor="activity"><div class="aiw-org-panel-head"><div><h4>Letzte Teamaktivität</h4><p>Verständliche Business-Aktivität statt technischer Logs.</p></div><span class="aiw-org-count">${Math.min(all.length, 8)}</span></div>${activity()}</section>
       </div>
       ${custom()}
     </div>`;
   }
 
+  function viewMarkup() {
+    if (state.view === "tasks") return tasksView();
+    if (state.view === "decisions") return decisionsView();
+    if (state.view === "team") return teamView();
+    return overview();
+  }
+
+  function markup() {
+    const all = tasks();
+    const decisionCount = all.filter(needsDecision).length;
+    return `<div class="aiw-v6-team aiw-org">
+      <header class="aiw-org-head"><div><h3>Virtuelles Team</h3><p>Dein operatives Team-Cockpit: Aufträge verteilen, Arbeit verfolgen und nur dort eingreifen, wo eine echte Entscheidung nötig ist. Technische Agenten und Modelle bleiben eine Ebene tiefer.</p></div><div class="aiw-org-head-note">${decisionCount ? `${decisionCount} Entscheidung${decisionCount === 1 ? "" : "en"} offen` : "Team betriebsbereit"}</div></header>
+      <nav class="aiw-cockpit-nav" aria-label="Virtuelles Team Bereiche">
+        <button class="${state.view === "overview" ? "active" : ""}" data-org-view="overview">Übersicht</button>
+        <button class="${state.view === "tasks" ? "active" : ""}" data-org-view="tasks">Aufgaben</button>
+        <button class="${state.view === "decisions" ? "active" : ""}" data-org-view="decisions">Entscheidungen${decisionCount ? ` · ${decisionCount}` : ""}</button>
+        <button class="${state.view === "team" ? "active" : ""}" data-org-view="team">Team</button>
+        <button class="aiw-cockpit-settings" data-company-view="advanced">⚙ Einstellungen</button>
+      </nav>
+      ${viewMarkup()}
+    </div>`;
+  }
+
   function signature() {
     return JSON.stringify({
+      view: state.view,
+      filter: state.filter,
       expanded: [...state.expanded].sort(),
       tasks: tasks().slice(0, 80).map((task) => [task.id, task.updatedAt, task.status, task.result?.status, task.result?.summary]),
       custom: customAgents().map((item) => [item.id, item.name, item.role, item.updatedAt]),
-      modes: ["elyon-manager", ...TEAM.flatMap((item) => item.agents)].map((id) => [id, mode(id)]),
+      modes: ["elyon-manager", ...TEAM.flatMap((item) => item.agents)].map((id) => [id, rawMode(id)]),
     });
   }
 
@@ -459,7 +439,7 @@
     replacement.dataset.orgSignature = sig;
     root.replaceWith(replacement);
     const nav = document.querySelector('#elyonAiWorkforce [data-v3-view="team"]');
-    if (nav) nav.innerHTML = "◉ Firmenstruktur";
+    if (nav) nav.innerHTML = "◉ Team-Cockpit";
     return true;
   }
 
@@ -475,6 +455,18 @@
   function click(event) {
     const target = event.target instanceof Element ? event.target : null;
     if (!target) return;
+
+    const view = target.closest("[data-org-view]");
+    if (view) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      const next = text(view.dataset.orgView, "overview");
+      state.view = ["overview", "tasks", "decisions", "team"].includes(next) ? next : "overview";
+      state.filter = state.view === "tasks" ? text(view.dataset.orgFilter) : "";
+      queueRender();
+      return;
+    }
+
     const toggle = target.closest("[data-org-toggle]");
     if (toggle) {
       event.preventDefault();
@@ -483,13 +475,6 @@
       state.expanded.has(id) ? state.expanded.delete(id) : state.expanded.add(id);
       write(EXPANDED_KEY, [...state.expanded]);
       queueRender();
-      return;
-    }
-    const scroll = target.closest("[data-org-scroll]");
-    if (scroll) {
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      document.querySelector(`[data-org-anchor="${scroll.dataset.orgScroll}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" });
     }
   }
 
@@ -501,6 +486,14 @@
     window.addEventListener("elyon:ai-workforce-team-v6-rendered", queueRender);
     window.addEventListener("elyon:ai-workforce-v2-task-updated", queueRender);
     window.addEventListener("elyon:ai-workforce-custom-task-updated", queueRender);
+    window.addEventListener("elyon:tab-changed", (event) => {
+      const tabId = event.detail?.tabId || event.detail;
+      if (tabId === "virtualAgentsTab") {
+        state.view = "overview";
+        state.filter = "";
+        queueRender();
+      }
+    });
     window.addEventListener("storage", (event) => {
       if ([SETTINGS_KEY, CUSTOM_KEY, EXPANDED_KEY, ...TASK_KEYS].includes(event.key)) queueRender();
     });
