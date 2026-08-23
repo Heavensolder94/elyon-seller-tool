@@ -71,7 +71,7 @@ test("virtual agent runtime lazy-loads routing center and cache-busts the new wi
   assert.match(output, /\/seller-ai-workforce-team-v6\.js/);
   assert.match(output, /\/seller-ai-workforce-routing-center\.js/);
   assert.ok(output.indexOf("/seller-ai-workforce-routing-center.js") > output.indexOf("/seller-ai-workforce-team-v6.js"));
-  assert.match(output, /const VERSION = "workforce-routing-20260813-1";/);
+  assert.match(output, /const VERSION = "workforce-cockpit-20260823-1";/);
 });
 
 test("server routing cookie is parsed defensively per backend agent", () => {
