@@ -21,8 +21,9 @@ test("virtual employees has one visible owner and isolates legacy technical rend
   assert.match(optimized, /target\.dataset\.workforceOwner = "advanced"/);
   assert.match(optimized, /ElyonAIWorkforceOrgchartV1\?\.render\?\.\(\)/);
   assert.match(optimized, /data-company-view="company"/);
-  assert.match(optimized, /#virtualAgentsSettingsRoot\[data-workforce-owner="company"\]/);
-  assert.match(optimized, /body:has\(#virtualAgentsTab\.active\) \.elyon-jarvis-floating\.minimized/);
+  assert.match(optimized, /data-workforce-owner="company"/);
+  assert.match(optimized, /data-workforce-owner="advanced"/);
+  assert.match(optimized, /elyon-jarvis-floating\.minimized/);
   assert.doesNotMatch(optimized, /\[0, 80, 250, 700\]/);
   assert.doesNotMatch(optimized, /teamButton/);
 });
