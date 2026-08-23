@@ -199,6 +199,7 @@ const RUNTIME_LOAD_GROUP_AFTER = `  const activationRequests = new Map();
 const LEGACY_RUNTIME_ENTRY = `      { src: "/seller-virtual-agents-legacy.js" },\n`;
 const TEAM_V6_RUNTIME_ENTRY = `      { src: "/seller-ai-workforce-team-v6.js" },`;
 const ROUTING_CENTER_RUNTIME_ENTRY = `      { src: "/seller-ai-workforce-routing-center.js" },`;
+const WORKFORCE_ASSET_VERSION = "workforce-cockpit-20260823-1";
 
 function replaceRequired(source, before, after, label) {
   if (!source.includes(before)) {
@@ -235,7 +236,7 @@ export function optimizeVirtualAgentsRuntimeLoader(source) {
   }
   output = output.replace(
     /const VERSION = "[^"]+";/,
-    'const VERSION = "workforce-routing-20260813-1";'
+    `const VERSION = "${WORKFORCE_ASSET_VERSION}";`
   );
   return output;
 }
