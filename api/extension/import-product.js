@@ -6,8 +6,6 @@ function directNovaImportEnabled() {
 }
 
 export default async function handler(req, res) {
-  if (!requireImporterAccess(req, res, { requirePersistentStorage: true, maxBodyBytes: 512 * 1024 })) return;
-
   if (!directNovaImportEnabled()) {
     res.setHeader("Cache-Control", "no-store");
     return res.status(409).json({
@@ -19,6 +17,8 @@ export default async function handler(req, res) {
       requiredStatus: "ready_for_seller_tool",
     });
   }
+
+  if (!requireImporterAccess(req, res, { requirePersistentStorage: true, maxBodyBytes: 512 * 1024 })) return;
 
   return internalHandler(req, res);
 }
