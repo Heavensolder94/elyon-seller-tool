@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import vm from "node:vm";
 import { transformSellerRuntimeLoader } from "../scripts/seller-listing-parity-transform.mjs";
 
 const runtimeUrl = new URL("../seller-runtime-loader.js", import.meta.url);
@@ -8,6 +9,39 @@ const runtimeUrl = new URL("../seller-runtime-loader.js", import.meta.url);
 async function productionRuntime() {
   return transformSellerRuntimeLoader(await readFile(runtimeUrl, "utf8"));
 }
+
+async function renderEmptyDrafts(draftsAvailable, message = "") {
+  const runtime = await productionRuntime();
+  const source = runtime.slice(runtime.indexOf('  function renderDraftWorkspace('), runtime.indexOf('  function renderActiveWorkspace('));
+  const draftTab = { innerHTML: "", querySelector() { return null; } };
+  const context = vm.createContext({
+    window: { __elyonSellerState: { draftsAvailable } },
+    draftProducts: [], listingLoading: false,
+    ensureListingWorkspaces: () => ({ draftTab }),
+    escapeHtml: (value) => String(value),
+    message,
+  });
+  vm.runInContext(source + '\nrenderDraftWorkspace(message);', context);
+  return draftTab.innerHTML;
+}
+
+test("failed Inventory read never claims the draft inventory is empty", async () => {
+  const html = await renderEmptyDrafts(false, "Entwürfe konnten nicht geprüft werden: eBay-Ausfall");
+  assert.match(html, /Entwurfsbestand derzeit nicht prüfbar/);
+  assert.doesNotMatch(html, /Aktuell sind keine von Elyon/);
+});
+
+test("failed seller-state request never claims an empty draft inventory", async () => {
+  const html = await renderEmptyDrafts(undefined, "Fehler: Netzwerk nicht erreichbar");
+  assert.match(html, /Entwurfsbestand derzeit nicht prüfbar/);
+  assert.doesNotMatch(html, /Aktuell sind keine von Elyon/);
+});
+
+test("confirmed empty draft inventory retains its zero state", async () => {
+  const html = await renderEmptyDrafts(true);
+  assert.match(html, /Aktuell sind keine von Elyon erstellten eBay-Entwürfe vorhanden/);
+  assert.doesNotMatch(html, /Entwurfsbestand derzeit nicht prüfbar/);
+});
 
 test("listing drafts and active listings have separate lazy workspaces", async () => {
   const runtime = await readFile(runtimeUrl, "utf8");

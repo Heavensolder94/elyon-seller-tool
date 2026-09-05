@@ -13,4 +13,6 @@
 - Company-OS-Inventory-Entwürfe inklusive Varianten über die bestehende Bridge registrieren; Identitäten vorher bei eBay zurücklesen.
 - Ungültige/unvollständige eBay-Snapshots nicht als zuverlässige Lifecycle-Abgleiche verwenden.
 - Asynchrone Fehler der eBay-Produktionsaktionen strukturiert zurückgeben.
-- 14 neue HTTP-Fixture-Regressionen; 729 Root-Tests und Production-Build erfolgreich. Echte Kontoverbindung und Verkaufsabnahme stehen aus.
+- 14 neue HTTP-Fixture-Regressionen und 3 ausführbare Render-Tests; 732 Root-Tests und Production-Build erfolgreich.
+- Bei fehlgeschlagenem Entwurfsabgleich keine falsche Leerbestandsmeldung anzeigen.
+- Authentifizierter Browser: eBay verbunden, aktive Listings und Orders lesbar. Product Master benötigt den serverseitigen Company-Sync-Code; Inventory-Drafts melden einen eBay-Fehler. Vollständige Verkaufsabnahme steht aus.
