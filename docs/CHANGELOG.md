@@ -2,6 +2,8 @@
 
 ## Start
 
+- Product-Master-Status zeigt bei erfolgreicher Serverantwort zuverlässig „Verbunden“.
+
 - Basis für Dokumentation erstellt
 - Architekturdatei ergänzt
 - Sicherheitsdatei ergänzt
