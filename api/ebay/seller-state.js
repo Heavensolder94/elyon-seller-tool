@@ -118,11 +118,11 @@ async function fetchSellerHubActiveListings(session) {
     });
     const xml = await response.text();
     const ack = tagValue(xml, "Ack", 40).toUpperCase();
-    if (!response.ok || ack === "FAILURE" || ack === "PARTIALFAILURE") {
+    if (!response.ok || !["SUCCESS", "WARNING"].includes(ack)) {
       const errors = errorDetails(xml);
       const first = errors.find((entry) => entry.longMessage || entry.shortMessage);
       throw serviceError(
-        response.status || 502,
+        response.ok ? 502 : response.status || 502,
         "ebay_seller_hub_active_failed",
         first?.longMessage || first?.shortMessage || `GetMyeBaySelling fehlgeschlagen (HTTP ${response.status}).`,
         { ack, errors },
@@ -131,13 +131,19 @@ async function fetchSellerHubActiveListings(session) {
 
     const activeList = tagValue(xml, "ActiveList", 2_000_000);
     const pagination = tagValue(activeList, "PaginationResult", 5000);
-    totalPages = Math.max(1, Math.min(number(tagValue(pagination, "TotalNumberOfPages", 40)) || 1, MAX_TRADING_PAGES));
+    totalPages = Math.max(1, number(tagValue(pagination, "TotalNumberOfPages", 40)) || 1);
+    if (totalPages > MAX_TRADING_PAGES) {
+      throw serviceError(502, "ebay_active_snapshot_incomplete", "Die aktive Angebotsliste überschreitet das Abfragelimit. Bestehende Status bleiben erhalten.");
+    }
     totalEntries = number(tagValue(pagination, "TotalNumberOfEntries", 40));
     const itemArray = tagValue(activeList, "ItemArray", 2_000_000);
     items.push(...tagBlocks(itemArray, "Item").map(normalizeActiveItem));
   }
 
   const deduped = new Map(items.filter((item) => item.listingId).map((item) => [item.listingId, item]));
+  if (deduped.size < totalEntries) {
+    throw serviceError(502, "ebay_active_snapshot_incomplete", "Die aktive Angebotsliste ist unvollständig. Bestehende Status bleiben erhalten.");
+  }
   return { items: [...deduped.values()], total: totalEntries || deduped.size };
 }
 

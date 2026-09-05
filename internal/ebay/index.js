@@ -469,7 +469,7 @@ export default async function handler(req, res) {
     if (action === "orders") return handleOrders(req, res);
     if (action === "listings") return handleListings(req, res);
     if (action === "sync-listings") return handleSyncListings(req, res);
-    if (["setup", "create-draft", "draft", "publish", "withdraw"].includes(action)) return handleProductionAction(req, res, action);
+    if (["setup", "create-draft", "draft", "publish", "withdraw"].includes(action)) return await handleProductionAction(req, res, action);
     return res.status(404).json({ ok: false, error: `Unbekannte eBay API Route: ${action}` });
   } catch (error) {
     return res.status(Number(error?.status || 500)).json(publicEbayError(error));
