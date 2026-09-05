@@ -1,4 +1,4 @@
-import internalHandler from "../../internal/ebay/index.js";
+import ebayHandler from "./index.js";
 import { requireSellerAccess } from "../../lib/seller-access.js";
 import { parseEbayMoney } from "../../lib/ebay-money.js";
 
@@ -13,7 +13,7 @@ function normalizeDraftBody(body = {}) {
     sellPrice: price,
     shipping,
     categoryId,
-    environment: source.environment || source.env || "production",
+    environment: source.environment || source.env || process.env.EBAY_ENV || "production",
   };
 }
 
@@ -33,5 +33,5 @@ export default async function handler(req, res) {
     });
   }
   req.query = { ...(req.query || {}), action: "create-draft" };
-  return internalHandler(req, res);
+  return ebayHandler(req, res);
 }

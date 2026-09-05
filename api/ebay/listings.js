@@ -4,6 +4,8 @@ import {
   ebayUserSession,
   normalizeEbayEnvironment,
   publicEbayError,
+  isEbayOfferNotFound,
+  serviceError,
 } from "../../lib/ebay-production.js";
 import { requireSellerAccess } from "../../lib/seller-access.js";
 
@@ -38,40 +40,58 @@ function ebayHeaders(accessToken) {
 
 async function fetchInventoryItems(root, headers) {
   const items = [];
+  let complete = false;
   let offset = 0;
   let total = null;
 
   for (let page = 0; page < MAX_INVENTORY_PAGES; page += 1) {
     const data = await callEbayJson(`${root}/sell/inventory/v1/inventory_item?limit=${INVENTORY_PAGE_LIMIT}&offset=${offset}`, { headers });
     const pageItems = Array.isArray(data.inventoryItems) ? data.inventoryItems : [];
+    if (!Array.isArray(data.inventoryItems) && data.total !== 0) {
+      throw serviceError(502, "ebay_inventory_snapshot_invalid", "eBay hat keinen gültigen Inventar-Abgleich geliefert.");
+    }
     const reportedTotal = Number(data.total);
     if (Number.isFinite(reportedTotal)) total = reportedTotal;
     items.push(...pageItems);
 
-    if (!pageItems.length || pageItems.length < INVENTORY_PAGE_LIMIT || (total !== null && items.length >= total)) break;
+    if (!data.next && ((total !== null && items.length >= total) || (total === null && pageItems.length < INVENTORY_PAGE_LIMIT))) { complete = true; break; }
+    if (!pageItems.length) break;
     offset += pageItems.length;
   }
 
+  if (!complete) throw serviceError(502, "ebay_inventory_snapshot_incomplete", "eBay-Inventar ist unvollständig. Bestehende Status bleiben erhalten.");
   return items;
 }
 
 async function fetchOffersForSku(root, headers, sku) {
   const offers = [];
+  let complete = false;
   let offset = 0;
   let total = null;
 
   for (let page = 0; page < MAX_OFFER_PAGES_PER_SKU; page += 1) {
     const endpoint = `${root}/sell/inventory/v1/offer?sku=${encodeURIComponent(sku)}&limit=${OFFER_PAGE_LIMIT}&offset=${offset}`;
-    const data = await callEbayJson(endpoint, { headers });
+    let data;
+    try {
+      data = await callEbayJson(endpoint, { headers });
+    } catch (error) {
+      if (offset === 0 && isEbayOfferNotFound(error)) return [];
+      throw error;
+    }
     const pageOffers = Array.isArray(data.offers) ? data.offers : [];
+    if (!Array.isArray(data.offers) && data.total !== 0) {
+      throw serviceError(502, "ebay_offer_snapshot_invalid", "eBay hat keinen gültigen Angebots-Abgleich geliefert.");
+    }
     const reportedTotal = Number(data.total);
     if (Number.isFinite(reportedTotal)) total = reportedTotal;
     offers.push(...pageOffers);
 
-    if (!pageOffers.length || pageOffers.length < OFFER_PAGE_LIMIT || (total !== null && offers.length >= total)) break;
+    if (!data.next && ((total !== null && offers.length >= total) || (total === null && pageOffers.length < OFFER_PAGE_LIMIT))) { complete = true; break; }
+    if (!pageOffers.length) break;
     offset += pageOffers.length;
   }
 
+  if (!complete) throw serviceError(502, "ebay_offer_snapshot_incomplete", "eBay-Angebotsliste ist unvollständig. Bestehende Status bleiben erhalten.");
   return offers;
 }
 

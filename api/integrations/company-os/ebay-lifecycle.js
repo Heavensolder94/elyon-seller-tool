@@ -3,7 +3,9 @@ import {
   getElyonDraftRegistryRecords,
   markElyonDraftState,
   registerElyonExternalDraftIdentity,
+  registerElyonInventoryDrafts,
 } from "../../../lib/ebay-draft-registry.js";
+import { callEbayJson, ebayApiRoot, ebayUserSession } from "../../../lib/ebay-production.js";
 import { fetchSellerState } from "../../ebay/seller-state.js";
 
 function text(value, max = 500) {
@@ -73,7 +75,7 @@ export default async function handler(req, res) {
     return res.status(200).json({
       ok: true,
       route: "/api/integrations/company-os/ebay-lifecycle",
-      actions: ["register", "status", "mark_removed"],
+      actions: ["register", "register_inventory", "status", "mark_removed"],
       matching: ["offerId", "listingId", "sku", "sourceProductId"],
       safety: {
         productHardDelete: false,
@@ -93,6 +95,33 @@ export default async function handler(req, res) {
   const candidate = identity(body);
 
   try {
+    if (action === "register_inventory") {
+      const offers = Array.isArray(body.offers) ? body.offers : [];
+      if (!offers.length || offers.length > 100 || offers.some(offer => !text(offer?.offerId) || !text(offer?.sku))) {
+        return res.status(400).json({ ok: false, error: "inventory_draft_identity_invalid" });
+      }
+      const unique = [...new Map(offers.map(offer => [text(offer.offerId, 120), offer])).values()];
+      const session = await ebayUserSession(environment);
+      const verified = [];
+      // Bounded read-only verification; persist the batch only when all offers match.
+      for (let offset = 0; offset < unique.length; offset += 8) {
+        const chunk = await Promise.all(unique.slice(offset, offset + 8).map(async offer => {
+          const data = await callEbayJson(`${ebayApiRoot(session.environment)}/sell/inventory/v1/offer/${encodeURIComponent(text(offer.offerId, 120))}`, {
+            headers: { Authorization: `Bearer ${session.accessToken}` },
+          });
+          if (data.sku !== text(offer.sku, 120) || data.status !== "UNPUBLISHED" || data.marketplaceId !== "EBAY_DE") {
+            const error = new Error("eBay hat die unveröffentlichte Entwurfsidentität nicht bestätigt.");
+            error.status = 409;
+            throw error;
+          }
+          return { offerId: text(offer.offerId, 120), sku: data.sku, environment, sourceProductId: candidate.sourceProductId, source: "company_os_inventory_draft" };
+        }));
+        verified.push(...chunk);
+      }
+      const result = await registerElyonInventoryDrafts(verified);
+      return res.status(result.persisted ? 200 : 503).json({ ok: result.persisted, action, ...result });
+    }
+
     if (action === "register") {
       const result = await registerElyonExternalDraftIdentity({
         environment,

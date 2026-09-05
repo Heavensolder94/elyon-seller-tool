@@ -23,7 +23,7 @@ function environmentFrom(req) {
   const raw = req?.method === "POST"
     ? req?.body?.environment || req?.body?.env
     : req?.query?.environment || req?.query?.env;
-  return text(raw).toLowerCase() === "sandbox" ? "sandbox" : "production";
+  return text(raw || process.env.EBAY_ENV).toLowerCase() === "sandbox" ? "sandbox" : "production";
 }
 
 function sourceProductIdFrom(body = {}) {

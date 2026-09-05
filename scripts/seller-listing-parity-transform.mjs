@@ -23,6 +23,14 @@ export function transformSellerRuntimeLoader(source) {
     '      const draftStatus = listingResult.value?.draftsAvailable === false\n        ? `Entwürfe konnten nicht geprüft werden: ${text(listingResult.value?.draftError) || "eBay-Status nicht verfügbar"}`\n        : `${draftProducts.length} Entwurf${draftProducts.length === 1 ? "" : "e"}`;\n      message = `${draftStatus} · ${activeProducts.length} aktive${activeProducts.length === 1 ? "s" : ""} eBay-Listing${activeProducts.length === 1 ? "" : "s"}.${enrichmentNote}`;',
     "runtime listing status message marker missing",
   );
+  output = replaceRequired(
+    output,
+    ': \'<div class="elyon-listings-empty">eBay meldet aktuell 0 UNPUBLISHED-Angebote. Deshalb zeigt Elyon 0 Listing-Entwürfe.</div>\'',
+    ': window.__elyonSellerState?.draftsAvailable === false || message.startsWith("Fehler:")\n' +
+    '              ? \'<div class="elyon-listings-empty">Entwurfsbestand derzeit nicht prüfbar. Bitte die Verbindung prüfen und neu laden.</div>\'\n' +
+    '              : \'<div class="elyon-listings-empty">eBay meldet aktuell 0 UNPUBLISHED-Angebote. Deshalb zeigt Elyon 0 Listing-Entwürfe.</div>\'',
+    "runtime draft empty-state marker missing",
+  );
 
   output = output
     .replaceAll("📝 eBay · UNPUBLISHED", "📝 eBay · Entwürfe")
