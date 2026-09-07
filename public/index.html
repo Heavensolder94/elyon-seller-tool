@@ -1446,7 +1446,7 @@ Land"></textarea>
         <button id="syncSuppliersGoogleSheetsBtn" class="secondary full" type="button">Supplier Liste synchronisieren</button>
       </div>
       <div class="row" style="margin-top:10px">
- <button id="syncSalesGoogleSheetsBtn" class="secondary full" type="button">InventarTracker synchronisieren</button>
+ <button id="syncInventoryTrackerGoogleSheetsBtn" class="secondary full" type="button">InventarTracker synchronisieren</button>
         <button id="syncCostsGoogleSheetsBtn" class="secondary full" type="button">Laufende Kosten synchronisieren</button>
       </div>
       <div class="row" style="margin-top:10px">
@@ -4002,6 +4002,7 @@ const GOOGLE_SHEETS_SYNC_BUTTONS = [
   { id: 'syncSuppliersGoogleSheetsBtn', label: 'Supplier Liste synchronisieren' },
   { id: 'syncSalesGoogleSheetsBtn', label: 'Verkäufe synchronisieren' },
   { id: 'syncSalesGoogleSheetsShortcutBtn', label: 'Verkäufe synchronisieren' },
+  { id: 'syncInventoryTrackerGoogleSheetsBtn', label: 'InventarTracker synchronisieren' },
   { id: 'syncCostsGoogleSheetsBtn', label: 'Laufende Kosten synchronisieren' },
   { id: 'syncAllGoogleSheetsBtn', label: 'Alles ins Sheet senden' },
   { id: 'loadAllGoogleSheetsBtn', label: 'Alles aus Google Sheets laden' },
@@ -10252,6 +10253,7 @@ function bindEvents(){
   bind('syncInventoryGoogleSheetsBtn','click',syncInventoryToGoogleSheet);
   bind('syncSuppliersGoogleSheetsBtn','click',syncSuppliersToGoogleSheet);
   bind('syncSalesGoogleSheetsBtn','click',syncSalesToGoogleSheet);
+  bind('syncInventoryTrackerGoogleSheetsBtn','click',syncSalesToGoogleSheet);
   bind('clearLocalSalesGoogleSheetsBtn','click',clearLocalSalesGoogleSheets);
   bind('syncSalesGoogleSheetsShortcutBtn','click',syncSalesToGoogleSheetShortcut);
   bind('syncCostsGoogleSheetsBtn','click',syncCostsToGoogleSheet);
