@@ -1,0 +1,4 @@
+# Zeilenenden im Repository und in jedem Arbeitsverzeichnis vereinheitlichen.
+# Die Build-Skripte und Tests suchen LF-Signaturen im Quelltext; mit Windows-Checkouts
+# (core.autocrlf=true) wurden daraus CRLF und die Transformationen schlugen fehl.
+* text=auto eol=lf
