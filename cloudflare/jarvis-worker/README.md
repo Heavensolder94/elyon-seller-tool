@@ -301,6 +301,11 @@ Before handler execution, the consumer checks:
 
 If a completed idempotency record exists, the task is marked `completed` with the existing output and the queue message is acknowledged without executing the handler again.
 
+A runtime guard additionally protects against duplicate delivery: if a task is already
+`running` and was started less than 10 minutes ago, the queue message is retried instead
+of executing the handler a second time. Older `running` entries are treated as abandoned
+so a crashed consumer cannot block a task forever.
+
 ## Upstash Keys
 
 | Key | Purpose | TTL |
