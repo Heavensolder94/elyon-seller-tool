@@ -903,6 +903,20 @@ const processQueueMessage = async (message, env) => {
   }
 };
 
+// Cloudflare Queues darf dieselbe Nachricht mehrfach zustellen. Ein zweiter Consumer
+// darf eine bereits laufende Task nicht parallel ausführen, sonst entstehen doppelte
+// Seiteneffekte (Agent-Runs, Schreibvorgänge). Statt eines Redis-Locks nutzen wir den
+// Status "running" plus Zeitstempel: laufende Tasks werden erneut zugestellt, hängen
+// gebliebene Läufe (älter als RUNNING_STALE_MS) werden bewusst wieder aufgenommen.
+const RUNNING_STALE_MS = 10 * 60 * 1000;
+
+function isTaskCurrentlyRunning(task, now = Date.now()) {
+  if (!task || textFrom(task.status).toLowerCase() !== "running") return false;
+  const startedAt = Date.parse(textFrom(task.startedAt || task.updatedAt));
+  if (!Number.isFinite(startedAt)) return false;
+  return now - startedAt < RUNNING_STALE_MS;
+}
+
 const processValidQueueMessage = async (message, env, validation) => {
   let task = await getTask(env, validation.taskId, { source: "supabase-first" });
   if (!task) {
@@ -923,6 +937,11 @@ const processValidQueueMessage = async (message, env, validation) => {
   if (TERMINAL_STATUSES.has(task.status)) {
     ack(message);
     return { ok: true, status: task.status, action: "ack" };
+  }
+
+  if (isTaskCurrentlyRunning(task)) {
+    retry(message, retryDelaySeconds(Number(task.attemptCount ?? 0) + 1));
+    return { ok: true, status: task.status, action: "retry", reason: "task_running_elsewhere" };
   }
 
   const completedIdempotency = await getCompletedIdempotency(env, task.idempotencyKey);
@@ -1152,6 +1171,7 @@ export default {
 
 export {
   determineListingReadiness,
+  isTaskCurrentlyRunning,
   loadProductForTask,
   processQueueMessage,
   productMasterReadinessReasons,
