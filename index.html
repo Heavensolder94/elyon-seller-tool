@@ -4358,12 +4358,16 @@ async function ebaySuche(){
   }
 }
 function mapEbayOrderToSale(order){
-  const lineItem = order.lineItems && order.lineItems[0] ? order.lineItems[0] : {};
+  const lineItems = Array.isArray(order.lineItems) ? order.lineItems : [];
+  const lineItem = lineItems[0] || {};
   const shipping = extractShippingAddress(order);
   const buyer = order.buyer || {};
   const totalValue = parseFloat((order.pricingSummary && order.pricingSummary.total && order.pricingSummary.total.value) || (lineItem.lineItemCost && lineItem.lineItemCost.value) || order.total || 0) || 0;
-  const qty = parseFloat(lineItem.quantity || order.quantity || 1) || 1;
-  const product = lineItem.title || order.title || order.product || 'eBay Bestellung';
+  // Der Verkaufsdatensatz beschreibt die gesamte Bestellung: alle Positionen zaehlen.
+  const lineQuantitySum = lineItems.reduce(function(sum, item){ return sum + (parseFloat(item && item.quantity) || 0); }, 0);
+  const qty = lineQuantitySum || parseFloat(order.quantity || 1) || 1;
+  const extraItems = Math.max(0, lineItems.length - 1);
+  const product = (lineItem.title || order.title || order.product || 'eBay Bestellung') + (extraItems ? ' + ' + extraItems + (extraItems === 1 ? ' weiterer Artikel' : ' weitere Artikel') : '');
   const customerEmail = firstDeepText(order, ['buyer.email','buyer.emailAddress','buyer.emailInfo.email','shippingAddress.email','shipTo.email']);
   const customerPhone = firstDeepText(order, ['buyer.phoneNumber','buyer.phone','shippingAddress.phone','shipTo.phoneNumber','shipTo.phone']);
   return {
