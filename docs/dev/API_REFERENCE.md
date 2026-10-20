@@ -54,3 +54,18 @@ Bestellung dort als versendet. Es ist die einzige Route, die eBay-Fulfillment sc
 - **Keine Doppelmeldung:** Ist `orderFulfillmentStatus` bei eBay bereits `FULFILLED`, wird nichts
   geschrieben und `alreadyFulfilled: true` zurückgegeben
 - Antwort: `fulfilled`, `alreadyFulfilled`, `fulfillmentId`, `environment`
+
+## Verkaufsdaten-Sicherung (2026-10-20)
+
+`POST /api/sales/snapshot` sichert die Verkaufsliste dauerhaft in Upstash/KV.
+`GET /api/sales/snapshot` liest sie zurück.
+
+- Geschützt über `requireSellerAccess`, Payload-Grenze 2 MB
+- Zusammenführung **ohne Duplikate**: Schlüssel ist `orderNo`, sonst `id`; der spätere
+  Eintrag gewinnt. Obergrenze 2000 Einträge.
+- Gespeichert werden nur fachliche Felder (`orderNo`, `product`, `price`, `qty`, `cost`,
+  `fees`, `profit`, `platform`, `status`, `carrier`, `trackingNumber`, `shipDate`,
+  `buyerRef`, Zeitstempel). Buyer-E-Mail und Telefon werden **nicht** dupliziert.
+- Der Browser schreibt nach jedem `saveSales()` zusätzlich einen Snapshot (`keepalive`),
+  Fehler dabei ändern den lokalen Ablauf nicht.
+- Der Browser bleibt die Arbeitskopie; der Snapshot ist das Wiederherstellungsnetz.

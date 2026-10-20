@@ -2961,7 +2961,8 @@ function startQuickAction(action){
 function save(){ products = normalizeProductsCollection(products); localStorage.setItem('elyonProducts', JSON.stringify(products)); render(); renderReturnProductOptions(); }
 function saveReturns(){ localStorage.setItem('elyonReturns', JSON.stringify(returns)); renderReturns(); renderReturnsOverview(); render(); }
 function saveShopifyReturns(){ localStorage.setItem('elyonShopifyReturns', JSON.stringify(shopifyReturns)); renderShopifyReturns(); renderReturnsOverview(); }
-function saveSales(){ localStorage.setItem('elyonSales', JSON.stringify(sales)); renderSales(); render(); }
+function syncSalesSnapshot(){ try{ fetch('/api/sales/snapshot',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sales:sales}),keepalive:true}).catch(function(){}) }catch(e){} }
+function saveSales(){ localStorage.setItem('elyonSales', JSON.stringify(sales)); syncSalesSnapshot(); renderSales(); render(); }
 function saveInvoices(){
   localStorage.setItem('elyonInvoices', JSON.stringify(invoices));
   renderInvoiceOverview();
@@ -9416,7 +9417,7 @@ function importFullBackup(e){
         if(data.googleSheetsSync.lastCostsSyncAt !== undefined) localStorage.setItem(GOOGLE_SHEETS_SYNC_KEYS.costsAt, String(data.googleSheetsSync.lastCostsSyncAt || ''));
       }
       localStorage.setItem('elyonProducts',JSON.stringify(products));
-      localStorage.setItem('elyonSales',JSON.stringify(sales));
+      localStorage.setItem('elyonSales',JSON.stringify(sales)); syncSalesSnapshot();
       localStorage.setItem('elyonSuppliers',JSON.stringify(suppliers));
       localStorage.setItem('elyonCosts',JSON.stringify(runningCosts));
       localStorage.setItem('elyonReturns',JSON.stringify(returns));
