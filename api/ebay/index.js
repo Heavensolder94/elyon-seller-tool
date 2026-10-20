@@ -162,9 +162,13 @@ export default async function handler(req, res) {
     }
   }
 
-  const protectedActions = new Set(["token", "orders", "listings", "sync-listings", "setup", "create-draft", "draft", "publish", "withdraw"]);
+  const protectedActions = new Set(["token", "orders", "listings", "sync-listings", "setup", "create-draft", "draft", "publish", "withdraw", "fulfill-order"]);
   if (protectedActions.has(action)) {
     if (!requireSellerAccess(req, res, { maxBodyBytes: 1024 * 1024 })) return;
+  }
+
+  if (action === "fulfill-order" && req.method !== "POST") {
+    return res.status(405).json({ ok: false, error: "method_not_allowed", message: "Die Sendungsmeldung benötigt POST." });
   }
 
   const lifecycleActions = new Set(["create-draft", "draft", "publish", "withdraw"]);
