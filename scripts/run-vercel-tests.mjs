@@ -11,6 +11,13 @@ const entries = (await readdir(testsDir))
   .filter((name) => name.endsWith(".test.mjs"))
   .sort();
 
+// Der Jarvis-Worker hat eine eigene Testsuite. Sie lief bisher in keiner CI und ist
+// dadurch unbemerkt veraltet. Sie gehoert mit in denselben Lauf.
+const workerTestsDir = path.join(root, "cloudflare", "jarvis-worker", "test");
+const workerEntries = (await readdir(workerTestsDir))
+  .filter((name) => name.endsWith(".test.mjs"))
+  .sort();
+
 async function exists(filePath) {
   try {
     await access(filePath, constants.F_OK);
@@ -33,6 +40,10 @@ for (const name of entries) {
     continue;
   }
   filtered.push(path.join("tests", name));
+}
+
+for (const name of workerEntries) {
+  filtered.push(path.join("cloudflare", "jarvis-worker", "test", name));
 }
 
 if (!filtered.length) throw new Error("Keine ausführbaren Vercel-Tests gefunden.");

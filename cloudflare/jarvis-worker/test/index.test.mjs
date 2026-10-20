@@ -218,11 +218,11 @@ const createTask = async ({ mockFetch, queue, type = "runtime-test", payload = {
 test("GET /health returns worker health", async () => {
   const response = await worker.fetch(makeRequest("/health"), {});
   assert.equal(response.status, 200);
-  assert.deepEqual(await response.json(), {
-    ok: true,
-    service: "elyon-jarvis-worker",
-    version: "0.4.0"
-  });
+  const body = await response.json();
+  assert.equal(body.ok, true);
+  assert.equal(body.service, "elyon-jarvis-worker");
+  // Version bewusst nicht hart kodieren, sonst bricht der Test bei jedem Release.
+  assert.match(body.version, /^\d+\.\d+\.\d+$/);
 });
 
 test("GET /redis/health checks Upstash", async () => {
@@ -264,8 +264,23 @@ test("GET /runtime/health reports queue configuration", async () => {
     ok: true,
     service: "jarvis-task-runtime",
     queue: "configured",
-    maxAttempts: 3
+    maxAttempts: 3,
+    productSource: "worker-fallback-only"
   });
+});
+
+test("GET /runtime/health reports the seller-tool source when configured", async () => {
+  const queue = makeQueue();
+  const response = await worker.fetch(
+    makeRequest("/runtime/health"),
+    {
+      ...envWithQueue(queue),
+      ELYON_SELLER_TOOL_URL: "https://seller-tool.example.test",
+      ELYON_SELLER_ACCESS_TOKEN: "seller-token"
+    }
+  );
+  const body = await response.json();
+  assert.equal(body.productSource, "seller-tool-api+worker-fallback");
 });
 
 test("POST /tasks writes to Upstash, Supabase and publishes a minimal Queue message", async () => {
@@ -442,7 +457,7 @@ test("product-check task is routed to ProductCheckHandler and completes with str
     assert.equal(row.output.processed, true);
     assert.equal(row.output.handler, "product-check");
     assert.equal(row.output.productId, "prod-001");
-    assert.equal(row.output.productSource, "seller_product_master");
+    assert.equal(row.output.productSource, "worker_product_master");
     assert.equal(row.output.dataQuality.score, 100);
     assert.deepEqual(row.output.dataQuality.missingFields, []);
     assert.equal(row.output.economics.purchasePrice, 10);
