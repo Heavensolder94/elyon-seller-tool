@@ -8,6 +8,7 @@ import {
   ebayUserSession,
   refreshEbayAccessToken,
   loadEbaySellerSetup,
+  createEbayShippingFulfillment,
   createOrUpdateEbayDraft,
   publishEbayOffer,
   withdrawEbayOffer,
@@ -454,6 +455,7 @@ async function handleProductionAction(req, res, action) {
   if (action === "create-draft" || action === "draft") return res.status(200).json(await createOrUpdateEbayDraft(body, environment));
   if (action === "publish") return res.status(200).json(await publishEbayOffer(body, environment));
   if (action === "withdraw") return res.status(200).json(await withdrawEbayOffer(body, environment));
+  if (action === "fulfill-order") return res.status(200).json(await createEbayShippingFulfillment(body, environment));
   return null;
 }
 
@@ -469,7 +471,7 @@ export default async function handler(req, res) {
     if (action === "orders") return handleOrders(req, res);
     if (action === "listings") return handleListings(req, res);
     if (action === "sync-listings") return handleSyncListings(req, res);
-    if (["setup", "create-draft", "draft", "publish", "withdraw"].includes(action)) return await handleProductionAction(req, res, action);
+    if (["setup", "create-draft", "draft", "publish", "withdraw", "fulfill-order"].includes(action)) return await handleProductionAction(req, res, action);
     return res.status(404).json({ ok: false, error: `Unbekannte eBay API Route: ${action}` });
   } catch (error) {
     return res.status(Number(error?.status || 500)).json(publicEbayError(error));

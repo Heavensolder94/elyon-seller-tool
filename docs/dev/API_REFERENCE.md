@@ -31,3 +31,26 @@ Die vorhandene Bridge-Authentifizierung bleibt erforderlich. Maximal 100 Offer-/
 Ungültige oder unvollständige Inventory-/Trading-Snapshots werden nicht mehr zur Ableitung von Entfernt-/Beendet-Zuständen verwendet. Ein Inventory-Artikel ohne Offer verhindert bei spezifischem eBay-Fehler 404/25713 nicht den übrigen Abgleich. Andere 404/Autorisierungs-/Providerfehler bleiben Fehler.
 
 Übernahme: Seller Tool zuerst, dann Company OS mit der ergänzten Bridge-Aktion. Keine Migration und keine neuen ENV-Namen. Rollback per Commit-Revert ohne Löschen von Registereinträgen oder eBay-Angeboten. Die produktive Abnahme mit einem angemeldeten Konto bleibt erforderlich.
+
+## Sendungsmeldung an eBay (2026-10-20)
+
+`POST /api/ebay?action=fulfill-order` meldet eine Sendungsnummer an eBay und markiert die
+Bestellung dort als versendet. Es ist die einzige Route, die eBay-Fulfillment schreibt.
+
+```json
+{
+  "orderId": "1234567890",
+  "trackingNumber": "00340434161094000000",
+  "carrier": "DHL",
+  "lineItems": ["line-item-id"]
+}
+```
+
+- `orderId`: 6–30 Ziffern, sonst `ebay_order_id_invalid`
+- `trackingNumber`: Pflicht, sonst `ebay_tracking_number_required`
+- `carrier`: optional, Standard `DHL`, Muster `^[A-Z0-9_]{2,40}$`, sonst `ebay_carrier_invalid`
+- `lineItems`: optional; ohne Angabe meldet eBay die gesamte Bestellung
+- Nur `POST`; `requireSellerAccess` ist vorgeschaltet
+- **Keine Doppelmeldung:** Ist `orderFulfillmentStatus` bei eBay bereits `FULFILLED`, wird nichts
+  geschrieben und `alreadyFulfilled: true` zurückgegeben
+- Antwort: `fulfilled`, `alreadyFulfilled`, `fulfillmentId`, `environment`
