@@ -5,10 +5,12 @@
   const MENU_ID = "mainMenu";
   const ROOT_ID = "elyonSellerSellingFlow";
   const PRODUCTION_SCRIPT = "/seller-ebay-production-readiness.js";
+  const AUTO_LISTER_DELETE_SCRIPT = "/seller-auto-lister-delete.js";
   const PRODUCTION_SETTINGS_KEY = "elyonEbayProductionSelectionV1";
   const LOCAL_KEYS = ["elyonProducts", "elyonSelectedSellerProductId"];
   let queued = false;
   let productionModulePromise = null;
+  let autoListerDeleteModulePromise = null;
   let productionSetupTimer = null;
 
   function shouldOpenSelling() {
@@ -93,6 +95,45 @@
     return productionModulePromise;
   }
 
+  function loadAutoListerDeleteModule() {
+    if (window.ElyonSellerAutoListerDelete) {
+      window.ElyonSellerAutoListerDelete.refresh?.();
+      return Promise.resolve(true);
+    }
+    if (autoListerDeleteModulePromise) return autoListerDeleteModulePromise;
+    autoListerDeleteModulePromise = new Promise((resolve, reject) => {
+      const existing = [...document.scripts].find((script) => {
+        try { return new URL(script.src, window.location.href).pathname === AUTO_LISTER_DELETE_SCRIPT; }
+        catch { return false; }
+      });
+      if (existing) {
+        existing.addEventListener("load", () => {
+          window.ElyonSellerAutoListerDelete?.refresh?.();
+          resolve(true);
+        }, { once: true });
+        if (window.ElyonSellerAutoListerDelete) {
+          window.ElyonSellerAutoListerDelete.refresh?.();
+          resolve(true);
+        }
+        return;
+      }
+      const script = document.createElement("script");
+      script.type = "module";
+      script.src = `${AUTO_LISTER_DELETE_SCRIPT}?v=20260801-1`;
+      script.dataset.elyonSellingAddon = "auto-lister-delete";
+      script.addEventListener("load", () => {
+        window.ElyonSellerAutoListerDelete?.refresh?.();
+        resolve(true);
+      }, { once: true });
+      script.addEventListener("error", () => {
+        autoListerDeleteModulePromise = null;
+        reject(new Error("AutoLister-Löschmodul konnte nicht geladen werden."));
+      }, { once: true });
+      document.head.appendChild(script);
+    });
+    return autoListerDeleteModulePromise;
+  }
+
   function patchLabels() {
     const menu = document.getElementById(MENU_ID);
     const option = menu?.querySelector(`option[value="${TAB_ID}"]`);
@@ -157,6 +198,9 @@
     loadProductionModule()
       .then(restoreProductionSelections)
       .catch((error) => console.error("[Elyon eBay Production]", error));
+    loadAutoListerDeleteModule()
+      .then(() => window.ElyonSellerAutoListerDelete?.refresh?.())
+      .catch((error) => console.error("[Elyon AutoLister Delete]", error));
     return Boolean(document.getElementById(ROOT_ID));
   }
 
@@ -213,6 +257,7 @@
     patchLabels,
     activate: activateSellingTab,
     loadProductionModule,
+    loadAutoListerDeleteModule,
     restoreProductionSelections,
   };
 })();
