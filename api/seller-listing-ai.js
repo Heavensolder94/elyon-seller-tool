@@ -133,14 +133,17 @@ export default async function handler(req, res) {
     const product = object(body.product);
     const draft = object(body.draft);
     const strength = clamp(body.strength, 0, 100);
-    const aiResult = await routeAIRequest({
+    const baseMessages = listingMessages({ product, draft, strength });
+    const baseRequest = {
       provider: "deepseek",
+      // Flash is designed for fast listing copy. Avoid spending the response budget on reasoning.
+      model: "deepseek-flash",
+      reasoningEffort: "none",
       task: "seller_listing_optimizer",
       allowFallback: true,
       temperature: 0.1 + (strength / 100) * 0.35,
       maxTokens: 5000,
-      responseFormat: { type: "json_object" },
-      messages: listingMessages({ product, draft, strength }),
+      messages: baseMessages,
       safety: {
         securityMode: true,
         sandboxMode: true,
@@ -148,32 +151,84 @@ export default async function handler(req, res) {
         requiresLiveAction: false,
         userApproved: false,
       },
-    });
+    };
 
-    if (!aiResult.ok) {
-      return res.status(502).json({
-        ok: false,
-        error: aiResult.error?.code || "seller_listing_ai_request_failed",
-        message: aiResult.error?.message || "Seller-Listing-KI konnte nicht antworten.",
-        provider: aiResult.provider || null,
-        model: aiResult.model || null,
-        fallbackUsed: Boolean(aiResult.fallbackUsed),
-      });
+    // DeepSeek JSON mode can return whitespace-only content with HTTP 200.
+    // Retry once with plain-text output and strict JSON instructions (no extra live action).
+    const attempts = [
+      { ...baseRequest, responseFormat: { type: "json_object" } },
+      {
+        ...baseRequest,
+        maxTokens: 4000,
+        responseFormat: { type: "text" },
+        messages: [
+          ...baseMessages,
+          { role: "user", content: "Gib jetzt ausschließlich ein kompaktes, vollständig gültiges JSON-Objekt gemäß dem oben angegebenen Schema zurück. Kein Markdown und kein erklärender Text. Falls eine Angabe unbekannt ist, benutze einen leeren String." },
+        ],
+      },
+    ];
+
+    let lastIssue = "empty_content";
+    let lastResult = null;
+
+    for (let attemptIndex = 0; attemptIndex < attempts.length; attemptIndex += 1) {
+      const aiResult = await routeAIRequest(attempts[attemptIndex]);
+      lastResult = aiResult;
+
+      if (!aiResult.ok) {
+        // Authentication, billing and provider errors are not resolved by repeating the request.
+        return res.status(502).json({
+          ok: false,
+          error: aiResult.error?.code || "seller_listing_ai_request_failed",
+          message: aiResult.error?.message || "Seller-Listing-KI konnte nicht antworten.",
+          provider: aiResult.provider || null,
+          model: aiResult.model || null,
+          fallbackUsed: Boolean(aiResult.fallbackUsed),
+          attempts: attemptIndex + 1,
+        });
+      }
+
+      const content = text(aiResult.content, 50000);
+      if (!content) {
+        lastIssue = "empty_content";
+        continue;
+      }
+
+      try {
+        const result = sanitizeResult(parseJson(content));
+        const usable = Boolean(result.title || result.longDescription || result.shortDescription || result.features.length);
+        if (!usable) {
+          lastIssue = "empty_listing";
+          continue;
+        }
+        return res.status(200).json({
+          ok: true,
+          result,
+          provider: aiResult.provider,
+          model: aiResult.model,
+          fallbackUsed: Boolean(aiResult.fallbackUsed),
+          recovered: attemptIndex > 0,
+          attempts: attemptIndex + 1,
+          strength,
+          usage: aiResult.usage || null,
+          safety: { automaticPublishing: false, manualReviewRequired: true },
+        });
+      } catch {
+        lastIssue = "invalid_json";
+      }
     }
 
-    if (!aiResult.content) {
-      return res.status(502).json({ ok: false, error: "seller_listing_ai_empty_response", message: "Die Seller-Listing-KI hat keine verwertbare Antwort geliefert." });
-    }
-
-    return res.status(200).json({
-      ok: true,
-      result: sanitizeResult(parseJson(aiResult.content)),
-      provider: aiResult.provider,
-      model: aiResult.model,
-      fallbackUsed: Boolean(aiResult.fallbackUsed),
-      strength,
-      usage: aiResult.usage || null,
-      safety: { automaticPublishing: false, manualReviewRequired: true },
+    // Neither attempt yielded a complete, factual listing. Do not invent a fallback description.
+    return res.status(502).json({
+      ok: false,
+      error: "seller_listing_ai_no_usable_result",
+      reason: lastIssue,
+      message: "DeepSeek hat auch nach einem zweiten Versuch keinen verwertbaren Listing-Text geliefert. Die Amazon-Produktdaten sind davon unabhängig. Bitte die KI-Automatik vorübergehend deaktivieren oder später erneut versuchen.",
+      provider: lastResult?.provider || null,
+      model: lastResult?.model || null,
+      finishReason: lastResult?.finishReason || null,
+      fallbackUsed: Boolean(lastResult?.fallbackUsed),
+      attempts: attempts.length,
     });
   } catch (error) {
     return res.status(500).json({ ok: false, error: "seller_listing_ai_failed", message: error?.message || "Seller-Listing-Optimierung fehlgeschlagen." });
