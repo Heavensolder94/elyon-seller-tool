@@ -38,15 +38,17 @@ test("registered eBay Feed records expose original Amazon reference but preserve
   assert.equal(result.drafts[0].amazonReferenceCapturedAt,date);
 });
 
-test("existing Dreamzie Company OS review gets reference-only workflow update",async()=>{
+test("existing Dreamzie review is updated directly through Company OS with verified response",async()=>{
   const requests=[];
   const result=await syncAmazonPriceReference({
     sku,amazonReferencePrice:12.91,amazonReferenceCapturedAt:date,
     env:{ELYON_COMPANY_OS_SYNC_CODE:"unit-test-secret",ELYON_COMPANY_OS_URL:"https://company.example.test"},
-    getMaster:async()=>({records:[{identity:{supplierSku:sku,articleNumber:"ELY-001234"},workflow:{stage:"product_review"}}]}),
     fetchImpl:async(url,request)=>{
-      requests.push({url:String(url),request,body:JSON.parse(request.body)});
-      return{ok:true,status:200,json:async()=>({ok:true,transition:"set_amazon_reference"})};
+      const body=JSON.parse(request.body);
+      requests.push({url:String(url),request,body});
+      return{ok:true,status:200,json:async()=>({ok:true,transition:"set_amazon_reference",
+        result:{product:{supplierSku:sku,workflowStage:"product_review",sourceImportId:"seller-ebay-review:"+sku,
+          meta:{reviewOnly:true,supplierCostVerified:false,ebaySku:sku,amazonReferencePrice:12.91}}}})};
     }
   });
   assert.equal(result.synced,true);
@@ -62,21 +64,37 @@ test("existing Dreamzie Company OS review gets reference-only workflow update",a
   assert.equal(requests[0].body.costPrice,undefined);
 });
 
-test("no match, two matches, invalid price, or missing seller shared code do not write",async()=>{
+test("Company OS rejects unknown or duplicate review and returns explicit non-success status",async()=>{
+  const responses=[
+    [{ok:false,status:409,body:{ok:false,error:"amazon_reference_review_not_found"}},"review_not_found"],
+    [{ok:false,status:409,body:{ok:false,error:"amazon_reference_ambiguous"}},"ambiguous"],
+    [{ok:false,status:403,body:{ok:false,error:"forbidden"}},"authentication_failed"],
+    [{ok:true,status:200,body:{ok:true,transition:"set_amazon_reference"}},"confirmation_missing"],
+    [{ok:true,status:200,body:{ok:true,transition:"set_amazon_reference",
+      result:{product:{supplierSku:"AMZ-B0D63HF7Z4",workflowStage:"product_review",
+        meta:{reviewOnly:true,amazonReferencePrice:12.91}}}}},"confirmation_missing"],
+  ];
+  for(const [response,state] of responses){
+    const result=await syncAmazonPriceReference({
+      sku,amazonReferencePrice:12.91,
+      env:{ELYON_COMPANY_OS_SYNC_CODE:"unit-test-secret"},
+      fetchImpl:async()=>({ok:response.ok,status:response.status,json:async()=>response.body}),
+    });
+    assert.equal(result.synced,false);
+    assert.equal(result.state,state);
+  }
+});
+
+test("malformed SKU, missing price and server sync configuration fail without writing",async()=>{
   const calls=[];
-  const kwargs={sku,amazonReferencePrice:12.91,env:{ELYON_COMPANY_OS_SYNC_CODE:"unit-test-secret"},
+  const kwargs={sku,amazonReferencePrice:12.91,
+    env:{ELYON_COMPANY_OS_SYNC_CODE:"unit-test-secret"},
     fetchImpl:async()=>{calls.push(1);throw Error("should not write")}};
-  const miss=await syncAmazonPriceReference({...kwargs,getMaster:async()=>({records:[]})});
-  assert.equal(miss.state,"awaiting_review");
-  const two=await syncAmazonPriceReference({...kwargs,getMaster:async()=>({records:[
-    {identity:{supplierSku:sku},workflow:{stage:"product_review"}},
-    {identity:{supplierSku:sku},workflow:{stage:"product_review"}},
-  ]})});
-  assert.equal(two.state,"ambiguous");
-  const empty=await syncAmazonPriceReference({...kwargs,amazonReferencePrice:null});
-  assert.equal(empty.state,"reference_missing");
-  const unconfigured=await syncAmazonPriceReference({...kwargs,env:{}});
-  assert.equal(unconfigured.state,"connection_unavailable");
+  assert.equal((await syncAmazonPriceReference({...kwargs,sku:"ELY-001234"})).state,"invalid_sku");
+  assert.equal((await syncAmazonPriceReference({...kwargs,amazonReferencePrice:null})).state,"reference_missing");
+  assert.equal((await syncAmazonPriceReference({...kwargs,env:{}})).state,"connection_unavailable");
+  assert.equal((await syncAmazonPriceReference({...kwargs,env:{ELYON_COMPANY_OS_SYNC_CODE:"unit-test-secret",
+    ELYON_COMPANY_OS_URL:"http://untrusted.example"}})).state,"connection_invalid");
   assert.equal(calls.length,0);
 });
 
