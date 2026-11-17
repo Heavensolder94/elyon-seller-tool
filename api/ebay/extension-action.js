@@ -82,6 +82,14 @@ async function saveExternalDraft(payload, task, status) {
   if (existing && existing.sku !== details.sku) {
     return { persisted: false, reason: "feed_task_sku_mismatch" };
   }
+  if (existing && existing.state !== "draft") {
+    return { persisted: false, reason: "feed_record_no_longer_draft" };
+  }
+  const conflictingSku = records.find((record) => record.sku === details.sku
+    && (record.visibilityMode !== "seller_hub_feed" || (record.externalTaskId && record.externalTaskId !== details.externalTaskId)));
+  if (conflictingSku) {
+    return { persisted: false, reason: "existing_sku_belongs_to_another_draft" };
+  }
   const result = await registerElyonExternalDraftIdentity({
     ...details,
     externalDraftStatus: status,
