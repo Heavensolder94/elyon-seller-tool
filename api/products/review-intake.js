@@ -1,6 +1,7 @@
 import { requireSellerAccess } from "../../lib/seller-access.js";
 import { fetchSellerState } from "../ebay/seller-state.js";
 import { fetchCompanyOsProductMaster } from "../../lib/product-master-consumer.js";
+import { syncAmazonPriceReference } from "../../lib/amazon-price-reference-sync.js";
 
 const AMAZON_SKU = /^AMZ-[A-Z0-9]{10}$/;
 const ELY_ARTICLE = /^ELY-\d{6,}$/i;
@@ -160,10 +161,21 @@ export async function submitSellerDraftReview({
   };
   if (existing.status === "exists") {
     const articleNumber = text(existing.record?.identity?.articleNumber || existing.record?.articleNumber);
+    // The Product Master is a projection: an existing review must not short-circuit
+    // backfilling a newly observed Amazon price into the canonical Company OS state.
+    const amazonReferenceSync = await syncAmazonPriceReference({
+      sku: wanted,
+      amazonReferencePrice: selected.draft.amazonReferencePrice,
+      amazonReferenceCapturedAt: selected.draft.amazonReferenceCapturedAt,
+      env, fetchImpl,
+    });
     return {
       status: 200,
       body: { ok: true, created: false, alreadyExists: true, sku: wanted, articleNumber,
-        message: "Der geprüfte Company-OS-Produktdatensatz existiert bereits. Es wurde nichts dupliziert." },
+        amazonReferenceSync,
+        message: amazonReferenceSync.synced
+          ? "Bestehende Company-OS-Produktprüfung gefunden und Amazon-EK-Referenz aktualisiert. Keine zweite ELY-Artikelnummer."
+          : "Bestehende Company-OS-Produktprüfung gefunden, aber Amazon-EK-Referenz nicht bestätigt (" + amazonReferenceSync.state + "). Keine zweite ELY-Artikelnummer." },
     };
   }
 
