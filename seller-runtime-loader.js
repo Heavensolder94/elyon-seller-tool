@@ -227,6 +227,12 @@
     return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
   }
 
+  function optionalSignedAmount(value) {
+    if (value === null || value === undefined || value === "") return null;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
   function matchedPricing(item, product) {
     const price = product?.pricing && typeof product.pricing === "object" ? product.pricing : {};
     const economics = product?.economics && typeof product.economics === "object" ? product.economics : {};
@@ -238,8 +244,8 @@
     // Company OS owns economics. Never calculate or reuse a master profit for a different eBay price.
     const samePrice = actualSalePrice !== null && companyOsSalePrice !== null
       && Math.abs(actualSalePrice - companyOsSalePrice) < 0.005;
-    const profit = samePrice ? optionalAmount(price.profit ?? economics.profit) : null;
-    const marginPercent = samePrice ? optionalAmount(price.marginPercent ?? economics.marginPercent) : null;
+    const profit = samePrice ? optionalSignedAmount(price.profit ?? economics.profit) : null;
+    const marginPercent = samePrice ? optionalSignedAmount(price.marginPercent ?? economics.marginPercent) : null;
     return {
       buyPrice,
       salePrice: actualSalePrice,
@@ -281,6 +287,7 @@
       pricing: matchedPricing(item, product),
       productMasterMatch: match.state,
       productMasterId: text(product?.id || product?.sellerToolMasterProductId || product?.companyOsProductId),
+      productMasterArticleNumber: text(product?.articleNumber || product?.identity?.articleNumber),
     };
   }
 
@@ -396,19 +403,41 @@
     const sku = text(product?.sku);
     const matched = product?.productMasterMatch === "matched";
     const supplier = text(product?.supplierName) || "Lieferant offen";
+    const ebayPrice = pricing.salePrice === null ? "eBay VK offen" : "eBay VK " + money(pricing.salePrice);
+    const cost = pricing.buyPrice === null ? "EK offen" : "Company-OS-EK " + money(pricing.buyPrice);
+    const shipping = pricing.supplierShipping === null ? "Versand offen" : "Versand " + money(pricing.supplierShipping);
+    const fees = pricing.estimatedFees === null ? "Gebühren offen" : "Gebühren " + money(pricing.estimatedFees);
+    const hasVerifiedEstimate = pricing.profitSource === "company_os";
+    const profit = hasVerifiedEstimate
+      ? "Company-OS-Prognose " + money(pricing.profit) + " · " +
+        Number(pricing.marginPercent).toLocaleString("de-DE", { maximumFractionDigits: 1 }) + " % Marge"
+      : "Gewinn/Marge offen";
+    const priceNotice = matched && pricing.companyOsSalePrice !== null && !pricing.priceAligned
+      ? " · Preisabweichung: Company OS " + money(pricing.companyOsSalePrice) + "; Gewinn dort nicht für aktuellen eBay-VK gültig"
+      : "";
     const pricingLine = matched
-      ? `${escapeHtml(supplier)} · EK ${escapeHtml(money(pricing.buyPrice))} · VK ${escapeHtml(money(pricing.salePrice))} · Gewinn ${escapeHtml(money(pricing.profit))} · ${numberValue(pricing.marginPercent).toLocaleString("de-DE", { maximumFractionDigits: 1 })} % Marge`
-      : `eBay VK ${escapeHtml(money(pricing.salePrice))} · Product Master wird nicht als Listing-Quelle verwendet`;
+      ? [ebayPrice, supplier, cost, shipping, fees, profit].join(" · ") + priceNotice
+      : ebayPrice + " · Kein eindeutiger Company-OS-Product-Master-Match";
+    const reviewNote = matched
+      ? (hasVerifiedEstimate
+        ? "Schätzung aus Company OS – Kosten und Gebühren vor Veröffentlichung prüfen."
+        : "Für einen verlässlichen Gewinn fehlen geprüfte Company-OS-Daten oder die Preise stimmen nicht überein.")
+      : product?.productMasterMatch === "ambiguous"
+        ? "Mehrere Company-OS-Produkte passen zu dieser Kennung. Bitte Produktidentität im Company OS prüfen."
+        : "Zuerst im Company OS unter Produktprüfung erfassen und eine ELY-Artikelnummer zuweisen. Keine automatische Veröffentlichung.";
+
 
     return `
       <article class="elyon-listing-card ${mode === "active" ? "active" : ""}">
         ${image}
         <div class="elyon-listing-copy">
           <strong>${escapeHtml(product?.title || "Unbenanntes eBay-Angebot")}</strong>
-          <p>${pricingLine}</p>
+          <p>${escapeHtml(pricingLine)}</p>
+          <p>${escapeHtml(reviewNote)}</p>
           <div class="elyon-listing-meta">
             <span class="elyon-listing-pill ${mode === "active" ? "live" : ""}">${escapeHtml(status)}</span>
             <span class="elyon-listing-pill ${match.className}">${escapeHtml(match.label)}</span>
+            ${product?.productMasterArticleNumber ? `<span class="elyon-listing-pill ready">ELY ${escapeHtml(product.productMasterArticleNumber)}</span>` : ""}
             ${product?.feedVerification === "feed_processed_not_live_checked" ? '<span class="elyon-listing-pill">Feed verarbeitet · Seller Hub bitte prüfen</span>' : ""}
             ${sku ? `<span class="elyon-listing-pill">SKU ${escapeHtml(sku)}</span>` : ""}
             ${offerId ? `<span class="elyon-listing-pill">Offer ${escapeHtml(offerId)}</span>` : ""}
@@ -437,7 +466,7 @@
             <div class="metric"><small>Datenquelle</small><strong style="font-size:14px">eBay Inventory API</strong></div>
           </div>
         </section>
-        <p class="small">Feed-Entwürfe aus dem Amazon Importer werden nach bestätigter Verarbeitung zusätzlich angezeigt. Ihr aktueller Bestand im eBay Seller Hub kann über die Inventory API nicht live geprüft werden.</p>
+        <p class="small">Feed-Entwürfe aus dem Amazon Importer werden nach bestätigter Verarbeitung zusätzlich angezeigt. Ihr aktueller Bestand im eBay Seller Hub kann über die Inventory API nicht live geprüft werden. Product-Master-Zuordnung und Company-OS-Gewinnprognosen werden bei jedem Öffnen oder Klick auf „Neu laden“ aus der kanonischen Quelle aktualisiert; unbestätigte Kosten bleiben offen.</p>
         ${message ? `<div class="elyon-listings-status ${message.startsWith("Fehler:") ? "error" : ""}">${escapeHtml(message)}</div>` : ""}
         <section class="card"><div class="elyon-listings-list">${listingLoading
           ? '<div class="elyon-listings-empty">Echte eBay-Entwürfe werden geladen …</div>'
