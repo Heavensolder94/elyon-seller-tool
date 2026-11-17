@@ -22,7 +22,7 @@ const exampleResult = {
   warnings: [],
 };
 
-async function exercise(responses, { authorization = "Bearer local-test-token" } = {}) {
+async function exercise(responses, res, { authorization = "Bearer local-test-token" } = {}) {
   const origFetch = globalThis.fetch;
   const origSecret = process.env.ELYON_SELLER_ACCESS_TOKEN;
   const origDeepSeek = process.env.DEEPSEEK_API_KEY;
@@ -129,7 +129,7 @@ test("does not retry authentication or billing errors", async () => {
 
 test("does not call AI without a valid seller session", async () => {
   const res = responseMock();
-  const calls = await exercise([ok(JSON.stringify(exampleResult))], { authorization: "" });
+  const calls = await exercise([ok(JSON.stringify(exampleResult))], res, { authorization: "" });
   assert.equal(res.statusCode, 403);
   assert.equal(calls.length, 0);
 });
