@@ -294,6 +294,7 @@
       productMasterMatch: match.state,
       productMasterId: text(product?.id || product?.sellerToolMasterProductId || product?.companyOsProductId),
       productMasterArticleNumber: text(product?.articleNumber || product?.identity?.articleNumber),
+      productReviewApproved: product?.readiness?.state === "ready_for_manual_listing",
     };
   }
 
@@ -319,6 +320,7 @@
       .elyon-listing-pill{display:inline-flex;padding:5px 8px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:#dbeafe;font-size:10px;font-weight:850}
       .elyon-listing-pill.ready,.elyon-listing-pill.live{color:#bbf7d0;background:rgba(34,197,94,.1);border-color:rgba(34,197,94,.23)}
       .elyon-listing-pill.blocked{color:#fde68a;background:rgba(245,158,11,.09);border-color:rgba(245,158,11,.22)}
+      .elyon-review-intake-btn{display:inline-flex;margin-top:10px;padding:9px 12px;font-size:12px;border-radius:10px;max-width:100%;white-space:normal;text-align:left}
       .elyon-listings-status{padding:12px 14px;border-radius:15px;background:rgba(59,130,246,.09);border:1px solid rgba(96,165,250,.2);color:#dbeafe;font-size:12px;line-height:1.45}
       .elyon-listings-status.error{color:#fecaca;background:rgba(239,68,68,.09);border-color:rgba(239,68,68,.25)}
       .elyon-listings-empty{padding:28px 18px;text-align:center;border-radius:18px;border:1px dashed rgba(148,163,184,.22);color:#94a3b8;font-size:12px;line-height:1.55}
@@ -425,7 +427,9 @@
       ? [ebayPrice, supplier, cost, shipping, fees, profit].join(" · ") + priceNotice
       : ebayPrice + " · Kein eindeutiger Company-OS-Product-Master-Match";
     const reviewNote = matched
-      ? (pricing.sourceFreshness === "stale"
+      ? (!product?.productReviewApproved
+        ? "Company OS: Produktprüfung offen. Noch keine Verkaufsfreigabe; Lieferant, EK, Bilderrechte und Versand prüfen."
+        : pricing.sourceFreshness === "stale"
         ? "Product-Master-Daten stammen aus einem veralteten Cache. Live-Abgleich zu Company OS erneut prüfen."
         : hasVerifiedEstimate
         ? "Schätzung aus Company OS – Kosten und Gebühren vor Veröffentlichung prüfen."
@@ -446,11 +450,15 @@
             <span class="elyon-listing-pill ${mode === "active" ? "live" : ""}">${escapeHtml(status)}</span>
             <span class="elyon-listing-pill ${match.className}">${escapeHtml(match.label)}</span>
             ${product?.productMasterArticleNumber ? `<span class="elyon-listing-pill ready">ELY ${escapeHtml(product.productMasterArticleNumber)}</span>` : ""}
+            ${matched && !product?.productReviewApproved ? '<span class="elyon-listing-pill blocked">Produktprüfung offen – nicht freigegeben</span>' : ""}
             ${product?.feedVerification === "feed_processed_not_live_checked" ? '<span class="elyon-listing-pill">Feed verarbeitet · Seller Hub bitte prüfen</span>' : ""}
             ${sku ? `<span class="elyon-listing-pill">SKU ${escapeHtml(sku)}</span>` : ""}
             ${offerId ? `<span class="elyon-listing-pill">Offer ${escapeHtml(offerId)}</span>` : ""}
             ${mode === "active" && itemId ? `<span class="elyon-listing-pill live">eBay ${escapeHtml(itemId)}</span>` : ""}
           </div>
+          ${mode === "draft" && product?.productMasterMatch === "unmatched" && /^AMZ-[A-Z0-9]{10}$/i.test(sku)
+            ? `<button type="button" class="secondary elyon-review-intake-btn" data-elyon-review-sku="${escapeHtml(sku)}">↗ In Company OS zur Produktprüfung</button>`
+            : ""}
         </div>
       </article>`;
   }
@@ -483,6 +491,9 @@
             : '<div class="elyon-listings-empty">eBay meldet aktuell 0 UNPUBLISHED-Angebote. Deshalb zeigt Elyon 0 Listing-Entwürfe.</div>'}</div></section>
       </div>`;
     draftTab.querySelector("#elyonDraftsRefresh")?.addEventListener("click", () => refreshListingWorkspaces(true, DRAFT_TAB_ID));
+    draftTab.querySelectorAll?.("[data-elyon-review-sku]").forEach((button) => {
+      button.addEventListener("click", () => startCompanyOsReview(button.dataset.elyonReviewSku, button));
+    });
   }
 
   function renderActiveWorkspace(message = "") {
@@ -512,6 +523,36 @@
             : '<div class="elyon-listings-empty">eBay meldet aktuell 0 PUBLISHED-Angebote. Deshalb zeigt Elyon 0 aktive Listings.</div>'}</div></section>
       </div>`;
     activeTab.querySelector("#elyonActiveRefresh")?.addEventListener("click", () => refreshListingWorkspaces(true, ACTIVE_TAB_ID));
+  }
+
+  async function startCompanyOsReview(sku, button) {
+    if (!/^AMZ-[A-Z0-9]{10}$/i.test(text(sku))) return;
+    if (!draftProducts.some((item) => text(item?.sku).toUpperCase() === text(sku).toUpperCase()
+      && item.productMasterMatch === "unmatched")) return;
+    if (button.disabled) return;
+    const previousText = button.textContent;
+    button.disabled = true;
+    button.textContent = "Company-OS-Prüfung wird angelegt …";
+    try {
+      const response = await fetch("/api/products/review-intake", {
+        method: "POST",
+        credentials: "same-origin",
+        cache: "no-store",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ sku }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || result.ok !== true) throw new Error(result.message || result.error || "Produktprüfung fehlgeschlagen");
+      const label = text(result.articleNumber);
+      window.alert?.((result.alreadyExists ? "Company-OS-Produkt bereits vorhanden: " : "Produktprüfung in Company OS angelegt: ")
+        + label + "\nDie Lieferantenprüfung, Kosten und Bilderrechte bleiben offen. Nichts wurde bei eBay veröffentlicht.");
+      await refreshListingWorkspaces(true, DRAFT_TAB_ID);
+    } catch (error) {
+      button.disabled = false;
+      button.textContent = previousText;
+      window.alert?.("Company-OS-Produktprüfung nicht übernommen: " + text(error?.message || "Unbekannter Fehler")
+        + "\nDer eBay-Entwurf wurde nicht verändert.");
+    }
   }
 
   async function getJson(url) {
