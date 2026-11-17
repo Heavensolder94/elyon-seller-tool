@@ -58,6 +58,8 @@ export function buildPendingCompanyReview(draft) {
   const referenceUrl = "https://www.amazon.de/dp/" + sku.slice(4);
   const meta = {
     ebaySku: sku,
+    originSystem: "elyon_seller_tool",
+    originType: "amazon_product_research",
     ebayOfferId: text(draft?.offerId, 120),
     ebayExternalTaskId: text(draft?.externalTaskId, 220),
     ebayReferencePrice: referencePrice,
@@ -74,8 +76,8 @@ export function buildPendingCompanyReview(draft) {
     supplierSku: sku,
     name: listingTitle,
     title: listingTitle,
-    source: "elyon_seller_ebay_review",
-    sourceLabel: "eBay-Entwurf zur manuellen Produktprüfung",
+    // Company OS treats source/sourceLabel as potential supplier identity.
+    // Keep both unset: the eBay draft and Amazon page are research, not verified wholesale supply.
     sourceRole: "research_reference_only",
     images,
     meta,
