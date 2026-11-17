@@ -116,6 +116,33 @@ test("existing canonical product with same Amazon supplier SKU is not duplicated
   assert.equal(mock.calls.length, 0);
 });
 
+test("re-opening an existing review backfills Amazon price without allocating another ELY or eBay draft",async()=>{
+  const item={...dreamzie,amazonReferencePrice:12.91,amazonReferenceCapturedAt:"2026-11-17T12:00:00.000Z"};
+  const canonical={identity:{articleNumber:"ELY-000245",supplierSku:item.sku},workflow:{stage:"product_review"}};
+  const requests=[];
+  const result=await submitSellerDraftReview({
+    sku:item.sku,
+    sellerState:async()=>({draftsAvailable:true,elyonDrafts:{readable:true},draftItems:[item]}),
+    getMaster:async()=>({records:[canonical]}),
+    env,
+    fetchImpl:async(url,request)=>{
+      const body=JSON.parse(request.body);
+      requests.push({url:String(url),body});
+      return{ok:true,status:200,json:async()=>({ok:true,transition:"set_amazon_reference",
+        result:{product:{supplierSku:item.sku,workflowStage:"product_review",
+          meta:{reviewOnly:true,supplierCostVerified:false,amazonReferencePrice:12.91}}}})};
+    },
+  });
+  assert.equal(result.status,200);
+  assert.equal(result.body.alreadyExists,true);
+  assert.equal(result.body.articleNumber,"ELY-000245");
+  assert.equal(result.body.amazonReferenceSync.synced,true);
+  assert.equal(requests.length,1);
+  assert.equal(requests[0].body.transition,"set_amazon_reference");
+  assert.equal(requests[0].body.amazonReferencePrice,12.91);
+  assert.equal(requests[0].body.product,undefined);
+});
+
 test("duplicate identities are detected without a write", async () => {
   const matches = [
     { identity: { articleNumber: "ELY-000245", supplierSku: dreamzie.sku } },
