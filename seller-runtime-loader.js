@@ -244,8 +244,12 @@
     // Company OS owns economics. Never calculate or reuse a master profit for a different eBay price.
     const samePrice = actualSalePrice !== null && companyOsSalePrice !== null
       && Math.abs(actualSalePrice - companyOsSalePrice) < 0.005;
-    const profit = samePrice && buyPrice !== null ? optionalSignedAmount(price.profit ?? economics.profit) : null;
-    const marginPercent = samePrice && buyPrice !== null ? optionalSignedAmount(price.marginPercent ?? economics.marginPercent) : null;
+    const hasFullCostData = buyPrice !== null && supplierShipping !== null && estimatedFees !== null;
+    const freshMaster = product?.sellerView?.freshness !== "stale";
+    const profit = samePrice && hasFullCostData && freshMaster
+      ? optionalSignedAmount(price.profit ?? economics.profit) : null;
+    const marginPercent = samePrice && hasFullCostData && freshMaster
+      ? optionalSignedAmount(price.marginPercent ?? economics.marginPercent) : null;
     return {
       buyPrice,
       salePrice: actualSalePrice,
@@ -257,6 +261,8 @@
       profitSource: samePrice && profit !== null && marginPercent !== null ? "company_os" : "not_verified",
       calculationSource: text(price.calculationSource || economics.source || ""),
       priceAligned: samePrice,
+      sourceFreshness: text(product?.sellerView?.freshness || "unknown"),
+      costsComplete: hasFullCostData,
     };
   }
 
@@ -419,7 +425,9 @@
       ? [ebayPrice, supplier, cost, shipping, fees, profit].join(" · ") + priceNotice
       : ebayPrice + " · Kein eindeutiger Company-OS-Product-Master-Match";
     const reviewNote = matched
-      ? (hasVerifiedEstimate
+      ? (pricing.sourceFreshness === "stale"
+        ? "Product-Master-Daten stammen aus einem veralteten Cache. Live-Abgleich zu Company OS erneut prüfen."
+        : hasVerifiedEstimate
         ? "Schätzung aus Company OS – Kosten und Gebühren vor Veröffentlichung prüfen."
         : "Für einen verlässlichen Gewinn fehlen geprüfte Company-OS-Daten oder die Preise stimmen nicht überein.")
       : product?.productMasterMatch === "ambiguous"
