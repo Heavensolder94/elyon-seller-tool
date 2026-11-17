@@ -244,8 +244,8 @@
     // Company OS owns economics. Never calculate or reuse a master profit for a different eBay price.
     const samePrice = actualSalePrice !== null && companyOsSalePrice !== null
       && Math.abs(actualSalePrice - companyOsSalePrice) < 0.005;
-    const profit = samePrice ? optionalSignedAmount(price.profit ?? economics.profit) : null;
-    const marginPercent = samePrice ? optionalSignedAmount(price.marginPercent ?? economics.marginPercent) : null;
+    const profit = samePrice && buyPrice !== null ? optionalSignedAmount(price.profit ?? economics.profit) : null;
+    const marginPercent = samePrice && buyPrice !== null ? optionalSignedAmount(price.marginPercent ?? economics.marginPercent) : null;
     return {
       buyPrice,
       salePrice: actualSalePrice,
