@@ -150,24 +150,51 @@
     return text(item?.listingId || item?.ebayItemId || item?.listing?.listingId || item?.listing?.ebayItemId);
   }
 
+  // Only strong identifiers from Company OS are used. Never match products by title.
+  function productMatchId(value) {
+    const raw = text(value).toUpperCase();
+    const amazonSource = raw.match(/^AMAZON:([A-Z0-9]{10})$/);
+    return amazonSource ? "AMZ-" + amazonSource[1] : raw;
+  }
+
   function productIdentityValues(product) {
+    const identity = product?.identity && typeof product.identity === "object" ? product.identity : {};
     const listing = product?.listing && typeof product.listing === "object" ? product.listing : {};
+    const channel = product?.channels?.ebay && typeof product.channels.ebay === "object" ? product.channels.ebay : {};
     const raw = product?.raw && typeof product.raw === "object" ? product.raw : {};
+    const rawIdentity = raw?.identity && typeof raw.identity === "object" ? raw.identity : {};
     const rawListing = raw?.listing && typeof raw.listing === "object" ? raw.listing : {};
     const draft = raw?.autoListerDraft && typeof raw.autoListerDraft === "object" ? raw.autoListerDraft : {};
+    const variants = Array.isArray(product?.variants) ? product.variants : [];
     return new Set([
+      product?.articleNumber,
       product?.sku,
+      product?.supplierSku,
+      product?.sourceImportId,
+      product?.productKey,
       product?.offerId,
       product?.ebayItemId,
       product?.listingId,
+      identity.articleNumber,
+      identity.sku,
+      identity.supplierSku,
+      identity.sourceImportId,
       listing.sku,
       listing.offerId,
       listing.ebayItemId,
       listing.listingId,
+      channel.sku,
+      channel.offerId,
+      channel.listingId,
+      raw.articleNumber,
       raw.sku,
+      raw.supplierSku,
+      raw.sourceImportId,
       raw.offerId,
       raw.ebayItemId,
       raw.listingId,
+      rawIdentity.supplierSku,
+      rawIdentity.sourceImportId,
       rawListing.sku,
       rawListing.offerId,
       rawListing.ebayItemId,
@@ -175,19 +202,56 @@
       draft.sku,
       draft.offerId,
       draft.listingId,
-    ].map(text).filter(Boolean));
+      ...variants.flatMap((variant) => [
+        variant?.sku, variant?.supplierSku, variant?.supplierSkuId, variant?.skuId,
+      ]),
+    ].map(productMatchId).filter(Boolean));
   }
 
   function matchProductMaster(item, products) {
-    const ebayIds = [item?.sku, item?.offerId, item?.listingId].map(text).filter(Boolean);
+    const ebayIds = [item?.sku, item?.offerId, item?.listingId].map(productMatchId).filter(Boolean);
     if (!ebayIds.length) return { state: "unmatched", product: null };
     const matches = products.filter((product) => {
       const ids = productIdentityValues(product);
       return ebayIds.some((id) => ids.has(id));
     });
+    // One eBay item must not be silently bound to multiple master identities.
     if (matches.length === 1) return { state: "matched", product: matches[0] };
     if (matches.length > 1) return { state: "ambiguous", product: null };
     return { state: "unmatched", product: null };
+  }
+
+  function optionalAmount(value) {
+    if (value === null || value === undefined || value === "") return null;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+  }
+
+  function matchedPricing(item, product) {
+    const price = product?.pricing && typeof product.pricing === "object" ? product.pricing : {};
+    const economics = product?.economics && typeof product.economics === "object" ? product.economics : {};
+    const actualSalePrice = optionalAmount(item?.price);
+    const companyOsSalePrice = optionalAmount(price.salePrice ?? economics.salePrice);
+    const buyPrice = optionalAmount(price.buyPrice ?? economics.buyPrice);
+    const supplierShipping = optionalAmount(price.shippingCost ?? economics.shippingCost);
+    const estimatedFees = optionalAmount(price.estimatedFees ?? economics.fees);
+    // Company OS owns economics. Never calculate or reuse a master profit for a different eBay price.
+    const samePrice = actualSalePrice !== null && companyOsSalePrice !== null
+      && Math.abs(actualSalePrice - companyOsSalePrice) < 0.005;
+    const profit = samePrice ? optionalAmount(price.profit ?? economics.profit) : null;
+    const marginPercent = samePrice ? optionalAmount(price.marginPercent ?? economics.marginPercent) : null;
+    return {
+      buyPrice,
+      salePrice: actualSalePrice,
+      companyOsSalePrice,
+      supplierShipping,
+      estimatedFees,
+      profit,
+      marginPercent,
+      profitSource: samePrice && profit !== null && marginPercent !== null ? "company_os" : "not_verified",
+      calculationSource: text(price.calculationSource || economics.source || ""),
+      priceAligned: samePrice,
+    };
   }
 
   function supplierName(product) {
@@ -205,7 +269,6 @@
   function enrichEbayListing(item, products) {
     const match = matchProductMaster(item, products);
     const product = match.product;
-    const pricing = product?.pricing && typeof product.pricing === "object" ? product.pricing : {};
     const title = text(item?.title || product?.title || product?.listing?.title || product?.name)
       || `eBay-Angebot ${text(item?.sku || item?.offerId) || "ohne Titel"}`;
     return {
@@ -215,12 +278,7 @@
       // eBay-side images are authoritative for a listing; Product Master is enrichment only.
       images: Array.isArray(item?.images) && item.images.length ? item.images : productImages(product),
       supplierName: supplierName(product),
-      pricing: {
-        buyPrice: numberValue(pricing.buyPrice ?? product?.buyPrice ?? product?.purchasePrice),
-        salePrice: numberValue(item?.price || pricing.salePrice || product?.salePrice || product?.sellPrice),
-        profit: numberValue(pricing.profit ?? pricing.realisticProfit ?? product?.profit),
-        marginPercent: numberValue(pricing.marginPercent ?? product?.marginPercent ?? product?.margin),
-      },
+      pricing: matchedPricing(item, product),
       productMasterMatch: match.state,
       productMasterId: text(product?.id || product?.sellerToolMasterProductId || product?.companyOsProductId),
     };
