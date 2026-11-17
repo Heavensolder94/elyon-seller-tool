@@ -427,10 +427,10 @@
       ? [ebayPrice, supplier, cost, shipping, fees, profit].join(" · ") + priceNotice
       : ebayPrice + " · Kein eindeutiger Company-OS-Product-Master-Match";
     const reviewNote = matched
-      ? (!product?.productReviewApproved
-        ? "Company OS: Produktprüfung offen. Noch keine Verkaufsfreigabe; Lieferant, EK, Bilderrechte und Versand prüfen."
-        : pricing.sourceFreshness === "stale"
+      ? (pricing.sourceFreshness === "stale"
         ? "Product-Master-Daten stammen aus einem veralteten Cache. Live-Abgleich zu Company OS erneut prüfen."
+        : !product?.productReviewApproved
+        ? "Company OS: Produktprüfung offen. Noch keine Verkaufsfreigabe; Lieferant, EK, Bilderrechte und Versand prüfen."
         : hasVerifiedEstimate
         ? "Schätzung aus Company OS – Kosten und Gebühren vor Veröffentlichung prüfen."
         : "Für einen verlässlichen Gewinn fehlen geprüfte Company-OS-Daten oder die Preise stimmen nicht überein.")
