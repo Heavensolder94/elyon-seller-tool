@@ -53,6 +53,10 @@ export function buildPendingCompanyReview(draft) {
   if (!listingTitle) throw new Error("draft_title_missing");
   const ebayReferencePrice = Number(draft?.price);
   const referencePrice = Number.isFinite(ebayReferencePrice) && ebayReferencePrice > 0 ? ebayReferencePrice : null;
+  const observedAmazonPrice = Number(draft?.amazonReferencePrice);
+  const amazonReferencePrice = draft?.amazonReferencePrice !== null && draft?.amazonReferencePrice !== undefined
+    && Number.isFinite(observedAmazonPrice) && observedAmazonPrice >= 0.01 && observedAmazonPrice <= 100000
+    ? Math.round(observedAmazonPrice * 100) / 100 : null;
   const images = (Array.isArray(draft?.images) ? draft.images : [])
     .map((image) => text(image, 1800)).filter((image) => /^https:\/\//i.test(image)).slice(0, 8);
   const referenceUrl = "https://www.amazon.de/dp/" + sku.slice(4);
@@ -64,6 +68,10 @@ export function buildPendingCompanyReview(draft) {
     ebayExternalTaskId: text(draft?.externalTaskId, 220),
     ebayReferencePrice: referencePrice,
     amazonResearchUrl: referenceUrl,
+    amazonReferencePrice,
+    amazonReferenceCapturedAt: amazonReferencePrice !== null ? text(draft?.amazonReferenceCapturedAt, 80) : "",
+    amazonReferenceCurrency: "EUR",
+    amazonReferenceRole: "retail_research_price_not_verified_supplier_cost",
     supplierVerified: false,
     supplierCostVerified: false,
     imageRightsVerified: false,
