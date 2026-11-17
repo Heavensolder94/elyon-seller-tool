@@ -212,7 +212,8 @@
       ...item,
       status: listingStatus(item),
       title,
-      images: productImages(product),
+      // eBay-side images are authoritative for a listing; Product Master is enrichment only.
+      images: Array.isArray(item?.images) && item.images.length ? item.images : productImages(product),
       supplierName: supplierName(product),
       pricing: {
         buyPrice: numberValue(pricing.buyPrice ?? product?.buyPrice ?? product?.purchasePrice),
@@ -350,6 +351,7 @@
           <div class="elyon-listing-meta">
             <span class="elyon-listing-pill ${mode === "active" ? "live" : ""}">${escapeHtml(status)}</span>
             <span class="elyon-listing-pill ${match.className}">${escapeHtml(match.label)}</span>
+            ${product?.feedVerification === "feed_processed_not_live_checked" ? '<span class="elyon-listing-pill">Feed verarbeitet · Seller Hub bitte prüfen</span>' : ""}
             ${sku ? `<span class="elyon-listing-pill">SKU ${escapeHtml(sku)}</span>` : ""}
             ${offerId ? `<span class="elyon-listing-pill">Offer ${escapeHtml(offerId)}</span>` : ""}
             ${mode === "active" && itemId ? `<span class="elyon-listing-pill live">eBay ${escapeHtml(itemId)}</span>` : ""}
@@ -377,6 +379,7 @@
             <div class="metric"><small>Datenquelle</small><strong style="font-size:14px">eBay Inventory API</strong></div>
           </div>
         </section>
+        <p class="small">Feed-Entwürfe aus dem Amazon Importer werden nach bestätigter Verarbeitung zusätzlich angezeigt. Ihr aktueller Bestand im eBay Seller Hub kann über die Inventory API nicht live geprüft werden.</p>
         ${message ? `<div class="elyon-listings-status ${message.startsWith("Fehler:") ? "error" : ""}">${escapeHtml(message)}</div>` : ""}
         <section class="card"><div class="elyon-listings-list">${listingLoading
           ? '<div class="elyon-listings-empty">Echte eBay-Entwürfe werden geladen …</div>'
