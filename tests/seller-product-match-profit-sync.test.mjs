@@ -166,5 +166,6 @@ test("Seller Tool remains a read-only Company OS consumer and refreshes matches 
   assert.match(transformed, /getJson\("\/api\/ebay\/seller-state\?environment=production"\)/);
   assert.match(transformed, /items\.map\(\(item\) => enrichEbayListing\(item, products\)\)/);
   assert.match(transformed, /refreshListingWorkspaces\(true, DRAFT_TAB_ID\)/);
-  assert.doesNotMatch(transformed, /fetch\([^)]*\/api\/products[^)]*method:\s*["']POST/s);
+  // The Product Master root stays strictly read-only; the new review-intake route is separate.
+  assert.doesNotMatch(transformed, /fetch\(\s*["']\/api\/products["']\s*,\s*\{\s*method:\s*["'](?:POST|PUT|PATCH|DELETE)/);
 });
