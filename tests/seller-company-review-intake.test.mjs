@@ -87,6 +87,12 @@ test("Dreamzie existing eBay draft goes directly into pending Company OS Product
   assert.equal(call.payload.product.sourceImportId, "seller-ebay-review:AMZ-B0BWND9WBR");
   assert.equal(call.payload.product.supplier.name, "");
   assert.equal(call.payload.product.supplier.url, "");
+  assert.equal(call.payload.product.source, undefined);
+  assert.equal(call.payload.product.sourceLabel, undefined);
+  assert.equal(call.payload.import.source, undefined);
+  assert.equal(call.payload.import.sourceLabel, undefined);
+  assert.equal(call.payload.product.meta.originSystem, "elyon_seller_tool");
+  assert.equal(call.payload.product.meta.originType, "amazon_product_research");
 });
 
 test("NOBIS Inventory draft is a separate review candidate and preserves the existing eBay offer ID", async () => {
