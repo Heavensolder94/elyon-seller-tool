@@ -4,6 +4,7 @@ import { applyExtensionSellerSession } from "../../lib/seller-extension-bridge.j
 import { createSellerHubDraft, getSellerHubDraftTask } from "../../lib/ebay-seller-hub-drafts.js";
 import { getElyonDraftRegistryRecords, registerElyonExternalDraftIdentity } from "../../lib/ebay-draft-registry.js";
 import { findRecentSellerHubFeedForSku } from "../../lib/ebay-feed-task-recovery.js";
+import { syncAmazonPriceReference } from "../../lib/amazon-price-reference-sync.js";
 
 const ALLOWED_ACTIONS = new Set(["setup", "create-draft", "draft", "draft-status", "recover-draft", "publish", "withdraw", "listing-ai"]);
 const EBAY_INVENTORY_DESCRIPTION_MAX = 4000;
@@ -67,6 +68,8 @@ function externalDraftDetails(payload = {}, task = {}, existing = null) {
     draftPrice: payload.price ?? existing?.draftPrice ?? 0,
     draftCurrency: text(payload.currency || existing?.draftCurrency || "EUR", 12),
     draftImages: Array.isArray(payload.images) && payload.images.length ? payload.images : (existing?.draftImages || []),
+    amazonReferencePrice: payload.amazonReferencePrice ?? existing?.amazonReferencePrice ?? null,
+    amazonReferenceCapturedAt: text(payload.amazonReferenceCapturedAt || existing?.amazonReferenceCapturedAt, 80),
     source: "amazon_importer_feed",
   };
 }
@@ -95,7 +98,9 @@ async function saveExternalDraft(payload, task, status) {
     ...details,
     externalDraftStatus: status,
   });
-  return { persisted: result.persisted === true, reason: result.persisted ? "" : "storage_unavailable" };
+  return { persisted: result.persisted === true, reason: result.persisted ? "" : "storage_unavailable",
+    amazonReferencePrice: result.record?.amazonReferencePrice ?? null,
+    amazonReferenceCapturedAt: result.record?.amazonReferenceCapturedAt || "" };
 }
 
 function publicBridgeError(error) {
@@ -162,6 +167,13 @@ export default async function handler(req, res) {
         // Server-side eBay Feed status is checked before registration. No new eBay draft is created.
         try {
           task.registration = await saveExternalDraft(payload, task, "confirmed");
+          if (task.registration.persisted) {
+            task.amazonReferenceSync = await syncAmazonPriceReference({
+              sku: task.sku || payload.sku,
+              amazonReferencePrice: task.registration.amazonReferencePrice,
+              amazonReferenceCapturedAt: task.registration.amazonReferenceCapturedAt,
+            });
+          }
         } catch {
           task.registration = { persisted: false, reason: "storage_unavailable" };
         }
@@ -199,6 +211,8 @@ export default async function handler(req, res) {
         price: matched.price,
         currency: "EUR",
         images: matched.images,
+        amazonReferencePrice: payload.amazonReferencePrice,
+        amazonReferenceCapturedAt: payload.amazonReferenceCapturedAt,
       };
       const registration = await saveExternalDraft(verifiedPayload, { taskId: matched.taskId, sku: matched.sku, environment: payload.environment }, "confirmed");
       if (!registration.persisted) {
@@ -209,7 +223,13 @@ export default async function handler(req, res) {
           message: "Der eBay-Feed-Task wurde gefunden, aber ELYON konnte ihn nicht sicher ins Entwurfsregister aufnehmen. Es wurde kein neuer Entwurf angelegt.",
         });
       }
+      const amazonReferenceSync = await syncAmazonPriceReference({
+        sku: matched.sku,
+        amazonReferencePrice: registration.amazonReferencePrice,
+        amazonReferenceCapturedAt: registration.amazonReferenceCapturedAt,
+      });
       return res.status(200).json({
+        amazonReferenceSync,
         ok: true,
         draftVisible: true,
         complete: true,
