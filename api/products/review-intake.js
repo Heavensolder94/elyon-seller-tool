@@ -163,12 +163,15 @@ export async function submitSellerDraftReview({
     const articleNumber = text(existing.record?.identity?.articleNumber || existing.record?.articleNumber);
     // The Product Master is a projection: an existing review must not short-circuit
     // backfilling a newly observed Amazon price into the canonical Company OS state.
-    const amazonReferenceSync = await syncAmazonPriceReference({
-      sku: wanted,
-      amazonReferencePrice: selected.draft.amazonReferencePrice,
-      amazonReferenceCapturedAt: selected.draft.amazonReferenceCapturedAt,
-      env, fetchImpl,
-    });
+    const observedPrice = selected.draft.amazonReferencePrice;
+    const amazonReferenceSync = observedPrice === null || observedPrice === undefined || observedPrice === ""
+      ? { synced: false, state: "reference_missing" }
+      : await syncAmazonPriceReference({
+        sku: wanted,
+        amazonReferencePrice: observedPrice,
+        amazonReferenceCapturedAt: selected.draft.amazonReferenceCapturedAt,
+        env, fetchImpl,
+      });
     return {
       status: 200,
       body: { ok: true, created: false, alreadyExists: true, sku: wanted, articleNumber,
