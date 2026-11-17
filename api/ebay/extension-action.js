@@ -3,8 +3,9 @@ import sellerListingAiHandler from "../seller-listing-ai.js";
 import { applyExtensionSellerSession } from "../../lib/seller-extension-bridge.js";
 import { createSellerHubDraft, getSellerHubDraftTask } from "../../lib/ebay-seller-hub-drafts.js";
 import { getElyonDraftRegistryRecords, registerElyonExternalDraftIdentity } from "../../lib/ebay-draft-registry.js";
+import { findRecentSellerHubFeedForSku } from "../../lib/ebay-feed-task-recovery.js";
 
-const ALLOWED_ACTIONS = new Set(["setup", "create-draft", "draft", "draft-status", "publish", "withdraw", "listing-ai"]);
+const ALLOWED_ACTIONS = new Set(["setup", "create-draft", "draft", "draft-status", "recover-draft", "publish", "withdraw", "listing-ai"]);
 const EBAY_INVENTORY_DESCRIPTION_MAX = 4000;
 const EBAY_ASPECT_NAME_MAX = 40;
 const EBAY_ASPECT_VALUE_MAX = 50;
@@ -166,6 +167,58 @@ export default async function handler(req, res) {
         }
       }
       return res.status(200).json(task);
+    }
+    if (action === "recover-draft") {
+      // Recover only the existing feed task; never create a new eBay draft.
+      const recovery = await findRecentSellerHubFeedForSku({
+        sku: payload.sku,
+        environment: payload.environment,
+      });
+      if (!recovery.found || !recovery.record) {
+        return res.status(404).json({
+          ok: false,
+          error: "feed_recovery_not_found",
+          message: "Kein passender eBay FX_DRAFT-Task für diese SKU in den letzten sieben Tagen gefunden. Es wurde kein neuer Entwurf angelegt.",
+        });
+      }
+      const matched = recovery.record;
+      const task = await getSellerHubDraftTask({ taskId: matched.taskId, environment: payload.environment }, payload.environment);
+      if (task.draftVisible !== true || text(task.task?.feedType, 60).toUpperCase() !== "FX_DRAFT") {
+        return res.status(409).json({
+          ok: false,
+          error: "feed_recovery_not_confirmed",
+          message: "Die eBay-Feed-Historie enthält die SKU, aber der Task ist nicht eindeutig als erfolgreich abgeschlossener Draft bestätigt.",
+        });
+      }
+      // Historical uploaded CSV is authoritative; do not substitute freshly edited listing fields.
+      const verifiedPayload = {
+        environment: payload.environment,
+        sku: matched.sku,
+        sourceProductId: payload.sourceProductId,
+        title: matched.title,
+        price: matched.price,
+        currency: "EUR",
+        images: matched.images,
+      };
+      const registration = await saveExternalDraft(verifiedPayload, { taskId: matched.taskId, sku: matched.sku, environment: payload.environment }, "confirmed");
+      if (!registration.persisted) {
+        return res.status(409).json({
+          ok: false,
+          error: "feed_recovery_registration_failed",
+          reason: registration.reason,
+          message: "Der eBay-Feed-Task wurde gefunden, aber ELYON konnte ihn nicht sicher ins Entwurfsregister aufnehmen. Es wurde kein neuer Entwurf angelegt.",
+        });
+      }
+      return res.status(200).json({
+        ok: true,
+        draftVisible: true,
+        complete: true,
+        recovered: true,
+        taskId: matched.taskId,
+        sku: matched.sku,
+        registration,
+        message: "Vorhandener eBay-Feed-Entwurf über die Task-Historie gefunden und mit ELYON synchronisiert. Sein aktueller Seller-Hub-Status ist nicht live überprüfbar.",
+      });
     }
     if (action === "listing-ai") {
       req.query = { ...(req.query || {}), source: "amazon-importer-extension" };
