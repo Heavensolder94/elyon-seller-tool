@@ -142,3 +142,58 @@ test("Company OS lifecycle bridge requires explicit confirmation for a Feed draf
   assert.match(source, /productHardDelete: false/);
   assert.doesNotMatch(source, /DELETE\s+FROM|deleteProduct|removeProductMaster/i);
 });
+
+test("confirmed Amazon Feed draft appears alongside Inventory drafts with truthful provenance", () => {
+  const feed = {
+    ...base, offerId: "", sku: "AMZ-DREAMZIE", sourceProductId: "amazon:B012345678",
+    visibilityMode: "seller_hub_feed", externalTaskId: "task-dreamzie",
+    externalDraftStatus: "confirmed", draftTitle: "Dreamzie Kissenbezug 80x80 2er Set",
+    draftPrice: 29.99, draftCurrency: "EUR", draftImages: ["https://example.test/photo.jpg"],
+  };
+  const result = reconcile([base, feed], {
+    inventoryItems: [{ sku: "ELY-000001", offerId: "offer-1", status: "UNPUBLISHED", title: "NOBIS Powerbank" }],
+  });
+  assert.equal(result.drafts.length, 2);
+  const dreamzie = result.drafts.find((draft) => draft.sku === "AMZ-DREAMZIE");
+  assert.ok(dreamzie);
+  assert.equal(dreamzie.status, "UNPUBLISHED");
+  assert.equal(dreamzie.title, feed.draftTitle);
+  assert.equal(dreamzie.price, 29.99);
+  assert.equal(dreamzie.externalTaskId, "task-dreamzie");
+  assert.equal(dreamzie.feedVerification, "feed_processed_not_live_checked");
+  assert.deepEqual(dreamzie.images, ["https://example.test/photo.jpg"]);
+});
+
+test("pending Feed tasks and unconfirmed legacy Feed identities never inflate confirmed draft count", () => {
+  const pending = { ...base, offerId: "", visibilityMode: "seller_hub_feed", externalTaskId: "task-pending",
+    externalDraftStatus: "processing" };
+  const legacy = { ...pending, sku: "ELY-000002", externalTaskId: "task-legacy", externalDraftStatus: "" };
+  const result = reconcile([pending, legacy]);
+  assert.equal(result.drafts.length, 0);
+  assert.equal(result.records.every((record) => record.state === "draft"), true);
+});
+
+test("Feed draft is deduplicated when Inventory observes same SKU and disappears from drafts upon publishing", () => {
+  const feed = { ...base, offerId: "", visibilityMode: "seller_hub_feed", externalTaskId: "task-1",
+    externalDraftStatus: "confirmed" };
+  const inventory = reconcile([feed], {
+    inventoryItems: [{ sku: feed.sku, offerId: "offer-1", status: "UNPUBLISHED" }],
+  });
+  assert.equal(inventory.drafts.length, 1);
+  assert.equal(inventory.drafts[0].source, "elyon_inventory_draft");
+  const active = reconcile([feed], {
+    activeListings: [{ sku: feed.sku, listingId: "active-item", status: "PUBLISHED" }],
+  });
+  assert.equal(active.drafts.length, 0);
+  assert.equal(active.records[0].state, "published");
+});
+
+test("extension Feed registration requires confirmed task status and does not submit a second eBay draft for status", () => {
+  const source = fs.readFileSync(new URL("../api/ebay/extension-action.js", import.meta.url), "utf8");
+  assert.match(source, /task\.draftVisible === true/);
+  assert.match(source, /saveExternalDraft\(payload, task, "confirmed"\)/);
+  assert.match(source, /saveExternalDraft\(payload, task, "processing"\)/);
+  assert.match(source, /getSellerHubDraftTask\(payload, payload\.environment\)/);
+  assert.match(source, /registration = \{ persisted: false/);
+  assert.doesNotMatch(source, /deleteElyonDraft|publishEbayOffer/);
+});

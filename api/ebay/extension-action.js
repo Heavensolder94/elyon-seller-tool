@@ -2,6 +2,7 @@ import ebayHandler from "./index.js";
 import sellerListingAiHandler from "../seller-listing-ai.js";
 import { applyExtensionSellerSession } from "../../lib/seller-extension-bridge.js";
 import { createSellerHubDraft, getSellerHubDraftTask } from "../../lib/ebay-seller-hub-drafts.js";
+import { getElyonDraftRegistryRecords, registerElyonExternalDraftIdentity } from "../../lib/ebay-draft-registry.js";
 
 const ALLOWED_ACTIONS = new Set(["setup", "create-draft", "draft", "draft-status", "publish", "withdraw", "listing-ai"]);
 const EBAY_INVENTORY_DESCRIPTION_MAX = 4000;
@@ -55,6 +56,47 @@ export function normalizeExtensionEbayPayload(value) {
   return payload;
 }
 
+function externalDraftDetails(payload = {}, task = {}, existing = null) {
+  return {
+    environment: text(task.environment || payload.environment || existing?.environment || "production", 20),
+    sku: text(task.sku || payload.sku || existing?.sku, 120),
+    sourceProductId: text(payload.sourceProductId || existing?.sourceProductId, 180),
+    externalTaskId: text(task.taskId || payload.taskId || existing?.externalTaskId, 220),
+    draftTitle: text(payload.title || existing?.draftTitle, 200),
+    draftPrice: payload.price ?? existing?.draftPrice ?? 0,
+    draftCurrency: text(payload.currency || existing?.draftCurrency || "EUR", 12),
+    draftImages: Array.isArray(payload.images) && payload.images.length ? payload.images : (existing?.draftImages || []),
+    source: "amazon_importer_feed",
+  };
+}
+
+async function saveExternalDraft(payload, task, status) {
+  const environment = text(task?.environment || payload.environment || "production", 20);
+  const records = await getElyonDraftRegistryRecords(environment);
+  const existing = records.find((record) => record.externalTaskId && record.externalTaskId === task.taskId) || null;
+  const details = externalDraftDetails(payload, task, existing);
+  if (!details.sku || !details.externalTaskId) {
+    return { persisted: false, reason: "sku_or_task_missing" };
+  }
+  // A single SKU must not silently switch between unrelated external Feed tasks.
+  if (existing && existing.sku !== details.sku) {
+    return { persisted: false, reason: "feed_task_sku_mismatch" };
+  }
+  if (existing && existing.state !== "draft") {
+    return { persisted: false, reason: "feed_record_no_longer_draft" };
+  }
+  const conflictingSku = records.find((record) => record.sku === details.sku
+    && (record.visibilityMode !== "seller_hub_feed" || (record.externalTaskId && record.externalTaskId !== details.externalTaskId)));
+  if (conflictingSku) {
+    return { persisted: false, reason: "existing_sku_belongs_to_another_draft" };
+  }
+  const result = await registerElyonExternalDraftIdentity({
+    ...details,
+    externalDraftStatus: status,
+  });
+  return { persisted: result.persisted === true, reason: result.persisted ? "" : "storage_unavailable" };
+}
+
 function publicBridgeError(error) {
   const status = Number(error?.status || 500);
   const details = error?.details && typeof error.details === "object" ? error.details : undefined;
@@ -104,10 +146,26 @@ export default async function handler(req, res) {
 
   try {
     if (action === "create-draft" || action === "draft") {
-      return res.status(200).json(await createSellerHubDraft(payload, payload.environment));
+      const task = await createSellerHubDraft(payload, payload.environment);
+      // The Feed task has only been queued. Never count this as a finished eBay draft.
+      try {
+        task.registration = await saveExternalDraft(payload, task, "processing");
+      } catch {
+        task.registration = { persisted: false, reason: "storage_unavailable" };
+      }
+      return res.status(200).json(task);
     }
     if (action === "draft-status") {
-      return res.status(200).json(await getSellerHubDraftTask(payload, payload.environment));
+      const task = await getSellerHubDraftTask(payload, payload.environment);
+      if (task.draftVisible === true) {
+        // Server-side eBay Feed status is checked before registration. No new eBay draft is created.
+        try {
+          task.registration = await saveExternalDraft(payload, task, "confirmed");
+        } catch {
+          task.registration = { persisted: false, reason: "storage_unavailable" };
+        }
+      }
+      return res.status(200).json(task);
     }
     if (action === "listing-ai") {
       req.query = { ...(req.query || {}), source: "amazon-importer-extension" };
