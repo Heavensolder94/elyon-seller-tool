@@ -344,6 +344,9 @@ async function refreshServerStatus() { try { serverStatus = await api("status");
 async function loadServer({ automatic = false } = {}) {
   try {
     const data = await api("load");
+    if (!data.store?.persistent || data.store.configured === false) {
+      throw new Error("Kein dauerhaft konfigurierter Finance-Cloudspeicher vorhanden.");
+    }
     const remote = normalizeState(data.state || {});
     const remoteRevision = Number(data.state?.revision || 0);
     const knownRevision = rememberedRevision();
