@@ -95,7 +95,7 @@ test("each of the three short labels has keyboard and touch accessible info", as
   assert.match(html, /aria-label="Info zu eBay-Angeboten"/);
   assert.match(html, /aria-label="Info zu importierten Aufträgen"/);
   assert.match(html, /aria-label="Info zu verknüpften Produkten"/);
-  assert.match(html, /nicht live bestätigt/);
+  assert.match(html, /eBay-Übertragungen werden separat gezählt/);
   assert.match(html, /noch keine Freigabe zum Verkauf/);
   const runtime = await productionRuntime();
   assert.match(runtime, /elyon-metric-info-btn:focus-visible/);
