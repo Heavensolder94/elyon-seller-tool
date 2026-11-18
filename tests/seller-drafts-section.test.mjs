@@ -60,9 +60,9 @@ test("an Inventory API offer and a processed feed are not shown as two confirmed
   });
   vm.runInContext(source + '\nrenderDraftWorkspace("");', context);
   const html = draftTab.innerHTML;
-  assert.match(html, /<small>eBay-Angebote<\/small><details class="elyon-metric-info">[\s\S]*?<strong>1<\/strong>/);
-  assert.match(html, /<small>Importiert<\/small><details class="elyon-metric-info">[\s\S]*?<strong>1<\/strong>/);
-  assert.match(html, /<small>Verknüpft<\/small><details class="elyon-metric-info">[\s\S]*?<strong>2<\/strong>/);
+  assert.match(html, /<small>eBay-Angebote<\/small><button type="button" class="elyon-metric-info-btn"[\s\S]*?<strong>1<\/strong>/);
+  assert.match(html, /<small>Importiert<\/small><button type="button" class="elyon-metric-info-btn"[\s\S]*?<strong>1<\/strong>/);
+  assert.match(html, /<small>Verknüpft<\/small><button type="button" class="elyon-metric-info-btn"[\s\S]*?<strong>2<\/strong>/);
   assert.match(html, /Seller-Hub-Entwürfe<\/small><strong[^>]*>Nicht live prüfbar<\/strong>/);
 });
 
@@ -85,20 +85,25 @@ test("each of the three short labels has keyboard and touch accessible info", as
     vm.runInContext(source + '\nrenderDraftWorkspace("");', context);
     return draftTab.innerHTML;
   })();
-  assert.equal((html.match(/<details class="elyon-metric-info">/g) || []).length, 3);
+  assert.equal((html.match(/<button type="button" class="elyon-metric-info-btn"/g) || []).length, 3);
+  assert.equal((html.match(/popover="auto" role="note"/g) || []).length, 3);
+  for (const id of ["ebay", "import", "linked"]) {
+    assert.match(html, new RegExp(`popovertarget="elyon-draft-info-${id}"`));
+    assert.match(html, new RegExp(`id="elyon-draft-info-${id}"`));
+  }
   assert.match(html, /aria-label="Info zu eBay-Angeboten"/);
   assert.match(html, /aria-label="Info zu importierten Aufträgen"/);
   assert.match(html, /aria-label="Info zu verknüpften Produkten"/);
   assert.match(html, /nicht live bestätigt/);
   assert.match(html, /noch keine Freigabe zum Verkauf/);
   const runtime = await productionRuntime();
-  assert.match(runtime, /elyon-metric-info summary:focus-visible/);
+  assert.match(runtime, /elyon-metric-info-btn:focus-visible/);
   assert.match(runtime, /elyon-metric-tip/);
-  assert.match(runtime, /title="Unveröffentlichte eBay-API-Angebote/);
-  assert.match(runtime, /title="Feed-Auftrag verarbeitet/);
-  assert.match(runtime, /title="Company-OS-Produkt eindeutig zugeordnet/);
-  assert.match(runtime, /elyon-metric-info\[open\]\{flex:1 1 100%/);
-  assert.match(runtime, /elyon-metric-tip\{display:block;position:static/);
+  assert.match(runtime, /Unveröffentlichte Angebote in der eBay Inventory API/);
+  assert.match(runtime, /Vom Amazon Importer übermittelte und verarbeitete Feed-Aufträge/);
+  assert.match(runtime, /Diese Einträge konnten eindeutig Produkten in Company OS zugeordnet/);
+  assert.match(runtime, /\.elyon-metric-popover\{position:fixed;inset:auto/);
+  assert.match(runtime, /@supports \(position-area: bottom center\)/);
   assert.doesNotMatch(runtime, /elyon-metric-tip\{position:absolute/);
 });
 
