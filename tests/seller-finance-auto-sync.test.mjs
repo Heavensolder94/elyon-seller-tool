@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { authorizeFinanceCron } from "../api/finance-auto-sync.js";
 import { berlinMonthKey, selectNewAutoTransactions, runAutomaticEbayFinanceSync } from "../lib/ebay-finance-auto-sync.js";
 import { mergeFinanceState, normalizeFinanceState } from "../lib/finance-store.js";
-import { normalizeEbayApiTransactions } from "../seller-finance-core.js";
+import { normalizeEbayApiTransactions, mergeTransactions } from "../seller-finance-core.js";
 
 const sale = (id, date = "2026-11-18T09:00:00Z") => ({
   transactionId: id, transactionDate: date, transactionType: "SALE",
@@ -19,6 +19,16 @@ test("cron requires a configured secret with exact bearer authorization", () => 
   assert.equal(authorizeFinanceCron({ headers: {} }, env).status, 401);
   assert.equal(authorizeFinanceCron({ headers: { authorization: "Bearer wrong" } }, env).status, 401);
   assert.deepEqual(authorizeFinanceCron({ headers: { authorization: `Bearer ${env.CRON_SECRET}` } }, env), { ok: true });
+});
+
+test("idempotent daily merge preserves previously stored timestamps and review status", () => {
+  const item = normalizeEbayApiTransactions(raw([sale("already")]))[0];
+  const reviewed = { ...item, status: "approved", updatedAt: "2026-11-18T09:10:00.000Z" };
+  const merged = mergeTransactions([reviewed], [reviewed]);
+  assert.equal(merged.updated, 0);
+  assert.equal(merged.duplicates, 1);
+  assert.equal(merged.transactions[0].status, "approved");
+  assert.equal(merged.transactions[0].updatedAt, "2026-11-18T09:10:00.000Z");
 });
 
 test("closed month comparison uses Germany timezone at UTC boundary", () => {
