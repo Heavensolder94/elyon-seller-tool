@@ -363,6 +363,8 @@ export function mergeTransactions(existing = [], incoming = []) {
       continue;
     }
     duplicates += 1;
+    // A periodic read must not modify the timestamps of already-known rows.
+    if (JSON.stringify(previous) === JSON.stringify(normalized)) continue;
     const next = {
       ...previous,
       ...normalized,
