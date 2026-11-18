@@ -1,3 +1,4 @@
+import { requireSellerAccess } from "../lib/seller-access.js";
 import {
   buildCookieHeaders,
   clearCookie,
@@ -11,6 +12,8 @@ import {
   normalizeBackupData,
   refreshGoogleAccessToken,
   uploadBackupToDrive,
+  uploadFinanceDocumentToDrive,
+  downloadFinanceDocumentFromDrive,
   validateBackupData,
 } from "../lib/google-drive.js";
 import {
@@ -401,6 +404,39 @@ async function handleUploadBackup(req, res) {
   }
 }
 
+
+async function handleFinanceDocumentUpload(req, res) {
+  if (req.method !== "POST") return res.status(405).json({ ok: false, error: "Nur POST erlaubt." });
+  try {
+    const token = await getStoredRefreshToken(req);
+    if (!token.refreshToken) return res.status(401).json({ ok: false, error: "Google Drive ist nicht verbunden." });
+    const body = readBody(req);
+    const result = await uploadFinanceDocumentToDrive({
+      refreshToken: token.refreshToken, documentId: body.documentId,
+      fileName: body.fileName, mimeType: body.mimeType, base64: body.base64, sha256: body.sha256,
+    });
+    return res.status(200).json({ ok: true, ...result });
+  } catch (error) {
+    return res.status(422).json({ ok: false, error: "finance_document_upload_failed", message: error.message });
+  }
+}
+
+async function handleFinanceDocumentDownload(req, res) {
+  if (req.method !== "POST") return res.status(405).json({ ok: false, error: "Nur POST erlaubt." });
+  try {
+    const token = await getStoredRefreshToken(req);
+    if (!token.refreshToken) return res.status(401).json({ ok: false, error: "Google Drive ist nicht verbunden." });
+    const body = readBody(req);
+    const result = await downloadFinanceDocumentFromDrive({
+      refreshToken: token.refreshToken, fileId: body.fileId,
+      documentId: body.documentId, sha256: body.sha256,
+    });
+    return res.status(200).json({ ok: true, ...result });
+  } catch (error) {
+    return res.status(422).json({ ok: false, error: "finance_document_download_failed", message: error.message });
+  }
+}
+
 export default async function handler(req, res) {
   const body = readBody(req);
   const action = getRequestedAction(req, body);
@@ -410,6 +446,13 @@ export default async function handler(req, res) {
   if (action === "start") return handleStart(req, res);
   if (action === "callback") return handleCallback(req, res);
   if (action === "upload-backup") return handleUploadBackup(req, res);
+  if (action === "finance-document-upload" || action === "finance-document-download") {
+    // Also protect the physical API route, not just the /api/secure-google-drive rewrite.
+    if (!requireSellerAccess(req, res, { maxBodyBytes: 4 * 1024 * 1024 })) return;
+    return action === "finance-document-upload"
+      ? handleFinanceDocumentUpload(req, res)
+      : handleFinanceDocumentDownload(req, res);
+  }
 
   return res.status(404).json({
     ok: false,
