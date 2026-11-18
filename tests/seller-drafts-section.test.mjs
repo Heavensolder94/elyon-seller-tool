@@ -97,9 +97,9 @@ test("each of the three short labels has keyboard and touch accessible info", as
   assert.match(runtime, /title="Unveröffentlichte eBay-API-Angebote/);
   assert.match(runtime, /title="Feed-Auftrag verarbeitet/);
   assert.match(runtime, /title="Company-OS-Produkt eindeutig zugeordnet/);
-  assert.match(runtime, /elyon-metric-info\\[open\\]\\{flex:1 1 100%/);
-  assert.match(runtime, /elyon-metric-tip\\{display:block;position:static/);
-  assert.doesNotMatch(runtime, /elyon-metric-tip\\{position:absolute/);
+  assert.match(runtime, /elyon-metric-info\[open\]\{flex:1 1 100%/);
+  assert.match(runtime, /elyon-metric-tip\{display:block;position:static/);
+  assert.doesNotMatch(runtime, /elyon-metric-tip\{position:absolute/);
 });
 
 test("listing drafts and active listings have separate lazy workspaces", async () => {
