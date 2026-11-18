@@ -322,7 +322,28 @@ async function saveLocal(action = "local_save", summary = "Finanzdaten lokal ges
   } catch (error) { toast(error.message, "Speicherfehler"); }
 }
 
+function financeErrorText(value, fallback = "Unbekannter Finance-Fehler", depth = 0) {
+  if (typeof value === "string") return value.trim() && value.trim() !== "[object Object]" ? value.trim() : fallback;
+  if (depth >= 3 || value === null || value === undefined) return fallback;
+  if (Array.isArray(value)) {
+    for (const entry of value) {
+      const result = financeErrorText(entry, "", depth + 1);
+      if (result) return result;
+    }
+    return fallback;
+  }
+  if (typeof value === "object") {
+    for (const field of ["longMessage", "message", "error_description", "description", "error", "errors", "details"]) {
+      if (!Object.hasOwn(value, field)) continue;
+      const result = financeErrorText(value[field], "", depth + 1);
+      if (result) return result;
+    }
+  }
+  return fallback;
+}
+
 function toast(message, eyebrow = "Elyon Finance") {
+  message = financeErrorText(message);
   if (typeof window !== "undefined" && typeof window.toast === "function") return window.toast(message, eyebrow);
   if (typeof document === "undefined") return;
   document.getElementById("elyonFinanceToast")?.remove();
@@ -336,7 +357,7 @@ async function api(action, options = {}) {
   const query = new URLSearchParams({ action, ...(options.query || {}) });
   const response = await fetch(`/api/finance?${query}`, { method, credentials: "same-origin", cache: "no-store", headers: method === "GET" ? { Accept: "application/json" } : { "Content-Type": "application/json", Accept: "application/json" }, body: method === "GET" ? undefined : JSON.stringify(options.body || {}) });
   const data = await response.json().catch(() => ({}));
-  if (!response.ok || data.ok === false) throw new Error(data.message || data.error || `Finance API HTTP ${response.status}`);
+  if (!response.ok || data.ok === false) throw new Error(financeErrorText(data.message, "") || financeErrorText(data.error, "") || `Finance API HTTP ${response.status}`);
   return data;
 }
 
@@ -605,7 +626,13 @@ async function attachDocument(id,docId) { const item=state.transactions.find((en
 
 async function handleCsvFile(file) { stagedImport={...parseEbayCsv(await file.text()),fileName:file.name,source:"csv",createdAt:new Date().toISOString()};render(); }
 async function confirmStagedImport(sourceLabel="csv") { if(!stagedImport)return;backupLocal("before_import");const allowed=[];let blocked=0;for(const row of stagedImport.transactions||[]){const item=normalizeFinanceTransaction(row,row.source);if(isLockedDate(item.transactionDate))blocked+=1;else allowed.push(item);}const merged=mergeTransactions(state.transactions,allowed);state.transactions=merged.transactions;state.imports.push({id:uid("import"),source:sourceLabel,fileName:stagedImport.fileName,inserted:merged.inserted,duplicates:merged.duplicates,blockedLockedMonths:blocked,createdAt:new Date().toISOString()});await saveLocal("finance_import",`${merged.inserted} neue Vorgänge importiert; ${blocked} wegen Monatsabschluss blockiert.`);stagedImport=null;render();toast(`${merged.inserted} neu · ${blocked} gesperrt.`); }
-async function ebayPreview() { try { const days=document.getElementById("efEbayDays")?.value||90;const data=await api("ebay-preview",{query:{days}});stagedImport={transactions:data.transactions||[],warnings:[`eBay Finances API: ${data.count||0} normalisierte Vorgänge`],fileName:"eBay Finances API",source:"ebay_api",createdAt:new Date().toISOString()};activePanel="imports";render();toast("eBay-Finanzvorschau geladen. Noch nichts gespeichert."); } catch(error){toast(error.message,"eBay Finances API");} }
+async function ebayPreview() {
+  try {
+    const status=await api("status");
+    if (status.ebayFinancesSignature?.required && !status.ebayFinancesSignature?.configured) {
+      throw new Error("eBay-Finanzabgleich benötigt digitale Signaturschlüssel. Bitte EBAY_SIGNATURE_JWE und EBAY_SIGNATURE_PRIVATE_KEY sicher in Vercel einrichten.");
+    }
+    const days=document.getElementById("efEbayDays")?.value||90;const data=await api("ebay-preview",{query:{days}});stagedImport={transactions:data.transactions||[],warnings:[`eBay Finances API: ${data.count||0} normalisierte Vorgänge`],fileName:"eBay Finances API",source:"ebay_api",createdAt:new Date().toISOString()};activePanel="imports";render();toast("eBay-Finanzvorschau geladen. Noch nichts gespeichert."); } catch(error){toast(error.message,"eBay Finances API");} }
 async function handleSupplierSubmit(form) { const data=new FormData(form);const orderId=text(data.get("orderId"));const amount=num(data.get("amount"));const date=text(data.get("date"));if(!orderId||amount<=0||!date)return toast("Bestellnummer, Datum und Betrag werden benötigt.");if(isLockedDate(date))return toast("Dieser Monat ist abgeschlossen.","Monat gesperrt");const transaction=normalizeFinanceTransaction({transactionId:`supplier_${orderId}_${Date.now()}`,orderId,itemId:text(data.get("itemId")),transactionDate:date,transactionType:"SUPPLIER_PURCHASE",bookingEntry:"DEBIT",amount:-Math.abs(amount),currency:"EUR",title:`${text(data.get("supplier"))||"Lieferant"} Wareneinkauf`,memo:data.get("memo"),category:"supplier_expense",status:"needs_review"},"elyon_supplier_manual");backupLocal("before_supplier_cost");state.transactions=mergeTransactions(state.transactions,[transaction]).transactions;await saveLocal("supplier_cost_added",`Lieferantenkosten für ${orderId} erfasst.`);form.reset();render(); }
 async function saveSettings(form) { const data=Object.fromEntries(new FormData(form).entries());state.settings={...state.settings,...data,nextInvoiceNumber:Math.max(1,num(data.nextInvoiceNumber)||1)};await saveLocal("finance_settings_updated","Buchhaltungsparameter aktualisiert.");render();toast("Einstellungen gespeichert."); }
 
