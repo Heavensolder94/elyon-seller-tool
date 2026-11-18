@@ -101,7 +101,7 @@ test("production transform keeps numeric Elyon drafts and real active listings",
   assert.match(runtime, /Aktuell sind weder unveröffentlichte API-Angebote noch verarbeitete Feed-Aufträge vorhanden/);
   assert.match(runtime, /kpi\('Live auf eBay', activeLabel/);
   assert.match(runtime, /Unveröffentlichte API-Angebote/);
-  assert.match(runtime, /<small>Importiert<\/small>/);
+  assert.match(runtime, /kpi\('Importiert', intakeCountLabel\(\)/);
   assert.match(runtime, /Feed verarbeitet · Seller Hub nicht live bestätigt/);
   assert.doesNotMatch(runtime, /Seller-Hub-Entwürfe: nicht per öffentlicher eBay API auslesbar/);
 
