@@ -101,7 +101,7 @@ test("production transform keeps numeric Elyon drafts and real active listings",
   assert.match(runtime, /Aktuell sind weder unveröffentlichte API-Angebote noch verarbeitete Feed-Aufträge vorhanden/);
   assert.match(runtime, /<small>eBay-Angebote<\/small><details class="elyon-metric-info">/);
   assert.match(runtime, /\$\{window\.__elyonSellerState\?\.draftsAvailable === false \? "!" : apiOfferCount\}/);
-  assert.match(runtime, /Verarbeitete Feed-Aufträge/);
+  assert.match(runtime, /<small>Importiert<\/small><details class="elyon-metric-info">/);
   assert.match(runtime, /Feed verarbeitet · Seller Hub nicht live bestätigt/);
   assert.doesNotMatch(runtime, /Seller-Hub-Entwürfe: nicht per öffentlicher eBay API auslesbar/);
 
