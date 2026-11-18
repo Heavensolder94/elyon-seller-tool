@@ -62,10 +62,11 @@ test("production runtime distinguishes product imports from eBay Feed task recor
   const source = await readFile(new URL("../seller-runtime-loader.js", import.meta.url), "utf8");
   const runtime = transformSellerRuntimeLoader(source);
   assert.match(runtime, /getJson\("\/api\/product-imports\/overview"\)/);
-  assert.match(runtime, /<small>Importiert<\/small>[\s\S]*?<strong>\$\{typeof intakeCountLabel/);
+  assert.match(runtime, /kpi\('Importiert', intakeCountLabel\(\)/);
   assert.match(runtime, /Einmalig erfasste Produkte aus ELYON Nova, Amazon Importer und Company OS/);
-  assert.match(runtime, /Produktzugänge &amp; eBay-Status/);
-  assert.match(runtime, /Feed-Aufträge: /);
+  assert.match(runtime, /<h3>Produktübersicht<\/h3>/);
+  assert.match(runtime, /Verarbeitete Feed-Aufträge/);
   assert.match(runtime, /productIntakeError/);
-  assert.doesNotMatch(runtime, /<small>Importiert<\/small>[\s\S]*?<strong>\$\{window\.__elyonSellerState\?\.draftsAvailable === false \? "!" : processedFeedCount/);
+  assert.match(runtime, /kpi\('Live auf eBay', activeLabel/);
+  assert.match(runtime, /const activeLabel = !listingLoading && ebayListingStatusOk/);
 });
