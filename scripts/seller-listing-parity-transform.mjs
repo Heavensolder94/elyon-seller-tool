@@ -231,6 +231,24 @@ export function transformSellerRuntimeLoader(source) {
     "compact info popover styles missing",
   );
 
+
+  // "Importiert" counts distinct product intake records, not eBay Feed tasks.
+  output = replaceRequired(
+    output,
+    '<strong>${window.__elyonSellerState?.draftsAvailable === false ? "!" : processedFeedCount}</strong>',
+    '<strong>${typeof intakeCountLabel === "function" ? intakeCountLabel() : "–"}</strong>',
+    "unified product import count marker missing",
+  );
+  const previousTip = "Vom Amazon Importer übermittelte und verarbeitete Feed-Aufträge. Ob sie im Seller Hub als Entwurf vorhanden sind, ist nicht live bestätigt.";
+  const unifiedTip = "Einmalig erfasste Produkte aus ELYON Nova, Amazon Importer und Company OS. Herkunft und Bearbeitungsstand stehen in der Übersicht darunter. eBay-Übertragungen werden separat gezählt.";
+  output = replaceRequired(output, previousTip, unifiedTip, "import tooltip must describe all product inputs");
+  output = replaceRequired(
+    output,
+    "Ein verarbeiteter Amazon-Importer-Feed ist kein bestätigter Seller-Hub-Entwurf.",
+    "Ein verarbeiteter eBay-Feed-Auftrag ist kein bestätigter Seller-Hub-Entwurf.",
+    "generalized feed help text missing",
+  );
+
   return output;
 }
 

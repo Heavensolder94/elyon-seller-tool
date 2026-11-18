@@ -57,11 +57,12 @@ test("an Inventory API offer and a processed feed are not shown as two confirmed
     ensureListingWorkspaces: () => ({ draftTab }),
     escapeHtml: (value) => String(value),
     listingCard: (item) => `<article>${item.sku}</article>`,
+    intakeCountLabel: () => "3",
   });
   vm.runInContext(source + '\nrenderDraftWorkspace("");', context);
   const html = draftTab.innerHTML;
   assert.match(html, /<small>eBay-Angebote<\/small><button type="button" class="elyon-metric-info-btn"[\s\S]*?<strong>1<\/strong>/);
-  assert.match(html, /<small>Importiert<\/small><button type="button" class="elyon-metric-info-btn"[\s\S]*?<strong>1<\/strong>/);
+  assert.match(html, /<small>Importiert<\/small><button type="button" class="elyon-metric-info-btn"[\s\S]*?<strong>3<\/strong>/);
   assert.match(html, /<small>Verknüpft<\/small><button type="button" class="elyon-metric-info-btn"[\s\S]*?<strong>2<\/strong>/);
   assert.match(html, /Seller-Hub-Entwürfe<\/small><strong[^>]*>Nicht live prüfbar<\/strong>/);
 });
@@ -94,13 +95,13 @@ test("each of the three short labels has keyboard and touch accessible info", as
   assert.match(html, /aria-label="Info zu eBay-Angeboten"/);
   assert.match(html, /aria-label="Info zu importierten Aufträgen"/);
   assert.match(html, /aria-label="Info zu verknüpften Produkten"/);
-  assert.match(html, /nicht live bestätigt/);
+  assert.match(html, /eBay-Übertragungen werden separat gezählt/);
   assert.match(html, /noch keine Freigabe zum Verkauf/);
   const runtime = await productionRuntime();
   assert.match(runtime, /elyon-metric-info-btn:focus-visible/);
   assert.match(runtime, /elyon-metric-tip/);
   assert.match(runtime, /Unveröffentlichte Angebote in der eBay Inventory API/);
-  assert.match(runtime, /Vom Amazon Importer übermittelte und verarbeitete Feed-Aufträge/);
+  assert.match(runtime, /Einmalig erfasste Produkte aus ELYON Nova, Amazon Importer und Company OS/);
   assert.match(runtime, /Diese Einträge konnten eindeutig Produkten in Company OS zugeordnet/);
   assert.match(runtime, /\.elyon-metric-popover\{position:fixed;inset:auto/);
   assert.match(runtime, /@supports \(position-area: bottom center\)/);
@@ -121,6 +122,7 @@ test("production listing workspaces use the unified eBay seller-state endpoint",
   const runtime = await productionRuntime();
   assert.match(runtime, /getJson\("\/api\/ebay\/seller-state\?environment=production"\)/);
   assert.match(runtime, /getJson\("\/api\/products"\)/);
+  assert.match(runtime, /getJson\("\/api\/product-imports\/overview"\)/);
   assert.match(runtime, /listingStatus\(item\) === "UNPUBLISHED"/);
   assert.match(runtime, /listingStatus\(item\) === "PUBLISHED"/);
   assert.match(runtime, /Product Master wurde ausschließlich zur Anreicherung verwendet/);
