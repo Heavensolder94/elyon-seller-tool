@@ -48,7 +48,7 @@ function ebayHeaders(accessToken, requestUrl) {
   };
 }
 
-async function fetchTransactions(environment, days = 90) {
+export async function fetchTransactions(environment, days = 90) {
   const session = await ebayUserSession(environment);
   const limit = 1000;
   let offset = 0;
