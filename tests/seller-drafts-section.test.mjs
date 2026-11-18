@@ -148,7 +148,7 @@ test("draft workspace shows only Elyon-created eBay drafts and a real zero empty
   const runtime = await productionRuntime();
   assert.match(runtime, /Elyon · Unveröffentlicht/);
   assert.match(runtime, /Produktzugänge, Produktprüfung und aktive eBay-Angebote werden getrennt angezeigt/);
-  assert.match(runtime, /<small>Live auf eBay<\/small>/);
+  assert.match(runtime, /kpi\('Live auf eBay', activeLabel/);
   assert.match(runtime, /Aktuell sind weder unveröffentlichte API-Angebote noch verarbeitete Feed-Aufträge vorhanden/);
   assert.match(runtime, /Seller-Hub-Entwürfe sind nicht live prüfbar/);
   assert.doesNotMatch(runtime, /Inventory API · UNPUBLISHED/);
