@@ -1,4 +1,5 @@
 import { requireSellerAccess } from "../../lib/seller-access.js";
+import { financeSigningStatus, signFinancesGetRequest } from "../../lib/ebay-finance-signature.js";
 import { ebayUserSession, callEbayJson, publicEbayError } from "../../lib/ebay-production.js";
 import { readFinanceState, writeFinanceState, getFinanceStoreDescription, reserveFinanceInvoiceNumber } from "../../lib/finance-store.js";
 import { normalizeEbayApiTransactions, mergeTransactions, calculateMetrics, buildEurSummary, selectApprovedEurTransactions } from "../../seller-finance-core.js";
@@ -37,8 +38,9 @@ function daysAgoIso(days) {
   return date.toISOString();
 }
 
-function ebayHeaders(accessToken) {
+function ebayHeaders(accessToken, requestUrl) {
   return {
+    ...signFinancesGetRequest(requestUrl),
     Authorization: `Bearer ${accessToken}`,
     "Content-Type": "application/json",
     "Accept-Language": "de-DE",
@@ -61,7 +63,7 @@ async function fetchTransactions(environment, days = 90) {
     url.searchParams.set("filter", filter);
     url.searchParams.set("limit", String(limit));
     url.searchParams.set("offset", String(offset));
-    const data = await callEbayJson(url.toString(), { headers: ebayHeaders(session.accessToken) });
+    const data = await callEbayJson(url.toString(), { headers: ebayHeaders(session.accessToken, url.toString()) });
     const page = Array.isArray(data.transactions) ? data.transactions : [];
     transactions.push(...page);
     total = Number.isFinite(Number(data.total)) ? Number(data.total) : transactions.length;
@@ -87,7 +89,7 @@ async function fetchPayouts(environment, days = 90) {
   const url = new URL(`${financesRoot(session.environment)}/sell/finances/v1/payout`);
   url.searchParams.set("filter", `payoutDate:[${from}..${to}]`);
   url.searchParams.set("limit", "200");
-  const data = await callEbayJson(url.toString(), { headers: ebayHeaders(session.accessToken) });
+  const data = await callEbayJson(url.toString(), { headers: ebayHeaders(session.accessToken, url.toString()) });
   return {
     environment: session.environment,
     days: Number(days),
@@ -107,6 +109,7 @@ async function handleStatus(req, res) {
     version: 2,
     revision: state.revision,
     store: getFinanceStoreDescription(),
+    ebayFinancesSignature: financeSigningStatus(),
     counts: {
       transactions: state.transactions.length,
       documents: state.documents.length,
