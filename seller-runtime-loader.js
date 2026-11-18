@@ -13,6 +13,8 @@
   let listingLoading = false;
   let draftProducts = [];
   let activeProducts = [];
+  let productIntakeOverview = null;
+  let productIntakeError = "";
 
   const GROUPS = {
     quickstart: [
@@ -306,6 +308,12 @@
       #${DRAFT_TAB_ID},#${ACTIVE_TAB_ID}{display:none}
       #${DRAFT_TAB_ID}.active,#${ACTIVE_TAB_ID}.active{display:block}
       .elyon-listings-shell{display:grid;gap:16px}
+      .elyon-intake-lines{display:grid;gap:8px;margin-top:12px}
+      .elyon-intake-line{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+      .elyon-intake-line span{font-size:12px;color:#cbd5e1;padding:5px 9px;border:1px solid rgba(148,163,184,.2);border-radius:10px;background:rgba(255,255,255,.035)}
+      .elyon-intake-hint{color:#94a3b8;font-size:11px;line-height:1.55;margin:8px 0 0}
+      .elyon-intake-heading{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+      .elyon-intake-heading h3{margin:0;font-size:16px;color:#e2e8f0}
       .elyon-listings-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap}
       .elyon-listings-head h2{margin:0 0 7px;font-size:28px;letter-spacing:-.035em}
       .elyon-listings-head p{margin:0;max-width:800px;color:#cbd5e1;font-size:13px;line-height:1.55}
@@ -463,6 +471,59 @@
       </article>`;
   }
 
+
+  function intakeCountLabel() {
+    if (!productIntakeOverview) return "–";
+    const amount = Number(productIntakeOverview.total);
+    if (!Number.isSafeInteger(amount) || amount < 0) return "–";
+    return productIntakeOverview.complete === true && productIntakeOverview.dedupeVerified === true
+      ? String(amount) : "~" + amount;
+  }
+
+  function renderIntakeDetails() {
+    const overview = productIntakeOverview;
+    const apiOffers = draftProducts.filter((item) => item?.source === "elyon_inventory_draft").length;
+    const feeds = draftProducts.filter((item) => item?.source === "elyon_seller_hub_feed" &&
+      item?.feedVerification === "feed_processed_not_live_checked").length;
+    const ebayAvailable = !listingLoading && window.__elyonSellerState?.draftsAvailable !== false;
+    const ebayLine = ebayAvailable
+      ? '<div class="elyon-intake-line"><span>eBay-API-Angebote: ' + apiOffers +
+        '</span><span>Verarbeitete Feed-Aufträge: ' + feeds +
+        '</span><span>Aktive eBay-Listings: ' + activeProducts.length + '</span></div>'
+      : '<p class="elyon-intake-hint">eBay-Status derzeit nicht vollständig prüfbar.</p>';
+    if (!overview) {
+      const hint = listingLoading ? "Produkteingänge werden geladen …"
+        : "Produkteingang nicht abrufbar. " + (productIntakeError || "Company-OS-Verbindung prüfen.");
+      return '<section class="card elyon-intake-summary"><div class="elyon-intake-heading"><h3>Produktzugänge &amp; eBay-Status</h3></div>' +
+        '<p class="elyon-intake-hint">' + escapeHtml(hint) +
+        ' Es wird keine Null als echter Importbestand angezeigt.</p>' + ebayLine + '</section>';
+    }
+    const label = (value) => Number.isSafeInteger(value) && value >= 0 ? String(value) : "–";
+    const sources = overview.sources || {};
+    const stages = overview.stages || {};
+    const issue = overview.complete !== true || Number(overview.identityUnverified) > 0;
+    const status = issue ? "Teilweise" : "Abgeglichen";
+    const note = overview.complete !== true
+      ? "Der Nova-Eingang ist möglicherweise länger als das lesbare Fenster. Gesamtzahl unvollständig."
+      : Number(overview.identityUnverified) > 0
+        ? "Bei Einträgen ohne stabile Identität ist eine doppelte Erfassung nicht vollständig auszuschließen."
+        : "Quellen anhand stabiler Produkt- und Import-IDs abgeglichen; keine Titel-Duplikat-Zuordnung.";
+    return '<section class="card elyon-intake-summary">' +
+      '<div class="elyon-intake-heading"><h3>Produktzugänge &amp; eBay-Status</h3><span class="elyon-listing-pill">' + status + '</span></div>' +
+      '<div class="elyon-intake-lines">' +
+        '<div class="elyon-intake-line"><span>Einmalig erfasst: ' + escapeHtml(intakeCountLabel()) +
+        '</span><span>ELYON Nova: ' + label(sources.nova) +
+        '</span><span>Amazon Importer: ' + label(sources.amazonImporter) +
+        '</span><span>Company OS: ' + label(sources.companyOs) +
+        '</span>' + (sources.unclassified ? '<span>Weitere Quellen: ' + label(sources.unclassified) + '</span>' : '') + '</div>' +
+        '<div class="elyon-intake-line"><span>Im Eingang: ' + label(stages.inbox) +
+        '</span><span>Produktprüfung: ' + label(stages.review) +
+        '</span><span>Listing vorbereitet: ' + label(stages.listingPrepared) + '</span></div>' +
+        '<div class="elyon-intake-line"><span>eBay-Vorgänge (separat):</span></div>' + ebayLine +
+      '</div><p class="elyon-intake-hint">' + escapeHtml(note) +
+      ' Verarbeitete Feed-Aufträge sind keine live bestätigten Seller-Hub-Entwürfe. Abgelehnte/archivierte Produkte sind nicht im aktiven Eingang enthalten.</p></section>';
+  }
+
   function renderDraftWorkspace(message = "") {
     const { draftTab } = ensureListingWorkspaces();
     if (!draftTab) return;
@@ -482,6 +543,7 @@
             <div class="metric"><small>Datenquelle</small><strong style="font-size:14px">eBay Inventory API</strong></div>
           </div>
         </section>
+        ${typeof renderIntakeDetails === "function" ? renderIntakeDetails() : ""}
         <p class="small">Feed-Entwürfe aus dem Amazon Importer werden nach bestätigter Verarbeitung zusätzlich angezeigt. Ihr aktueller Bestand im eBay Seller Hub kann über die Inventory API nicht live geprüft werden. Product-Master-Zuordnung und Company-OS-Gewinnprognosen werden bei jedem Öffnen oder Klick auf „Neu laden“ aus der kanonischen Quelle aktualisiert; unbestätigte Kosten bleiben offen.</p>
         ${message ? `<div class="elyon-listings-status ${message.startsWith("Fehler:") ? "error" : ""}">${escapeHtml(message)}</div>` : ""}
         <section class="card"><div class="elyon-listings-list">${listingLoading
@@ -577,10 +639,15 @@
     renderActiveWorkspace();
     let message = "";
     try {
-      const [listingResult, productResult] = await Promise.allSettled([
+      const [listingResult, productResult, intakeResult] = await Promise.allSettled([
         getJson("/api/ebay/listings?environment=production"),
         getJson("/api/products"),
+        getJson("/api/product-imports/overview"),
       ]);
+      productIntakeOverview = intakeResult.status === "fulfilled" && intakeResult.value?.overview
+        ? intakeResult.value.overview : null;
+      productIntakeError = intakeResult.status === "fulfilled" ? ""
+        : text(intakeResult.reason?.message || "Company OS derzeit nicht erreichbar");
       if (listingResult.status !== "fulfilled") throw listingResult.reason;
 
       const items = Array.isArray(listingResult.value?.items) ? listingResult.value.items : [];
