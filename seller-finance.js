@@ -7,6 +7,7 @@ import {
   exportTransactionsCsv,
   exportDatevPreparation,
   buildEurSummary,
+  selectApprovedEurTransactions,
   createAuditEvent,
 } from "./seller-finance-core.js";
 
@@ -17,6 +18,8 @@ const BACKUP_PREFIX = "elyon_finance_backup_";
 const DB_NAME = "elyon-finance-documents";
 const DB_STORE = "files";
 const BASE_CURRENCY = "EUR";
+const SYNC_PENDING_KEY = "elyon_finance_sync_pending";
+const SYNC_REVISION_KEY = "elyon_finance_last_server_revision";
 const euro = new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" });
 const percent = new Intl.NumberFormat("de-DE", { maximumFractionDigits: 1 });
 const dateTime = new Intl.DateTimeFormat("de-DE", { dateStyle: "short", timeStyle: "short" });
@@ -29,6 +32,35 @@ let serverStatus = null;
 let selectedTransactionIds = new Set();
 let period = defaultPeriod();
 let installDone = false;
+let serverRevision = null;
+let syncReady = false;
+let syncConflict = false;
+let syncNotice = "";
+let syncTimer = null;
+let saveInFlight = false;
+let localSequence = 0;
+
+function pendingSync() { return localStorage.getItem(SYNC_PENDING_KEY) === "1"; }
+function rememberedRevision() {
+  const raw = localStorage.getItem(SYNC_REVISION_KEY);
+  return raw === null ? null : Number(raw);
+}
+function hasLocalFinanceContent() {
+  return Boolean(state.transactions.length || state.documents.length || state.imports.length || state.suppliers.length || Object.keys(state.monthClosures).length);
+}
+function mergeByLocalId(remote = [], local = []) {
+  const merged = new Map();
+  for (const item of [...remote, ...local]) if (item?.id) merged.set(item.id, { ...(merged.get(item.id) || {}), ...item });
+  return [...merged.values()];
+}
+function scheduleFinanceSave() {
+  if (!syncReady || syncConflict || syncTimer) return;
+  syncTimer = setTimeout(() => {
+    syncTimer = null;
+    saveServer({ automatic: true });
+  }, 900);
+}
+
 
 function text(value) { return String(value ?? "").trim(); }
 function num(value) { const parsed = Number(value); return Number.isFinite(parsed) ? parsed : 0; }
@@ -282,7 +314,12 @@ async function appendAudit(action, summary, metadata = {}) {
 async function saveLocal(action = "local_save", summary = "Finanzdaten lokal gespeichert.", metadata = {}) {
   state.updatedAt = new Date().toISOString();
   await appendAudit(action, summary, metadata);
-  try { localStorage.setItem(STATE_KEY, JSON.stringify(state)); } catch (error) { toast(error.message, "Speicherfehler"); }
+  try {
+    localStorage.setItem(STATE_KEY, JSON.stringify(state));
+    localStorage.setItem(SYNC_PENDING_KEY, "1");
+    localSequence += 1;
+    scheduleFinanceSave();
+  } catch (error) { toast(error.message, "Speicherfehler"); }
 }
 
 function toast(message, eyebrow = "Elyon Finance") {
@@ -304,21 +341,100 @@ async function api(action, options = {}) {
 }
 
 async function refreshServerStatus() { try { serverStatus = await api("status"); } catch (error) { serverStatus = { ok: false, message: error.message }; } render(); return serverStatus; }
-async function loadServer() {
+async function loadServer({ automatic = false } = {}) {
   try {
-    const data = await api("load"); backupLocal("before_server_load");
-    const merged = mergeTransactions(state.transactions, data.state?.transactions || []);
-    state = normalizeState({ ...state, ...data.state, transactions: merged.transactions, monthClosures: { ...(state.monthClosures || {}), ...(data.state?.monthClosures || {}) }, settings: { ...state.settings, ...(data.state?.settings || {}) }, auditLog: [...(data.state?.auditLog || []), ...state.auditLog].slice(-5000) });
-    await saveLocal("server_load", `Serverdaten geladen: ${merged.inserted} neue Transaktionen.`); render(); toast("Serverdaten wurden zusammengeführt.");
-  } catch (error) { toast(error.message, "Server-Sync blockiert"); }
+    const data = await api("load");
+    const remote = normalizeState(data.state || {});
+    const remoteRevision = Number(data.state?.revision || 0);
+    const knownRevision = rememberedRevision();
+    const pending = pendingSync() || (knownRevision === null && hasLocalFinanceContent());
+    if (automatic && pending && (knownRevision === null || knownRevision !== remoteRevision)) {
+      syncReady = false;
+      syncConflict = true;
+      syncNotice = "Lokale Finanzdaten und Serverstand müssen erst geprüft werden. Nichts wurde überschrieben.";
+      render();
+      return;
+    }
+    if (!automatic && pending && (knownRevision === null || knownRevision !== remoteRevision)) {
+      const accepted = window.confirm("Die lokalen Finanzdaten unterscheiden sich möglicherweise vom Server. Zuerst wird eine lokale Sicherung erstellt. Beide Stände werden zusammengeführt, wobei lokale Einträge Vorrang haben. Fortfahren?");
+      if (!accepted) return;
+    }
+    backupLocal("before_server_load");
+    const merged = pending ? {
+      ...remote,
+      transactions: mergeTransactions(remote.transactions, state.transactions).transactions,
+      documents: mergeByLocalId(remote.documents, state.documents),
+      suppliers: mergeByLocalId(remote.suppliers, state.suppliers),
+      imports: mergeByLocalId(remote.imports, state.imports),
+      monthClosures: { ...remote.monthClosures, ...state.monthClosures },
+      settings: { ...remote.settings, ...state.settings },
+      auditLog: mergeByLocalId(remote.auditLog, state.auditLog),
+    } : remote;
+    state = normalizeState(merged);
+    serverRevision = remoteRevision;
+    syncReady = true;
+    syncConflict = false;
+    syncNotice = pending ? "Lokale Änderungen werden revisionsgeschützt auf den Server übertragen." : "Finanzdaten auf aktuellem Serverstand.";
+    localStorage.setItem(SYNC_REVISION_KEY, String(remoteRevision));
+    localStorage.setItem(STATE_KEY, JSON.stringify(state));
+    if (pending) {
+      localStorage.setItem(SYNC_PENDING_KEY, "1");
+      scheduleFinanceSave();
+    } else {
+      localStorage.removeItem(SYNC_PENDING_KEY);
+    }
+    render();
+    if (!automatic) toast("Serverstand sicher geladen.");
+  } catch (error) {
+    syncReady = false;
+    syncNotice = "Server nicht erreichbar. Lokale Daten bleiben erhalten; keine automatische Synchronisierung.";
+    render();
+    if (!automatic) toast(error.message, "Server-Sync blockiert");
+  }
 }
-async function saveServer() {
+async function saveServer({ automatic = false } = {}) {
+  if (!syncReady || serverRevision === null || syncConflict) {
+    if (!automatic) toast("Zuerst den Serverstand laden und mögliche Konflikte prüfen.", "Synchronisierung");
+    return;
+  }
+  if (saveInFlight) { scheduleFinanceSave(); return; }
+  if (syncTimer) { clearTimeout(syncTimer); syncTimer = null; }
+  saveInFlight = true;
+  const sentSequence = localSequence;
   try {
-    const data = await api("save", { method: "POST", body: { state, action: "finance_v2_sync", source: "seller_finance_v2", summary: "Manuell bestätigter Finance-V2-Sync." } });
-    state = normalizeState(data.state || state); await saveLocal("server_save", "Finanzdaten persistent gesichert."); render(); toast("Finanzdaten persistent gesichert.");
-  } catch (error) { toast(error.message, "Server-Sync blockiert"); }
+    const data = await api("save", {
+      method: "POST",
+      body: { state, expectedRevision: serverRevision, action: "finance_v3_sync", source: "seller_finance_v2", summary: "Revisionsgeprüfte Finance-Synchronisierung." },
+    });
+    serverRevision = Number(data.state?.revision);
+    if (!Number.isSafeInteger(serverRevision)) throw new Error("Ungültige Serverrevision.");
+    localStorage.setItem(SYNC_REVISION_KEY, String(serverRevision));
+    if (sentSequence === localSequence) {
+      state = normalizeState(data.state || state);
+      localStorage.setItem(STATE_KEY, JSON.stringify(state));
+      localStorage.removeItem(SYNC_PENDING_KEY);
+      syncNotice = "Alle Finanzbuchungen mit dem Server synchronisiert.";
+    } else {
+      state.revision = serverRevision;
+      syncNotice = "Weitere lokale Änderungen werden synchronisiert.";
+    }
+    render();
+    if (!automatic) toast("Finanzdaten persistent gesichert.");
+  } catch (error) {
+    if (/finance_conflict|finanzdaten wurden|zeitgleiche|revision/i.test(error.message)) {
+      syncConflict = true;
+      syncReady = false;
+      syncNotice = "Synchronisierung angehalten: Ein anderer Rechner hat Finanzdaten geändert. Lokale Daten bleiben gesichert.";
+    } else {
+      syncNotice = "Server-Synchronisierung fehlgeschlagen. Lokale Daten bleiben erhalten.";
+    }
+    render();
+    if (!automatic) toast(error.message, "Server-Sync blockiert");
+  } finally {
+    saveInFlight = false;
+    if (syncReady && pendingSync()) scheduleFinanceSave();
+  }
 }
-
 function installStyles() {
   if (document.getElementById(STYLE_ID)) return;
   const style = document.createElement("style"); style.id = STYLE_ID; style.textContent = `
@@ -350,7 +466,7 @@ function render() {
   if (!tab.classList.contains("active") && document.getElementById("mainMenu")?.value !== TAB_ID && location.hash !== "#finance") return;
   const metrics = currentMetrics();
   const quality = buildFinanceDataQuality(currentTransactions(), state.documents);
-  tab.innerHTML = `<div class="ef-shell"><header class="ef-head"><div><div class="ef-eyebrow">Elyon Seller Tool · Finance V2</div><h2>Finanzen & Buchhaltung</h2><p class="ef-muted">Echte eBay-Finanzdaten, Kosten, Profitabilität, Belege, Auszahlungsabgleich und Monatsabschluss – mit prüfbaren Exporten.</p></div><div class="ef-actions"><button class="ef-btn" data-ef2-action="load-server">Server laden</button><button class="ef-btn" data-ef2-action="save-server">Persistent sichern</button><button class="ef-btn primary" data-ef2-action="ebay-preview">eBay synchronisieren</button></div></header><div class="ef-callout">Buchhaltungs- und Steuerdatenvorbereitung: keine Steuererklärung, keine automatische Übermittlung und keine eBay-Live-Aktion. DATEV-/EÜR-Exporte bleiben Arbeitsunterlagen bis zur fachlichen Prüfung.</div>${periodMarkup()}${navMarkup()}<div id="elyonFinancePanel">${panelMarkup(activePanel, metrics, quality)}</div></div>`;
+  tab.innerHTML = `<div class="ef-shell"><header class="ef-head"><div><div class="ef-eyebrow">Elyon Seller Tool · Finance V2</div><h2>Finanzen & Buchhaltung</h2><p class="ef-muted">Echte eBay-Finanzdaten, Kosten, Profitabilität, Belege, Auszahlungsabgleich und Monatsabschluss – mit prüfbaren Exporten.</p></div><div class="ef-actions"><button class="ef-btn" data-ef2-action="load-server">Server laden</button><button class="ef-btn" data-ef2-action="save-server">Persistent sichern</button><button class="ef-btn primary" data-ef2-action="ebay-preview">eBay synchronisieren</button></div></header><div class="ef-callout">Buchhaltungs- und Steuerdatenvorbereitung: keine Steuererklärung, keine automatische Übermittlung und keine eBay-Live-Aktion. DATEV-/EÜR-Exporte bleiben Arbeitsunterlagen bis zur fachlichen Prüfung.</div>${syncNotice || !syncReady ? `<div class="ef-callout ${syncConflict ? "bad" : ""}">${escapeHtml(syncNotice || "Finanzdaten: Server-Verbindung wird geprüft.")} ${pendingSync() ? "Lokale Änderungen sind noch nicht sicher serverseitig gespeichert." : ""}</div>` : ""}${periodMarkup()}${navMarkup()}<div id="elyonFinancePanel">${panelMarkup(activePanel, metrics, quality)}</div></div>`;
   if (activePanel === "invoices") setTimeout(() => window.ElyonOrderInvoices?.mount?.(), 0);
 }
 
@@ -409,7 +525,7 @@ function exportRows() { return currentTransactions().filter((entry)=>!entry.void
 function safeAccountingRows() { return approvedTransactions(eurTransactions(exportRows())); }
 function exportAction(action) {
   const rows=exportRows(); const safe=safeAccountingRows(); const quality=buildFinanceDataQuality(rows,state.documents);
-  if (["download-datev","download-eur"].includes(action) && (quality.unapprovedCount || quality.foreignCurrencyCount)) return toast(`Export blockiert: ${quality.unapprovedCount} ungeprüfte Vorgänge, ${quality.foreignCurrencyCount} Fremdwährung(en).`,"Sicherer Export");
+  if (["download-datev","download-eur"].includes(action) && !selectApprovedEurTransactions(rows).ready) return toast(`Export blockiert: ${quality.unapprovedCount} ungeprüfte Vorgänge, ${quality.foreignCurrencyCount} Fremdwährung(en).`,"Sicherer Export");
   if (action==="download-csv") return download(`elyon_finance_${fileStamp()}.csv`,`\uFEFF${exportTransactionsCsv(rows)}`,"text/csv;charset=utf-8");
   if (action==="download-datev") return download(`elyon_datev_vorbereitung_${fileStamp()}.csv`,`\uFEFF${exportDatevPreparation(safe,state.settings)}`,"text/csv;charset=utf-8");
   if (action==="download-eur") return download(`elyon_euer_arbeitsauswertung_${fileStamp()}.json`,JSON.stringify(buildEurSummary(safe),null,2),"application/json");
@@ -435,12 +551,15 @@ async function handleSupplierSubmit(form) { const data=new FormData(form);const 
 async function saveSettings(form) { const data=Object.fromEntries(new FormData(form).entries());state.settings={...state.settings,...data,nextInvoiceNumber:Math.max(1,num(data.nextInvoiceNumber)||1)};await saveLocal("finance_settings_updated","Buchhaltungsparameter aktualisiert.");render();toast("Einstellungen gespeichert."); }
 
 async function reserveInvoice() {
-  const current=Math.max(1,num(state.settings.nextInvoiceNumber)||1);
-  const prefix=text(state.settings.invoicePrefix||"ELYON").replace(/[^A-Za-z0-9_-]/g,"")||"ELYON";
-  const invoiceNumber=`${prefix}-${new Date().getFullYear()}-${String(current).padStart(5,"0")}`;
-  state.settings.nextInvoiceNumber=current+1;
-  await saveLocal("invoice_number_reserved",`Rechnungsnummer ${invoiceNumber} reserviert.`,{invoiceNumber});
-  render();toast(`${invoiceNumber} wurde reserviert.`);
+  try {
+    const data = await api("reserve-invoice-number", {
+      method: "POST",
+      body: { orderId: `manual:${crypto.randomUUID()}`, prefix: state.settings.invoicePrefix, year: new Date().getFullYear() },
+    });
+    await saveLocal("invoice_number_reserved", `Rechnungsnummer ${data.invoiceNumber} reserviert.`, { invoiceNumber: data.invoiceNumber });
+    render();
+    toast(`${data.invoiceNumber} serverseitig reserviert.`);
+  } catch (error) { toast(error.message, "Keine lokale Rechnungsnummer erzeugt"); }
 }
 
 async function closeMonth() { const key=selectedMonthKey();if(!key)return;const rows=currentTransactions();const readiness=buildMonthCloseReadiness(rows,state.documents);if(!readiness.ready)return toast(readiness.blockers.join(" · "),"Monatsabschluss blockiert");const metrics=calculateMetrics(eurTransactions(activeTransactions(rows)));state.monthClosures[key]={closedAt:new Date().toISOString(),periodLabel:period.label,snapshot:{revenue:metrics.revenue,expenses:metrics.expenses,profit:metrics.profit,marginPercent:metrics.marginPercent,transactionCount:metrics.transactionCount},auditState:"closed"};await saveLocal("month_closed",`${period.label} abgeschlossen.`,{month:key,snapshot:state.monthClosures[key].snapshot});render();toast(`${period.label} wurde abgeschlossen.`); }
@@ -475,6 +594,7 @@ function install() {
   installDone=true;installStyles();loadLocal();installMenu();ensureTab();bindEvents();
   window.ElyonSellerFinance={open:openFinance,state:()=>structuredClone(state),status:refreshServerStatus,load:loadServer,save:saveServer,period:()=>({...period}),quality:()=>buildFinanceDataQuality(currentTransactions(),state.documents)};
   if(location.hash==="#finance"||document.getElementById("mainMenu")?.value===TAB_ID)openFinance();
+  void loadServer({ automatic: true });
 }
 
 if(typeof document!=="undefined"){if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",install,{once:true});else install();}
