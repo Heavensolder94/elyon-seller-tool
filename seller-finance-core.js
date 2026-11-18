@@ -500,6 +500,25 @@ export function exportDatevPreparation(transactions = [], settings = {}) {
   return [headers, ...rows].map((row) => row.map((value) => quoteCsv(value, delimiter)).join(delimiter)).join("\r\n");
 }
 
+
+/**
+ * A single export gate for both the browser and server. A transaction awaiting
+ * review or with an unconverted currency must never leak into a tax working
+ * export. Voided entries are excluded, not treated as blockers.
+ */
+export function selectApprovedEurTransactions(transactions = []) {
+  const active = transactions.map((entry) => normalizeFinanceTransaction(entry, entry.source))
+    .filter((entry) => !entry.voidedAt);
+  const unapproved = active.filter((entry) => entry.status !== "approved");
+  const foreignCurrencies = [...new Set(active.filter((entry) => entry.currency !== "EUR").map((entry) => entry.currency))];
+  return {
+    ready: unapproved.length === 0 && foreignCurrencies.length === 0,
+    unapprovedCount: unapproved.length,
+    foreignCurrencies,
+    transactions: active.filter((entry) => entry.status === "approved" && entry.currency === "EUR"),
+  };
+}
+
 export function buildEurSummary(transactions = []) {
   const metrics = calculateMetrics(transactions);
   return {
@@ -543,6 +562,7 @@ export const ElyonFinanceCore = Object.freeze({
   exportTransactionsCsv,
   exportDatevPreparation,
   buildEurSummary,
+  selectApprovedEurTransactions,
   createAuditEvent,
 });
 
