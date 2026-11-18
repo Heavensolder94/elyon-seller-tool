@@ -12,11 +12,12 @@ async function productionRuntime() {
 
 async function renderEmptyDrafts(draftsAvailable, message = "") {
   const runtime = await productionRuntime();
-  const source = runtime.slice(runtime.indexOf('  function renderDraftWorkspace('), runtime.indexOf('  function renderActiveWorkspace('));
+  const source = runtime.slice(runtime.indexOf('  function intakeCountLabel('), runtime.indexOf('  function renderActiveWorkspace('));
   const draftTab = { innerHTML: "", querySelector() { return null; } };
   const context = vm.createContext({
     window: { __elyonSellerState: { draftsAvailable } },
-    draftProducts: [], listingLoading: false,
+    draftProducts: [], listingLoading: false, activeProducts: [], ebayListingStatusOk: true, productIntakeError: "",
+    productIntakeOverview: { total: 3, sources: { nova: 1, amazonImporter: 2, companyOs: 0, unclassified: 0 }, stages: { inbox: 1, review: 2, listingPrepared: 0 }, complete: true, dedupeVerified: true, identityUnverified: 0 },
     ensureListingWorkspaces: () => ({ draftTab }),
     escapeHtml: (value) => String(value),
     message,
@@ -45,7 +46,7 @@ test("confirmed empty draft inventory retains its zero state", async () => {
 
 test("an Inventory API offer and a processed feed are not shown as two confirmed Seller Hub drafts", async () => {
   const runtime = await productionRuntime();
-  const source = runtime.slice(runtime.indexOf('  function renderDraftWorkspace('), runtime.indexOf('  function renderActiveWorkspace('));
+  const source = runtime.slice(runtime.indexOf('  function intakeCountLabel('), runtime.indexOf('  function renderActiveWorkspace('));
   const draftTab = { innerHTML: "", querySelector() { return null; } };
   const context = vm.createContext({
     window: { __elyonSellerState: { draftsAvailable: true } },
@@ -53,7 +54,8 @@ test("an Inventory API offer and a processed feed are not shown as two confirmed
       { sku: "AMZ-B0D63HF7Z4", source: "elyon_inventory_draft", offerId: "243461011011", productMasterMatch: "matched" },
       { sku: "AMZ-B0BWND9WBR", source: "elyon_seller_hub_feed", feedVerification: "feed_processed_not_live_checked", productMasterMatch: "matched" },
     ],
-    listingLoading: false,
+    listingLoading: false, activeProducts: [], ebayListingStatusOk: true, productIntakeError: "",
+    productIntakeOverview: { total: 3, sources: { nova: 1, amazonImporter: 2, companyOs: 0, unclassified: 0 }, stages: { inbox: 1, review: 2, listingPrepared: 0 }, complete: true, dedupeVerified: true, identityUnverified: 0 },
     ensureListingWorkspaces: () => ({ draftTab }),
     escapeHtml: (value) => String(value),
     listingCard: (item) => `<article>${item.sku}</article>`,
@@ -61,16 +63,19 @@ test("an Inventory API offer and a processed feed are not shown as two confirmed
   });
   vm.runInContext(source + '\nrenderDraftWorkspace("");', context);
   const html = draftTab.innerHTML;
-  assert.match(html, /<small>eBay-Angebote<\/small><button type="button" class="elyon-metric-info-btn"[\s\S]*?<strong>1<\/strong>/);
-  assert.match(html, /<small>Importiert<\/small><button type="button" class="elyon-metric-info-btn"[\s\S]*?<strong>3<\/strong>/);
-  assert.match(html, /<small>Verknüpft<\/small><button type="button" class="elyon-metric-info-btn"[\s\S]*?<strong>2<\/strong>/);
-  assert.match(html, /Seller-Hub-Entwürfe<\/small><strong[^>]*>Nicht live prüfbar<\/strong>/);
+  assert.match(html, /<small>Importiert<\/small>[\s\S]*?<strong>3<\/strong>/);
+  assert.match(html, /<small>In Prüfung<\/small>[\s\S]*?<strong>2<\/strong>/);
+  assert.match(html, /<small>Live auf eBay<\/small>[\s\S]*?<strong>0<\/strong>/);
+  assert.match(html, /Unveröffentlichte API-Angebote<\/span><strong>1<\/strong>/);
+  assert.match(html, /Verarbeitete Feed-Aufträge<\/span><strong>1<\/strong>/);
+  assert.match(html, /Mit Company OS verknüpft<\/span><strong>2<\/strong>/);
+  assert.match(html, /Seller-Hub-Entwürfe sind nicht live prüfbar/);
 });
 
 test("each of the three short labels has keyboard and touch accessible info", async () => {
   const html = await (async () => {
     const runtime = await productionRuntime();
-    const source = runtime.slice(runtime.indexOf('  function renderDraftWorkspace('), runtime.indexOf('  function renderActiveWorkspace('));
+    const source = runtime.slice(runtime.indexOf('  function intakeCountLabel('), runtime.indexOf('  function renderActiveWorkspace('));
     const draftTab = { innerHTML: "", querySelector() { return null; } };
     const context = vm.createContext({
       window: { __elyonSellerState: { draftsAvailable: true } },
@@ -78,7 +83,8 @@ test("each of the three short labels has keyboard and touch accessible info", as
         { source: "elyon_inventory_draft", productMasterMatch: "matched" },
         { source: "elyon_seller_hub_feed", feedVerification: "feed_processed_not_live_checked", productMasterMatch: "matched" },
       ],
-      listingLoading: false,
+      listingLoading: false, activeProducts: [], ebayListingStatusOk: true, productIntakeError: "",
+    productIntakeOverview: { total: 3, sources: { nova: 1, amazonImporter: 2, companyOs: 0, unclassified: 0 }, stages: { inbox: 1, review: 2, listingPrepared: 0 }, complete: true, dedupeVerified: true, identityUnverified: 0 },
       ensureListingWorkspaces: () => ({ draftTab }),
       escapeHtml: (value) => String(value),
       listingCard: () => "<article>Produkt</article>",
@@ -88,21 +94,21 @@ test("each of the three short labels has keyboard and touch accessible info", as
   })();
   assert.equal((html.match(/<button type="button" class="elyon-metric-info-btn"/g) || []).length, 3);
   assert.equal((html.match(/popover="auto" role="note"/g) || []).length, 3);
-  for (const id of ["ebay", "import", "linked"]) {
+  for (const id of ["import", "review", "live"]) {
     assert.match(html, new RegExp(`popovertarget="elyon-draft-info-${id}"`));
     assert.match(html, new RegExp(`id="elyon-draft-info-${id}"`));
   }
-  assert.match(html, /aria-label="Info zu eBay-Angeboten"/);
-  assert.match(html, /aria-label="Info zu importierten Aufträgen"/);
-  assert.match(html, /aria-label="Info zu verknüpften Produkten"/);
-  assert.match(html, /eBay-Übertragungen werden separat gezählt/);
-  assert.match(html, /noch keine Freigabe zum Verkauf/);
+  assert.match(html, /aria-label="Info zu Importiert"/);
+  assert.match(html, /aria-label="Info zu In Prüfung"/);
+  assert.match(html, /aria-label="Info zu Live auf eBay"/);
+  assert.match(html, /eBay-Verkaufsstatus/);
+  assert.match(html, /Das ist keine Verkaufsfreigabe/);
   const runtime = await productionRuntime();
   assert.match(runtime, /elyon-metric-info-btn:focus-visible/);
   assert.match(runtime, /elyon-metric-tip/);
-  assert.match(runtime, /Unveröffentlichte Angebote in der eBay Inventory API/);
+  assert.match(runtime, /Unveröffentlichte API-Angebote/);
   assert.match(runtime, /Einmalig erfasste Produkte aus ELYON Nova, Amazon Importer und Company OS/);
-  assert.match(runtime, /Diese Einträge konnten eindeutig Produkten in Company OS zugeordnet/);
+  assert.match(runtime, /Aktive Angebote aus dem verbundenen eBay-Verkäuferkonto/);
   assert.match(runtime, /\.elyon-metric-popover\{position:fixed;inset:auto/);
   assert.match(runtime, /@supports \(position-area: bottom center\)/);
   assert.doesNotMatch(runtime, /elyon-metric-tip\{position:absolute/);
@@ -141,10 +147,10 @@ test("product pipeline menu numbers inserted listing workspaces in sequence", as
 test("draft workspace shows only Elyon-created eBay drafts and a real zero empty state", async () => {
   const runtime = await productionRuntime();
   assert.match(runtime, /Elyon · Unveröffentlicht/);
-  assert.match(runtime, /eBay Inventory API und verarbeitete Seller-Hub-Feed-Aufträge/);
-  assert.match(runtime, /<small>eBay-Angebote<\/small>/);
+  assert.match(runtime, /Produktzugänge, Produktprüfung und aktive eBay-Angebote werden getrennt angezeigt/);
+  assert.match(runtime, /kpi\('Live auf eBay', activeLabel/);
   assert.match(runtime, /Aktuell sind weder unveröffentlichte API-Angebote noch verarbeitete Feed-Aufträge vorhanden/);
-  assert.match(runtime, /Seller-Hub-Entwürfe.*Nicht live prüfbar/);
+  assert.match(runtime, /Seller-Hub-Entwürfe sind nicht live prüfbar/);
   assert.doesNotMatch(runtime, /Inventory API · UNPUBLISHED/);
   assert.doesNotMatch(runtime, /Noch ohne eBay-Artikelnummer/);
   assert.doesNotMatch(runtime, /data-draft-open/);

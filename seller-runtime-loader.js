@@ -315,6 +315,29 @@
       .elyon-intake-hint{color:#94a3b8;font-size:11px;line-height:1.55;margin:8px 0 0}
       .elyon-intake-heading{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
       .elyon-intake-heading h3{margin:0;font-size:16px;color:#e2e8f0}
+
+      .elyon-status-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;margin-top:19px;padding-top:15px;border-top:1px solid rgba(148,163,184,.16)}
+      .elyon-status-kpi{min-width:0;padding:8px 22px 10px 0}
+      .elyon-status-kpi+.elyon-status-kpi{padding-left:22px;border-left:1px solid rgba(148,163,184,.14)}
+      .elyon-status-kpi-head{display:flex;gap:7px;align-items:center}
+      .elyon-status-kpi-head small{color:#a7b9ce;font-size:12px;font-weight:650}
+      .elyon-status-kpi strong{display:block;font-size:31px;line-height:1.2;font-weight:800;color:#f8fafc;margin:8px 0 4px}
+      .elyon-status-kpi p{margin:0;color:#94a3b8;font-size:11px;line-height:1.45}
+      .elyon-intake-summary{padding:20px 24px}
+      .elyon-intake-heading{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+      .elyon-intake-heading h3{font-size:17px}
+      .elyon-status-groups{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:28px;margin-top:20px}
+      .elyon-status-group{min-width:0}
+      .elyon-status-group h4{margin:0 0 10px;color:#e2e8f0;font-size:13px;font-weight:700}
+      .elyon-status-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0;min-width:0;border-bottom:1px solid rgba(148,163,184,.1);font-size:12px;color:#bdcce0}
+      .elyon-status-row:last-child{border-bottom:0}
+      .elyon-status-row strong{color:#f8fafc;font-size:13px;white-space:nowrap;font-variant-numeric:tabular-nums}
+      .elyon-status-foot{color:#94a3b8;font-size:11px;line-height:1.55;margin:14px 0 0}
+      .elyon-intake-summary .elyon-metric-info-btn{display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;padding:0;margin:0;border:1px solid rgba(148,163,184,.4);border-radius:50%;background:transparent;color:#94a3b8;font:700 10px/1 Arial,sans-serif;cursor:pointer;box-shadow:none}
+      .elyon-intake-summary .elyon-metric-info-btn:hover{border-color:#94a3b8;color:#e2e8f0}
+      .elyon-intake-summary .elyon-metric-info-btn:focus-visible{outline:2px solid #93c5fd;outline-offset:3px}
+      @media(max-width:680px){.elyon-status-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}.elyon-status-kpi{padding-right:10px}.elyon-status-kpi+.elyon-status-kpi{padding-left:10px}.elyon-status-kpi strong{font-size:26px}.elyon-status-kpi-head small{font-size:10px}.elyon-status-groups{grid-template-columns:minmax(0,1fr);gap:24px}.elyon-intake-summary{padding:17px}}
+      @media(max-width:400px){.elyon-status-kpis{grid-template-columns:minmax(0,1fr)}.elyon-status-kpi,.elyon-status-kpi+.elyon-status-kpi{padding:10px 0;border-left:0;border-bottom:1px solid rgba(148,163,184,.12)}.elyon-status-kpi:last-child{border-bottom:0}}
       .elyon-listings-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap}
       .elyon-listings-head h2{margin:0 0 7px;font-size:28px;letter-spacing:-.035em}
       .elyon-listings-head p{margin:0;max-width:800px;color:#cbd5e1;font-size:13px;line-height:1.55}
@@ -481,48 +504,76 @@
       ? String(amount) : "~" + amount;
   }
 
+
+  function statusKpisHtml() {
+    const reviewCount = productIntakeOverview?.stages?.review;
+    const reviewLabel = Number.isSafeInteger(reviewCount) && reviewCount >= 0 ? String(reviewCount) : "–";
+    const activeLabel = !listingLoading && ebayListingStatusOk ? String(activeProducts.length) : "–";
+    const popup = (id, label, help) =>
+      '<button type="button" class="elyon-metric-info-btn" aria-label="' + label +
+      '" aria-haspopup="true" popovertarget="' + id + '">i</button>' +
+      '<div id="' + id + '" class="elyon-metric-popover" popover="auto" role="note">' + help + '</div>';
+    const kpi = (title, amount, description, id, help) =>
+      '<div class="elyon-status-kpi"><div class="elyon-status-kpi-head"><small>' + title + '</small>' +
+      popup(id, 'Info zu ' + title, help) + '</div><strong>' + amount +
+      '</strong><p>' + description + '</p></div>';
+    return '<div class="elyon-status-kpis">' +
+      kpi('Importiert', intakeCountLabel(), 'Einmalige Produktzugänge', 'elyon-draft-info-import',
+        'Einmalig erfasste Produkte aus ELYON Nova, Amazon Importer und Company OS. Herkunft und Bearbeitungsstand stehen darunter.') +
+      kpi('In Prüfung', reviewLabel, 'Company OS · Produktprüfung', 'elyon-draft-info-review',
+        'Produkte in der Company-OS-Produktprüfung. Das ist keine Verkaufsfreigabe.') +
+      kpi('Live auf eBay', activeLabel, 'Tatsächlich veröffentlichte Listings', 'elyon-draft-info-live',
+        'Aktive Angebote aus dem verbundenen eBay-Verkäuferkonto. Unveröffentlichte API-Angebote und Feed-Aufträge zählen nicht dazu.') +
+      '</div>';
+  }
+
   function renderIntakeDetails() {
     const overview = productIntakeOverview;
+    const ebayAvailable = !listingLoading && ebayListingStatusOk;
+    const label = (value) => Number.isSafeInteger(value) && value >= 0 ? String(value) : "–";
     const apiOffers = draftProducts.filter((item) => item?.source === "elyon_inventory_draft").length;
     const feeds = draftProducts.filter((item) => item?.source === "elyon_seller_hub_feed" &&
       item?.feedVerification === "feed_processed_not_live_checked").length;
-    const ebayAvailable = !listingLoading && ebayListingStatusOk;
-    const ebayLine = ebayAvailable
-      ? '<div class="elyon-intake-line"><span>eBay-API-Angebote: ' + apiOffers +
-        '</span><span>Verarbeitete Feed-Aufträge: ' + feeds +
-        '</span><span>Aktive eBay-Listings: ' + activeProducts.length + '</span></div>'
-      : '<p class="elyon-intake-hint">eBay-Status derzeit nicht vollständig prüfbar.</p>';
-    if (!overview) {
-      const hint = listingLoading ? "Produkteingänge werden geladen …"
-        : "Produkteingang nicht abrufbar. " + (productIntakeError || "Company-OS-Verbindung prüfen.");
-      return '<section class="card elyon-intake-summary"><div class="elyon-intake-heading"><h3>Produktzugänge &amp; eBay-Status</h3></div>' +
-        '<p class="elyon-intake-hint">' + escapeHtml(hint) +
-        ' Es wird keine Null als echter Importbestand angezeigt.</p>' + ebayLine + '</section>';
-    }
-    const label = (value) => Number.isSafeInteger(value) && value >= 0 ? String(value) : "–";
-    const sources = overview.sources || {};
-    const stages = overview.stages || {};
-    const issue = overview.complete !== true || Number(overview.identityUnverified) > 0;
-    const status = issue ? "Teilweise" : "Abgeglichen";
-    const note = overview.complete !== true
-      ? "Der Nova-Eingang ist möglicherweise länger als das lesbare Fenster. Gesamtzahl unvollständig."
-      : Number(overview.identityUnverified) > 0
-        ? "Bei Einträgen ohne stabile Identität ist eine doppelte Erfassung nicht vollständig auszuschließen."
-        : "Quellen anhand stabiler Produkt- und Import-IDs abgeglichen; keine Titel-Duplikat-Zuordnung.";
+    const matched = draftProducts.filter((item) => item?.productMasterMatch === "matched").length;
+    const row = (name, value) => '<div class="elyon-status-row"><span>' + name +
+      '</span><strong>' + value + '</strong></div>';
+    const source = overview?.sources || {};
+    const stages = overview?.stages || {};
+    const issue = overview && (overview.complete !== true || Number(overview.identityUnverified) > 0);
+    const status = !overview ? "Nicht abrufbar" : issue ? "Teilweise" : "Abgeglichen";
+    const sourceRows = overview
+      ? row('ELYON Nova', label(source.nova)) + row('Amazon Importer', label(source.amazonImporter)) +
+        row('Company OS (direkt)', label(source.companyOs)) +
+        (source.unclassified ? row('Weitere Quellen', label(source.unclassified)) : "")
+      : '<p class="elyon-intake-hint">' + escapeHtml(
+          listingLoading ? "Produktzugänge werden geladen …" : "Company OS momentan nicht erreichbar. " +
+            (productIntakeError || "Verbindung prüfen.")) + '</p>';
+    const eBayRows = ebayAvailable
+      ? row('Unveröffentlichte API-Angebote', label(apiOffers)) +
+        row('Verarbeitete Feed-Aufträge', label(feeds)) +
+        row('Aktive eBay-Listings', label(activeProducts.length)) +
+        row('Mit Company OS verknüpft', label(matched))
+      : '<p class="elyon-intake-hint">eBay-Status nicht vollständig prüfbar.</p>';
+    const stageFoot = overview
+      ? '<p class="elyon-status-foot">Im Eingang: ' + label(stages.inbox) +
+        ' · Listing vorbereitet: ' + label(stages.listingPrepared) + '</p>' : "";
+    const issueNote = !overview
+      ? "Fehlende Daten werden nicht als Null dargestellt."
+      : overview.complete !== true
+        ? "Der Nova-Eingang ist möglicherweise länger als das abrufbare Fenster. Gesamtzahl unvollständig."
+        : Number(overview.identityUnverified) > 0
+          ? "Bei Produkten ohne stabile ID ist eine Doppelzählung nicht vollständig auszuschließen."
+          : "Produktquellen anhand stabiler Import- und Produkt-IDs abgeglichen.";
     return '<section class="card elyon-intake-summary">' +
-      '<div class="elyon-intake-heading"><h3>Produktzugänge &amp; eBay-Status</h3><span class="elyon-listing-pill">' + status + '</span></div>' +
-      '<div class="elyon-intake-lines">' +
-        '<div class="elyon-intake-line"><span>Einmalig erfasst: ' + escapeHtml(intakeCountLabel()) +
-        '</span><span>ELYON Nova: ' + label(sources.nova) +
-        '</span><span>Amazon Importer: ' + label(sources.amazonImporter) +
-        '</span><span>Company OS: ' + label(sources.companyOs) +
-        '</span>' + (sources.unclassified ? '<span>Weitere Quellen: ' + label(sources.unclassified) + '</span>' : '') + '</div>' +
-        '<div class="elyon-intake-line"><span>Im Eingang: ' + label(stages.inbox) +
-        '</span><span>Produktprüfung: ' + label(stages.review) +
-        '</span><span>Listing vorbereitet: ' + label(stages.listingPrepared) + '</span></div>' +
-        '<div class="elyon-intake-line"><span>eBay-Vorgänge (separat):</span></div>' + ebayLine +
-      '</div><p class="elyon-intake-hint">' + escapeHtml(note) +
-      ' Verarbeitete Feed-Aufträge sind keine live bestätigten Seller-Hub-Entwürfe. Abgelehnte/archivierte Produkte sind nicht im aktiven Eingang enthalten.</p></section>';
+      '<div class="elyon-intake-heading"><h3>Produktübersicht</h3><span class="elyon-listing-pill">' + status + '</span></div>' +
+      '<div class="elyon-status-groups">' +
+      '<div class="elyon-status-group"><h4>Woher kommen deine Produkte?</h4>' +
+      sourceRows + stageFoot + '</div>' +
+      '<div class="elyon-status-group"><h4>eBay-Verkaufsstatus</h4>' + eBayRows +
+      '<p class="elyon-status-foot">Seller-Hub-Entwürfe sind nicht live prüfbar.</p></div>' +
+      '</div><p class="elyon-status-foot">' + escapeHtml(issueNote) +
+      ' Feed-Aufträge beweisen keinen bestätigten Seller-Hub-Entwurf. Abgelehnte oder archivierte Produkte sind nicht im aktiven Eingang enthalten.</p>' +
+      '</section>';
   }
 
   function renderDraftWorkspace(message = "") {
