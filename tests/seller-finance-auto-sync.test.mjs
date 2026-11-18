@@ -4,6 +4,7 @@ import { authorizeFinanceCron } from "../api/finance-auto-sync.js";
 import { berlinMonthKey, selectNewAutoTransactions, runAutomaticEbayFinanceSync } from "../lib/ebay-finance-auto-sync.js";
 import { mergeFinanceState, normalizeFinanceState } from "../lib/finance-store.js";
 import { normalizeEbayApiTransactions, mergeTransactions } from "../seller-finance-core.js";
+import { signFinancesGetRequest } from "../lib/ebay-finance-signature.js";
 
 const sale = (id, date = "2026-11-18T09:00:00Z") => ({
   transactionId: id, transactionDate: date, transactionType: "SALE",
@@ -12,6 +13,22 @@ const sale = (id, date = "2026-11-18T09:00:00Z") => ({
 const raw = (transactions) => ({ environment: "production", transactions });
 const persistent = () => ({ persistent: true, configured: true });
 const state = (input = {}) => normalizeFinanceState(input);
+
+test("signing configuration errors identify only the missing Preview keys", () => {
+  const target = "https://apiz.ebay.com/sell/finances/v1/transaction";
+  assert.throws(
+    () => signFinancesGetRequest(target, { jwe: "", privateKey: "example" }),
+    (failure) => failure.code === "ebay_signature_not_configured"
+      && failure.message.includes("EBAY_SIGNATURE_JWE")
+      && !failure.message.includes("EBAY_SIGNATURE_PRIVATE_KEY"),
+  );
+  assert.throws(
+    () => signFinancesGetRequest(target, { jwe: "example", privateKey: "" }),
+    (failure) => failure.code === "ebay_signature_not_configured"
+      && failure.message.includes("EBAY_SIGNATURE_PRIVATE_KEY")
+      && !failure.message.includes("EBAY_SIGNATURE_JWE"),
+  );
+});
 
 test("cron requires a configured secret with exact bearer authorization", () => {
   assert.equal(authorizeFinanceCron({ headers: {} }, {}).status, 503);
