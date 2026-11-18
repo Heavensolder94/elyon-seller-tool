@@ -81,7 +81,8 @@ test("listing status UI shows numeric live counts plus lifecycle history", async
   assert.match(source, /<small>Aktive Listings<\/small><strong>\$\{active\}/);
   assert.match(source, /<small>Entfernt<\/small>/);
   assert.match(source, /<small>Beendet<\/small>/);
-  assert.match(source, /zwei erfolgreichen Abgleichen/i);\n  assert.match(source, /verarbeitete Feed-Aufträge/);
+  assert.match(source, /zwei erfolgreichen Abgleichen/i);
+  assert.match(source, /verarbeitete Feed-Aufträge/);
   assert.doesNotMatch(source, /Seller Hub · Entwürfe/);
   assert.doesNotMatch(source, /Inventory API · UNPUBLISHED/);
   assert.doesNotMatch(source, /sync-listings/);
