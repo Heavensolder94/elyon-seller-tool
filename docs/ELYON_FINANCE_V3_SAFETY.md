@@ -47,3 +47,23 @@ Ein anderer Rechner kann den Originalbeleg bei Bedarf über die geschützte API 
 - Vollständige GoBD-/DATEV-Konformitätsaussage.
 
 **Release-Policy:** Draft-PR; manuelle Prüfung der obigen Punkte vor Merge und produktiver Veröffentlichung erforderlich.
+
+
+## eBay-Finances-API (EU/UK): Digital Signatures
+
+Der Finance-V3-Preview-Fehler vom 18.11.2026 (HTTP 403, "Missing x-ebay-signature-key header") wurde im Vercel-Runtime-Log bestätigt. eBay verlangt für EU-/UK-Verkäufer signierte Aufrufe an alle Finances-API-Endpunkte.
+
+- Der Server signiert GET-Anfragen für Finances-Transaktionen und Auszahlungen mit x-ebay-signature-key, Signature-Input und Signature.
+- Die Signatur wird ausschließlich serverseitig in lib/ebay-finance-signature.js erstellt. Browser und öffentliche API-Statusdaten geben keine Schlüsselwerte zurück.
+- Ed25519 (empfohlen) und RSA-SHA256/PKCS#1 v1.5 werden unterstützt. Für GET-Anfragen ist kein Content-Digest notwendig.
+- Die Vercel-Konfiguration des Seller-Tool-Projekts benötigt pro Umgebung die gültigen Variablen EBAY_SIGNATURE_JWE und EBAY_SIGNATURE_PRIVATE_KEY. Alternativ werden EBAY_SIGNING_KEY_JWE und EBAY_SIGNING_PRIVATE_KEY akzeptiert.
+- Das ist ein eBay-Key-Management-Schlüsselpaar, nicht die App ID/Cert ID oder der OAuth-Refresh-Token. Die Private Key PEM darf ausschließlich als geschützte Server-Umgebungsvariable abgelegt werden, niemals in Git, Chat, Screenshots oder HTML.
+- PEM-Werte mit echten Zeilenumbrüchen oder als \n gespeicherten Zeilenumbrüchen werden unterstützt.
+- Fehlende Signaturschlüssel führen zu einer klaren Fehlermeldung, ohne dass unsigniert auf eBay zugegriffen wird. Bestehende Finanzdaten bleiben unberührt.
+- Nach dem Eintragen ist ein neues Preview-Deployment erforderlich. Danach erst read-only Finances-Preview sowie OAuth-Scope sell.finances prüfen.
+- Ohne ein gültiges, vom eBay Developer Program erzeugtes Schlüsselpaar ist die Verbindung weiterhin nicht funktionsfähig.
+
+Offizielle Quellen:
+- https://developer.ebay.com/develop/guides/sell/digital-signatures-for-apis
+- https://developer.ebay.com/api-docs/developer/key-management/static/overview.html
+
