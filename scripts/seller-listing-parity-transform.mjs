@@ -249,6 +249,28 @@ export function transformSellerRuntimeLoader(source) {
     "generalized feed help text missing",
   );
 
+
+  // Keep legacy parity checks intact, then swap the crowded four-column
+  // diagnostics KPI grid for three operational headline metrics.
+  const draftsFunctionStart = output.indexOf('  function renderDraftWorkspace(');
+  const draftDashboardOpen = '          <div class="dashboard" style="margin-top:16px;margin-bottom:0">';
+  const dashboardStart = output.indexOf(draftDashboardOpen, draftsFunctionStart);
+  const activeFunctionStart = output.indexOf('  function renderActiveWorkspace(', draftsFunctionStart);
+  const dashboardClose = '\n          </div>';
+  const dashboardEnd = output.indexOf(dashboardClose, dashboardStart);
+  if (draftsFunctionStart < 0 || dashboardStart < 0 || activeFunctionStart < 0 ||
+      dashboardEnd < dashboardStart || dashboardEnd > activeFunctionStart) {
+    throw new Error("Seller listing parity transform failed: status cockpit metric boundary");
+  }
+  output = output.slice(0, dashboardStart) +
+    '          ${statusKpisHtml()}' +
+    output.slice(dashboardEnd + dashboardClose.length);
+  output = replaceRequired(
+    output,
+    'Die eBay Inventory API und verarbeitete Seller-Hub-Feed-Aufträge sind getrennte Quellen. Keiner dieser Einträge beweist einen aktuell sichtbaren Seller-Hub-Entwurf. Ein Product-Master-Match bestätigt nur die Zuordnung zu Company OS.',
+    'Produktzugänge, Produktprüfung und aktive eBay-Angebote werden getrennt angezeigt. Noch unveröffentlichte eBay-API-Angebote und Feed-Aufträge sind keine aktiven Listings.',
+    "cockpit explanatory subtitle missing",
+  );
   return output;
 }
 
