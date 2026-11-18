@@ -33,6 +33,13 @@ test("eBay Finances GET signature verifies as Ed25519 RFC 9421 message", () => {
   verifySignedHeaders(headers, publicKey, null);
 });
 
+test("eBay raw createSigningKey base64 PKCS8 DER signs without manual PEM conversion", () => {
+  const { privateKey, publicKey } = generateKeyPairSync("ed25519");
+  const rawEbayKey = privateKey.export({ type: "pkcs8", format: "der" }).toString("base64");
+  const headers = signFinancesGetRequest(url, { jwe, privateKey: rawEbayKey, created: timestamp });
+  verifySignedHeaders(headers, publicKey, null);
+});
+
 test("eBay Finances GET signature verifies as RSA-SHA256 and normalizes escaped PEM newlines", () => {
   const { privateKey, publicKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
   const pem = privateKey.export({ type: "pkcs8", format: "pem" });
