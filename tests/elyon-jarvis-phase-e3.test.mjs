@@ -208,5 +208,6 @@ test("E3 wiring remains protected while E4 adds the control gate", async () => {
   assert.match(workerStore, /"SET", leaseKey, owner, "NX", "EX"/);
   assert.match(cloudUi, /Phase E4/);
   assert.match(cloudUi, /WORKER AKTIV/);
-  assert.deepEqual(vercel.crons, [{ path: "/api/jarvis-worker", schedule: "*/5 * * * *" }]);
+  assert.ok(vercel.crons.some((cron) => cron.path === "/api/jarvis-worker" && cron.schedule === "*/5 * * * *"));
+  assert.ok(vercel.crons.some((cron) => cron.path === "/api/finance-auto-sync" && cron.schedule === "0 6 * * *"));
 });
