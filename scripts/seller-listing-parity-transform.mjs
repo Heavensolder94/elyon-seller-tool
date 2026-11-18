@@ -202,6 +202,35 @@ export function transformSellerRuntimeLoader(source) {
     "small screen info panel style missing",
   );
 
+
+  // Small, native top-layer popovers: no card expansion or clipping.
+  // The popovertarget button supplies the implicit anchor; modern browsers
+  // position the popup below the trigger and flip when space is limited.
+  output = replaceRequired(
+    output,
+    "<details class=\"elyon-metric-info\"><summary aria-label=\"Info zu eBay-Angeboten\" title=\"Unveröffentlichte eBay-API-Angebote; nicht zwingend im Seller Hub sichtbar.\">i</summary><span class=\"elyon-metric-tip\">Unveröffentlichte Angebote in der eBay Inventory API. Sie müssen nicht im eBay Seller Hub unter Entwürfe erscheinen.</span></details>",
+    "<button type=\"button\" class=\"elyon-metric-info-btn\" aria-label=\"Info zu eBay-Angeboten\" aria-haspopup=\"true\" popovertarget=\"elyon-draft-info-ebay\">i</button><div id=\"elyon-draft-info-ebay\" class=\"elyon-metric-popover\" popover=\"auto\" role=\"note\">Unveröffentlichte Angebote in der eBay Inventory API. Sie müssen nicht im eBay Seller Hub unter Entwürfe erscheinen.</div>",
+    "popover conversion failed: ebay",
+  );
+  output = replaceRequired(
+    output,
+    "<details class=\"elyon-metric-info\"><summary aria-label=\"Info zu importierten Aufträgen\" title=\"Feed-Auftrag verarbeitet; Seller-Hub-Entwurf nicht live bestätigt.\">i</summary><span class=\"elyon-metric-tip\">Vom Amazon Importer übermittelte und verarbeitete Feed-Aufträge. Ob sie im Seller Hub als Entwurf vorhanden sind, ist nicht live bestätigt.</span></details>",
+    "<button type=\"button\" class=\"elyon-metric-info-btn\" aria-label=\"Info zu importierten Aufträgen\" aria-haspopup=\"true\" popovertarget=\"elyon-draft-info-import\">i</button><div id=\"elyon-draft-info-import\" class=\"elyon-metric-popover\" popover=\"auto\" role=\"note\">Vom Amazon Importer übermittelte und verarbeitete Feed-Aufträge. Ob sie im Seller Hub als Entwurf vorhanden sind, ist nicht live bestätigt.</div>",
+    "popover conversion failed: import",
+  );
+  output = replaceRequired(
+    output,
+    "<details class=\"elyon-metric-info\"><summary aria-label=\"Info zu verknüpften Produkten\" title=\"Company-OS-Produkt eindeutig zugeordnet; noch keine Verkaufsfreigabe.\">i</summary><span class=\"elyon-metric-tip\">Diese Einträge konnten eindeutig Produkten in Company OS zugeordnet werden. Das ist noch keine Freigabe zum Verkauf.</span></details>",
+    "<button type=\"button\" class=\"elyon-metric-info-btn\" aria-label=\"Info zu verknüpften Produkten\" aria-haspopup=\"true\" popovertarget=\"elyon-draft-info-linked\">i</button><div id=\"elyon-draft-info-linked\" class=\"elyon-metric-popover\" popover=\"auto\" role=\"note\">Diese Einträge konnten eindeutig Produkten in Company OS zugeordnet werden. Das ist noch keine Freigabe zum Verkauf.</div>",
+    "popover conversion failed: linked",
+  );
+  output = replaceRequired(
+    output,
+    "      @media(max-width:760px){.elyon-listing-card{grid-template-columns:58px minmax(0,1fr)}.elyon-listing-image{width:58px;height:58px}}",
+    "      .elyon-listings-shell .elyon-metric-heading{gap:5px}\n      .elyon-listings-shell .elyon-metric-info-btn{display:inline-flex;align-items:center;justify-content:center;width:17px;min-width:17px;height:17px;min-height:17px;padding:0;margin:0;border:1px solid rgba(148,163,184,.4);border-radius:50%;background:transparent;color:#94a3b8;font:700 10px/1 Arial,sans-serif;cursor:pointer;box-shadow:none}\n      .elyon-listings-shell .elyon-metric-info-btn:hover{color:#e2e8f0;background:rgba(148,163,184,.08);border-color:#94a3b8}\n      .elyon-listings-shell .elyon-metric-info-btn:focus-visible{outline:2px solid #93c5fd;outline-offset:3px}\n      .elyon-metric-popover{position:fixed;inset:auto;top:50%;left:50%;transform:translate(-50%,-50%);box-sizing:border-box;width:max-content;max-width:min(260px,calc(100vw - 32px));margin:0;padding:10px 12px;border:1px solid rgba(148,163,184,.3);border-radius:12px;background:#111d30;color:#e2e8f0;font-size:12px;font-weight:400;line-height:1.5;white-space:normal;overflow-wrap:anywhere;box-shadow:0 8px 24px rgba(0,0,0,.24)}\n      @supports (position-area: bottom center){.elyon-metric-popover{top:auto;left:auto;transform:none;position-area:bottom center;margin-block-start:7px;position-try-fallbacks:flip-block,flip-inline}}\n      @media(max-width:760px){.elyon-listing-card{grid-template-columns:58px minmax(0,1fr)}.elyon-listing-image{width:58px;height:58px}}",
+    "compact info popover styles missing",
+  );
+
   return output;
 }
 
