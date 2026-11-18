@@ -77,3 +77,7 @@ Nach HTTP 201 Created liefert createSigningKey die Felder `jwe`, `privateKey`, `
 - `publicKey` und `signingKeyId` sind für diese zwei Vercel-Variablen nicht erforderlich.
 - Ein privater Schlüssel, der in Chat oder Screenshot zu sehen war, sollte nicht in Betrieb genommen werden. Stattdessen ein neues Schlüsselpaar erzeugen und den neuen privaten Schlüssel ausschließlich in der geschützten Vercel-Konfiguration speichern.
 - Neue/aktualisierte Preview-Umgebungsvariablen werden erst durch ein neu erstelltes Preview-Deployment wirksam.
+
+### Preview-Deployment nach Änderung der Vercel-Umgebungsvariablen
+
+Vercel verwendet neue, branchgebundene Environment Variables nur für nachfolgende Builds. Nach dem Speichern ist deshalb ein neues Preview-Deployment für Branch `fix/finance-v3-data-safety-20261118` nötig. Der frühere Preview-Build darf nicht als Beleg für die neue Konfiguration angesehen werden. Die Signaturprüfung zeigt ausschließlich `configured: true/false` an und niemals den privaten Schlüssel oder das JWE.
