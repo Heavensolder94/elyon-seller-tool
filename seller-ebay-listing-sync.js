@@ -75,16 +75,19 @@
     const counts = data?.counts || {};
     const active = number(counts.active);
     const drafts = number(counts.drafts);
+    const draftItems = Array.isArray(data?.draftItems) ? data.draftItems : [];
+    const apiOfferCount = draftItems.filter((item) => item?.source === "elyon_inventory_draft").length;
+    const feedTaskCount = draftItems.filter((item) => item?.source === "elyon_seller_hub_feed").length;
     const removed = number(counts.removed);
     const ended = number(counts.ended);
     const draftsAvailable = data?.draftsAvailable !== false;
     const lifecycleReliable = data?.ebayLifecycle?.reliable !== false;
     const syncedAt = data?.syncedAt ? new Date(data.syncedAt).toLocaleString("de-DE") : "gerade eben";
     const draftHint = draftsAvailable && lifecycleReliable
-      ? "eBay ist die Quelle für den Verkaufsstatus. Gelöschte Entwürfe und beendete Listings bleiben als Elyon-Historie erhalten; erst zwei erfolgreiche Abgleiche ohne Treffer bestätigen das Entfernen."
+      ? `Davon ${apiOfferCount} unveröffentlichte eBay-API-Angebote und ${feedTaskCount} verarbeitete Feed-Aufträge. Ob ein Entwurf aktuell im eBay Seller Hub sichtbar ist, kann hier nicht live geprüft werden. Die Elyon-Historie wird nach zwei erfolgreichen Abgleichen aktualisiert.`
       : `eBay-Lifecycle konnte gerade nicht vollständig geprüft werden: ${text(data?.draftError || "Unbekannter Fehler")}`;
 
-    card.innerHTML = `<div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap"><div><h2>🛒 eBay Listing-Status</h2><p class="hint">Live-Status plus sichere Historie für Elyon-Entwürfe und eBay-Listings.</p></div><button type="button" class="secondary" id="elyonEbayListingSyncRefresh">Jetzt aktualisieren</button></div><div class="dashboard" style="margin-bottom:0"><div class="metric"><small>Entwürfe</small><strong>${draftsAvailable ? drafts : "!"}</strong></div><div class="metric"><small>Aktive Listings</small><strong>${active}</strong></div><div class="metric"><small>Entfernt</small><strong>${lifecycleReliable ? removed : "!"}</strong></div><div class="metric"><small>Beendet</small><strong>${lifecycleReliable ? ended : "!"}</strong></div><div class="metric"><small>Letzte Synchronisation</small><strong style="font-size:14px">${syncedAt}</strong></div></div><p class="hint" style="margin-top:12px;margin-bottom:0">${draftHint}</p>`;
+    card.innerHTML = `<div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap"><div><h2>🛒 eBay Listing-Status</h2><p class="hint">Live-Status plus sichere Historie für Elyon-Entwürfe und eBay-Listings.</p></div><button type="button" class="secondary" id="elyonEbayListingSyncRefresh">Jetzt aktualisieren</button></div><div class="dashboard" style="margin-bottom:0"><div class="metric"><small>Elyon-Entwurfseinträge</small><strong>${draftsAvailable ? drafts : "!"}</strong></div><div class="metric"><small>Aktive Listings</small><strong>${active}</strong></div><div class="metric"><small>Entfernt</small><strong>${lifecycleReliable ? removed : "!"}</strong></div><div class="metric"><small>Beendet</small><strong>${lifecycleReliable ? ended : "!"}</strong></div><div class="metric"><small>Letzte Synchronisation</small><strong style="font-size:14px">${syncedAt}</strong></div></div><p class="hint" style="margin-top:12px;margin-bottom:0">${draftHint}</p>`;
     card.querySelector("#elyonEbayListingSyncRefresh")?.addEventListener("click", () => load({ force: true }), { once: true });
     return data;
   }
