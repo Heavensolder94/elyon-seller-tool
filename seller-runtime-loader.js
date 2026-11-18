@@ -15,6 +15,7 @@
   let activeProducts = [];
   let productIntakeOverview = null;
   let productIntakeError = "";
+  let ebayListingStatusOk = false;
 
   const GROUPS = {
     quickstart: [
@@ -485,7 +486,7 @@
     const apiOffers = draftProducts.filter((item) => item?.source === "elyon_inventory_draft").length;
     const feeds = draftProducts.filter((item) => item?.source === "elyon_seller_hub_feed" &&
       item?.feedVerification === "feed_processed_not_live_checked").length;
-    const ebayAvailable = !listingLoading && window.__elyonSellerState?.draftsAvailable !== false;
+    const ebayAvailable = !listingLoading && ebayListingStatusOk;
     const ebayLine = ebayAvailable
       ? '<div class="elyon-intake-line"><span>eBay-API-Angebote: ' + apiOffers +
         '</span><span>Verarbeitete Feed-Aufträge: ' + feeds +
@@ -635,6 +636,7 @@
   async function refreshListingWorkspaces(manual = false, requestedTab = DRAFT_TAB_ID) {
     if (listingLoading) return;
     listingLoading = true;
+    ebayListingStatusOk = false;
     renderDraftWorkspace();
     renderActiveWorkspace();
     let message = "";
@@ -650,6 +652,7 @@
         : text(intakeResult.reason?.message || "Company OS derzeit nicht erreichbar");
       if (listingResult.status !== "fulfilled") throw listingResult.reason;
 
+      ebayListingStatusOk = listingResult.value?.draftsAvailable !== false;
       const items = Array.isArray(listingResult.value?.items) ? listingResult.value.items : [];
       const products = productResult.status === "fulfilled" && Array.isArray(productResult.value?.products)
         ? productResult.value.products
@@ -665,6 +668,7 @@
     } catch (error) {
       draftProducts = [];
       activeProducts = [];
+      ebayListingStatusOk = false;
       const authHint = error?.status === 403 ? " Bitte Seller-Sitzung erneut anmelden." : "";
       message = `Fehler: eBay Listing-Bestand konnte nicht geladen werden: ${text(error?.message) || "Unbekannter Fehler"}.${authHint}`;
     } finally {
