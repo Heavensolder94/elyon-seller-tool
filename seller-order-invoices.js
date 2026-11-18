@@ -163,15 +163,6 @@
     } finally { loading = false; render(); }
   }
 
-  function invoiceNumber(meta) {
-    const rawPrefix = text(settings().invoicePrefix || 'ELYON').replace(/[^A-Za-z0-9_-]/g, '');
-    const prefix = rawPrefix || 'ELYON';
-    const used = Object.values(meta).map((item) => { const match = String(item && item.invoiceNumber || '').match(/(\\d+)$/); return num(match && match[1]); }).filter(Boolean);
-    const configured = Math.max(1, num(settings().nextInvoiceNumber || 1));
-    const next = Math.max(configured, used.length ? Math.max.apply(null, used) + 1 : 1);
-    return prefix + '-' + new Date().getFullYear() + '-' + String(next).padStart(5, '0');
-  }
-
   function linesMarkup(order) {
     const lines = order.lines.length ? order.lines : [{ title: 'eBay-Bestellung', quantity: 1, total: order.total, currency: order.currency }];
     return lines.map((line) => '<tr><td>' + esc(line.title) + '</td><td class="num">' + line.quantity + '</td><td class="num">' + money(line.total, line.currency || order.currency) + '</td></tr>').join('');
@@ -189,12 +180,30 @@
     popup.document.write(html); popup.document.close(); popup.focus();
   }
 
-  function createInvoice(order) {
-    const meta = readMeta();
+  async function createInvoice(order) {
+    let meta = readMeta();
     if (!meta[order.id]) {
-      meta[order.id] = { orderId: order.id, invoiceNumber: invoiceNumber(meta), createdAt: new Date().toISOString(), status: 'erstellt', total: order.total, currency: order.currency };
-      saveJson(META_KEY, meta);
-      notify('Rechnung ' + meta[order.id].invoiceNumber + ' erstellt. Keine automatische Nachricht versendet.');
+      try {
+        // No locally generated invoice numbers: concurrent PCs reserve on the
+        // same Redis counter and retries for an order return the same number.
+        const response = await fetch('/api/finance?action=reserve-invoice-number', {
+          method: 'POST', credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ orderId: order.id, prefix: settings().invoicePrefix || 'ELYON', year: new Date().getFullYear() }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || !data.ok || !data.invoiceNumber) throw new Error(data.message || data.error || 'Server-Reservierung nicht verfügbar');
+        // Another click/tab may have completed this order while we awaited the server.
+        meta = readMeta();
+        if (!meta[order.id]) {
+          meta[order.id] = { orderId: order.id, invoiceNumber: data.invoiceNumber, createdAt: new Date().toISOString(), status: 'erstellt', total: order.total, currency: order.currency };
+          saveJson(META_KEY, meta);
+          notify('Rechnung ' + data.invoiceNumber + ' erstellt. Keine automatische Nachricht versendet.');
+        }
+      } catch (error) {
+        notify('Rechnung nicht erstellt: ' + error.message + '. Keine unsichere lokale Rechnungsnummer erzeugt.', 'Rechnung');
+        return;
+      }
     }
     printInvoice(order, meta[order.id]); render();
   }

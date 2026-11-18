@@ -7,6 +7,7 @@ import {
   exportTransactionsCsv,
   exportDatevPreparation,
   buildEurSummary,
+  selectApprovedEurTransactions,
   createAuditEvent,
 } from "./seller-finance-core.js";
 
@@ -17,6 +18,8 @@ const BACKUP_PREFIX = "elyon_finance_backup_";
 const DB_NAME = "elyon-finance-documents";
 const DB_STORE = "files";
 const BASE_CURRENCY = "EUR";
+const SYNC_PENDING_KEY = "elyon_finance_sync_pending";
+const SYNC_REVISION_KEY = "elyon_finance_last_server_revision";
 const euro = new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" });
 const percent = new Intl.NumberFormat("de-DE", { maximumFractionDigits: 1 });
 const dateTime = new Intl.DateTimeFormat("de-DE", { dateStyle: "short", timeStyle: "short" });
@@ -29,6 +32,35 @@ let serverStatus = null;
 let selectedTransactionIds = new Set();
 let period = defaultPeriod();
 let installDone = false;
+let serverRevision = null;
+let syncReady = false;
+let syncConflict = false;
+let syncNotice = "";
+let syncTimer = null;
+let saveInFlight = false;
+let localSequence = 0;
+
+function pendingSync() { return localStorage.getItem(SYNC_PENDING_KEY) === "1"; }
+function rememberedRevision() {
+  const raw = localStorage.getItem(SYNC_REVISION_KEY);
+  return raw === null ? null : Number(raw);
+}
+function hasLocalFinanceContent() {
+  return Boolean(state.transactions.length || state.documents.length || state.imports.length || state.suppliers.length || Object.keys(state.monthClosures).length);
+}
+function mergeByLocalId(remote = [], local = []) {
+  const merged = new Map();
+  for (const item of [...remote, ...local]) if (item?.id) merged.set(item.id, { ...(merged.get(item.id) || {}), ...item });
+  return [...merged.values()];
+}
+function scheduleFinanceSave() {
+  if (!syncReady || syncConflict || syncTimer) return;
+  syncTimer = setTimeout(() => {
+    syncTimer = null;
+    saveServer({ automatic: true });
+  }, 900);
+}
+
 
 function text(value) { return String(value ?? "").trim(); }
 function num(value) { const parsed = Number(value); return Number.isFinite(parsed) ? parsed : 0; }
@@ -282,10 +314,36 @@ async function appendAudit(action, summary, metadata = {}) {
 async function saveLocal(action = "local_save", summary = "Finanzdaten lokal gespeichert.", metadata = {}) {
   state.updatedAt = new Date().toISOString();
   await appendAudit(action, summary, metadata);
-  try { localStorage.setItem(STATE_KEY, JSON.stringify(state)); } catch (error) { toast(error.message, "Speicherfehler"); }
+  try {
+    localStorage.setItem(STATE_KEY, JSON.stringify(state));
+    localStorage.setItem(SYNC_PENDING_KEY, "1");
+    localSequence += 1;
+    scheduleFinanceSave();
+  } catch (error) { toast(error.message, "Speicherfehler"); }
+}
+
+function financeErrorText(value, fallback = "Unbekannter Finance-Fehler", depth = 0) {
+  if (typeof value === "string") return value.trim() && value.trim() !== "[object Object]" ? value.trim() : fallback;
+  if (depth >= 3 || value === null || value === undefined) return fallback;
+  if (Array.isArray(value)) {
+    for (const entry of value) {
+      const result = financeErrorText(entry, "", depth + 1);
+      if (result) return result;
+    }
+    return fallback;
+  }
+  if (typeof value === "object") {
+    for (const field of ["longMessage", "message", "error_description", "description", "error", "errors", "details"]) {
+      if (!Object.hasOwn(value, field)) continue;
+      const result = financeErrorText(value[field], "", depth + 1);
+      if (result) return result;
+    }
+  }
+  return fallback;
 }
 
 function toast(message, eyebrow = "Elyon Finance") {
+  message = financeErrorText(message);
   if (typeof window !== "undefined" && typeof window.toast === "function") return window.toast(message, eyebrow);
   if (typeof document === "undefined") return;
   document.getElementById("elyonFinanceToast")?.remove();
@@ -299,26 +357,109 @@ async function api(action, options = {}) {
   const query = new URLSearchParams({ action, ...(options.query || {}) });
   const response = await fetch(`/api/finance?${query}`, { method, credentials: "same-origin", cache: "no-store", headers: method === "GET" ? { Accept: "application/json" } : { "Content-Type": "application/json", Accept: "application/json" }, body: method === "GET" ? undefined : JSON.stringify(options.body || {}) });
   const data = await response.json().catch(() => ({}));
-  if (!response.ok || data.ok === false) throw new Error(data.message || data.error || `Finance API HTTP ${response.status}`);
+  if (!response.ok || data.ok === false) throw new Error(financeErrorText(data.message, "") || financeErrorText(data.error, "") || `Finance API HTTP ${response.status}`);
   return data;
 }
 
 async function refreshServerStatus() { try { serverStatus = await api("status"); } catch (error) { serverStatus = { ok: false, message: error.message }; } render(); return serverStatus; }
-async function loadServer() {
+async function loadServer({ automatic = false } = {}) {
   try {
-    const data = await api("load"); backupLocal("before_server_load");
-    const merged = mergeTransactions(state.transactions, data.state?.transactions || []);
-    state = normalizeState({ ...state, ...data.state, transactions: merged.transactions, monthClosures: { ...(state.monthClosures || {}), ...(data.state?.monthClosures || {}) }, settings: { ...state.settings, ...(data.state?.settings || {}) }, auditLog: [...(data.state?.auditLog || []), ...state.auditLog].slice(-5000) });
-    await saveLocal("server_load", `Serverdaten geladen: ${merged.inserted} neue Transaktionen.`); render(); toast("Serverdaten wurden zusammengeführt.");
-  } catch (error) { toast(error.message, "Server-Sync blockiert"); }
+    const data = await api("load");
+    if (!data.store?.persistent || data.store.configured === false) {
+      throw new Error("Kein dauerhaft konfigurierter Finance-Cloudspeicher vorhanden.");
+    }
+    const remote = normalizeState(data.state || {});
+    const remoteRevision = Number(data.state?.revision || 0);
+    const knownRevision = rememberedRevision();
+    const pending = pendingSync() || (knownRevision === null && hasLocalFinanceContent());
+    if (automatic && pending && (knownRevision === null || knownRevision !== remoteRevision)) {
+      syncReady = false;
+      syncConflict = true;
+      syncNotice = "Lokale Finanzdaten und Serverstand müssen erst geprüft werden. Nichts wurde überschrieben.";
+      render();
+      return;
+    }
+    if (!automatic && pending && (knownRevision === null || knownRevision !== remoteRevision)) {
+      const accepted = window.confirm("Die lokalen Finanzdaten unterscheiden sich möglicherweise vom Server. Zuerst wird eine lokale Sicherung erstellt. Beide Stände werden zusammengeführt, wobei lokale Einträge Vorrang haben. Fortfahren?");
+      if (!accepted) return;
+    }
+    backupLocal("before_server_load");
+    const merged = pending ? {
+      ...remote,
+      transactions: mergeTransactions(remote.transactions, state.transactions).transactions,
+      documents: mergeByLocalId(remote.documents, state.documents),
+      suppliers: mergeByLocalId(remote.suppliers, state.suppliers),
+      imports: mergeByLocalId(remote.imports, state.imports),
+      monthClosures: { ...remote.monthClosures, ...state.monthClosures },
+      settings: { ...remote.settings, ...state.settings },
+      auditLog: mergeByLocalId(remote.auditLog, state.auditLog),
+    } : remote;
+    state = normalizeState(merged);
+    serverRevision = remoteRevision;
+    syncReady = true;
+    syncConflict = false;
+    syncNotice = pending ? "Lokale Änderungen werden revisionsgeschützt auf den Server übertragen." : "Finanzdaten auf aktuellem Serverstand.";
+    localStorage.setItem(SYNC_REVISION_KEY, String(remoteRevision));
+    localStorage.setItem(STATE_KEY, JSON.stringify(state));
+    if (pending) {
+      localStorage.setItem(SYNC_PENDING_KEY, "1");
+      scheduleFinanceSave();
+    } else {
+      localStorage.removeItem(SYNC_PENDING_KEY);
+    }
+    render();
+    if (!automatic) toast("Serverstand sicher geladen.");
+  } catch (error) {
+    syncReady = false;
+    syncNotice = "Server nicht erreichbar. Lokale Daten bleiben erhalten; keine automatische Synchronisierung.";
+    render();
+    if (!automatic) toast(error.message, "Server-Sync blockiert");
+  }
 }
-async function saveServer() {
+async function saveServer({ automatic = false } = {}) {
+  if (!syncReady || serverRevision === null || syncConflict) {
+    if (!automatic) toast("Zuerst den Serverstand laden und mögliche Konflikte prüfen.", "Synchronisierung");
+    return;
+  }
+  if (saveInFlight) { scheduleFinanceSave(); return; }
+  if (syncTimer) { clearTimeout(syncTimer); syncTimer = null; }
+  saveInFlight = true;
+  const sentSequence = localSequence;
   try {
-    const data = await api("save", { method: "POST", body: { state, action: "finance_v2_sync", source: "seller_finance_v2", summary: "Manuell bestätigter Finance-V2-Sync." } });
-    state = normalizeState(data.state || state); await saveLocal("server_save", "Finanzdaten persistent gesichert."); render(); toast("Finanzdaten persistent gesichert.");
-  } catch (error) { toast(error.message, "Server-Sync blockiert"); }
+    const data = await api("save", {
+      method: "POST",
+      body: { state, expectedRevision: serverRevision, action: "finance_v3_sync", source: "seller_finance_v2", summary: "Revisionsgeprüfte Finance-Synchronisierung." },
+    });
+    serverRevision = Number(data.state?.revision);
+    if (!Number.isSafeInteger(serverRevision)) throw new Error("Ungültige Serverrevision.");
+    localStorage.setItem(SYNC_REVISION_KEY, String(serverRevision));
+    if (sentSequence === localSequence) {
+      state = normalizeState(data.state || state);
+      localStorage.setItem(STATE_KEY, JSON.stringify(state));
+      localStorage.removeItem(SYNC_PENDING_KEY);
+      syncNotice = "Alle Finanzbuchungen mit dem Server synchronisiert.";
+    } else {
+      state.revision = serverRevision;
+      syncNotice = "Weitere lokale Änderungen werden synchronisiert.";
+    }
+    render();
+    if (!automatic) toast("Finanzdaten persistent gesichert.");
+  } catch (error) {
+    if (/finance_conflict|finanzdaten wurden|zeitgleiche|revision/i.test(error.message)) {
+      syncConflict = true;
+      syncReady = false;
+      syncNotice = "Synchronisierung angehalten: Ein anderer Rechner hat Finanzdaten geändert. Lokale Daten bleiben gesichert.";
+    } else {
+      syncReady = false; // Stop retry storms until the user explicitly reconnects.
+      syncNotice = "Server-Synchronisierung fehlgeschlagen. Lokale Daten bleiben erhalten. Zum Fortsetzen Server laden.";
+    }
+    render();
+    if (!automatic) toast(error.message, "Server-Sync blockiert");
+  } finally {
+    saveInFlight = false;
+    if (syncReady && pendingSync()) scheduleFinanceSave();
+  }
 }
-
 function installStyles() {
   if (document.getElementById(STYLE_ID)) return;
   const style = document.createElement("style"); style.id = STYLE_ID; style.textContent = `
@@ -350,7 +491,7 @@ function render() {
   if (!tab.classList.contains("active") && document.getElementById("mainMenu")?.value !== TAB_ID && location.hash !== "#finance") return;
   const metrics = currentMetrics();
   const quality = buildFinanceDataQuality(currentTransactions(), state.documents);
-  tab.innerHTML = `<div class="ef-shell"><header class="ef-head"><div><div class="ef-eyebrow">Elyon Seller Tool · Finance V2</div><h2>Finanzen & Buchhaltung</h2><p class="ef-muted">Echte eBay-Finanzdaten, Kosten, Profitabilität, Belege, Auszahlungsabgleich und Monatsabschluss – mit prüfbaren Exporten.</p></div><div class="ef-actions"><button class="ef-btn" data-ef2-action="load-server">Server laden</button><button class="ef-btn" data-ef2-action="save-server">Persistent sichern</button><button class="ef-btn primary" data-ef2-action="ebay-preview">eBay synchronisieren</button></div></header><div class="ef-callout">Buchhaltungs- und Steuerdatenvorbereitung: keine Steuererklärung, keine automatische Übermittlung und keine eBay-Live-Aktion. DATEV-/EÜR-Exporte bleiben Arbeitsunterlagen bis zur fachlichen Prüfung.</div>${periodMarkup()}${navMarkup()}<div id="elyonFinancePanel">${panelMarkup(activePanel, metrics, quality)}</div></div>`;
+  tab.innerHTML = `<div class="ef-shell"><header class="ef-head"><div><div class="ef-eyebrow">Elyon Seller Tool · Finance V2</div><h2>Finanzen & Buchhaltung</h2><p class="ef-muted">Echte eBay-Finanzdaten, Kosten, Profitabilität, Belege, Auszahlungsabgleich und Monatsabschluss – mit prüfbaren Exporten.</p></div><div class="ef-actions"><button class="ef-btn" data-ef2-action="load-server">Server laden</button><button class="ef-btn" data-ef2-action="save-server">Persistent sichern</button><button class="ef-btn primary" data-ef2-action="ebay-preview">eBay synchronisieren</button></div></header><div class="ef-callout">Buchhaltungs- und Steuerdatenvorbereitung: keine Steuererklärung, keine automatische Übermittlung und keine eBay-Live-Aktion. DATEV-/EÜR-Exporte bleiben Arbeitsunterlagen bis zur fachlichen Prüfung.</div>${syncNotice || !syncReady ? `<div class="ef-callout ${syncConflict ? "bad" : ""}">${escapeHtml(syncNotice || "Finanzdaten: Server-Verbindung wird geprüft.")} ${pendingSync() ? "Lokale Änderungen sind noch nicht sicher serverseitig gespeichert." : ""}</div>` : ""}${periodMarkup()}${navMarkup()}<div id="elyonFinancePanel">${panelMarkup(activePanel, metrics, quality)}</div></div>`;
   if (activePanel === "invoices") setTimeout(() => window.ElyonOrderInvoices?.mount?.(), 0);
 }
 
@@ -391,9 +532,9 @@ function payoutsMarkup() { const rec=reconcilePayouts(currentEurTransactions());
 
 function bookingsMarkup() { const rows=currentTransactions().filter((entry)=>!entry.voidedAt); const proposals=rows.map((entry)=>bookingProposal(entry,state.settings)); return `<section class="ef-panel"><div class="ef-panel-head"><div><div class="ef-eyebrow">Doppelte Erfassung vermeiden</div><h3>Buchungsvorschläge</h3></div><span class="ef-badge">${proposals.length} Vorschläge</span></div><div class="ef-callout good">eBay-Auszahlungen sind Geldtransfers und kein zusätzlicher Umsatz.</div>${proposals.length?`<div class="ef-table-wrap" style="margin-top:13px"><table class="ef-table"><thead><tr><th>Datum</th><th>Vorgang</th><th>Sollkonto</th><th>Habenkonto</th><th>Betrag</th><th>Steuer</th><th>Status</th></tr></thead><tbody>${proposals.map((item)=>`<tr><td>${escapeHtml(formatDate(item.date))}</td><td>${escapeHtml(item.label)}</td><td>${escapeHtml(item.debitAccount)}</td><td>${escapeHtml(item.creditAccount)}</td><td>${money(item.amount)}</td><td>${escapeHtml(item.taxCode||"ungeklärt")}</td><td><span class="ef-status ${item.status}">${item.status==="approved"?"geprüft":"Entwurf"}</span></td></tr>`).join("")}</tbody></table></div>`:'<div class="ef-empty">Noch keine Vorschläge.</div>'}</section>`; }
 
-function documentsMarkup() { return `<div class="ef-columns"><section class="ef-panel"><div class="ef-panel-head"><div><div class="ef-eyebrow">Originaldatei + SHA-256</div><h3>Belegarchiv</h3></div><span class="ef-badge">${state.documents.length} Belege</span></div><div class="ef-drop"><strong>Rechnungen, eBay-Abrechnungen und Zahlungsnachweise</strong><p class="ef-muted">Originaldatei lokal in IndexedDB; Metadaten und SHA-256-Prüfsumme im Finance-State.</p><input id="efDocumentInput" type="file" multiple><label class="ef-btn primary" for="efDocumentInput">Belege auswählen</label></div><div class="ef-list" style="margin-top:13px">${state.documents.map((doc)=>`<div class="ef-list-item"><div><strong>${escapeHtml(doc.name)}</strong><span class="ef-muted">${escapeHtml(doc.type||"Datei")} · ${escapeHtml(formatDate(doc.createdAt))}</span><div class="ef-code">SHA-256 ${escapeHtml(doc.sha256||"offen")}</div></div><button class="ef-btn" data-ef2-download-doc="${escapeHtml(doc.id)}">Öffnen</button></div>`).join("")||'<div class="ef-empty">Noch keine Belege archiviert.</div>'}</div></section><aside class="ef-panel"><h3>Belegzuordnung</h3><p class="ef-muted">Öffne „Transaktionen“ und ordne dort den passenden Beleg direkt dem Vorgang zu. Bestehende Zuordnungen werden nicht überschrieben, sondern ergänzt.</p><div class="ef-callout" style="margin-top:13px">Originalbelege bleiben unverändert. Eine neue Datei erhält eine neue SHA-256-Prüfsumme und einen Audit-Eintrag.</div></aside></div>`; }
+function documentsMarkup() { return `<div class="ef-columns"><section class="ef-panel"><div class="ef-panel-head"><div><div class="ef-eyebrow">Originaldatei + SHA-256</div><h3>Belegarchiv</h3></div><span class="ef-badge">${state.documents.length} Belege</span></div><div class="ef-drop"><strong>Rechnungen, eBay-Abrechnungen und Zahlungsnachweise</strong><p class="ef-muted">Originaldateien liegen zunächst nur auf diesem Gerät. Über „In Drive sichern“ kannst du Belege bewusst in dein verbundenes Google Drive übertragen und später auf anderen PCs abrufen. Google Drive ist dadurch noch kein GoBD-geprüftes Archiv.</p><input id="efDocumentInput" type="file" multiple><label class="ef-btn primary" for="efDocumentInput">Belege auswählen</label></div><div class="ef-list" style="margin-top:13px">${state.documents.map((doc)=>`<div class="ef-list-item"><div><strong>${escapeHtml(doc.name)}</strong><span class="ef-muted">${escapeHtml(doc.type||"Datei")} · ${escapeHtml(formatDate(doc.createdAt))}</span><div class="ef-code">SHA-256 ${escapeHtml(doc.sha256||"offen")}</div></div><button class="ef-btn" data-ef2-cloud-doc="${escapeHtml(doc.id)}" ${doc.cloudFileId?"disabled":""}>${doc.cloudFileId?"In Drive gesichert":"In Drive sichern"}</button><button class="ef-btn" data-ef2-download-doc="${escapeHtml(doc.id)}">Öffnen</button></div>`).join("")||'<div class="ef-empty">Noch keine Belege archiviert.</div>'}</div></section><aside class="ef-panel"><h3>Belegzuordnung</h3><p class="ef-muted">Öffne „Transaktionen“ und ordne dort den passenden Beleg direkt dem Vorgang zu. Bestehende Zuordnungen werden nicht überschrieben, sondern ergänzt.</p><div class="ef-callout" style="margin-top:13px">Originalbelege bleiben unverändert. Eine neue Datei erhält eine neue SHA-256-Prüfsumme und einen Audit-Eintrag.</div></aside></div>`; }
 
-function importsMarkup() { return `<div class="ef-columns"><section class="ef-panel"><div class="ef-panel-head"><div><div class="ef-eyebrow">CSV</div><h3>eBay-CSV importieren</h3></div></div><div class="ef-drop"><strong>eBay-Abrechnungs- oder Transaktionsbericht</strong><p class="ef-muted">Vor Übernahme wird eine Vorschau erzeugt. Datensätze aus abgeschlossenen Monaten werden beim Import blockiert.</p><input id="efCsvInput" type="file" accept=".csv,.txt,text/csv"><label class="ef-btn primary" for="efCsvInput">CSV auswählen</label></div>${stagedImport?`<div class="ef-callout good" style="margin-top:13px"><strong>${stagedImport.transactions.length} Datensätze erkannt</strong><br>${escapeHtml(stagedImport.warnings?.join(" · ")||"Spalten wurden zugeordnet.")}</div><div class="ef-actions" style="margin-top:10px"><button class="ef-btn primary" data-ef2-action="confirm-csv">Import übernehmen</button><button class="ef-btn" data-ef2-action="cancel-csv">Verwerfen</button></div>`:""}</section><aside class="ef-panel"><div class="ef-eyebrow">API</div><h3>eBay Finances API</h3><p class="ef-muted">Liest Verkäufe, Gebühren, Anzeigenkosten, Erstattungen, Gutschriften und Auszahlungen ausschließlich lesend.</p><label class="ef-muted">Zeitraum<select id="efEbayDays" style="width:100%;margin-top:6px;padding:10px;border-radius:11px;background:#020617;color:#e5e7eb;border:1px solid rgba(148,163,184,.18)"><option value="30">30 Tage</option><option value="90" selected>90 Tage</option><option value="365">365 Tage</option></select></label><div class="ef-actions" style="margin-top:12px"><button class="ef-btn" data-ef2-action="ebay-preview">Vorschau laden</button><button class="ef-btn primary" data-ef2-action="confirm-ebay-preview" ${stagedImport?.source==="ebay_api"?"":"disabled"}>Vorschau übernehmen</button></div><div class="ef-callout" style="margin-top:13px">Finance V2 nutzt absichtlich zuerst die Vorschau. So können abgeschlossene Monate vor dem lokalen Merge geschützt werden.</div></aside></div><section class="ef-panel"><div class="ef-panel-head"><h3>Lieferantenkosten ergänzen</h3></div><form id="efSupplierForm" class="ef-form"><label>Bestellnummer<input name="orderId" required></label><label>Lieferant<input name="supplier" placeholder="AliExpress, CJ, ..."></label><label>Betrag (€)<input name="amount" type="number" min="0" step="0.01" required></label><label>Datum<input name="date" type="date" required></label><label>Artikel-ID optional<input name="itemId"></label><label>Notiz<input name="memo"></label><div class="full"><button class="ef-btn primary" type="submit">Wareneinkauf erfassen</button></div></form></section><section class="ef-panel"><div class="ef-panel-head"><h3>Importverlauf</h3><span class="ef-badge">${state.imports.length}</span></div><div class="ef-list">${state.imports.slice().reverse().slice(0,20).map((item)=>`<div class="ef-list-item"><div><strong>${escapeHtml(item.source||"Import")}</strong><span class="ef-muted">${escapeHtml(formatDate(item.createdAt))} · ${num(item.inserted||item.normalizedCount)} neu · ${num(item.duplicates)} Duplikate · ${num(item.blockedLockedMonths)} gesperrt</span></div><span class="ef-code">${escapeHtml(item.id)}</span></div>`).join("")||'<div class="ef-empty">Noch keine Importe.</div>'}</div></section>`; }
+function importsMarkup() { const lastAuto = state.imports.filter((item) => item.source === "ebay_finances_auto").sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt))).at(-1); return `<div class="ef-columns"><section class="ef-panel"><div class="ef-panel-head"><div><div class="ef-eyebrow">CSV</div><h3>eBay-CSV importieren</h3></div></div><div class="ef-drop"><strong>eBay-Abrechnungs- oder Transaktionsbericht</strong><p class="ef-muted">Vor Übernahme wird eine Vorschau erzeugt. Datensätze aus abgeschlossenen Monaten werden beim Import blockiert.</p><input id="efCsvInput" type="file" accept=".csv,.txt,text/csv"><label class="ef-btn primary" for="efCsvInput">CSV auswählen</label></div>${stagedImport?`<div class="ef-callout good" style="margin-top:13px"><strong>${stagedImport.transactions.length} Datensätze erkannt</strong><br>${escapeHtml(stagedImport.warnings?.join(" · ")||"Spalten wurden zugeordnet.")}</div><div class="ef-actions" style="margin-top:10px"><button class="ef-btn primary" data-ef2-action="confirm-csv">Import übernehmen</button><button class="ef-btn" data-ef2-action="cancel-csv">Verwerfen</button></div>`:""}</section><aside class="ef-panel"><div class="ef-callout good" style="margin-bottom:14px"><strong>Automatischer eBay-Abgleich</strong><div>Cloud-Import täglich um 06:00 UTC (07:00 Uhr MEZ / 08:00 Uhr MESZ), sobald in Production aktiviert. Neue Vorgänge bleiben zur Prüfung offen. ${lastAuto ? `Letzter Lauf: ${escapeHtml(formatDate(lastAuto.createdAt))} · ${num(lastAuto.inserted)} neu · ${num(lastAuto.duplicates)} bekannt · ${num(lastAuto.blockedLockedMonths)} aus abgeschlossenen Monaten blockiert.` : "Noch kein erfolgreicher automatischer Import gespeichert."}</div></div><div class="ef-eyebrow">API</div><h3>eBay Finances API</h3><p class="ef-muted">Liest Verkäufe, Gebühren, Anzeigenkosten, Erstattungen, Gutschriften und Auszahlungen ausschließlich lesend.</p><label class="ef-muted">Zeitraum<select id="efEbayDays" style="width:100%;margin-top:6px;padding:10px;border-radius:11px;background:#020617;color:#e5e7eb;border:1px solid rgba(148,163,184,.18)"><option value="30">30 Tage</option><option value="90" selected>90 Tage</option><option value="365">365 Tage</option></select></label><div class="ef-actions" style="margin-top:12px"><button class="ef-btn" data-ef2-action="ebay-preview">Vorschau laden</button><button class="ef-btn primary" data-ef2-action="confirm-ebay-preview" ${stagedImport?.source==="ebay_api"?"":"disabled"}>Vorschau übernehmen</button></div><div class="ef-callout" style="margin-top:13px">Finance V2 nutzt absichtlich zuerst die Vorschau. So können abgeschlossene Monate vor dem lokalen Merge geschützt werden.</div></aside></div><section class="ef-panel"><div class="ef-panel-head"><h3>Lieferantenkosten ergänzen</h3></div><form id="efSupplierForm" class="ef-form"><label>Bestellnummer<input name="orderId" required></label><label>Lieferant<input name="supplier" placeholder="AliExpress, CJ, ..."></label><label>Betrag (€)<input name="amount" type="number" min="0" step="0.01" required></label><label>Datum<input name="date" type="date" required></label><label>Artikel-ID optional<input name="itemId"></label><label>Notiz<input name="memo"></label><div class="full"><button class="ef-btn primary" type="submit">Wareneinkauf erfassen</button></div></form></section><section class="ef-panel"><div class="ef-panel-head"><h3>Importverlauf</h3><span class="ef-badge">${state.imports.length}</span></div><div class="ef-list">${state.imports.slice().reverse().slice(0,20).map((item)=>`<div class="ef-list-item"><div><strong>${escapeHtml(item.source||"Import")}</strong><span class="ef-muted">${escapeHtml(formatDate(item.createdAt))} · ${num(item.inserted||item.normalizedCount)} neu · ${num(item.duplicates)} Duplikate · ${num(item.blockedLockedMonths)} gesperrt</span></div><span class="ef-code">${escapeHtml(item.id)}</span></div>`).join("")||'<div class="ef-empty">Noch keine Importe.</div>'}</div></section>`; }
 
 function monthCloseMarkup() { const key=selectedMonthKey(); if(!key) return `<section class="ef-panel"><div class="ef-callout">Für einen Monatsabschluss bitte „Aktueller Monat“, „Vorheriger Monat“ oder einen benutzerdefinierten Zeitraum innerhalb genau eines Kalendermonats wählen.</div></section>`; const rows=currentTransactions(); const readiness=buildMonthCloseReadiness(rows,state.documents); const closure=state.monthClosures?.[key]; return `<section class="ef-panel"><div class="ef-panel-head"><div><div class="ef-eyebrow">Kontrollierter Abschluss</div><h3>${escapeHtml(period.label)} ${closure?.closedAt?"🔒":""}</h3><p class="ef-muted">Nach Abschluss sind Freigabe, Storno, Belegänderungen und Lieferantenkosten für diesen Monat gesperrt.</p></div><span class="ef-status ${closure?.closedAt||readiness.ready?"approved":"needs_review"}">${closure?.closedAt?"abgeschlossen":readiness.ready?"bereit":"nicht bereit"}</span></div>${closure?.closedAt?`<div class="ef-callout good">Abgeschlossen am ${escapeHtml(formatDate(closure.closedAt))}. Snapshot: Umsatz ${money(closure.snapshot?.revenue)} · Gewinn ${money(closure.snapshot?.profit)} · ${closure.snapshot?.transactionCount||0} Vorgänge.</div><button class="ef-btn danger" style="margin-top:13px" data-ef2-action="reopen-month">Monat erneut öffnen</button>`:`<div class="ef-quality">${readiness.blockers.length?readiness.blockers.map((blocker)=>`<div><strong class="ef-warning">⚠ ${escapeHtml(blocker)}</strong></div>`).join(""):'<div><strong class="ef-positive">✓ Vorgänge geprüft</strong></div><div><strong class="ef-positive">✓ Lieferantenkosten zugeordnet</strong></div><div><strong class="ef-positive">✓ Währungen geklärt</strong></div><div><strong class="ef-positive">✓ Belegcheck bestanden</strong></div>'}</div><button class="ef-btn success" style="margin-top:13px" data-ef2-action="close-month" ${readiness.ready?"":"disabled"}>${escapeHtml(period.label)} abschließen</button>`}</section>`; }
 
@@ -409,7 +550,7 @@ function exportRows() { return currentTransactions().filter((entry)=>!entry.void
 function safeAccountingRows() { return approvedTransactions(eurTransactions(exportRows())); }
 function exportAction(action) {
   const rows=exportRows(); const safe=safeAccountingRows(); const quality=buildFinanceDataQuality(rows,state.documents);
-  if (["download-datev","download-eur"].includes(action) && (quality.unapprovedCount || quality.foreignCurrencyCount)) return toast(`Export blockiert: ${quality.unapprovedCount} ungeprüfte Vorgänge, ${quality.foreignCurrencyCount} Fremdwährung(en).`,"Sicherer Export");
+  if (["download-datev","download-eur"].includes(action) && !selectApprovedEurTransactions(rows).ready) return toast(`Export blockiert: ${quality.unapprovedCount} ungeprüfte Vorgänge, ${quality.foreignCurrencyCount} Fremdwährung(en).`,"Sicherer Export");
   if (action==="download-csv") return download(`elyon_finance_${fileStamp()}.csv`,`\uFEFF${exportTransactionsCsv(rows)}`,"text/csv;charset=utf-8");
   if (action==="download-datev") return download(`elyon_datev_vorbereitung_${fileStamp()}.csv`,`\uFEFF${exportDatevPreparation(safe,state.settings)}`,"text/csv;charset=utf-8");
   if (action==="download-eur") return download(`elyon_euer_arbeitsauswertung_${fileStamp()}.json`,JSON.stringify(buildEurSummary(safe),null,2),"application/json");
@@ -423,6 +564,61 @@ async function storeDocumentFile(id,file) { const db=await openDb(); await new P
 async function readDocumentFile(id) { const db=await openDb(); const result=await new Promise((resolve,reject)=>{const tx=db.transaction(DB_STORE,"readonly");const request=tx.objectStore(DB_STORE).get(id);request.onsuccess=()=>resolve(request.result?.file||null);request.onerror=()=>reject(request.error);});db.close();return result; }
 async function importDocuments(files) { backupLocal("before_document_import"); for(const file of files){const sha=await hashFile(file);if(state.documents.some((entry)=>entry.sha256===sha))continue;const id=uid("doc");await storeDocumentFile(id,file);state.documents.push({id,name:file.name,type:file.type,size:file.size,sha256:sha,createdAt:new Date().toISOString(),storage:"indexeddb"});} await saveLocal("documents_imported","Belege mit SHA-256-Prüfsumme archiviert.");render(); }
 
+
+function bytesToBase64(bytes) {
+  let binary = "";
+  for (let index = 0; index < bytes.length; index += 8192) {
+    binary += String.fromCharCode(...bytes.subarray(index, index + 8192));
+  }
+  return btoa(binary);
+}
+function base64ToBytes(base64) {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+  return bytes;
+}
+async function uploadDocumentToDrive(documentId) {
+  const doc = state.documents.find((entry) => entry.id === documentId);
+  if (!doc || doc.cloudFileId) return;
+  try {
+    const file = await readDocumentFile(documentId);
+    if (!file) throw new Error("Originalbeleg ist auf diesem Gerät nicht verfügbar.");
+    if (file.size > 2500000) throw new Error("Für diese Drive-Sicherung sind höchstens 2,5 MB pro Beleg möglich.");
+    const sha = await hashFile(file);
+    if (sha !== doc.sha256) throw new Error("Originalbeleg stimmt nicht mit dem archivierten Prüfsummen-Eintrag überein.");
+    const response = await fetch("/api/google-drive?action=finance-document-upload", {
+      method: "POST", credentials: "same-origin",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({
+        documentId, fileName: doc.name, mimeType: file.type,
+        sha256: sha, base64: bytesToBase64(new Uint8Array(await file.arrayBuffer())),
+      }),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || result.ok !== true || !result.fileId) throw new Error(result.message || result.error || "Drive-Belegupload fehlgeschlagen.");
+    doc.cloudFileId = result.fileId;
+    doc.cloudStoredAt = result.uploadedAt;
+    await saveLocal("document_drive_uploaded", "Originalbeleg " + doc.name + " zusätzlich in Google Drive gesichert.", { documentId });
+    render();
+    toast("Originalbeleg in Drive gesichert. Die Belegzuordnung muss noch mit dem Finance-Server synchronisiert werden.");
+  } catch (error) { toast(error.message, "Google-Drive-Belegarchiv"); }
+}
+async function restoreDocumentFromDrive(doc) {
+  if (!doc.cloudFileId) throw new Error("Für diesen Beleg existiert kein Cloud-Original.");
+  const response = await fetch("/api/google-drive?action=finance-document-download", {
+    method: "POST", credentials: "same-origin",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({ documentId: doc.id, fileId: doc.cloudFileId, sha256: doc.sha256 }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || data.ok !== true || !data.base64) throw new Error(data.message || data.error || "Originalbeleg konnte nicht aus Drive geladen werden.");
+  const file = new File([base64ToBytes(data.base64)], doc.name || "beleg", { type: doc.type || "application/octet-stream" });
+  if (await hashFile(file) !== doc.sha256) throw new Error("Beleg-Prüfsumme nach Download fehlerhaft.");
+  await storeDocumentFile(doc.id, file);
+  return file;
+}
+
 async function approveTransaction(id) { const item=state.transactions.find((entry)=>entry.id===id);if(!item||item.voidedAt)return;if(isLockedDate(item.transactionDate))return toast("Dieser Monat ist abgeschlossen.","Monat gesperrt");item.status="approved";item.updatedAt=new Date().toISOString();await saveLocal("transaction_approved",`Transaktion ${item.transactionId||item.id} geprüft.`);render(); }
 async function voidTransaction(id) { const item=state.transactions.find((entry)=>entry.id===id);if(!item||item.voidedAt)return;if(isLockedDate(item.transactionDate))return toast("Dieser Monat ist abgeschlossen.","Monat gesperrt");const reason=window.prompt("Grund für das Storno / die Korrektur:","Korrektur erforderlich");if(!reason)return;item.voidedAt=new Date().toISOString();item.voidReason=reason;item.status="voided";await saveLocal("transaction_voided",`Transaktion ${item.transactionId||item.id} storniert: ${reason}`);render(); }
 async function approveSelected() { const ids=[...selectedTransactionIds];let changed=0;for(const id of ids){const item=state.transactions.find((entry)=>entry.id===id);if(item&&!item.voidedAt&&!isLockedDate(item.transactionDate)&&item.status!=="approved"){item.status="approved";item.updatedAt=new Date().toISOString();changed+=1;}}selectedTransactionIds.clear();await saveLocal("transactions_selected_approved",`${changed} ausgewählte Vorgänge freigegeben.`,{count:changed});render();toast(`${changed} Vorgänge freigegeben.`); }
@@ -430,17 +626,26 @@ async function attachDocument(id,docId) { const item=state.transactions.find((en
 
 async function handleCsvFile(file) { stagedImport={...parseEbayCsv(await file.text()),fileName:file.name,source:"csv",createdAt:new Date().toISOString()};render(); }
 async function confirmStagedImport(sourceLabel="csv") { if(!stagedImport)return;backupLocal("before_import");const allowed=[];let blocked=0;for(const row of stagedImport.transactions||[]){const item=normalizeFinanceTransaction(row,row.source);if(isLockedDate(item.transactionDate))blocked+=1;else allowed.push(item);}const merged=mergeTransactions(state.transactions,allowed);state.transactions=merged.transactions;state.imports.push({id:uid("import"),source:sourceLabel,fileName:stagedImport.fileName,inserted:merged.inserted,duplicates:merged.duplicates,blockedLockedMonths:blocked,createdAt:new Date().toISOString()});await saveLocal("finance_import",`${merged.inserted} neue Vorgänge importiert; ${blocked} wegen Monatsabschluss blockiert.`);stagedImport=null;render();toast(`${merged.inserted} neu · ${blocked} gesperrt.`); }
-async function ebayPreview() { try { const days=document.getElementById("efEbayDays")?.value||90;const data=await api("ebay-preview",{query:{days}});stagedImport={transactions:data.transactions||[],warnings:[`eBay Finances API: ${data.count||0} normalisierte Vorgänge`],fileName:"eBay Finances API",source:"ebay_api",createdAt:new Date().toISOString()};activePanel="imports";render();toast("eBay-Finanzvorschau geladen. Noch nichts gespeichert."); } catch(error){toast(error.message,"eBay Finances API");} }
+async function ebayPreview() {
+  try {
+    const status=await api("status");
+    if (status.ebayFinancesSignature?.required && !status.ebayFinancesSignature?.configured) {
+      throw new Error("eBay-Finanzabgleich benötigt digitale Signaturschlüssel. Bitte EBAY_SIGNATURE_JWE und EBAY_SIGNATURE_PRIVATE_KEY sicher in Vercel einrichten.");
+    }
+    const days=document.getElementById("efEbayDays")?.value||90;const data=await api("ebay-preview",{query:{days}});stagedImport={transactions:data.transactions||[],warnings:[`eBay Finances API: ${data.count||0} normalisierte Vorgänge`],fileName:"eBay Finances API",source:"ebay_api",createdAt:new Date().toISOString()};activePanel="imports";render();toast("eBay-Finanzvorschau geladen. Noch nichts gespeichert."); } catch(error){toast(error.message,"eBay Finances API");} }
 async function handleSupplierSubmit(form) { const data=new FormData(form);const orderId=text(data.get("orderId"));const amount=num(data.get("amount"));const date=text(data.get("date"));if(!orderId||amount<=0||!date)return toast("Bestellnummer, Datum und Betrag werden benötigt.");if(isLockedDate(date))return toast("Dieser Monat ist abgeschlossen.","Monat gesperrt");const transaction=normalizeFinanceTransaction({transactionId:`supplier_${orderId}_${Date.now()}`,orderId,itemId:text(data.get("itemId")),transactionDate:date,transactionType:"SUPPLIER_PURCHASE",bookingEntry:"DEBIT",amount:-Math.abs(amount),currency:"EUR",title:`${text(data.get("supplier"))||"Lieferant"} Wareneinkauf`,memo:data.get("memo"),category:"supplier_expense",status:"needs_review"},"elyon_supplier_manual");backupLocal("before_supplier_cost");state.transactions=mergeTransactions(state.transactions,[transaction]).transactions;await saveLocal("supplier_cost_added",`Lieferantenkosten für ${orderId} erfasst.`);form.reset();render(); }
 async function saveSettings(form) { const data=Object.fromEntries(new FormData(form).entries());state.settings={...state.settings,...data,nextInvoiceNumber:Math.max(1,num(data.nextInvoiceNumber)||1)};await saveLocal("finance_settings_updated","Buchhaltungsparameter aktualisiert.");render();toast("Einstellungen gespeichert."); }
 
 async function reserveInvoice() {
-  const current=Math.max(1,num(state.settings.nextInvoiceNumber)||1);
-  const prefix=text(state.settings.invoicePrefix||"ELYON").replace(/[^A-Za-z0-9_-]/g,"")||"ELYON";
-  const invoiceNumber=`${prefix}-${new Date().getFullYear()}-${String(current).padStart(5,"0")}`;
-  state.settings.nextInvoiceNumber=current+1;
-  await saveLocal("invoice_number_reserved",`Rechnungsnummer ${invoiceNumber} reserviert.`,{invoiceNumber});
-  render();toast(`${invoiceNumber} wurde reserviert.`);
+  try {
+    const data = await api("reserve-invoice-number", {
+      method: "POST",
+      body: { orderId: `manual:${crypto.randomUUID()}`, prefix: state.settings.invoicePrefix, year: new Date().getFullYear() },
+    });
+    await saveLocal("invoice_number_reserved", `Rechnungsnummer ${data.invoiceNumber} reserviert.`, { invoiceNumber: data.invoiceNumber });
+    render();
+    toast(`${data.invoiceNumber} serverseitig reserviert.`);
+  } catch (error) { toast(error.message, "Keine lokale Rechnungsnummer erzeugt"); }
 }
 
 async function closeMonth() { const key=selectedMonthKey();if(!key)return;const rows=currentTransactions();const readiness=buildMonthCloseReadiness(rows,state.documents);if(!readiness.ready)return toast(readiness.blockers.join(" · "),"Monatsabschluss blockiert");const metrics=calculateMetrics(eurTransactions(activeTransactions(rows)));state.monthClosures[key]={closedAt:new Date().toISOString(),periodLabel:period.label,snapshot:{revenue:metrics.revenue,expenses:metrics.expenses,profit:metrics.profit,marginPercent:metrics.marginPercent,transactionCount:metrics.transactionCount},auditState:"closed"};await saveLocal("month_closed",`${period.label} abgeschlossen.`,{month:key,snapshot:state.monthClosures[key].snapshot});render();toast(`${period.label} wurde abgeschlossen.`); }
@@ -454,7 +659,15 @@ function bindEvents() {
     const approve=event.target.closest?.("[data-ef2-approve]")?.dataset.ef2Approve;if(approve)return approveTransaction(approve);
     const voidId=event.target.closest?.("[data-ef2-void]")?.dataset.ef2Void;if(voidId)return voidTransaction(voidId);
     const attach=event.target.closest?.("[data-ef2-attach-doc]")?.dataset.ef2AttachDoc;if(attach){const select=document.querySelector(`[data-ef2-doc-select="${CSS.escape(attach)}"]`);return attachDocument(attach,select?.value);}
-    const docId=event.target.closest?.("[data-ef2-download-doc]")?.dataset.ef2DownloadDoc;if(docId){const file=await readDocumentFile(docId);const meta=state.documents.find((entry)=>entry.id===docId);return file?download(meta?.name||"beleg",file,file.type):toast("Originaldatei ist auf diesem Gerät nicht verfügbar.");}
+    const cloudId=event.target.closest?.("[data-ef2-cloud-doc]")?.dataset.ef2CloudDoc;if(cloudId)return uploadDocumentToDrive(cloudId);
+    const docId=event.target.closest?.("[data-ef2-download-doc]")?.dataset.ef2DownloadDoc;if(docId){
+      const meta=state.documents.find((entry)=>entry.id===docId);
+      if(!meta)return toast("Belegmetadaten fehlen.");
+      try {
+        const file=await readDocumentFile(docId) || await restoreDocumentFromDrive(meta);
+        return download(meta.name||"beleg",file,file.type);
+      } catch(error) { return toast(error.message,"Originalbeleg"); }
+    }
     const action=event.target.closest?.("[data-ef2-action]")?.dataset.ef2Action;if(!action)return;
     if(action==="load-server")return loadServer();if(action==="save-server")return saveServer();if(action==="refresh-status")return refreshServerStatus();if(action==="reserve-invoice")return reserveInvoice();if(action==="ebay-preview")return ebayPreview();if(action==="confirm-ebay-preview")return confirmStagedImport("ebay_finances_api");if(action==="confirm-csv")return confirmStagedImport("ebay_csv");if(action==="cancel-csv"){stagedImport=null;return render();}if(action==="select-unapproved"){selectedTransactionIds=new Set(currentTransactions().filter((entry)=>!entry.voidedAt&&entry.status!=="approved"&&!isLockedDate(entry.transactionDate)).map((entry)=>entry.id));return render();}if(action==="approve-selected")return approveSelected();if(action==="close-month")return closeMonth();if(action==="reopen-month")return reopenMonth();if(action.startsWith("download-"))return exportAction(action);
   });
@@ -475,6 +688,7 @@ function install() {
   installDone=true;installStyles();loadLocal();installMenu();ensureTab();bindEvents();
   window.ElyonSellerFinance={open:openFinance,state:()=>structuredClone(state),status:refreshServerStatus,load:loadServer,save:saveServer,period:()=>({...period}),quality:()=>buildFinanceDataQuality(currentTransactions(),state.documents)};
   if(location.hash==="#finance"||document.getElementById("mainMenu")?.value===TAB_ID)openFinance();
+  void loadServer({ automatic: true });
 }
 
 if(typeof document!=="undefined"){if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",install,{once:true});else install();}

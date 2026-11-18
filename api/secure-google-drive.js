@@ -16,6 +16,7 @@ function requestedAction(req) {
 
 export default async function handler(req, res) {
   const action = requestedAction(req);
-  if (action !== "callback" && !requireSellerAccess(req, res, { maxBodyBytes: 2 * 1024 * 1024 })) return;
+  const limit = action === "finance-document-upload" ? 4 * 1024 * 1024 : 2 * 1024 * 1024;
+  if (action !== "callback" && !requireSellerAccess(req, res, { maxBodyBytes: limit })) return;
   return googleDriveHandler(req, res);
 }

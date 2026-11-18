@@ -183,3 +183,25 @@ Der Finance-Bereich ist additiv und lazy geladen. Für einen Rückweg:
 5. Bestehende Seller-Tool-Daten bleiben unberührt.
 
 Bestehende eBay-, Produkt-, Listing-, Bestell-, Rechnungs- und Retourenfunktionen werden nicht ersetzt.
+
+## Automatischer eBay-Abgleich (Finance V3)
+
+Der geschützte Vercel-Cron `GET /api/finance-auto-sync` läuft täglich um **06:00 UTC** (07:00 MEZ / 08:00 MESZ) in Production. Er benötigt den Vercel-Cron-Header `Authorization: Bearer <CRON_SECRET>` und verwendet ausschließlich den bereits verbundenen eBay-Production-Refresh-Token sowie die serverseitigen eBay-Signaturvariablen.
+
+- Liest die zurückliegenden 90 Tage über die bestehende, digital signierte eBay Finances API. Keine eBay-Schreibaktionen.
+- Importiert ausschließlich **neue** Transaktions-IDs/Dedupe-Keys, keine Änderungen an freigegebenen, stornierten oder manuell korrigierten Datensätzen.
+- Respektiert Monatsabschlüsse nach **Europe/Berlin**-Kalendermonat. Gesperrte Monate bleiben unangetastet, auch bei zeitgleichen Änderungen.
+- Nutzt den persistenten Upstash-/KV-Finance-State und **expectedRevision** mit erneuter Prüfung bei Konflikten. Keine Datenverschiebung bei fehlendem Cloudspeicher.
+- Jeder erfolgreiche Lauf erhält einen Eintrag unter **Importe & eBay** einschließlich Anzahl neuer, bekannter und wegen Abschluss blockierter Vorgänge. Der letzte Lauf wird in der Oberfläche angezeigt.
+- Neue Vorgänge haben den Status `needs_review`; keine automatische steuerliche Freigabe, Buchung, Rechnungserstellung oder Übermittlung.
+- Der manuelle CSV-Import und die API-Vorschau bleiben unverändert nutzbar.
+
+### Betrieb und Freigabe
+
+1. Geplante Änderungen zuerst als **Preview-Branch** testen und die CI-Ergebnisse prüfen. Vor einem Merge auf `main` prüfen, dass `CRON_SECRET`, `EBAY_CLIENT_ID`, `EBAY_CLIENT_SECRET`, `EBAY_REFRESH_TOKEN` bzw. eBay-Token-Store, `EBAY_SIGNATURE_JWE`, `EBAY_SIGNATURE_PRIVATE_KEY` sowie Upstash/KV in der **Production**-Umgebung vorhanden sind.
+2. Der eBay-Refresh-Token muss den Scope `sell.finances` tatsächlich erhalten haben. Falls nicht, eBay einmal mit diesem Scope neu verbinden.
+3. Erst nach Freigabe auf `main` startet der Vercel-Cron. Vercel führt geplante Cronjobs ausschließlich in Production aus. Ein Preview-Deployment führt den Job nicht selbstständig aus.
+4. Zum Pausieren optional `ELYON_FINANCE_AUTO_SYNC_ENABLED=false` setzen. Kein Löschen oder Überschreiben bestehender Finanzdaten.
+5. Fehler und Laufzeiten in Vercel Functions / Cron Logs prüfen. Die Oberfläche zeigt den letzten **erfolgreichen** Lauf an; sie ersetzt kein Fehlermonitoring.
+
+Hinweis: Die API-Synchronisierung ersetzt keine Belegablage, Kostenverknüpfung oder steuerliche Prüfung. 
