@@ -5,7 +5,8 @@
   "outputDirectory": "public",
   "regions": ["fra1"],
   "crons": [
-    {"path":"/api/jarvis-worker","schedule":"*/5 * * * *"}
+    {"path":"/api/jarvis-worker","schedule":"*/5 * * * *"},
+    {"path":"/api/finance-auto-sync","schedule":"0 6 * * *"}
   ],
   "rewrites": [
     {"source":"/ebay-callback","destination":"/ebay-accepted.html"},
