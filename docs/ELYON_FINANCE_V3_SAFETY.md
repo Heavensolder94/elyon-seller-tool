@@ -67,3 +67,13 @@ Offizielle Quellen:
 - https://developer.ebay.com/develop/guides/sell/digital-signatures-for-apis
 - https://developer.ebay.com/api-docs/developer/key-management/static/overview.html
 
+
+### eBay-Schlüsselwerte aus dem API Explorer
+
+Nach HTTP 201 Created liefert createSigningKey die Felder `jwe`, `privateKey`, `publicKey` und `signingKeyId`.
+
+- In Vercel `EBAY_SIGNATURE_JWE` = `jwe` (öffentliches Signaturschlüssel-JWE).
+- `EBAY_SIGNATURE_PRIVATE_KEY` = `privateKey`. eBay liefert Ed25519 als Base64-kodierte PKCS#8-DER-Zeichenkette. **Nicht in PEM umwandeln**: Die Serverfunktion unterstützt das eBay-Originalformat und alternativ PEM.
+- `publicKey` und `signingKeyId` sind für diese zwei Vercel-Variablen nicht erforderlich.
+- Ein privater Schlüssel, der in Chat oder Screenshot zu sehen war, sollte nicht in Betrieb genommen werden. Stattdessen ein neues Schlüsselpaar erzeugen und den neuen privaten Schlüssel ausschließlich in der geschützten Vercel-Konfiguration speichern.
+- Neue/aktualisierte Preview-Umgebungsvariablen werden erst durch ein neu erstelltes Preview-Deployment wirksam.
