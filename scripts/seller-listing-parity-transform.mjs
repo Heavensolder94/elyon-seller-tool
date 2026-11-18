@@ -123,6 +123,43 @@ export function transformSellerRuntimeLoader(source) {
       'Feed verarbeitet · Seller Hub nicht live bestätigt',
     );
 
+
+  // Explain the three operational counters without conflating API records,
+  // processed feeds or Company OS matches with confirmed Seller Hub drafts.
+  output = replaceRequired(
+    output,
+    '<div class="metric"><small>eBay-API-Angebote</small><strong>${window.__elyonSellerState?.draftsAvailable === false ? "!" : apiOfferCount}</strong></div>',
+    '<div class="metric"><div class="elyon-metric-heading"><small>eBay-Angebote</small><details class="elyon-metric-info"><summary aria-label="Info zu eBay-Angeboten" title="Info anzeigen">i</summary><span class="elyon-metric-tip">Unveröffentlichte Angebote in der eBay Inventory API. Sie müssen nicht im eBay Seller Hub unter Entwürfe erscheinen.</span></details></div><strong>${window.__elyonSellerState?.draftsAvailable === false ? "!" : apiOfferCount}</strong></div>',
+    "draft API info label missing",
+  );
+  output = replaceRequired(
+    output,
+    '<div class="metric"><small>Verarbeitete Feed-Aufträge</small><strong>${window.__elyonSellerState?.draftsAvailable === false ? "!" : processedFeedCount}</strong></div>',
+    '<div class="metric"><div class="elyon-metric-heading"><small>Importiert</small><details class="elyon-metric-info"><summary aria-label="Info zu importierten Aufträgen" title="Info anzeigen">i</summary><span class="elyon-metric-tip">Vom Amazon Importer übermittelte und verarbeitete Feed-Aufträge. Ob sie im Seller Hub als Entwurf vorhanden sind, ist nicht live bestätigt.</span></details></div><strong>${window.__elyonSellerState?.draftsAvailable === false ? "!" : processedFeedCount}</strong></div>',
+    "draft feed info label missing",
+  );
+  output = replaceRequired(
+    output,
+    '<div class="metric"><small>Mit Product-Master-Match</small><strong>${matchedCount}</strong></div>',
+    '<div class="metric"><div class="elyon-metric-heading"><small>Verknüpft</small><details class="elyon-metric-info"><summary aria-label="Info zu verknüpften Produkten" title="Info anzeigen">i</summary><span class="elyon-metric-tip">Diese Einträge konnten eindeutig Produkten in Company OS zugeordnet werden. Das ist noch keine Freigabe zum Verkauf.</span></details></div><strong>${matchedCount}</strong></div>',
+    "draft matched info label missing",
+  );
+  output = replaceRequired(
+    output,
+    '      .elyon-listings-shell{display:grid;gap:16px}',
+    '      .elyon-listings-shell{display:grid;gap:16px}\n' +
+    '      .elyon-listings-shell .metric{position:relative;overflow:visible}\n' +
+    '      .elyon-metric-heading{display:flex;align-items:center;gap:7px;flex-wrap:wrap}\n' +
+    '      .elyon-metric-info{display:inline-block;line-height:1}\n' +
+    '      .elyon-metric-info summary{list-style:none;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;width:19px;height:19px;border-radius:50%;border:1px solid rgba(148,163,184,.45);background:rgba(148,163,184,.12);color:#cbd5e1;font-size:12px;font-weight:800;user-select:none}\n' +
+    '      .elyon-metric-info summary::-webkit-details-marker{display:none}\n' +
+    '      .elyon-metric-info summary:focus-visible{outline:2px solid #60a5fa;outline-offset:3px}\n' +
+    '      .elyon-metric-info summary:hover{color:#f8fafc;border-color:#93c5fd}\n' +
+    '      .elyon-metric-tip{position:absolute;z-index:60;inset-inline-start:0;top:calc(100% + 7px);box-sizing:border-box;width:min(240px,calc(100vw - 40px));padding:10px 12px;border:1px solid rgba(148,163,184,.3);border-radius:12px;background:#0f172a;color:#e2e8f0;font-size:12px;font-weight:400;line-height:1.5;box-shadow:0 12px 28px rgba(0,0,0,.35);white-space:normal}\n' +
+    '      @media(max-width:640px){.elyon-metric-tip{width:min(205px,calc(100vw - 40px))}}',
+    "draft info CSS anchor missing",
+  );
+
   return output;
 }
 

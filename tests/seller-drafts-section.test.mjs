@@ -60,10 +60,40 @@ test("an Inventory API offer and a processed feed are not shown as two confirmed
   });
   vm.runInContext(source + '\nrenderDraftWorkspace("");', context);
   const html = draftTab.innerHTML;
-  assert.match(html, /<small>eBay-API-Angebote<\/small><strong>1<\/strong>/);
-  assert.match(html, /<small>Verarbeitete Feed-Aufträge<\/small><strong>1<\/strong>/);
-  assert.match(html, /<small>Mit Product-Master-Match<\/small><strong>2<\/strong>/);
+  assert.match(html, /<small>eBay-Angebote<\/small><details class="elyon-metric-info">[\s\S]*?<strong>1<\/strong>/);
+  assert.match(html, /<small>Importiert<\/small><details class="elyon-metric-info">[\s\S]*?<strong>1<\/strong>/);
+  assert.match(html, /<small>Verknüpft<\/small><details class="elyon-metric-info">[\s\S]*?<strong>2<\/strong>/);
   assert.match(html, /Seller-Hub-Entwürfe<\/small><strong[^>]*>Nicht live prüfbar<\/strong>/);
+});
+
+test("each of the three short labels has keyboard and touch accessible info", async () => {
+  const html = await (async () => {
+    const runtime = await productionRuntime();
+    const source = runtime.slice(runtime.indexOf('  function renderDraftWorkspace('), runtime.indexOf('  function renderActiveWorkspace('));
+    const draftTab = { innerHTML: "", querySelector() { return null; } };
+    const context = vm.createContext({
+      window: { __elyonSellerState: { draftsAvailable: true } },
+      draftProducts: [
+        { source: "elyon_inventory_draft", productMasterMatch: "matched" },
+        { source: "elyon_seller_hub_feed", feedVerification: "feed_processed_not_live_checked", productMasterMatch: "matched" },
+      ],
+      listingLoading: false,
+      ensureListingWorkspaces: () => ({ draftTab }),
+      escapeHtml: (value) => String(value),
+      listingCard: () => "<article>Produkt</article>",
+    });
+    vm.runInContext(source + '\nrenderDraftWorkspace("");', context);
+    return draftTab.innerHTML;
+  })();
+  assert.equal((html.match(/<details class="elyon-metric-info">/g) || []).length, 3);
+  assert.match(html, /aria-label="Info zu eBay-Angeboten"/);
+  assert.match(html, /aria-label="Info zu importierten Aufträgen"/);
+  assert.match(html, /aria-label="Info zu verknüpften Produkten"/);
+  assert.match(html, /nicht live bestätigt/);
+  assert.match(html, /noch keine Freigabe zum Verkauf/);
+  const runtime = await productionRuntime();
+  assert.match(runtime, /elyon-metric-info summary:focus-visible/);
+  assert.match(runtime, /elyon-metric-tip/);
 });
 
 test("listing drafts and active listings have separate lazy workspaces", async () => {
@@ -99,7 +129,7 @@ test("draft workspace shows only Elyon-created eBay drafts and a real zero empty
   const runtime = await productionRuntime();
   assert.match(runtime, /Elyon · Unveröffentlicht/);
   assert.match(runtime, /eBay Inventory API und verarbeitete Seller-Hub-Feed-Aufträge/);
-  assert.match(runtime, /<small>eBay-API-Angebote<\/small>/);
+  assert.match(runtime, /<small>eBay-Angebote<\/small>/);
   assert.match(runtime, /Aktuell sind weder unveröffentlichte API-Angebote noch verarbeitete Feed-Aufträge vorhanden/);
   assert.match(runtime, /Seller-Hub-Entwürfe.*Nicht live prüfbar/);
   assert.doesNotMatch(runtime, /Inventory API · UNPUBLISHED/);
