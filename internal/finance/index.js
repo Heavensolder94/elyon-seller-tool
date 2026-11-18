@@ -1,7 +1,7 @@
 import { requireSellerAccess } from "../../lib/seller-access.js";
 import { ebayUserSession, callEbayJson, publicEbayError } from "../../lib/ebay-production.js";
-import { readFinanceState, writeFinanceState, getFinanceStoreDescription } from "../../lib/finance-store.js";
-import { normalizeEbayApiTransactions, mergeTransactions, calculateMetrics, buildEurSummary } from "../../seller-finance-core.js";
+import { readFinanceState, writeFinanceState, getFinanceStoreDescription, reserveFinanceInvoiceNumber } from "../../lib/finance-store.js";
+import { normalizeEbayApiTransactions, mergeTransactions, calculateMetrics, buildEurSummary, selectApprovedEurTransactions } from "../../seller-finance-core.js";
 
 function text(value) {
   return String(value ?? "").trim();
@@ -104,7 +104,8 @@ async function handleStatus(req, res) {
   return res.status(200).json({
     ok: true,
     service: "Elyon Finance",
-    version: 1,
+    version: 2,
+    revision: state.revision,
     store: getFinanceStoreDescription(),
     counts: {
       transactions: state.transactions.length,
@@ -133,13 +134,24 @@ async function handleSave(req, res) {
   if (req.method !== "POST") return res.status(405).json({ ok: false, error: "Nur POST erlaubt." });
   const body = object(req.body);
   if (!body.state || typeof body.state !== "object") return res.status(400).json({ ok: false, error: "state fehlt." });
+  const revisionProvided = Object.hasOwn(body, "expectedRevision");
+  if (revisionProvided && (!Number.isSafeInteger(body.expectedRevision) || body.expectedRevision < 0)) {
+    return res.status(400).json({ ok: false, error: "invalid_revision" });
+  }
+  // Finance UI writes are rejected when the browser has not read a revision.
+  if (body.source === "seller_finance_v2" && !revisionProvided) {
+    return res.status(409).json({ ok: false, error: "finance_revision_required", message: "Bitte zuerst den Finance-Serverstand laden." });
+  }
   const result = await writeFinanceState(body.state, {
     action: text(body.action) || "finance_manual_sync",
     actor: "seller",
     source: text(body.source) || "seller_finance_ui",
     summary: text(body.summary) || "Finanzdaten aus dem Seller Tool synchronisiert.",
+  }, revisionProvided ? { expectedRevision: body.expectedRevision } : {});
+  if (!result.ok) return res.status(result.conflict ? 409 : 503).json({
+    ok: false, error: result.conflict ? "finance_conflict" : "finance_store_unavailable",
+    message: result.error, currentRevision: result.currentRevision, store: getFinanceStoreDescription(),
   });
-  if (!result.ok) return res.status(503).json({ ok: false, error: "finance_store_unavailable", message: result.error, store: getFinanceStoreDescription() });
   return res.status(200).json({ ok: true, state: result.state, merge: result.merge, store: getFinanceStoreDescription() });
 }
 
@@ -222,7 +234,31 @@ async function handlePayouts(req, res) {
 
 async function handleEur(req, res) {
   const state = await readFinanceState();
-  return res.status(200).json({ ok: true, summary: buildEurSummary(state.transactions), generatedAt: new Date().toISOString() });
+  const selection = selectApprovedEurTransactions(state.transactions);
+  if (!selection.ready) return res.status(409).json({
+    ok: false,
+    error: "eur_export_blocked",
+    message: "EÜR-Arbeitsauswertung gesperrt: ungeprüfte Vorgänge oder Fremdwährungen vorhanden.",
+    unapprovedCount: selection.unapprovedCount,
+    foreignCurrencies: selection.foreignCurrencies,
+  });
+  return res.status(200).json({
+    ok: true, summary: buildEurSummary(selection.transactions),
+    transactionCount: selection.transactions.length,
+    generatedAt: new Date().toISOString(),
+  });
+}
+
+async function handleReserveInvoiceNumber(req, res) {
+  if (req.method !== "POST") return res.status(405).json({ ok: false, error: "Nur POST erlaubt." });
+  const body = object(req.body);
+  const year = Number(body.year || new Date().getUTCFullYear());
+  if (Math.abs(year - new Date().getUTCFullYear()) > 1) {
+    return res.status(400).json({ ok: false, error: "invoice_year_out_of_range" });
+  }
+  const result = await reserveFinanceInvoiceNumber(body.orderId, body.prefix, year);
+  if (!result.ok) return res.status(503).json(result);
+  return res.status(200).json(result);
 }
 
 export default async function handler(req, res) {
@@ -237,6 +273,7 @@ export default async function handler(req, res) {
     if (action === "ebay-sync") return handleEbaySync(req, res);
     if (action === "payouts") return handlePayouts(req, res);
     if (action === "eur") return handleEur(req, res);
+    if (action === "reserve-invoice-number") return handleReserveInvoiceNumber(req, res);
     return res.status(404).json({ ok: false, error: `Unbekannte Finance-Route: ${action}` });
   } catch (error) {
     if (error?.code?.startsWith?.("ebay_")) return res.status(Number(error.status || 500)).json(publicEbayError(error));
