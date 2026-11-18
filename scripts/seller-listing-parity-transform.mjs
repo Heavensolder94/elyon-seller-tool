@@ -160,6 +160,48 @@ export function transformSellerRuntimeLoader(source) {
     "draft info CSS anchor missing",
   );
 
+
+  // Browser hover should explain the "i" immediately, and click/touch must
+  // expand an in-flow help panel instead of a potentially clipped absolute popup.
+  output = replaceRequired(
+    output,
+    '<summary aria-label="Info zu eBay-Angeboten" title="Info anzeigen">i</summary>',
+    '<summary aria-label="Info zu eBay-Angeboten" title="Unveröffentlichte eBay-API-Angebote; nicht zwingend im Seller Hub sichtbar.">i</summary>',
+    "eBay offer info summary missing",
+  );
+  output = replaceRequired(
+    output,
+    '<summary aria-label="Info zu importierten Aufträgen" title="Info anzeigen">i</summary>',
+    '<summary aria-label="Info zu importierten Aufträgen" title="Feed-Auftrag verarbeitet; Seller-Hub-Entwurf nicht live bestätigt.">i</summary>',
+    "import info summary missing",
+  );
+  output = replaceRequired(
+    output,
+    '<summary aria-label="Info zu verknüpften Produkten" title="Info anzeigen">i</summary>',
+    '<summary aria-label="Info zu verknüpften Produkten" title="Company-OS-Produkt eindeutig zugeordnet; noch keine Verkaufsfreigabe.">i</summary>',
+    "Company OS info summary missing",
+  );
+  output = replaceRequired(
+    output,
+    '      .elyon-metric-info{display:inline-block;line-height:1}',
+    '      .elyon-metric-info{display:inline-block;line-height:1}\n' +
+    '      .elyon-metric-info[open]{flex:1 1 100%;width:100%}\n' +
+    '      .elyon-metric-info[open] summary{border-color:#93c5fd;color:#f8fafc}',
+    "disclosure info layout style missing",
+  );
+  output = replaceRequired(
+    output,
+    '      .elyon-metric-tip{position:absolute;z-index:60;inset-inline-start:0;top:calc(100% + 7px);box-sizing:border-box;width:min(240px,calc(100vw - 40px));padding:10px 12px;border:1px solid rgba(148,163,184,.3);border-radius:12px;background:#0f172a;color:#e2e8f0;font-size:12px;font-weight:400;line-height:1.5;box-shadow:0 12px 28px rgba(0,0,0,.35);white-space:normal}',
+    '      .elyon-metric-tip{display:block;position:static;box-sizing:border-box;width:100%;max-width:320px;margin:9px 0 4px;padding:10px 12px;border:1px solid rgba(148,163,184,.3);border-radius:12px;background:#0f172a;color:#e2e8f0;font-size:12px;font-weight:400;line-height:1.5;white-space:normal;overflow-wrap:anywhere}',
+    "in-flow info panel style missing",
+  );
+  output = replaceRequired(
+    output,
+    '      @media(max-width:640px){.elyon-metric-tip{width:min(205px,calc(100vw - 40px))}}',
+    '      @media(max-width:640px){.elyon-metric-tip{max-width:none}}',
+    "small screen info panel style missing",
+  );
+
   return output;
 }
 
