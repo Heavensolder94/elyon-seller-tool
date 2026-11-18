@@ -650,9 +650,9 @@
         ? intakeResult.value.overview : null;
       productIntakeError = intakeResult.status === "fulfilled" ? ""
         : text(intakeResult.reason?.message || "Company OS derzeit nicht erreichbar");
+      ebayListingStatusOk = listingResult.status === "fulfilled" && listingResult.value?.draftsAvailable !== false;
       if (listingResult.status !== "fulfilled") throw listingResult.reason;
 
-      ebayListingStatusOk = listingResult.value?.draftsAvailable !== false;
       const items = Array.isArray(listingResult.value?.items) ? listingResult.value.items : [];
       const products = productResult.status === "fulfilled" && Array.isArray(productResult.value?.products)
         ? productResult.value.products
