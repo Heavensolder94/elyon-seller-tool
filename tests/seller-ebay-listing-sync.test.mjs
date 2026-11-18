@@ -77,11 +77,12 @@ test("listing status UI shows numeric live counts plus lifecycle history", async
   const sourceUrl = new URL("../seller-ebay-listing-sync.js", import.meta.url);
   const source = await readFile(sourceUrl, "utf8");
   assert.match(source, /\/api\/ebay\/seller-state\?environment=production/);
-  assert.match(source, /<small>Entwürfe<\/small><strong>\$\{draftsAvailable \? drafts : "!"\}/);
+  assert.match(source, /<small>Elyon-Entwurfseinträge<\/small><strong>\$\{draftsAvailable \? drafts : "!"\}/);
   assert.match(source, /<small>Aktive Listings<\/small><strong>\$\{active\}/);
   assert.match(source, /<small>Entfernt<\/small>/);
   assert.match(source, /<small>Beendet<\/small>/);
-  assert.match(source, /zwei erfolgreiche Abgleiche/i);
+  assert.match(source, /zwei erfolgreichen Abgleichen/i);
+  assert.match(source, /verarbeitete Feed-Aufträge/);
   assert.doesNotMatch(source, /Seller Hub · Entwürfe/);
   assert.doesNotMatch(source, /Inventory API · UNPUBLISHED/);
   assert.doesNotMatch(source, /sync-listings/);
@@ -97,12 +98,14 @@ test("production transform keeps numeric Elyon drafts and real active listings",
 
   assert.match(runtime, /\/api\/ebay\/seller-state\?environment=production/);
   assert.match(runtime, /draftProducts = enriched\.filter\(\(item\) => listingStatus\(item\) === "UNPUBLISHED"\)/);
-  assert.match(runtime, /Aktuell sind keine von Elyon erstellten eBay-Entwürfe vorhanden/);
-  assert.match(runtime, /<small>Entwürfe<\/small><strong>\$\{window\.__elyonSellerState\?\.draftsAvailable === false \? "!" : draftProducts\.length\}/);
+  assert.match(runtime, /Aktuell sind weder unveröffentlichte API-Angebote noch verarbeitete Feed-Aufträge vorhanden/);
+  assert.match(runtime, /<small>eBay-API-Angebote<\/small><strong>\$\{window\.__elyonSellerState\?\.draftsAvailable === false \? "!" : apiOfferCount\}/);
+  assert.match(runtime, /Verarbeitete Feed-Aufträge/);
+  assert.match(runtime, /Feed verarbeitet · Seller Hub nicht live bestätigt/);
   assert.doesNotMatch(runtime, /Seller-Hub-Entwürfe: nicht per öffentlicher eBay API auslesbar/);
 
-  assert.match(dashboard, /Von Elyon erstellte eBay-Entwürfe/);
+  assert.match(dashboard, /API-Angebote \+ verarbeitete Feeds/);
   assert.match(dashboard, /Direkt aus dem eBay-Verkäuferkonto/);
-  assert.match(dashboard, /<span>Entwürfe<\/span>/);
+  assert.match(dashboard, /<small>Elyon-Entwurfseinträge<\/small>/);
   assert.match(dashboard, /\/api\/ebay\/seller-state\?environment=production/);
 });

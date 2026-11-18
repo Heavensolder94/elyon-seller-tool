@@ -39,8 +39,31 @@ test("failed seller-state request never claims an empty draft inventory", async 
 
 test("confirmed empty draft inventory retains its zero state", async () => {
   const html = await renderEmptyDrafts(true);
-  assert.match(html, /Aktuell sind keine von Elyon erstellten eBay-Entwürfe vorhanden/);
+  assert.match(html, /Aktuell sind weder unveröffentlichte API-Angebote noch verarbeitete Feed-Aufträge vorhanden/);
   assert.doesNotMatch(html, /Entwurfsbestand derzeit nicht prüfbar/);
+});
+
+test("an Inventory API offer and a processed feed are not shown as two confirmed Seller Hub drafts", async () => {
+  const runtime = await productionRuntime();
+  const source = runtime.slice(runtime.indexOf('  function renderDraftWorkspace('), runtime.indexOf('  function renderActiveWorkspace('));
+  const draftTab = { innerHTML: "", querySelector() { return null; } };
+  const context = vm.createContext({
+    window: { __elyonSellerState: { draftsAvailable: true } },
+    draftProducts: [
+      { sku: "AMZ-B0D63HF7Z4", source: "elyon_inventory_draft", offerId: "243461011011", productMasterMatch: "matched" },
+      { sku: "AMZ-B0BWND9WBR", source: "elyon_seller_hub_feed", feedVerification: "feed_processed_not_live_checked", productMasterMatch: "matched" },
+    ],
+    listingLoading: false,
+    ensureListingWorkspaces: () => ({ draftTab }),
+    escapeHtml: (value) => String(value),
+    listingCard: (item) => `<article>${item.sku}</article>`,
+  });
+  vm.runInContext(source + '\nrenderDraftWorkspace("");', context);
+  const html = draftTab.innerHTML;
+  assert.match(html, /<small>eBay-API-Angebote<\/small><strong>1<\/strong>/);
+  assert.match(html, /<small>Verarbeitete Feed-Aufträge<\/small><strong>1<\/strong>/);
+  assert.match(html, /<small>Mit Product-Master-Match<\/small><strong>2<\/strong>/);
+  assert.match(html, /Seller-Hub-Entwürfe<\/small><strong[^>]*>Nicht live prüfbar<\/strong>/);
 });
 
 test("listing drafts and active listings have separate lazy workspaces", async () => {
@@ -74,11 +97,11 @@ test("product pipeline menu numbers inserted listing workspaces in sequence", as
 
 test("draft workspace shows only Elyon-created eBay drafts and a real zero empty state", async () => {
   const runtime = await productionRuntime();
-  assert.match(runtime, /eBay · Entwürfe/);
-  assert.match(runtime, /von Elyon erstellten eBay-Entwürfe/);
-  assert.match(runtime, /<small>Entwürfe<\/small>/);
-  assert.match(runtime, /Aktuell sind keine von Elyon erstellten eBay-Entwürfe vorhanden/);
-  assert.doesNotMatch(runtime, /Seller-Hub-Entwürfe/);
+  assert.match(runtime, /Elyon · Unveröffentlicht/);
+  assert.match(runtime, /eBay Inventory API und verarbeitete Seller-Hub-Feed-Aufträge/);
+  assert.match(runtime, /<small>eBay-API-Angebote<\/small>/);
+  assert.match(runtime, /Aktuell sind weder unveröffentlichte API-Angebote noch verarbeitete Feed-Aufträge vorhanden/);
+  assert.match(runtime, /Seller-Hub-Entwürfe.*Nicht live prüfbar/);
   assert.doesNotMatch(runtime, /Inventory API · UNPUBLISHED/);
   assert.doesNotMatch(runtime, /Noch ohne eBay-Artikelnummer/);
   assert.doesNotMatch(runtime, /data-draft-open/);

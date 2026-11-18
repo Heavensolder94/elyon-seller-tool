@@ -50,6 +50,79 @@ export function transformSellerRuntimeLoader(source) {
     .replaceAll("Aktive eBay-Listings werden geladen …", "Aktive eBay-Listings werden geladen …")
     .replaceAll("eBay meldet aktuell 0 PUBLISHED-Angebote. Deshalb zeigt Elyon 0 aktive Listings.", "Aktuell sind keine aktiven eBay-Listings vorhanden.");
 
+
+  // Keep two different eBay states separate: Inventory API offers and Seller Hub
+  // feed tasks. Neither is proof that a normal Seller Hub draft is currently visible.
+  output = replaceRequired(
+    output,
+    '    const unmatchedCount = draftProducts.length - matchedCount;',
+    '    const unmatchedCount = draftProducts.length - matchedCount;\n' +
+    '    const apiOfferCount = draftProducts.filter((item) => item?.source === "elyon_inventory_draft").length;\n' +
+    '    const processedFeedCount = draftProducts.filter((item) => item?.source === "elyon_seller_hub_feed" && item?.feedVerification === "feed_processed_not_live_checked").length;',
+    "draft evidence counters missing",
+  );
+  output = replaceRequired(
+    output,
+    '<div class="metric"><small>Entwürfe</small><strong>${window.__elyonSellerState?.draftsAvailable === false ? "!" : draftProducts.length}</strong></div>',
+    '<div class="metric"><small>eBay-API-Angebote</small><strong>${window.__elyonSellerState?.draftsAvailable === false ? "!" : apiOfferCount}</strong></div>',
+    "draft API count marker missing",
+  );
+  output = replaceRequired(
+    output,
+    '<div class="metric"><small>Ohne Match</small><strong>${unmatchedCount}</strong></div>',
+    '<div class="metric"><small>Verarbeitete Feed-Aufträge</small><strong>${window.__elyonSellerState?.draftsAvailable === false ? "!" : processedFeedCount}</strong></div>',
+    "draft feed count marker missing",
+  );
+  output = replaceRequired(
+    output,
+    '<div class="metric"><small>Datenquelle</small><strong style="font-size:14px">Elyon + eBay</strong></div>',
+    '<div class="metric"><small>Seller-Hub-Entwürfe</small><strong style="font-size:14px">Nicht live prüfbar</strong></div>',
+    "Seller Hub verification label missing",
+  );
+  output = replaceRequired(
+    output,
+    '    const status = listingStatus(product);',
+    '    const status = listingStatus(product);\n' +
+    '    const draftEvidence = mode !== "draft" ? "" : product?.source === "elyon_seller_hub_feed"\n' +
+    '      ? "Feed verarbeitet · Seller Hub nicht live bestätigt"\n' +
+    '      : product?.source === "elyon_inventory_draft"\n' +
+    '        ? "eBay-API-Angebot · nicht veröffentlicht"\n' +
+    '        : "Entwurfseintrag · Quelle prüfen";',
+    "draft card evidence marker missing",
+  );
+  output = replaceRequired(
+    output,
+    '<span class="elyon-listing-pill ${mode === "active" ? "live" : ""}">${escapeHtml(status)}</span>',
+    '<span class="elyon-listing-pill ${mode === "active" ? "live" : ""}">${escapeHtml(status)}</span>\n' +
+    '            ${mode === "draft" ? `<span class="elyon-listing-pill">${escapeHtml(draftEvidence)}</span>` : ""}',
+    "draft evidence pill marker missing",
+  );
+  output = replaceRequired(
+    output,
+    '        : `${draftProducts.length} Entwurf${draftProducts.length === 1 ? "" : "e"}`;',
+    '        : `${draftProducts.filter((item) => item?.source === "elyon_inventory_draft").length} unveröffentlichte API-Angebote · ${draftProducts.filter((item) => item?.source === "elyon_seller_hub_feed").length} verarbeitete Feed-Aufträge (Seller Hub nicht live geprüft)`;',
+    "draft message count marker missing",
+  );
+  output = output
+    .replaceAll('📝 eBay · Entwürfe', '📝 Elyon · Unveröffentlicht')
+    .replaceAll('<h2>Listing-Entwürfe</h2>', '<h2>Unveröffentlichte Angebote & Feed-Aufträge</h2>')
+    .replaceAll(
+      'Hier siehst du die von Elyon erstellten eBay-Entwürfe. Wenn keine vorhanden sind, steht der Zähler auf 0. Product Master ergänzt nur Lieferant, EK, Gewinn und Marge.',
+      'Die eBay Inventory API und verarbeitete Seller-Hub-Feed-Aufträge sind getrennte Quellen. Keiner dieser Einträge beweist einen aktuell sichtbaren Seller-Hub-Entwurf. Ein Product-Master-Match bestätigt nur die Zuordnung zu Company OS.',
+    )
+    .replaceAll(
+      'Feed-Entwürfe aus dem Amazon Importer werden nach bestätigter Verarbeitung zusätzlich angezeigt. Ihr aktueller Bestand im eBay Seller Hub kann über die Inventory API nicht live geprüft werden. Product-Master-Zuordnung und Company-OS-Gewinnprognosen werden bei jedem Öffnen oder Klick auf „Neu laden“ aus der kanonischen Quelle aktualisiert; unbestätigte Kosten bleiben offen.',
+      'Ein verarbeiteter Amazon-Importer-Feed ist kein bestätigter Seller-Hub-Entwurf. Unveröffentlichte Inventory-API-Angebote können im Seller Hub fehlen. Die Seller-Hub-Entwürfe sind hier nicht live abrufbar. Product-Master-Daten werden nur ergänzend geladen.',
+    )
+    .replaceAll(
+      'Aktuell sind keine von Elyon erstellten eBay-Entwürfe vorhanden.',
+      'Aktuell sind weder unveröffentlichte API-Angebote noch verarbeitete Feed-Aufträge vorhanden.',
+    )
+    .replaceAll(
+      'Feed verarbeitet · Seller Hub bitte prüfen',
+      'Feed verarbeitet · Seller Hub nicht live bestätigt',
+    );
+
   return output;
 }
 
@@ -104,5 +177,9 @@ function isDashboardVisible() {
     .replaceAll('<div class="sd-step"><strong>${count(metrics.liveProducts.length)}</strong><span>eBay PUBLISHED</span></div>', '<div class="sd-step"><strong>${count(metrics.liveProducts.length)}</strong><span>eBay aktiv</span></div>')
     .replaceAll("Product Master für Vorbereitung, eBay als Quelle für den echten Listing-Bestand.", "Product Master für Vorbereitung; Elyon-Entwürfe und eBay-Aktivbestand für den Listing-Status.")
     .replaceAll("eBay Inventory API · Listings", "eBay Listings");
+
+  output = output
+    .replaceAll('<small>Entwürfe</small><strong>${runtime.listingPayload?.draftsAvailable === false ? "!" : count(metrics.draftProducts.length)}</strong>', '<small>Elyon-Entwurfseinträge</small><strong>${runtime.listingPayload?.draftsAvailable === false ? "!" : count(metrics.draftProducts.length)}</strong>')
+    .replaceAll('<span>Von Elyon erstellte eBay-Entwürfe</span>', '<span>API-Angebote + verarbeitete Feeds; Seller Hub nicht live geprüft</span>');
   return output;
 }
