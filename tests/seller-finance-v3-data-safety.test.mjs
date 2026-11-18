@@ -128,5 +128,7 @@ test("invoice UI requires the server and documents are explicitly local-only", a
   assert.match(invoiceUI, /reserve-invoice-number/);
   assert.doesNotMatch(invoiceUI, /function invoiceNumber\(meta\)/);
   assert.match(financeUI, /expectedRevision: serverRevision/);
-  assert.match(financeUI, /Originaldatei nur im Browser dieses Geräts/);
+  assert.match(financeUI, /Originaldateien liegen zunächst nur auf diesem Gerät/);
+  assert.match(financeUI, /finance-document-upload/);
+  assert.match(financeUI, /finance-document-download/);
 });
