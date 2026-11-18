@@ -508,7 +508,7 @@ function payoutsMarkup() { const rec=reconcilePayouts(currentEurTransactions());
 
 function bookingsMarkup() { const rows=currentTransactions().filter((entry)=>!entry.voidedAt); const proposals=rows.map((entry)=>bookingProposal(entry,state.settings)); return `<section class="ef-panel"><div class="ef-panel-head"><div><div class="ef-eyebrow">Doppelte Erfassung vermeiden</div><h3>Buchungsvorschläge</h3></div><span class="ef-badge">${proposals.length} Vorschläge</span></div><div class="ef-callout good">eBay-Auszahlungen sind Geldtransfers und kein zusätzlicher Umsatz.</div>${proposals.length?`<div class="ef-table-wrap" style="margin-top:13px"><table class="ef-table"><thead><tr><th>Datum</th><th>Vorgang</th><th>Sollkonto</th><th>Habenkonto</th><th>Betrag</th><th>Steuer</th><th>Status</th></tr></thead><tbody>${proposals.map((item)=>`<tr><td>${escapeHtml(formatDate(item.date))}</td><td>${escapeHtml(item.label)}</td><td>${escapeHtml(item.debitAccount)}</td><td>${escapeHtml(item.creditAccount)}</td><td>${money(item.amount)}</td><td>${escapeHtml(item.taxCode||"ungeklärt")}</td><td><span class="ef-status ${item.status}">${item.status==="approved"?"geprüft":"Entwurf"}</span></td></tr>`).join("")}</tbody></table></div>`:'<div class="ef-empty">Noch keine Vorschläge.</div>'}</section>`; }
 
-function documentsMarkup() { return `<div class="ef-columns"><section class="ef-panel"><div class="ef-panel-head"><div><div class="ef-eyebrow">Originaldatei + SHA-256</div><h3>Belegarchiv</h3></div><span class="ef-badge">${state.documents.length} Belege</span></div><div class="ef-drop"><strong>Rechnungen, eBay-Abrechnungen und Zahlungsnachweise</strong><p class="ef-muted">Originaldatei nur im Browser dieses Geräts (IndexedDB). Server-Sync überträgt derzeit lediglich Metadaten und Prüfsumme. Belege müssen separat gesichert werden.</p><input id="efDocumentInput" type="file" multiple><label class="ef-btn primary" for="efDocumentInput">Belege auswählen</label></div><div class="ef-list" style="margin-top:13px">${state.documents.map((doc)=>`<div class="ef-list-item"><div><strong>${escapeHtml(doc.name)}</strong><span class="ef-muted">${escapeHtml(doc.type||"Datei")} · ${escapeHtml(formatDate(doc.createdAt))}</span><div class="ef-code">SHA-256 ${escapeHtml(doc.sha256||"offen")}</div></div><button class="ef-btn" data-ef2-download-doc="${escapeHtml(doc.id)}">Öffnen</button></div>`).join("")||'<div class="ef-empty">Noch keine Belege archiviert.</div>'}</div></section><aside class="ef-panel"><h3>Belegzuordnung</h3><p class="ef-muted">Öffne „Transaktionen“ und ordne dort den passenden Beleg direkt dem Vorgang zu. Bestehende Zuordnungen werden nicht überschrieben, sondern ergänzt.</p><div class="ef-callout" style="margin-top:13px">Originalbelege bleiben unverändert. Eine neue Datei erhält eine neue SHA-256-Prüfsumme und einen Audit-Eintrag.</div></aside></div>`; }
+function documentsMarkup() { return `<div class="ef-columns"><section class="ef-panel"><div class="ef-panel-head"><div><div class="ef-eyebrow">Originaldatei + SHA-256</div><h3>Belegarchiv</h3></div><span class="ef-badge">${state.documents.length} Belege</span></div><div class="ef-drop"><strong>Rechnungen, eBay-Abrechnungen und Zahlungsnachweise</strong><p class="ef-muted">Originaldateien liegen zunächst nur auf diesem Gerät. Über „In Drive sichern“ kannst du Belege bewusst in dein verbundenes Google Drive übertragen und später auf anderen PCs abrufen. Google Drive ist dadurch noch kein GoBD-geprüftes Archiv.</p><input id="efDocumentInput" type="file" multiple><label class="ef-btn primary" for="efDocumentInput">Belege auswählen</label></div><div class="ef-list" style="margin-top:13px">${state.documents.map((doc)=>`<div class="ef-list-item"><div><strong>${escapeHtml(doc.name)}</strong><span class="ef-muted">${escapeHtml(doc.type||"Datei")} · ${escapeHtml(formatDate(doc.createdAt))}</span><div class="ef-code">SHA-256 ${escapeHtml(doc.sha256||"offen")}</div></div><button class="ef-btn" data-ef2-cloud-doc="${escapeHtml(doc.id)}" ${doc.cloudFileId?"disabled":""}>${doc.cloudFileId?"In Drive gesichert":"In Drive sichern"}</button><button class="ef-btn" data-ef2-download-doc="${escapeHtml(doc.id)}">Öffnen</button></div>`).join("")||'<div class="ef-empty">Noch keine Belege archiviert.</div>'}</div></section><aside class="ef-panel"><h3>Belegzuordnung</h3><p class="ef-muted">Öffne „Transaktionen“ und ordne dort den passenden Beleg direkt dem Vorgang zu. Bestehende Zuordnungen werden nicht überschrieben, sondern ergänzt.</p><div class="ef-callout" style="margin-top:13px">Originalbelege bleiben unverändert. Eine neue Datei erhält eine neue SHA-256-Prüfsumme und einen Audit-Eintrag.</div></aside></div>`; }
 
 function importsMarkup() { return `<div class="ef-columns"><section class="ef-panel"><div class="ef-panel-head"><div><div class="ef-eyebrow">CSV</div><h3>eBay-CSV importieren</h3></div></div><div class="ef-drop"><strong>eBay-Abrechnungs- oder Transaktionsbericht</strong><p class="ef-muted">Vor Übernahme wird eine Vorschau erzeugt. Datensätze aus abgeschlossenen Monaten werden beim Import blockiert.</p><input id="efCsvInput" type="file" accept=".csv,.txt,text/csv"><label class="ef-btn primary" for="efCsvInput">CSV auswählen</label></div>${stagedImport?`<div class="ef-callout good" style="margin-top:13px"><strong>${stagedImport.transactions.length} Datensätze erkannt</strong><br>${escapeHtml(stagedImport.warnings?.join(" · ")||"Spalten wurden zugeordnet.")}</div><div class="ef-actions" style="margin-top:10px"><button class="ef-btn primary" data-ef2-action="confirm-csv">Import übernehmen</button><button class="ef-btn" data-ef2-action="cancel-csv">Verwerfen</button></div>`:""}</section><aside class="ef-panel"><div class="ef-eyebrow">API</div><h3>eBay Finances API</h3><p class="ef-muted">Liest Verkäufe, Gebühren, Anzeigenkosten, Erstattungen, Gutschriften und Auszahlungen ausschließlich lesend.</p><label class="ef-muted">Zeitraum<select id="efEbayDays" style="width:100%;margin-top:6px;padding:10px;border-radius:11px;background:#020617;color:#e5e7eb;border:1px solid rgba(148,163,184,.18)"><option value="30">30 Tage</option><option value="90" selected>90 Tage</option><option value="365">365 Tage</option></select></label><div class="ef-actions" style="margin-top:12px"><button class="ef-btn" data-ef2-action="ebay-preview">Vorschau laden</button><button class="ef-btn primary" data-ef2-action="confirm-ebay-preview" ${stagedImport?.source==="ebay_api"?"":"disabled"}>Vorschau übernehmen</button></div><div class="ef-callout" style="margin-top:13px">Finance V2 nutzt absichtlich zuerst die Vorschau. So können abgeschlossene Monate vor dem lokalen Merge geschützt werden.</div></aside></div><section class="ef-panel"><div class="ef-panel-head"><h3>Lieferantenkosten ergänzen</h3></div><form id="efSupplierForm" class="ef-form"><label>Bestellnummer<input name="orderId" required></label><label>Lieferant<input name="supplier" placeholder="AliExpress, CJ, ..."></label><label>Betrag (€)<input name="amount" type="number" min="0" step="0.01" required></label><label>Datum<input name="date" type="date" required></label><label>Artikel-ID optional<input name="itemId"></label><label>Notiz<input name="memo"></label><div class="full"><button class="ef-btn primary" type="submit">Wareneinkauf erfassen</button></div></form></section><section class="ef-panel"><div class="ef-panel-head"><h3>Importverlauf</h3><span class="ef-badge">${state.imports.length}</span></div><div class="ef-list">${state.imports.slice().reverse().slice(0,20).map((item)=>`<div class="ef-list-item"><div><strong>${escapeHtml(item.source||"Import")}</strong><span class="ef-muted">${escapeHtml(formatDate(item.createdAt))} · ${num(item.inserted||item.normalizedCount)} neu · ${num(item.duplicates)} Duplikate · ${num(item.blockedLockedMonths)} gesperrt</span></div><span class="ef-code">${escapeHtml(item.id)}</span></div>`).join("")||'<div class="ef-empty">Noch keine Importe.</div>'}</div></section>`; }
 
@@ -539,6 +539,61 @@ async function hashFile(file) { const buffer=await file.arrayBuffer(); const dig
 async function storeDocumentFile(id,file) { const db=await openDb(); await new Promise((resolve,reject)=>{const tx=db.transaction(DB_STORE,"readwrite");tx.objectStore(DB_STORE).put({id,file});tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);}); db.close(); }
 async function readDocumentFile(id) { const db=await openDb(); const result=await new Promise((resolve,reject)=>{const tx=db.transaction(DB_STORE,"readonly");const request=tx.objectStore(DB_STORE).get(id);request.onsuccess=()=>resolve(request.result?.file||null);request.onerror=()=>reject(request.error);});db.close();return result; }
 async function importDocuments(files) { backupLocal("before_document_import"); for(const file of files){const sha=await hashFile(file);if(state.documents.some((entry)=>entry.sha256===sha))continue;const id=uid("doc");await storeDocumentFile(id,file);state.documents.push({id,name:file.name,type:file.type,size:file.size,sha256:sha,createdAt:new Date().toISOString(),storage:"indexeddb"});} await saveLocal("documents_imported","Belege mit SHA-256-Prüfsumme archiviert.");render(); }
+
+
+function bytesToBase64(bytes) {
+  let binary = "";
+  for (let index = 0; index < bytes.length; index += 8192) {
+    binary += String.fromCharCode(...bytes.subarray(index, index + 8192));
+  }
+  return btoa(binary);
+}
+function base64ToBytes(base64) {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+  return bytes;
+}
+async function uploadDocumentToDrive(documentId) {
+  const doc = state.documents.find((entry) => entry.id === documentId);
+  if (!doc || doc.cloudFileId) return;
+  try {
+    const file = await readDocumentFile(documentId);
+    if (!file) throw new Error("Originalbeleg ist auf diesem Gerät nicht verfügbar.");
+    if (file.size > 2500000) throw new Error("Für diese Drive-Sicherung sind höchstens 2,5 MB pro Beleg möglich.");
+    const sha = await hashFile(file);
+    if (sha !== doc.sha256) throw new Error("Originalbeleg stimmt nicht mit dem archivierten Prüfsummen-Eintrag überein.");
+    const response = await fetch("/api/google-drive?action=finance-document-upload", {
+      method: "POST", credentials: "same-origin",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({
+        documentId, fileName: doc.name, mimeType: file.type,
+        sha256: sha, base64: bytesToBase64(new Uint8Array(await file.arrayBuffer())),
+      }),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || result.ok !== true || !result.fileId) throw new Error(result.message || result.error || "Drive-Belegupload fehlgeschlagen.");
+    doc.cloudFileId = result.fileId;
+    doc.cloudStoredAt = result.uploadedAt;
+    await saveLocal("document_drive_uploaded", "Originalbeleg " + doc.name + " zusätzlich in Google Drive gesichert.", { documentId });
+    render();
+    toast("Originalbeleg in Drive gesichert. Die Belegzuordnung muss noch mit dem Finance-Server synchronisiert werden.");
+  } catch (error) { toast(error.message, "Google-Drive-Belegarchiv"); }
+}
+async function restoreDocumentFromDrive(doc) {
+  if (!doc.cloudFileId) throw new Error("Für diesen Beleg existiert kein Cloud-Original.");
+  const response = await fetch("/api/google-drive?action=finance-document-download", {
+    method: "POST", credentials: "same-origin",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({ documentId: doc.id, fileId: doc.cloudFileId, sha256: doc.sha256 }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || data.ok !== true || !data.base64) throw new Error(data.message || data.error || "Originalbeleg konnte nicht aus Drive geladen werden.");
+  const file = new File([base64ToBytes(data.base64)], doc.name || "beleg", { type: doc.type || "application/octet-stream" });
+  if (await hashFile(file) !== doc.sha256) throw new Error("Beleg-Prüfsumme nach Download fehlerhaft.");
+  await storeDocumentFile(doc.id, file);
+  return file;
+}
 
 async function approveTransaction(id) { const item=state.transactions.find((entry)=>entry.id===id);if(!item||item.voidedAt)return;if(isLockedDate(item.transactionDate))return toast("Dieser Monat ist abgeschlossen.","Monat gesperrt");item.status="approved";item.updatedAt=new Date().toISOString();await saveLocal("transaction_approved",`Transaktion ${item.transactionId||item.id} geprüft.`);render(); }
 async function voidTransaction(id) { const item=state.transactions.find((entry)=>entry.id===id);if(!item||item.voidedAt)return;if(isLockedDate(item.transactionDate))return toast("Dieser Monat ist abgeschlossen.","Monat gesperrt");const reason=window.prompt("Grund für das Storno / die Korrektur:","Korrektur erforderlich");if(!reason)return;item.voidedAt=new Date().toISOString();item.voidReason=reason;item.status="voided";await saveLocal("transaction_voided",`Transaktion ${item.transactionId||item.id} storniert: ${reason}`);render(); }
@@ -574,7 +629,15 @@ function bindEvents() {
     const approve=event.target.closest?.("[data-ef2-approve]")?.dataset.ef2Approve;if(approve)return approveTransaction(approve);
     const voidId=event.target.closest?.("[data-ef2-void]")?.dataset.ef2Void;if(voidId)return voidTransaction(voidId);
     const attach=event.target.closest?.("[data-ef2-attach-doc]")?.dataset.ef2AttachDoc;if(attach){const select=document.querySelector(`[data-ef2-doc-select="${CSS.escape(attach)}"]`);return attachDocument(attach,select?.value);}
-    const docId=event.target.closest?.("[data-ef2-download-doc]")?.dataset.ef2DownloadDoc;if(docId){const file=await readDocumentFile(docId);const meta=state.documents.find((entry)=>entry.id===docId);return file?download(meta?.name||"beleg",file,file.type):toast("Originaldatei ist auf diesem Gerät nicht verfügbar.");}
+    const cloudId=event.target.closest?.("[data-ef2-cloud-doc]")?.dataset.ef2CloudDoc;if(cloudId)return uploadDocumentToDrive(cloudId);
+    const docId=event.target.closest?.("[data-ef2-download-doc]")?.dataset.ef2DownloadDoc;if(docId){
+      const meta=state.documents.find((entry)=>entry.id===docId);
+      if(!meta)return toast("Belegmetadaten fehlen.");
+      try {
+        const file=await readDocumentFile(docId) || await restoreDocumentFromDrive(meta);
+        return download(meta.name||"beleg",file,file.type);
+      } catch(error) { return toast(error.message,"Originalbeleg"); }
+    }
     const action=event.target.closest?.("[data-ef2-action]")?.dataset.ef2Action;if(!action)return;
     if(action==="load-server")return loadServer();if(action==="save-server")return saveServer();if(action==="refresh-status")return refreshServerStatus();if(action==="reserve-invoice")return reserveInvoice();if(action==="ebay-preview")return ebayPreview();if(action==="confirm-ebay-preview")return confirmStagedImport("ebay_finances_api");if(action==="confirm-csv")return confirmStagedImport("ebay_csv");if(action==="cancel-csv"){stagedImport=null;return render();}if(action==="select-unapproved"){selectedTransactionIds=new Set(currentTransactions().filter((entry)=>!entry.voidedAt&&entry.status!=="approved"&&!isLockedDate(entry.transactionDate)).map((entry)=>entry.id));return render();}if(action==="approve-selected")return approveSelected();if(action==="close-month")return closeMonth();if(action==="reopen-month")return reopenMonth();if(action.startsWith("download-"))return exportAction(action);
   });
