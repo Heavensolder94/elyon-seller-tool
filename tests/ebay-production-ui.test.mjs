@@ -27,18 +27,19 @@ test("selected eBay policies are restored after selling-flow rerenders", () => {
   assert.match(visibility, /checkSetup/);
 });
 
-test("live publishing stays approval-gated for manual and Auto-Live modes", () => {
+test("live publishing requires per-listing approval even with an old Auto-Live setting", () => {
   assert.match(productionUi, /PUBLISH_EBAY_OFFER/);
   assert.match(productionUi, /WITHDRAW_EBAY_OFFER/);
   assert.match(productionUi, /kostenpflichtig und öffentlich/i);
   assert.match(productionUi, /window\.confirm/);
   assert.match(productionUi, /autoPublishEnabled/);
   assert.match(productionUi, /Automatisch live veröffentlichen/);
-  assert.match(productionUi, /if \(readSelections\(\)\.autoPublishEnabled === true\)/);
-  assert.match(productionUi, /manualApprovalRequired: !autoPublishEnabled/);
-  assert.match(productionUi, /automaticPublishingAllowed: autoPublishEnabled/);
+  assert.match(productionUi, /id="elyonEbayAutoPublishToggle" disabled/);
+  assert.doesNotMatch(productionUi, /if \(readSelections\(\)\.autoPublishEnabled === true\)/);
+  assert.match(productionUi, /manualApprovalRequired: true/);
+  assert.match(productionUi, /automaticPublishingAllowed: false/);
   assert.match(productionUi, /autonomousPostingAllowed: false/);
-  assert.match(productionUi, /publishingMode: autoPublishEnabled \? "auto_after_readiness" : "manual_approval"/);
+  assert.match(productionUi, /publishingMode: "manual_approval"/);
   assert.doesNotMatch(productionUi, /setInterval\([^)]*publish/i);
 });
 
