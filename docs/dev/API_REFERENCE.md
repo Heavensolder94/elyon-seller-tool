@@ -11,6 +11,10 @@
 
 API-Endpunkte zentral dokumentieren.
 
+## CJ-Konfigurationsstatus
+
+`GET /api/cj/status` und die durch Vercel auf `/api/cj/search?action=status` umgeschriebene Variante zeigen nur den Konfigurationsstand. `ok` bestätigt die Antwort der Route; `connected:false` und `verified:false` bedeuten, dass keine Live-Verbindung geprüft wurde. `status` unterscheidet `missing_config`, `invalid_config` (Test-Platzhalter) und `configured_not_tested`. Auch `/api/integrations/status` meldet CJ nicht allein wegen vorhandener Zugangsdaten als verbunden. Keine Zugangsdaten werden ausgegeben. Eine echte Prüfung und die Unterscheidung von Authentifizierungs-, Anbieter- und Rate-Limit-Fehlern sind damit noch nicht implementiert.
+
 ## QA 2026-09-05: eBay-Entwürfe und Company-Lifecycle
 
 `POST /api/ebay/create-draft` verwendet jetzt denselben authentifizierten Lifecycle-Handler und dasselbe Entwurfsregister wie `POST /api/ebay?action=create-draft`. API und Register beachten `EBAY_ENV` konsistent. Ohne Offer-ID wird zunächst nach der SKU gesucht; ein eindeutiges UNPUBLISHED-Angebot wird wiederverwendet. Aktive, unklare und unvollständig gelesene Angebote stoppen Entwurfsschreibzugriffe. Ein erfolgreicher eBay-Aufruf bleibt bei Registerfehler erfolgreich, enthält aber `draftRegistry.persisted:false` und eine Warnung.

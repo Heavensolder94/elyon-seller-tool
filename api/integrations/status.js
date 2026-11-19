@@ -1,3 +1,5 @@
+import { cjConfigurationStatus } from "../../lib/cj-configuration-status.js";
+
 function boolEnv(name) {
   return Boolean(process.env[name]);
 }
@@ -111,17 +113,18 @@ function ebayStatus() {
 }
 
 function cjStatus() {
-  const configured = Boolean(process.env.CJ_ACCESS_TOKEN || process.env.CJ_API_KEY);
+  const state = cjConfigurationStatus();
+  const configured = state.configured;
   return providerStatus({
     provider: "cj",
     configured,
-    connected: configured,
-    status: configured ? "configured_not_tested" : "missing_config",
-    message: configured ? "CJ ist konfiguriert. Produktsuche kann über /api/cj/search getestet werden." : "CJ_ACCESS_TOKEN oder CJ_API_KEY fehlt.",
+    connected: false,
+    status: state.status,
+    message: state.message,
     requiredEnvVars: ["CJ_ACCESS_TOKEN", "CJ_API_KEY"],
     supportedActions: ["product_search", "manual_product_import", "supplier_reference"],
     lockedActions: ["automatic_order_fulfillment"],
-    nextStep: configured ? "CJ Produktsuche mit einem Keyword testen." : "CJ API-Key in Vercel setzen und neu deployen.",
+    nextStep: configured ? "CJ Produktsuche mit einem Keyword testen." : state.status === "invalid_config" ? "CJ-Testwert in Vercel durch gültige Zugangsdaten ersetzen und neu deployen." : "CJ API-Key in Vercel setzen und neu deployen.",
   });
 }
 
