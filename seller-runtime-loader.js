@@ -856,9 +856,9 @@
       ebayDraftStatusOk = listingResult.status === "fulfilled" && listingResult.value?.draftsAvailable !== false;
       if (listingResult.status !== "fulfilled") throw listingResult.reason;
 
+      const items = Array.isArray(listingResult.value?.items) ? listingResult.value.items : [];
       archivedFeedRecords = Array.isArray(listingResult.value?.feedHistory?.items)
         ? listingResult.value.feedHistory.items : [];
-      const items = Array.isArray(listingResult.value?.items) ? listingResult.value.items : [];
       const products = productResult.status === "fulfilled" && Array.isArray(productResult.value?.products)
         ? productResult.value.products
         : [];
