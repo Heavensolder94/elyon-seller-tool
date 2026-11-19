@@ -19,12 +19,13 @@
   let ebayDraftStatusOk = false;
   let ebayDeleteFeedback = "";
   let ebayDeleteFeedbackError = false;
+  let archivedFeedRecords = [];
 
   const GROUPS = {
     quickstart: [
       { src: "/seller-quickstart-menu.js", type: "module" },
     ],
-    draftsTab: [],
+    draftsTab: [{ src: "/seller-feed-archive.js" }],
     activeListingsTab: [],
     ebayListingTab: [
       PRICE_PROVENANCE,
@@ -319,29 +320,6 @@
       .elyon-intake-heading{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
       .elyon-intake-heading h3{margin:0;font-size:16px;color:#e2e8f0}
 
-      .elyon-status-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0;margin-top:19px;padding-top:15px;border-top:1px solid rgba(148,163,184,.16)}
-      .elyon-status-kpi{min-width:0;padding:8px 22px 10px 0}
-      .elyon-status-kpi+.elyon-status-kpi{padding-left:22px;border-left:1px solid rgba(148,163,184,.14)}
-      .elyon-status-kpi-head{display:flex;gap:7px;align-items:center}
-      .elyon-status-kpi-head small{color:#a7b9ce;font-size:12px;font-weight:650}
-      .elyon-status-kpi strong{display:block;font-size:31px;line-height:1.2;font-weight:800;color:#f8fafc;margin:8px 0 4px}
-      .elyon-status-kpi p{margin:0;color:#94a3b8;font-size:11px;line-height:1.45}
-      .elyon-intake-summary{padding:20px 24px}
-      .elyon-intake-heading{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-      .elyon-intake-heading h3{font-size:17px}
-      .elyon-status-groups{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:28px;margin-top:20px}
-      .elyon-status-group{min-width:0}
-      .elyon-status-group h4{margin:0 0 10px;color:#e2e8f0;font-size:13px;font-weight:700}
-      .elyon-status-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0;min-width:0;border-bottom:1px solid rgba(148,163,184,.1);font-size:12px;color:#bdcce0}
-      .elyon-status-row:last-child{border-bottom:0}
-      .elyon-status-row strong{color:#f8fafc;font-size:13px;white-space:nowrap;font-variant-numeric:tabular-nums}
-      .elyon-status-foot{color:#94a3b8;font-size:11px;line-height:1.55;margin:14px 0 0}
-      .elyon-intake-summary .elyon-metric-info-btn{display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;padding:0;margin:0;border:1px solid rgba(148,163,184,.4);border-radius:50%;background:transparent;color:#94a3b8;font:700 10px/1 Arial,sans-serif;cursor:pointer;box-shadow:none}
-      .elyon-intake-summary .elyon-metric-info-btn:hover{border-color:#94a3b8;color:#e2e8f0}
-      .elyon-intake-summary .elyon-metric-info-btn:focus-visible{outline:2px solid #93c5fd;outline-offset:3px}
-      @media(max-width:900px){.elyon-status-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.elyon-status-kpi{padding-right:14px}.elyon-status-kpi+.elyon-status-kpi{padding-left:14px}.elyon-status-kpi:nth-child(odd){padding-left:0;border-left:0}.elyon-status-kpi:nth-child(n+3){padding-top:15px;border-top:1px solid rgba(148,163,184,.14)}.elyon-status-kpi strong{font-size:27px}}
-      @media(max-width:680px){.elyon-status-kpi-head small{font-size:10px}.elyon-status-groups{grid-template-columns:minmax(0,1fr);gap:24px}.elyon-intake-summary{padding:17px}}
-      @media(max-width:400px){.elyon-status-kpis{grid-template-columns:minmax(0,1fr)}.elyon-status-kpi,.elyon-status-kpi+.elyon-status-kpi{padding:10px 0;border-left:0;border-bottom:1px solid rgba(148,163,184,.12)}.elyon-status-kpi:last-child{border-bottom:0}}
       .elyon-listings-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap}
       .elyon-listings-head h2{margin:0 0 7px;font-size:28px;letter-spacing:-.035em}
       .elyon-listings-head p{margin:0;max-width:800px;color:#cbd5e1;font-size:13px;line-height:1.55}
@@ -498,6 +476,7 @@
           ${mode === "draft" && product?.source === "elyon_inventory_draft" && offerId === "243461011011" && sku === "AMZ-B0D63HF7Z4"
             ? `<button type="button" class="elyon-api-draft-delete" data-elyon-delete-offer="${escapeHtml(offerId)}" data-elyon-delete-sku="${escapeHtml(sku)}">Nur diesen eBay-API-Entwurf löschen</button>`
             : ""}
+          ${typeof window === "object" && window.ElyonFeedArchive?.button?.(product, mode) || ""}
           ${mode === "draft" && product?.productMasterMatch === "unmatched" && /^AMZ-[A-Z0-9]{10}$/i.test(sku)
             ? `<button type="button" class="secondary elyon-review-intake-btn" data-elyon-review-sku="${escapeHtml(sku)}">↗ In Company OS zur Produktprüfung</button>`
             : ""}
@@ -593,6 +572,12 @@
       '</section>';
   }
 
+  function renderArchivedFeedHistory() {
+    return !listingLoading && ebayDraftStatusOk
+      ? window.ElyonFeedArchive?.renderHistory?.(archivedFeedRecords) || ""
+      : "";
+  }
+
   function renderDraftWorkspace(message = "") {
     const { draftTab } = ensureListingWorkspaces();
     if (!draftTab) return;
@@ -615,7 +600,8 @@
         ${typeof renderIntakeDetails === "function" ? renderIntakeDetails() : ""}
         <p class="small">Feed-Entwürfe aus dem Amazon Importer werden nach bestätigter Verarbeitung zusätzlich angezeigt. Ihr aktueller Bestand im eBay Seller Hub kann über die Inventory API nicht live geprüft werden. Product-Master-Zuordnung und Company-OS-Gewinnprognosen werden bei jedem Öffnen oder Klick auf „Neu laden“ aus der kanonischen Quelle aktualisiert; unbestätigte Kosten bleiben offen.</p>
         ${message ? `<div class="elyon-listings-status ${message.startsWith("Fehler:") ? "error" : ""}">${escapeHtml(message)}</div>` : ""}
-        ${ebayDeleteFeedback ? `<div class="elyon-listings-status ${ebayDeleteFeedbackError ? "error" : ""}" role="alert"><strong>eBay-Entwurf:</strong> ${escapeHtml(ebayDeleteFeedback)}</div>` : ""}
+        ${ebayDeleteFeedback ? `<div class="elyon-listings-status ${ebayDeleteFeedbackError ? "error" : ""}" role="alert"><strong>eBay / Feed:</strong> ${escapeHtml(ebayDeleteFeedback)}</div>` : ""}
+        ${renderArchivedFeedHistory()}
         <section class="card"><div class="elyon-listings-list">${listingLoading
           ? '<div class="elyon-listings-empty">Echte eBay-Entwürfe werden geladen …</div>'
           : draftProducts.length
@@ -623,6 +609,9 @@
             : '<div class="elyon-listings-empty">eBay meldet aktuell 0 UNPUBLISHED-Angebote. Deshalb zeigt Elyon 0 Listing-Entwürfe.</div>'}</div></section>
       </div>`;
     draftTab.querySelector("#elyonDraftsRefresh")?.addEventListener("click", () => refreshListingWorkspaces(true, DRAFT_TAB_ID));
+    draftTab.querySelectorAll?.("[data-elyon-archive-feed-sku]").forEach((button) => {
+      button.addEventListener("click", () => archiveDreamzieFeed(button));
+    });
     draftTab.querySelectorAll?.("[data-elyon-delete-offer]").forEach((button) => {
       button.addEventListener("click", () => deleteUnpublishedApiOffer(button));
     });
@@ -688,6 +677,24 @@
       window.alert?.("Company-OS-Produktprüfung nicht übernommen: " + text(error?.message || "Unbekannter Fehler")
         + "\nDer eBay-Entwurf wurde nicht verändert.");
     }
+  }
+
+  function archiveDreamzieFeed(button) {
+    return window.ElyonFeedArchive?.archive?.(
+      button, draftProducts,
+      async () => {
+        ebayDeleteFeedback = "Dreamzie ist in ELYON archiviert. Feed-Verlauf erhalten; Company OS und eBay unverändert.";
+        ebayDeleteFeedbackError = false;
+        window.__elyonSellerState = null;
+        window.__elyonSellerStateLoadedAt = 0;
+        await refreshListingWorkspaces(true, DRAFT_TAB_ID);
+      },
+      (message) => {
+        ebayDeleteFeedback = "Dreamzie-Archivierung NICHT bestätigt: " + text(message);
+        ebayDeleteFeedbackError = true;
+        renderDraftWorkspace();
+      }
+    );
   }
 
   async function deleteUnpublishedApiOffer(button) {
@@ -781,6 +788,8 @@
       if (listingResult.status !== "fulfilled") throw listingResult.reason;
 
       const items = Array.isArray(listingResult.value?.items) ? listingResult.value.items : [];
+      archivedFeedRecords = Array.isArray(listingResult.value?.feedHistory?.items)
+        ? listingResult.value.feedHistory.items : [];
       const products = productResult.status === "fulfilled" && Array.isArray(productResult.value?.products)
         ? productResult.value.products
         : [];
@@ -795,6 +804,7 @@
     } catch (error) {
       draftProducts = [];
       activeProducts = [];
+      archivedFeedRecords = [];
       ebayListingStatusOk = false;
       ebayDraftStatusOk = false;
       const authHint = error?.status === 403 ? " Bitte Seller-Sitzung erneut anmelden." : "";

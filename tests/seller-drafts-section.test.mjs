@@ -16,7 +16,7 @@ async function renderEmptyDrafts(draftsAvailable, message = "") {
   const draftTab = { innerHTML: "", querySelector() { return null; } };
   const context = vm.createContext({
     window: { __elyonSellerState: { draftsAvailable } },
-    draftProducts: [], listingLoading: false, activeProducts: [], ebayListingStatusOk: true, ebayDraftStatusOk: draftsAvailable === true, ebayDeleteFeedback: "", ebayDeleteFeedbackError: false, productIntakeError: "",
+    draftProducts: [], listingLoading: false, activeProducts: [], ebayListingStatusOk: true, ebayDraftStatusOk: draftsAvailable === true, ebayDeleteFeedback: "", ebayDeleteFeedbackError: false, archivedFeedRecords: [], productIntakeError: "",
     productIntakeOverview: { total: 3, sources: { nova: 1, amazonImporter: 2, companyOs: 0, unclassified: 0 }, stages: { inbox: 1, review: 2, listingPrepared: 0 }, complete: true, dedupeVerified: true, identityUnverified: 0 },
     ensureListingWorkspaces: () => ({ draftTab }),
     escapeHtml: (value) => String(value),
@@ -54,7 +54,7 @@ test("an Inventory API offer and a processed feed are not shown as two confirmed
       { sku: "AMZ-B0D63HF7Z4", source: "elyon_inventory_draft", offerId: "243461011011", productMasterMatch: "matched" },
       { sku: "AMZ-B0BWND9WBR", source: "elyon_seller_hub_feed", feedVerification: "feed_processed_not_live_checked", productMasterMatch: "matched" },
     ],
-    listingLoading: false, activeProducts: [], ebayListingStatusOk: true, ebayDraftStatusOk: true, ebayDeleteFeedback: "", ebayDeleteFeedbackError: false, productIntakeError: "",
+    listingLoading: false, activeProducts: [], ebayListingStatusOk: true, ebayDraftStatusOk: true, ebayDeleteFeedback: "", ebayDeleteFeedbackError: false, archivedFeedRecords: [], productIntakeError: "",
     productIntakeOverview: { total: 3, sources: { nova: 1, amazonImporter: 2, companyOs: 0, unclassified: 0 }, stages: { inbox: 1, review: 2, listingPrepared: 0 }, complete: true, dedupeVerified: true, identityUnverified: 0 },
     ensureListingWorkspaces: () => ({ draftTab }),
     escapeHtml: (value) => String(value),
@@ -84,7 +84,7 @@ test("each of the four operational metrics has keyboard and touch accessible inf
         { source: "elyon_inventory_draft", productMasterMatch: "matched" },
         { source: "elyon_seller_hub_feed", feedVerification: "feed_processed_not_live_checked", productMasterMatch: "matched" },
       ],
-      listingLoading: false, activeProducts: [], ebayListingStatusOk: true, ebayDraftStatusOk: true, ebayDeleteFeedback: "", ebayDeleteFeedbackError: false, productIntakeError: "",
+      listingLoading: false, activeProducts: [], ebayListingStatusOk: true, ebayDraftStatusOk: true, ebayDeleteFeedback: "", ebayDeleteFeedbackError: false, archivedFeedRecords: [], productIntakeError: "",
     productIntakeOverview: { total: 3, sources: { nova: 1, amazonImporter: 2, companyOs: 0, unclassified: 0 }, stages: { inbox: 1, review: 2, listingPrepared: 0 }, complete: true, dedupeVerified: true, identityUnverified: 0 },
       ensureListingWorkspaces: () => ({ draftTab }),
       escapeHtml: (value) => String(value),
@@ -127,7 +127,7 @@ test("processed feed alone never counts as API draft, and unavailable draft look
       { sku: "AMZ-B0BWND9WBR", source: "elyon_seller_hub_feed", feedVerification: "feed_processed_not_live_checked" },
     ],
     activeProducts: [], listingLoading: false,
-    ebayListingStatusOk: true, ebayDraftStatusOk: true, ebayDeleteFeedback: "", ebayDeleteFeedbackError: false,
+    ebayListingStatusOk: true, ebayDraftStatusOk: true, ebayDeleteFeedback: "", ebayDeleteFeedbackError: false, archivedFeedRecords: [],
     productIntakeOverview: null, productIntakeError: "Company OS offline",
     ensureListingWorkspaces: () => ({ draftTab }),
     escapeHtml: (value) => String(value),
@@ -153,7 +153,7 @@ test("listing drafts and active listings have separate lazy workspaces", async (
   const runtime = await readFile(runtimeUrl, "utf8");
   assert.match(runtime, /const DRAFT_TAB_ID = "draftsTab"/);
   assert.match(runtime, /const ACTIVE_TAB_ID = "activeListingsTab"/);
-  assert.match(runtime, /draftsTab: \[\]/);
+  assert.match(runtime, /draftsTab: \[\{ src: "\/seller-feed-archive\.js" \}\]/);
   assert.match(runtime, /activeListingsTab: \[\]/);
   assert.match(runtime, /option\.textContent = "📝 Listing-Entwürfe"/);
   assert.match(runtime, /option\.textContent = "🟢 Aktive Listings"/);
