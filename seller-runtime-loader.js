@@ -355,6 +355,9 @@
       .elyon-listing-pill.ready,.elyon-listing-pill.live{color:#bbf7d0;background:rgba(34,197,94,.1);border-color:rgba(34,197,94,.23)}
       .elyon-listing-pill.blocked{color:#fde68a;background:rgba(245,158,11,.09);border-color:rgba(245,158,11,.22)}
       .elyon-review-intake-btn{display:inline-flex;margin-top:10px;padding:9px 12px;font-size:12px;border-radius:10px;max-width:100%;white-space:normal;text-align:left}
+      .elyon-api-draft-delete{display:inline-flex;margin-top:12px;padding:8px 12px;border:1px solid rgba(248,113,113,.4);border-radius:10px;background:transparent;color:#fecaca;font-size:12px;font-weight:650;cursor:pointer}
+      .elyon-api-draft-delete:hover{background:rgba(239,68,68,.09)}
+      .elyon-api-draft-delete:disabled{opacity:.5;cursor:wait}
       .elyon-listings-status{padding:12px 14px;border-radius:15px;background:rgba(59,130,246,.09);border:1px solid rgba(96,165,250,.2);color:#dbeafe;font-size:12px;line-height:1.45}
       .elyon-listings-status.error{color:#fecaca;background:rgba(239,68,68,.09);border-color:rgba(239,68,68,.25)}
       .elyon-listings-empty{padding:28px 18px;text-align:center;border-radius:18px;border:1px dashed rgba(148,163,184,.22);color:#94a3b8;font-size:12px;line-height:1.55}
@@ -490,6 +493,9 @@
             ${offerId ? `<span class="elyon-listing-pill">Offer ${escapeHtml(offerId)}</span>` : ""}
             ${mode === "active" && itemId ? `<span class="elyon-listing-pill live">eBay ${escapeHtml(itemId)}</span>` : ""}
           </div>
+          ${mode === "draft" && product?.source === "elyon_inventory_draft" && offerId === "243461011011" && sku === "AMZ-B0D63HF7Z4"
+            ? `<button type="button" class="elyon-api-draft-delete" data-elyon-delete-offer="${escapeHtml(offerId)}" data-elyon-delete-sku="${escapeHtml(sku)}">Nur diesen eBay-API-Entwurf löschen</button>`
+            : ""}
           ${mode === "draft" && product?.productMasterMatch === "unmatched" && /^AMZ-[A-Z0-9]{10}$/i.test(sku)
             ? `<button type="button" class="secondary elyon-review-intake-btn" data-elyon-review-sku="${escapeHtml(sku)}">↗ In Company OS zur Produktprüfung</button>`
             : ""}
@@ -614,6 +620,9 @@
             : '<div class="elyon-listings-empty">eBay meldet aktuell 0 UNPUBLISHED-Angebote. Deshalb zeigt Elyon 0 Listing-Entwürfe.</div>'}</div></section>
       </div>`;
     draftTab.querySelector("#elyonDraftsRefresh")?.addEventListener("click", () => refreshListingWorkspaces(true, DRAFT_TAB_ID));
+    draftTab.querySelectorAll?.("[data-elyon-delete-offer]").forEach((button) => {
+      button.addEventListener("click", () => deleteUnpublishedApiOffer(button));
+    });
     draftTab.querySelectorAll?.("[data-elyon-review-sku]").forEach((button) => {
       button.addEventListener("click", () => startCompanyOsReview(button.dataset.elyonReviewSku, button));
     });
@@ -675,6 +684,47 @@
       button.textContent = previousText;
       window.alert?.("Company-OS-Produktprüfung nicht übernommen: " + text(error?.message || "Unbekannter Fehler")
         + "\nDer eBay-Entwurf wurde nicht verändert.");
+    }
+  }
+
+  async function deleteUnpublishedApiOffer(button) {
+    const offerId = text(button?.dataset?.elyonDeleteOffer);
+    const sku = text(button?.dataset?.elyonDeleteSku).toUpperCase();
+    if (offerId !== "243461011011" || sku !== "AMZ-B0D63HF7Z4" ||
+        !draftProducts.some((item) => item?.source === "elyon_inventory_draft" &&
+          text(item.offerId) === offerId && text(item.sku).toUpperCase() === sku)) return;
+    if (button.disabled) return;
+    const confirmed = window.confirm?.(
+      "Nur den unveröffentlichten eBay-API-Entwurf der NOBIS Powerbank löschen?\\n" +
+      "Offer-ID: " + offerId + "\\nSKU: " + sku + "\\n\\n" +
+      "Die Produkte in Company OS, der Dreamzie-Feed-Auftrag und andere Angebote bleiben bestehen.\\n" +
+      "Diese Aktion kann nicht rückgängig gemacht werden.");
+    if (confirmed !== true) return;
+    const previousText = button.textContent;
+    button.disabled = true;
+    button.textContent = "Löschung bei eBay wird geprüft …";
+    try {
+      const response = await fetch("/api/ebay/delete-unpublished-offer", {
+        method: "POST", credentials: "same-origin", cache: "no-store",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({
+          offerId, sku, confirmOfferId: offerId,
+          confirm: "DELETE_UNPUBLISHED_OFFER",
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || data?.ok !== true || data?.verified !== true) {
+        throw new Error(data?.message || data?.error || "Löschung nicht bestätigt");
+      }
+      window.alert?.("eBay-API-Angebot " + offerId + " gelöscht und bei eBay überprüft.\\n" +
+        "Company OS und Dreamzie bleiben unverändert." +
+        (data.registryUpdated ? "" : "\\nHinweis: ELYON-Register wird beim nächsten Abgleich aktualisiert."));
+      await refreshListingWorkspaces(true, DRAFT_TAB_ID);
+    } catch (error) {
+      button.disabled = false;
+      button.textContent = previousText;
+      window.alert?.("eBay-Angebot konnte nicht sicher als gelöscht bestätigt werden: " +
+        text(error?.message || "Unbekannter Fehler") + "\\nBitte erst den Status erneut prüfen, bevor du es wiederholst.");
     }
   }
 
