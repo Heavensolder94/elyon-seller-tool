@@ -162,8 +162,6 @@ function buildApiRoute(pathname, query) {
     { match: /^\/api\/google-sheets-sync$/, module: "api/secure-env-check.js" },
     { match: /^\/api\/secure-env-check$/, module: "api/secure-env-check.js" },
     { match: /^\/api\/google-sheets-sync-settings$/, module: "api/google-sheets-sync-settings.js" },
-    { match: /^\/api\/cj\/status$/, module: "api/cj/status.js" },
-    { match: /^\/api\/cj\/search$/, module: "api/cj/search.js" },
     { match: /^\/api\/mobile-features$/, module: "api/mobile-features.js" },
     { match: /^\/api\/mobile-health$/, module: "api/secure-mobile-health.js" },
     { match: /^\/api\/mobile-summary$/, module: "api/secure-mobile-summary.js" },

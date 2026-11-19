@@ -89,10 +89,6 @@ function buildEnvReadiness() {
     GOOGLE_REDIRECT_URI: envFlag("GOOGLE_REDIRECT_URI"),
   };
 
-  const cj = {
-    CJ_API_KEY_OR_ACCESS_TOKEN: envFlag("CJ_API_KEY") || envFlag("CJ_ACCESS_TOKEN"),
-  };
-
   const openai = {
     OPENAI_API_KEY: envFlag("OPENAI_API_KEY"),
   };
@@ -106,7 +102,7 @@ function buildEnvReadiness() {
     EBAY_TOKEN_STORE_TOKEN_OR_UPSTASH_REDIS_REST_TOKEN: envFlag("EBAY_TOKEN_STORE_TOKEN") || envFlag("UPSTASH_REDIS_REST_TOKEN") || envFlag("KV_REST_API_TOKEN"),
   };
 
-  return { ebay, googleDrive, cj, openai, deepseek, upstash };
+  return { ebay, googleDrive, openai, deepseek, upstash };
 }
 
 function summarizeService({ key, name, envFlags, routeProbe, liveProbe, liveLabel, forceState, forceDetail }) {
@@ -145,13 +141,12 @@ export default async function handler(req, res) {
 
   const env = buildEnvReadiness();
 
-  const [envCheck, ebayStatus, ebayToken, ebayOrders, googleDrive, cjStatus] = await Promise.all([
+  const [envCheck, ebayStatus, ebayToken, ebayOrders, googleDrive] = await Promise.all([
     probe(req, "/api/env-check"),
     probe(req, "/api/ebay/status"),
     probe(req, "/api/ebay/token"),
     probe(req, "/api/ebay/orders?days=7"),
     probe(req, "/api/google-drive/status"),
-    probe(req, "/api/cj/status"),
   ]);
 
   const ebayAccessDenied = ebayOrders.status === 403 && ebayOrders.data?.error === "seller_access_denied";
@@ -171,9 +166,6 @@ export default async function handler(req, res) {
     summarizeService({ key: "env", name: "ENV Check", envFlags: {}, routeProbe: envCheck, liveProbe: envCheck, liveLabel: "System" }),
     summarizeService({ key: "ebay", name: "eBay", envFlags: env.ebay, routeProbe: ebayStatus, liveProbe: ebayOrders.ok ? ebayOrders : ebayToken, liveLabel: ebayOrders.ok ? "Orders live" : "Token/OAuth", forceState: ebayState, forceDetail: ebayDetail }),
     summarizeService({ key: "googleDrive", name: "Google Drive", envFlags: env.googleDrive, routeProbe: googleDrive, liveProbe: googleDrive, liveLabel: "OAuth/Status", forceState: googleState, forceDetail: googleDetail }),
-    summarizeService({ key: "cj", name: "CJ Dropshipping", envFlags: env.cj, routeProbe: cjStatus,
-      liveProbe: { ...cjStatus, ok: cjStatus.ok && cjStatus.data?.verified === true && cjStatus.data?.connected === true },
-      liveLabel: "Konfiguration, ungeprüft", forceDetail: cjStatus.data?.message || null }),
     summarizeService({ key: "openai", name: "OpenAI", envFlags: env.openai, routeProbe: envCheck, liveProbe: envCheck, liveLabel: "Key vorhanden" }),
     summarizeService({ key: "deepseek", name: "DeepSeek", envFlags: env.deepseek, routeProbe: envCheck, liveProbe: envCheck, liveLabel: "Key vorhanden" }),
     summarizeService({ key: "upstash", name: "Upstash/KV", envFlags: env.upstash, routeProbe: envCheck, liveProbe: envCheck, liveLabel: "Token Store" }),
@@ -202,7 +194,6 @@ export default async function handler(req, res) {
       ebayToken,
       ebayOrders,
       googleDrive,
-      cjStatus,
     },
   });
 }

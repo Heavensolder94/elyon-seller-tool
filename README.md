@@ -1,34 +1,19 @@
 # Elyon Seller Tool
 
-Elyon Seller Tool ist eine lokale Seller-Arbeitsoberflaeche fuer Produktrecherche, Listing-Vorbereitung, CJdropshipping, eBay-OAuth, Bestellverwaltung, Versand, Rechnungen, Retouren, Backups und KI-gestuetzte Analyse.
+Elyon Seller Tool ist eine lokale Seller-Arbeitsoberflaeche fuer Produktrecherche, Listing-Vorbereitung, eBay-OAuth, Bestellverwaltung, Versand, Rechnungen, Retouren, Backups und KI-gestuetzte Analyse.
 
 Die App besteht aus drei Ebenen:
 
 1. Frontend im Browser mit Dashboard, Produktworkflow und ELYON Soul.
-2. Serverless API-Routen fuer CJ, eBay, OpenAI und DeepSeek.
-3. Ein kleiner Python-CLI-Teil fuer CJ-Tests und Legacy-Aufrufe.
+2. Serverless API-Routen fuer eBay, OpenAI und DeepSeek.
+3. Produktdaten werden über Elyon Nova erfasst und im Company OS geprüft.
 
 ## Schnellstart
 
 ### Voraussetzung
 
 - Node.js fuer das Frontend und die Vercel-Routen
-- Python 3 fuer `src/main.py`
-- Ein CJdropshipping API-Key
 - Optional: eBay Developer App und OpenAI- oder DeepSeek-Keys
-
-### Lokaler CJ-Test
-
-```powershell
-$env:CJ_API_KEY="dein-api-key"
-python src\main.py
-```
-
-Was dabei passiert:
-
-- CJ-Token werden geholt oder aus `data/cj_tokens.json` wiederverwendet
-- Kategorien werden geladen
-- Optional laeuft eine Beispielsuche, eine Bestandsabfrage oder eine Testbestellung
 
 ### Frontend starten
 
@@ -86,7 +71,6 @@ Für den serverseitigen Consumer werden `ELYON_COMPANY_OS_URL` und der serversei
 
 ### Integrationen
 
-- CJdropshipping API
 - eBay OAuth, Login-URL, Token-Exchange und Search
 - Google Sheets Sync via Apps Script
 - Vercel Deployment mit Serverless Functions
@@ -117,9 +101,6 @@ Für den serverseitigen Consumer werden `ELYON_COMPANY_OS_URL` und der serversei
 - `public/index.html`: Vercel-Output fuer statische Auslieferung
 - `scripts/prepare-vercel.mjs`: spiegelt die Frontend-Dateien in `public/`
 - `api/*.js`: Serverless Endpoints
-- `src/cj.py`: CJdropshipping-Hauptmodul
-- `src/main.py`: CJ-CLI-Startpunkt
-- `src/calculator.py`: Legacy-Kompatibilitaets-Shim
 - `apps-script/google-sheets-sync.gs`: Google-Sheets-Sync
 - `lib/ebay-token-store.js`: gemeinsamer Token-Speicher fuer eBay Refresh Tokens
 
@@ -131,23 +112,6 @@ Das Repository hat aktuell kein zentrales `npm install`-Setup im `package.json`.
 
 - statische Frontend-Dateien
 - Node-basierte Serverless-Funktionen auf Vercel
-- Python fuer den CJ-CLI-Teil
-
-### 2. CJ konfigurieren
-
-Setze mindestens:
-
-```powershell
-$env:CJ_API_KEY="dein-api-key"
-```
-
-Optional fuer Beispiele:
-
-```powershell
-$env:CJ_SAMPLE_QUERY="iphone case"
-$env:CJ_SAMPLE_VARIANT="deine-variant-sku"
-$env:CJ_SAMPLE_ORDER='{"order":[...]}'
-```
 
 ### 3. eBay konfigurieren
 
@@ -176,13 +140,6 @@ Fuer den Apps-Script-Sync:
 - `SYNC_TOKEN` oder eine der kompatiblen Varianten im Script Property Store
 
 ## Umgebungsvariablen
-
-### CJ
-
-- `CJ_API_KEY`: schaltet CJ-Login und Token-Refresh frei
-- `CJ_SAMPLE_QUERY`: Beispielsuche beim Start von `src/main.py`
-- `CJ_SAMPLE_VARIANT`: Beispiel fuer Bestandsabfrage
-- `CJ_SAMPLE_ORDER`: JSON-Beispiel fuer Testbestellung
 
 ### eBay
 
@@ -243,49 +200,6 @@ Wichtig:
 
 - `DEEPSEEK_API_KEY`: aktiviert `api/elyon-soul`
 
-## CJ-Modul
-
-Das CJ-Modul liegt in `src/cj.py` und kuemmert sich um:
-
-- Access-Token holen
-- Refresh-Token erneuern
-- Token lokal in `data/cj_tokens.json` speichern
-- Kategorien laden
-- Produkte listen und suchen
-- Produktdetails laden
-- Lagerbestand pro Variante abfragen
-- Bestellungen ueber die V2-Shopping-Order-API anlegen
-
-### Wichtige Funktionen
-
-- `authenticate()`
-- `refresh()`
-- `ensure_token()`
-- `get_categories()`
-- `list_products()`
-- `search_products()`
-- `get_product_details()`
-- `get_stock_by_variant()`
-- `create_order_v2()`
-
-### Legacy-Kompatibilitaet
-
-`src/calculator.py` ist nur ein Shim und haelt alte Importpfade am Leben, waehrend die echte CJ-Logik in `src/cj.py` liegt.
-
-## Python-CLI
-
-`src/main.py` ist ein kleiner Smoke-Test fuer CJ.
-
-Ablauf:
-
-1. Token pruefen oder neu holen
-2. Kategorien laden
-3. Optional eine Beispielsuche ausfuehren
-4. Optional eine Bestandsabfrage ausfuehren
-5. Optional eine Testbestellung senden
-
-Das Skript druckt die wichtigsten Statuswerte direkt in die Konsole.
-
 ## Frontend
 
 Die Hauptoberflaeche ist die Seller-App im Browser.
@@ -342,30 +256,6 @@ Antwortfelder:
 - `ebayClientId`
 - `ebayClientSecret`
 - `cjApiKey`
-
-### CJ
-
-#### `GET /api/cj/status`
-
-Ein einfacher CJ-Status-Check.
-
-#### `GET /api/cj/search?q=...&page=1&size=10`
-
-Sucht CJ-Produkte.
-
-Parameter:
-
-- `q` oder `keyword`: Suchbegriff
-- `page`: Seitennummer
-- `size` oder `limit`: Treffer pro Seite, maximal 50
-- `raw=1`: gibt die rohe CJ-Antwort mit aus
-
-Antwort:
-
-- normalisierte Produktliste
-- Trefferanzahl
-- Keyword
-- Seitenwerte
 
 ### eBay
 
@@ -569,7 +459,6 @@ Die Datei `vercel.json` routet:
 
 ### Empfohlene Vercel-Variablen
 
-- `CJ_API_KEY`
 - `EBAY_CLIENT_ID`
 - `EBAY_CLIENT_SECRET`
 - `EBAY_REDIRECT_URI` oder `EBAY_RUNAME`
@@ -589,18 +478,11 @@ Die Datei `vercel.json` routet:
 
 ## Sicherheits- und Datenschutz-Hinweise
 
-- CJ-Token in `data/cj_tokens.json` nicht committen
 - eBay Refresh Tokens nicht in Klartext ins Repo schreiben
 - Die Elyon-Soul-UI sendet nur anonymisierte Produktdaten an die KI
 - OAuth- und Token-Seiten sollten immer ueber eine echte URL laufen
 
 ## Troubleshooting
-
-### CJ funktioniert nicht
-
-- `CJ_API_KEY` pruefen
-- Netzwerkzugriff auf die CJ API pruefen
-- lokale Token-Datei loeschen, wenn ein kaputter Token gespeichert wurde
 
 ### eBay Login funktioniert nicht
 

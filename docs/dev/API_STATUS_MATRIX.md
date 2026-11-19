@@ -4,7 +4,6 @@
 |---|---|---|
 | Ping | /api/ping | Basisprüfung |
 | Health | /api/health | Systemstatus |
-| CJ | /api/cj/status | Supplier-Status |
 | eBay | /api/ebay/status | eBay-Verbindung |
 
 ## Ziel

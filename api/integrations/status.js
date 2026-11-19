@@ -1,5 +1,3 @@
-import { cjConfigurationStatus } from "../../lib/cj-configuration-status.js";
-
 function boolEnv(name) {
   return Boolean(process.env[name]);
 }
@@ -112,22 +110,6 @@ function ebayStatus() {
   });
 }
 
-function cjStatus() {
-  const state = cjConfigurationStatus();
-  const configured = state.configured;
-  return providerStatus({
-    provider: "cj",
-    configured,
-    connected: false,
-    status: state.status,
-    message: state.message,
-    requiredEnvVars: ["CJ_ACCESS_TOKEN", "CJ_API_KEY"],
-    supportedActions: ["product_search", "manual_product_import", "supplier_reference"],
-    lockedActions: ["automatic_order_fulfillment"],
-    nextStep: configured ? "CJ Produktsuche mit einem Keyword testen." : state.status === "invalid_config" ? "CJ-Testwert in Vercel durch gültige Zugangsdaten ersetzen und neu deployen." : "CJ API-Key in Vercel setzen und neu deployen.",
-  });
-}
-
 function aliexpressStatus() {
   return providerStatus({
     provider: "aliexpress",
@@ -162,12 +144,10 @@ function checklistItem(id, label, state, message) {
 
 function buildReadiness(providers) {
   const ebay = providers.ebay;
-  const cj = providers.cj;
   const items = [
     checklistItem("ebay_config", "eBay OAuth Grunddaten", ebay.configured ? "passed" : "error", ebay.configured ? "Client-ID, Secret und Redirect sind vorhanden." : ebay.nextStep),
     checklistItem("ebay_orders_scope", "eBay Orders/Fulfillment Scope", ebay.status !== "needs_reauth" && ebay.configured ? "passed" : "error", ebay.status === "needs_reauth" ? ebay.message : "Orders-Scope wirkt vorbereitet."),
     checklistItem("ebay_manual_publish", "Manuelle eBay-Freigabe", "passed", "Autonomes Posting bleibt gesperrt; manuelle Bestätigung bleibt Pflicht."),
-    checklistItem("cj_config", "CJ API Konfiguration", cj.configured ? "passed" : "error", cj.configured ? "CJ kann getestet werden." : cj.nextStep),
     checklistItem("aliexpress_manual", "AliExpress Extension/Manuell", "warning", "Import vorbereitet, aber bewusst nicht vollautomatisch."),
     checklistItem("amazon_manual", "Amazon nur optional", "warning", "Amazon bleibt manuelle Vergleichs-/Notfallquelle."),
     checklistItem("safety_manual_orders", "Keine automatische Bestellung", "passed", "Bestellungen werden nicht automatisch bei Lieferanten ausgelöst."),
@@ -181,14 +161,13 @@ function buildReadiness(providers) {
     checklist: items,
     nextSteps: errors.length
       ? errors.slice(0, 3).map((item) => item.message)
-      : ["Erstes CJ Produkt importieren.", "Produktdaten und Marge prüfen.", "eBay Listing manuell vorbereiten und bestätigen."],
+      : ["Produkt über Elyon Nova erfassen und im Company OS prüfen.", "Produktdaten und Marge prüfen.", "eBay Listing manuell vorbereiten und bestätigen."],
   };
 }
 
 export default async function handler(req, res) {
   const providers = {
     ebay: ebayStatus(),
-    cj: cjStatus(),
     aliexpress: aliexpressStatus(),
     amazon: amazonStatus(),
   };

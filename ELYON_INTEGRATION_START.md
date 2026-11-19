@@ -10,11 +10,6 @@
 - Search API vorhanden
 - Scope Prüfung vorbereitet
 
-### CJ Dropshipping
-- Produktsuche vorhanden
-- API Integration vorhanden
-- Lieferantenquelle vorbereitet
-
 ### AliExpress
 - Browser Extension Import vorbereitet
 - Manueller Import vorbereitet
@@ -33,7 +28,6 @@ API:
 Liefert:
 
 - eBay Status
-- CJ Status
 - AliExpress Status
 - Amazon Status
 - Verkaufsbereit-Score
@@ -61,14 +55,6 @@ Wenn Orders einen invalid_scope Fehler liefern:
 
 Danach Orders erneut testen.
 
-## CJ Test
-
-API:
-
-/api/cj/search?q=test
-
-Wenn Produkte zurückkommen, funktioniert die Verbindung.
-
 ## AliExpress Import
 
 API:
@@ -92,7 +78,7 @@ Keine automatische Veröffentlichung.
 
 1. eBay verbunden
 2. Orders Scope aktiv
-3. CJ Suche funktioniert
+3. Produktdaten über Elyon Nova erfassen
 4. Erstes Produkt importiert
 5. Marge geprüft
 6. Lieferzeit geprüft
