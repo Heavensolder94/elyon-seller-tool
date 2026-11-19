@@ -509,7 +509,7 @@
 
   function statusKpisHtml() {
     const apiDraftLabel = !listingLoading && ebayDraftStatusOk
-      ? String(draftProducts.filter((item) => item?.source === "elyon_inventory_draft" && listingStatus(item) === "UNPUBLISHED").length)
+      ? String(draftProducts.filter((item) => item?.source === "elyon_inventory_draft").length)
       : "–";
     const reviewCount = productIntakeOverview?.stages?.review;
     const reviewLabel = Number.isSafeInteger(reviewCount) && reviewCount >= 0 ? String(reviewCount) : "–";
