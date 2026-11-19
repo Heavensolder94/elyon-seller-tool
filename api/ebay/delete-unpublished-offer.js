@@ -76,6 +76,27 @@ export async function deleteRegisteredUnpublishedOffer(input = {}, dependencies 
   };
 }
 
+// Vercel's public alias and the internal forwarded hostname may differ.
+// Both are valid only when they match the browser Origin exactly.
+export function isSameOriginSellerMutation(headers = {}) {
+  const origin = only(headers.origin);
+  const hosts = [headers.host, headers["x-forwarded-host"]]
+    .flatMap((value) => String(value ?? "").split(","))
+    .map((host) => host.trim().toLowerCase())
+    .filter(Boolean);
+  if (!origin || hosts.length === 0) return false;
+  if (headers["sec-fetch-site"] && headers["sec-fetch-site"] !== "same-origin") return false;
+  try {
+    const parsed = new URL(origin);
+    const local = parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1";
+    return (parsed.protocol === "https:" || (local && parsed.protocol === "http:"))
+      && hosts.includes(parsed.host.toLowerCase())
+      && !parsed.username && !parsed.password;
+  } catch {
+    return false;
+  }
+}
+
 export default async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
   res.setHeader("X-Content-Type-Options", "nosniff");
@@ -83,21 +104,25 @@ export default async function handler(req, res) {
   if (!requireSellerAccess(req, res, { maxBodyBytes: 4096 })) return;
 
   // Prevent cross-site use of the session cookie for a destructive mutation.
-  const origin = only(req.headers?.origin);
-  const host = only(req.headers?.["x-forwarded-host"] || req.headers?.host);
-  if (!origin || !host || (() => { try { return new URL(origin).host !== host; } catch { return true; } })()) {
-    return res.status(403).json({ ok: false, error: "origin_denied", message: "Löschen nur im angemeldeten Seller Tool möglich." });
-  }
-  if (req.headers?.["sec-fetch-site"] && req.headers["sec-fetch-site"] !== "same-origin") {
-    return res.status(403).json({ ok: false, error: "cross_site_denied" });
+  if (!isSameOriginSellerMutation(req.headers || {})) {
+    console.warn("ebay_offer_delete_rejected", { code: "origin_denied" });
+    return res.status(403).json({
+      ok: false, error: "origin_denied",
+      message: "Sicherheitsprüfung blockiert: Die Browser-Adresse wurde nicht als dieselbe Seller-Tool-Domain erkannt.",
+    });
   }
 
   try {
-    return res.status(200).json(await deleteRegisteredUnpublishedOffer(req.body || {}));
+    const result = await deleteRegisteredUnpublishedOffer(req.body || {});
+    console.info("ebay_offer_delete_verified", { verified: result.verified, registryUpdated: result.registryUpdated });
+    return res.status(200).json(result);
   } catch (error) {
-    return res.status(Number(error?.status || 502)).json({
-      ok: false,
-      error: only(error?.code || "delete_failed"),
+    const code = only(error?.code || "delete_failed");
+    const status = Number(error?.status || 502);
+    // No credentials, SKU, or customer information in diagnostics.
+    console.warn("ebay_offer_delete_failed", { code, status });
+    return res.status(status).json({
+      ok: false, error: code,
       message: only(error?.message || "Angebot konnte nicht gelöscht werden."),
     });
   }
