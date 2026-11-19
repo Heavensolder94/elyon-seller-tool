@@ -25,7 +25,7 @@
     quickstart: [
       { src: "/seller-quickstart-menu.js", type: "module" },
     ],
-    draftsTab: [],
+    draftsTab: [{ src: "/seller-feed-archive.js" }],
     activeListingsTab: [],
     ebayListingTab: [
       PRICE_PROVENANCE,
@@ -361,16 +361,6 @@
       .elyon-api-draft-delete{display:inline-flex;margin-top:12px;padding:8px 12px;border:1px solid rgba(248,113,113,.4);border-radius:10px;background:transparent;color:#fecaca;font-size:12px;font-weight:650;cursor:pointer}
       .elyon-api-draft-delete:hover{background:rgba(239,68,68,.09)}
       .elyon-api-draft-delete:disabled{opacity:.5;cursor:wait}
-      .elyon-feed-archive-btn{display:inline-flex;margin-top:12px;padding:8px 12px;border:1px solid rgba(148,163,184,.35);border-radius:10px;background:transparent;color:#cbd5e1;font-size:12px;font-weight:650;cursor:pointer}
-      .elyon-feed-archive-btn:hover{background:rgba(148,163,184,.09)}
-      .elyon-feed-archive-btn:disabled{opacity:.5;cursor:wait}
-      .elyon-feed-history{padding:15px 20px}
-      .elyon-feed-history summary{cursor:pointer;font-size:13px;font-weight:750;color:#dbeafe}
-      .elyon-feed-history .elyon-status-foot{margin-top:8px}
-      .elyon-feed-history-list{display:grid;gap:10px;margin-top:12px}
-      .elyon-feed-history-entry{padding:12px 14px;border-top:1px solid rgba(148,163,184,.16);color:#e2e8f0;font-size:12px}
-      .elyon-feed-history-entry strong{font-size:13px}
-      .elyon-feed-history-entry p{color:#94a3b8;font-size:11px;margin:5px 0 0;overflow-wrap:anywhere}
       .elyon-listings-status{padding:12px 14px;border-radius:15px;background:rgba(59,130,246,.09);border:1px solid rgba(96,165,250,.2);color:#dbeafe;font-size:12px;line-height:1.45}
       .elyon-listings-status.error{color:#fecaca;background:rgba(239,68,68,.09);border-color:rgba(239,68,68,.25)}
       .elyon-listings-empty{padding:28px 18px;text-align:center;border-radius:18px;border:1px dashed rgba(148,163,184,.22);color:#94a3b8;font-size:12px;line-height:1.55}
@@ -509,11 +499,7 @@
           ${mode === "draft" && product?.source === "elyon_inventory_draft" && offerId === "243461011011" && sku === "AMZ-B0D63HF7Z4"
             ? `<button type="button" class="elyon-api-draft-delete" data-elyon-delete-offer="${escapeHtml(offerId)}" data-elyon-delete-sku="${escapeHtml(sku)}">Nur diesen eBay-API-Entwurf löschen</button>`
             : ""}
-          ${mode === "draft" && product?.source === "elyon_seller_hub_feed"
-            && product?.feedVerification === "feed_processed_not_live_checked"
-            && sku === "AMZ-B0BWND9WBR" && text(product?.externalTaskId)
-            ? `<button type="button" class="elyon-feed-archive-btn" data-elyon-archive-feed-sku="${escapeHtml(sku)}" data-elyon-archive-feed-task="${escapeHtml(product.externalTaskId)}">Nur Dreamzie-Feed in ELYON archivieren</button>`
-            : ""}
+          ${window.ElyonFeedArchive?.button?.(product, mode) || ""}
           ${mode === "draft" && product?.productMasterMatch === "unmatched" && /^AMZ-[A-Z0-9]{10}$/i.test(sku)
             ? `<button type="button" class="secondary elyon-review-intake-btn" data-elyon-review-sku="${escapeHtml(sku)}">↗ In Company OS zur Produktprüfung</button>`
             : ""}
@@ -610,16 +596,9 @@
   }
 
   function renderArchivedFeedHistory() {
-    if (listingLoading || !ebayDraftStatusOk || !archivedFeedRecords.length) return "";
-    return '<details class="card elyon-feed-history">' +
-      '<summary>Feed-Verlauf · ' + archivedFeedRecords.length + ' archiviert</summary>' +
-      '<p class="elyon-status-foot">Lokaler ELYON-Verlauf. Diese Archivierung löscht keinen Seller-Hub-Entwurf und bestätigt auch nicht, ob dort noch einer existiert.</p>' +
-      '<div class="elyon-feed-history-list">' +
-      archivedFeedRecords.map((entry) =>
-        '<div class="elyon-feed-history-entry"><strong>' + escapeHtml(entry.title || 'Verarbeiteter Feed-Auftrag') + '</strong>' +
-        '<p>SKU ' + escapeHtml(entry.sku) + ' · Feed-Auftrag ' + escapeHtml(entry.externalTaskId) + '</p>' +
-        '<p>In ELYON archiviert: ' + escapeHtml(entry.archivedAt || 'Datum unbekannt') + '</p></div>'
-      ).join('') + '</div></details>';
+    return !listingLoading && ebayDraftStatusOk
+      ? window.ElyonFeedArchive?.renderHistory?.(archivedFeedRecords) || ""
+      : "";
   }
 
   function renderDraftWorkspace(message = "") {
@@ -723,47 +702,22 @@
     }
   }
 
-  async function archiveDreamzieFeed(button) {
-    const sku = text(button?.dataset?.elyonArchiveFeedSku).toUpperCase();
-    const externalTaskId = text(button?.dataset?.elyonArchiveFeedTask);
-    if (sku !== "AMZ-B0BWND9WBR" || !externalTaskId || button.disabled
-      || !draftProducts.some((item) => item?.source === "elyon_seller_hub_feed"
-        && item?.feedVerification === "feed_processed_not_live_checked"
-        && text(item.sku).toUpperCase() === sku
-        && text(item.externalTaskId) === externalTaskId)) return;
-    if (window.confirm?.(
-      "Dreamzie-Feed-Auftrag nur in ELYON archivieren?\n\n" +
-      "Das Produkt ELY-000004 bleibt in Company OS zur Prüfung erhalten.\n" +
-      "Der verarbeitete Feed-Auftrag bleibt im Feed-Verlauf.\n" +
-      "Bei eBay wird nichts gelöscht oder geändert.\n" +
-      "Der Seller-Hub-Entwurfsbestand ist nicht live prüfbar."
-    ) !== true) return;
-
-    const oldLabel = button.textContent;
-    button.disabled = true;
-    button.textContent = "Feed-Auftrag wird archiviert …";
-    try {
-      const response = await fetch("/api/ebay/archive-processed-feed", {
-        method: "POST", credentials: "same-origin", cache: "no-store",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ sku, externalTaskId, confirmation: "ARCHIVE_FEED_LOCALLY" }),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok || data?.archived !== true || data?.ok !== true) {
-        throw new Error("HTTP " + response.status + ": " + text(data?.message || data?.error || "Archivierung nicht bestätigt"));
+  function archiveDreamzieFeed(button) {
+    return window.ElyonFeedArchive?.archive?.(
+      button, draftProducts,
+      async () => {
+        ebayDeleteFeedback = "Dreamzie ist in ELYON archiviert. Feed-Verlauf erhalten; Company OS und eBay unverändert.";
+        ebayDeleteFeedbackError = false;
+        window.__elyonSellerState = null;
+        window.__elyonSellerStateLoadedAt = 0;
+        await refreshListingWorkspaces(true, DRAFT_TAB_ID);
+      },
+      (message) => {
+        ebayDeleteFeedback = "Dreamzie-Archivierung NICHT bestätigt: " + text(message);
+        ebayDeleteFeedbackError = true;
+        renderDraftWorkspace();
       }
-      ebayDeleteFeedback = "Dreamzie wurde nur in ELYON archiviert. Der Feed-Auftrag bleibt im Verlauf; Company OS und eBay wurden nicht geändert.";
-      ebayDeleteFeedbackError = false;
-      window.__elyonSellerState = null;
-      window.__elyonSellerStateLoadedAt = 0;
-      await refreshListingWorkspaces(true, DRAFT_TAB_ID);
-    } catch (error) {
-      ebayDeleteFeedback = "Dreamzie-Archivierung NICHT bestätigt: " + text(error?.message || "Unbekannter Fehler");
-      ebayDeleteFeedbackError = true;
-      button.disabled = false;
-      button.textContent = oldLabel;
-      renderDraftWorkspace();
-    }
+    );
   }
 
   async function deleteUnpublishedApiOffer(button) {
