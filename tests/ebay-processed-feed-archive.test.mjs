@@ -86,22 +86,17 @@ test("seller-state exposes archived history separately and client displays it as
   const seller = await readFile(new URL("../api/ebay/seller-state.js", import.meta.url), "utf8");
   assert.match(seller, /feedHistory:\s*\{\s*archived: archivedFeedHistory\.length/);
   assert.match(seller, /record\.visibilityMode === "seller_hub_feed" && record\.state === "archived"/);
-  const loader = await readFile(new URL("../seller-runtime-loader.js", import.meta.url), "utf8");
-  const start = loader.indexOf("  function renderArchivedFeedHistory()");
-  const end = loader.indexOf("  function renderDraftWorkspace(", start);
-  assert.ok(start > 0 && end > start);
-  const context = vm.createContext({
-    listingLoading: false, ebayDraftStatusOk: true,
-    archivedFeedRecords: [{ sku, title: feed.draftTitle, externalTaskId: task, archivedAt: at }],
-    escapeHtml: (str) => String(str),
-  });
-  const html = vm.runInContext(loader.slice(start, end) + "\nrenderArchivedFeedHistory();", context);
+  const moduleSource = await readFile(new URL("../public/seller-feed-archive.js", import.meta.url), "utf8");
+  const box = { window: {} };
+  vm.runInNewContext(moduleSource, box);
+  const html = box.window.ElyonFeedArchive.renderHistory([
+    { sku, title: feed.draftTitle, externalTaskId: task, archivedAt: at },
+  ]);
   assert.match(html, /Feed-Verlauf · 1 archiviert/);
   assert.match(html, /Dreamzie Kissenbezug/);
   assert.match(html, /feed-task-dreamzie-123/);
   assert.match(html, /Lokaler ELYON-Verlauf/);
-  context.archivedFeedRecords = [];
-  assert.equal(vm.runInContext("renderArchivedFeedHistory();", context), "");
+  assert.equal(box.window.ElyonFeedArchive.renderHistory([]), "");
 });
 
 test("archive endpoint only updates registry after explicit Dreamzie confirmation and does not call eBay", async () => {
@@ -113,8 +108,10 @@ test("archive endpoint only updates registry after explicit Dreamzie confirmatio
   assert.match(server, /archiveElyonProcessedFeed\(\{ sku, externalTaskId, environment: "production" \}\)/);
   assert.doesNotMatch(server, /deleteOffer|publishEbayOffer|callEbayJson|\/sell\/inventory\/v1/);
   const loader = await readFile(new URL("../seller-runtime-loader.js", import.meta.url), "utf8");
-  assert.match(loader, /window\.confirm\?\./);
-  assert.match(loader, /sku === "AMZ-B0BWND9WBR"/);
-  assert.match(loader, /\/api\/ebay\/archive-processed-feed/);
+  const moduleSource = await readFile(new URL("../public/seller-feed-archive.js", import.meta.url), "utf8");
+  assert.match(loader, /draftsTab: \[\{ src: "\/seller-feed-archive\.js" \}\]/);
   assert.match(loader, /window\.__elyonSellerStateLoadedAt = 0/);
+  assert.match(moduleSource, /window\.confirm\(/);
+  assert.match(moduleSource, /\/api\/ebay\/archive-processed-feed/);
+  assert.match(moduleSource, /const SKU = "AMZ-B0BWND9WBR"/);
 });
