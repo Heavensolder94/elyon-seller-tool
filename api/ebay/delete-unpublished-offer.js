@@ -35,7 +35,15 @@ export async function deleteRegisteredUnpublishedOffer(input = {}, dependencies 
   }
   const url = ebayApiRoot(session.environment) + "/sell/inventory/v1/offer/" + encodeURIComponent(offerId);
   const call = dependencies.call || callEbayJson;
-  const headers = { Authorization: "Bearer " + session.accessToken, Accept: "application/json" };
+  // Match the working Inventory API snapshot's locale headers. Without an
+  // explicit locale, Node's fetch can send Accept-Language: *; eBay rejects it.
+  const headers = {
+    Authorization: "Bearer " + session.accessToken,
+    "Content-Type": "application/json",
+    "Content-Language": "de-DE",
+    "Accept-Language": "de-DE",
+    "X-EBAY-C-MARKETPLACE-ID": "EBAY_DE",
+  };
   const current = await call(url, { method: "GET", headers });
   if (String(current?.offerId ?? "") !== offerId || only(current?.sku).toUpperCase() !== sku ||
       String(current?.status ?? "").toUpperCase() !== "UNPUBLISHED" || current?.listingId) {
