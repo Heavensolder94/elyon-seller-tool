@@ -117,6 +117,38 @@ test("each of the four operational metrics has keyboard and touch accessible inf
   assert.doesNotMatch(runtime, /elyon-metric-tip\{position:absolute/);
 });
 
+test("processed feed alone never counts as API draft, and unavailable draft lookup never becomes zero", async () => {
+  const runtime = await productionRuntime();
+  const source = runtime.slice(runtime.indexOf('  function intakeCountLabel('), runtime.indexOf('  function renderActiveWorkspace('));
+  const draftTab = { innerHTML: "", querySelector() { return null; } };
+  const context = vm.createContext({
+    window: { __elyonSellerState: { draftsAvailable: true } },
+    draftProducts: [
+      { sku: "AMZ-B0BWND9WBR", source: "elyon_seller_hub_feed", feedVerification: "feed_processed_not_live_checked" },
+    ],
+    activeProducts: [], listingLoading: false,
+    ebayListingStatusOk: true, ebayDraftStatusOk: true,
+    productIntakeOverview: null, productIntakeError: "Company OS offline",
+    ensureListingWorkspaces: () => ({ draftTab }),
+    escapeHtml: (value) => String(value),
+    listingCard: (item) => '<article>' + item.sku + '</article>',
+  });
+  vm.runInContext(source + '\nrenderDraftWorkspace("");', context);
+  const html = draftTab.innerHTML;
+  assert.match(html, /<small>API-Entwürfe<\/small>[\s\S]*?<strong>0<\/strong>/);
+  assert.match(html, /<small>Live auf eBay<\/small>[\s\S]*?<strong>0<\/strong>/);
+  assert.match(html, /Verarbeitete Feed-Aufträge<\/span><strong>1<\/strong>/);
+  assert.match(html, /Seller-Hub-Entwürfe<\/span><strong>Nicht live prüfbar<\/strong>/);
+
+  // Active API still responds, but draft Inventory API is unavailable.
+  context.ebayDraftStatusOk = false;
+  context.window.__elyonSellerState.draftsAvailable = false;
+  vm.runInContext('renderDraftWorkspace("");', context);
+  assert.match(draftTab.innerHTML, /<small>API-Entwürfe<\/small>[\s\S]*?<strong>–<\/strong>/);
+  assert.match(draftTab.innerHTML, /<small>Live auf eBay<\/small>[\s\S]*?<strong>0<\/strong>/);
+  assert.match(draftTab.innerHTML, /Verarbeitete Feed-Aufträge<\/span><strong>–<\/strong>/);
+});
+
 test("listing drafts and active listings have separate lazy workspaces", async () => {
   const runtime = await readFile(runtimeUrl, "utf8");
   assert.match(runtime, /const DRAFT_TAB_ID = "draftsTab"/);
