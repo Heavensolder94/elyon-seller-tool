@@ -153,7 +153,7 @@ test("listing drafts and active listings have separate lazy workspaces", async (
   const runtime = await readFile(runtimeUrl, "utf8");
   assert.match(runtime, /const DRAFT_TAB_ID = "draftsTab"/);
   assert.match(runtime, /const ACTIVE_TAB_ID = "activeListingsTab"/);
-  assert.match(runtime, /draftsTab: \[\]/);
+  assert.match(runtime, /draftsTab: \[\{ src: "\/seller-feed-archive\.js" \}\]/);
   assert.match(runtime, /activeListingsTab: \[\]/);
   assert.match(runtime, /option\.textContent = "📝 Listing-Entwürfe"/);
   assert.match(runtime, /option\.textContent = "🟢 Aktive Listings"/);
