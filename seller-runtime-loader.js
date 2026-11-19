@@ -695,9 +695,9 @@
           text(item.offerId) === offerId && text(item.sku).toUpperCase() === sku)) return;
     if (button.disabled) return;
     const confirmed = window.confirm?.(
-      "Nur den unveröffentlichten eBay-API-Entwurf der NOBIS Powerbank löschen?\\n" +
-      "Offer-ID: " + offerId + "\\nSKU: " + sku + "\\n\\n" +
-      "Die Produkte in Company OS, der Dreamzie-Feed-Auftrag und andere Angebote bleiben bestehen.\\n" +
+      "Nur den unveröffentlichten eBay-API-Entwurf der NOBIS Powerbank löschen?\n" +
+      "Offer-ID: " + offerId + "\nSKU: " + sku + "\n\n" +
+      "Die Produkte in Company OS, der Dreamzie-Feed-Auftrag und andere Angebote bleiben bestehen.\n" +
       "Diese Aktion kann nicht rückgängig gemacht werden.");
     if (confirmed !== true) return;
     const previousText = button.textContent;
@@ -716,15 +716,17 @@
       if (!response.ok || data?.ok !== true || data?.verified !== true) {
         throw new Error(data?.message || data?.error || "Löschung nicht bestätigt");
       }
-      window.alert?.("eBay-API-Angebot " + offerId + " gelöscht und bei eBay überprüft.\\n" +
+      window.alert?.("eBay-API-Angebot " + offerId + " gelöscht und bei eBay überprüft.\n" +
         "Company OS und Dreamzie bleiben unverändert." +
-        (data.registryUpdated ? "" : "\\nHinweis: ELYON-Register wird beim nächsten Abgleich aktualisiert."));
+        (data.registryUpdated ? "" : "\nHinweis: ELYON-Register wird beim nächsten Abgleich aktualisiert."));
+      window.__elyonSellerState = null;
+      window.__elyonSellerStateLoadedAt = 0;
       await refreshListingWorkspaces(true, DRAFT_TAB_ID);
     } catch (error) {
       button.disabled = false;
       button.textContent = previousText;
       window.alert?.("eBay-Angebot konnte nicht sicher als gelöscht bestätigt werden: " +
-        text(error?.message || "Unbekannter Fehler") + "\\nBitte erst den Status erneut prüfen, bevor du es wiederholst.");
+        text(error?.message || "Unbekannter Fehler") + "\nBitte erst den Status erneut prüfen, bevor du es wiederholst.");
     }
   }
 
