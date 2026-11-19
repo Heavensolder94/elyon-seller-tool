@@ -320,29 +320,6 @@
       .elyon-intake-heading{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
       .elyon-intake-heading h3{margin:0;font-size:16px;color:#e2e8f0}
 
-      .elyon-status-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0;margin-top:19px;padding-top:15px;border-top:1px solid rgba(148,163,184,.16)}
-      .elyon-status-kpi{min-width:0;padding:8px 22px 10px 0}
-      .elyon-status-kpi+.elyon-status-kpi{padding-left:22px;border-left:1px solid rgba(148,163,184,.14)}
-      .elyon-status-kpi-head{display:flex;gap:7px;align-items:center}
-      .elyon-status-kpi-head small{color:#a7b9ce;font-size:12px;font-weight:650}
-      .elyon-status-kpi strong{display:block;font-size:31px;line-height:1.2;font-weight:800;color:#f8fafc;margin:8px 0 4px}
-      .elyon-status-kpi p{margin:0;color:#94a3b8;font-size:11px;line-height:1.45}
-      .elyon-intake-summary{padding:20px 24px}
-      .elyon-intake-heading{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-      .elyon-intake-heading h3{font-size:17px}
-      .elyon-status-groups{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:28px;margin-top:20px}
-      .elyon-status-group{min-width:0}
-      .elyon-status-group h4{margin:0 0 10px;color:#e2e8f0;font-size:13px;font-weight:700}
-      .elyon-status-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0;min-width:0;border-bottom:1px solid rgba(148,163,184,.1);font-size:12px;color:#bdcce0}
-      .elyon-status-row:last-child{border-bottom:0}
-      .elyon-status-row strong{color:#f8fafc;font-size:13px;white-space:nowrap;font-variant-numeric:tabular-nums}
-      .elyon-status-foot{color:#94a3b8;font-size:11px;line-height:1.55;margin:14px 0 0}
-      .elyon-intake-summary .elyon-metric-info-btn{display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;padding:0;margin:0;border:1px solid rgba(148,163,184,.4);border-radius:50%;background:transparent;color:#94a3b8;font:700 10px/1 Arial,sans-serif;cursor:pointer;box-shadow:none}
-      .elyon-intake-summary .elyon-metric-info-btn:hover{border-color:#94a3b8;color:#e2e8f0}
-      .elyon-intake-summary .elyon-metric-info-btn:focus-visible{outline:2px solid #93c5fd;outline-offset:3px}
-      @media(max-width:900px){.elyon-status-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.elyon-status-kpi{padding-right:14px}.elyon-status-kpi+.elyon-status-kpi{padding-left:14px}.elyon-status-kpi:nth-child(odd){padding-left:0;border-left:0}.elyon-status-kpi:nth-child(n+3){padding-top:15px;border-top:1px solid rgba(148,163,184,.14)}.elyon-status-kpi strong{font-size:27px}}
-      @media(max-width:680px){.elyon-status-kpi-head small{font-size:10px}.elyon-status-groups{grid-template-columns:minmax(0,1fr);gap:24px}.elyon-intake-summary{padding:17px}}
-      @media(max-width:400px){.elyon-status-kpis{grid-template-columns:minmax(0,1fr)}.elyon-status-kpi,.elyon-status-kpi+.elyon-status-kpi{padding:10px 0;border-left:0;border-bottom:1px solid rgba(148,163,184,.12)}.elyon-status-kpi:last-child{border-bottom:0}}
       .elyon-listings-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap}
       .elyon-listings-head h2{margin:0 0 7px;font-size:28px;letter-spacing:-.035em}
       .elyon-listings-head p{margin:0;max-width:800px;color:#cbd5e1;font-size:13px;line-height:1.55}
