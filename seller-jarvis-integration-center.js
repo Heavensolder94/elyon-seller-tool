@@ -37,6 +37,8 @@
     systemLoading: false,
     systemError: "",
     lastLoadedAt: 0,
+    cjStatus: null,
+    cjLoading: false,
   };
 
   const text = (v, f = "") => v === null || v === undefined ? f : String(v).trim();
@@ -75,9 +77,9 @@
 
   function statusTone(status) {
     const value = text(status).toLowerCase();
-    if (["healthy", "online", "completed", "success", "running", "autopilot"].includes(value)) return "good";
-    if (["degraded", "configured", "queued", "assisted", "paused"].includes(value)) return "warn";
-    if (["failed", "error", "not_configured", "offline"].includes(value)) return "bad";
+    if (["healthy", "online", "connected", "completed", "success", "running", "autopilot"].includes(value)) return "good";
+    if (["degraded", "configured", "configured_not_tested", "rate_limited", "queued", "assisted", "paused"].includes(value)) return "warn";
+    if (["failed", "error", "not_configured", "missing_config", "invalid_config", "auth_failed", "unreachable", "access_disabled", "check_failed", "offline"].includes(value)) return "bad";
     return "neutral";
   }
 
@@ -88,6 +90,15 @@
       online: "ONLINE",
       degraded: "DEGRADED",
       configured: "KONFIGURIERT",
+      configured_not_tested: "NICHT GEPRÜFT",
+      missing_config: "NICHT KONFIGURIERT",
+      invalid_config: "KONFIGURATION UNGÜLTIG",
+      connected: "VERBINDUNG GEPRÜFT",
+      auth_failed: "AUTHENTIFIZIERUNG FEHLGESCHLAGEN",
+      unreachable: "ANBIETER NICHT ERREICHBAR",
+      rate_limited: "RATE LIMIT / KONTINGENT",
+      access_disabled: "API-ZUGANG DEAKTIVIERT",
+      check_failed: "NICHT BESTÄTIGT",
       not_configured: "NICHT KONFIGURIERT",
       completed: "FERTIG",
       running: "LÄUFT",
@@ -177,6 +188,23 @@
     return state.systemStatus?.providers?.find?.((provider) => provider.provider === id) || null;
   }
 
+  async function verifyCjStatus() {
+    if (state.cjLoading) return;
+    state.cjLoading = true;
+    render();
+    try {
+      const response = await fetch("/api/cj/search?action=verify-status", { method: "POST", credentials: "same-origin", headers: { Accept: "application/json" }, cache: "no-store" });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data?.ok) throw new Error("CJ-Prüfung nicht möglich. Bitte Seller-Sitzung prüfen.");
+      state.cjStatus = { status: text(data.status), message: text(data.message), checkedAt: data.checkedAt || null };
+    } catch {
+      state.cjStatus = { status: "check_failed", message: "CJ-Prüfung nicht möglich. Bitte Seller-Sitzung und Verbindung prüfen.", checkedAt: null };
+    } finally {
+      state.cjLoading = false;
+      render();
+    }
+  }
+
   function renderModels() {
     return `<section class="jic-card"><h2>KI-Modelle · lokale Registry</h2><div class="jic-list">${state.registry.models.map((model) => `<article class="jic-row"><div><strong>${escapeHtml(model.name)}</strong><p>${escapeHtml(model.provider)} · Rolle: ${escapeHtml(model.role)} · Priorität ${escapeHtml(model.priority)}</p><div class="jic-tags">${(model.capabilities || []).map((capability) => `<span class="jic-tag">${escapeHtml(capability)}</span>`).join("")}</div></div><div class="jic-side"><span class="jic-tier">${escapeHtml(model.tier)}</span><button class="jic-toggle ${model.enabled ? "" : "off"}" data-jic-toggle-model="${escapeHtml(model.id)}">${model.enabled ? "✓ Lokal aktiv" : "Lokal aus"}</button></div></article>`).join("")}</div><div class="jic-note">Diese Schalter verwalten weiterhin nur die lokale Jarvis-/Workforce-Registry. Provider-Secrets oder Server-Fallbacks werden hier nicht verändert.</div></section>`;
   }
@@ -184,8 +212,11 @@
   function renderApis() {
     return `<section class="jic-card"><h2>APIs & Provider</h2><div class="jic-list">${state.registry.apis.map((api) => {
       const live = liveProviderById(api.id);
-      const liveStatus = live?.status || api.status;
-      return `<article class="jic-row"><div><strong>${escapeHtml(api.name)}</strong><p>${escapeHtml(api.category)} · Auth: ${escapeHtml(api.auth)} · Jarvis: ${escapeHtml(api.access)}${live?.lastAttempt?.at ? ` · zuletzt ${escapeHtml(formatDate(live.lastAttempt.at))}` : ""}</p></div><div class="jic-side"><span class="jic-status ${statusTone(liveStatus)}">${escapeHtml(statusLabel(liveStatus))}</span><button class="jic-toggle ${api.enabled ? "" : "off"}" data-jic-toggle-api="${escapeHtml(api.id)}">${api.enabled ? "✓ Lokal aktiv" : "Lokal aus"}</button></div></article>`;
+      const isCj = api.id === "cj";
+      const liveStatus = isCj ? (state.cjStatus?.status || "configured_not_tested") : (live?.status || api.status);
+      const detail = isCj && state.cjStatus ? `<p>${escapeHtml(state.cjStatus.message)}${state.cjStatus.checkedAt ? ` · ${escapeHtml(formatDate(state.cjStatus.checkedAt))}` : ""}</p>` : "";
+      const check = isCj ? `<button class="jic-btn" data-jic-cj-check ${state.cjLoading ? "disabled" : ""}>${state.cjLoading ? "Prüft …" : "CJ-Verbindung prüfen"}</button>` : "";
+      return `<article class="jic-row"><div><strong>${escapeHtml(api.name)}</strong><p>${escapeHtml(api.category)} · Auth: ${escapeHtml(api.auth)} · Jarvis: ${escapeHtml(api.access)}${live?.lastAttempt?.at ? ` · zuletzt ${escapeHtml(formatDate(live.lastAttempt.at))}` : ""}</p>${detail}</div><div class="jic-side"><span class="jic-status ${statusTone(liveStatus)}">${escapeHtml(statusLabel(liveStatus))}</span>${check}<button class="jic-toggle ${api.enabled ? "" : "off"}" data-jic-toggle-api="${escapeHtml(api.id)}">${api.enabled ? "✓ Lokal aktiv" : "Lokal aus"}</button></div></article>`;
     }).join("")}</div></section>`;
   }
 
@@ -229,7 +260,7 @@
         ${renderHealthCard("Brain", brainStatus, brainValue, lastRun ? `Letzter Lauf ${formatDate(lastRun.at)} · ${lastRun.durationMs || 0} ms` : "Noch kein Brain-Lauf in der neuen Telemetrie.")}
         ${renderHealthCard("Memory", memory.online ? "online" : "degraded", memoryValue, `Long-Term: ${memory.longTermMemory?.online ? "online" : "nicht erreichbar"} · Working: ${memory.workingMemory?.online ? "online" : "nicht erreichbar"}`)}
         ${renderHealthCard("E5 Pipeline", e5Status, e5Value, e5.killSwitch ? "Kill-Switch aktiv" : e5.pausedByGuard ? "Durch Guard pausiert" : `State: ${text(e5.state) || "—"}`)}
-        ${renderHealthCard("Safety", "online", "LIVE Publishing gesperrt", "Supplier Orders, Refunds, Kundennachrichten und Legal-Data-Writes bleiben gesperrt.")}
+        ${renderHealthCard("Safety", "degraded", "Bereichsübergreifend prüfen", "Dieser Status prüft nicht alle Veröffentlichungswege. Jedes eBay-Angebot benötigt eine ausdrückliche Einzelbestätigung.")}
       </section>
       <div class="jic-grid">${renderApis()}${renderRecentActivity()}</div>
       ${renderRouting()}`;
@@ -288,6 +319,8 @@
       if (!el) return;
       const refresh = el.closest("[data-jic-refresh]");
       if (refresh) { void loadSystemStatus({ force: true }); return; }
+      const cjCheck = el.closest("[data-jic-cj-check]");
+      if (cjCheck) { void verifyCjStatus(); return; }
       const tab = el.closest("[data-jic-tab]");
       if (tab) { state.active = tab.dataset.jicTab || "overview"; render(); if (!state.systemStatus) void loadSystemStatus(); return; }
       const model = el.closest("[data-jic-toggle-model]");
