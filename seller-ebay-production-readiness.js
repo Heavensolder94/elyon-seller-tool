@@ -134,10 +134,10 @@
     }
     const product = selectedProduct();
     const state = listingState(product || {});
-    const autoPublishEnabled = readSelections().autoPublishEnabled === true;
+    const hadAutoPublishEnabled = readSelections().autoPublishEnabled === true;
     root.innerHTML = `
       <div class="elyon-ebay-production-head">
-        <div><h3>🚀 eBay-Veröffentlichung</h3><p>Prüft dein eBay-Konto und erstellt zuerst einen kontrollierten Inventory-Entwurf. Die Live-Veröffentlichung bleibt manuell, solange der grüne Auto-Live-Schalter nicht aktiviert ist.</p></div>
+        <div><h3>🚀 eBay-Veröffentlichung</h3><p>Prüft dein eBay-Konto und erstellt zuerst einen kontrollierten Inventory-Entwurf. Jedes Angebot wird erst nach deiner ausdrücklichen Bestätigung veröffentlicht.</p></div>
         <span class="elyon-ebay-badge" id="elyonEbayBadge">Setup noch nicht geprüft</span>
       </div>
       <div class="elyon-ebay-grid" id="elyonEbayPolicyGrid">
@@ -153,8 +153,8 @@
         <div><small>Status</small><strong id="elyonEbayState">${esc(state.status)}</strong></div>
       </div>
       <div class="elyon-ebay-auto-row">
-        <div class="elyon-ebay-auto-copy"><strong>Automatisch live veröffentlichen</strong><span>${autoPublishEnabled ? "Nach erfolgreicher Entwurf- und Pflichtdatenprüfung wird das Angebot automatisch öffentlich aktiviert." : "Aus: Es wird nur ein unveröffentlichter Entwurf erstellt. Die Veröffentlichung bleibt manuell."}</span></div>
-        <label class="elyon-ebay-toggle" title="Automatische eBay-Veröffentlichung"><input type="checkbox" id="elyonEbayAutoPublishToggle" ${autoPublishEnabled ? "checked" : ""} aria-label="Automatisch live veröffentlichen"><span class="elyon-ebay-toggle-track" aria-hidden="true"></span></label>
+        <div class="elyon-ebay-auto-copy"><strong>Automatisch live veröffentlichen</strong><span>${hadAutoPublishEnabled ? "Die frühere Einstellung wird nicht ausgeführt. Jedes Angebot benötigt deine ausdrückliche Bestätigung." : "Deaktiviert: Neue Angebote bleiben als Entwurf bis zu deiner ausdrücklichen Bestätigung."}</span></div>
+        <label class="elyon-ebay-toggle" title="Automatische Veröffentlichung ist deaktiviert"><input type="checkbox" id="elyonEbayAutoPublishToggle" disabled aria-label="Automatisch live veröffentlichen (deaktiviert)"><span class="elyon-ebay-toggle-track" aria-hidden="true"></span></label>
       </div>
       <div class="elyon-ebay-actions">
         <button type="button" class="secondary" id="elyonEbaySetupBtn">eBay-Setup prüfen</button>
@@ -220,6 +220,7 @@
       product,
       environment: "production",
       ...readSelections(),
+      autoPublishEnabled: false,
       ...selectedSetupPayload(),
       offerId: state.offerId,
       sku: state.sku,
@@ -233,8 +234,6 @@
     const server = object(product.rawServerProduct || product.raw || product);
     const listing = object(server.listing || product.listing);
     const draft = object(listing.autoListerDraft || product.autoListerDraft);
-    const publishing = readSelections();
-    const autoPublishEnabled = publishing.autoPublishEnabled === true;
     const now = new Date().toISOString();
     const nextDraft = {
       ...draft,
@@ -244,11 +243,11 @@
       marketplaceId: text(result.marketplaceId || draft.marketplaceId || "EBAY_DE"),
       ebayInventoryDraftCreated: Boolean(result.draftCreated || draft.ebayInventoryDraftCreated),
       publishEndpointAvailable: true,
-      manualApprovalRequired: !autoPublishEnabled,
-      automaticPublishingAllowed: autoPublishEnabled,
+      manualApprovalRequired: true,
+      automaticPublishingAllowed: false,
       autonomousPostingAllowed: false,
-      publishingMode: autoPublishEnabled ? "auto_after_readiness" : "manual_approval",
-      publishingApprovalSource: autoPublishEnabled ? "user_enabled_auto_live" : "per_listing_confirmation",
+      publishingMode: "manual_approval",
+      publishingApprovalSource: "per_listing_confirmation",
       setupSelection: selectedSetupPayload(),
       updatedAt: now,
     };
@@ -320,18 +319,7 @@
       document.getElementById("elyonEbayOffer").textContent = data.offerId || "offen";
       document.getElementById("elyonEbayState").textContent = "ebay_draft_created";
       document.getElementById("elyonEbayPublishBtn").disabled = !data.offerId;
-      if (readSelections().autoPublishEnabled === true) {
-        if (!data.offerId) throw new Error("Automatische Veröffentlichung abgebrochen: eBay hat keine Offer-ID zurückgegeben.");
-        status("Entwurf erstellt. Automatische Live-Veröffentlichung wird jetzt ausgeführt …");
-        const published = await api("publish", { method: "POST", body: productPayload({ confirmation: "PUBLISH_EBAY_OFFER", offerId: data.offerId }) });
-        await persistResult(published, "active");
-        document.getElementById("elyonEbayListing").textContent = published.listingId || "live";
-        document.getElementById("elyonEbayState").textContent = "active";
-        document.getElementById("elyonEbayWithdrawBtn").disabled = false;
-        status(`Entwurf erstellt und automatisch live veröffentlicht. eBay Listing-ID: ${published.listingId}`, "good");
-      } else {
-        status("eBay-Entwurf wurde erstellt und von eBay zurückgelesen. Das Angebot ist noch nicht live.", "good");
-      }
+      status("eBay-Entwurf wurde erstellt und von eBay zurückgelesen. Das Angebot ist noch nicht live.", "good");
     } catch (error) {
       const blockers = error.data?.details?.blockers || [];
       status([error.message, ...blockers].filter(Boolean).join("\n"), "bad");
@@ -390,14 +378,8 @@
     root.querySelector("#elyonEbayPublishBtn")?.addEventListener("click", (event) => publish(event.currentTarget));
     root.querySelector("#elyonEbayWithdrawBtn")?.addEventListener("click", (event) => withdraw(event.currentTarget));
     root.querySelector("#elyonEbayAutoPublishToggle")?.addEventListener("change", (event) => {
-      const toggle = event.currentTarget;
-      if (toggle.checked && !window.confirm("Wenn du den Schalter aktivierst, kann ein erfolgreicher Entwurf anschließend automatisch öffentlich und kostenpflichtig bei eBay aktiviert werden. Fortfahren?")) {
-        toggle.checked = false;
-        return;
-      }
-      saveSelections({ autoPublishEnabled: toggle.checked });
-      renderShell();
-      status(toggle.checked ? "Automatische Live-Veröffentlichung ist aktiviert. Prüfe vor dem nächsten Entwurf alle Produktdaten." : "Automatische Live-Veröffentlichung ist deaktiviert. Neue Angebote bleiben als Entwurf gespeichert.", toggle.checked ? "bad" : "good");
+      event.currentTarget.checked = false;
+      status("Automatische Veröffentlichung ist deaktiviert. Bitte jedes Angebot einzeln prüfen und bestätigen.");
     });
     ["elyonEbayFulfillment", "elyonEbayPayment", "elyonEbayReturn", "elyonEbayLocation"].forEach((id) => {
       root.querySelector(`#${id}`)?.addEventListener("change", () => saveSelections(selectedSetupPayload()));
