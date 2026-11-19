@@ -16,6 +16,7 @@
   let productIntakeOverview = null;
   let productIntakeError = "";
   let ebayListingStatusOk = false;
+  let ebayDraftStatusOk = false;
 
   const GROUPS = {
     quickstart: [
@@ -316,7 +317,7 @@
       .elyon-intake-heading{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
       .elyon-intake-heading h3{margin:0;font-size:16px;color:#e2e8f0}
 
-      .elyon-status-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;margin-top:19px;padding-top:15px;border-top:1px solid rgba(148,163,184,.16)}
+      .elyon-status-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0;margin-top:19px;padding-top:15px;border-top:1px solid rgba(148,163,184,.16)}
       .elyon-status-kpi{min-width:0;padding:8px 22px 10px 0}
       .elyon-status-kpi+.elyon-status-kpi{padding-left:22px;border-left:1px solid rgba(148,163,184,.14)}
       .elyon-status-kpi-head{display:flex;gap:7px;align-items:center}
@@ -336,7 +337,8 @@
       .elyon-intake-summary .elyon-metric-info-btn{display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;padding:0;margin:0;border:1px solid rgba(148,163,184,.4);border-radius:50%;background:transparent;color:#94a3b8;font:700 10px/1 Arial,sans-serif;cursor:pointer;box-shadow:none}
       .elyon-intake-summary .elyon-metric-info-btn:hover{border-color:#94a3b8;color:#e2e8f0}
       .elyon-intake-summary .elyon-metric-info-btn:focus-visible{outline:2px solid #93c5fd;outline-offset:3px}
-      @media(max-width:680px){.elyon-status-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}.elyon-status-kpi{padding-right:10px}.elyon-status-kpi+.elyon-status-kpi{padding-left:10px}.elyon-status-kpi strong{font-size:26px}.elyon-status-kpi-head small{font-size:10px}.elyon-status-groups{grid-template-columns:minmax(0,1fr);gap:24px}.elyon-intake-summary{padding:17px}}
+      @media(max-width:900px){.elyon-status-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.elyon-status-kpi{padding-right:14px}.elyon-status-kpi+.elyon-status-kpi{padding-left:14px}.elyon-status-kpi:nth-child(odd){padding-left:0;border-left:0}.elyon-status-kpi:nth-child(n+3){padding-top:15px;border-top:1px solid rgba(148,163,184,.14)}.elyon-status-kpi strong{font-size:27px}}
+      @media(max-width:680px){.elyon-status-kpi-head small{font-size:10px}.elyon-status-groups{grid-template-columns:minmax(0,1fr);gap:24px}.elyon-intake-summary{padding:17px}}
       @media(max-width:400px){.elyon-status-kpis{grid-template-columns:minmax(0,1fr)}.elyon-status-kpi,.elyon-status-kpi+.elyon-status-kpi{padding:10px 0;border-left:0;border-bottom:1px solid rgba(148,163,184,.12)}.elyon-status-kpi:last-child{border-bottom:0}}
       .elyon-listings-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap}
       .elyon-listings-head h2{margin:0 0 7px;font-size:28px;letter-spacing:-.035em}
@@ -506,6 +508,9 @@
 
 
   function statusKpisHtml() {
+    const apiDraftLabel = !listingLoading && ebayDraftStatusOk
+      ? String(draftProducts.filter((item) => item?.source === "elyon_inventory_draft").length)
+      : "–";
     const reviewCount = productIntakeOverview?.stages?.review;
     const reviewLabel = Number.isSafeInteger(reviewCount) && reviewCount >= 0 ? String(reviewCount) : "–";
     const activeLabel = !listingLoading && ebayListingStatusOk ? String(activeProducts.length) : "–";
@@ -522,6 +527,8 @@
         'Einmalig erfasste Produkte aus ELYON Nova, Amazon Importer und Company OS. Herkunft und Bearbeitungsstand stehen darunter.') +
       kpi('In Prüfung', reviewLabel, 'Company OS · Produktprüfung', 'elyon-draft-info-review',
         'Produkte in der Company-OS-Produktprüfung. Das ist keine Verkaufsfreigabe.') +
+      kpi('API-Entwürfe', apiDraftLabel, 'Unveröffentlicht · Seller Hub ungeprüft', 'elyon-draft-info-api',
+        'Von ELYON registrierte eBay-Inventory-API-Angebote mit Status UNPUBLISHED. Das ist kein Beweis für einen sichtbaren Seller-Hub-Entwurf. Verarbeitete Feed-Aufträge zählen hier nicht mit.') +
       kpi('Live auf eBay', activeLabel, 'Tatsächlich veröffentlichte Listings', 'elyon-draft-info-live',
         'Aktive Angebote aus dem verbundenen eBay-Verkäuferkonto. Unveröffentlichte API-Angebote und Feed-Aufträge zählen nicht dazu.') +
       '</div>';
@@ -530,6 +537,7 @@
   function renderIntakeDetails() {
     const overview = productIntakeOverview;
     const ebayAvailable = !listingLoading && ebayListingStatusOk;
+    const draftAvailable = !listingLoading && ebayDraftStatusOk;
     const label = (value) => Number.isSafeInteger(value) && value >= 0 ? String(value) : "–";
     const apiOffers = draftProducts.filter((item) => item?.source === "elyon_inventory_draft").length;
     const feeds = draftProducts.filter((item) => item?.source === "elyon_seller_hub_feed" &&
@@ -549,10 +557,11 @@
           listingLoading ? "Produktzugänge werden geladen …" : "Company OS momentan nicht erreichbar. " +
             (productIntakeError || "Verbindung prüfen.")) + '</p>';
     const eBayRows = ebayAvailable
-      ? row('Unveröffentlichte API-Angebote', label(apiOffers)) +
-        row('Verarbeitete Feed-Aufträge', label(feeds)) +
+      ? row('Unveröffentlichte API-Angebote', draftAvailable ? label(apiOffers) : '–') +
+        row('Verarbeitete Feed-Aufträge', draftAvailable ? label(feeds) : '–') +
         row('Aktive eBay-Listings', label(activeProducts.length)) +
-        row('Mit Company OS verknüpft', label(matched))
+        row('Mit Company OS verknüpft', draftAvailable ? label(matched) : '–') +
+        row('Seller-Hub-Entwürfe', 'Nicht live prüfbar')
       : '<p class="elyon-intake-hint">eBay-Status nicht vollständig prüfbar.</p>';
     const stageFoot = overview
       ? '<p class="elyon-status-foot">Im Eingang: ' + label(stages.inbox) +
@@ -570,7 +579,7 @@
       '<div class="elyon-status-group"><h4>Woher kommen deine Produkte?</h4>' +
       sourceRows + stageFoot + '</div>' +
       '<div class="elyon-status-group"><h4>eBay-Verkaufsstatus</h4>' + eBayRows +
-      '<p class="elyon-status-foot">Seller-Hub-Entwürfe sind nicht live prüfbar.</p></div>' +
+      '<p class="elyon-status-foot">API-Entwürfe und verarbeitete Feed-Aufträge sind unterschiedliche Nachweise. Ein Seller-Hub-Entwurf ist hier nicht live bestätigt.</p></div>' +
       '</div><p class="elyon-status-foot">' + escapeHtml(issueNote) +
       ' Feed-Aufträge beweisen keinen bestätigten Seller-Hub-Entwurf. Abgelehnte oder archivierte Produkte sind nicht im aktiven Eingang enthalten.</p>' +
       '</section>';
@@ -688,6 +697,7 @@
     if (listingLoading) return;
     listingLoading = true;
     ebayListingStatusOk = false;
+    ebayDraftStatusOk = false;
     renderDraftWorkspace();
     renderActiveWorkspace();
     let message = "";
@@ -701,7 +711,10 @@
         ? intakeResult.value.overview : null;
       productIntakeError = intakeResult.status === "fulfilled" ? ""
         : text(intakeResult.reason?.message || "Company OS derzeit nicht erreichbar");
-      ebayListingStatusOk = listingResult.status === "fulfilled" && listingResult.value?.draftsAvailable !== false;
+      // Active listings are verified by a successful seller-state response, even
+      // if the independent Inventory-API draft snapshot is unavailable.
+      ebayListingStatusOk = listingResult.status === "fulfilled";
+      ebayDraftStatusOk = listingResult.status === "fulfilled" && listingResult.value?.draftsAvailable !== false;
       if (listingResult.status !== "fulfilled") throw listingResult.reason;
 
       const items = Array.isArray(listingResult.value?.items) ? listingResult.value.items : [];
@@ -720,6 +733,7 @@
       draftProducts = [];
       activeProducts = [];
       ebayListingStatusOk = false;
+      ebayDraftStatusOk = false;
       const authHint = error?.status === 403 ? " Bitte Seller-Sitzung erneut anmelden." : "";
       message = `Fehler: eBay Listing-Bestand konnte nicht geladen werden: ${text(error?.message) || "Unbekannter Fehler"}.${authHint}`;
     } finally {
