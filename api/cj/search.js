@@ -1,4 +1,6 @@
 import { cjConfigurationStatus } from "../../lib/cj-configuration-status.js";
+import { verifyCjConnection } from "../../lib/cj-live-status.js";
+import { requireSellerAccess } from "../../lib/seller-access.js";
 
 function jsonError(res, status, error, details) {
   return res.status(status).json({ ok: false, source: "cj-search", status, error, details: details ?? null });
@@ -111,6 +113,13 @@ async function getCjAccessToken() {
 }
 
 export default async function handler(req, res) {
+  const requestedAction = readText(req.query?.action || req.query?.endpoint || "");
+  if (requestedAction === "verify-status") {
+    if (req.method !== "POST") return jsonError(res, 405, "Nur POST erlaubt.", "METHOD_NOT_ALLOWED");
+    if (!requireSellerAccess(req, res, { maxBodyBytes: 4096 })) return;
+    const state = await verifyCjConnection();
+    return res.status(200).json({ ok: true, service: "CJ", ...state });
+  }
   if (req.method !== "GET") return jsonError(res, 405, "Nur GET erlaubt.", "METHOD_NOT_ALLOWED");
 
   const action = readText(req.query.action || req.query.endpoint || "");
