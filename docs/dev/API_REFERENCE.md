@@ -29,6 +29,8 @@ Die vorhandene Bridge-Authentifizierung bleibt erforderlich. Maximal 100 Offer-/
 
 Ungültige oder unvollständige Inventory-/Trading-Snapshots werden nicht mehr zur Ableitung von Entfernt-/Beendet-Zuständen verwendet. Ein Inventory-Artikel ohne Offer verhindert bei spezifischem eBay-Fehler 404/25713 nicht den übrigen Abgleich. Andere 404/Autorisierungs-/Providerfehler bleiben Fehler.
 
+`POST /api/ebay?action=publish` liest den Entwurf vor dem ersten eBay-Schreibzugriff zurück und prüft Offer-ID, SKU, Marktplatz, Angebotsformat und den Status `UNPUBLISHED`. Bei abweichender Zuordnung oder bereits vorhandenem Listing antwortet die Route mit `409 ebay_publish_offer_mismatch`. Der Angebotsstatus muss dann zuerst abgeglichen werden.
+
 Übernahme: Seller Tool zuerst, dann Company OS mit der ergänzten Bridge-Aktion. Keine Migration und keine neuen ENV-Namen. Rollback per Commit-Revert ohne Löschen von Registereinträgen oder eBay-Angeboten. Die produktive Abnahme mit einem angemeldeten Konto bleibt erforderlich.
 
 ## Sendungsmeldung an eBay (2026-10-20)
