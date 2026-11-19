@@ -17,6 +17,8 @@
   let productIntakeError = "";
   let ebayListingStatusOk = false;
   let ebayDraftStatusOk = false;
+  let ebayDeleteFeedback = "";
+  let ebayDeleteFeedbackError = false;
 
   const GROUPS = {
     quickstart: [
@@ -613,6 +615,7 @@
         ${typeof renderIntakeDetails === "function" ? renderIntakeDetails() : ""}
         <p class="small">Feed-Entwürfe aus dem Amazon Importer werden nach bestätigter Verarbeitung zusätzlich angezeigt. Ihr aktueller Bestand im eBay Seller Hub kann über die Inventory API nicht live geprüft werden. Product-Master-Zuordnung und Company-OS-Gewinnprognosen werden bei jedem Öffnen oder Klick auf „Neu laden“ aus der kanonischen Quelle aktualisiert; unbestätigte Kosten bleiben offen.</p>
         ${message ? `<div class="elyon-listings-status ${message.startsWith("Fehler:") ? "error" : ""}">${escapeHtml(message)}</div>` : ""}
+        ${ebayDeleteFeedback ? `<div class="elyon-listings-status ${ebayDeleteFeedbackError ? "error" : ""}" role="alert"><strong>eBay-Entwurf:</strong> ${escapeHtml(ebayDeleteFeedback)}</div>` : ""}
         <section class="card"><div class="elyon-listings-list">${listingLoading
           ? '<div class="elyon-listings-empty">Echte eBay-Entwürfe werden geladen …</div>'
           : draftProducts.length
@@ -701,6 +704,8 @@
       "Diese Aktion kann nicht rückgängig gemacht werden.");
     if (confirmed !== true) return;
     const previousText = button.textContent;
+    ebayDeleteFeedback = "";
+    ebayDeleteFeedbackError = false;
     button.disabled = true;
     button.textContent = "Löschung bei eBay wird geprüft …";
     try {
@@ -714,8 +719,11 @@
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok || data?.ok !== true || data?.verified !== true) {
-        throw new Error(data?.message || data?.error || "Löschung nicht bestätigt");
+        throw new Error("HTTP " + response.status + " / " + text(data?.error || "delete_failed") + ": " +
+          text(data?.message || "Löschung nicht bestätigt"));
       }
+      ebayDeleteFeedback = "Offer-ID " + offerId + " wurde bei eBay gelöscht und durch erneute Abfrage bestätigt.";
+      ebayDeleteFeedbackError = false;
       window.alert?.("eBay-API-Angebot " + offerId + " gelöscht und bei eBay überprüft.\n" +
         "Company OS und Dreamzie bleiben unverändert." +
         (data.registryUpdated ? "" : "\nHinweis: ELYON-Register wird beim nächsten Abgleich aktualisiert."));
@@ -723,10 +731,13 @@
       window.__elyonSellerStateLoadedAt = 0;
       await refreshListingWorkspaces(true, DRAFT_TAB_ID);
     } catch (error) {
+      ebayDeleteFeedback = "Offer-ID " + offerId + " wurde NICHT als gelöscht bestätigt. " +
+        text(error?.message || "Netzwerkfehler") +
+        " – Bitte diesen Fehler prüfen, bevor du erneut löschst.";
+      ebayDeleteFeedbackError = true;
       button.disabled = false;
       button.textContent = previousText;
-      window.alert?.("eBay-Angebot konnte nicht sicher als gelöscht bestätigt werden: " +
-        text(error?.message || "Unbekannter Fehler") + "\nBitte erst den Status erneut prüfen, bevor du es wiederholst.");
+      renderDraftWorkspace();
     }
   }
 

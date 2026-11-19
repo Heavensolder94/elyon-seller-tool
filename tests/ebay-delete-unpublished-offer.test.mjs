@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { deleteRegisteredUnpublishedOffer } from "../api/ebay/delete-unpublished-offer.js";
+import { deleteRegisteredUnpublishedOffer, isSameOriginSellerMutation } from "../api/ebay/delete-unpublished-offer.js";
 
 const offerId = "243461011011";
 const sku = "AMZ-B0D63HF7Z4";
@@ -110,4 +110,38 @@ test("frontend only shows delete button for the exact NOBIS API offer and requir
   assert.match(server, /origin_denied/);
   assert.match(server, /input\.confirm !== "DELETE_UNPUBLISHED_OFFER"/);
   assert.doesNotMatch(server, /deleteProduct|deleteInventoryItem|CompanyOsWrite/);
+});
+
+test("same-origin Seller Tool POST accepts public alias even if Vercel forwarded host differs", () => {
+  assert.equal(isSameOriginSellerMutation({
+    origin: "https://elyonsellertool.vercel.app",
+    host: "elyonsellertool.vercel.app",
+    "x-forwarded-host": "elyon-seller-tool-deployment.vercel.app",
+    "sec-fetch-site": "same-origin",
+  }), true);
+  assert.equal(isSameOriginSellerMutation({
+    origin: "https://elyonsellertool.vercel.app",
+    host: "elyon-seller-tool-deployment.vercel.app",
+    "x-forwarded-host": "elyonsellertool.vercel.app",
+    "sec-fetch-site": "same-origin",
+  }), true);
+});
+
+test("destructive mutation still rejects cross-origin, missing origin, and unsafe schemes", () => {
+  const base = { host: "elyonsellertool.vercel.app", "sec-fetch-site": "same-origin" };
+  for (const headers of [
+    { ...base },
+    { ...base, origin: "https://attacker.example" },
+    { ...base, origin: "http://elyonsellertool.vercel.app" },
+    { ...base, origin: "https://elyonsellertool.vercel.app", "sec-fetch-site": "cross-site" },
+    { ...base, origin: "https://elyonsellertool.vercel.app.evil.example" },
+  ]) assert.equal(isSameOriginSellerMutation(headers), false);
+});
+
+test("deletion errors remain readable in Seller Tool instead of disappearing with an alert", async () => {
+  const source = await readFile(new URL("../seller-runtime-loader.js", import.meta.url), "utf8");
+  assert.match(source, /ebayDeleteFeedbackError/);
+  assert.match(source, /role="alert"/);
+  assert.match(source, /HTTP " \+ response\.status \+ " \/ "/);
+  assert.match(source, /wurde NICHT als gelöscht bestätigt/);
 });
