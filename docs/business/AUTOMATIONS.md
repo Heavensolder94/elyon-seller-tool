@@ -38,7 +38,6 @@ Bekannte Tabellen:
 
 Geplante oder vorbereitete Bereiche:
 
-- CJ Dropshipping
 - AliExpress
 - BigBuy
 - VidaXL
@@ -57,7 +56,6 @@ Bekannte oder geplante Checks:
 
 - /api/ping
 - /api/health
-- /api/cj/status
 - /api/ebay/status
 
 ## Regeln

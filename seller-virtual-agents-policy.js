@@ -116,7 +116,7 @@
       memoryWrite: current.memoryWrite === true,
       tools: {
         ebayRead: current.tools?.ebayRead !== false,
-        cjRead: current.tools?.cjRead !== false,
+
         webResearch: current.tools?.webResearch !== false,
         productMasterRead: current.tools?.productMasterRead !== false,
         createDraft: current.tools?.createDraft === true,
@@ -268,7 +268,7 @@
       </div>
       <div class="elyon-agent-resource-checks">
         <label><input type="checkbox" data-resource-tool="ebayRead" ${current.tools.ebayRead ? "checked" : ""}> eBay lesen</label>
-        <label><input type="checkbox" data-resource-tool="cjRead" ${current.tools.cjRead ? "checked" : ""}> CJ lesen</label>
+
         <label><input type="checkbox" data-resource-tool="webResearch" ${current.tools.webResearch ? "checked" : ""}> Web-Recherche</label>
         <label><input type="checkbox" data-resource-tool="productMasterRead" ${current.tools.productMasterRead ? "checked" : ""}> Product Master lesen</label>
         <label><input type="checkbox" data-resource-tool="memoryEnabled" ${current.memoryEnabled ? "checked" : ""}> Memory lesen</label>
@@ -316,7 +316,7 @@
       memoryWrite: tool("memoryWrite")?.checked === true,
       tools: {
         ebayRead: tool("ebayRead")?.checked !== false,
-        cjRead: tool("cjRead")?.checked !== false,
+
         webResearch: tool("webResearch")?.checked !== false,
         productMasterRead: tool("productMasterRead")?.checked !== false,
         createDraft: tool("createDraft")?.checked === true,

@@ -288,7 +288,7 @@
     setCardCopy(integrations, {
       kicker: "Bereich 1",
       title: "1. 🔌 Integrationen & API-Verbindungen",
-      hint: "Backend, eBay, CJ und weitere Verbindungen zentral einrichten und technisch prüfen.",
+      hint: "Backend, eBay und weitere Verbindungen zentral einrichten und technisch prüfen.",
     });
 
     modernizeSynchronizationCard(synchronization);

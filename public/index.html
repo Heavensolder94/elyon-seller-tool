@@ -902,7 +902,7 @@
             <summary>2. Produkt-Identifikation</summary>
             <div class="accordion-body">
               <p class="hint">SKU, Lieferant, eBay-Nummer und Link gehören in die Stammdaten.</p>
-              <div class="row"><div><label>Interne SKU / Artikelnummer</label><input id="sku" placeholder="z. B. ELY-LED-001"></div><div><label>Lieferanten-Artikelnummer</label><input id="supplierId" placeholder="z. B. CJ-123456"></div></div>
+              <div class="row"><div><label>Interne SKU / Artikelnummer</label><input id="sku" placeholder="z. B. ELY-LED-001"></div><div><label>Lieferanten-Artikelnummer</label><input id="supplierId" placeholder="z. B. SUP-123456"></div></div>
               <div class="row"><div><label>eBay Artikelnummer</label><input id="ebayItemId" placeholder="z. B. 123456789012"></div><div><label>Lieferanten-Link</label><input id="supplierLink" placeholder="https://..."></div></div>
             </div>
           </details>
@@ -974,8 +974,7 @@
               <div data-sourcing-panel="1 2">
                 <label>Quelle wählen</label>
                 <select id="sourceProvider">
-                  <option value="cj">CJdropshipping</option>
-                  <option value="aliexpress">AliExpress</option>
+                      <option value="aliexpress">AliExpress</option>
                   <option value="dropxl">dropxl.com</option>
                   <option value="bigbuy">Bigbuy.com</option>
                   <option value="amazon">Amazon.de</option>
@@ -1405,10 +1404,10 @@ Land"></textarea>
   <section id="settingsTab" class="tab">
     <div class="card">
       <h2>⚙️ Einstellungen / API Status</h2>
-      <p class="hint">Arbeitsbereich für Backend-Setup, Google Sheets Sync und API-Status. CJ- und eBay-Recherche-Werkzeuge findest du in der Produktbeschaffung.</p>
+      <p class="hint">Arbeitsbereich für Backend-Setup, Google Sheets Sync und API-Status. Produktdaten werden über Elyon Nova erfasst.</p>
       <div class="dashboard">
         <div class="metric"><small>Backend</small><strong id="intBackendStatus">Nicht geprüft</strong></div>
-        <div class="metric"><small>CJ</small><strong id="intCjStatus">Nicht geprüft</strong></div>
+
         <div class="metric"><small>eBay</small><strong id="intEbayStatus">Nicht geprüft</strong></div>
         <div class="metric"><small>Modus</small><strong>Lesen zuerst</strong></div>
       </div>
@@ -1839,11 +1838,11 @@ Land"></textarea>
         <details class="settings-section settings-dropdown">
         <summary>🔌 Integrationen</summary>
         <div class="settings-dropdown-content">
-          <p class="hint">Hier prüfst du, ob dein Vercel-Backend, eBay und CJ technisch erreichbar sind. API-Keys und Secrets bleiben ausschließlich in Vercel Environment Variables, nicht in dieser HTML-Datei.</p>
+          <p class="hint">Hier prüfst du, ob dein Vercel-Backend, und eBay technisch erreichbar sind. API-Keys und Secrets bleiben ausschließlich in Vercel Environment Variables, nicht in dieser HTML-Datei.</p>
           <div class="dashboard">
             <div class="metric"><small>Backend</small><strong id="setIntBackendStatus">Nicht geprüft</strong></div>
             <div class="metric"><small>eBay</small><strong id="setIntEbayStatus">Nicht geprüft</strong></div>
-            <div class="metric"><small>CJ</small><strong id="setIntCjStatus">Nicht geprüft</strong></div>
+
             <div class="metric"><small>Modus</small><strong>Lesen zuerst</strong></div>
           </div>
           <label>Backend URL</label>
@@ -1854,23 +1853,23 @@ Land"></textarea>
           </div>
           <div class="row" style="margin-top:10px">
             <button id="setEbayConnectPlanBtn" class="secondary full">eBay API prüfen</button>
-            <button id="setCjConnectPlanBtn" class="secondary full">CJ API prüfen</button>
+
           </div>
           <button id="resetIntegrationSettingsBtn" class="danger full" style="margin-top:10px">Integrationen zurücksetzen</button>
-          <div id="settingsIntegrationResult" class="output-box"><p>Hier prüfst du, ob dein Vercel-Backend, eBay und CJ technisch erreichbar sind. API-Keys und Secrets bleiben ausschließlich in Vercel Environment Variables, nicht in dieser HTML-Datei.</p></div>
+          <div id="settingsIntegrationResult" class="output-box"><p>Hier prüfst du, ob dein Vercel-Backend, und eBay technisch erreichbar sind. API-Keys und Secrets bleiben ausschließlich in Vercel Environment Variables, nicht in dieser HTML-Datei.</p></div>
 
           <div class="settings-section" style="margin-top:14px">
             <h3>🛡️ Sicherheitsregeln</h3>
             <p class="hint">Diese Regeln schützen dich davor, zu früh zu automatisieren oder Zugangsdaten unsicher zu speichern.</p>
             <div class="checkrow"><input type="checkbox" checked disabled><label>Keine API-Keys im Browser speichern</label></div>
             <div class="checkrow"><input type="checkbox" checked disabled><label>Erst lesen/importieren, nicht automatisch veröffentlichen</label></div>
-            <div class="checkrow"><input type="checkbox" checked disabled><label>Keine automatische CJ-Bestellung ohne manuelle Prüfung</label></div>
+            <div class="checkrow"><input type="checkbox" checked disabled><label>Keine automatische Lieferantenbestellung ohne manuelle Prüfung</label></div>
             <div class="checkrow"><input type="checkbox" checked disabled><label>eBay Listing-Automation erst später</label></div>
             <div id="integrationRoadmap" class="output-box">
               <h3>Reihenfolge</h3>
               <p>1. Backend einrichten
 2. Datenimport & API öffnen
-3. CJ/eBay Daten nur lesend abrufen
+3. eBay Daten nur lesend abrufen
 4. eBay Bestellungen mit Vorschau importieren
 5. Erst später halbautomatisieren</p>
             </div>
@@ -2633,7 +2632,6 @@ let integrationSettings = JSON.parse(localStorage.getItem('elyonIntegrations') |
 let invoices = loadStoredArray("elyonInvoices");
 let pendingCsvImport = [];
 let pendingEbayOrdersImport = [];
-let lastCjSearchItems = [];
 const defaultInvoiceSettings = {
   prefix:'RE',
   nextNumber:1,
@@ -2887,13 +2885,13 @@ function renderStartDashboard(){
   }).length;
   const openReturns = returns.filter(function(r){ return !isReturnClosed(r.status); }).length + shopifyReturns.filter(function(r){ return !isReturnClosed(r.status); }).length;
   const ebay = integrationStatusText('ebay', integrationSettings.ebayCheck);
-  const cj = integrationStatusText('cj', integrationSettings.cjCheck);
+
   const recommendation = getStartLauncherRecommendation();
   const openEbayOrders = getStartRecentEbayOrders(3);
   safe('startShipTodos',el=>el.textContent=shippingTodos);
   safe('startOpenReturns',el=>el.textContent=openReturns);
   safe('startBackupStatus',el=>el.textContent=lastBackupText());
-  safe('startIntegrationStatus',el=>el.textContent=ebay+' / '+cj);
+  safe('startIntegrationStatus',el=>el.textContent=ebay);
   safe('startTodayFocus',el=>el.textContent=getSmartDailyFocus());
   safe('startFocusTag', el => {
     el.textContent = recommendation.eyebrow;
@@ -3000,7 +2998,7 @@ function saveIntegrationSettings(){
   integrationSettings.backendUrl = (modalInput && modalInput.value.trim()) || (tabInput && tabInput.value.trim()) || '';
   integrationSettings.backendCheck = 'unknown';
   integrationSettings.ebayCheck = 'unknown';
-  integrationSettings.cjCheck = 'unknown';
+
   localStorage.setItem('elyonIntegrations', JSON.stringify(integrationSettings));
   renderIntegrationStatus();
   alert('Integrations-Einstellungen gespeichert.');
@@ -3009,26 +3007,26 @@ function renderIntegrationStatus(){
   const backendUrl = integrationSettings.backendUrl || '';
   const backendStatus = integrationStatusText('backend', integrationSettings.backendCheck);
   const ebayStatus = integrationStatusText('ebay', integrationSettings.ebayCheck);
-  const cjStatus = integrationStatusText('cj', integrationSettings.cjCheck);
+
   safe('intBackendUrl', el => el.value = backendUrl);
   safe('setIntBackendUrl', el => el.value = backendUrl);
   safe('intBackendStatus', el => el.textContent = backendStatus);
   safe('setIntBackendStatus', el => el.textContent = backendStatus);
   safe('intEbayStatus', el => el.textContent = ebayStatus);
   safe('setIntEbayStatus', el => el.textContent = ebayStatus);
-  safe('intCjStatus', el => el.textContent = cjStatus);
-  safe('setIntCjStatus', el => el.textContent = cjStatus);
+
+
 }
 function integrationStatusText(service, state){
   if(state === 'ok'){
     if(service === 'backend') return 'Backend erreichbar';
     if(service === 'ebay') return 'eBay API erreichbar';
-    return 'CJ API erreichbar';
+    return 'Erreichbar';
   }
   if(state === 'error'){
     if(service === 'backend') return 'Backend nicht erreichbar';
     if(service === 'ebay') return 'eBay API nicht erreichbar';
-    return 'CJ API nicht erreichbar';
+    return 'Nicht erreichbar';
   }
   return 'Nicht geprüft';
 }
@@ -3134,51 +3132,18 @@ function prepareEbayIntegration(){
     setHTML('settingsIntegrationResult',html);
   });
 }
-function prepareCjIntegration(){
-  const backendUrl = getBackendUrl();
-  if(!backendUrl){
-    setHTML('cjIntegrationResult','<p>Bitte zuerst die Backend URL speichern.</p>');
-    setHTML('settingsIntegrationResult','<p>Bitte zuerst die Backend URL speichern.</p>');
-    return;
-  }
-  integrationSettings.backendUrl = backendUrl;
-  integrationSettings.cjCheck = 'unknown';
-  localStorage.setItem('elyonIntegrations', JSON.stringify(integrationSettings));
-  renderIntegrationStatus();
-  setHTML('cjIntegrationResult','<p>CJ API wird geprüft...</p>');
-  setHTML('settingsIntegrationResult','<p>CJ API wird geprüft...</p>');
-  fetchBackendJSON('/api/cj/status').then(function(data){
-    if(!data || data.ok !== true){
-      throw new Error((data && (data.error || data.message)) ? (data.error || data.message) : 'CJ Route antwortet nicht mit ok:true');
-    }
-    integrationSettings.cjCheck = 'ok';
-    localStorage.setItem('elyonIntegrations', JSON.stringify(integrationSettings));
-    renderIntegrationStatus();
-    const html = '<p>CJ API erreichbar.</p><p class="hint">Route geprüft: /api/cj/status</p>';
-    setHTML('cjIntegrationResult',html);
-    setHTML('settingsIntegrationResult',html);
-  }).catch(function(err){
-    integrationSettings.cjCheck = 'error';
-    localStorage.setItem('elyonIntegrations', JSON.stringify(integrationSettings));
-    renderIntegrationStatus();
-    const msg = err && err.message ? err.message : 'CJ API nicht erreichbar';
-    const html = '<p>CJ API nicht erreichbar.</p><p class="hint">'+msg+'</p><p class="hint">Route geprüft: /api/cj/status</p>';
-    setHTML('cjIntegrationResult',html);
-    setHTML('settingsIntegrationResult',html);
-  });
-}
 function resetIntegrationSettings(){
   if(!confirm('Integrationen wirklich zurücksetzen? Produktdaten, Verkäufe und Retouren bleiben erhalten.')) return;
   integrationSettings = {};
   pendingEbayOrdersImport = [];
-  lastCjSearchItems = [];
+
   localStorage.removeItem('elyonIntegrations');
   renderIntegrationStatus();
-  setHTML('settingsIntegrationResult','<p>Integrationen wurden zurückgesetzt. Backend, eBay und CJ sind wieder nicht geprüft.</p>');
+  setHTML('settingsIntegrationResult','<p>Integrationen wurden zurückgesetzt. Backend und eBay sind wieder nicht geprüft.</p>');
   setHTML('backendTestResult','<p>Backend noch nicht geprüft.</p>');
   setHTML('ebayIntegrationResult','<p>eBay API noch nicht geprüft.</p>');
-  setHTML('cjIntegrationResult','<p>CJ API noch nicht geprüft.</p>');
-  setHTML('cjSearchResult','<p>Noch keine CJ Suche.</p>');
+
+
   setHTML('ebayCompetitionResult','<p>Noch keine eBay Konkurrenzprüfung.</p>');
   setHTML('ebayOrdersImportResult','<p>Noch keine Bestellungen abgerufen.</p>');
 }
@@ -4157,125 +4122,6 @@ function backendOrderItems(data){
   if(data.data && Array.isArray(data.data.list)) return data.data.list;
   return [];
 }
-function cjProductCardHTML(item,index){
-  const name = item.name || item.productName || item.productNameEn || item.title || 'CJ Produkt';
-  const pid = item.pid || item.productId || item.id || '';
-  const price = item.sellPrice || item.price || item.nowPrice || item.productPrice || '';
-  const delivery = item.deliveryTime || item.shippingTime || '';
-  let html='';
-  html += '<article class="product-card small-card">';
-  html += '<div><div class="product-title">'+name+'</div>';
-  html += '<div class="muted">CJ-ID: '+(pid||'unbekannt')+'</div>';
-  html += '<div class="pill-row"><span class="pill">Preis: '+(price||'n/a')+'</span><span class="pill">Lieferzeit: '+(delivery||'n/a')+'</span></div>';
-  html += '</div><div class="score-wrap"><span class="status good">CJ Daten</span></div>';
-  html += '<div class="actions"><button class="secondary" data-cj-copy="'+index+'">In Produktformular übernehmen</button><button class="draft-primary" data-cj-draft="'+index+'">In Listing-Draft übernehmen</button></div>';
-  html += '</article>';
-  return html;
-}
-async function searchCjProducts(){
-  const keyword = $('cjSearchKeyword') ? $('cjSearchKeyword').value.trim() : '';
-  if(!keyword){ alert('Bitte CJ Suchbegriff eingeben.'); return; }
-  setHTML('cjSearchResult','<p>CJ Produktdaten werden geladen...</p>');
-  try{
-    const params = new URLSearchParams({ keyword: keyword });
-    const url = '/api/cj/search?' + params.toString();
-    const res = await fetch(url, {
-      method: 'GET',
-      headers: { 'Accept': 'application/json, text/plain, */*' }
-    });
-    const contentType = String(res.headers.get('content-type') || '').toLowerCase();
-    const rawText = await res.text();
-    let data = null;
-    if(rawText && contentType.includes('application/json')){
-      try{ data = JSON.parse(rawText); }catch(parseErr){ data = null; }
-    }
-    if(!res.ok){
-      const detailsText = data && data.details ? (typeof data.details === 'string' ? data.details : JSON.stringify(data.details)) : rawText;
-      throw new Error('HTTP ' + res.status + (res.statusText ? ' ' + res.statusText : '') + ' · URL: ' + url + ' · ' + (data && (data.error || data.message) ? (data.error || data.message) : (rawText || 'Backend-Fehler')) + (detailsText ? ' · Details: ' + detailsText : ''));
-    }
-    if(!data){
-      throw new Error('Unerwartete Antwort · URL: ' + url + (rawText ? ' · ' + rawText : ''));
-    }
-    if(data.ok === false){
-      const detailsText = data.details ? (typeof data.details === 'string' ? data.details : JSON.stringify(data.details)) : '';
-      throw new Error('HTTP ' + (data.status || res.status) + ' · URL: ' + url + ' · ' + (data.error || data.message || 'CJ Fehler') + (detailsText ? ' · Details: ' + detailsText : ''));
-    }
-    const items = backendProductItems(data);
-    lastCjSearchItems = items;
-    if(!items.length){ setHTML('cjSearchResult','<p>Keine CJ Produkte gefunden oder Backend liefert keine Produktliste.</p>'); return; }
-    setHTML('cjSearchResult','<h3>CJ Treffer</h3><div class="products">'+items.slice(0,10).map(cjProductCardHTML).join('')+'</div>');
-  }catch(err){
-    setHTML('cjSearchResult','<p>⚠️ '+(err && err.message ? err.message : 'Backend nicht erreichbar')+'</p><p class="hint">Erwartete Backend-Route: /api/cj/search?keyword=...</p>');
-  }
-}
-function copyCjProductToForm(index){
-  const item = lastCjSearchItems[Number(index)];
-  if(!item){ alert('CJ Produkt nicht gefunden.'); return; }
-  const name = item.name || item.productName || item.productNameEn || item.title || '';
-  const pid = item.pid || item.productId || item.id || '';
-  const price = item.sellPrice || item.price || item.nowPrice || item.productPrice || '';
-  const link = item.productLink || item.url || item.productUrl || '';
-  safe('name',el=>el.value=name || el.value);
-  safe('supplierId',el=>el.value=pid || el.value);
-  safe('supplierLink',el=>el.value=link || el.value);
-  if(price) safe('buy',el=>el.value=parseFloat(String(price).replace(',','.')) || el.value);
-  safe('productStatus',el=>el.value='SEO prüfen');
-  openProductBoard();
-  scrollToProductForm();
-}
-function cjListingDraftText(item){
-  const name = item.name || item.productName || item.productNameEn || item.title || 'CJ Produkt';
-  const pid = item.pid || item.productId || item.id || '';
-  const price = item.sellPrice || item.price || item.nowPrice || item.productPrice || '';
-  const link = item.productLink || item.url || item.productUrl || '';
-  const delivery = item.deliveryTime || item.shippingTime || '';
-  const sku = item.productSku || item.sku || '';
-  const keywords = [name, sku, pid].filter(Boolean).join(', ');
-
-  return {
-    title: name,
-    description: [
-      name,
-      '',
-      'CJ-Produkt intern übernommen.',
-      pid ? 'CJ-ID: ' + pid : '',
-      sku ? 'SKU: ' + sku : '',
-      price ? 'CJ-Preis: ' + price : '',
-      delivery ? 'Lieferzeit: ' + delivery : '',
-      link ? 'CJ-Link: ' + link : '',
-    ].filter(Boolean).join('\n'),
-    notes: [
-      'Quelle: CJ Suche',
-      pid ? 'CJ-ID: ' + pid : null,
-      sku ? 'SKU: ' + sku : null,
-      price ? 'Preis: ' + price : null,
-      delivery ? 'Lieferzeit: ' + delivery : null,
-      link ? 'Link: ' + link : null,
-    ].filter(Boolean).join('\n'),
-    mainKeyword: name,
-    features: [sku ? 'SKU ' + sku : '', pid ? 'CJ-ID ' + pid : '', price ? 'Preis ' + price : ''].filter(Boolean).join(', '),
-    keywords: keywords,
-  };
-}
-function copyCjProductToDraft(index){
-  const item = lastCjSearchItems[Number(index)];
-  if(!item){ alert('CJ Produkt nicht gefunden.'); return; }
-  const draft = cjListingDraftText(item);
-  setInputValue('gMainKeyword', draft.mainKeyword);
-  setInputValue('gName', draft.title);
-  setInputValue('gFeature', draft.features);
-  setInputValue('gUse', 'eBay Listing');
-  setInputValue('gPain', 'Intern aus CJ übernommen');
-  setInputValue('gKeywords', draft.keywords);
-  setInputValue('gMode', 'hybrid');
-  setInputValue('listingTitle', draft.title);
-  setInputValue('listingBody', draft.description);
-  setInputValue('listingNotes', draft.notes);
-  showTab('ebayListingTab');
-  genCalc();
-  refreshEbayListingDraftPreview();
-  toast('CJ Produkt in den Listing-Draft übernommen.');
-}
 async function searchEbayCompetition(){
   const keyword = $('ebayCompetitionKeyword') ? $('ebayCompetitionKeyword').value.trim() : '';
   if(!keyword){ alert('Bitte eBay Suchbegriff eingeben.'); return; }
@@ -4630,7 +4476,7 @@ function refreshSourceProviderOptions(){
   safe('sourceProvider', function(select){
     const current = select.value;
     const standard = [
-      ['cj','CJdropshipping'],['aliexpress','AliExpress'],['dropxl','dropxl.com'],['bigbuy','Bigbuy.com'],
+      ['aliexpress','AliExpress'],['dropxl','dropxl.com'],['bigbuy','Bigbuy.com'],
       ['amazon','Amazon.de'],['temu','Temu'],['alibaba','Alibaba'],['other','Sonstige']
     ];
     let html = standard.map(function(item){ return '<option value="' + item[0] + '">' + item[1] + '</option>'; }).join('');
@@ -10403,11 +10249,9 @@ function bindEvents(){
   bind('saveIntegrationSettingsBtn','click',saveIntegrationSettings);
   bind('testBackendBtn','click',testBackendConnection);
   bind('ebayConnectPlanBtn','click',prepareEbayIntegration);
-  bind('cjConnectPlanBtn','click',prepareCjIntegration);
   bind('setSaveIntegrationSettingsBtn','click',saveIntegrationSettings);
   bind('setTestBackendBtn','click',testBackendConnection);
   bind('setEbayConnectPlanBtn','click',prepareEbayIntegration);
-  bind('setCjConnectPlanBtn','click',prepareCjIntegration);
   bind('resetIntegrationSettingsBtn','click',resetIntegrationSettings);
   bind('apiOpenSettingsBtn','click',openIntegrations);
   bind('openAiDashboardBtn','click',openAiDashboard);
@@ -10420,13 +10264,6 @@ function bindEvents(){
     if(event.target === el){
       el.classList.add('hidden');
     }
-  }));
-  bind('cjSearchBtn','click',searchCjProducts);
-  safe('cjSearchResult', el => el.addEventListener('click', function(event){
-    const btn = event.target.closest('[data-cj-copy]');
-    if(btn) copyCjProductToForm(btn.dataset.cjCopy);
-    const draftBtn = event.target.closest('[data-cj-draft]');
-    if(draftBtn) copyCjProductToDraft(draftBtn.dataset.cjDraft);
   }));
   bind('ebayCompetitionBtn','click',searchEbayCompetition);
   bind('ebaySearchBtn','click',ebaySuche);
@@ -10596,7 +10433,7 @@ function runSelfTests(){
   console.assert(typeof renderIntegrationStatus === 'function', 'Integrationen Status Funktion sollte existieren');
   console.assert(typeof openApiImport === 'function', 'Datenimport & API öffnen Funktion sollte existieren');
   console.assert(typeof fetchBackendJSON === 'function', 'Backend Fetch Funktion sollte existieren');
-  console.assert(typeof searchCjProducts === 'function', 'CJ Produktsuche sollte existieren');
+
   console.assert(typeof searchEbayCompetition === 'function', 'eBay Konkurrenzsuche sollte existieren');
   console.assert(typeof ebaySuche === 'function', 'eBay Search Funktion sollte existieren');
   console.assert(!!$('ebaySearchBtn'), 'eBay Search Button sollte existieren');

@@ -30,8 +30,6 @@
     {"source":"/api/ai-router","destination":"/api/secure-ai?action=router"},
     {"source":"/api/elyon/products","destination":"/api/extension/import-product?collection=products"},
     {"source":"/api/google-sheets-sync","destination":"/api/secure-env-check"},
-    {"source":"/api/cj/status","destination":"/api/cj/search?action=status"},
-    {"source":"/api/source/analyze","destination":"/api/cj/search?action=source-analyze"},
     {"source":"/api/google-drive","destination":"/api/secure-google-drive"},
     {"source":"/api/google-drive/status","destination":"/api/secure-google-drive?action=status"},
     {"source":"/api/google-drive/auth-url","destination":"/api/secure-google-drive?action=auth-url"},

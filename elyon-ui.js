@@ -123,14 +123,13 @@
     return [
       { title: "Dashboard oeffnen", hint: "Uebersicht und KPIs", run: () => go("#dashboard") },
       { title: "eBay Suche", hint: "Research auf eBay filtern", run: () => { go("#research"); setSelectValue("#sourceFilter", "eBay"); toast("eBay Suche ist aktiv."); } },
-      { title: "CJ Suche", hint: "Research auf CJ filtern", run: () => { go("#research"); setSelectValue("#sourceFilter", "CJ"); toast("CJ Suche ist aktiv."); } },
       { title: "Trending Produkte", hint: "Recherche mit Trend-Suche", run: () => { go("#research"); syncSearch("light"); toast("Trending-Suche vorbereitet."); } },
       { title: "Gewinner Produkte", hint: "Score-Filter auf gut", run: () => { go("#research"); setSelectValue("#scoreFilter", "good"); toast("Gewinner-Produkte gefiltert."); } },
       { title: "Gespeicherte Produkte", hint: "Lokale Favoriten anzeigen", run: () => { go("#workflow"); setSelectValue("#sourceFilter", "Saved"); toast("Gespeicherte Produkte werden im Research gefiltert."); } },
       { title: "Listing Center", hint: "Generator und Entwuerfe", run: () => go("#listing") },
       { title: "Orders", hint: "Bestellungen pruefen", run: () => go("#orders") },
       { title: "Automation", hint: "Automationsbereich", run: () => go("#automation") },
-      { title: "API Status", hint: "Health, eBay, CJ, Env", run: () => go("#tools") },
+      { title: "API Status", hint: "Health, eBay, Env", run: () => go("#tools") },
     ];
   }
 
@@ -369,7 +368,7 @@
         <span class="status-pill ok">Live</span>
       </div>
       <div class="elyon-feed">
-        <div><span></span><strong>API Status wird automatisch geladen</strong><small>Health, eBay und CJ bleiben angebunden.</small></div>
+        <div><span></span><strong>API Status wird automatisch geladen</strong><small>Health und eBay bleiben angebunden.</small></div>
         <div><span></span><strong>Favoriten lokal aktiv</strong><small>Gespeicherte Produkte bleiben im Browser erhalten.</small></div>
         <div><span></span><strong>Command Palette bereit</strong><small>Mit Ctrl + K schnell navigieren.</small></div>
       </div>

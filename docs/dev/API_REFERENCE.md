@@ -4,18 +4,11 @@
 
 - /api/ping
 - /api/health
-- /api/cj/status
 - /api/ebay/status
 
 ## Ziel
 
-API-Endpunkte zentral dokumentieren.
-
-## CJ-Konfigurationsstatus
-
-`GET /api/cj/status` und die durch Vercel auf `/api/cj/search?action=status` umgeschriebene Variante zeigen nur den Konfigurationsstand. `ok` bestätigt die Antwort der Route; `connected:false` und `verified:false` bedeuten, dass keine Live-Verbindung geprüft wurde. `status` unterscheidet `missing_config`, `invalid_config` (Test-Platzhalter) und `configured_not_tested`. Auch `/api/integrations/status` meldet CJ nicht allein wegen vorhandener Zugangsdaten als verbunden.
-
-`POST /api/cj/search?action=verify-status` ist über `requireSellerAccess` geschützt und wird im vorhandenen Jarvis Integration Center nur per Klick ausgelöst. Er prüft über CJ `GET /setting/get`, bei ausschließlichem API-Key nach dem bereits verwendeten CJ-Token-Endpunkt. Die Prüfung kann ein kurzzeitig für den Request verwendetes Zugangstoken erzeugen; es wird weder gespeichert noch an den Browser zurückgegeben. Antwortzustände: `connected`, `auth_failed`, `unreachable`, `rate_limited`, `access_disabled`, `check_failed`, `missing_config`, `invalid_config`. Nur `connected` bedeutet eine bestätigte erfolgreiche Liveprüfung. Fehlertexte, Kontodaten und Token aus der CJ-Antwort werden nicht weitergereicht. Timeouts und Weiterleitungen sind begrenzt. Der Prüfbefund bleibt für die aktuelle Oberfläche im Speicher und wird nicht als dauerhafter Live-Zustand gespeichert. Keine Produktionsanfrage ist Teil der Tests.
+API-Endpunkte zentral dokumentieren. Produktbeschaffung erfolgt über Elyon Nova; die eigenständigen CJ-Endpunkte des Seller Tools sind entfernt.
 
 ## QA 2026-09-05: eBay-Entwürfe und Company-Lifecycle
 

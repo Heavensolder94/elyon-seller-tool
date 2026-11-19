@@ -21,7 +21,6 @@
       { id: "deepseek", name: "DeepSeek", category: "AI Provider", auth: "API Key", access: "Brain fallback", status: "configured", enabled: true },
       { id: "openai", name: "OpenAI", category: "AI Provider", auth: "API Key", access: "Brain fallback", status: "configured", enabled: true },
       { id: "ebay", name: "eBay", category: "Marketplace", auth: "OAuth", access: "Read + Draft", status: "existing", enabled: true },
-      { id: "cj", name: "CJ Dropshipping", category: "Supplier", auth: "API Key", access: "Read", status: "existing", enabled: true }
     ],
     routing: {
       "General Worker": ["gpt-oss-20b-free", "lfm-2-5-2-6b-free", "openrouter-free-router"],
@@ -37,8 +36,6 @@
     systemLoading: false,
     systemError: "",
     lastLoadedAt: 0,
-    cjStatus: null,
-    cjLoading: false,
   };
 
   const text = (v, f = "") => v === null || v === undefined ? f : String(v).trim();
@@ -51,7 +48,9 @@
       const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) return structuredClone(seed);
       const parsed = JSON.parse(raw);
-      return { ...structuredClone(seed), ...parsed };
+      const registry = { ...structuredClone(seed), ...parsed };
+      registry.apis = (Array.isArray(registry.apis) ? registry.apis : seed.apis).filter((api) => String(api?.id || "").toLowerCase() !== "cj");
+      return registry;
     } catch { return structuredClone(seed); }
   }
 
@@ -188,23 +187,6 @@
     return state.systemStatus?.providers?.find?.((provider) => provider.provider === id) || null;
   }
 
-  async function verifyCjStatus() {
-    if (state.cjLoading) return;
-    state.cjLoading = true;
-    render();
-    try {
-      const response = await fetch("/api/cj/search?action=verify-status", { method: "POST", credentials: "same-origin", headers: { Accept: "application/json" }, cache: "no-store" });
-      const data = await response.json().catch(() => null);
-      if (!response.ok || !data?.ok) throw new Error("CJ-Prüfung nicht möglich. Bitte Seller-Sitzung prüfen.");
-      state.cjStatus = { status: text(data.status), message: text(data.message), checkedAt: data.checkedAt || null };
-    } catch {
-      state.cjStatus = { status: "check_failed", message: "CJ-Prüfung nicht möglich. Bitte Seller-Sitzung und Verbindung prüfen.", checkedAt: null };
-    } finally {
-      state.cjLoading = false;
-      render();
-    }
-  }
-
   function renderModels() {
     return `<section class="jic-card"><h2>KI-Modelle · lokale Registry</h2><div class="jic-list">${state.registry.models.map((model) => `<article class="jic-row"><div><strong>${escapeHtml(model.name)}</strong><p>${escapeHtml(model.provider)} · Rolle: ${escapeHtml(model.role)} · Priorität ${escapeHtml(model.priority)}</p><div class="jic-tags">${(model.capabilities || []).map((capability) => `<span class="jic-tag">${escapeHtml(capability)}</span>`).join("")}</div></div><div class="jic-side"><span class="jic-tier">${escapeHtml(model.tier)}</span><button class="jic-toggle ${model.enabled ? "" : "off"}" data-jic-toggle-model="${escapeHtml(model.id)}">${model.enabled ? "✓ Lokal aktiv" : "Lokal aus"}</button></div></article>`).join("")}</div><div class="jic-note">Diese Schalter verwalten weiterhin nur die lokale Jarvis-/Workforce-Registry. Provider-Secrets oder Server-Fallbacks werden hier nicht verändert.</div></section>`;
   }
@@ -212,11 +194,7 @@
   function renderApis() {
     return `<section class="jic-card"><h2>APIs & Provider</h2><div class="jic-list">${state.registry.apis.map((api) => {
       const live = liveProviderById(api.id);
-      const isCj = api.id === "cj";
-      const liveStatus = isCj ? (state.cjStatus?.status || "configured_not_tested") : (live?.status || api.status);
-      const detail = isCj && state.cjStatus ? `<p>${escapeHtml(state.cjStatus.message)}${state.cjStatus.checkedAt ? ` · ${escapeHtml(formatDate(state.cjStatus.checkedAt))}` : ""}</p>` : "";
-      const check = isCj ? `<button class="jic-btn" data-jic-cj-check ${state.cjLoading ? "disabled" : ""}>${state.cjLoading ? "Prüft …" : "CJ-Verbindung prüfen"}</button>` : "";
-      return `<article class="jic-row"><div><strong>${escapeHtml(api.name)}</strong><p>${escapeHtml(api.category)} · Auth: ${escapeHtml(api.auth)} · Jarvis: ${escapeHtml(api.access)}${live?.lastAttempt?.at ? ` · zuletzt ${escapeHtml(formatDate(live.lastAttempt.at))}` : ""}</p>${detail}</div><div class="jic-side"><span class="jic-status ${statusTone(liveStatus)}">${escapeHtml(statusLabel(liveStatus))}</span>${check}<button class="jic-toggle ${api.enabled ? "" : "off"}" data-jic-toggle-api="${escapeHtml(api.id)}">${api.enabled ? "✓ Lokal aktiv" : "Lokal aus"}</button></div></article>`;
+      return `<article class="jic-row"><div><strong>${escapeHtml(api.name)}</strong><p>${escapeHtml(api.category)} · Auth: ${escapeHtml(api.auth)} · Jarvis: ${escapeHtml(api.access)}${live?.lastAttempt?.at ? ` · zuletzt ${escapeHtml(formatDate(live.lastAttempt.at))}` : ""}</p></div><div class="jic-side"><span class="jic-status ${statusTone(live?.status || api.status)}">${escapeHtml(statusLabel(live?.status || api.status))}</span><button class="jic-toggle ${api.enabled ? "" : "off"}" data-jic-toggle-api="${escapeHtml(api.id)}">${api.enabled ? "✓ Lokal aktiv" : "Lokal aus"}</button></div></article>`;
     }).join("")}</div></section>`;
   }
 
@@ -301,7 +279,7 @@
     else if (state.active === "logs") body = renderLogs();
     const liveStatus = state.systemStatus?.status || (state.systemLoading ? "configured" : state.systemError ? "degraded" : "configured");
     const badge = state.systemLoading ? "● V2 LÄDT" : state.systemStatus ? `● V2 ${statusLabel(state.systemStatus.status)}` : "● V2 READ-ONLY";
-    tab.innerHTML = `<div class="jic"><section class="jic-hero"><div class="jic-head"><div class="jic-title"><h1>Jarvis Integration Center</h1><p>Read-only Systemzentrale für Brain, Provider-Fallbacks, Memory, E5, Usage und sanitizte Betriebslogs. Das Center vergibt keine zusätzlichen Jarvis-Rechte.</p></div><div class="jic-actions"><span class="jic-badge ${statusTone(liveStatus)}">${escapeHtml(badge)}</span><button class="jic-btn" data-jic-refresh ${state.systemLoading ? "disabled" : ""}>↻ Aktualisieren</button></div></div><div class="jic-tabs">${Object.entries(labels).map(([id, label]) => `<button class="jic-tab ${state.active === id ? "active" : ""}" data-jic-tab="${id}">${label}</button>`).join("")}</div>${state.systemStatus?.checkedAt ? `<div class="jic-refresh-meta">Stand: ${escapeHtml(formatDate(state.systemStatus.checkedAt))}</div>` : ""}</section>${body}</div>`;
+    tab.innerHTML = `<div class="jic"><section class="jic-hero"><div class="jic-head"><div class="jic-title"><h1>Jarvis Integration Center</h1><p>Read-only Systemzentrale für Brain, Provider-Fallbacks, Memory, E5, Usage und sanitizte Betriebslogs. Das Center vergibt keine zusätzlichen Jarvis-Rechte.</p></div><div class="jic-actions"><span class="jic-badge ${statusTone(live?.status || api.status)}">${escapeHtml(badge)}</span><button class="jic-btn" data-jic-refresh ${state.systemLoading ? "disabled" : ""}>↻ Aktualisieren</button></div></div><div class="jic-tabs">${Object.entries(labels).map(([id, label]) => `<button class="jic-tab ${state.active === id ? "active" : ""}" data-jic-tab="${id}">${label}</button>`).join("")}</div>${state.systemStatus?.checkedAt ? `<div class="jic-refresh-meta">Stand: ${escapeHtml(formatDate(state.systemStatus.checkedAt))}</div>` : ""}</section>${body}</div>`;
   }
 
   function bindEvents() {
@@ -319,8 +297,6 @@
       if (!el) return;
       const refresh = el.closest("[data-jic-refresh]");
       if (refresh) { void loadSystemStatus({ force: true }); return; }
-      const cjCheck = el.closest("[data-jic-cj-check]");
-      if (cjCheck) { void verifyCjStatus(); return; }
       const tab = el.closest("[data-jic-tab]");
       if (tab) { state.active = tab.dataset.jicTab || "overview"; render(); if (!state.systemStatus) void loadSystemStatus(); return; }
       const model = el.closest("[data-jic-toggle-model]");

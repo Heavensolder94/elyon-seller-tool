@@ -7,8 +7,6 @@ api/feature-flags.js
 api/product-vision.js
 
 # Consolidated routes: functionality stays available through central functions and vercel.json rewrites.
-# CJ status is handled by api/cj/search.js?action=status.
-api/cj/status.js
 
 # Mobile feature flags are handled locally by mobile-flags.js to avoid an extra Serverless Function.
 api/mobile-features.js

@@ -2,7 +2,6 @@
 
 ## Aktuelle Supplier
 
-- CJ Dropshipping
 - AliExpress
 - BigBuy
 - VidaXL

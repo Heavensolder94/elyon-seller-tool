@@ -11,7 +11,7 @@ Dieser Ablauf beschreibt, wie du die App im Alltag nutzt.
 ## 2. Produkt finden
 
 - In der Produktsuche neue Ideen sammeln
-- Bei Bedarf CJ- oder eBay-Daten pruefen
+- Bei Bedarf eBay-Daten pruefen; Produktdaten kommen aus Elyon Nova
 - Ein Produkt nur weiterverfolgen, wenn es genug Potenzial hat
 
 ## 3. Produkt bewerten
@@ -46,7 +46,7 @@ Dieser Ablauf beschreibt, wie du die App im Alltag nutzt.
 
 ## 8. Integrationen und Setup
 
-- In den Einstellungen CJ, eBay und Backend konfigurieren
+- In den Einstellungen eBay und Backend konfigurieren
 - API-Status kontrollieren
 - Import- und Export-Funktionen nutzen, wenn Daten uebertragen werden sollen
 
