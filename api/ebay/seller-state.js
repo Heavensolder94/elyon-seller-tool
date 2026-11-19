@@ -167,7 +167,7 @@ export async function fetchSellerState(environment) {
   let draftRegistry = {
     count: 0,
     registered: 0,
-    lifecycle: { counts: { draft: 0, published: 0, removed: 0, ended: 0 }, changes: [], missingConfirmations: 2 },
+    lifecycle: { counts: { draft: 0, published: 0, removed: 0, ended: 0, archived: 0 }, changes: [], missingConfirmations: 2 },
     storage: { persisted: false, mode: "unavailable" },
   };
   let draftError = "";
@@ -191,12 +191,24 @@ export async function fetchSellerState(environment) {
 
   const items = [...draftItems, ...activeListings];
   const lifecycleCounts = draftRegistry.lifecycle?.counts || {};
+  const archivedFeedHistory = (Array.isArray(draftRegistry.records) ? draftRegistry.records : [])
+    .filter((record) => record.visibilityMode === "seller_hub_feed" && record.state === "archived")
+    .map((record) => ({
+      sku: record.sku,
+      title: record.draftTitle,
+      externalTaskId: record.externalTaskId,
+      feedStatusCheckedAt: record.feedStatusCheckedAt,
+      archivedAt: record.archivedAt,
+      sourceProductId: record.sourceProductId,
+      note: "In ELYON archiviert; Seller-Hub-Entwurf nicht live geprüft",
+    }));
 
   return {
     environment: session.environment,
     items,
     activeListings,
     draftItems,
+    feedHistory: { archived: archivedFeedHistory.length, items: archivedFeedHistory, source: "elyon_local_registry" },
     elyonDrafts: {
       readable: !draftError,
       count: draftItems.length,
@@ -215,6 +227,7 @@ export async function fetchSellerState(environment) {
         active: number(lifecycleCounts.published),
         removed: number(lifecycleCounts.removed),
         ended: number(lifecycleCounts.ended),
+        archived: number(lifecycleCounts.archived),
       },
       changes: Array.isArray(draftRegistry.lifecycle?.changes) ? draftRegistry.lifecycle.changes : [],
       safety: "absence_requires_two_successful_snapshots",
@@ -228,6 +241,7 @@ export async function fetchSellerState(environment) {
       drafts: draftItems.length,
       removed: number(lifecycleCounts.removed),
       ended: number(lifecycleCounts.ended),
+      archivedFeeds: archivedFeedHistory.length,
       inventoryUnpublished: number(inventorySnapshot?.counts?.drafts),
       inventoryPublished: number(inventorySnapshot?.counts?.active),
       inventoryOther: number(inventorySnapshot?.counts?.other),
