@@ -19,6 +19,10 @@ function harness(overrides = {}) {
       calls.push({ url, method: options.method });
       assert.match(url, /sell\/inventory\/v1\/offer\/243461011011$/);
       assert.equal(options.headers.Authorization, "Bearer fake-test-token");
+      assert.equal(options.headers["Accept-Language"], "de-DE");
+      assert.equal(options.headers["Content-Language"], "de-DE");
+      assert.equal(options.headers["Content-Type"], "application/json");
+      assert.equal(options.headers["X-EBAY-C-MARKETPLACE-ID"], "EBAY_DE");
       if (options.method === "GET") {
         if (!exists) throw Object.assign(new Error("offer not found"), { status: 404 });
         return { offerId, sku, status: "UNPUBLISHED" };
