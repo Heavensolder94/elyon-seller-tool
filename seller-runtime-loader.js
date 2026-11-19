@@ -499,7 +499,7 @@
           ${mode === "draft" && product?.source === "elyon_inventory_draft" && offerId === "243461011011" && sku === "AMZ-B0D63HF7Z4"
             ? `<button type="button" class="elyon-api-draft-delete" data-elyon-delete-offer="${escapeHtml(offerId)}" data-elyon-delete-sku="${escapeHtml(sku)}">Nur diesen eBay-API-Entwurf löschen</button>`
             : ""}
-          ${window.ElyonFeedArchive?.button?.(product, mode) || ""}
+          ${typeof window === "object" && window.ElyonFeedArchive?.button?.(product, mode) || ""}
           ${mode === "draft" && product?.productMasterMatch === "unmatched" && /^AMZ-[A-Z0-9]{10}$/i.test(sku)
             ? `<button type="button" class="secondary elyon-review-intake-btn" data-elyon-review-sku="${escapeHtml(sku)}">↗ In Company OS zur Produktprüfung</button>`
             : ""}
