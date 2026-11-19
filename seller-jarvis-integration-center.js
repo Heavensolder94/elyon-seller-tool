@@ -260,7 +260,7 @@
         ${renderHealthCard("Brain", brainStatus, brainValue, lastRun ? `Letzter Lauf ${formatDate(lastRun.at)} · ${lastRun.durationMs || 0} ms` : "Noch kein Brain-Lauf in der neuen Telemetrie.")}
         ${renderHealthCard("Memory", memory.online ? "online" : "degraded", memoryValue, `Long-Term: ${memory.longTermMemory?.online ? "online" : "nicht erreichbar"} · Working: ${memory.workingMemory?.online ? "online" : "nicht erreichbar"}`)}
         ${renderHealthCard("E5 Pipeline", e5Status, e5Value, e5.killSwitch ? "Kill-Switch aktiv" : e5.pausedByGuard ? "Durch Guard pausiert" : `State: ${text(e5.state) || "—"}`)}
-        ${renderHealthCard("Safety", "online", "LIVE Publishing gesperrt", "Supplier Orders, Refunds, Kundennachrichten und Legal-Data-Writes bleiben gesperrt.")}
+        ${renderHealthCard("Safety", "degraded", "Bereichsübergreifend prüfen", "Dieser Status prüft nicht alle Veröffentlichungswege. Jedes eBay-Angebot benötigt eine ausdrückliche Einzelbestätigung.")}
       </section>
       <div class="jic-grid">${renderApis()}${renderRecentActivity()}</div>
       ${renderRouting()}`;

@@ -6,6 +6,8 @@ import vm from 'node:vm';
 test('CJ is unchecked until the explicit check, renders the result and sends only one request', async () => {
   const source = fs.readFileSync(new URL('../seller-jarvis-integration-center.js', import.meta.url), 'utf8');
   assert.match(source, /closest\("\[data-jic-cj-check\]"\)/);
+  assert.match(source, /Dieser Status prüft nicht alle Veröffentlichungswege/);
+  assert.doesNotMatch(source, /renderHealthCard\("Safety", "online", "LIVE Publishing gesperrt"/);
   const exposed = source.replace('  window.ElyonJarvisIntegrationCenter = Object.freeze({', '  window.__cjTest = { verifyCjStatus, renderApis, state };\n  window.ElyonJarvisIntegrationCenter = Object.freeze({');
   const tab = { innerHTML: '' };
   const calls = [];
