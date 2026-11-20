@@ -31,6 +31,10 @@ test('parallel issuance preserves one invoice and its verified PDF; failed Drive
   const attempts=await Promise.all([issueInvoiceCorrection(order.orderId,change,{refreshToken:'test'}),issueInvoiceCorrection(order.orderId,change,{refreshToken:'test'})]);const correction=attempts.find(x=>x.ok);assert.ok(correction);assert.ok(attempts.filter(x=>x.ok&&!x.existing).length<=1);assert.equal(correction.invoice.oldValue,'Stadt');assert.equal(correction.invoice.newValue,'Neue Stadt');
   assert.equal((await issueInvoiceCorrection(order.orderId,change,{refreshToken:'test'})).existing,true);
   assert.equal((await issueInvoiceCorrection(order.orderId,{...change,newValue:'Andere Stadt'},{refreshToken:'test'})).ok,false);
+  const beforeDifferentReason=await readFinanceState();const filesBeforeDifferentReason=files.size;
+  const differentReason=await issueInvoiceCorrection(order.orderId,{...change,reason:'Anderer Grund'},{refreshToken:'test'});
+  assert.equal(differentReason.ok,false);assert.equal(differentReason.status,409);
+  assert.equal(Object.keys((await readFinanceState()).invoiceMeta).length,Object.keys(beforeDifferentReason.invoiceMeta).length);assert.equal(files.size,filesBeforeDifferentReason);
 
   const sellerChange={field:'sellerStreet',newValue:'Neuer Weg 5',reason:'Adresse korrigieren'};const sellerCorrection=await issueInvoiceCorrection(order.orderId,sellerChange,{refreshToken:'test'});assert.equal(sellerCorrection.ok,true);assert.equal(sellerCorrection.invoice.oldValue,'Testweg 2');assert.equal(sellerCorrection.invoice.newValue,'Neuer Weg 5');
   const badAmount=await issueInvoiceCorrection(order.orderId,{field:'singleLineAmount',newValue:'-1',reason:'Betrag korrigieren'},{refreshToken:'test'});assert.equal(badAmount.ok,false);
@@ -52,6 +56,10 @@ test('parallel issuance preserves one invoice and its verified PDF; failed Drive
   const racingOrder={...order,orderId:'33333-33333-33333'};assert.equal((await issueKleinunternehmerInvoice(racingOrder,{refreshToken:'test'})).ok,true);
   const competing=await Promise.all([cancelIssuedInvoice(racingOrder.orderId,'Storno Test',{refreshToken:'test'}),issueInvoiceCorrection(racingOrder.orderId,{field:'buyerCity',newValue:'Andere Stadt',reason:'Korrektur'},{refreshToken:'test'})]);
   assert.equal(competing.filter(x=>x.ok).length,1);
+  const correctionRaceOrder={...order,orderId:'44444-44444-44444'};assert.equal((await issueKleinunternehmerInvoice(correctionRaceOrder,{refreshToken:'test'})).ok,true);
+  const competingCorrections=await Promise.all(['Erster Grund','Zweiter Grund'].map(reason=>issueInvoiceCorrection(correctionRaceOrder.orderId,{field:'buyerCity',newValue:'Neue Stadt',reason},{refreshToken:'test'})));
+  assert.equal(competingCorrections.filter(x=>x.ok).length,1);
+  const afterRace=await readFinanceState();assert.equal(Object.values(afterRace.invoiceMeta).filter(entry=>entry.invoice?.documentKind==='correction'&&entry.invoice.originalOrderId===correctionRaceOrder.orderId&&entry.invoice.field==='buyerCity').length,1);
   const shippingOrder={...order,orderId:'55555-55555-55555',pricingSummary:{total:{value:'12.00',currency:'EUR'},deliveryCost:{value:'2.00',currency:'EUR'}}};assert.equal((await issueKleinunternehmerInvoice(shippingOrder,{refreshToken:'test'})).ok,true);const shippingCorrection=await issueInvoiceCorrection(shippingOrder.orderId,{field:'singleLineAmount',newValue:'13',reason:'Prüfung'},{refreshToken:'test'});assert.equal(shippingCorrection.ok,false);
 
  }finally{globalThis.fetch=oldFetch;for(const name of names)old[name]===undefined?delete process.env[name]:process.env[name]=old[name]}

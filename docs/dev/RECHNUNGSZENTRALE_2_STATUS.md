@@ -43,6 +43,8 @@ PDF-Erkennung läuft im Entwurf in einem separaten Linux-Prozess mit geprüftem 
 
 Ein separater Berichtigungsbeleg kann Namen, Straße, Postleitzahl oder Ort berichtigen. Er verweist auf das ursprüngliche Original; die gespeicherte Rechnung wird nicht verändert. Eine zweite Änderung desselben Felds und Änderungen nach Vollstorno sind blockiert. Geldbeträge, Teilstornos und die steuerliche/fachliche Prüfung bleiben offen. Kein automatischer Versand und keine Buchung.
 
+Ein identischer erneuter Berichtigungsauftrag verweist auf den bestehenden Beleg. Derselbe neue Wert mit einem anderen Grund erzeugt keine weitere Berichtigung; weitere Änderungen desselben Felds erfordern einen manuellen Abgleich. Parallele Aufträge nutzen die Revisionsprüfung. Ein Hinweis im neuen PDF verweist auf mögliche weitere Berichtigungsbelege, statt zu behaupten, dass alle anderen Angaben unverändert seien. Bestehende PDF-Dateien werden nicht geändert.
+
 ## Begrenzte Betragsberichtigung (Entwurf)
 
 Eine manuelle Berichtigung ist nur bei einer Position mit Menge 1 ohne Versand und Rabatt möglich und betrifft sowohl Positions- als auch Gesamtbetrag. Keine eBay-Änderung und keine automatische Anpassung von Transaktionen, Erstattungen oder EÜR. Alle komplexeren Fälle bleiben blockiert; fachliche und produktive Prüfung ist erforderlich.
