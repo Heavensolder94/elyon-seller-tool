@@ -2,7 +2,7 @@ import { requireSellerAccess } from "../../lib/seller-access.js";
 import { financeSigningStatus, signFinancesGetRequest } from "../../lib/ebay-finance-signature.js";
 import { ebayUserSession, callEbayJson, publicEbayError } from "../../lib/ebay-production.js";
 import { readFinanceState, writeFinanceState, getFinanceStoreDescription, reserveFinanceInvoiceNumber } from "../../lib/finance-store.js";
-import { normalizeEbayApiTransactions, mergeTransactions, calculateMetrics, buildEurSummary, selectApprovedEurTransactions } from "../../seller-finance-core.js";
+import { normalizeEbayApiTransactions, mergeTransactions, calculateMetrics, buildEurSummary, selectApprovedEurTransactions, buildReceiptCostProposal } from "../../seller-finance-core.js";
 import { issueKleinunternehmerInvoice } from "../../lib/kleinunternehmer-invoice-store.js";
 
 function text(value) {
@@ -159,6 +159,25 @@ async function handleSave(req, res) {
   return res.status(200).json({ ok: true, state: result.state, merge: result.merge, store: getFinanceStoreDescription() });
 }
 
+async function handleReceiptCosts(req, res) {
+  if (req.method !== "POST") return res.status(405).json({ ok: false, error: "Nur POST erlaubt." });
+  const store = getFinanceStoreDescription();
+  if (!store.persistent || !store.configured) return res.status(503).json({ ok: false, error: "finance_store_unavailable", message: "Ein persistenter Finance-Speicher ist erforderlich." });
+  const expected = req.body?.expectedRevision;
+  if (!Number.isSafeInteger(expected) || expected < 0) return res.status(400).json({ ok: false, error: "invalid_revision" });
+  const current = await readFinanceState();
+  if (current.revision !== expected) return res.status(409).json({ ok: false, error: "finance_conflict", message: "Finance-Daten geändert; bitte Serverstand neu laden und Vorschau prüfen." });
+  const doc = current.documents.find(item => item.id === text(req.body?.documentId));
+  if (!doc) return res.status(404).json({ ok: false, error: "document_not_found", message: "Beleg fehlt im Finance-Serverstand." });
+  const proposal = buildReceiptCostProposal(doc, req.body?.allocations, current.transactions, current.documents, current.monthClosures);
+  if (!proposal.ok) return res.status(409).json({ ok: false, error: "receipt_cost_blocked", message: proposal.errors.join(" · "), blockers: proposal.errors });
+  const result = await writeFinanceState({ transactions: proposal.allocations }, {
+    action: "supplier_receipt_costs_recorded", source: "supplier_receipt_verified", actor: "seller", summary: `Prüfbedürftige Lieferantenkosten aus Beleg ${doc.id} erfasst.`
+  }, { expectedRevision: expected, allowReceiptCosts: true });
+  if (!result.ok) return res.status(result.conflict ? 409 : 503).json({ ok: false, error: result.conflict ? "finance_conflict" : "finance_store_unavailable", message: result.error });
+  return res.status(200).json({ ok: true, state: result.state, recorded: proposal.allocations.length });
+}
+
 async function handleEbayPreview(req, res) {
   const environment = environmentFrom(req);
   const days = Math.max(1, Math.min(Number(req?.query?.days || req?.body?.days || 90), 730));
@@ -273,6 +292,7 @@ export default async function handler(req, res) {
     if (action === "status") return handleStatus(req, res);
     if (action === "load") return handleLoad(req, res);
     if (action === "save") return handleSave(req, res);
+    if (action === "record-receipt-costs") return handleReceiptCosts(req, res);
     if (action === "ebay-preview" || action === "ebay-transactions") return handleEbayPreview(req, res);
     if (action === "ebay-sync") return handleEbaySync(req, res);
     if (action === "payouts") return handlePayouts(req, res);

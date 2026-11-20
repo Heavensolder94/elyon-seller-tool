@@ -251,6 +251,7 @@ export function normalizeFinanceTransaction(input = {}, source = "manual") {
     source: text(source || input.source) || "manual",
     status: text(input.status || input.reviewStatus).toLowerCase() || "needs_review",
     documentIds: Array.isArray(input.documentIds) ? [...new Set(input.documentIds.map(text).filter(Boolean))] : [],
+    ...(input.supplierReceipt && typeof input.supplierReceipt === "object" ? { supplierReceipt: { ...input.supplierReceipt } } : {}),
     original: input.original && typeof input.original === "object" ? safeOriginal(input.original) : null,
     createdAt: isoDate(input.createdAt) || new Date().toISOString(),
     updatedAt: isoDate(input.updatedAt) || new Date().toISOString(),
@@ -374,6 +375,11 @@ export function mergeTransactions(existing = [], incoming = []) {
       original: previous.original || normalized.original,
       updatedAt: new Date().toISOString(),
     };
+    // A receipt-backed cost records a historical allocation. Corrections must
+    // use a separate, reviewed process, never a stale browser sync.
+    if (previous.source === "supplier_receipt_verified" && previous.supplierReceipt) {
+      for (const field of ["transactionId", "dedupeKey", "orderId", "itemId", "transactionDate", "transactionType", "bookingEntry", "amount", "totalFeeAmount", "netAmount", "currency", "quantity", "source", "category", "supplierReceipt"]) next[field] = previous[field];
+    }
     if (JSON.stringify(previous) !== JSON.stringify(next)) updated += 1;
     byKey.set(normalized.dedupeKey, next);
   }
@@ -384,6 +390,52 @@ export function mergeTransactions(existing = [], incoming = []) {
     updated,
     duplicates,
   };
+}
+
+// Pure proposal only. It does not read a supplier, perform a payment or write
+// any state. A server handler re-runs the same checks against its revision.
+export function buildReceiptCostProposal(doc = {}, allocations = [], transactions = [], documents = [], monthClosures = {}) {
+  const errors = [];
+  const clean = value => text(value);
+  const cents = value => {
+    const raw = clean(value).replace(",", ".");
+    if (!/^\d{1,9}(?:\.\d{1,2})?$/.test(raw)) return null;
+    const parts = raw.split(".");
+    return Number(parts[0]) * 100 + Number((parts[1] || "").padEnd(2, "0"));
+  };
+  const id = clean(doc.id), sha = clean(doc.sha256).toLowerCase();
+  const supplier = clean(doc.supplier), reference = clean(doc.invoiceReference);
+  const date = clean(doc.paymentDate);
+  const amount = cents(doc.amount);
+  if (!id || !/^[a-f0-9]{64}$/.test(sha)) errors.push("Original und SHA-256-Prüfsumme fehlen.");
+  if (!clean(doc.cloudFileId)) errors.push("Original zuerst in Drive sichern und Finance synchronisieren.");
+  if (!["supplier_invoice", "internal_receipt"].includes(doc.documentType)) errors.push("Nur Lieferantenrechnungen oder gekennzeichnete Eigenbelege können hier Kosten auslösen.");
+  if (!supplier || !reference) errors.push("Lieferant und Rechnungs-/Belegreferenz werden für die Dublettenprüfung benötigt.");
+  if (clean(doc.currency).toUpperCase() !== "EUR") errors.push("Nur EUR-Beträge; Fremdwährung und Umrechnung müssen gesondert geprüft werden.");
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(date)) || new Date(date).toISOString().slice(0, 10) !== date) errors.push("Gültiges tatsächliches Zahlungsdatum erforderlich.");
+  if (date && monthClosures?.[date.slice(0, 7)]?.closedAt) errors.push("Der Zahlungsmonat ist abgeschlossen.");
+  if (amount === null || amount <= 0) errors.push("Gültiger bezahlter Gesamtbetrag erforderlich.");
+  if (!Array.isArray(allocations) || !allocations.length || allocations.length > 50) errors.push("Eine bis 50 Zuordnungen sind erforderlich.");
+  const rows = (Array.isArray(allocations) ? allocations.slice(0, 50) : []).map(row => ({ orderId: clean(row.orderId), itemId: clean(row.itemId), cents: cents(row.amount) }));
+  if (rows.some(row => !/^[A-Za-z0-9_-]{3,100}$/.test(row.orderId) || row.itemId.length > 200 || row.cents === null || row.cents <= 0)) errors.push("Jede Zuordnung benötigt eine Bestellnummer und einen positiven EUR-Teilbetrag.");
+  if (amount !== null && rows.reduce((sum, row) => sum + (row.cents || 0), 0) !== amount) errors.push("Summe der Teilbeträge muss dem bezahlten Gesamtbetrag entsprechen.");
+  const comparable = value => clean(value).toLocaleLowerCase("de-DE");
+  const duplicate = transactions.some(tx => {
+    if (tx.category !== "supplier_expense" && tx.transactionType !== "SUPPLIER_PURCHASE") return false;
+    const linked = (Array.isArray(tx.documentIds) ? tx.documentIds : []).map(link => documents.find(item => item.id === link)).filter(Boolean);
+    if ((tx.documentIds || []).includes(id)) return true;
+    const evidence = [tx.supplierReceipt, ...linked].filter(Boolean);
+    return evidence.some(item => (sha && clean(item.sha256).toLowerCase() === sha) || (supplier && reference && comparable(item.supplier) === comparable(supplier) && comparable(item.invoiceReference) === comparable(reference)));
+  });
+  if (duplicate) errors.push("Zu diesem Beleg oder dieser Lieferanten-/Rechnungsreferenz existieren bereits Lieferantenkosten; Bestandsabgleich nötig.");
+  if (errors.length) return { ok: false, errors, allocations: [] };
+  return { ok: true, errors: [], allocations: rows.map((row, index) => ({
+    transactionId: `receipt_${sha}_${index + 1}`, orderId: row.orderId, itemId: row.itemId,
+    transactionDate: date, transactionType: "SUPPLIER_PURCHASE", bookingEntry: "DEBIT", amount: -row.cents / 100,
+    currency: "EUR", title: `${supplier} Wareneinkauf`, category: "supplier_expense", status: "needs_review", documentIds: [id],
+    supplierReceipt: { documentId: id, sha256: sha, supplier, invoiceReference: reference, documentDate: clean(doc.documentDate), paymentDate: date, totalCents: amount, allocationCents: row.cents },
+    source: "supplier_receipt_verified",
+  })) };
 }
 
 export function bookingProposal(transaction = {}, settings = {}) {
