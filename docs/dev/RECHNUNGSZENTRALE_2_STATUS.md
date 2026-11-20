@@ -7,6 +7,7 @@ Stand: 20.11.2026. Diese Änderung erweitert die vorhandene Finance-Oberfläche 
 - Vorhandene lokale Originale werden beim Öffnen auf Integrität geprüft. Drive-Sicherung ist optional und benötigt Konfiguration sowie synchronisierte Finance-Metadaten.
 - Historische Finance-Rechnungsmetadaten werden angezeigt, ohne aus veränderlichen Bestelldaten ein angebliches Original zu erzeugen.
 - Eine bestätigte EUR-Kostenaufteilung auf mehrere Bestellungen erzeugt nach Prüfung des Drive-Originals serverseitig revisionsgeschützt prüfbedürftige Finance-Transaktionen. Zahlungsdatum und archivierte Belegreferenz bleiben nachvollziehbar; keine automatische Verifikation der Bestell-/Artikelreferenzen.
+- Bei einer ausdrücklich erfassten eBay-Bestellnummer, genau einem passenden gespeicherten Umsatz und ansonsten eindeutigen Angaben kann eine einzelne EUR-Kostenaufteilung als Formularvorschlag eingefügt werden. Vorhandene Eingaben werden nicht überschrieben. Die nutzende Person muss prüfen, ob der ganze Beleg zu diesem Verkauf gehört, anschließend die Vorschau prüfen und die Erfassung bestätigen; weitere Server- und Dublettenprüfungen bleiben bestehen.
 - Neue Kundenrechnungen werden bei auch nur einem Cent Summenabweichung oder fehlender Währungsangabe einer Position blockiert; vorhandene Snapshots bleiben unverändert. Die Rechnungsausstellung überschreibt keine zwischenzeitlich eintreffenden historischen Metadaten. Beschädigte lokale Finance-Dateien blockieren statt als leer behandelt zu werden.
 
 ## Vor produktiver Gesamtfreigabe offen

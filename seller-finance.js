@@ -643,7 +643,30 @@ async function recognizeUblReceipt(id) {
 
 function receiptCostMarkup(doc) {
   const preview = stagedReceiptCost?.documentId === doc.id ? stagedReceiptCost : null;
-  return `<details><summary>Bezahlte Lieferantenkosten zuordnen</summary><p class="ef-muted">Zuerst Angaben speichern, Original in Drive sichern und Finance synchronisieren. Pro Zeile: eBay-Bestellung | Artikel-ID (optional) | EUR-Teilbetrag. Bestehende manuelle Kosten bitte selbst auf Dubletten prüfen; Bestell- und Artikelreferenzen werden nicht automatisch gegen eBay oder Company OS geprüft. Beträge müssen den gesamten bezahlten Beleg ergeben.</p><form class="ef-form" data-ef2-cost-preview="${escapeHtml(doc.id)}"><label class="full">Zuordnung<textarea name="allocations" rows="3" placeholder="12-34567-89012 | ELY-000001 | 19,90">${escapeHtml(preview?.input || "")}</textarea></label><div class="full"><button type="submit" class="ef-btn">Vorschau prüfen</button></div></form>${preview ? `<div class="ef-callout"><strong>Vorschau – noch nicht erfasst</strong>${preview.allocations.map(row => `<div>${escapeHtml(row.orderId)} · ${escapeHtml(row.itemId || "ohne Artikel-ID")} · ${escapeHtml(money(-row.amount))}</div>`).join("")}<p>Das Zahlungsdatum und die Kosten werden als prüfbedürftige Vorgänge gespeichert. Keine Zahlung und keine Steuerübermittlung.</p><button class="ef-btn primary" data-ef2-confirm-cost="${escapeHtml(doc.id)}">Zuordnung verbindlich erfassen</button></div>` : ""}</details>`;
+  const suggestion = suggestSimpleReceiptAllocation(doc, state.transactions);
+  return `<details><summary>Bezahlte Lieferantenkosten zuordnen</summary><p class="ef-muted">Zuerst Angaben speichern, Original in Drive sichern und Finance synchronisieren. Pro Zeile: eBay-Bestellung | Artikel-ID (optional) | EUR-Teilbetrag. Bestehende manuelle Kosten bitte selbst auf Dubletten prüfen; Bestell- und Artikelreferenzen werden nicht automatisch gegen eBay oder Company OS geprüft. Beträge müssen den gesamten bezahlten Beleg ergeben.</p><form class="ef-form" data-ef2-cost-preview="${escapeHtml(doc.id)}"><label class="full">Zuordnung<textarea name="allocations" rows="3" placeholder="12-34567-89012 | ELY-000001 | 19,90">${escapeHtml(preview?.input || "")}</textarea></label><div class="full">${suggestion ? `<button type="button" class="ef-btn" data-ef2-suggest-cost="${escapeHtml(doc.id)}">Zuordnung vorschlagen</button> ` : ""}<button type="submit" class="ef-btn">Vorschau prüfen</button></div></form>${preview ? `<div class="ef-callout"><strong>Vorschau – noch nicht erfasst</strong>${preview.allocations.map(row => `<div>${escapeHtml(row.orderId)} · ${escapeHtml(row.itemId || "ohne Artikel-ID")} · ${escapeHtml(money(-row.amount))}</div>`).join("")}<p>Das Zahlungsdatum und die Kosten werden als prüfbedürftige Vorgänge gespeichert. Keine Zahlung und keine Steuerübermittlung.</p><button class="ef-btn primary" data-ef2-confirm-cost="${escapeHtml(doc.id)}">Zuordnung verbindlich erfassen</button></div>` : ""}</details>`;
+}
+// Propose a single allocation only for an explicitly recorded exact order and
+// one unambiguous saved revenue transaction; this never books or verifies it.
+export function suggestSimpleReceiptAllocation(doc = {}, transactions = []) {
+ const order=text(doc.ebayOrderId), product=text(doc.productReference), amount=text(doc.amount).replace(',', '.');
+ if(!/^[A-Za-z0-9_-]{3,100}$/.test(order)||text(doc.currency).toUpperCase()!=='EUR'||!/^\d{1,9}(?:\.\d{1,2})?$/.test(amount)||Number(amount)<=0)return null;
+ if(!['supplier_invoice','internal_receipt'].includes(doc.documentType)||!text(doc.paymentDate))return null;
+ if(Array.isArray(doc.receiptLineItemsV1)&&doc.receiptLineItemsV1.length>1)return null;
+ const matches=transactions.filter(row=>!row.voidedAt && row.id && text(row.orderId)===order && text(row.category)==='revenue');
+ if(matches.length!==1)return null;
+ const itemId=text(matches[0].itemId);
+ if(/[|\r\n]/.test(itemId)||itemId.length>200||(product&&itemId!==product))return null;
+ if(doc.receiptLineItemsV1?.length===1 && Number(doc.receiptLineItemsV1[0].quantity)!==Number(matches[0].quantity))return null;
+ return {orderId:order,itemId,amount};
+}
+function fillSuggestedReceiptCost(id) {
+ const doc=state.documents.find(item=>item.id===id), suggestion=doc && suggestSimpleReceiptAllocation(doc,state.transactions);
+ const form=document.querySelector(`[data-ef2-cost-preview="${CSS.escape(id)}"]`), field=form?.elements.namedItem('allocations');
+ if(!suggestion||!field)return toast('Kein eindeutiger Vorschlag verfügbar.');
+ if(field.value.trim())return toast('Vorhandene Eingaben bleiben erhalten. Bitte zuerst selbst prüfen.');
+ field.value=[suggestion.orderId,suggestion.itemId,suggestion.amount].join(' | ');
+ toast('Vorschlag eingefügt. Bitte prüfen, ob der gesamte Beleg zu dieser Bestellung gehört, und anschließend die Vorschau öffnen.');
 }
 function previewReceiptCosts(form) {
   const doc = state.documents.find(item => item.id === form.dataset.ef2CostPreview);
@@ -870,6 +893,7 @@ function bindEvents() {
     const matchButton=event.target.closest?.("[data-ef2-match-doc]");
     if(matchButton){const docId=matchButton.dataset.ef2MatchDoc, transactionId=matchButton.dataset.ef2MatchTransaction;if(window.confirm("Diesen Beleg dem angezeigten Finanzvorgang zuordnen? Es wird keine Buchung oder Zahlung erzeugt."))return attachDocument(transactionId,docId);return;}
     const recognizeId=event.target.closest?.("[data-ef2-recognize-ubl]")?.dataset.ef2RecognizeUbl;if(recognizeId)return recognizeUblReceipt(recognizeId);
+    const suggestCostId=event.target.closest?.("[data-ef2-suggest-cost]")?.dataset.ef2SuggestCost;if(suggestCostId)return fillSuggestedReceiptCost(suggestCostId);
     const costId=event.target.closest?.("[data-ef2-confirm-cost]")?.dataset.ef2ConfirmCost;if(costId)return confirmReceiptCosts(costId);
     const cloudId=event.target.closest?.("[data-ef2-cloud-doc]")?.dataset.ef2CloudDoc;if(cloudId)return uploadDocumentToDrive(cloudId);
     const docId=event.target.closest?.("[data-ef2-download-doc]")?.dataset.ef2DownloadDoc;if(docId){
