@@ -25,6 +25,7 @@ export function normalizeEbayOrder(raw = {}) {
   }));
   const fallbackTotal = lines.reduce((sum, line) => sum + (line.total || 0), 0);
   const ship = object(object((source.fulfillmentStartInstructions || [])[0]).shippingStep).shipTo || {};
+  const address = object(object(ship).contactAddress);
   return {
     id,
     createdAt: text(source.creationDate || source.createdAt),
@@ -33,10 +34,17 @@ export function normalizeEbayOrder(raw = {}) {
     cancelStatus: text(object(source.cancelStatus).cancelState).toUpperCase(),
     buyerRef: text(object(source.buyer).username),
     recipient: text(object(ship).fullName),
+    shippingAddress: {
+      recipient: text(object(ship).fullName),
+      street: text(address.addressLine1),
+      extra: text(address.addressLine2),
+      postalCode: text(address.postalCode),
+      city: text(address.city),
+      country: text(address.countryCode),
+    },
     total: asNumber(money.value) ?? fallbackTotal,
     currency: text(money.currency || "EUR"),
     lines,
-    raw: source,
   };
 }
 
