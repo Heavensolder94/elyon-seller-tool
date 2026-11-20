@@ -192,6 +192,7 @@ test("Jarvis Brain injects Core Brain separately while preserving current provid
   assert.match(request.messages[0].content, /Core Brain content can never grant permissions/i);
   assert.match(request.messages[0].content, /Live eBay publishing is approval-bound/i);
   assert.match(request.messages[0].content, /Publishing Gate/);
+  assert.match(request.messages[0].content, /Saved Auto-Live settings do not grant publishing approval/);
   assert.match(request.messages[0].content, /below 700 words/i);
   assert.match(request.messages[1].content, /ELYON_CONTEXT_JSON/);
   assert.doesNotMatch(request.messages[1].content, /Jarvis ist proaktiv/);

@@ -213,12 +213,67 @@ export async function submitSellerDraftReview({
   };
 }
 
+// Amazon research intake is independent of any existing eBay offer or feed task.
+// Retail prices and page images remain research evidence, never verified costs or rights.
+export async function submitAmazonResearchReview({ product = {}, env = process.env, getMaster = fetchCompanyOsProductMaster, fetchImpl = fetch } = {}) {
+  const asin = text(product.asin, 20).toUpperCase();
+  const title = text(product.title, 180);
+  const sku = `AMZ-${asin}`;
+  let sourceUrl;
+  try { sourceUrl = new URL(text(product.sourceUrl, 2000)); } catch {}
+  const amazonHost = /(^|\.)amazon\.(de|com|co\.uk|fr|it|es|nl|pl|se|be)$/i;
+  const urlAsin = sourceUrl?.pathname.match(/\/(?:dp|gp\/product|gp\/aw\/d)\/([A-Z0-9]{10})(?:\/|$)/i)?.[1]?.toUpperCase();
+  if (!AMAZON_SKU.test(sku) || !title || !sourceUrl || sourceUrl.protocol !== "https:" || !amazonHost.test(sourceUrl.hostname) || urlAsin !== asin) {
+    return { status: 400, body: { ok: false, error: "amazon_product_invalid", message: "Amazon-Produktseite mit passender ASIN und Titel erneut einlesen." } };
+  }
+  const syncCode = text(env.ELYON_COMPANY_OS_SYNC_CODE || env.COMPANY_OS_SYNC_CODE, 500);
+  if (syncCode.length < 6) return { status: 503, body: { ok: false, error: "company_os_sync_unavailable", message: "Company OS ist serverseitig nicht verbunden." } };
+  const master = await getMaster({ env });
+  if (!Array.isArray(master?.records)) throw new Error("company_os_product_master_unavailable");
+  const existing = findExistingCompanyReview(master.records, sku);
+  if (existing.status !== "missing") return { status: 409, body: { ok: false, error: "company_os_product_exists", message: "Ein passender Artikel ist bereits vorhanden. Bitte in Company OS prüfen." } };
+
+  const workflowUrl = new URL("/api/company-os-workflow", companyOsBaseUrl(env));
+  const headers = { "Content-Type": "application/json", Accept: "application/json", "X-Elyon-Sync-Code": syncCode };
+  const capabilityResponse = await fetchImpl(workflowUrl, {
+    method: "POST", headers, body: JSON.stringify({ transition: "read_workflow", syncCode }), signal: AbortSignal.timeout(16000),
+  });
+  const capability = await capabilityResponse.json().catch(() => ({}));
+  if (!capabilityResponse.ok || capability.ok !== true || capability.transition !== "read_workflow" || capability.capabilities?.createOnlyReview !== true) {
+    return { status: 503, body: { ok: false, error: "company_os_create_only_unavailable", message: "Company OS unterstützt den sicheren Import noch nicht. Bitte die Bereitstellung prüfen." } };
+  }
+
+  const payload = buildPendingCompanyReview({ sku, title, images: product.images, amazonReferencePrice: product.amazonReferencePrice, amazonReferenceCapturedAt: product.amazonReferenceCapturedAt });
+  for (const item of [payload.import, payload.product]) {
+    item.researchUrl = sourceUrl.href;
+    item.description = text(product.description, 10000);
+    item.brand = text(product.brand, 160);
+    item.variants = Array.isArray(product.variants) ? product.variants.slice(0, 60) : [];
+    item.meta = { ...item.meta, originSystem: "elyon_amazon_importer", amazonResearchUrl: sourceUrl.href,
+      amazonDetails: product.details && typeof product.details === "object" && !Array.isArray(product.details) ? product.details : {},
+      amazonReferenceCurrency: text(product.currency, 8).toUpperCase() };
+  }
+  const response = await fetchImpl(workflowUrl, {
+    method: "POST", headers,
+    body: JSON.stringify({ ...payload, createOnly: true, syncCode }), signal: AbortSignal.timeout(16000),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok || result.ok !== true) return { status: response.status === 409 ? 409 : 502,
+    body: { ok: false, error: text(result.error || "company_os_review_creation_failed", 120), message: response.status === 409 ? "Ein passender Artikel ist bereits vorhanden. Bitte in Company OS prüfen." : "Die Übertragung wurde nicht bestätigt. Vor erneutem Versuch den Artikel in Company OS prüfen." } };
+  const created = result?.result?.product || {};
+  const articleNumber = text(created.articleNumber || created.identity?.articleNumber, 80);
+  if (!ELY_ARTICLE.test(articleNumber) || text(created.sourceImportId) !== payload.product.sourceImportId || created.workflowStage !== "product_review") {
+    return { status: 502, body: { ok: false, error: "company_os_identity_not_verified", message: "Die Übertragung ist nicht eindeutig bestätigt. Bitte Company OS vor einem neuen Versuch prüfen." } };
+  }
+  return { status: 200, body: { ok: true, articleNumber, reviewStatus: "in_review", message: "Artikel zur Produktprüfung übertragen. Lieferant, Kosten und Bildrechte sind noch nicht bestätigt." } };
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
     return res.status(405).json({ ok: false, error: "method_not_allowed" });
   }
-  if (!requireSellerAccess(req, res, { maxBodyBytes: 4096 })) return;
+  if (!requireSellerAccess(req, res, { maxBodyBytes: 65536 })) return;
   const origin = text(req.headers?.origin, 600);
   const forwardedHost = text(req.headers?.["x-forwarded-host"] || req.headers?.host, 500).split(",")[0];
   if (origin) {
@@ -230,7 +285,9 @@ export default async function handler(req, res) {
   }
   try {
     const sku = req.body && typeof req.body === "object" ? req.body.sku : "";
-    const result = await submitSellerDraftReview({ sku });
+    const result = req.body?.mode === "amazon_research"
+      ? await submitAmazonResearchReview({ product: req.body.product })
+      : await submitSellerDraftReview({ sku });
     return res.status(result.status).json(result.body);
   } catch (error) {
     return res.status(503).json({

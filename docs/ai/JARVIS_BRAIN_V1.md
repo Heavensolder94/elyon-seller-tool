@@ -40,6 +40,8 @@ Wenn alle Modelle ausfallen, antwortet die API mit HTTP `503`, `ok: false`, `mod
 
 Brain V1 erhaelt keine neuen Berechtigungen. eBay-Live-Publishing, Supplier-Bestellungen, Refunds, Kundennachrichten, Loeschungen und rechtliche Datenmutationen bleiben durch die bestehenden Gates blockiert oder approval-pflichtig. Brain-Antworten duerfen externe Aktionen nicht als ausgefuehrt behaupten.
 
+Für Live-Veröffentlichungen im Seller Tool gilt die ausdrückliche Einzelbestätigung. Gespeicherte Auto-Live-Einstellungen erteilen keine Freigabe.
+
 ## Environment
 
 Erforderlich fuer den echten Brain-/Memory-Betrieb:
