@@ -159,3 +159,7 @@ Status:
 - Neue UI-Keys dürfen keine Product-Master-Daten duplizieren.
 - `listing.autoListerDraft` ist ein Feld im Produktdatensatz und kein eigener LocalStorage-Hauptspeicher.
 - Designer-, Taxonomy-, GPSR- und Varianten-Daten gehören in den Product Master, nicht in neue lokale Hauptspeicher.
+
+### Belegarchiv – manuelle Angaben
+
+`elyon_finance_v1.documents` wird additiv um beschreibende Eingabefelder (`documentType`, Lieferant/Kunde, Referenzen, Beleg-/Zahlungsdatum, Betrag und Währung) ergänzt. Alte Einträge bleiben ohne Migration lesbar. Originaldateien liegen in IndexedDB `elyon-finance-documents` / `files`; eine erfolgreiche Browser-Speicherung allein ist keine geräteübergreifende Sicherung. `elyon_order_invoice_meta_v1` bleibt erhalten; historische Metadaten werden lesbar angezeigt, aber nicht zu Originalrechnungen erklärt oder automatisch migriert.

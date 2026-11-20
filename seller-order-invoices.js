@@ -229,7 +229,7 @@
   }
   function openExistingInvoice(meta) {
     if (!meta?.immutable || !meta.invoice) {
-      notify('Ältere Rechnungsdaten gefunden. Bitte im bisherigen Rechnungsarchiv prüfen. Keine neue Rechnung erzeugt.', 'Historischer Beleg');
+      notify('Historische Metadaten stehen unten in der Rechnungsliste. Ein Original ist daraus nicht belegbar; keine neue Rechnung erzeugt.', 'Historischer Beleg');
       return;
     }
     printInvoice(meta.invoice);
@@ -312,9 +312,11 @@
             '</td><td>' + money(entry.invoice.total,'EUR') + '</td><td><button type="button" class="eoi-btn" data-eoi-archive="' +
             esc(entry.invoice.orderId) + '">Rechnung öffnen / PDF</button></td></tr>').join('') + '</tbody></table></div>';
     }
-    const legacyCount = Object.values(meta).filter(entry => entry && !entry.immutable).length;
-    if (legacyCount) html += '<div class="eoi-error" style="margin-top:10px">' +
-      legacyCount + ' frühere Rechnungseinträge erkannt. Nicht erneut ausstellen; historische Belege manuell abgleichen.</div>';
+    const legacy = Object.entries(meta).filter(([, entry]) => entry && !entry.immutable);
+    if (legacy.length) {
+      html += '<div class="eoi-error" style="margin-top:10px">Frühere Rechnungseinträge: schreibgeschützt. Ein Originaldokument ist daraus nicht belegbar. Keine erneute Ausstellung ohne Bestandsabgleich.</div>';
+      html += '<div style="overflow:auto"><table class="eoi-table"><thead><tr><th>Bestellung</th><th>Historische Rechnungsnummer</th><th>Erfasst am</th></tr></thead><tbody>' + legacy.map(([id, entry]) => '<tr><td>' + esc(id) + '</td><td>' + esc(entry.invoiceNumber || 'unbekannt') + '</td><td>' + esc(entry.createdAt || entry.issuedAt || 'unbekannt') + '</td></tr>').join('') + '</tbody></table></div>';
+    }
     if (!orders.length) html += '<div class="eoi-muted" style="margin-top:14px">Noch keine Bestellungen geladen.</div>';
     else {
       html += '<div style="overflow:auto"><table class="eoi-table"><thead><tr><th>Bestellung</th><th>eBay</th><th>Betrag</th><th>Prozess & Versand</th><th>Rechnung</th></tr></thead><tbody>';
