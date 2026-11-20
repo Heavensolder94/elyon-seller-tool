@@ -1,4 +1,3 @@
-import { extractStructuredReceiptFromPdf } from '../../lib/receipt-pdf.js';
 import { extractUblReceipt } from '../../lib/receipt-ubl.js';
 import { requireSellerAccess } from "../../lib/seller-access.js";
 import { financeSigningStatus, signFinancesGetRequest } from "../../lib/ebay-finance-signature.js";
@@ -308,12 +307,9 @@ export default async function handler(req, res) {
     if (action === "load") return handleLoad(req, res);
     if (action === "save") return handleSave(req, res);
     if (action === "recognize-pdf-receipt") {
-      if (req.method !== "POST") return res.status(405).json({ok:false,error:"Nur POST erlaubt."});
-      try {
-        const raw=req.body?.base64;
-        if(typeof raw!=="string" || raw.length>3333336 || !/^[A-Za-z0-9+/]*={0,2}$/.test(raw)) throw new Error('Ungültige PDF-Daten.');
-        return res.status(200).json({ok:true,proposal:await extractStructuredReceiptFromPdf(Buffer.from(raw,'base64'))});
-      } catch(error) {return res.status(422).json({ok:false,error:"receipt_pdf_invalid",message:error.message});}
+      // PDF attachment decompression is not bounded by the input-size check.
+      // Keep this unavailable until a bounded isolation strategy is tested.
+      return res.status(503).json({ok:false,error:"receipt_pdf_recognition_disabled",message:"PDF-Erkennung ist aus Sicherheitsgründen noch nicht freigegeben. XML separat importieren."});
     }
     if (action === "recognize-ubl-receipt") {
       if (req.method !== "POST") return res.status(405).json({ok:false,error:"Nur POST erlaubt."});

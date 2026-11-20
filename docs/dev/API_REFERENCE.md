@@ -103,3 +103,6 @@ Neue Kleinunternehmerrechnungen erzeugen ein PDF und laden es vor dem Speichern 
 
 
 `POST /api/finance?action=recognize-pdf-receipt` verarbeitet PDF bis 2,5 MB und prüft ausschließlich eine einzelne eingebettete XML-Datei bis 1 MB. Das Original wird im Browser vor dem Senden gehasht und nicht verändert. Ohne XML oder mit mehreren XML-Dateien wird die Verarbeitung blockiert. Die Ausgabe ist kein Nachweis der PDF/A- oder ZUGFeRD-Konformität. Die Ressourcengrenzen beim Dekomprimieren eingebetteter PDF-Inhalte und der Betrieb in der Deployment-Umgebung müssen vor produktiver Freigabe weiter geprüft werden.
+
+
+Sicherheitsstatus: Die PDF-Erkennung ist im API-Endpunkt bewusst gesperrt (HTTP 503), da die PDF-Bibliothek Anhänge vor der Größenprüfung dekomprimiert und präparierte Dateien dadurch zu hohen Speicherverbrauch verursachen können. Der Parser ist nur ein nicht freigegebener Testbaustein. XML-Erkennung bleibt verfügbar.
