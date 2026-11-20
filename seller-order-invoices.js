@@ -323,6 +323,16 @@
     } catch (error) { window.alert('Stornostatus prüfen: ' + error.message + ' Vor erneutem Versuch Archiv neu laden.'); }
   }
 
+  async function createReplacement(orderId) {
+    if (!window.confirm('Ersatzrechnung jetzt anhand der aktuellen eBay-Bestelldaten ausstellen? Original und Storno bleiben erhalten. Keine Nachricht oder Zahlung wird ausgelöst.')) return;
+    try {
+      const response=await fetch('/api/finance?action=issue-replacement-invoice',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify({orderId})});
+      const data=await response.json().catch(()=>({}));
+      if (!response.ok || !data.ok) throw new Error(data.message || 'Ersatzrechnung nicht bestätigt.');
+      await loadServerState();render();notify('Ersatzrechnung '+data.invoice.invoiceNumber+(data.existing?' war bereits vorhanden.':' erstellt.')+' Kein automatischer Kundenversand.', 'Ersatzrechnung');
+    } catch(error) {window.alert('Status der Ersatzrechnung prüfen: '+error.message+' Vor erneutem Versuch Archiv neu laden.');}
+  }
+
   function statusLabel(value) { const hit = STATUS_OPTIONS.find((item) => item[0] === value); return hit ? hit[1] : value; }
 
   function styles() {
@@ -348,7 +358,7 @@
         archived.sort((a,b)=>String(b[1].invoice?.issuedAt||'').localeCompare(String(a[1].invoice?.issuedAt||'')))
           .map(([recordId,entry])=>'<tr><td>' + esc(entry.invoiceNumber) + '</td><td>' + esc(entry.invoice.orderId) +
             '</td><td>' + money(entry.invoice.total,'EUR') + '</td><td><button type="button" class="eoi-btn" data-eoi-archive="' +
-            esc(recordId) + '">Beleg öffnen / PDF</button>' + (entry.invoice.documentKind === 'cancellation' ? '<div class="eoi-muted">Storno zu ' + esc(entry.invoice.originalInvoiceNumber) + '</div>' : '<button type="button" class="eoi-btn" data-eoi-cancel="' + esc(recordId) + '">Vollständig stornieren</button>') + '</td></tr>').join('') + '</tbody></table></div>';
+            esc(recordId) + '">Beleg öffnen / PDF</button>' + (entry.invoice.documentKind === 'cancellation' ? '<div class="eoi-muted">Storno zu ' + esc(entry.invoice.originalInvoiceNumber) + '</div>' : entry.invoice.documentKind === 'replacement' ? '<div class="eoi-muted">Ersatz für ' + esc(entry.invoice.originalInvoiceNumber) + '</div>' : Object.values(meta).some(x => x?.invoice?.documentKind === 'cancellation' && x.invoice.originalInvoiceNumber === entry.invoiceNumber) ? '<button type="button" class="eoi-btn" data-eoi-replace="' + esc(recordId) + '">Ersatzrechnung ausstellen</button>' : '<button type="button" class="eoi-btn" data-eoi-cancel="' + esc(recordId) + '">Vollständig stornieren</button>') + '</td></tr>').join('') + '</tbody></table></div>';
     }
     const legacy = Object.entries(meta).filter(([, entry]) => entry && !entry.immutable);
     if (legacy.length) {
@@ -379,6 +389,8 @@
 
   document.addEventListener('click', (event) => {
     if (event.target.closest && event.target.closest('[data-eoi-load]')) return loadOrders();
+    const replaceButton = event.target.closest && event.target.closest('[data-eoi-replace]');
+    if (replaceButton) { createReplacement(replaceButton.dataset.eoiReplace); return; }
     const cancelButton = event.target.closest && event.target.closest('[data-eoi-cancel]');
     if (cancelButton) { cancelInvoice(cancelButton.dataset.eoiCancel); return; }
     const archivedButton = event.target.closest && event.target.closest('[data-eoi-archive]');

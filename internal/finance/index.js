@@ -3,7 +3,7 @@ import { financeSigningStatus, signFinancesGetRequest } from "../../lib/ebay-fin
 import { ebayUserSession, callEbayJson, publicEbayError } from "../../lib/ebay-production.js";
 import { readFinanceState, writeFinanceState, getFinanceStoreDescription, reserveFinanceInvoiceNumber } from "../../lib/finance-store.js";
 import { normalizeEbayApiTransactions, mergeTransactions, calculateMetrics, buildEurSummary, selectApprovedEurTransactions, buildReceiptCostProposal } from "../../seller-finance-core.js";
-import { issueKleinunternehmerInvoice, verifyInvoiceSnapshot, cancelIssuedInvoice } from "../../lib/kleinunternehmer-invoice-store.js";
+import { issueKleinunternehmerInvoice, verifyInvoiceSnapshot, cancelIssuedInvoice, issueReplacementInvoice } from "../../lib/kleinunternehmer-invoice-store.js";
 import { getRefreshTokenCookie, downloadFinanceDocumentFromDrive } from "../../lib/google-drive.js";
 import { readGoogleDriveToken } from "../../lib/google-drive-token-store.js";
 
@@ -339,7 +339,7 @@ export default async function handler(req, res) {
       const result = await cancelIssuedInvoice(req.body?.orderId, req.body?.reason, {refreshToken:cookie || stored?.refresh_token || stored?.refreshToken || ""});
       return res.status(result.ok ? 200 : result.status || 422).json(result);
     }
-    if (action === "issue-kleinunternehmer-invoice") {
+    if (action === "issue-kleinunternehmer-invoice" || action === "issue-replacement-invoice") {
       if (req.method !== 'POST') return res.status(405).json({ ok: false, error: 'Nur POST erlaubt.' });
       const orderId = text(req.body?.orderId);
       if (!/^[A-Za-z0-9_-]{6,70}$/.test(orderId)) return res.status(400).json({
@@ -361,7 +361,8 @@ export default async function handler(req, res) {
       });
       const cookie = getRefreshTokenCookie(req);
       const savedToken = cookie ? null : await readGoogleDriveToken();
-      const issued = await issueKleinunternehmerInvoice(original, {refreshToken:cookie || savedToken?.refresh_token || savedToken?.refreshToken || ''});
+      const options = {refreshToken:cookie || savedToken?.refresh_token || savedToken?.refreshToken || ''};
+      const issued = action === 'issue-replacement-invoice' ? await issueReplacementInvoice(original, options) : await issueKleinunternehmerInvoice(original, options);
       return res.status(issued.ok ? 200 : issued.status || 422).json(issued);
     }
 
