@@ -66,12 +66,14 @@
       const data = await response.json().catch(() => ({}));
       if (!response.ok || data.ok === false) throw new Error(data.message || data.error || 'Finance-Sync HTTP ' + response.status);
       const incoming = data.state || {};
-      serverState = { ...serverState, ...incoming, orderOperations: incoming.orderOperations || {}, invoiceMeta: incoming.invoiceMeta || {}, inventory: incoming.inventory || {}, returns: incoming.returns || {}, safety: incoming.safety || {} };
+      const localInvoiceMeta = readJson(META_KEY, {});
+      const serverInvoiceMeta = incoming.invoiceMeta || {};
+      serverState = { ...serverState, ...incoming, orderOperations: incoming.orderOperations || {}, invoiceMeta: { ...localInvoiceMeta, ...serverInvoiceMeta }, inventory: incoming.inventory || {}, returns: incoming.returns || {}, safety: incoming.safety || {} };
       serverLoaded = true;
       const hadLocalOps = !Object.keys(serverState.orderOperations).length && Object.keys(readJson(OPS_KEY, {})).length;
-      const hadLocalMeta = !Object.keys(serverState.invoiceMeta).length && Object.keys(readJson(META_KEY, {})).length;
+      const hadLocalMeta = Object.keys(localInvoiceMeta).some(orderId => !Object.hasOwn(serverInvoiceMeta, orderId));
       if (hadLocalOps) serverState.orderOperations = readJson(OPS_KEY, {});
-      if (hadLocalMeta) serverState.invoiceMeta = readJson(META_KEY, {});
+      // Legacy entries missing on server are merged without replacing issued snapshots.
       try { localStorage.setItem(OPS_KEY, JSON.stringify(serverState.orderOperations)); localStorage.setItem(META_KEY, JSON.stringify(serverState.invoiceMeta)); } catch {}
       if (hadLocalOps || hadLocalMeta) persistServerState();
     } catch (error) {
@@ -168,44 +170,119 @@
     return lines.map((line) => '<tr><td>' + esc(line.title) + '</td><td class="num">' + line.quantity + '</td><td class="num">' + money(line.total, line.currency || order.currency) + '</td></tr>').join('');
   }
 
-  function printInvoice(order, meta) {
-    const popup = window.open('', '_blank', 'noopener,noreferrer');
-    if (!popup) { notify('Pop-up blockiert. Bitte Pop-ups für das Seller Tool erlauben.', 'Rechnung'); return; }
-    const address = order.address.length ? order.address.map(esc).join('<br>') : 'Keine Käuferadresse von eBay übermittelt';
-    const html = '<!doctype html><html lang="de"><head><meta charset="utf-8"><title>Rechnung ' + esc(meta.invoiceNumber) + '</title><style>' +
-      'body{font-family:Arial,sans-serif;color:#111;max-width:850px;margin:40px auto;padding:0 28px}header{display:flex;justify-content:space-between;border-bottom:2px solid #111;padding-bottom:20px;margin-bottom:26px}h1{margin:0 0 8px}h2{font-size:16px;margin:24px 0 8px}.muted{color:#666}.grid{display:grid;grid-template-columns:1fr 1fr;gap:36px}table{width:100%;border-collapse:collapse;margin-top:14px}th,td{text-align:left;padding:9px;border-bottom:1px solid #ddd}.num{text-align:right}.total{text-align:right;font-size:18px;font-weight:bold;margin-top:20px}.print{padding:10px 14px;margin-bottom:22px}@media print{.print{display:none}body{margin:0;padding:0}}' +
-      '</style></head><body><button class="print" onclick="window.print()">Drucken / als PDF speichern</button><header><div><h1>Rechnung</h1><div class="muted">' + esc(meta.invoiceNumber) + '</div></div><div class="muted">Ausgestellt: ' + esc(dateTime.format(new Date(meta.createdAt))) + '</div></header>' +
-      '<div class="grid"><section><h2>Rechnungsempfänger</h2>' + address + '</section><section><h2>Bestellung</h2>eBay-Bestellnummer: <strong>' + esc(order.id) + '</strong><br>Bestelldatum: ' + esc(order.createdAt ? dateTime.format(new Date(order.createdAt)) : '–') + '<br>Status: ' + esc(order.ebayStatus) + '</section></div>' +
-      '<h2>Leistungen</h2><table><thead><tr><th>Artikel</th><th class="num">Menge</th><th class="num">Gesamt</th></tr></thead><tbody>' + linesMarkup(order) + '</tbody></table><div class="total">Gesamtbetrag: ' + money(order.total, order.currency) + '</div><p class="muted">Erstellt aus den von eBay übermittelten Bestelldaten. Käuferbenachrichtigung wurde nicht automatisch versendet.</p></body></html>';
-    popup.document.write(html); popup.document.close(); popup.focus();
-  }
-
-  async function createInvoice(order) {
-    let meta = readMeta();
-    if (!meta[order.id]) {
-      try {
-        // No locally generated invoice numbers: concurrent PCs reserve on the
-        // same Redis counter and retries for an order return the same number.
-        const response = await fetch('/api/finance?action=reserve-invoice-number', {
-          method: 'POST', credentials: 'same-origin',
-          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-          body: JSON.stringify({ orderId: order.id, prefix: settings().invoicePrefix || 'ELYON', year: new Date().getFullYear() }),
-        });
-        const data = await response.json().catch(() => ({}));
-        if (!response.ok || !data.ok || !data.invoiceNumber) throw new Error(data.message || data.error || 'Server-Reservierung nicht verfügbar');
-        // Another click/tab may have completed this order while we awaited the server.
-        meta = readMeta();
-        if (!meta[order.id]) {
-          meta[order.id] = { orderId: order.id, invoiceNumber: data.invoiceNumber, createdAt: new Date().toISOString(), status: 'erstellt', total: order.total, currency: order.currency };
-          saveJson(META_KEY, meta);
-          notify('Rechnung ' + data.invoiceNumber + ' erstellt. Keine automatische Nachricht versendet.');
-        }
-      } catch (error) {
-        notify('Rechnung nicht erstellt: ' + error.message + '. Keine unsichere lokale Rechnungsnummer erzeugt.', 'Rechnung');
-        return;
-      }
+  const issueBusy = new Set();
+  function printInvoice(invoice, preopenedWindow = null) {
+    if (!invoice?.invoiceNumber || !invoice?.seller?.taxId || invoice.taxMode !== 'small_business') {
+      notify('Diese Rechnung hat keinen vollständigen, geprüften Ausstellungsstand.', 'Rechnung');
+      return;
     }
-    printInvoice(order, meta[order.id]); render();
+    const popup = preopenedWindow || window.open('', '_blank');
+    if (!popup) { notify('Bitte Pop-ups für das Seller Tool erlauben.', 'Rechnung'); return; }
+    const s = invoice.seller, b = invoice.buyer;
+    const addr = person => [
+      person.name, person.addressLine1, person.addressLine2,
+      [person.postalCode, person.city].filter(Boolean).join(' '),
+      person.country === 'DE' ? 'Deutschland' : person.country
+    ].filter(Boolean).map(esc).join('<br>');
+    const issuedDate = dateTime.format(new Date(invoice.issuedAt));
+    const lineRows = (invoice.lineItems || []).map(line =>
+      '<tr><td>' + esc(line.title) + '</td><td class="num">' + esc(line.quantity) + '</td>' +
+      '<td class="num">' + money(line.total, 'EUR') + '</td></tr>'
+    ).join('');
+    const shippingRow = invoice.shipping ? '<tr><td>Versand</td><td class="num">1</td><td class="num">' +
+      money(invoice.shipping, 'EUR') + '</td></tr>' : '';
+    const discountRow = invoice.discount ? '<tr><td>Rabatt</td><td class="num">1</td><td class="num">−' +
+      money(invoice.discount, 'EUR') + '</td></tr>' : '';
+    const html = [
+      '<!doctype html><html lang="de"><head><meta charset="utf-8">',
+      '<title>Rechnung ' + esc(invoice.invoiceNumber) + '</title>',
+      '<style>body{font:15px/1.5 Arial,sans-serif;max-width:820px;margin:35px auto;padding:0 25px;color:#172033}',
+      'header{display:flex;justify-content:space-between;border-bottom:3px solid #1b6b45;padding-bottom:18px}',
+      'h1{margin:0;font-size:29px}h2{font-size:16px}.muted{color:#5b6473;font-size:13px}',
+      '.grid{display:grid;grid-template-columns:1fr 1fr;gap:28px;margin:26px 0}',
+      'table{border-collapse:collapse;width:100%;margin:25px 0}th,td{text-align:left;padding:12px 7px;border-bottom:1px solid #ddd}',
+      '.num{text-align:right;white-space:nowrap}.sum{text-align:right;font-size:22px;font-weight:bold;margin:16px 0}',
+      '.tax{background:#edf8f0;padding:14px;margin:22px 0;border:1px solid #acd3b8}',
+      '.print{margin:0 0 18px;padding:10px 14px;background:#176a3d;color:#fff;border:0;border-radius:5px}',
+      '@page{size:A4;margin:17mm}@media print{body{padding:0;margin:0}.print{display:none}}',
+      '</style></head><body>',
+      '<button type="button" class="print" onclick="window.print()">Drucken / als PDF speichern</button>',
+      '<header><div><h1>' + esc(s.brand || 'ELYON') + '</h1><p><strong>' + esc(s.name) + '</strong><br>' +
+      esc(s.addressLine1) + '<br>' + esc(s.postalCode) + ' ' + esc(s.city) +
+      '<br>Deutschland<br>Steuernummer / steuerliche ID: ' + esc(s.taxId) + '</p></div>',
+      '<div style="text-align:right"><h2>Rechnung</h2><strong>' + esc(invoice.invoiceNumber) +
+      '</strong><br>Ausgestellt am: ' + esc(issuedDate) + '</div></header>',
+      '<div class="grid"><section><h2>Rechnungsempfänger</h2>' + addr(b) + '</section>',
+      '<section><h2>Bestellung</h2>eBay: ' + esc(invoice.orderId) +
+      '<br>Bestelldatum: ' + esc(dateTime.format(new Date(invoice.orderedAt))) + '</section></div>',
+      '<h2>Gelieferte Waren / bestellte Artikel</h2>',
+      '<table><thead><tr><th>Bezeichnung</th><th class="num">Menge</th><th class="num">Betrag</th></tr></thead><tbody>',
+      lineRows + shippingRow + discountRow,
+      '</tbody></table><div class="sum">Gesamtbetrag: ' + money(invoice.total, 'EUR') + '</div>',
+      '<div class="tax">' + esc(invoice.note) + '</div>',
+      '<p class="muted">Ausgestellt auf Grundlage einer geprüften eBay-Bestellung. Keine separate Umsatzsteuer.</p>',
+      '</body></html>'
+    ].join('');
+    popup.document.open();
+    popup.document.write(html);
+    popup.document.close();
+  }
+  function openExistingInvoice(meta) {
+    if (!meta?.immutable || !meta.invoice) {
+      notify('Ältere Rechnungsdaten gefunden. Bitte im bisherigen Rechnungsarchiv prüfen. Keine neue Rechnung erzeugt.', 'Historischer Beleg');
+      return;
+    }
+    printInvoice(meta.invoice);
+  }
+  async function createInvoice(order) {
+    const meta = readMeta();
+    if (meta[order.id]) return openExistingInvoice(meta[order.id]);
+    if (issueBusy.has(order.id)) return;
+    if (!window.confirm(
+      'Rechnung für eBay-Bestellung ' + order.id +
+      ' jetzt verbindlich ausstellen? ELYON prüft die Pflichtfelder und sperrt den Rechnungsstand. Keine Kunden-E-Mail wird gesendet.'
+    )) return;
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.open();
+      printWindow.document.write('<!doctype html><html lang="de"><meta charset="utf-8"><title>ELYON Rechnung</title><body><p>ELYON prüft die Bestellung und Rechnungsdaten…</p></body></html>');
+      printWindow.document.close();
+    }
+    issueBusy.add(order.id);
+    render();
+    try {
+      const response = await fetch('/api/finance?action=issue-kleinunternehmer-invoice', {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ orderId: order.id }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.ok || !data.invoice) throw new Error(
+        data.message || data.error || 'Rechnung wurde nicht ausgestellt (HTTP ' + response.status + ')'
+      );
+      serverState.invoiceMeta = {
+        ...readJson(META_KEY, {}),
+        ...(serverState.invoiceMeta || {}),
+        [order.id]: {
+          immutable: true, status: 'issued', orderId: order.id,
+          invoiceNumber: data.invoiceNumber, invoice: data.invoice,
+          snapshotHash: data.snapshotHash || ''
+        }
+      };
+      serverLoaded = true;
+      try { localStorage.setItem(META_KEY, JSON.stringify(serverState.invoiceMeta)); } catch {}
+      printInvoice(data.invoice, printWindow);
+      notify('Rechnung ' + data.invoiceNumber + (data.existing ? ' erneut geöffnet.' : ' ausgestellt und serverseitig gesichert.') +
+        ' Versand an den Kunden erfolgt nicht automatisch.', 'Rechnung');
+    } catch (error) {
+      try { printWindow?.close(); } catch {}
+      notify('Keine Rechnung ausgestellt: ' + error.message, 'Pflichtfeldprüfung');
+      window.alert('Rechnung blockiert:\n' + error.message +
+        '\n\nVerkäuferdaten und Kleinunternehmerstatus bitte unter Finanzen → Einstellungen prüfen.');
+    } finally {
+      issueBusy.delete(order.id);
+      render();
+    }
   }
 
   function statusLabel(value) { const hit = STATUS_OPTIONS.find((item) => item[0] === value); return hit ? hit[1] : value; }
@@ -226,13 +303,25 @@
     let html = '<div class="eoi-head"><div><h3>Bestellzentrale · Rechnung · Versand</h3><div class="eoi-muted">eBay-Bestellungen, interne Statusführung, Tracking und Rechnungsdruck in einem Ablauf.</div></div><button type="button" class="eoi-btn primary" data-eoi-load>' + (loading ? 'Lade…' : 'Bestellungen laden') + '</button></div>';
     html += '<div class="eoi-summary"><div class="eoi-card"><span class="eoi-muted">Bestellungen</span><strong>' + orders.length + '</strong></div><div class="eoi-card"><span class="eoi-muted">Offen</span><strong>' + (count('NEW') + count('PAID') + count('TO_BE_SHIPPED')) + '</strong></div><div class="eoi-card"><span class="eoi-muted">Versendet</span><strong>' + count('SHIPPED') + '</strong></div><div class="eoi-card"><span class="eoi-muted">Umsatz</span><strong>' + money(total, 'EUR') + '</strong><span class="eoi-muted">Kosten/Gewinn noch nicht zugeordnet</span></div></div>';
     if (error || errorMessage) html += '<div class="eoi-error">' + esc(error || errorMessage) + '</div>';
+    const archived = Object.values(meta).filter(entry => entry?.immutable === true && entry.invoice);
+    if (archived.length) {
+      html += '<div class="eoi-note" style="margin-top:15px"><strong>Ausgestellte Rechnungen (serverseitige Momentaufnahme)</strong></div>';
+      html += '<div style="overflow:auto"><table class="eoi-table"><thead><tr><th>Rechnung</th><th>eBay-Bestellung</th><th>Betrag</th><th>Dokument</th></tr></thead><tbody>' +
+        archived.sort((a,b)=>String(b.invoice?.issuedAt||'').localeCompare(String(a.invoice?.issuedAt||'')))
+          .map(entry=>'<tr><td>' + esc(entry.invoiceNumber) + '</td><td>' + esc(entry.invoice.orderId) +
+            '</td><td>' + money(entry.invoice.total,'EUR') + '</td><td><button type="button" class="eoi-btn" data-eoi-archive="' +
+            esc(entry.invoice.orderId) + '">Rechnung öffnen / PDF</button></td></tr>').join('') + '</tbody></table></div>';
+    }
+    const legacyCount = Object.values(meta).filter(entry => entry && !entry.immutable).length;
+    if (legacyCount) html += '<div class="eoi-error" style="margin-top:10px">' +
+      legacyCount + ' frühere Rechnungseinträge erkannt. Nicht erneut ausstellen; historische Belege manuell abgleichen.</div>';
     if (!orders.length) html += '<div class="eoi-muted" style="margin-top:14px">Noch keine Bestellungen geladen.</div>';
     else {
       html += '<div style="overflow:auto"><table class="eoi-table"><thead><tr><th>Bestellung</th><th>eBay</th><th>Betrag</th><th>Prozess & Versand</th><th>Rechnung</th></tr></thead><tbody>';
       html += orders.map((order) => {
         const invoice = meta[order.id]; const op = operationFor(order);
         const options = STATUS_OPTIONS.map((item) => '<option value="' + item[0] + '"' + (item[0] === op.status ? ' selected' : '') + '>' + item[1] + '</option>').join('');
-        return '<tr><td><strong>' + esc(order.id) + '</strong><div class="eoi-muted">' + esc(order.buyerName || 'Käuferdaten nicht übermittelt') + '</div></td><td>' + esc(order.ebayStatus) + '</td><td>' + money(order.total, order.currency) + '</td><td><div class="eoi-controls"><select data-eoi-status="' + esc(order.id) + '">' + options + '</select><input data-eoi-carrier="' + esc(order.id) + '" placeholder="Versanddienst" value="' + esc(op.carrier) + '"><input data-eoi-tracking="' + esc(order.id) + '" placeholder="Trackingnummer" value="' + esc(op.trackingNumber) + '"><input data-eoi-url="' + esc(order.id) + '" placeholder="Tracking-URL (optional)" value="' + esc(op.trackingUrl) + '"><input data-eoi-stock="' + esc(order.id) + '" placeholder="Bestand" value="' + esc(op.stockQuantity || (serverState.inventory?.[order.lines[0]?.itemId]?.quantity ?? '')) + '"><select data-eoi-return="' + esc(order.id) + '"><option value="NONE"' + (op.returnStatus === "NONE" ? " selected" : "") + '>Keine Retoure</option><option value="REQUESTED"' + (op.returnStatus === "REQUESTED" ? " selected" : "") + '>Angefragt</option><option value="APPROVED"' + (op.returnStatus === "APPROVED" ? " selected" : "") + '>Genehmigt</option><option value="RECEIVED"' + (op.returnStatus === "RECEIVED" ? " selected" : "") + '>Eingegangen</option><option value="REFUNDED"' + (op.returnStatus === "REFUNDED" ? " selected" : "") + '>Erstattet</option></select><button type="button" class="eoi-btn eoi-save" data-eoi-save="' + esc(order.id) + '">Speichern</button></div><div class="eoi-note">' + (op.updatedAt ? 'Zuletzt gespeichert: ' + esc(dateTime.format(new Date(op.updatedAt))) : 'Noch nicht intern erfasst') + '</div></td><td>' + (invoice ? '<span class="eoi-status">' + esc(invoice.invoiceNumber) + '</span><br>' : '') + '<button type="button" class="eoi-btn" data-eoi-invoice="' + esc(order.id) + '">' + (invoice ? 'Rechnung öffnen' : 'Rechnung erstellen') + '</button></td></tr>';
+        return '<tr><td><strong>' + esc(order.id) + '</strong><div class="eoi-muted">' + esc(order.buyerName || 'Käuferdaten nicht übermittelt') + '</div></td><td>' + esc(order.ebayStatus) + '</td><td>' + money(order.total, order.currency) + '</td><td><div class="eoi-controls"><select data-eoi-status="' + esc(order.id) + '">' + options + '</select><input data-eoi-carrier="' + esc(order.id) + '" placeholder="Versanddienst" value="' + esc(op.carrier) + '"><input data-eoi-tracking="' + esc(order.id) + '" placeholder="Trackingnummer" value="' + esc(op.trackingNumber) + '"><input data-eoi-url="' + esc(order.id) + '" placeholder="Tracking-URL (optional)" value="' + esc(op.trackingUrl) + '"><input data-eoi-stock="' + esc(order.id) + '" placeholder="Bestand" value="' + esc(op.stockQuantity || (serverState.inventory?.[order.lines[0]?.itemId]?.quantity ?? '')) + '"><select data-eoi-return="' + esc(order.id) + '"><option value="NONE"' + (op.returnStatus === "NONE" ? " selected" : "") + '>Keine Retoure</option><option value="REQUESTED"' + (op.returnStatus === "REQUESTED" ? " selected" : "") + '>Angefragt</option><option value="APPROVED"' + (op.returnStatus === "APPROVED" ? " selected" : "") + '>Genehmigt</option><option value="RECEIVED"' + (op.returnStatus === "RECEIVED" ? " selected" : "") + '>Eingegangen</option><option value="REFUNDED"' + (op.returnStatus === "REFUNDED" ? " selected" : "") + '>Erstattet</option></select><button type="button" class="eoi-btn eoi-save" data-eoi-save="' + esc(order.id) + '">Speichern</button></div><div class="eoi-note">' + (op.updatedAt ? 'Zuletzt gespeichert: ' + esc(dateTime.format(new Date(op.updatedAt))) : 'Noch nicht intern erfasst') + '</div></td><td>' + (invoice ? '<span class="eoi-status">' + esc(invoice.invoiceNumber) + '</span><br>' : '') + '<button type="button" class="eoi-btn" data-eoi-invoice="' + esc(order.id) + '">' + (issueBusy.has(order.id) ? 'Wird geprüft…' : invoice ? (invoice.immutable ? 'Rechnung öffnen' : 'Altrechnung prüfen') : 'Rechnung ausstellen') + '</button></td></tr>';
       }).join('');
       html += '</tbody></table></div><div class="eoi-note">Die Versanddaten werden im Seller Tool gespeichert. Es wird keine Bestellung ausgelöst und keine eBay-Nachricht automatisch versendet.</div>';
     }
@@ -250,6 +339,8 @@
 
   document.addEventListener('click', (event) => {
     if (event.target.closest && event.target.closest('[data-eoi-load]')) return loadOrders();
+    const archivedButton = event.target.closest && event.target.closest('[data-eoi-archive]');
+    if (archivedButton) { openExistingInvoice(readMeta()[archivedButton.dataset.eoiArchive]); return; }
     const invoiceButton = event.target.closest && event.target.closest('[data-eoi-invoice]');
     if (invoiceButton) { const order = orders.find((item) => item.id === invoiceButton.dataset.eoiInvoice); if (order) createInvoice(order); return; }
     const saveButton = event.target.closest && event.target.closest('[data-eoi-save]');

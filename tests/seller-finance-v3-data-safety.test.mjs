@@ -125,7 +125,8 @@ test("invoice reservations are global, unique and idempotent per order", async (
 test("invoice UI requires the server and documents are explicitly local-only", async () => {
   const invoiceUI = await readFile(new URL("../seller-order-invoices.js", import.meta.url), "utf8");
   const financeUI = await readFile(new URL("../seller-finance.js", import.meta.url), "utf8");
-  assert.match(invoiceUI, /reserve-invoice-number/);
+  assert.match(invoiceUI, /issue-kleinunternehmer-invoice/);
+  assert.doesNotMatch(invoiceUI, /\/api\/finance\?action=reserve-invoice-number/);
   assert.doesNotMatch(invoiceUI, /function invoiceNumber\(meta\)/);
   assert.match(financeUI, /expectedRevision: serverRevision/);
   assert.match(financeUI, /Originaldateien liegen zunächst nur auf diesem Gerät/);

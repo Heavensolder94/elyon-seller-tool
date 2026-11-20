@@ -1381,7 +1381,7 @@ Land"></textarea>
   <section id="invoiceTab" class="tab">
     <div class="card">
       <h2>🧾 Rechnungsübersicht</h2>
-      <p class="hint">Alle erstellten Rechnungen auf einen Blick. Du kannst Rechnungen anzeigen, als HTML herunterladen und den Status pflegen.</p>
+      <p class="hint">Historische Rechnungen (schreibgeschützt). Neue Rechnungen werden ausschließlich in Finanzen &amp; Buchhaltung → Rechnungen mit zentraler Rechnungsnummer und § 19 UStG ausgestellt. Alte Daten bleiben erhalten, werden aber nicht automatisch zu neuen Rechnungen.</p>
       <div class="dashboard">
         <div class="metric"><small>Rechnungen</small><strong id="invoiceCount">0</strong></div>
         <div class="metric"><small>Rechnungsbetrag</small><strong id="invoiceTotal">0€</strong></div>
@@ -1879,7 +1879,7 @@ Land"></textarea>
 
       <div class="settings-section">
         <h3>🧾 Rechnungen</h3>
-        <p class="hint">Automatische Rechnungsnummern und druckbare Rechnungsvorschau. Rechnungen bitte nur auf einem Hauptgerät erstellen, solange keine Cloud-Datenbank aktiv ist.</p>
+        <p class="hint">Historische Einstellungen für ältere Belege. Neue Rechnungen verwenden ausschließlich die zentrale Konfiguration unter Finanzen &amp; Buchhaltung → Einstellungen. Die lokale Nummernvergabe ist abgeschaltet.</p>
         <div class="settings-grid">
           <div><label>Rechnungspräfix</label><input id="invPrefix" placeholder="RE" value="RE"></div>
           <div><label>Nächste Nummer</label><input id="invNextNumber" type="number" value="1"></div>
@@ -1889,7 +1889,7 @@ Land"></textarea>
         <label>Dein Name / Firmenname</label><input id="invSellerName" placeholder="Raoul Mailvahanam / Elyon Store">
         <label>Deine Anschrift</label><textarea id="invSellerAddress" placeholder="Straße Hausnummer
 PLZ Ort"></textarea>
-        <label>Steuernummer / USt-ID optional</label><input id="invTaxId" placeholder="z. B. USt-ID oder Steuernummer">
+        <label>Steuernummer / USt-IdNr. (für neue Rechnungen in Finanzen hinterlegen)</label><input id="invTaxId" placeholder="z. B. USt-ID oder Steuernummer">
         <label>Standard Zahlungshinweis</label><input id="invPaymentNote" placeholder="Bereits über eBay/Shopify bezahlt.">
         <label>Rechnungshinweis</label><textarea id="invFooterNote" placeholder="Gemäß § 19 UStG wird keine Umsatzsteuer berechnet."></textarea>
         <button id="saveInvoiceSettingsBtn" class="secondary full">Rechnungseinstellungen speichern</button>
@@ -2966,20 +2966,9 @@ function saveInvoices(){
   renderInvoiceOverview();
 }
 function saveInvoiceSettings(){
-  invoiceSettings = {
-    prefix: ($('invPrefix') && $('invPrefix').value.trim()) || 'RE',
-    nextNumber: n('invNextNumber') || 1,
-    useYear: ($('invUseYear') && $('invUseYear').value) || 'yes',
-    smallBusiness: ($('invSmallBusiness') && $('invSmallBusiness').value) || 'yes',
-    sellerName: ($('invSellerName') && $('invSellerName').value.trim()) || '',
-    sellerAddress: ($('invSellerAddress') && $('invSellerAddress').value.trim()) || '',
-    taxId: ($('invTaxId') && $('invTaxId').value.trim()) || '',
-    paymentNote: ($('invPaymentNote') && $('invPaymentNote').value.trim()) || 'Bereits über Plattform bezahlt.',
-    footerNote: ($('invFooterNote') && $('invFooterNote').value.trim()) || 'Gemäß § 19 UStG wird keine Umsatzsteuer berechnet.'
-  };
-  localStorage.setItem('elyonInvoiceSettings', JSON.stringify(invoiceSettings));
-  applyInvoiceSettings();
-  alert('Rechnungseinstellungen gespeichert.');
+  if(window.ElyonSellerFinance?.openSettings)window.ElyonSellerFinance.openSettings();
+  else if(window.ElyonSellerFinance?.open)window.ElyonSellerFinance.open();
+  alert('Neue Rechnungseinstellungen bitte unter Finanzen & Buchhaltung → Einstellungen speichern. Alte lokale Einstellungen bleiben nur für historische Belege erhalten.');
 }
 function applyInvoiceSettings(){
   safe('invPrefix',el=>el.value=invoiceSettings.prefix||'RE');
@@ -9304,10 +9293,7 @@ function importFullBackup(e){
 }
 function padInvoiceNumber(num){ return String(num).padStart(4,'0'); }
 function buildInvoiceNumber(){
-  const prefix = invoiceSettings.prefix || 'RE';
-  const year = invoiceSettings.useYear === 'yes' ? '-' + new Date().getFullYear() : '';
-  const num = padInvoiceNumber(invoiceSettings.nextNumber || 1);
-  return prefix + year + '-' + num;
+  throw new Error('Lokale Rechnungsnummern sind deaktiviert. Bitte Finanzen & Buchhaltung → Rechnungen verwenden.');
 }
 function findInvoiceBySaleId(saleId){ return invoices.find(inv=>String(inv.saleId)===String(saleId)); }
 function getInvoiceAmount(invoice){
@@ -9325,10 +9311,7 @@ function invoiceMatchesFilter(invoice,search,statusFilter){
   return haystack.includes(term);
 }
 function updateInvoiceStatus(invoiceId,status){
-  invoices = invoices.map(function(inv){
-    return String(inv.id)===String(invoiceId) ? {...inv,status:status} : inv;
-  });
-  saveInvoices();
+  alert('Historische Rechnungen sind im Legacy-Archiv schreibgeschützt. Korrekturen benötigen einen eigenen dokumentierten Beleg.');
 }
 function downloadInvoiceById(invoiceId){
   showInvoice(invoiceId);
@@ -9375,9 +9358,7 @@ function renderInvoiceOverview(){
     card += '<div class="actions">';
     card += '<button class="secondary" data-invoice-open="' + inv.id + '">Anzeigen</button>';
     card += '<button class="secondary" data-invoice-download-id="' + inv.id + '">HTML herunterladen</button>';
-    card += '<button class="secondary" data-invoice-status="bezahlt" data-invoice-id="' + inv.id + '">Bezahlt</button>';
-    card += '<button class="secondary" data-invoice-status="erstellt" data-invoice-id="' + inv.id + '">Offen</button>';
-    card += '<button class="danger" data-invoice-status="storniert" data-invoice-id="' + inv.id + '">Storniert</button>';
+    card += '<span class="muted">Historischer Beleg · schreibgeschützt · nicht automatisch in neuen Nummernkreis übernommen</span>';
     card += '</div>';
     card += '</article>';
     return card;
@@ -9393,47 +9374,35 @@ function handleInvoiceOverviewClick(event){
   if(statusBtn){ updateInvoiceStatus(Number(statusBtn.dataset.invoiceId),statusBtn.dataset.invoiceStatus); return; }
 }
 function createInvoiceForSale(saleId){
-  const sale = sales.find(s=>String(s.id)===String(saleId));
-  if(!sale){ alert('Bestellung nicht gefunden.'); return; }
-  let invoice = findInvoiceBySaleId(saleId);
-  if(!invoice){
-    invoice = {
-      id:Date.now(),
-      saleId:sale.id,
-      number:buildInvoiceNumber(),
-      date:new Date().toLocaleDateString('de-DE'),
-      status:'erstellt',
-      createdAt:new Date().toISOString()
-    };
-    invoices.push(invoice);
-    invoiceSettings.nextNumber = (+invoiceSettings.nextNumber || 1) + 1;
-    localStorage.setItem('elyonInvoiceSettings', JSON.stringify(invoiceSettings));
-    saveInvoices();
-    applyInvoiceSettings();
-  }
-  showInvoice(invoice.id);
-  renderSales();
+  // Never generate a new invoice from the historic browser-local number pool.
+  // Keep pre-existing records intact; redirect all new invoices to server-based
+  // Finance → Rechnungen where the original eBay order is verified.
+  const existing = findInvoiceBySaleId(saleId);
+  if (existing) { showInvoice(existing.id); return; }
+  if (window.ElyonSellerFinance?.openInvoices) window.ElyonSellerFinance.openInvoices();
+  else if (window.ElyonSellerFinance?.open) window.ElyonSellerFinance.open();
+  alert('Neue Rechnungen werden ausschließlich in Finanzen & Buchhaltung → Rechnungen aus einer verifizierten eBay-Bestellung ausgestellt. Der frühere lokale Rechnungsnummernkreis ist gesperrt.');
 }
 function invoiceHTML(invoice,sale){
   const qty = +sale.qty || 1;
   const net = (+sale.price || 0) * qty;
-  const sellerAddress = String(invoiceSettings.sellerAddress || '').split(String.fromCharCode(13)).join('').split(String.fromCharCode(10)).join('<br>');
-  const sellerName = invoiceSettings.sellerName || 'Bitte Verkäuferdaten in Einstellungen eintragen';
-  const taxId = invoiceSettings.taxId ? '<div class="invoice-taxid">'+invoiceSettings.taxId+'</div>' : '';
-  const paymentNote = invoiceSettings.paymentNote || 'Bereits über Plattform bezahlt.';
-  const footerNote = (invoiceSettings.footerNote || '').trim();
+  const sellerAddress = String(invoiceSettings.sellerAddress || '').split(String.fromCharCode(13)).join('').split(String.fromCharCode(10)).map(escapeHtml).join('<br>');
+  const sellerName = escapeHtml(invoiceSettings.sellerName || 'Historische Verkäuferdaten fehlen');
+  const taxId = invoiceSettings.taxId ? '<div class="invoice-taxid">'+escapeHtml(invoiceSettings.taxId)+'</div>' : '';
+  const paymentNote = escapeHtml(invoiceSettings.paymentNote || 'Bereits über Plattform bezahlt.');
+  const footerNote = escapeHtml((invoiceSettings.footerNote || '').trim());
   const kleinunternehmer = invoiceSettings.smallBusiness === 'yes' ? 'Kleinunternehmer gemäß § 19 UStG. Es wird keine Umsatzsteuer ausgewiesen.' : '';
-  const buyer = sale.customerName || sale.shipToRecipientName || sale.buyerRef || 'Käufer / Plattform-Bestellung';
+  const buyer = escapeHtml(sale.customerName || sale.shipToRecipientName || sale.buyerRef || 'Käufer / Plattform-Bestellung');
   const buyerAddress = formatShippingAddressBlock(sale.customerName || sale.shipToRecipientName || '', sale.customerAddressHint || sale.shipToAddressHint || '', composeSaleAddressText(sale) || sale.shipToAddress || '');
-  const contactLine = [sale.customerEmail ? 'E-Mail: ' + sale.customerEmail : '', sale.customerPhone ? 'Telefon: ' + sale.customerPhone : ''].filter(Boolean).join(' · ');
+  const contactLine = escapeHtml([sale.customerEmail ? 'E-Mail: ' + sale.customerEmail : '', sale.customerPhone ? 'Telefon: ' + sale.customerPhone : ''].filter(Boolean).join(' · '));
   let html='';
-  html+='<div class="invoice-top"><div class="invoice-sender"><div class="invoice-label">Absender</div><h1>Rechnung</h1><p><strong>'+sellerName+'</strong><br>'+sellerAddress+'</p>'+taxId+'</div><div class="invoice-meta"><div class="invoice-label">Belegdaten</div><div class="invoice-number">'+invoice.number+'</div><div class="invoice-date">Datum: '+invoice.date+'</div></div></div>';
-  html+='<div class="invoice-box"><h3>Rechnung an</h3><p><strong>'+buyer+'</strong><br>Order-ID: '+(sale.orderNo||'ohne Order-ID')+'<br>Plattform: '+(sale.platform||'eBay')+'</p>'+(contactLine ? '<p>'+contactLine+'</p>' : '')+'</div>';
+  html+='<div class="invoice-top"><div class="invoice-sender"><div class="invoice-label">Absender</div><h1>Rechnung</h1><p><strong>'+sellerName+'</strong><br>'+sellerAddress+'</p>'+taxId+'</div><div class="invoice-meta"><div class="invoice-label">Belegdaten</div><div class="invoice-number">'+escapeHtml(invoice.number)+'</div><div class="invoice-date">Datum: '+escapeHtml(invoice.date)+'</div></div></div>';
+  html+='<div class="invoice-box"><h3>Rechnung an</h3><p><strong>'+buyer+'</strong><br>Order-ID: '+escapeHtml(sale.orderNo||'ohne Order-ID')+'<br>Plattform: '+escapeHtml(sale.platform||'eBay')+'</p>'+(contactLine ? '<p>'+contactLine+'</p>' : '')+'</div>';
   if(buyerAddress) html += buyerAddress;
-  html+='<table class="invoice-table"><thead><tr><th>Position</th><th>Menge</th><th>Einzelpreis</th><th>Gesamt</th></tr></thead><tbody><tr><td>'+sale.product+'</td><td>'+qty+'</td><td>'+euro(sale.price)+'</td><td>'+euro(net)+'</td></tr></tbody></table>';
+  html+='<table class="invoice-table"><thead><tr><th>Position</th><th>Menge</th><th>Einzelpreis</th><th>Gesamt</th></tr></thead><tbody><tr><td>'+escapeHtml(sale.product)+'</td><td>'+qty+'</td><td>'+euro(sale.price)+'</td><td>'+euro(net)+'</td></tr></tbody></table>';
   html+='<div class="invoice-total">Rechnungsbetrag: '+euro(net)+'</div>';
   html+='<div class="invoice-footer"><p>'+paymentNote+'</p>'+(kleinunternehmer ? '<p>'+kleinunternehmer+'</p>' : '')+(footerNote ? '<p>'+footerNote+'</p>' : '')+'</div>';
-  html+='<p class="muted" style="color:#475569;margin-top:14px">Interne Notiz: Gewinn laut Tool '+euro(sale.profit)+'. Diese Zeile dient nur deiner Kontrolle.</p>';
+
   return html;
 }
 function showInvoice(invoiceId){
