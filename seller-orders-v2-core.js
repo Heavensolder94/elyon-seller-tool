@@ -45,7 +45,7 @@ export function paymentConfirmed(order) {
 }
 
 export function workflowStatus(order, operation = {}) {
-  const status = text(operation.status).toUpperCase();
+  const status = text(operation.workflowStatus || operation.status).toUpperCase();
   if (text(order.cancelStatus).includes("CANCEL") || status === "CANCELLED") return "cancelled";
   if (status === "ISSUE") return "issue";
   if (status === "COMPLETED") return "completed";
@@ -134,14 +134,14 @@ export function visibleOrders(orders, operations, { query = "", filter = "all" }
 export function normalizeOperationInput(input = {}) {
   const source = object(input);
   const allowed = ["NEW", "PROCESSING", "SUPPLIER_ORDERED", "SHIPPED", "COMPLETED", "ISSUE", "CANCELLED"];
-  const status = text(source.status).toUpperCase();
+  const status = text(source.workflowStatus).toUpperCase();
   const money = (key) => {
     if (source[key] === "" || source[key] === null || source[key] === undefined) return null;
     const value = Number(source[key]);
     return Number.isFinite(value) && value >= 0 && value <= 1_000_000 ? Math.round(value * 100) / 100 : null;
   };
   return {
-    status: allowed.includes(status) ? status : "NEW",
+    workflowStatus: allowed.includes(status) ? status : "NEW",
     supplierName: text(source.supplierName).slice(0, 160),
     supplierOrderId: text(source.supplierOrderId).slice(0, 160),
     purchaseCost: money("purchaseCost"),
