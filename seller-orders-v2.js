@@ -86,6 +86,34 @@ function rowMarkup(order) {
     <span class="ocv2-state ocv2-state--${h(status)}">${h(statusLabels[status] || status)}</span></div>
   </button>`;
 }
+const SECTION_TABS = [["overview","Überblick"],["supplier","Lieferant"],["shipping","Versand"],["finance","Finanzen"]];
+function sectionNav() {
+  return `<nav class="ocv2-detail-tabs" aria-label="Bestellbereiche">${SECTION_TABS.map(([key,label]) =>
+    `<button type="button" data-ocv2-section="${key}" class="${state.activeSection===key?"active":""}" aria-pressed="${state.activeSection===key}">${label}</button>`).join("")}</nav>`;
+}
+function progressMarkup(order, op) {
+  const steps = [["NEW","Eingang"],["PROCESSING","Bearbeitung"],["SUPPLIER_ORDERED","Lieferant"],["SHIPPED","Versand"],["COMPLETED","Fertig"]];
+  const current = text(op.workflowStatus || op.status || (order.fulfillmentStatus==="FULFILLED" ? "SHIPPED":"NEW")).toUpperCase();
+  const index = Math.max(0, steps.findIndex(([id]) => id===current));
+  return `<div class="ocv2-progress" aria-label="Interner Bestellablauf">${steps.map(([id,label],i) =>
+    `<button type="button" data-ocv2-phase="${id}" aria-label="Internen Schritt ${h(label)} auswählen" aria-current="${index===i?"step":"false"}" class="${i<index?"done":i===index?"current":""}"><span class="ocv2-dot">${i<index?"✓":i+1}</span><span>${h(label)}</span></button>`).join("")}</div>`;
+}
+function nextActionMarkup(order) {
+  const status = statusOf(order);
+  const actions = {
+    new:["Lieferant und EK prüfen","supplier"],
+    processing:["Lieferantenbestellung dokumentieren","supplier"],
+    supplier_ordered:["Versand und Tracking vorbereiten","shipping"],
+    shipped:["Kosten und Ergebnis kontrollieren","finance"],
+    completed:["Rechnungsstand prüfen","finance"],
+    issue:["Problemfall dokumentieren","supplier"],
+    awaiting_payment:["Erst eBay-Zahlung prüfen","overview"],
+    cancelled:["Stornierung prüfen","overview"],
+  };
+  const [label,section] = actions[status] || actions.new;
+  return `<div class="ocv2-next"><span><small>Nächster Schritt</small><strong>${h(label)}</strong></span>
+    <button type="button" data-ocv2-section="${section}">Öffnen →</button></div>`;
+}
 function detailsMarkup(order) {
   const op = { ...opFor(order.id), ...obj(state.drafts[order.id]) };
   const status = statusOf(order);
@@ -113,26 +141,39 @@ function detailsMarkup(order) {
     `<h4>Lieferadresse laut eBay</h4><div class="ocv2-address">${addressParts.map(h).join("<br>")}
     <p class="ocv2-hint">Vor dem Einkauf beim Lieferanten mit dem eBay-Auftrag abgleichen.</p></div>` : "";
   return `<div class="ocv2-details-head"><div><small>eBay-Bestellung</small><h3>${h(order.id)}</h3></div><span class="ocv2-state ocv2-state--${h(status)}">${h(statusLabels[status] || status)}</span></div>
+    ${progressMarkup(order, op)}
+    ${sectionNav()}
+    <section class="ocv2-pane" data-pane="overview" ${state.activeSection!=="overview"?"hidden":""}>
+    ${nextActionMarkup(order)}
     <div class="ocv2-details-meta"><span>${h(date(order.createdAt))}</span><strong>${h(money(order.total, order.currency))}</strong></div>
     <div class="ocv2-chips"><span>Bezahlung: ${h(order.paymentStatus)}</span><span>eBay-Versand: ${h(order.fulfillmentStatus)}</span>
     <span>Rechnung: ${invoice ? h(invoice.invoiceNumber) : "noch keine"}</span></div>
     ${!paymentConfirmed(order) ? '<p class="ocv2-alert">eBay meldet die Bestellung nicht als vollständig bezahlt. Vor einem Einkauf bitte überprüfen.</p>' : ""}
     <h4>Artikel & Produktverknüpfungen</h4><div class="ocv2-lines">${lines}</div>
     ${shippingAddress}
+    </section>
     <form id="ocv2OrderForm" data-order-id="${cleanAttr(order.id)}">
+      <section class="ocv2-pane" data-pane="supplier" ${state.activeSection!=="supplier"?"hidden":""}>
       <h4>Lieferant und Bearbeitung</h4>
       <div class="ocv2-fields"><label>Interner Bearbeitungsstatus<select name="workflowStatus">${phaseOptions.map(([id, label]) =>
         `<option value="${id}" ${(op.workflowStatus || (order.fulfillmentStatus === "FULFILLED" || op.status === "SHIPPED" ? "SHIPPED" : "NEW")) === id ? "selected" : ""}>${h(label)}</option>`).join("")}</select></label>
         <label>Lieferant<input name="supplierName" maxlength="160" value="${h(op.supplierName || "")}" placeholder="${h(supplierGuess || "Lieferant eintragen")}"></label>
         <label>Lieferanten-Bestellnummer<input name="supplierOrderId" maxlength="160" value="${h(op.supplierOrderId || "")}" placeholder="Nach deinem Einkauf eintragen"></label>
+      </div></section>
+      <section class="ocv2-pane" data-pane="shipping" ${state.activeSection!=="shipping"?"hidden":""}>
+      <h4>Versand vorbereiten</h4>
+      <p class="ocv2-hint">Die Sendungsdaten sind zunächst nur intern. eBay wird nicht automatisch benachrichtigt.</p>
+      <div class="ocv2-fields">
         <label>Versanddienstleister<input name="carrier" maxlength="80" value="${h(op.carrier || "")}" placeholder="z. B. DHL"></label>
         <label>Trackingnummer<input name="trackingNumber" maxlength="120" value="${h(op.trackingNumber || "")}" placeholder="Sendungsnummer"></label>
-      </div>
+      </div></section>
+      <section class="ocv2-pane" data-pane="finance" ${state.activeSection!=="finance"?"hidden":""}>
       <h4>Kosten und Gewinn</h4>
       ${help}
       <div class="ocv2-fields ocv2-cost-fields">${fields}</div>
       <div class="ocv2-profit ${profit === null ? "is-open" : profit < 0 ? "is-loss" : ""}"><span>Ergebnis nach erfassten Kosten</span><strong>${profit === null ? "Noch nicht berechenbar" : h(money(profit))}</strong>
         ${profit === null ? '<small>Erst wenn EK, Versand und Gebühren vollständig sind. Weitere Ausgaben und Retouren separat prüfen.</small>' : ""}</div>
+      </section>
       <label class="ocv2-note">Interne Notiz<textarea name="note" rows="3" maxlength="1600" placeholder="Liefertermin, Sonderfall, Einkauf prüfen …">${h(op.note || "")}</textarea></label>
       <div class="ocv2-details-actions"><button type="submit" class="ocv2-primary" ${state.saving || (!state.financeReady && !state.demoMode) ? "disabled" : ""}>${state.saving ? "Speichert…" : "Interne Angaben sichern"}</button>
         <button type="button" data-order-shipping>Versand öffnen</button><button type="button" data-order-invoice>Rechnung öffnen</button></div>
