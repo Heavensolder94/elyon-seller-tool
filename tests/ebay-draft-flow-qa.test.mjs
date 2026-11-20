@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createOrUpdateEbayDraft } from '../lib/ebay-production.js';
+import { createOrUpdateEbayDraft, publishEbayOffer } from '../lib/ebay-production.js';
 import directDraft from '../api/ebay/create-draft.js';
 import ebayHandler from '../api/ebay/index.js';
 import { fetchEbayListingSnapshot } from '../api/ebay/listings.js';
@@ -55,6 +55,10 @@ function fixture(t, options = {}) {
     if (url.pathname.endsWith('/offer/qa-offer')) {
       if (method === 'PUT') return response({});
       return response(currentOffer || offer);
+    }
+    if (url.pathname.endsWith('/offer/qa-offer/publish') && method === 'POST') {
+      currentOffer = { ...offer, status: 'PUBLISHED', listing: { listingId: 'qa-listing' } };
+      return response({ listingId: 'qa-listing' });
     }
     if (url.pathname.endsWith('/offer/qa-offer-2') && method === 'GET') return response({ ...offer, offerId: 'qa-offer-2', sku: 'ELY-900002' });
     assert.fail('Unexpected fixture request: ' + method + ' ' + url.pathname);
@@ -136,6 +140,27 @@ test('offer lookup failures stop draft writes', async t => {
   const f = fixture(t, { lookupFailure: true });
   await assert.rejects(createOrUpdateEbayDraft(input, 'sandbox'));
   assert.equal(f.writes().length, 0);
+});
+
+const publishInput = { ...input, offerId: offer.offerId, confirmation: 'PUBLISH_EBAY_OFFER' };
+
+for (const [field, value] of Object.entries({
+  offerId: 'other-offer', sku: 'other-sku', marketplaceId: 'EBAY_US', format: 'AUCTION', status: 'UNKNOWN',
+  listing: { listingId: 'already-live' },
+})) {
+  test(`publishing rejects a mismatch in ${field} before writing`, async t => {
+    const f = fixture(t, { existing: { [field]: value } });
+    await assert.rejects(publishEbayOffer(publishInput, 'sandbox'), { code: 'ebay_publish_offer_mismatch' });
+    assert.deepEqual(f.writes(), []);
+  });
+}
+
+test('a verified draft publishes once and a retry stops before updating the active listing', async t => {
+  const f = fixture(t, { existing: {} });
+  const result = await publishEbayOffer(publishInput, 'sandbox');
+  assert.equal(result.listingId, 'qa-listing');
+  await assert.rejects(publishEbayOffer(publishInput, 'sandbox'), { code: 'ebay_publish_offer_mismatch' });
+  assert.deepEqual(f.writes().map(call => call.method), ['PUT', 'POST']);
 });
 
 test('Company OS variant identities are verified and registered once across retries', async t => {
