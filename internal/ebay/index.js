@@ -279,20 +279,41 @@ async function handleOrders(req, res) {
   const stored = await readToken(environment);
   const refreshed = await refreshEbayAccessToken(environment, stored?.refresh_token || process.env.EBAY_REFRESH_TOKEN);
   const days = Math.max(1, Math.min(Number(req?.query?.days || 7), 90));
-  const status = text(req?.query?.status || "all");
+  const requestedStatus = text(req?.query?.status || "all").toUpperCase();
+  const status = ["ALL", "NOT_STARTED", "IN_PROGRESS", "FULFILLED"].includes(requestedStatus) ? requestedStatus : "ALL";
   const filters = [`creationdate:[${daysAgoIso(days)}..${new Date().toISOString()}]`];
-  if (status !== "all") filters.push(`orderfulfillmentstatus:{${status}}`);
-  const endpoint = `${ebayApiRoot(environment)}/sell/fulfillment/v1/order?limit=50&filter=${encodeURIComponent(filters.join(","))}`;
-  const response = await fetch(endpoint, {
-    headers: {
-      Authorization: `Bearer ${refreshed.access_token}`,
-      "Content-Type": "application/json",
-      "X-EBAY-C-MARKETPLACE-ID": "EBAY_DE",
-    },
+  if (status !== "ALL") filters.push(`orderfulfillmentstatus:{${status}}`);
+  const limit = 50;
+  const maxPages = 20; // 1,000 orders maximum per request; report truncation, never silently omit.
+  const orders = [];
+  let total = null;
+  for (let pageIndex = 0; pageIndex < maxPages; pageIndex += 1) {
+    const endpoint = new URL(`${ebayApiRoot(environment)}/sell/fulfillment/v1/order`);
+    endpoint.searchParams.set("limit", String(limit));
+    endpoint.searchParams.set("offset", String(pageIndex * limit));
+    endpoint.searchParams.set("filter", filters.join(","));
+    const response = await fetch(endpoint.toString(), {
+      headers: {
+        Authorization: `Bearer ${refreshed.access_token}`,
+        "Content-Type": "application/json",
+        "X-EBAY-C-MARKETPLACE-ID": "EBAY_DE",
+      },
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) return res.status(response.status).json({
+      ok: false, error: data.errors?.[0]?.message || data.message || "eBay Orders Fehler", details: data,
+    });
+    const page = Array.isArray(data.orders) ? data.orders : [];
+    orders.push(...page);
+    if (Number.isFinite(Number(data.total))) total = Number(data.total);
+    if (!page.length || page.length < limit || (total !== null && orders.length >= total)) break;
+  }
+  const unique = [...new Map(orders.map((order) => [text(order.orderId || order.legacyOrderId), order])).values()];
+  return res.status(200).json({
+    ok: true, environment, days, status: status.toLowerCase(),
+    count: unique.length, total, truncated: orders.length >= maxPages * limit && (total === null || total > orders.length),
+    orders: unique,
   });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) return res.status(response.status).json({ ok: false, error: data.errors?.[0]?.message || data.message || "eBay Orders Fehler", details: data });
-  return res.status(200).json({ ok: true, environment, days, status, count: data.orders?.length || 0, orders: data.orders || [] });
 }
 
 async function fetchListingItems(environment) {
