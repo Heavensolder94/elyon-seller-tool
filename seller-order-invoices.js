@@ -171,12 +171,12 @@
   }
 
   const issueBusy = new Set();
-  function printInvoice(invoice) {
+  function printInvoice(invoice, preopenedWindow = null) {
     if (!invoice?.invoiceNumber || !invoice?.seller?.taxId || invoice.taxMode !== 'small_business') {
       notify('Diese Rechnung hat keinen vollständigen, geprüften Ausstellungsstand.', 'Rechnung');
       return;
     }
-    const popup = window.open('', '_blank');
+    const popup = preopenedWindow || window.open('', '_blank');
     if (!popup) { notify('Bitte Pop-ups für das Seller Tool erlauben.', 'Rechnung'); return; }
     const s = invoice.seller, b = invoice.buyer;
     const addr = person => [
@@ -242,6 +242,12 @@
       'Rechnung für eBay-Bestellung ' + order.id +
       ' jetzt verbindlich ausstellen? ELYON prüft die Pflichtfelder und sperrt den Rechnungsstand. Keine Kunden-E-Mail wird gesendet.'
     )) return;
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.open();
+      printWindow.document.write('<!doctype html><html lang="de"><meta charset="utf-8"><title>ELYON Rechnung</title><body><p>ELYON prüft die Bestellung und Rechnungsdaten…</p></body></html>');
+      printWindow.document.close();
+    }
     issueBusy.add(order.id);
     render();
     try {
@@ -265,10 +271,11 @@
       };
       serverLoaded = true;
       try { localStorage.setItem(META_KEY, JSON.stringify(serverState.invoiceMeta)); } catch {}
-      printInvoice(data.invoice);
+      printInvoice(data.invoice, printWindow);
       notify('Rechnung ' + data.invoiceNumber + (data.existing ? ' erneut geöffnet.' : ' ausgestellt und serverseitig gesichert.') +
         ' Versand an den Kunden erfolgt nicht automatisch.', 'Rechnung');
     } catch (error) {
+      try { printWindow?.close(); } catch {}
       notify('Keine Rechnung ausgestellt: ' + error.message, 'Pflichtfeldprüfung');
       window.alert('Rechnung blockiert:\n' + error.message +
         '\n\nVerkäuferdaten und Kleinunternehmerstatus bitte unter Finanzen → Einstellungen prüfen.');
