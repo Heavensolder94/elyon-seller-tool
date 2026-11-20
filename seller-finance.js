@@ -196,6 +196,7 @@ export function buildFinanceDataQuality(transactions = [], documents = []) {
 
 function transactionEconomicValue(entry) {
   const value = Math.abs(num(entry.amount || entry.totalFeeAmount));
+  if (entry.category === 'supplier_refund' && num(entry.amount) <= 0) return 0;
   if (["revenue", "other_income", "fee_credit", "supplier_refund"].includes(entry.category)) return value;
   if (entry.category === "transfer") return 0;
   return -value;
@@ -219,7 +220,7 @@ export function buildOrderProfitability(transactions = []) {
     else if (entry.category === "ebay_fee") row.ebayFees += amount;
     else if (entry.category === "advertising_expense") row.advertising += amount;
     else if (entry.category === "supplier_expense") {row.supplier += amount;row.hasSupplier = true;}
-    else if (entry.category === "supplier_refund") row.supplier -= amount;
+    else if (entry.category === "supplier_refund") {if(num(entry.amount)>0)row.supplier -= amount;}
     else if (entry.category === "shipping_expense") row.shipping += amount;
     else row.otherExpenses += amount;
     row.profit += transactionEconomicValue(entry);

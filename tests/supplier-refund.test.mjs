@@ -49,6 +49,7 @@ test('refund adjusts economic cost but blocks tax exports and month close pendin
  assert.equal(selectApprovedEurTransactions(rows).ready,false);assert.equal(selectApprovedEurTransactions(rows).unclassifiedRefundCount,1);
  assert.throws(()=>exportDatevPreparation(rows));assert.match(buildEurSummary(rows).disclaimer,/nicht enthalten/);
  const disguised={...refund,category:'other_income',status:'approved'};assert.equal(selectApprovedEurTransactions([disguised]).ready,false);assert.throws(()=>exportDatevPreparation([disguised]));assert.match(buildEurSummary([disguised]).disclaimer,/nicht enthalten/);
+ const invalid={...refund,amount:-3,status:'approved'};assert.equal(calculateMetrics([purchase(),invalid]).supplier,10);assert.equal(buildPeriodProfitability([sale,purchase(),invalid],{start:'2026-11-01T00:00:00Z',end:'2026-11-30T23:59:59Z'}).orders[0].profit,20);
  assert.equal(buildMonthCloseReadiness([{...refund,status:'approved'}],[proof()]).ready,false);
 });
 test('regular sync cannot inject or alter a receipt-backed supplier refund',()=>{

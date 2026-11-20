@@ -532,7 +532,7 @@ export function calculateMetrics(transactions = []) {
   const refunds = sumCategory("refund");
   const ebayFees = sumCategory("ebay_fee");
   const advertising = sumCategory("advertising_expense");
-  const supplierRefund = sumCategory("supplier_refund");
+  const supplierRefund = active.filter(entry => entry.category === 'supplier_refund' && entry.amount > 0).reduce((sum, entry) => sum + entry.amount, 0);
   const supplier = sumCategory("supplier_expense") - supplierRefund;
   const shipping = sumCategory("shipping_expense");
   const otherExpenses = sumCategory("other_expense");
