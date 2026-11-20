@@ -4,7 +4,7 @@ import { financeSigningStatus, signFinancesGetRequest } from "../../lib/ebay-fin
 import { ebayUserSession, callEbayJson, publicEbayError } from "../../lib/ebay-production.js";
 import { readFinanceState, writeFinanceState, getFinanceStoreDescription, reserveFinanceInvoiceNumber } from "../../lib/finance-store.js";
 import { normalizeEbayApiTransactions, mergeTransactions, calculateMetrics, buildEurSummary, selectApprovedEurTransactions, buildReceiptCostProposal } from "../../seller-finance-core.js";
-import { issueKleinunternehmerInvoice, verifyInvoiceSnapshot, cancelIssuedInvoice, issueReplacementInvoice } from "../../lib/kleinunternehmer-invoice-store.js";
+import { issueKleinunternehmerInvoice, verifyInvoiceSnapshot, cancelIssuedInvoice, issueReplacementInvoice, issueInvoiceCorrection } from "../../lib/kleinunternehmer-invoice-store.js";
 import { getRefreshTokenCookie, downloadFinanceDocumentFromDrive } from "../../lib/google-drive.js";
 import { readGoogleDriveToken } from "../../lib/google-drive-token-store.js";
 
@@ -342,6 +342,12 @@ export default async function handler(req, res) {
         } catch { return res.status(503).json({ok:false,error:"invoice_pdf_unavailable",message:"Archiv-PDF kann nicht überprüft werden. Drive-Verbindung prüfen."}); }
       }
       return res.status(200).json({ok:true, invoice:record.invoice, snapshotHash:record.snapshotHash,pdfBase64});
+    }
+    if (action === "correct-issued-invoice") {
+      if (req.method !== "POST") return res.status(405).json({ok:false,error:"Nur POST erlaubt."});
+      const cookie=getRefreshTokenCookie(req);const stored=cookie?null:await readGoogleDriveToken();
+      const result=await issueInvoiceCorrection(req.body?.orderId, req.body?.change, {refreshToken:cookie || stored?.refresh_token || stored?.refreshToken || ""});
+      return res.status(result.ok?200:result.status||422).json(result);
     }
     if (action === "cancel-issued-invoice") {
       if (req.method !== "POST") return res.status(405).json({ok:false,error:"Nur POST erlaubt."});

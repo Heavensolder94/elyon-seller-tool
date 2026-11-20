@@ -333,6 +333,21 @@
     } catch(error) {window.alert('Status der Ersatzrechnung prüfen: '+error.message+' Vor erneutem Versuch Archiv neu laden.');}
   }
 
+  async function correctInvoice(orderId) {
+    const entry=readMeta()[orderId];if(!entry?.invoice)return;
+    const choices={'1':['buyerName','Name',entry.invoice.buyer?.name],'2':['buyerStreet','Straße',entry.invoice.buyer?.addressLine1],'3':['buyerPostalCode','Postleitzahl',entry.invoice.buyer?.postalCode],'4':['buyerCity','Ort',entry.invoice.buyer?.city]};
+    const choice=window.prompt('Welche Empfängerangabe berichtigen? 1 Name · 2 Straße · 3 Postleitzahl · 4 Ort','');
+    if(!choice)return;const selected=choices[choice.trim()];if(!selected){window.alert('Ungültige Auswahl.');return;}
+    const newValue=window.prompt('Berichtigter Wert für '+selected[1]+' (bisher: '+(selected[2]||'unbekannt')+')','');if(!newValue)return;
+    const reason=window.prompt('Grund der Berichtigung:','');if(!reason)return;
+    if(!window.confirm('Berichtigungsbeleg zur ursprünglichen Rechnung verbindlich ausstellen? Keine Beträge, Buchungen oder Zahlungen werden geändert.'))return;
+    try{
+      const response=await fetch('/api/finance?action=correct-issued-invoice',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify({orderId,change:{field:selected[0],newValue,reason}})});
+      const data=await response.json().catch(()=>({}));if(!response.ok||!data.ok)throw new Error(data.message||'Berichtigung nicht bestätigt.');
+      await loadServerState();render();notify('Berichtigungsbeleg '+data.invoice.documentNumber+(data.existing?' war bereits vorhanden.':' erstellt.')+' Kein automatischer Versand.','Berichtigung');
+    }catch(error){window.alert('Status prüfen: '+error.message+' Vor erneutem Versuch Archiv neu laden.');}
+  }
+
   function statusLabel(value) { const hit = STATUS_OPTIONS.find((item) => item[0] === value); return hit ? hit[1] : value; }
 
   function styles() {
@@ -357,8 +372,8 @@
       html += '<div style="overflow:auto"><table class="eoi-table"><thead><tr><th>Rechnung</th><th>eBay-Bestellung</th><th>Betrag</th><th>Dokument</th></tr></thead><tbody>' +
         archived.sort((a,b)=>String(b[1].invoice?.issuedAt||'').localeCompare(String(a[1].invoice?.issuedAt||'')))
           .map(([recordId,entry])=>'<tr><td>' + esc(entry.invoiceNumber) + '</td><td>' + esc(entry.invoice.orderId) +
-            '</td><td>' + money(entry.invoice.total,'EUR') + '</td><td><button type="button" class="eoi-btn" data-eoi-archive="' +
-            esc(recordId) + '">Beleg öffnen / PDF</button>' + (entry.invoice.documentKind === 'cancellation' ? '<div class="eoi-muted">Storno zu ' + esc(entry.invoice.originalInvoiceNumber) + '</div>' : entry.invoice.documentKind === 'replacement' ? '<div class="eoi-muted">Ersatz für ' + esc(entry.invoice.originalInvoiceNumber) + '</div>' : Object.values(meta).some(x => x?.invoice?.documentKind === 'cancellation' && x.invoice.originalInvoiceNumber === entry.invoiceNumber) ? '<button type="button" class="eoi-btn" data-eoi-replace="' + esc(recordId) + '">Ersatzrechnung ausstellen</button>' : '<button type="button" class="eoi-btn" data-eoi-cancel="' + esc(recordId) + '">Vollständig stornieren</button>') + '</td></tr>').join('') + '</tbody></table></div>';
+            '</td><td>' + (entry.invoice.documentKind === 'correction' ? '–' : money(entry.invoice.total,'EUR')) + '</td><td><button type="button" class="eoi-btn" data-eoi-archive="' +
+            esc(recordId) + '">Beleg öffnen / PDF</button>' + (entry.invoice.documentKind === 'correction' ? '<div class="eoi-muted">Berichtigung zu ' + esc(entry.invoice.originalInvoiceNumber) + '</div>' : entry.invoice.documentKind === 'cancellation' ? '<div class="eoi-muted">Storno zu ' + esc(entry.invoice.originalInvoiceNumber) + '</div>' : entry.invoice.documentKind === 'replacement' ? '<div class="eoi-muted">Ersatz für ' + esc(entry.invoice.originalInvoiceNumber) + '</div>' : Object.values(meta).some(x => x?.invoice?.documentKind === 'cancellation' && x.invoice.originalInvoiceNumber === entry.invoiceNumber) ? '<button type="button" class="eoi-btn" data-eoi-replace="' + esc(recordId) + '">Ersatzrechnung ausstellen</button>' : '<button type="button" class="eoi-btn" data-eoi-correct="' + esc(recordId) + '">Empfänger berichtigen</button><button type="button" class="eoi-btn" data-eoi-cancel="' + esc(recordId) + '">Vollständig stornieren</button>') + '</td></tr>').join('') + '</tbody></table></div>';
     }
     const legacy = Object.entries(meta).filter(([, entry]) => entry && !entry.immutable);
     if (legacy.length) {
@@ -389,6 +404,8 @@
 
   document.addEventListener('click', (event) => {
     if (event.target.closest && event.target.closest('[data-eoi-load]')) return loadOrders();
+    const correctButton = event.target.closest && event.target.closest('[data-eoi-correct]');
+    if (correctButton) { correctInvoice(correctButton.dataset.eoiCorrect); return; }
     const replaceButton = event.target.closest && event.target.closest('[data-eoi-replace]');
     if (replaceButton) { createReplacement(replaceButton.dataset.eoiReplace); return; }
     const cancelButton = event.target.closest && event.target.closest('[data-eoi-cancel]');
