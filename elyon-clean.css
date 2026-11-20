@@ -2079,3 +2079,32 @@ body.app-paged .content > .section-grid {
     grid-template-columns: 1fr !important;
   }
 }
+
+/* Native select menus must not inherit light popup backgrounds with pale text. */
+body:not(.light) select {
+  color-scheme: dark !important;
+}
+
+body:not(.light) select option,
+body:not(.light) select optgroup {
+  background-color: #111821 !important;
+  color: #f4f6f8 !important;
+}
+
+body:not(.light) select option:disabled {
+  color: #9ca3af !important;
+}
+
+body.light select {
+  color-scheme: light !important;
+}
+
+body.light select option,
+body.light select optgroup {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}
+
+body.light select option:disabled {
+  color: #64748b !important;
+}
