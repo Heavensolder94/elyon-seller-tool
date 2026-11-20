@@ -85,3 +85,14 @@ test('one-cent mismatch or missing line currency cannot be issued as a confirmed
   const unknownCurrency = order(); delete unknownCurrency.lineItems[0].lineItemCost.currency;
   assert.equal(buildKleinunternehmerInvoiceDraft(unknownCurrency, settings).ok, false);
 });
+
+
+test('archived invoice snapshot detects tampering and missing checksum', async () => {
+  const { createHash } = await import('node:crypto');
+  const { verifyInvoiceSnapshot } = await import('../lib/kleinunternehmer-invoice-store.js');
+  const invoice = { invoiceNumber: 'TEST-1', total: 12 };
+  const record = { invoice, snapshotHash: createHash('sha256').update(JSON.stringify(invoice)).digest('hex') };
+  assert.equal(verifyInvoiceSnapshot(record), true);
+  assert.equal(verifyInvoiceSnapshot({ ...record, invoice: { ...invoice, total: 1 } }), false);
+  assert.equal(verifyInvoiceSnapshot({ invoice }), false);
+});
