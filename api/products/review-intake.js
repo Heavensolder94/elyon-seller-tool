@@ -244,13 +244,25 @@ export async function submitAmazonResearchReview({ product = {}, env = process.e
   }
 
   const payload = buildPendingCompanyReview({ sku, title, images: product.images, amazonReferencePrice: product.amazonReferencePrice, amazonReferenceCapturedAt: product.amazonReferenceCapturedAt });
+  const researchImages = (Array.isArray(product.images) ? product.images : [])
+    .map(image => text(image, 1800)).filter(image => /^https:\/\//i.test(image)).slice(0, 12);
+  const selectedVariations = product.selectedVariations && typeof product.selectedVariations === "object" && !Array.isArray(product.selectedVariations)
+    ? Object.fromEntries(Object.entries(product.selectedVariations).slice(0, 30).map(([key, value]) => [text(key, 120), text(value, 500)]).filter(([key, value]) => key && value)) : {};
   for (const item of [payload.import, payload.product]) {
     item.researchUrl = sourceUrl.href;
     item.description = text(product.description, 10000);
     item.brand = text(product.brand, 160);
+    item.images = researchImages;
     item.variants = Array.isArray(product.variants) ? product.variants.slice(0, 60) : [];
     item.meta = { ...item.meta, originSystem: "elyon_amazon_importer", amazonResearchUrl: sourceUrl.href,
       amazonDetails: product.details && typeof product.details === "object" && !Array.isArray(product.details) ? product.details : {},
+      amazonOriginalTitle: text(product.originalTitle, 1000), amazonOriginalDescription: text(product.originalDescription, 10000),
+      amazonSelectedVariations: selectedVariations,
+      amazonBullets: Array.isArray(product.bullets) ? product.bullets.map(value => text(value, 1000)).filter(Boolean).slice(0, 8) : [],
+      amazonBreadcrumbs: Array.isArray(product.breadcrumbs) ? product.breadcrumbs.map(value => text(value, 200)).filter(Boolean).slice(0, 8) : [],
+      researchAttributes: { department: text(product.department, 160), style: text(product.style, 160), material: text(product.material, 160), modelNumber: text(product.modelNumber, 160),
+        ebayCategoryId: text(product.ebayCategoryId, 50), ebayCategoryName: text(product.ebayCategoryName, 160),
+        itemSpecifics: product.itemSpecifics && typeof product.itemSpecifics === "object" && !Array.isArray(product.itemSpecifics) ? product.itemSpecifics : {} },
       amazonReferenceCurrency: text(product.currency, 8).toUpperCase() };
   }
   const response = await fetchImpl(workflowUrl, {
