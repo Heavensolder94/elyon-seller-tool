@@ -3,6 +3,7 @@ import { financeSigningStatus, signFinancesGetRequest } from "../../lib/ebay-fin
 import { ebayUserSession, callEbayJson, publicEbayError } from "../../lib/ebay-production.js";
 import { readFinanceState, writeFinanceState, getFinanceStoreDescription, reserveFinanceInvoiceNumber } from "../../lib/finance-store.js";
 import { normalizeEbayApiTransactions, mergeTransactions, calculateMetrics, buildEurSummary, selectApprovedEurTransactions } from "../../seller-finance-core.js";
+import { issueKleinunternehmerInvoice } from "../../lib/kleinunternehmer-invoice-store.js";
 
 function text(value) {
   return String(value ?? "").trim();
@@ -277,6 +278,30 @@ export default async function handler(req, res) {
     if (action === "payouts") return handlePayouts(req, res);
     if (action === "eur") return handleEur(req, res);
     if (action === "reserve-invoice-number") return handleReserveInvoiceNumber(req, res);
+    if (action === "issue-kleinunternehmer-invoice") {
+      if (req.method !== 'POST') return res.status(405).json({ ok: false, error: 'Nur POST erlaubt.' });
+      const orderId = text(req.body?.orderId);
+      if (!/^[A-Za-z0-9_-]{6,70}$/.test(orderId)) return res.status(400).json({
+        ok: false, error: 'invalid_order_id', message: 'Gültige eBay-Bestellnummer erforderlich.'
+      });
+      // Never trust client-provided prices or addresses: fetch the source order
+      // again with the authenticated production eBay token before issuance.
+      const session = await ebayUserSession('production');
+      const original = await callEbayJson(
+        'https://api.ebay.com/sell/fulfillment/v1/order/' + encodeURIComponent(orderId),
+        { headers: {
+          Authorization: 'Bearer ' + session.accessToken,
+          Accept: 'application/json',
+          'Accept-Language': 'de-DE'
+        } }
+      );
+      if (text(original.orderId) !== orderId) return res.status(502).json({
+        ok: false, error: 'order_identity_mismatch', message: 'eBay-Bestellung konnte nicht eindeutig verifiziert werden.'
+      });
+      const issued = await issueKleinunternehmerInvoice(original);
+      return res.status(issued.ok ? 200 : issued.status || 422).json(issued);
+    }
+
     return res.status(404).json({ ok: false, error: `Unbekannte Finance-Route: ${action}` });
   } catch (error) {
     if (error?.code?.startsWith?.("ebay_")) return res.status(Number(error.status || 500)).json(publicEbayError(error));
