@@ -204,6 +204,7 @@ function classify({ transactionType, feeType, bookingEntry, memo, amount }) {
   if (["CREDIT", "ADJUSTMENT"].includes(type) && (booking === "CREDIT" || number(amount) > 0)) return "other_income";
   if (type === "SHIPPING_LABEL") return "shipping_expense";
   if (type === "SUPPLIER_PURCHASE") return "supplier_expense";
+  if (type === "SUPPLIER_REFUND") return "supplier_refund";
   return number(amount) >= 0 ? "other_income" : "other_expense";
 }
 
@@ -251,13 +252,14 @@ export function normalizeFinanceTransaction(input = {}, source = "manual") {
     source: text(source || input.source) || "manual",
     status: text(input.status || input.reviewStatus).toLowerCase() || "needs_review",
     documentIds: Array.isArray(input.documentIds) ? [...new Set(input.documentIds.map(text).filter(Boolean))] : [],
+    ...(input.supplierReceipt && typeof input.supplierReceipt === "object" ? { supplierReceipt: { ...input.supplierReceipt } } : {}),
     original: input.original && typeof input.original === "object" ? safeOriginal(input.original) : null,
     createdAt: isoDate(input.createdAt) || new Date().toISOString(),
     updatedAt: isoDate(input.updatedAt) || new Date().toISOString(),
     voidedAt: isoDate(input.voidedAt),
     voidReason: text(input.voidReason),
   };
-  record.category = text(input.category) || classify(record);
+  record.category = transactionType === 'SUPPLIER_REFUND' ? 'supplier_refund' : text(input.category) || classify(record);
   record.dedupeKey = text(input.dedupeKey) || transactionKey(record);
   return record;
 }
@@ -346,6 +348,9 @@ export function normalizeEbayApiTransactions(payload = {}) {
 
 export function mergeTransactions(existing = [], incoming = []) {
   const byKey = new Map();
+  // Once a refund exists, neither it nor the linked purchase can be silently
+  // voided through a stale device. A future explicit reversal must be audited.
+  const refundedPurchases = new Set(existing.filter(entry => entry.source === 'supplier_receipt_verified' && entry.category === 'supplier_refund' && entry.supplierReceipt?.kind === 'refund').map(entry => text(entry.supplierReceipt.originalTransactionId)).filter(Boolean));
   for (const entry of existing) {
     const normalized = normalizeFinanceTransaction(entry, entry.source || "existing");
     byKey.set(normalized.dedupeKey, normalized);
@@ -374,6 +379,15 @@ export function mergeTransactions(existing = [], incoming = []) {
       original: previous.original || normalized.original,
       updatedAt: new Date().toISOString(),
     };
+    // A receipt-backed cost records a historical allocation. Corrections must
+    // use a separate, reviewed process, never a stale browser sync.
+    if (previous.source === "supplier_receipt_verified" && previous.supplierReceipt) {
+      for (const field of ["transactionId", "dedupeKey", "orderId", "itemId", "transactionDate", "transactionType", "bookingEntry", "amount", "totalFeeAmount", "netAmount", "currency", "quantity", "source", "category", "supplierReceipt"]) next[field] = previous[field];
+      if (previous.category === 'supplier_refund' || refundedPurchases.has(previous.transactionId)) {
+        next.voidedAt = previous.voidedAt;next.voidReason = previous.voidReason;
+        if (normalized.voidedAt || normalized.status === 'voided') next.status = previous.status;
+      }
+    }
     if (JSON.stringify(previous) !== JSON.stringify(next)) updated += 1;
     byKey.set(normalized.dedupeKey, next);
   }
@@ -386,6 +400,100 @@ export function mergeTransactions(existing = [], incoming = []) {
   };
 }
 
+// Pure proposal only. It does not read a supplier, perform a payment or write
+// any state. A server handler re-runs the same checks against its revision.
+export function buildReceiptCostProposal(doc = {}, allocations = [], transactions = [], documents = [], monthClosures = {}) {
+  const errors = [];
+  const clean = value => text(value);
+  const cents = value => {
+    const raw = clean(value).replace(",", ".");
+    if (!/^\d{1,9}(?:\.\d{1,2})?$/.test(raw)) return null;
+    const parts = raw.split(".");
+    return Number(parts[0]) * 100 + Number((parts[1] || "").padEnd(2, "0"));
+  };
+  const id = clean(doc.id), sha = clean(doc.sha256).toLowerCase();
+  const supplier = clean(doc.supplier), reference = clean(doc.invoiceReference);
+  const date = clean(doc.paymentDate);
+  const amount = cents(doc.amount);
+  const currency = clean(doc.currency).toUpperCase();
+  const proofId = clean(doc.receiptPaymentProofIdV1);
+  const proofs = documents.filter(item => clean(item.id) === proofId);
+  const proof = proofs.length === 1 ? proofs[0] : null;
+  const foreign = currency !== 'EUR';
+  const paidAmount = foreign ? cents(proof?.amount) : amount;
+  if (!id || !/^[a-f0-9]{64}$/.test(sha)) errors.push("Original und SHA-256-Prüfsumme fehlen.");
+  if (!clean(doc.cloudFileId)) errors.push("Original zuerst in Drive sichern und Finance synchronisieren.");
+  if (!["supplier_invoice", "internal_receipt"].includes(doc.documentType)) errors.push("Nur Lieferantenrechnungen oder gekennzeichnete Eigenbelege können hier Kosten auslösen.");
+  if (!supplier || !reference) errors.push("Lieferant und Rechnungs-/Belegreferenz werden für die Dublettenprüfung benötigt.");
+  if (!/^[A-Z]{3}$/.test(currency)) errors.push("Gültige Belegwährung erforderlich.");
+  if (foreign && (!proof || proofId === id || proof.documentType !== 'payment_proof' || clean(proof.currency).toUpperCase() !== 'EUR' || paidAmount === null || paidAmount <= 0 || clean(proof.paymentDate) !== date || !clean(proof.cloudFileId) || !/^[a-f0-9]{64}$/.test(clean(proof.sha256).toLowerCase()) || clean(proof.sha256).toLowerCase() === sha)) errors.push("Für Fremdwährung ist ein separater archivierter EUR-Zahlungsnachweis mit passendem Zahlungsdatum und tatsächlichem Abbuchungsbetrag erforderlich.");
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(date)) || new Date(date).toISOString().slice(0, 10) !== date) errors.push("Gültiges tatsächliches Zahlungsdatum erforderlich.");
+  if (date && monthClosures?.[date.slice(0, 7)]?.closedAt) errors.push("Der Zahlungsmonat ist abgeschlossen.");
+  if (amount === null || amount <= 0) errors.push("Gültiger bezahlter Gesamtbetrag erforderlich.");
+  const extraFields = [doc.receiptShippingAmountV1, doc.receiptAdditionalAmountV1].map(value => clean(value) ? cents(value) : 0);
+  if (extraFields.some(value => value === null)) errors.push("Versand- oder Zusatzkosten sind ungültig.");
+  if (amount !== null && extraFields.every(value => value !== null) && extraFields[0] + extraFields[1] > amount) errors.push("Versand- und Zusatzkosten übersteigen den Gesamtbetrag.");
+  if (doc.receiptLineItemsV1 !== undefined && !Array.isArray(doc.receiptLineItemsV1)) errors.push("Ungültige Belegpositionen.");
+  if (Array.isArray(doc.receiptLineItemsV1) && doc.receiptLineItemsV1.length) {
+    const itemValues = doc.receiptLineItemsV1.map(item => cents(item?.amount));
+    if (doc.receiptLineItemsV1.length > 100 || doc.receiptLineItemsV1.some((item, i) => !clean(item?.title) || !Number.isSafeInteger(item?.quantity) || item.quantity < 1 || itemValues[i] === null)) errors.push("Belegpositionen enthalten ungültige Angaben.");
+    else if (amount !== null && extraFields.every(value => value !== null) && itemValues.reduce((sum, value) => sum + value, 0) + extraFields[0] + extraFields[1] !== amount) errors.push("Positionen, Versand und Zusatzkosten stimmen nicht mit dem Gesamtbetrag überein.");
+  }
+  if (!Array.isArray(allocations) || !allocations.length || allocations.length > 50) errors.push("Eine bis 50 Zuordnungen sind erforderlich.");
+  const rows = (Array.isArray(allocations) ? allocations.slice(0, 50) : []).map(row => ({ orderId: clean(row.orderId), itemId: clean(row.itemId), cents: cents(row.amount) }));
+  if (rows.some(row => !/^[A-Za-z0-9_-]{3,100}$/.test(row.orderId) || row.itemId.length > 200 || row.cents === null || row.cents <= 0)) errors.push("Jede Zuordnung benötigt eine Bestellnummer und einen positiven EUR-Teilbetrag.");
+  if (paidAmount !== null && rows.reduce((sum, row) => sum + (row.cents || 0), 0) !== paidAmount) errors.push("Summe der EUR-Teilbeträge muss dem tatsächlichen Zahlungsbetrag entsprechen.");
+  const comparable = value => clean(value).toLocaleLowerCase("de-DE");
+  const duplicate = transactions.some(tx => {
+    if (tx.category !== "supplier_expense" && tx.transactionType !== "SUPPLIER_PURCHASE") return false;
+    const linked = (Array.isArray(tx.documentIds) ? tx.documentIds : []).map(link => documents.find(item => item.id === link)).filter(Boolean);
+    if ((tx.documentIds || []).includes(id)) return true;
+    if (foreign && proof && (clean(tx.supplierReceipt?.paymentProofDocumentId) === proofId || clean(tx.supplierReceipt?.paymentProofSha256).toLowerCase() === clean(proof.sha256).toLowerCase())) return true;
+    const evidence = [tx.supplierReceipt, ...linked].filter(Boolean);
+    return evidence.some(item => (sha && clean(item.sha256).toLowerCase() === sha) || (supplier && reference && comparable(item.supplier) === comparable(supplier) && comparable(item.invoiceReference) === comparable(reference)));
+  });
+  if (duplicate) errors.push("Zu diesem Beleg oder dieser Lieferanten-/Rechnungsreferenz existieren bereits Lieferantenkosten; Bestandsabgleich nötig.");
+  if (errors.length) return { ok: false, errors, allocations: [] };
+  return { ok: true, errors: [], allocations: rows.map((row, index) => ({
+    transactionId: `receipt_${sha}_${index + 1}`, orderId: row.orderId, itemId: row.itemId,
+    transactionDate: date, transactionType: "SUPPLIER_PURCHASE", bookingEntry: "DEBIT", amount: -row.cents / 100,
+    currency: "EUR", title: `${supplier} Wareneinkauf`, category: "supplier_expense", status: "needs_review", documentIds: foreign ? [id, proofId] : [id],
+    supplierReceipt: { documentId: id, sha256: sha, supplier, invoiceReference: reference, documentDate: clean(doc.documentDate), paymentDate: date, totalCents: paidAmount, allocationCents: row.cents, ...(foreign ? { purchaseCurrency: currency, purchaseTotalCents: amount, paymentProofDocumentId: proofId, paymentProofSha256: clean(proof.sha256).toLowerCase() } : {}) },
+    source: "supplier_receipt_verified",
+  })) };
+}
+
+// Records a received supplier refund against one existing purchase allocation.
+// It is a reviewable financial event, not a payment or a tax classification.
+export function buildSupplierRefundProposal(doc = {}, originalTransactionId = '', transactions = [], monthClosures = {}) {
+  const clean = value => String(value ?? '').trim();
+  const cents = value => {const s=clean(value).replace(',', '.');if(!/^\d{1,9}(?:\.\d{1,2})?$/.test(s))return null;const [whole,dec='']=s.split('.');return Number(whole)*100+Number((dec+'00').slice(0,2));};
+  const errors=[], id=clean(doc.id), sha=clean(doc.sha256).toLowerCase(), supplier=clean(doc.supplier), reference=clean(doc.invoiceReference), date=clean(doc.paymentDate), amount=cents(doc.amount);
+  if(!id||!/^[a-f0-9]{64}$/.test(sha)||!clean(doc.cloudFileId))errors.push('Erstattungsnachweis und Cloud-Original mit SHA-256 sind erforderlich.');
+  if(doc.documentType!=='refund_proof')errors.push('Nur ein Erstattungsnachweis kann einen Geldzufluss belegen; eine Gutschrift allein reicht nicht.');
+  if(!supplier||clean(doc.currency).toUpperCase()!=='EUR'||amount===null||amount<=0)errors.push('Lieferant und ein positiver EUR-Erstattungsbetrag sind erforderlich.');
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||Number.isNaN(Date.parse(date))||new Date(date).toISOString().slice(0,10)!==date)errors.push('Gültiges tatsächliches Erstattungsdatum erforderlich.');
+  if(date&&monthClosures?.[date.slice(0,7)]?.closedAt)errors.push('Der Erstattungsmonat ist abgeschlossen.');
+  const originals=transactions.filter(row=>clean(row.transactionId)===clean(originalTransactionId));
+  const original=originals.length===1?originals[0]:null;
+  const purchase=original?.supplierReceipt;
+  if(!original||original.voidedAt||original.source!=='supplier_receipt_verified'||original.category!=='supplier_expense'||!purchase||original.currency!=='EUR'||!Number.isSafeInteger(purchase.allocationCents)||purchase.allocationCents<=0||Number(original.amount)!==-purchase.allocationCents/100||!/^[a-f0-9]{64}$/.test(clean(purchase.sha256))||!clean(purchase.documentId))errors.push('Geprüfte ursprüngliche EUR-Einkaufszuordnung fehlt.');
+  if(purchase && (clean(purchase.documentId)===id || clean(purchase.sha256).toLowerCase()===sha))errors.push('Erstattungsnachweis und Einkaufsbeleg müssen getrennte Originale sein.');
+  const comparable=value=>clean(value).toLocaleLowerCase('de-DE');
+  if(purchase && comparable(purchase.supplier)!==comparable(supplier))errors.push('Lieferant stimmt nicht mit dem ursprünglichen Einkauf überein.');
+  if(original && date && clean(original.transactionDate).slice(0,10)>date)errors.push('Erstattung liegt vor dem Zahlungsdatum des Einkaufs.');
+  const refundRows=transactions.filter(row=>row.source==='supplier_receipt_verified'&&row.category==='supplier_refund');
+  if(refundRows.some(row=>row.supplierReceipt?.kind!=='refund'||!clean(row.supplierReceipt.originalTransactionId)||!clean(row.supplierReceipt.documentId)||!/^[a-f0-9]{64}$/.test(clean(row.supplierReceipt.sha256))))errors.push('Eine frühere Erstattung ist nicht eindeutig nachvollziehbar; manueller Abgleich erforderlich.');
+  const previous=refundRows.filter(row=>row.supplierReceipt?.kind==='refund');
+  if(previous.some(row=>row.supplierReceipt.documentId===id||clean(row.supplierReceipt.sha256).toLowerCase()===sha||(reference&&comparable(row.supplierReceipt.supplier)===comparable(supplier)&&comparable(row.supplierReceipt.invoiceReference)===comparable(reference))))errors.push('Dieser Erstattungsnachweis oder seine Lieferantenreferenz wurde bereits erfasst.');
+  const samePurchase=previous.filter(row=>row.supplierReceipt.originalTransactionId===clean(originalTransactionId));
+  if(samePurchase.some(row=>!Number.isSafeInteger(row.supplierReceipt.allocationCents)||row.supplierReceipt.allocationCents<=0||Number(row.amount)!==row.supplierReceipt.allocationCents/100))errors.push('Frühere Erstattung ist widersprüchlich; manueller Abgleich erforderlich.');
+  const previousCents=samePurchase.reduce((sum,row)=>sum+(Number.isSafeInteger(row.supplierReceipt.allocationCents)?row.supplierReceipt.allocationCents:0),0);
+  if(purchase && amount!==null && previousCents+amount>purchase.allocationCents)errors.push('Erstattungen übersteigen die ursprüngliche Einkaufszuordnung.');
+  if(errors.length)return {ok:false,errors,allocations:[]};
+  return {ok:true,errors:[],allocations:[{transactionId:`receipt_refund_${sha}`,orderId:original.orderId,itemId:original.itemId,transactionDate:date,transactionType:'SUPPLIER_REFUND',bookingEntry:'CREDIT',amount:amount/100,currency:'EUR',title:`${supplier} Lieferantenerstattung`,category:'supplier_refund',status:'needs_review',documentIds:[id],supplierReceipt:{kind:'refund',documentId:id,sha256:sha,supplier,invoiceReference:reference,documentDate:clean(doc.documentDate),paymentDate:date,originalTransactionId:clean(originalTransactionId),originalDocumentId:purchase.documentId,allocationCents:amount},source:'supplier_receipt_verified'}]};
+}
+
 export function bookingProposal(transaction = {}, settings = {}) {
   const item = normalizeFinanceTransaction(transaction, transaction.source || "proposal");
   const templates = {
@@ -396,6 +504,7 @@ export function bookingProposal(transaction = {}, settings = {}) {
     fee_credit: { debit: "eBay-Verrechnung", credit: settings.ebayFeeAccount || "eBay-Gebühren", label: "Gebührengutschrift" },
     shipping_expense: { debit: settings.shippingAccount || "Versandkosten", credit: "eBay-Verrechnung", label: "Versandkosten" },
     supplier_expense: { debit: settings.goodsAccount || "Wareneinkauf", credit: "Lieferanten-Verrechnung", label: "Wareneinkauf" },
+    supplier_refund: { debit: "ungeklärt", credit: "ungeklärt", label: "Lieferantenerstattung – steuerlich prüfen" },
     transfer: { debit: "Bank", credit: "eBay-Verrechnung", label: "Auszahlung / Geldtransfer" },
     other_income: { debit: "eBay-Verrechnung", credit: settings.otherIncomeAccount || "Sonstige Erträge", label: "Sonstiger Ertrag" },
     other_expense: { debit: settings.otherExpenseAccount || "Sonstige Kosten", credit: "eBay-Verrechnung", label: "Sonstige Ausgabe" },
@@ -412,8 +521,8 @@ export function bookingProposal(transaction = {}, settings = {}) {
     creditAccount: template.credit,
     amount: Math.abs(item.amount || item.totalFeeAmount),
     currency: item.currency,
-    taxCode: text(settings.defaultTaxCode),
-    status: item.status === "approved" ? "approved" : "draft",
+    taxCode: item.category === 'supplier_refund' ? '' : text(settings.defaultTaxCode),
+    status: item.category === 'supplier_refund' ? 'draft' : item.status === "approved" ? "approved" : "draft",
     note: item.memo || item.title,
     source: item.source,
   };
@@ -431,7 +540,8 @@ export function calculateMetrics(transactions = []) {
   const refunds = sumCategory("refund");
   const ebayFees = sumCategory("ebay_fee");
   const advertising = sumCategory("advertising_expense");
-  const supplier = sumCategory("supplier_expense");
+  const supplierRefund = active.filter(entry => entry.category === 'supplier_refund' && entry.amount > 0).reduce((sum, entry) => sum + entry.amount, 0);
+  const supplier = sumCategory("supplier_expense") - supplierRefund;
   const shipping = sumCategory("shipping_expense");
   const otherExpenses = sumCategory("other_expense");
   const expenses = refunds + ebayFees + advertising + supplier + shipping + otherExpenses;
@@ -442,7 +552,7 @@ export function calculateMetrics(transactions = []) {
     refunds,
     ebayFees,
     advertising,
-    supplier,
+    supplier, supplierRefund,
     shipping,
     otherExpenses,
     expenses,
@@ -455,9 +565,12 @@ export function calculateMetrics(transactions = []) {
   };
 }
 
-function quoteCsv(value, delimiter) {
+function quoteCsv(value, delimiter, numeric = false) {
   const raw = String(value ?? "");
-  return raw.includes(delimiter) || /["\r\n]/.test(raw) ? `"${raw.replaceAll('"', '""')}"` : raw;
+  // Spreadsheet programs may evaluate untrusted CSV cells as formulas, even
+  // when the cell is CSV-quoted. Amount columns are generated numbers only.
+  const safe = !numeric && /^[\s\u0000-\u001f\ufeff]*[=+@\-\t\r\n]/u.test(raw) ? "'" + raw : raw;
+  return safe.includes(delimiter) || /["\r\n]/.test(safe) ? `"${safe.replaceAll('"', '""')}"` : safe;
 }
 
 export function exportTransactionsCsv(transactions = [], delimiter = ";") {
@@ -476,10 +589,11 @@ export function exportTransactionsCsv(transactions = [], delimiter = ";") {
       item.source,
     ];
   });
-  return [headers, ...rows].map((row) => row.map((value) => quoteCsv(value, delimiter)).join(delimiter)).join("\r\n");
+  return [headers, ...rows].map((row, rowIndex) => row.map((value, index) => quoteCsv(value, delimiter, rowIndex > 0 && index === 5)).join(delimiter)).join("\r\n");
 }
 
 export function exportDatevPreparation(transactions = [], settings = {}) {
+  if (transactions.some(entry => !entry.voidedAt && (entry.category === 'supplier_refund' || text(entry.transactionType).toUpperCase()==='SUPPLIER_REFUND'))) throw new Error('Lieferantenerstattungen benötigen vor dem DATEV-Export eine steuerliche Zuordnung.');
   const delimiter = ";";
   const headers = ["Umsatz", "Soll/Haben-Kennzeichen", "WKZ Umsatz", "Belegdatum", "Belegfeld 1", "Buchungstext", "Konto", "Gegenkonto", "Steuerschlüssel", "Elyon-Transaktions-ID"];
   const rows = transactions.filter((entry) => !entry.voidedAt).map((entry) => {
@@ -499,7 +613,7 @@ export function exportDatevPreparation(transactions = [], settings = {}) {
       item.id,
     ];
   });
-  return [headers, ...rows].map((row) => row.map((value) => quoteCsv(value, delimiter)).join(delimiter)).join("\r\n");
+  return [headers, ...rows].map((row, rowIndex) => row.map((value, index) => quoteCsv(value, delimiter, rowIndex > 0 && index === 0)).join(delimiter)).join("\r\n");
 }
 
 
@@ -508,35 +622,61 @@ export function exportDatevPreparation(transactions = [], settings = {}) {
  * review or with an unconverted currency must never leak into a tax working
  * export. Voided entries are excluded, not treated as blockers.
  */
-export function selectApprovedEurTransactions(transactions = []) {
+export function getSupplierRefundTaxReview(transaction, reviews = {}) {
+  const row=normalizeFinanceTransaction(transaction,transaction?.source);
+  if(row.category!=='supplier_refund'||row.source!=='supplier_receipt_verified'||row.supplierReceipt?.kind!=='refund'||row.amount<=0)return null;
+  const history=reviews && typeof reviews==='object' ? reviews[row.transactionId] : null;
+  if(!Array.isArray(history)||!history.length||history.length>50)return null;
+  const amountCents=Math.round(row.amount*100),proofSha=text(row.supplierReceipt.sha256).toLowerCase(),original=text(row.supplierReceipt.originalTransactionId),date=row.transactionDate.slice(0,10);
+  if(!Number.isSafeInteger(amountCents)||amountCents<=0||row.amount!==amountCents/100||row.supplierReceipt.allocationCents!==amountCents||!/^[a-f0-9]{64}$/.test(proofSha)||!original)return null;
+  for(const review of history)if(!review||review.version!==1||review.confirmed!==true||review.transactionId!==row.transactionId||review.proofSha!==proofSha||review.originalTransactionId!==original||review.amountCents!==amountCents||review.paymentDate!==date||!['expense_reduction','other_income'].includes(review.method)||typeof review.note!=='string'||review.note.trim().length<3||review.note.length>300||Number.isNaN(Date.parse(review.reviewedAt)))return null;
+  return history[history.length-1];
+}
+
+export function selectApprovedEurTransactions(transactions = [], reviews = {}) {
   const active = transactions.map((entry) => normalizeFinanceTransaction(entry, entry.source))
     .filter((entry) => !entry.voidedAt);
   const unapproved = active.filter((entry) => entry.status !== "approved");
   const foreignCurrencies = [...new Set(active.filter((entry) => entry.currency !== "EUR").map((entry) => entry.currency))];
+  const unclassifiedRefundCount = active.filter(entry => entry.category === 'supplier_refund' && !getSupplierRefundTaxReview(entry,reviews)).length;
   return {
-    ready: unapproved.length === 0 && foreignCurrencies.length === 0,
+    ready: unapproved.length === 0 && foreignCurrencies.length === 0 && unclassifiedRefundCount === 0,
     unapprovedCount: unapproved.length,
+    unclassifiedRefundCount,
     foreignCurrencies,
-    transactions: active.filter((entry) => entry.status === "approved" && entry.currency === "EUR"),
+    transactions: active.filter((entry) => entry.status === "approved" && entry.currency === "EUR" && (entry.category !== 'supplier_refund' || getSupplierRefundTaxReview(entry,reviews))),
   };
 }
 
-export function buildEurSummary(transactions = []) {
-  const metrics = calculateMetrics(transactions);
+export function buildEurSummary(transactions = [], reviews = {}) {
+  const normalized=transactions.map(entry=>normalizeFinanceTransaction(entry,entry.source));
+  const excludedRefundCount=normalized.filter(entry=>!entry.voidedAt&&entry.category==='supplier_refund'&&!getSupplierRefundTaxReview(entry,reviews)).length;
+  const manualRefundReviews=normalized.filter(entry=>!entry.voidedAt&&entry.category==='supplier_refund').flatMap(entry=>{
+    const review=getSupplierRefundTaxReview(entry,reviews);return review?[{transactionId:entry.transactionId,documentId:entry.supplierReceipt.documentId,originalTransactionId:review.originalTransactionId,method:review.method,amount:entry.amount,paymentDate:review.paymentDate,reviewedAt:review.reviewedAt,note:review.note}]:[];
+  });
+  const workingRows=normalized.flatMap(entry=>{
+    if(entry.category!=='supplier_refund')return [entry];
+    const review=getSupplierRefundTaxReview(entry,reviews);if(!review)return [];
+    return [review.method==='other_income'?{...entry,transactionType:'ADJUSTMENT',category:'other_income'}:entry];
+  });
+  const metrics = calculateMetrics(workingRows);
+  const incomeCents=Math.round(metrics.revenue*100),expenseCents=Math.round(metrics.expenses*100);
+  const money=value=>Math.round(value*100)/100;
   return {
     period: "laufender Datenbestand",
-    operatingIncome: metrics.revenue,
-    operatingExpenses: metrics.expenses,
-    surplus: metrics.profit,
+    operatingIncome: incomeCents/100,
+    operatingExpenses: expenseCents/100,
+    surplus: (incomeCents-expenseCents)/100,
     details: {
-      refunds: metrics.refunds,
-      ebayFees: metrics.ebayFees,
-      advertising: metrics.advertising,
-      goodsAndSupplier: metrics.supplier,
-      shipping: metrics.shipping,
-      otherExpenses: metrics.otherExpenses,
+      refunds: money(metrics.refunds),
+      ebayFees: money(metrics.ebayFees),
+      advertising: money(metrics.advertising),
+      goodsAndSupplier: money(metrics.supplier),
+      shipping: money(metrics.shipping),
+      otherExpenses: money(metrics.otherExpenses),
     },
-    disclaimer: "Arbeitsauswertung zur Buchhaltungsvorbereitung; keine Steuererklärung und keine steuerliche Freigabe.",
+    manualRefundReviews,
+    disclaimer: "Arbeitsauswertung zur Buchhaltungsvorbereitung; keine Steuererklärung und keine steuerliche Freigabe."+(manualRefundReviews.length ? " Lieferantenerstattungen wurden manuell zugeordnet; die Software prüft die steuerliche Richtigkeit nicht." : "")+(excludedRefundCount ? ` ${excludedRefundCount} Lieferantenerstattungen sind nicht enthalten; steuerliche Zuordnung offen.` : ""),
   };
 }
 

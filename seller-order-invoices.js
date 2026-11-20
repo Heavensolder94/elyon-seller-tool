@@ -27,7 +27,7 @@
   const num = (value) => Number.isFinite(Number(value)) ? Number(value) : 0;
   const money = (value, currency) => {
     try { return new Intl.NumberFormat('de-DE', { style: 'currency', currency: currency || 'EUR' }).format(num(value)); }
-    catch { return num(value).toFixed(2) + ' ' + (currency || 'EUR'); }
+    catch { return num(value).toFixed(2) + ' ' + esc(currency || 'EUR'); }
   };
   const readJson = (key, fallback) => { try { return JSON.parse(localStorage.getItem(key) || '') || fallback; } catch { return fallback; } };
   const readMeta = () => serverLoaded && Object.keys(serverState.invoiceMeta || {}).length ? serverState.invoiceMeta : readJson(META_KEY, {});
@@ -227,16 +227,33 @@
     popup.document.write(html);
     popup.document.close();
   }
-  function openExistingInvoice(meta) {
+  function displayOriginalPdf(base64, popup) {
+    const bytes = Uint8Array.from(atob(base64), ch => ch.charCodeAt(0));
+    const url = URL.createObjectURL(new Blob([bytes], {type:'application/pdf'}));
+    popup.location.href = url;
+    setTimeout(() => URL.revokeObjectURL(url), 600000);
+  }
+  async function openExistingInvoice(meta, orderId) {
     if (!meta?.immutable || !meta.invoice) {
-      notify('Ältere Rechnungsdaten gefunden. Bitte im bisherigen Rechnungsarchiv prüfen. Keine neue Rechnung erzeugt.', 'Historischer Beleg');
+      notify('Historische Metadaten stehen unten in der Rechnungsliste. Ein Original ist daraus nicht belegbar; keine neue Rechnung erzeugt.', 'Historischer Beleg');
       return;
     }
-    printInvoice(meta.invoice);
+    const popup = window.open('', '_blank');
+    if (!popup) { notify('Bitte Pop-ups für das Seller Tool erlauben.', 'Rechnung'); return; }
+    try {
+      const response = await fetch('/api/finance?action=read-issued-invoice&orderId=' + encodeURIComponent(orderId || meta.invoice.orderId), { credentials:'same-origin', cache:'no-store', headers:{Accept:'application/json'} });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.ok || !data.invoice) throw new Error(data.message || 'Archiv-Rechnung konnte nicht geprüft werden.');
+      if (data.pdfBase64) displayOriginalPdf(data.pdfBase64, popup);
+      else { notify('Historische Rechnung: kein Original-PDF archiviert. Vorschau wird aus dem Snapshot rekonstruiert.', 'Historischer Beleg'); printInvoice(data.invoice, popup); }
+    } catch (error) {
+      try { popup.close(); } catch {}
+      window.alert('Rechnung nicht geöffnet: ' + error.message);
+    }
   }
   async function createInvoice(order) {
     const meta = readMeta();
-    if (meta[order.id]) return openExistingInvoice(meta[order.id]);
+    if (meta[order.id]) return openExistingInvoice(meta[order.id], order.id);
     if (issueBusy.has(order.id)) return;
     if (!window.confirm(
       'Rechnung für eBay-Bestellung ' + order.id +
@@ -271,18 +288,64 @@
       };
       serverLoaded = true;
       try { localStorage.setItem(META_KEY, JSON.stringify(serverState.invoiceMeta)); } catch {}
-      printInvoice(data.invoice, printWindow);
+      // Always re-read the persisted archive winner; concurrent requests may
+      // have produced a different, unreferenced provisional Drive object.
+      if (printWindow) {
+        const archivedResponse = await fetch('/api/finance?action=read-issued-invoice&orderId=' + encodeURIComponent(order.id), {credentials:'same-origin',cache:'no-store',headers:{Accept:'application/json'}});
+        const archived = await archivedResponse.json().catch(() => ({}));
+        if (!archivedResponse.ok || !archived.ok) throw new Error('Rechnung ausgestellt, aber archiviertes Original nicht abrufbar. Bitte Archiv prüfen und nicht erneut ausstellen.');
+        if (archived.pdfBase64) displayOriginalPdf(archived.pdfBase64, printWindow);
+        else printInvoice(archived.invoice, printWindow);
+      }
       notify('Rechnung ' + data.invoiceNumber + (data.existing ? ' erneut geöffnet.' : ' ausgestellt und serverseitig gesichert.') +
         ' Versand an den Kunden erfolgt nicht automatisch.', 'Rechnung');
     } catch (error) {
       try { printWindow?.close(); } catch {}
-      notify('Keine Rechnung ausgestellt: ' + error.message, 'Pflichtfeldprüfung');
-      window.alert('Rechnung blockiert:\n' + error.message +
+      notify('Rechnungsstatus prüfen: ' + error.message, 'Rechnung');
+      window.alert('Rechnungsstatus prüfen:\n' + error.message +
         '\n\nVerkäuferdaten und Kleinunternehmerstatus bitte unter Finanzen → Einstellungen prüfen.');
     } finally {
       issueBusy.delete(order.id);
       render();
     }
+  }
+
+  async function cancelInvoice(orderId) {
+    const reason = window.prompt('Grund für die vollständige Stornorechnung (keine automatische Erstattung):', '');
+    if (!reason || !reason.trim()) return;
+    if (!window.confirm('Vollständige Stornorechnung verbindlich ausstellen? Die ursprüngliche Rechnung bleibt erhalten. Keine Kundennachricht und keine Zahlung werden ausgelöst.')) return;
+    try {
+      const response = await fetch('/api/finance?action=cancel-issued-invoice', {method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify({orderId,reason})});
+      const data = await response.json().catch(()=>({}));
+      if (!response.ok || !data.ok) throw new Error(data.message || 'Storno konnte nicht bestätigt werden.');
+      await loadServerState(); render();
+      notify('Stornorechnung ' + data.invoice.invoiceNumber + (data.existing ? ' war bereits vorhanden.' : ' erstellt.') + ' Keine Rückzahlung oder Nachricht wurde ausgelöst.', 'Storno');
+    } catch (error) { window.alert('Stornostatus prüfen: ' + error.message + ' Vor erneutem Versuch Archiv neu laden.'); }
+  }
+
+  async function createReplacement(orderId) {
+    if (!window.confirm('Ersatzrechnung jetzt anhand der aktuellen eBay-Bestelldaten ausstellen? Original und Storno bleiben erhalten. Keine Nachricht oder Zahlung wird ausgelöst.')) return;
+    try {
+      const response=await fetch('/api/finance?action=issue-replacement-invoice',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify({orderId})});
+      const data=await response.json().catch(()=>({}));
+      if (!response.ok || !data.ok) throw new Error(data.message || 'Ersatzrechnung nicht bestätigt.');
+      await loadServerState();render();notify('Ersatzrechnung '+data.invoice.invoiceNumber+(data.existing?' war bereits vorhanden.':' erstellt.')+' Kein automatischer Kundenversand.', 'Ersatzrechnung');
+    } catch(error) {window.alert('Status der Ersatzrechnung prüfen: '+error.message+' Vor erneutem Versuch Archiv neu laden.');}
+  }
+
+  async function correctInvoice(orderId) {
+    const entry=readMeta()[orderId];if(!entry?.invoice)return;
+    const choices={'1':['buyerName','Name',entry.invoice.buyer?.name],'2':['buyerStreet','Straße',entry.invoice.buyer?.addressLine1],'3':['buyerPostalCode','Postleitzahl',entry.invoice.buyer?.postalCode],'4':['buyerCity','Empfängerort',entry.invoice.buyer?.city],'5':['sellerName','Verkäufername',entry.invoice.seller?.name],'6':['sellerStreet','Verkäuferstraße',entry.invoice.seller?.addressLine1],'7':['sellerPostalCode','Verkäufer-PLZ',entry.invoice.seller?.postalCode],'8':['sellerCity','Verkäuferort',entry.invoice.seller?.city],'9':['sellerTaxId','Steuerliche Identifikation',entry.invoice.seller?.taxId],'10':['singleLineAmount','Positions- und Gesamtbetrag in EUR',entry.invoice.total]};
+    const choice=window.prompt('Welche Angabe berichtigen? Empfänger: 1 Name · 2 Straße · 3 PLZ · 4 Ort. Verkäufer: 5 Name · 6 Straße · 7 PLZ · 8 Ort · 9 Steuer-ID. Betrag: 10 (nur Einzelposition ohne Versand und Rabatt).','');
+    if(!choice)return;const selected=choices[choice.trim()];if(!selected){window.alert('Ungültige Auswahl.');return;}
+    const newValue=window.prompt('Berichtigter Wert für '+selected[1]+' (bisher: '+(selected[2]||'unbekannt')+')','');if(!newValue)return;
+    const reason=window.prompt('Grund der Berichtigung:','');if(!reason)return;
+    if(!window.confirm('Berichtigungsbeleg zur ursprünglichen Rechnung verbindlich ausstellen? Keine Buchungen, Rückzahlungen oder Zahlungen werden automatisch geändert.'))return;
+    try{
+      const response=await fetch('/api/finance?action=correct-issued-invoice',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify({orderId,change:{field:selected[0],newValue,reason}})});
+      const data=await response.json().catch(()=>({}));if(!response.ok||!data.ok)throw new Error(data.message||'Berichtigung nicht bestätigt.');
+      await loadServerState();render();notify('Berichtigungsbeleg '+data.invoice.documentNumber+(data.existing?' war bereits vorhanden.':' erstellt.')+' Kein automatischer Versand.','Berichtigung');
+    }catch(error){window.alert('Status prüfen: '+error.message+' Vor erneutem Versuch Archiv neu laden.');}
   }
 
   function statusLabel(value) { const hit = STATUS_OPTIONS.find((item) => item[0] === value); return hit ? hit[1] : value; }
@@ -303,18 +366,20 @@
     let html = '<div class="eoi-head"><div><h3>Bestellzentrale · Rechnung · Versand</h3><div class="eoi-muted">eBay-Bestellungen, interne Statusführung, Tracking und Rechnungsdruck in einem Ablauf.</div></div><button type="button" class="eoi-btn primary" data-eoi-load>' + (loading ? 'Lade…' : 'Bestellungen laden') + '</button></div>';
     html += '<div class="eoi-summary"><div class="eoi-card"><span class="eoi-muted">Bestellungen</span><strong>' + orders.length + '</strong></div><div class="eoi-card"><span class="eoi-muted">Offen</span><strong>' + (count('NEW') + count('PAID') + count('TO_BE_SHIPPED')) + '</strong></div><div class="eoi-card"><span class="eoi-muted">Versendet</span><strong>' + count('SHIPPED') + '</strong></div><div class="eoi-card"><span class="eoi-muted">Umsatz</span><strong>' + money(total, 'EUR') + '</strong><span class="eoi-muted">Kosten/Gewinn noch nicht zugeordnet</span></div></div>';
     if (error || errorMessage) html += '<div class="eoi-error">' + esc(error || errorMessage) + '</div>';
-    const archived = Object.values(meta).filter(entry => entry?.immutable === true && entry.invoice);
+    const archived = Object.entries(meta).filter(([,entry]) => entry?.immutable === true && entry.invoice);
     if (archived.length) {
       html += '<div class="eoi-note" style="margin-top:15px"><strong>Ausgestellte Rechnungen (serverseitige Momentaufnahme)</strong></div>';
       html += '<div style="overflow:auto"><table class="eoi-table"><thead><tr><th>Rechnung</th><th>eBay-Bestellung</th><th>Betrag</th><th>Dokument</th></tr></thead><tbody>' +
-        archived.sort((a,b)=>String(b.invoice?.issuedAt||'').localeCompare(String(a.invoice?.issuedAt||'')))
-          .map(entry=>'<tr><td>' + esc(entry.invoiceNumber) + '</td><td>' + esc(entry.invoice.orderId) +
-            '</td><td>' + money(entry.invoice.total,'EUR') + '</td><td><button type="button" class="eoi-btn" data-eoi-archive="' +
-            esc(entry.invoice.orderId) + '">Rechnung öffnen / PDF</button></td></tr>').join('') + '</tbody></table></div>';
+        archived.sort((a,b)=>String(b[1].invoice?.issuedAt||'').localeCompare(String(a[1].invoice?.issuedAt||'')))
+          .map(([recordId,entry])=>'<tr><td>' + esc(entry.invoiceNumber) + '</td><td>' + esc(entry.invoice.orderId) +
+            '</td><td>' + (entry.invoice.documentKind === 'correction' ? '–' : money(entry.invoice.total,'EUR')) + '</td><td><button type="button" class="eoi-btn" data-eoi-archive="' +
+            esc(recordId) + '">Beleg öffnen / PDF</button>' + (entry.invoice.documentKind === 'correction' ? '<div class="eoi-muted">Berichtigung zu ' + esc(entry.invoice.originalInvoiceNumber) + '</div>' : entry.invoice.documentKind === 'cancellation' ? '<div class="eoi-muted">Storno zu ' + esc(entry.invoice.originalInvoiceNumber) + '</div>' : entry.invoice.documentKind === 'replacement' ? '<div class="eoi-muted">Ersatz für ' + esc(entry.invoice.originalInvoiceNumber) + '</div>' : Object.values(meta).some(x => x?.invoice?.documentKind === 'cancellation' && x.invoice.originalInvoiceNumber === entry.invoiceNumber) ? '<button type="button" class="eoi-btn" data-eoi-replace="' + esc(recordId) + '">Ersatzrechnung ausstellen</button>' : '<button type="button" class="eoi-btn" data-eoi-correct="' + esc(recordId) + '">Angabe berichtigen</button>' + (Object.values(meta).some(x => x?.invoice?.documentKind === 'correction' && x.invoice.originalOrderId === recordId) ? '<div class="eoi-muted">Vollstorno nach Berichtigung nur nach fachlichem Abgleich.</div>' : '<button type="button" class="eoi-btn" data-eoi-cancel="' + esc(recordId) + '">Vollständig stornieren</button>')) + '</td></tr>').join('') + '</tbody></table></div>';
     }
-    const legacyCount = Object.values(meta).filter(entry => entry && !entry.immutable).length;
-    if (legacyCount) html += '<div class="eoi-error" style="margin-top:10px">' +
-      legacyCount + ' frühere Rechnungseinträge erkannt. Nicht erneut ausstellen; historische Belege manuell abgleichen.</div>';
+    const legacy = Object.entries(meta).filter(([, entry]) => entry && !entry.immutable);
+    if (legacy.length) {
+      html += '<div class="eoi-error" style="margin-top:10px">Frühere Rechnungseinträge: schreibgeschützt. Ein Originaldokument ist daraus nicht belegbar. Keine erneute Ausstellung ohne Bestandsabgleich.</div>';
+      html += '<div style="overflow:auto"><table class="eoi-table"><thead><tr><th>Bestellung</th><th>Historische Rechnungsnummer</th><th>Erfasst am</th></tr></thead><tbody>' + legacy.map(([id, entry]) => '<tr><td>' + esc(id) + '</td><td>' + esc(entry.invoiceNumber || 'unbekannt') + '</td><td>' + esc(entry.createdAt || entry.issuedAt || 'unbekannt') + '</td></tr>').join('') + '</tbody></table></div>';
+    }
     if (!orders.length) html += '<div class="eoi-muted" style="margin-top:14px">Noch keine Bestellungen geladen.</div>';
     else {
       html += '<div style="overflow:auto"><table class="eoi-table"><thead><tr><th>Bestellung</th><th>eBay</th><th>Betrag</th><th>Prozess & Versand</th><th>Rechnung</th></tr></thead><tbody>';
@@ -339,8 +404,14 @@
 
   document.addEventListener('click', (event) => {
     if (event.target.closest && event.target.closest('[data-eoi-load]')) return loadOrders();
+    const correctButton = event.target.closest && event.target.closest('[data-eoi-correct]');
+    if (correctButton) { correctInvoice(correctButton.dataset.eoiCorrect); return; }
+    const replaceButton = event.target.closest && event.target.closest('[data-eoi-replace]');
+    if (replaceButton) { createReplacement(replaceButton.dataset.eoiReplace); return; }
+    const cancelButton = event.target.closest && event.target.closest('[data-eoi-cancel]');
+    if (cancelButton) { cancelInvoice(cancelButton.dataset.eoiCancel); return; }
     const archivedButton = event.target.closest && event.target.closest('[data-eoi-archive]');
-    if (archivedButton) { openExistingInvoice(readMeta()[archivedButton.dataset.eoiArchive]); return; }
+    if (archivedButton) { openExistingInvoice(readMeta()[archivedButton.dataset.eoiArchive], archivedButton.dataset.eoiArchive); return; }
     const invoiceButton = event.target.closest && event.target.closest('[data-eoi-invoice]');
     if (invoiceButton) { const order = orders.find((item) => item.id === invoiceButton.dataset.eoiInvoice); if (order) createInvoice(order); return; }
     const saveButton = event.target.closest && event.target.closest('[data-eoi-save]');

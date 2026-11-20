@@ -56,6 +56,14 @@ test('incomplete buyer, missing order lines and foreign delivery fail closed', (
   assert.ok(result.errors.some(s => /Artikelposition/.test(s)));
 });
 
+test('automatic invoice issuance requires an explicitly paid eBay order', () => {
+  for(const status of ['',undefined,'UNPAID','NOT_PAID','PARTIALLY_PAID','PENDING','FAILED','UNKNOWN','PAID_UNKNOWN']){
+    const raw=order();raw.orderPaymentStatus=status;const result=buildKleinunternehmerInvoiceDraft(raw,settings);
+    assert.equal(result.ok,false,`unexpectedly accepted ${status}`);assert.ok(result.errors.some(error=>error.includes('Zahlungsstatus')));
+  }
+  assert.equal(buildKleinunternehmerInvoiceDraft(order(),settings).ok,true);
+});
+
 test('wrong currency, mismatched totals and marketplace tax never result in invoice', () => {
   const raw = order(); raw.pricingSummary.total.value = '35.00';
   raw.pricingSummary.tax = { value: '1.00', currency: 'EUR' };
@@ -76,4 +84,23 @@ test('legacy sync cannot inject an issued invoice or mutate a signed server snap
   } });
   assert.equal(stale.state.invoiceMeta.abc.invoiceNumber, issued.invoiceNumber);
   assert.equal(stale.state.invoiceMeta.abc.invoice.total, 29);
+});
+
+
+test('one-cent mismatch or missing line currency cannot be issued as a confirmed EUR invoice', () => {
+  const mismatch = order(); mismatch.pricingSummary.total.value = '29.01';
+  assert.equal(buildKleinunternehmerInvoiceDraft(mismatch, settings).ok, false);
+  const unknownCurrency = order(); delete unknownCurrency.lineItems[0].lineItemCost.currency;
+  assert.equal(buildKleinunternehmerInvoiceDraft(unknownCurrency, settings).ok, false);
+});
+
+
+test('archived invoice snapshot detects tampering and missing checksum', async () => {
+  const { createHash } = await import('node:crypto');
+  const { verifyInvoiceSnapshot } = await import('../lib/kleinunternehmer-invoice-store.js');
+  const invoice = { invoiceNumber: 'TEST-1', total: 12 };
+  const record = { invoice, snapshotHash: createHash('sha256').update(JSON.stringify(invoice)).digest('hex') };
+  assert.equal(verifyInvoiceSnapshot(record), true);
+  assert.equal(verifyInvoiceSnapshot({ ...record, invoice: { ...invoice, total: 1 } }), false);
+  assert.equal(verifyInvoiceSnapshot({ invoice }), false);
 });

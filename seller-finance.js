@@ -3,6 +3,9 @@ import {
   normalizeFinanceTransaction,
   mergeTransactions,
   bookingProposal,
+  buildReceiptCostProposal,
+  buildSupplierRefundProposal,
+  getSupplierRefundTaxReview,
   calculateMetrics,
   exportTransactionsCsv,
   exportDatevPreparation,
@@ -28,6 +31,8 @@ const day = new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "2-digit" 
 let state = defaultState();
 let activePanel = "dashboard";
 let stagedImport = null;
+let stagedReceiptCost = null;
+let stagedSupplierRefund = null;
 let serverStatus = null;
 let selectedTransactionIds = new Set();
 let period = defaultPeriod();
@@ -41,6 +46,7 @@ let saveInFlight = false;
 let localSequence = 0;
 
 function pendingSync() { return localStorage.getItem(SYNC_PENDING_KEY) === "1"; }
+function currentRefundTaxReviews() { return syncReady && !syncConflict && !pendingSync() ? state.supplierRefundTaxReviews : {}; }
 function rememberedRevision() {
   const raw = localStorage.getItem(SYNC_REVISION_KEY);
   return raw === null ? null : Number(raw);
@@ -73,7 +79,7 @@ function uid(prefix) { return `${prefix}_${Date.now()}_${Math.random().toString(
 function defaultState() {
   return {
     version: 2,
-    transactions: [], documents: [], suppliers: [], imports: [], auditLog: [], monthClosures: {},
+    transactions: [], documents: [], suppliers: [], imports: [], auditLog: [], monthClosures: {}, supplierRefundTaxReviews: {},
     settings: {
       locale: "de-DE", currency: BASE_CURRENCY, taxMode: "unconfigured", defaultTaxCode: "",
       invoicePrefix: "ELYON", nextInvoiceNumber: 1,
@@ -98,6 +104,7 @@ function normalizeState(value = {}) {
     imports: Array.isArray(source.imports) ? source.imports : [],
     auditLog: Array.isArray(source.auditLog) ? source.auditLog : [],
     monthClosures: source.monthClosures && typeof source.monthClosures === "object" ? source.monthClosures : {},
+    supplierRefundTaxReviews: source.supplierRefundTaxReviews && typeof source.supplierRefundTaxReviews === 'object' && !Array.isArray(source.supplierRefundTaxReviews) ? source.supplierRefundTaxReviews : {},
     settings: { ...defaults.settings, ...(source.settings || {}) },
   };
 }
@@ -109,7 +116,11 @@ function defaultPeriod(now = new Date()) {
 }
 
 function monthLabel(date) { return new Intl.DateTimeFormat("de-DE", { month: "long", year: "numeric" }).format(date); }
-function isoDay(date) { return new Date(date).toISOString().slice(0, 10); }
+export function financeLocalDay(value) {
+  const date=new Date(value);if(Number.isNaN(date.getTime()))return '';
+  return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+}
+function isoDay(date) { return financeLocalDay(date); }
 function monthKey(value) { const date = new Date(value); return Number.isNaN(date.getTime()) ? "" : `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`; }
 
 export function resolveFinancePeriod(preset = "month", now = new Date(), customStart = "", customEnd = "") {
@@ -161,21 +172,23 @@ function currentActiveTransactions() { return activeTransactions(currentTransact
 function currentEurTransactions() { return eurTransactions(currentActiveTransactions()); }
 function currentMetrics() { return calculateMetrics(currentEurTransactions()); }
 
-export function buildFinanceDataQuality(transactions = [], documents = []) {
+export function buildFinanceDataQuality(transactions = [], documents = [], reviews = {}) {
   const active = activeTransactions(transactions.map((entry) => normalizeFinanceTransaction(entry, entry.source)));
   const docs = new Set((documents || []).map((entry) => text(entry.id)).filter(Boolean));
   const revenueOrders = new Set(active.filter((entry) => entry.category === "revenue" && entry.orderId).map((entry) => entry.orderId));
   const supplierOrders = new Set(active.filter((entry) => entry.category === "supplier_expense" && entry.orderId).map((entry) => entry.orderId));
   const missingSupplierOrders = [...revenueOrders].filter((orderId) => !supplierOrders.has(orderId));
-  const expenseRows = active.filter((entry) => ["supplier_expense", "shipping_expense", "advertising_expense", "other_expense", "refund"].includes(entry.category));
+  const expenseRows = active.filter((entry) => ["supplier_expense", "supplier_refund", "shipping_expense", "advertising_expense", "other_expense", "refund"].includes(entry.category));
   const missingDocuments = expenseRows.filter((entry) => !(entry.documentIds || []).some((id) => docs.has(id)));
   const foreignCurrencies = [...new Set(active.map((entry) => text(entry.currency).toUpperCase()).filter((currency) => currency && currency !== BASE_CURRENCY))];
   const missingOrderId = active.filter((entry) => ["revenue", "refund", "supplier_expense"].includes(entry.category) && !entry.orderId);
   const unapproved = active.filter((entry) => entry.status !== "approved");
+  const unclassifiedRefundCount = active.filter(entry => entry.category === 'supplier_refund' && !getSupplierRefundTaxReview(entry,reviews)).length;
   return {
     activeCount: active.length,
     approvedCount: active.length - unapproved.length,
     unapprovedCount: unapproved.length,
+    unclassifiedRefundCount,
     missingSupplierOrders,
     missingSupplierCount: missingSupplierOrders.length,
     missingDocuments,
@@ -184,13 +197,14 @@ export function buildFinanceDataQuality(transactions = [], documents = []) {
     foreignCurrencyCount: foreignCurrencies.length,
     missingOrderIdCount: missingOrderId.length,
     documentCoverage: active.length ? active.filter((entry) => entry.documentIds?.length).length / active.length * 100 : 0,
-    ready: unapproved.length === 0 && missingSupplierOrders.length === 0 && foreignCurrencies.length === 0,
+    ready: unapproved.length === 0 && missingSupplierOrders.length === 0 && foreignCurrencies.length === 0 && unclassifiedRefundCount === 0,
   };
 }
 
 function transactionEconomicValue(entry) {
   const value = Math.abs(num(entry.amount || entry.totalFeeAmount));
-  if (["revenue", "other_income", "fee_credit"].includes(entry.category)) return value;
+  if (entry.category === 'supplier_refund' && num(entry.amount) <= 0) return 0;
+  if (["revenue", "other_income", "fee_credit", "supplier_refund"].includes(entry.category)) return value;
   if (entry.category === "transfer") return 0;
   return -value;
 }
@@ -202,8 +216,9 @@ export function buildOrderProfitability(transactions = []) {
     if (!entry.orderId || entry.category === "transfer") continue;
     const row = rows.get(entry.orderId) || {
       orderId: entry.orderId, itemIds: new Set(), titles: new Set(), revenue: 0, refunds: 0, ebayFees: 0,
-      advertising: 0, supplier: 0, shipping: 0, otherExpenses: 0, profit: 0, complete: true,
+      advertising: 0, supplier: 0, hasSupplier: false, shipping: 0, otherExpenses: 0, profit: 0, complete: true, unapprovedCount: 0,
     };
+    if (entry.status !== "approved") row.unapprovedCount += 1;
     if (entry.itemId) row.itemIds.add(entry.itemId);
     if (entry.title) row.titles.add(entry.title);
     const amount = Math.abs(num(entry.amount || entry.totalFeeAmount));
@@ -211,16 +226,37 @@ export function buildOrderProfitability(transactions = []) {
     else if (entry.category === "refund") row.refunds += amount;
     else if (entry.category === "ebay_fee") row.ebayFees += amount;
     else if (entry.category === "advertising_expense") row.advertising += amount;
-    else if (entry.category === "supplier_expense") row.supplier += amount;
+    else if (entry.category === "supplier_expense") {row.supplier += amount;row.hasSupplier = true;}
+    else if (entry.category === "supplier_refund") {if(num(entry.amount)>0)row.supplier -= amount;}
     else if (entry.category === "shipping_expense") row.shipping += amount;
     else row.otherExpenses += amount;
     row.profit += transactionEconomicValue(entry);
     rows.set(entry.orderId, row);
   }
   return [...rows.values()].map((row) => {
-    row.complete = row.revenue > 0 && row.supplier > 0;
+    row.complete = row.revenue > 0 && row.hasSupplier;
     return { ...row, itemIds: [...row.itemIds], titles: [...row.titles], marginPercent: row.revenue > 0 ? row.profit / row.revenue * 100 : 0 };
   }).sort((a, b) => b.profit - a.profit);
+}
+
+// Select sales by their transaction date, then include all saved events for
+// those same orders. This is a profitability view, not a cash-flow report.
+export function buildPeriodProfitability(transactions = [], selectedPeriod = {}) {
+  const active = activeTransactions(transactions.map(entry => normalizeFinanceTransaction(entry, entry.source)));
+  const selected = filterFinanceTransactions(active, selectedPeriod);
+  const orderIds = new Set(selected.filter(entry => entry.category === 'revenue' && entry.orderId && entry.currency === BASE_CURRENCY).map(entry => entry.orderId));
+  const linked = active.filter(entry => entry.orderId && orderIds.has(entry.orderId));
+  const eur = eurTransactions(linked);
+  const foreignByOrder = new Map();
+  for (const entry of linked) if (entry.currency !== BASE_CURRENCY && entry.category !== 'transfer') foreignByOrder.set(entry.orderId, (foreignByOrder.get(entry.orderId) || 0) + 1);
+  const orders = buildOrderProfitability(eur).map(row => ({...row, foreignCount: foreignByOrder.get(row.orderId) || 0, complete: row.complete && !foreignByOrder.has(row.orderId)}));
+  return {
+    orders,
+    products: buildProductProfitability(eur),
+    foreignCount: [...foreignByOrder.values()].reduce((sum, count) => sum + count, 0),
+    foreignSalesCount: selected.filter(entry => entry.category === 'revenue' && entry.currency !== BASE_CURRENCY).length,
+    unattributedCount: eur.filter(entry => !entry.itemId && !['revenue','other_income','fee_credit','transfer'].includes(entry.category)).length,
+  };
 }
 
 export function buildProductProfitability(transactions = []) {
@@ -232,7 +268,8 @@ export function buildProductProfitability(transactions = []) {
     const row = rows.get(key) || { itemId: key, title: entry.title || key, revenue: 0, costs: 0, profit: 0, orders: new Set() };
     if (entry.orderId) row.orders.add(entry.orderId);
     const delta = transactionEconomicValue(entry);
-    if (delta >= 0) row.revenue += delta; else row.costs += Math.abs(delta);
+    if (entry.category === 'supplier_refund') row.costs -= delta;
+    else if (delta >= 0) row.revenue += delta; else row.costs += Math.abs(delta);
     row.profit += delta;
     rows.set(key, row);
   }
@@ -276,13 +313,14 @@ function selectedMonthKey() {
   return startKey && startKey === endKey ? startKey : "";
 }
 
-export function buildMonthCloseReadiness(transactions = [], documents = []) {
-  const quality = buildFinanceDataQuality(transactions, documents);
+export function buildMonthCloseReadiness(transactions = [], documents = [], reviews = {}) {
+  const quality = buildFinanceDataQuality(transactions, documents, reviews);
   const blockers = [];
   if (quality.unapprovedCount) blockers.push(`${quality.unapprovedCount} ungeprüfte Vorgänge`);
   if (quality.missingSupplierCount) blockers.push(`${quality.missingSupplierCount} Bestellung(en) ohne Lieferantenkosten`);
   if (quality.foreignCurrencyCount) blockers.push(`${quality.foreignCurrencyCount} Fremdwährung(en) ungeklärt`);
   if (quality.missingDocumentCount) blockers.push(`${quality.missingDocumentCount} Ausgabe(n)/Erstattung(en) ohne Beleg`);
+  if (quality.unclassifiedRefundCount) blockers.push(`${quality.unclassifiedRefundCount} Lieferantenerstattung(en) steuerlich ungeklärt`);
   return { ready: blockers.length === 0, blockers, quality };
 }
 
@@ -364,6 +402,8 @@ async function api(action, options = {}) {
 }
 
 async function refreshServerStatus() { try { serverStatus = await api("status"); } catch (error) { serverStatus = { ok: false, message: error.message }; } render(); return serverStatus; }
+
+
 async function loadServer({ automatic = false } = {}) {
   try {
     const data = await api("load");
@@ -498,7 +538,7 @@ function render() {
   const tab = ensureTab();
   if (!tab.classList.contains("active") && document.getElementById("mainMenu")?.value !== TAB_ID && location.hash !== "#finance") return;
   const metrics = currentMetrics();
-  const quality = buildFinanceDataQuality(currentTransactions(), state.documents);
+  const quality = buildFinanceDataQuality(currentTransactions(), state.documents, currentRefundTaxReviews());
   tab.innerHTML = `<div class="ef-shell"><header class="ef-head"><div><div class="ef-eyebrow">Elyon Seller Tool · Finance V2</div><h2>Finanzen & Buchhaltung</h2><p class="ef-muted">Echte eBay-Finanzdaten, Kosten, Profitabilität, Belege, Auszahlungsabgleich und Monatsabschluss – mit prüfbaren Exporten.</p></div><div class="ef-actions"><button class="ef-btn" data-ef2-action="load-server">Server laden</button><button class="ef-btn" data-ef2-action="save-server">Persistent sichern</button><button class="ef-btn primary" data-ef2-action="ebay-preview">eBay synchronisieren</button></div></header><div class="ef-callout">Buchhaltungs- und Steuerdatenvorbereitung: keine Steuererklärung, keine automatische Übermittlung und keine eBay-Live-Aktion. DATEV-/EÜR-Exporte bleiben Arbeitsunterlagen bis zur fachlichen Prüfung.</div>${syncNotice || !syncReady ? `<div class="ef-callout ${syncConflict ? "bad" : ""}">${escapeHtml(syncNotice || "Finanzdaten: Server-Verbindung wird geprüft.")} ${pendingSync() ? "Lokale Änderungen sind noch nicht sicher serverseitig gespeichert." : ""}</div>` : ""}${periodMarkup()}${navMarkup()}<div id="elyonFinancePanel">${panelMarkup(activePanel, metrics, quality)}</div></div>`;
   if (activePanel === "invoices") setTimeout(() => window.ElyonOrderInvoices?.mount?.(), 0);
 }
@@ -510,7 +550,7 @@ function panelMarkup(panel, metrics, quality) {
   if (panel === "bookings") return bookingsMarkup();
   if (panel === "documents") return documentsMarkup();
   if (panel === "imports") return importsMarkup();
-  if (panel === "invoices") return `<section id="elyonOrderInvoicePanel" class="ef-panel ef-invoice-host"><div class="ef-empty">Bestell- und Rechnungszentrale wird geladen …</div></section>`;
+  if (panel === "invoices") return `<div class="ef-actions"><button class="ef-btn" data-ef2-panel="documents">Eingangsbelege & Archiv öffnen</button></div><section id="elyonOrderInvoicePanel" class="ef-panel ef-invoice-host"><div class="ef-empty">Bestell- und Rechnungszentrale wird geladen …</div></section>`;
   if (panel === "month_close") return monthCloseMarkup();
   if (panel === "reports") return reportsMarkup();
   if (panel === "audit") return auditMarkup();
@@ -523,30 +563,305 @@ function dashboardMarkup(metrics, quality) {
   const payouts = reconcilePayouts(currentEurTransactions());
   const buckets = buildMonthlyBuckets(state.transactions, 6);
   const maximum = Math.max(1, ...buckets.flatMap((row) => [row.revenue, Math.abs(row.profit)]));
-  return `<div class="ef-grid">${metricCard("Umsatz",metrics.revenue,"positive",`${metrics.transactionCount} Vorgänge im Zeitraum`)}${metricCard("Realer Gewinn",metrics.profit,metrics.profit>=0?"positive":"negative",`${percent.format(metrics.marginPercent)} % Marge`)}${metricCard("eBay-Gebühren",-metrics.ebayFees,"negative","Plattform- und Verkaufsgebühren")}${metricCard("Werbung",-metrics.advertising,"warning","Promoted Listings / Ads")}${metricCard("Wareneinkauf",-metrics.supplier,"negative","Lieferantenkosten")}${metricCard("Auszahlungen",metrics.payouts,"","Transfer, kein zweiter Umsatz")}</div><div class="ef-columns"><section class="ef-panel"><div class="ef-panel-head"><div><div class="ef-eyebrow">Entwicklung</div><h3>Umsatz & Gewinn · 6 Monate</h3></div></div><div class="ef-chart">${buckets.map((row)=>`<div class="ef-chart-col" title="${escapeHtml(row.key)} · Umsatz ${escapeHtml(money(row.revenue))} · Gewinn ${escapeHtml(money(row.profit))}"><div class="ef-chart-bar" style="height:${Math.max(2,row.revenue/maximum*160)}px"></div><div class="ef-chart-bar profit" style="height:${Math.max(2,Math.abs(row.profit)/maximum*160)}px"></div><span class="ef-chart-label">${escapeHtml(row.label)}</span></div>`).join("")}</div></section><aside class="ef-panel"><div class="ef-panel-head"><div><div class="ef-eyebrow">Finanz-Check</div><h3>Datenqualität</h3></div><span class="ef-status ${quality.ready?"approved":"needs_review"}">${quality.ready?"bereit":"prüfen"}</span></div><div class="ef-quality"><div><small>Geprüft</small><strong>${quality.approvedCount}/${quality.activeCount}</strong></div><div><small>Belegabdeckung</small><strong>${percent.format(quality.documentCoverage)} %</strong></div><div><small>EK fehlt</small><strong class="${quality.missingSupplierCount?"ef-warning":"ef-positive"}">${quality.missingSupplierCount}</strong></div><div><small>Fremdwährung</small><strong class="${quality.foreignCurrencyCount?"ef-negative":"ef-positive"}">${quality.foreignCurrencyCount}</strong></div></div><div class="ef-callout ${quality.ready?"good":""}" style="margin-top:12px">${quality.ready?"Der Zeitraum ist für den fachlichen Abschluss vorbereitet.":`${quality.unapprovedCount} ungeprüft · ${quality.missingDocumentCount} ohne Beleg · ${quality.missingOrderIdCount} ohne Order-ID`}</div></aside></div><div class="ef-columns"><section class="ef-panel"><div class="ef-panel-head"><div><div class="ef-eyebrow">Kostenstruktur</div><h3>Was kostet dein Umsatz?</h3></div></div>${costBars(metrics)}</section><aside class="ef-panel"><div class="ef-panel-head"><div><div class="ef-eyebrow">eBay-Verrechnung</div><h3>Auszahlungsabgleich</h3></div></div><div class="ef-list"><div class="ef-list-item"><span>Erwartete eBay-Auszahlung</span><strong>${money(payouts.expected)}</strong></div><div class="ef-list-item"><span>Tatsächlich erfasst</span><strong>${money(payouts.payouts)}</strong></div><div class="ef-list-item"><span>Differenz</span><strong class="${payouts.balanced?"ef-positive":"ef-warning"}">${money(payouts.difference)}</strong></div></div><button class="ef-btn" style="width:100%;margin-top:12px" data-ef2-panel="payouts">Abgleich öffnen</button></aside></div>`;
+  return `<div class="ef-grid">${metricCard("Umsatz",metrics.revenue,"positive",`${metrics.transactionCount} Vorgänge im Zeitraum`)}${metricCard("Gewinn (vorläufig)",metrics.profit,metrics.profit>=0?"positive":"negative",`${percent.format(metrics.marginPercent)} % Marge`)}${metricCard("eBay-Gebühren",-metrics.ebayFees,"negative","Plattform- und Verkaufsgebühren")}${metricCard("Werbung",-metrics.advertising,"warning","Promoted Listings / Ads")}${metricCard("Wareneinkauf",-metrics.supplier,"negative","Lieferantenkosten")}${metricCard("Auszahlungen",metrics.payouts,"","Transfer, kein zweiter Umsatz")}</div><div class="ef-columns"><section class="ef-panel"><div class="ef-panel-head"><div><div class="ef-eyebrow">Entwicklung</div><h3>Umsatz & Gewinn · 6 Monate</h3></div></div><div class="ef-chart">${buckets.map((row)=>`<div class="ef-chart-col" title="${escapeHtml(row.key)} · Umsatz ${escapeHtml(money(row.revenue))} · Gewinn ${escapeHtml(money(row.profit))}"><div class="ef-chart-bar" style="height:${Math.max(2,row.revenue/maximum*160)}px"></div><div class="ef-chart-bar profit" style="height:${Math.max(2,Math.abs(row.profit)/maximum*160)}px"></div><span class="ef-chart-label">${escapeHtml(row.label)}</span></div>`).join("")}</div></section><aside class="ef-panel"><div class="ef-panel-head"><div><div class="ef-eyebrow">Finanz-Check</div><h3>Datenqualität</h3></div><span class="ef-status ${quality.ready?"approved":"needs_review"}">${quality.ready?"bereit":"prüfen"}</span></div><div class="ef-quality"><div><small>Geprüft</small><strong>${quality.approvedCount}/${quality.activeCount}</strong></div><div><small>Belegabdeckung</small><strong>${percent.format(quality.documentCoverage)} %</strong></div><div><small>EK fehlt</small><strong class="${quality.missingSupplierCount?"ef-warning":"ef-positive"}">${quality.missingSupplierCount}</strong></div><div><small>Fremdwährung</small><strong class="${quality.foreignCurrencyCount?"ef-negative":"ef-positive"}">${quality.foreignCurrencyCount}</strong></div></div><div class="ef-callout ${quality.ready?"good":""}" style="margin-top:12px">${quality.ready?"Der Zeitraum ist für den fachlichen Abschluss vorbereitet.":`${quality.unapprovedCount} ungeprüft · ${quality.missingDocumentCount} ohne Beleg · ${quality.missingOrderIdCount} ohne Order-ID`}</div></aside></div><div class="ef-columns"><section class="ef-panel"><div class="ef-panel-head"><div><div class="ef-eyebrow">Kostenstruktur</div><h3>Was kostet dein Umsatz?</h3></div></div>${costBars(metrics)}</section><aside class="ef-panel"><div class="ef-panel-head"><div><div class="ef-eyebrow">eBay-Verrechnung</div><h3>Auszahlungsabgleich</h3></div></div><div class="ef-list"><div class="ef-list-item"><span>Erwartete eBay-Auszahlung</span><strong>${money(payouts.expected)}</strong></div><div class="ef-list-item"><span>Tatsächlich erfasst</span><strong>${money(payouts.payouts)}</strong></div><div class="ef-list-item"><span>Differenz</span><strong class="${payouts.balanced?"ef-positive":"ef-warning"}">${money(payouts.difference)}</strong></div></div><button class="ef-btn" style="width:100%;margin-top:12px" data-ef2-panel="payouts">Abgleich öffnen</button></aside></div>`;
 }
 function costBars(metrics) { const rows=[["eBay-Gebühren",metrics.ebayFees],["Werbung",metrics.advertising],["Lieferanten",metrics.supplier],["Versand",metrics.shipping],["Erstattungen",metrics.refunds],["Sonstige",metrics.otherExpenses]]; const max=Math.max(1,...rows.map(([,v])=>v)); return `<div class="ef-bars">${rows.map(([label,value])=>`<div class="ef-bar-row"><span>${label}</span><div class="ef-bar"><span style="width:${Math.min(100,value/max*100)}%"></span></div><strong>${money(value)}</strong></div>`).join("")}</div>`; }
 
-function categoryLabel(category) { return ({revenue:"Umsatz",ebay_fee:"eBay-Gebühr",advertising_expense:"Werbung",refund:"Erstattung",fee_credit:"Gebührengutschrift",shipping_expense:"Versand",supplier_expense:"Wareneinkauf",transfer:"Auszahlung",other_income:"Sonstiger Ertrag",other_expense:"Sonstige Ausgabe"})[category]||category||"Offen"; }
+function categoryLabel(category) { return ({revenue:"Umsatz",ebay_fee:"eBay-Gebühr",advertising_expense:"Werbung",refund:"Kundenerstattung",supplier_refund:"Lieferantenerstattung",fee_credit:"Gebührengutschrift",shipping_expense:"Versand",supplier_expense:"Wareneinkauf",transfer:"Auszahlung",other_income:"Sonstiger Ertrag",other_expense:"Sonstige Ausgabe"})[category]||category||"Offen"; }
+function refundTaxHistoryMarkup(item) {
+  const reviews=currentRefundTaxReviews(),latest=getSupplierRefundTaxReview(item,reviews);if(!latest)return '<div class="ef-warning">EÜR-Zuordnung offen oder Serverstand nicht synchronisiert</div>';
+  const history=reviews[item.transactionId];
+  return `<details><summary>Manuelle EÜR-Zuordnung (${history.length})</summary>${history.map(review=>`<div class="ef-muted">${escapeHtml(formatDate(review.reviewedAt))} · ${review.method==='expense_reduction'?'Minderung Wareneinkauf':'Sonstige Betriebseinnahme'} · ${escapeHtml(review.note)}</div>`).join('')}</details>`;
+}
 function transactionTable(rows) {
   if (!rows.length) return `<div class="ef-empty">Keine Vorgänge im ausgewählten Zeitraum.</div>`;
-  return `<div class="ef-table-wrap"><table class="ef-table"><thead><tr><th>✓</th><th>Datum</th><th>Vorgang</th><th>Bestellung</th><th>Kategorie</th><th>Betrag</th><th>Währung</th><th>Status</th><th>Beleg</th><th>Aktion</th></tr></thead><tbody>${rows.map((entry)=>{const item=normalizeFinanceTransaction(entry,entry.source);const voided=Boolean(item.voidedAt);const locked=isLockedDate(item.transactionDate);const docOptions=state.documents.map((doc)=>`<option value="${escapeHtml(doc.id)}" ${(item.documentIds||[]).includes(doc.id)?"selected":""}>${escapeHtml(doc.name)}</option>`).join("");return `<tr class="${locked?"ef-lock":""}"><td><input type="checkbox" data-ef2-select="${escapeHtml(item.id)}" ${selectedTransactionIds.has(item.id)?"checked":""} ${voided||locked?"disabled":""}></td><td>${escapeHtml(formatDate(item.transactionDate))}</td><td><strong>${escapeHtml(item.title)}</strong><div class="ef-code">${escapeHtml(item.transactionId||item.id)}</div>${locked?'<div class="ef-status needs_review" style="margin-top:5px">🔒 abgeschlossen</div>':""}</td><td>${escapeHtml(item.orderId||"–")}</td><td>${escapeHtml(categoryLabel(item.category))}</td><td class="${["revenue","other_income","fee_credit","transfer"].includes(item.category)?"ef-positive":"ef-negative"}">${money(item.amount)}</td><td>${escapeHtml(item.currency)}</td><td><span class="ef-status ${voided?"voided":item.status}">${voided?"Storno":item.status==="approved"?"geprüft":"prüfen"}</span></td><td><select data-ef2-doc-select="${escapeHtml(item.id)}" style="max-width:180px;background:#020617;color:#e5e7eb;border:1px solid rgba(148,163,184,.2);border-radius:8px;padding:6px"><option value="">Beleg …</option>${docOptions}</select><button class="ef-btn" style="padding:5px 7px;margin-left:4px" data-ef2-attach-doc="${escapeHtml(item.id)}" ${locked?"disabled":""}>Zuordnen</button></td><td><div class="ef-actions"><button class="ef-btn" data-ef2-approve="${escapeHtml(item.id)}" ${voided||locked||item.status==="approved"?"disabled":""}>Freigeben</button><button class="ef-btn danger" data-ef2-void="${escapeHtml(item.id)}" ${voided||locked?"disabled":""}>Storno</button></div></td></tr>`;}).join("")}</tbody></table></div>`;
+  return `<div class="ef-table-wrap"><table class="ef-table"><thead><tr><th>✓</th><th>Datum</th><th>Vorgang</th><th>Bestellung</th><th>Kategorie</th><th>Betrag</th><th>Währung</th><th>Status</th><th>Beleg</th><th>Aktion</th></tr></thead><tbody>${rows.map((entry)=>{const item=normalizeFinanceTransaction(entry,entry.source);const voided=Boolean(item.voidedAt);const locked=isLockedDate(item.transactionDate);const docOptions=state.documents.map((doc)=>`<option value="${escapeHtml(doc.id)}" ${(item.documentIds||[]).includes(doc.id)?"selected":""}>${escapeHtml(doc.name)}</option>`).join("");return `<tr class="${locked?"ef-lock":""}"><td><input type="checkbox" data-ef2-select="${escapeHtml(item.id)}" ${selectedTransactionIds.has(item.id)?"checked":""} ${voided||locked?"disabled":""}></td><td>${escapeHtml(formatDate(item.transactionDate))}</td><td><strong>${escapeHtml(item.title)}</strong><div class="ef-code">${escapeHtml(item.transactionId||item.id)}</div>${locked?'<div class="ef-status needs_review" style="margin-top:5px">🔒 abgeschlossen</div>':""}</td><td>${escapeHtml(item.orderId||"–")}</td><td>${escapeHtml(categoryLabel(item.category))}${item.category==="supplier_refund"?refundTaxHistoryMarkup(item):""}</td><td class="${["revenue","other_income","fee_credit","supplier_refund","transfer"].includes(item.category)?"ef-positive":"ef-negative"}">${money(item.amount)}</td><td>${escapeHtml(item.currency)}</td><td><span class="ef-status ${voided?"voided":item.status}">${voided?"Storno":item.status==="approved"?"geprüft":"prüfen"}</span></td><td><select data-ef2-doc-select="${escapeHtml(item.id)}" style="max-width:180px;background:#020617;color:#e5e7eb;border:1px solid rgba(148,163,184,.2);border-radius:8px;padding:6px"><option value="">Beleg …</option>${docOptions}</select><button class="ef-btn" style="padding:5px 7px;margin-left:4px" data-ef2-attach-doc="${escapeHtml(item.id)}" ${locked?"disabled":""}>Zuordnen</button></td><td><div class="ef-actions"><button class="ef-btn" data-ef2-approve="${escapeHtml(item.id)}" ${voided||locked||item.status==="approved"?"disabled":""}>Freigeben</button>${item.category==="supplier_refund"?`<button class="ef-btn" data-ef2-review-refund="${escapeHtml(item.id)}" ${voided||locked||item.status!=="approved"?"disabled":""}>${getSupplierRefundTaxReview(item,currentRefundTaxReviews())?"Zuordnung ändern":"EÜR zuordnen"}</button>`:""}<button class="ef-btn danger" data-ef2-void="${escapeHtml(item.id)}" ${voided||locked?"disabled":""}>Storno</button></div></td></tr>`;}).join("")}</tbody></table></div>`;
 }
 function transactionsMarkup() { const rows=currentTransactions(); return `<section class="ef-panel"><div class="ef-panel-head"><div><div class="ef-eyebrow">Sichere Freigaben</div><h3>Verkäufe & Transaktionen</h3><p class="ef-muted">Nur ausgewählte Vorgänge werden freigegeben. Abgeschlossene Monate sind gesperrt.</p></div><div class="ef-actions"><button class="ef-btn" data-ef2-action="select-unapproved">Ungeprüfte auswählen</button><button class="ef-btn success" data-ef2-action="approve-selected" ${selectedTransactionIds.size?"":"disabled"}>${selectedTransactionIds.size} ausgewählte freigeben</button><button class="ef-btn" data-ef2-action="download-csv">Zeitraum CSV</button></div></div>${transactionTable(rows)}</section>`; }
 
-function profitabilityMarkup() { const orders=buildOrderProfitability(currentEurTransactions()); const products=buildProductProfitability(currentEurTransactions()); return `<div class="ef-columns"><section class="ef-panel"><div class="ef-panel-head"><div><div class="ef-eyebrow">Order-Ebene</div><h3>Gewinn je Bestellung</h3></div><span class="ef-badge">${orders.length} Orders</span></div>${orders.length?`<div class="ef-table-wrap"><table class="ef-table"><thead><tr><th>Bestellung</th><th>Umsatz</th><th>EK</th><th>eBay</th><th>Ads</th><th>Versand</th><th>Erstattung</th><th>Gewinn</th><th>Marge</th><th>Status</th></tr></thead><tbody>${orders.map((row)=>`<tr><td><strong>${escapeHtml(row.orderId)}</strong></td><td>${money(row.revenue)}</td><td>${money(row.supplier)}</td><td>${money(row.ebayFees)}</td><td>${money(row.advertising)}</td><td>${money(row.shipping)}</td><td>${money(row.refunds)}</td><td class="${row.profit>=0?"ef-positive":"ef-negative"}"><strong>${money(row.profit)}</strong></td><td>${percent.format(row.marginPercent)} %</td><td><span class="ef-status ${row.complete?"approved":"needs_review"}">${row.complete?"vollständig":"EK fehlt"}</span></td></tr>`).join("")}</tbody></table></div>`:`<div class="ef-empty">Noch keine zuordenbaren Order-Finanzdaten.</div>`}</section><aside class="ef-panel"><div class="ef-panel-head"><div><div class="ef-eyebrow">SKU / Artikel</div><h3>Produktprofitabilität</h3></div></div><div class="ef-list">${products.slice(0,20).map((row)=>`<div class="ef-list-item"><div><strong>${escapeHtml(row.title||row.itemId)}</strong><span class="ef-muted">${row.orderCount} Bestellung(en) · ${percent.format(row.marginPercent)} % Marge</span></div><div style="text-align:right"><strong class="${row.profit>=0?"ef-positive":"ef-negative"}">${money(row.profit)}</strong><span class="ef-muted">${money(row.revenue)} Umsatz</span></div></div>`).join("")||'<div class="ef-empty">Noch keine Artikelzuordnung.</div>'}</div></aside></div>`; }
+function profitabilityMarkup() { const view=buildPeriodProfitability(state.transactions,period); const {orders,products}=view; return `<div class="ef-columns"><section class="ef-panel"><div class="ef-panel-head"><div><div class="ef-eyebrow">Order-Ebene</div><h3>Gewinn je Bestellung</h3></div><span class="ef-badge">${orders.length} Orders</span></div><div class="ef-callout">Auswahl nach Umsatzdatum im gewählten Zeitraum; zugehörige Kosten, Gebühren und Erstattungen aus allen gespeicherten Zeiträumen. Vorläufig: Kosten können fehlen oder ungeprüft sein. Keine Zahlungsfluss- oder EÜR-Auswertung. ${view.foreignCount || view.foreignSalesCount ? `Nicht eingerechnet: ${view.foreignCount} Fremdwährungsvorgänge und ${view.foreignSalesCount} Fremdwährungsumsätze im Zeitraum.` : ""}</div>${orders.length?`<div class="ef-table-wrap"><table class="ef-table"><thead><tr><th>Bestellung</th><th>Umsatz</th><th>EK</th><th>eBay</th><th>Ads</th><th>Versand</th><th>Erstattung</th><th>Gewinn</th><th>Marge</th><th>Status</th></tr></thead><tbody>${orders.map((row)=>`<tr><td><strong>${escapeHtml(row.orderId)}</strong></td><td>${money(row.revenue)}</td><td>${money(row.supplier)}</td><td>${money(row.ebayFees)}</td><td>${money(row.advertising)}</td><td>${money(row.shipping)}</td><td>${money(row.refunds)}</td><td class="${row.profit>=0?"ef-positive":"ef-negative"}"><strong>${money(row.profit)}</strong></td><td>${percent.format(row.marginPercent)} %</td><td><span class="ef-status ${row.complete&&!row.unapprovedCount?"approved":"needs_review"}">${row.foreignCount?"Fremdwährung prüfen":row.unapprovedCount?"prüfen":row.complete?"EK vorhanden":"EK fehlt"}</span></td></tr>`).join("")}</tbody></table></div>`:`<div class="ef-empty">Noch keine zuordenbaren Order-Finanzdaten.</div>`}</section><aside class="ef-panel"><div class="ef-panel-head"><div><div class="ef-eyebrow">SKU / Artikel</div><h3>Produktprofitabilität</h3></div></div><div class="ef-callout">Nur Vorgänge mit Artikel-ID. ${view.unattributedCount ? `${view.unattributedCount} Kosten- oder Erstattungsvorgänge ohne Artikel-ID fehlen hier; bitte Bestellübersicht prüfen.` : "Bestellkosten ohne Artikel-ID können nicht auf Produkte verteilt werden."}</div><div class="ef-list">${products.slice(0,20).map((row)=>`<div class="ef-list-item"><div><strong>${escapeHtml(row.title||row.itemId)}</strong><span class="ef-muted">${row.orderCount} Bestellung(en) · ${percent.format(row.marginPercent)} % Marge</span></div><div style="text-align:right"><strong class="${row.profit>=0?"ef-positive":"ef-negative"}">${money(row.profit)}</strong><span class="ef-muted">${money(row.revenue)} Umsatz</span></div></div>`).join("")||'<div class="ef-empty">Noch keine Artikelzuordnung.</div>'}</div></aside></div>`; }
 
 function payoutsMarkup() { const rec=reconcilePayouts(currentEurTransactions()); const transfers=currentEurTransactions().filter((entry)=>entry.category==="transfer"); return `<div class="ef-columns"><section class="ef-panel"><div class="ef-panel-head"><div><div class="ef-eyebrow">eBay-Verrechnungskonto</div><h3>Auszahlungsabgleich</h3></div><span class="ef-status ${rec.balanced?"approved":"needs_review"}">${rec.balanced?"abgeglichen":"Differenz prüfen"}</span></div><div class="ef-grid" style="grid-template-columns:repeat(3,minmax(0,1fr))">${metricCard("Erwartete Auszahlung",rec.expected,"", "eBay-Umsatz minus eBay-interne Kosten")}${metricCard("Tatsächlich erfasst",rec.payouts,"positive","Auszahlungen / Transfers")}${metricCard("Differenz",rec.difference,rec.balanced?"positive":"warning",rec.balanced?"0,00 € bzw. Rundungsdifferenz":"Abrechnung prüfen")}</div><div class="ef-callout ${rec.balanced?"good":""}" style="margin-top:13px">Lieferantenkosten werden bewusst nicht in den eBay-Auszahlungsabgleich eingerechnet, weil sie außerhalb des eBay-Verrechnungskontos anfallen.</div></section><aside class="ef-panel"><h3>Erfasste Auszahlungen</h3><div class="ef-list">${transfers.map((entry)=>`<div class="ef-list-item"><div><strong>${escapeHtml(formatDate(entry.transactionDate))}</strong><span class="ef-muted">${escapeHtml(entry.payoutId||entry.transactionId||"Transfer")}</span></div><strong>${money(Math.abs(entry.amount))}</strong></div>`).join("")||'<div class="ef-empty">Keine Auszahlungen im Zeitraum.</div>'}</div></aside></div>`; }
 
 function bookingsMarkup() { const rows=currentTransactions().filter((entry)=>!entry.voidedAt); const proposals=rows.map((entry)=>bookingProposal(entry,state.settings)); return `<section class="ef-panel"><div class="ef-panel-head"><div><div class="ef-eyebrow">Doppelte Erfassung vermeiden</div><h3>Buchungsvorschläge</h3></div><span class="ef-badge">${proposals.length} Vorschläge</span></div><div class="ef-callout good">eBay-Auszahlungen sind Geldtransfers und kein zusätzlicher Umsatz.</div>${proposals.length?`<div class="ef-table-wrap" style="margin-top:13px"><table class="ef-table"><thead><tr><th>Datum</th><th>Vorgang</th><th>Sollkonto</th><th>Habenkonto</th><th>Betrag</th><th>Steuer</th><th>Status</th></tr></thead><tbody>${proposals.map((item)=>`<tr><td>${escapeHtml(formatDate(item.date))}</td><td>${escapeHtml(item.label)}</td><td>${escapeHtml(item.debitAccount)}</td><td>${escapeHtml(item.creditAccount)}</td><td>${money(item.amount)}</td><td>${escapeHtml(item.taxCode||"ungeklärt")}</td><td><span class="ef-status ${item.status}">${item.status==="approved"?"geprüft":"Entwurf"}</span></td></tr>`).join("")}</tbody></table></div>`:'<div class="ef-empty">Noch keine Vorschläge.</div>'}</section>`; }
 
-function documentsMarkup() { return `<div class="ef-columns"><section class="ef-panel"><div class="ef-panel-head"><div><div class="ef-eyebrow">Originaldatei + SHA-256</div><h3>Belegarchiv</h3></div><span class="ef-badge">${state.documents.length} Belege</span></div><div class="ef-drop"><strong>Rechnungen, eBay-Abrechnungen und Zahlungsnachweise</strong><p class="ef-muted">Originaldateien liegen zunächst nur auf diesem Gerät. Über „In Drive sichern“ kannst du Belege bewusst in dein verbundenes Google Drive übertragen und später auf anderen PCs abrufen. Google Drive ist dadurch noch kein GoBD-geprüftes Archiv.</p><input id="efDocumentInput" type="file" multiple><label class="ef-btn primary" for="efDocumentInput">Belege auswählen</label></div><div class="ef-list" style="margin-top:13px">${state.documents.map((doc)=>`<div class="ef-list-item"><div><strong>${escapeHtml(doc.name)}</strong><span class="ef-muted">${escapeHtml(doc.type||"Datei")} · ${escapeHtml(formatDate(doc.createdAt))}</span><div class="ef-code">SHA-256 ${escapeHtml(doc.sha256||"offen")}</div></div><button class="ef-btn" data-ef2-cloud-doc="${escapeHtml(doc.id)}" ${doc.cloudFileId?"disabled":""}>${doc.cloudFileId?"In Drive gesichert":"In Drive sichern"}</button><button class="ef-btn" data-ef2-download-doc="${escapeHtml(doc.id)}">Öffnen</button></div>`).join("")||'<div class="ef-empty">Noch keine Belege archiviert.</div>'}</div></section><aside class="ef-panel"><h3>Belegzuordnung</h3><p class="ef-muted">Öffne „Transaktionen“ und ordne dort den passenden Beleg direkt dem Vorgang zu. Bestehende Zuordnungen werden nicht überschrieben, sondern ergänzt.</p><div class="ef-callout" style="margin-top:13px">Originalbelege bleiben unverändert. Eine neue Datei erhält eine neue SHA-256-Prüfsumme und einen Audit-Eintrag.</div></aside></div>`; }
+const DOCUMENT_TYPES = {
+  unclassified: "Nicht eingeordnet", supplier_invoice: "Lieferantenrechnung", order_confirmation: "Bestellbestätigung",
+  payment_proof: "Zahlungsnachweis", supplier_credit: "Lieferantengutschrift", refund_proof: "Erstattungsnachweis",
+  internal_receipt: "Eigenbeleg (intern)", outgoing_invoice: "Ausgangsrechnung", cancellation: "Storno / Korrektur", other: "Sonstiger Beleg",
+};
+
+// These are user-entered descriptions of an existing original, never a booking.
+export function validateDocumentMetadata(input = {}) {
+  const data = {};
+  const errors = [];
+  const warnings = [];
+  data.documentType = text(input.documentType || "unclassified");
+  if (!Object.hasOwn(DOCUMENT_TYPES, data.documentType)) errors.push("Ungültiger Belegtyp.");
+  for (const key of ["supplier", "invoiceReference", "orderReference", "ebayOrderId", "productReference"]) data[key] = text(input[key]).slice(0, 200);
+  for (const key of ["documentDate", "paymentDate"]) {
+    data[key] = text(input[key]);
+    if (data[key] && (!/^\d{4}-\d{2}-\d{2}$/.test(data[key]) || Number.isNaN(Date.parse(data[key])) || new Date(data[key]).toISOString().slice(0, 10) !== data[key])) errors.push("Ungültiges Datum.");
+  }
+  data.amount = text(input.amount).replace(",", ".");
+  if (data.amount && (!/^\d{1,12}(?:\.\d{1,2})?$/.test(data.amount) || !Number.isFinite(Number(data.amount)))) errors.push("Betrag muss positiv und auf höchstens zwei Nachkommastellen begrenzt sein.");
+  for (const key of ["receiptShippingAmountV1", "receiptAdditionalAmountV1"]) {
+    data[key] = text(input[key]).replace(",", ".");
+    if (data[key] && !/^\d{1,9}(?:\.\d{1,2})?$/.test(data[key])) errors.push("Versand- und Zusatzkosten benötigen einen gültigen Betrag.");
+  }
+  const lines = String(input.lineItemsText || "").split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+  if (lines.length > 100) errors.push("Höchstens 100 Belegpositionen sind zulässig.");
+  data.receiptLineItemsV1 = lines.slice(0, 100).map(line => {
+    const cells = line.split("|").map(text);
+    const [title, quantity, amount] = cells;
+    if (cells.length !== 3 || !title || title.length > 200 || !/^[1-9]\d{0,5}$/.test(quantity || "") || !/^\d{1,9}(?:[.,]\d{1,2})?$/.test(amount || "")) errors.push("Positionen bitte als Bezeichnung | ganze Menge | Gesamtbetrag angeben.");
+    return { title, quantity: Number(quantity), amount: (amount || "").replace(",", ".") };
+  });
+  data.currency = text(input.currency).toUpperCase();
+  data.receiptPaymentProofIdV1 = text(input.receiptPaymentProofIdV1).slice(0, 200);
+  if (data.currency && !/^[A-Z]{3}$/.test(data.currency)) errors.push("Währung bitte als dreistelligen Code eingeben.");
+  if ((data.amount || data.receiptShippingAmountV1 || data.receiptAdditionalAmountV1 || lines.length) && !data.currency) errors.push("Für Beträge bitte die Währung angeben.");
+  if (!errors.length && data.amount && data.receiptLineItemsV1.length) {
+    const cents = value => Math.round(Number(value || 0) * 100);
+    const total = data.receiptLineItemsV1.reduce((sum, row) => sum + cents(row.amount), 0) + cents(data.receiptShippingAmountV1) + cents(data.receiptAdditionalAmountV1);
+    if (total !== cents(data.amount)) warnings.push("Positionen, Versand und Zusatzkosten stimmen nicht mit dem Gesamtbetrag überein. Kostenübernahme bis zur Korrektur blockiert.");
+  }
+  data.reviewStatus = "needs_review";
+  return { ok: !errors.length, errors, warnings, data };
+}
+// Filename hints are suggestions only; document contents are never inferred.
+export function suggestSupplierFromFilename(name) {
+  const words = String(name || "").toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+  const matches = [["temu", "Temu"], ["amazon", "Amazon"], ["aliexpress", "AliExpress"], ["cjdropshipping", "CJdropshipping"]].filter(([token]) => words.includes(token));
+  return matches.length === 1 ? matches[0][1] : "";
+}
+function documentFields(doc) {
+  const field = (key, label, type = "text") => `<label>${label}<input name="${key}" type="${type}" value="${escapeHtml(doc[key] || "")}" maxlength="200"></label>`;
+  const supplierHint = !doc.supplier && suggestSupplierFromFilename(doc.name);
+  const lineText = Array.isArray(doc.receiptLineItemsV1) ? doc.receiptLineItemsV1.map(line => [line.title, line.quantity, line.amount].join(" | ")).join("\n") : "";
+  const paymentProofs = state.documents.filter(item => item.id !== doc.id && item.documentType === 'payment_proof');
+  return `<form class="ef-form" data-ef2-document-form="${escapeHtml(doc.id)}">${supplierHint ? `<div class="full ef-callout">Dateiname deutet auf ${escapeHtml(supplierHint)} hin. Bitte anhand des Originalbelegs prüfen und Lieferant manuell eintragen.</div>` : ""}${/\.(?:xml|pdf)$/i.test(doc.name || "") ? `<div class="full"><button type="button" class="ef-btn" data-ef2-recognize-ubl="${escapeHtml(doc.id)}">Rechnungsdaten erkennen</button><span class="ef-muted"> Vorschläge werden vor dem Speichern angezeigt.</span></div>` : ""}<div class="full"><button type="button" class="ef-btn" data-ef2-recognize-text="${escapeHtml(doc.id)}">Text aus Foto oder Scan übernehmen</button><span class="ef-muted"> Geräteerkennung oder kopierten Text verwenden. Der erkannte Text wird zur Auswertung an die Finance-API gesendet.</span></div><label>Belegtyp<select name="documentType">${Object.entries(DOCUMENT_TYPES).map(([id, label]) => `<option value="${id}" ${(doc.documentType || "unclassified") === id ? "selected" : ""}>${escapeHtml(label)}</option>`).join("")}</select></label>${field("supplier", "Lieferant / Kunde")}${field("invoiceReference", "Rechnungsnummer")}${field("orderReference", "Lieferantenbestellung")}${field("ebayOrderId", "eBay-Bestellung")}${field("productReference", "Artikelreferenz")}${field("documentDate", "Belegdatum", "date")}${field("paymentDate", doc.documentType === "refund_proof" ? "Tatsächlicher Erstattungseingang" : "Zahlungsdatum", "date")}${field("amount", "Betrag (ohne Währungsumrechnung)")}${field("currency", "Währung, z. B. EUR")}${field("receiptShippingAmountV1", "Lieferantenversand im Gesamtbetrag")}${field("receiptAdditionalAmountV1", "Zusatzkosten im Gesamtbetrag")}<label class="full">Bei Fremdwährung: separater EUR-Zahlungsnachweis<select name="receiptPaymentProofIdV1"><option value="">Keiner ausgewählt</option>${paymentProofs.map(item=>`<option value="${escapeHtml(item.id)}" ${item.id===doc.receiptPaymentProofIdV1?'selected':''}>${escapeHtml(item.name || item.id)}</option>`).join('')}</select><span class="ef-muted">Im Zahlungsnachweis den tatsächlich abgebuchten EUR-Betrag und dasselbe Zahlungsdatum eintragen. Beide Originale müssen in Drive gesichert sein.</span></label><label class="full">Artikelpositionen (optional: Bezeichnung | Menge | Positionsbetrag)<textarea name="lineItemsText" rows="3">${escapeHtml(lineText)}</textarea></label><div class="full"><button class="ef-btn" type="submit">Angaben speichern</button> <span class="ef-muted">Zur Prüfung · keine automatische Buchung</span></div></form>`;
+}
+// Amount and currency are a pair: never combine a newly extracted amount with
+// a different currency already entered by the user (or vice versa).
+export function reconcileReceiptMoneySuggestion(proposal = {}, existingAmount = '', existingCurrency = '') {
+  const amount=text(proposal.amount).replace(',','.'),currency=text(proposal.currency).toUpperCase();
+  if(!/^\d{1,12}(?:\.\d{1,2})?$/.test(amount)||!/^[A-Z]{3}$/.test(currency))return {amount:'',currency:'',conflict:false};
+  const currentAmount=text(existingAmount).replace(',','.'),currentCurrency=text(existingCurrency).toUpperCase();
+  const amountMismatch=Boolean(currentAmount)&&(!/^\d{1,12}(?:\.\d{1,2})?$/.test(currentAmount)||Math.round(Number(currentAmount)*100)!==Math.round(Number(amount)*100));
+  const currencyMismatch=Boolean(currentCurrency)&&currentCurrency!==currency;
+  if(amountMismatch||currencyMismatch)return {amount:'',currency:'',conflict:true};
+  return {amount:currentAmount?'':amount,currency:currentCurrency?'':currency,conflict:false};
+}
+// Native support differs between browsers. No external OCR service is called.
+export async function recognizeImageText(file, Detector = globalThis.TextDetector, makeBitmap = globalThis.createImageBitmap) {
+  if (!/^image\/(png|jpeg|webp)$/i.test(file.type) || typeof Detector !== 'function' || typeof makeBitmap !== 'function') return '';
+  const bitmap = await makeBitmap(file);
+  try {
+    if (!bitmap.width || !bitmap.height || bitmap.width * bitmap.height > 16000000) throw new Error('Das Bild ist für die Geräteerkennung zu groß.');
+    const blocks = await new Detector().detect(bitmap);
+    if (!Array.isArray(blocks) || blocks.length > 10000) throw new Error('Ungültiges Ergebnis der Geräteerkennung.');
+    return blocks.filter(block => typeof block?.rawValue === 'string').sort((a,b) => (a.boundingBox?.y || 0) - (b.boundingBox?.y || 0) || (a.boundingBox?.x || 0) - (b.boundingBox?.x || 0)).map(block => block.rawValue).join('\n').slice(0, 200000);
+  } finally { bitmap.close?.(); }
+}
+async function recognizeUblReceipt(id, useImageOrText = false) {
+  const doc=state.documents.find(item=>item.id===id);
+  const form=document.querySelector(`[data-ef2-document-form="${CSS.escape(id)}"]`);
+  if(!doc||!form)return;
+  try {
+    const file=await readDocumentFile(id) || await restoreDocumentFromDrive(doc);
+    const isPdf=/\.pdf$/i.test(doc.name || '');
+    if(file.size>(isPdf||useImageOrText?2500000:1000000))throw new Error('Datei überschreitet das unterstützte Limit.');
+    if(!doc.sha256 || await hashFile(file)!==doc.sha256)throw new Error('Originaldatei stimmt nicht mit der Prüfsumme überein.');
+    let response;
+    if (useImageOrText) {
+      let extracted='';
+      try { extracted=await recognizeImageText(file); } catch { toast('Geräteerkennung fehlgeschlagen. Du kannst kopierten Text eingeben.'); }
+      if (!extracted.trim()) extracted=window.prompt('Erkannten Text vom Foto oder Scan hier einfügen (z. B. mit der Texterkennung deines Geräts kopieren):','') || '';
+      if (!extracted.trim()) return;
+      response=await api('recognize-receipt-text',{method:'POST',body:{text:extracted}});
+    } else response=isPdf ? await api('recognize-pdf-receipt',{method:'POST',body:{base64:bytesToBase64(new Uint8Array(await file.arrayBuffer()))}}) : await api('recognize-ubl-receipt',{method:'POST',body:{xml:await file.text()}});
+    const proposal=response.proposal || {};
+    const labels={supplier:'Lieferant',invoiceReference:'Rechnungsnummer',orderReference:'Bestellnummer',documentDate:'Belegdatum',amount:'Zahlbetrag',currency:'Währung'};
+    const rows=Object.entries(labels).filter(([key])=>proposal[key]).map(([key,label])=>label+': '+proposal[key]);
+    const amountField=form.elements.namedItem('amount'),currencyField=form.elements.namedItem('currency');
+    const moneyProposal=reconcileReceiptMoneySuggestion(proposal,amountField?.value,currencyField?.value);
+    if(proposal.lineItems?.length)rows.push('Positionen: '+proposal.lineItems.map(line=>`${line.title} × ${line.quantity} = ${line.amount} ${proposal.currency}`).join('; '));
+    const message='Vorschläge aus dem Originalbeleg (keine Prüfung auf steuerliche Gültigkeit):\n'+(rows.join('\n')||'Keine eindeutigen Angaben erkannt.')+(proposal.warnings?.length?'\n\n'+proposal.warnings.join('\n'):'')+(moneyProposal.conflict?'\n\nBetrag oder Währung widersprechen deinen Eingaben und werden nicht übernommen.':'')+'\n\nNur leere Felder befüllen und anschließend selbst prüfen?';
+    if(!window.confirm(message))return;
+    for(const key of Object.keys(labels).filter(key=>!['amount','currency'].includes(key))) {const field=form.elements.namedItem(key);if(field&&!field.value&&proposal[key])field.value=proposal[key];}
+    if(amountField&&!amountField.value&&moneyProposal.amount)amountField.value=moneyProposal.amount;
+    if(currencyField&&!currencyField.value&&moneyProposal.currency)currencyField.value=moneyProposal.currency;
+    const lineField=form.elements.namedItem('lineItemsText');if(lineField&&!lineField.value&&proposal.lineItems?.length)lineField.value=proposal.lineItems.map(line=>[line.title,line.quantity,line.amount].join(' | ')).join('\n');
+    const kind=form.elements.namedItem('documentType');if(kind&&kind.value==='unclassified'&&proposal.documentType)kind.value=proposal.documentType;
+    toast('Vorschläge eingefügt. Bitte Original prüfen und Angaben ausdrücklich speichern.');
+  } catch(error) {toast(error.message,'Belegerkennung');}
+}
+
+function receiptCostMarkup(doc) {
+  const preview = stagedReceiptCost?.documentId === doc.id ? stagedReceiptCost : null;
+  const suggestion = suggestSimpleReceiptAllocation(doc, state.transactions);
+  return `<details><summary>Bezahlte Lieferantenkosten zuordnen</summary><p class="ef-muted">Zuerst Angaben speichern, Original in Drive sichern und Finance synchronisieren. Pro Zeile: eBay-Bestellung | Artikel-ID (optional) | EUR-Teilbetrag. Bestehende manuelle Kosten bitte selbst auf Dubletten prüfen; Bestell- und Artikelreferenzen werden nicht automatisch gegen eBay oder Company OS geprüft. Beträge müssen den gesamten bezahlten Beleg ergeben.</p><form class="ef-form" data-ef2-cost-preview="${escapeHtml(doc.id)}"><label class="full">Zuordnung<textarea name="allocations" rows="3" placeholder="12-34567-89012 | ELY-000001 | 19,90">${escapeHtml(preview?.input || "")}</textarea></label><div class="full">${suggestion ? `<button type="button" class="ef-btn" data-ef2-suggest-cost="${escapeHtml(doc.id)}">Zuordnung vorschlagen</button> ` : ""}<button type="submit" class="ef-btn">Vorschau prüfen</button></div></form>${preview ? `<div class="ef-callout"><strong>Vorschau – noch nicht erfasst</strong>${preview.allocations.map(row => `<div>${escapeHtml(row.orderId)} · ${escapeHtml(row.itemId || "ohne Artikel-ID")} · ${escapeHtml(money(-row.amount))}</div>`).join("")}<p>Das Zahlungsdatum und die Kosten werden als prüfbedürftige Vorgänge gespeichert. Keine Zahlung und keine Steuerübermittlung.</p><button class="ef-btn primary" data-ef2-confirm-cost="${escapeHtml(doc.id)}">Zuordnung verbindlich erfassen</button></div>` : ""}</details>`;
+}
+// Propose a single allocation only for an explicitly recorded exact order and
+// one unambiguous saved revenue transaction; this never books or verifies it.
+export function suggestSimpleReceiptAllocation(doc = {}, transactions = []) {
+ const order=text(doc.ebayOrderId), product=text(doc.productReference), amount=text(doc.amount).replace(',', '.');
+ if(!/^[A-Za-z0-9_-]{3,100}$/.test(order)||text(doc.currency).toUpperCase()!=='EUR'||!/^\d{1,9}(?:\.\d{1,2})?$/.test(amount)||Number(amount)<=0)return null;
+ if(!['supplier_invoice','internal_receipt'].includes(doc.documentType)||!text(doc.paymentDate))return null;
+ if(Array.isArray(doc.receiptLineItemsV1)&&doc.receiptLineItemsV1.length>1)return null;
+ const matches=transactions.filter(row=>!row.voidedAt && row.id && text(row.orderId)===order && text(row.category)==='revenue');
+ if(matches.length!==1)return null;
+ const itemId=text(matches[0].itemId);
+ if(/[|\r\n]/.test(itemId)||itemId.length>200||(product&&itemId!==product))return null;
+ if(doc.receiptLineItemsV1?.length===1 && Number(doc.receiptLineItemsV1[0].quantity)!==Number(matches[0].quantity))return null;
+ return {orderId:order,itemId,amount};
+}
+function fillSuggestedReceiptCost(id) {
+ const doc=state.documents.find(item=>item.id===id), suggestion=doc && suggestSimpleReceiptAllocation(doc,state.transactions);
+ const form=document.querySelector(`[data-ef2-cost-preview="${CSS.escape(id)}"]`), field=form?.elements.namedItem('allocations');
+ if(!suggestion||!field)return toast('Kein eindeutiger Vorschlag verfügbar.');
+ if(field.value.trim())return toast('Vorhandene Eingaben bleiben erhalten. Bitte zuerst selbst prüfen.');
+ field.value=[suggestion.orderId,suggestion.itemId,suggestion.amount].join(' | ');
+ toast('Vorschlag eingefügt. Bitte prüfen, ob der gesamte Beleg zu dieser Bestellung gehört, und anschließend die Vorschau öffnen.');
+}
+function previewReceiptCosts(form) {
+  const doc = state.documents.find(item => item.id === form.dataset.ef2CostPreview);
+  if (!doc) return;
+  const input = String(new FormData(form).get("allocations") || "");
+  const lines = input.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+  const allocations = lines.map(line => { const cells = line.split("|"); return { orderId: cells[0], itemId: cells[1], amount: cells[2], malformed: cells.length !== 3 }; });
+  if (allocations.some(row => row.malformed)) return toast("Jede Zeile braucht genau drei Felder: Bestellung | Artikel-ID | Betrag.", "Zuordnung prüfen");
+  const proposal = buildReceiptCostProposal(doc, allocations, state.transactions, state.documents, state.monthClosures);
+  if (!proposal.ok) { stagedReceiptCost = null; return toast(proposal.errors.join(" · "), "Zuordnung blockiert"); }
+  stagedReceiptCost = { documentId: doc.id, input, allocations: proposal.allocations, submitted: allocations };
+  render();
+  document.querySelector(`[data-ef2-cost-preview="${CSS.escape(doc.id)}"]`)?.closest("details")?.setAttribute("open", "");
+}
+export function isReceiptCostPreviewCurrent(preview,doc,transactions,documents,monthClosures) {
+  if(!preview||!doc||preview.documentId!==doc.id)return false;
+  const checked=buildReceiptCostProposal(doc,preview.submitted,transactions,documents,monthClosures);
+  return checked.ok&&JSON.stringify(checked.allocations)===JSON.stringify(preview.allocations);
+}
+async function confirmReceiptCosts(id) {
+  const preview = stagedReceiptCost;
+  if (!preview || preview.documentId !== id) return toast("Bitte die Zuordnung zuerst erneut prüfen.");
+  if (!syncReady || syncConflict || pendingSync() || saveInFlight || serverRevision === null) return toast("Bitte zuerst alle Finanzdaten erfolgreich mit dem Server synchronisieren.", "Zuordnung blockiert");
+  const doc=state.documents.find(item=>item.id===id);
+  if(!isReceiptCostPreviewCurrent(preview,doc,state.transactions,state.documents,state.monthClosures)){stagedReceiptCost=null;render();return toast('Beleg oder Zuordnung hat sich geändert. Bitte eine neue Vorschau erstellen.','Zuordnung blockiert');}
+  if (!window.confirm("Die angezeigten, tatsächlich bezahlten Kosten jetzt als prüfbedürftige Vorgänge erfassen? Bitte auch vorhandene manuelle Kosten auf Dubletten prüfen.")) return;
+  const sequence = localSequence;
+  try {
+    const result = await api("record-receipt-costs", { method: "POST", body: { documentId: id, allocations: preview.submitted, expectedRevision: serverRevision } });
+    stagedReceiptCost = null;
+    if (sequence !== localSequence) {
+      syncReady = false; syncConflict = true;
+      syncNotice = "Die Kosten wurden serverseitig erfasst. Lokale Änderungen bitte vor der weiteren Synchronisierung abgleichen.";
+    } else {
+      state = normalizeState(result.state); serverRevision = Number(result.state?.revision);
+      if (!Number.isSafeInteger(serverRevision)) throw new Error("Ungültige Serverrevision. Bitte Serverstand prüfen.");
+      localStorage.setItem(STATE_KEY, JSON.stringify(state));
+      localStorage.setItem(SYNC_REVISION_KEY, String(serverRevision));
+      localStorage.removeItem(SYNC_PENDING_KEY);
+      syncNotice = "Beleggebundene Kosten serverseitig erfasst; fachliche Prüfung steht aus.";
+    }
+    render(); toast("Kosten erfasst. Bitte die Vorgänge unter Transaktionen prüfen.");
+  } catch (error) {
+    syncReady = false; syncConflict = true; stagedReceiptCost = null;
+    syncNotice = "Ergebnis der Kostenerfassung prüfen: zuerst Serverstand laden, bevor erneut erfasst wird.";
+    render(); toast(error.message, "Kosten nicht bestätigt");
+  }
+}
+
+function supplierRefundMarkup(doc) {
+  if(doc.documentType!=='refund_proof')return '';
+  const candidates=state.transactions.filter(row=>!row.voidedAt&&row.source==='supplier_receipt_verified'&&row.category==='supplier_expense'&&text(row.supplierReceipt?.supplier).toLocaleLowerCase('de-DE')===text(doc.supplier).toLocaleLowerCase('de-DE'));
+  const staged=stagedSupplierRefund?.documentId===doc.id?stagedSupplierRefund:null;
+  return `<details><summary>Erhaltene Lieferantenerstattung zuordnen</summary><p class="ef-muted">Tatsächliches Erstattungsdatum und EUR-Betrag oben speichern. Einkaufsbeleg und Erstattungsnachweis müssen in Drive gesichert und synchronisiert sein. Eine Gutschrift allein belegt keinen Geldzufluss. Prüfe selbst, ob diese Zahlung bereits über einen anderen Nachweis oder manuell erfasst wurde. Je Nachweis ist hier eine Einkaufszuordnung möglich.</p><form class="ef-form" data-ef2-refund-preview="${escapeHtml(doc.id)}"><label class="full">Ursprüngliche Einkaufszuordnung<select name="originalTransactionId" required><option value="">Bitte auswählen</option>${candidates.map(row=>`<option value="${escapeHtml(row.transactionId)}" ${staged?.originalTransactionId===row.transactionId?'selected':''}>${escapeHtml(row.orderId)} · ${escapeHtml(row.itemId||'ohne Artikel-ID')} · ${escapeHtml(money(-row.amount))}</option>`).join('')}</select></label><div class="full"><button class="ef-btn" type="submit">Erstattung prüfen</button></div></form>${staged?`<div class="ef-callout"><strong>Vorschau – noch nicht erfasst</strong><div>Bestellung ${escapeHtml(staged.allocation.orderId)} · ${escapeHtml(money(staged.allocation.amount))} · ${escapeHtml(staged.allocation.transactionDate)}</div><p>Die steuerliche Zuordnung ist manuell zu prüfen. EÜR und Monatsabschluss bleiben bis zur dokumentierten Zuordnung gesperrt; der DATEV-Export bleibt für Lieferantenerstattungen gesperrt. Ein nachträgliches Storno ist derzeit nicht möglich; keine Zahlung wird ausgelöst.</p><button class="ef-btn primary" type="button" data-ef2-confirm-refund="${escapeHtml(doc.id)}">Erstattung erfassen</button></div>`:''}</details>`;
+}
+function previewSupplierRefund(form) {
+  const doc=state.documents.find(item=>item.id===form.dataset.ef2RefundPreview);if(!doc)return;
+  const originalTransactionId=text(new FormData(form).get('originalTransactionId'));
+  const proposal=buildSupplierRefundProposal(doc,originalTransactionId,state.transactions,state.monthClosures);
+  if(!proposal.ok){stagedSupplierRefund=null;return toast(proposal.errors.join(' · '),'Erstattung blockiert');}
+  stagedSupplierRefund={documentId:doc.id,originalTransactionId,allocation:proposal.allocations[0]};render();
+  document.querySelector(`[data-ef2-refund-preview="${CSS.escape(doc.id)}"]`)?.closest('details')?.setAttribute('open','');
+}
+export function isSupplierRefundPreviewCurrent(preview,doc,transactions,monthClosures) {
+  if(!preview||!doc||preview.documentId!==doc.id)return false;
+  const checked=buildSupplierRefundProposal(doc,preview.originalTransactionId,transactions,monthClosures);
+  return checked.ok&&JSON.stringify(checked.allocations[0])===JSON.stringify(preview.allocation);
+}
+async function confirmSupplierRefund(id) {
+  const preview=stagedSupplierRefund;
+  if(!preview||preview.documentId!==id)return toast('Bitte die Erstattung zuerst erneut prüfen.');
+  if(!syncReady||syncConflict||pendingSync()||saveInFlight||serverRevision===null)return toast('Bitte zuerst alle Finanzdaten erfolgreich mit dem Server synchronisieren.','Erstattung blockiert');
+  const doc=state.documents.find(item=>item.id===id);
+  if(!isSupplierRefundPreviewCurrent(preview,doc,state.transactions,state.monthClosures)){stagedSupplierRefund=null;render();return toast('Beleg oder Einkaufszuordnung hat sich geändert. Bitte eine neue Vorschau erstellen.','Erstattung blockiert');}
+  if(!window.confirm('Ist der Betrag tatsächlich eingegangen und gehört er zu dieser Einkaufszuordnung? Die steuerliche Zuordnung bleibt offen; ein späteres Storno ist derzeit nicht möglich.'))return;
+  const sequence=localSequence;
+  try {
+    const result=await api('record-supplier-refund',{method:'POST',body:{documentId:id,originalTransactionId:preview.originalTransactionId,expectedRevision:serverRevision,confirm:true}});
+    stagedSupplierRefund=null;
+    if(sequence!==localSequence){syncReady=false;syncConflict=true;syncNotice='Erstattung serverseitig erfasst. Lokale Änderungen vor weiterer Synchronisierung abgleichen.';}
+    else {state=normalizeState(result.state);serverRevision=Number(result.state?.revision);if(!Number.isSafeInteger(serverRevision))throw new Error('Ungültige Serverrevision. Bitte Serverstand prüfen.');localStorage.setItem(STATE_KEY,JSON.stringify(state));localStorage.setItem(SYNC_REVISION_KEY,String(serverRevision));localStorage.removeItem(SYNC_PENDING_KEY);syncNotice='Erstattung erfasst; steuerliche Zuordnung steht aus.';}
+    render();toast('Erstattung erfasst. Steuerliche Zuordnung prüfen.');
+  } catch(error){syncReady=false;syncConflict=true;stagedSupplierRefund=null;syncNotice='Ergebnis der Erfassung prüfen: zuerst Serverstand laden, bevor erneut erfasst wird.';render();toast(error.message,'Erstattung nicht bestätigt');}
+}
+async function reviewSupplierRefundTax(id) {
+  const row=state.transactions.find(item=>item.id===id);
+  if(!row||row.category!=='supplier_refund'||row.status!=='approved'||row.voidedAt)return toast('Bitte den Erstattungsvorgang zunächst prüfen und freigeben.');
+  if(!syncReady||syncConflict||pendingSync()||saveInFlight||serverRevision===null)return toast('Bitte zuerst alle Finanzdaten erfolgreich mit dem Server synchronisieren.','Zuordnung blockiert');
+  if(isLockedDate(row.transactionDate))return toast('Dieser Monat ist abgeschlossen.','Monat gesperrt');
+  const choice=window.prompt('EÜR-Arbeitsauswertung: Bitte die fachlich geprüfte Behandlung wählen.\n1 = Minderung der Wareneinkaufsausgabe\n2 = sonstige Betriebseinnahme\n\nDie Software prüft die steuerliche Richtigkeit nicht; im Zweifel fachlich beraten lassen.','');
+  if(choice===null)return;const method=choice.trim()==='1'?'expense_reduction':choice.trim()==='2'?'other_income':'';
+  if(!method)return toast('Bitte 1 oder 2 auswählen.','Zuordnung abgebrochen');
+  const note=window.prompt('Kurze Begründung oder Verweis auf deine fachliche Prüfung (3–300 Zeichen):','');
+  if(note===null)return;const clean=text(note);if(clean.length<3||clean.length>300||/[\r\n\x00-\x1f]/.test(clean))return toast('Eine kurze Begründung mit 3–300 Zeichen ist erforderlich.');
+  const label=method==='expense_reduction'?'Minderung der Wareneinkaufsausgabe':'sonstige Betriebseinnahme';
+  if(!window.confirm(`Erstattung ${money(row.amount)} vom ${formatDate(row.transactionDate)} für die EÜR-Arbeitsauswertung als „${label}“ dokumentieren?\n\nDas ist deine manuelle Einordnung, keine steuerliche Freigabe der Software. DATEV bleibt für solche Erstattungen gesperrt.`))return;
+  const sequence=localSequence;
+  try{
+    const result=await api('review-supplier-refund-tax',{method:'POST',body:{transactionId:row.transactionId,method,note:clean,expectedRevision:serverRevision,confirm:true}});
+    if(sequence!==localSequence){syncReady=false;syncConflict=true;syncNotice='Zuordnung serverseitig gespeichert. Lokale Änderungen vor weiterer Synchronisierung abgleichen.';}
+    else {state=normalizeState(result.state);serverRevision=Number(result.state?.revision);if(!Number.isSafeInteger(serverRevision))throw new Error('Ungültige Serverrevision. Bitte Serverstand prüfen.');localStorage.setItem(STATE_KEY,JSON.stringify(state));localStorage.setItem(SYNC_REVISION_KEY,String(serverRevision));localStorage.removeItem(SYNC_PENDING_KEY);syncNotice='Manuelle Zuordnung dokumentiert; keine steuerliche Prüfung durch die Software.';}
+    render();toast('Manuelle EÜR-Zuordnung gespeichert.');
+  }catch(error){syncReady=false;syncConflict=true;syncNotice='Ergebnis der Zuordnung prüfen: zuerst Serverstand laden.';render();toast(error.message,'Zuordnung nicht bestätigt');}
+}
+// Exact references only; never silently attach or infer based on titles.
+export function suggestDocumentMatches(doc = {}, transactions = []) {
+ const order=text(doc.ebayOrderId), product=text(doc.productReference);
+ if(!order && !product)return [];
+ return transactions.filter(entry=>!entry.voidedAt && entry.id && (!order || text(entry.orderId)===order) && (!product || text(entry.itemId)===product)).map(entry=>({id:entry.id,orderId:text(entry.orderId),itemId:text(entry.itemId),title:text(entry.title),currency:text(entry.currency),amount:entry.amount}));
+}
+function documentMatchesMarkup(doc) {
+ const matches=suggestDocumentMatches(doc,state.transactions);
+ if(!matches.length)return '<div class="ef-muted">Keine passende Referenz zu einem vorhandenen Finanzvorgang gefunden.</div>';
+ return `<details><summary>${matches.length} passende Finanzvorgänge prüfen</summary><p class="ef-muted">Verglichen werden ausschließlich die erfasste eBay-Bestellnummer und/oder Artikelreferenz. Jeder Beleg muss einzeln bestätigt werden.</p>${matches.map(item=>`<div class="ef-list-item"><div><strong>${escapeHtml(item.title||item.id)}</strong><span class="ef-muted">Bestellung ${escapeHtml(item.orderId||"–")} · Artikel ${escapeHtml(item.itemId||"–")} · ${escapeHtml(item.amount)} ${escapeHtml(item.currency)}</span></div><button type="button" class="ef-btn" data-ef2-match-doc="${escapeHtml(doc.id)}" data-ef2-match-transaction="${escapeHtml(item.id)}">Zuordnen</button></div>`).join("")}</details>`;
+}
+
+function documentsMarkup() {
+  return `<div class="ef-columns"><section class="ef-panel"><div class="ef-panel-head"><div><div class="ef-eyebrow">Originaldatei + SHA-256</div><h3>Belegarchiv</h3></div><span class="ef-badge">${state.documents.length} Belege</span></div><div class="ef-drop"><strong>Lieferantenbelege und weitere Nachweise</strong><p class="ef-muted">Originaldateien liegen zunächst nur auf diesem Gerät. „In Drive sichern“ lädt sie in das verbundene Google Drive; für andere Geräte müssen auch die Metadaten mit dem Finance-Server synchronisiert sein. Drive allein ist kein GoBD-Nachweis.</p><input id="efDocumentInput" type="file" multiple><label class="ef-btn primary" for="efDocumentInput">Belege auswählen</label></div><div class="ef-list" style="margin-top:13px">${state.documents.map(doc => `<div class="ef-list-item" style="display:block"><strong>${escapeHtml(doc.name)}</strong><div class="ef-muted">${escapeHtml(DOCUMENT_TYPES[doc.documentType] || DOCUMENT_TYPES.unclassified)} · Zur Prüfung · ${escapeHtml(formatDate(doc.createdAt))}</div><div class="ef-code">SHA-256 ${escapeHtml(doc.sha256 || "offen")}</div><div class="ef-actions"><button class="ef-btn" data-ef2-cloud-doc="${escapeHtml(doc.id)}" ${doc.cloudFileId ? "disabled" : ""}>${doc.cloudFileId ? "In Drive gesichert" : "In Drive sichern"}</button><button class="ef-btn" data-ef2-download-doc="${escapeHtml(doc.id)}">Öffnen</button></div><details><summary>Angaben erfassen / prüfen</summary>${documentFields(doc)}</details>${receiptCostMarkup(doc)}${supplierRefundMarkup(doc)}${documentMatchesMarkup(doc)}</div>`).join("") || '<div class="ef-empty">Noch keine Belege archiviert.</div>'}</div></section><aside class="ef-panel"><h3>Belegzuordnung</h3><p class="ef-muted">Unter „Transaktionen“ kannst du einen Beleg einem Vorgang zuordnen. Metadaten allein buchen keine Kosten. Eine Kostenaufteilung erfordert eine separate Vorschau und Bestätigung; Produktdaten werden nicht geändert.</p><div class="ef-callout">Ein Eigenbeleg ist kein Beleg des Lieferanten. Fehlende Daten selbst prüfen; E-Rechnungen im Originalformat aufbewahren.</div></aside></div>`;
+}
+async function saveDocumentMetadata(form) {
+  const doc = state.documents.find(item => item.id === form.dataset.ef2DocumentForm);
+  if (!doc) return;
+  const result = validateDocumentMetadata(Object.fromEntries(new FormData(form)));
+  if (!result.ok) return toast(result.errors.join(" · "), "Angaben prüfen");
+  const duplicate = result.data.invoiceReference && result.data.supplier && state.documents.find(item => item.id !== doc.id && text(item.invoiceReference).toLocaleLowerCase() === result.data.invoiceReference.toLocaleLowerCase() && text(item.supplier).toLocaleLowerCase() === result.data.supplier.toLocaleLowerCase());
+  if (duplicate && !window.confirm("Ein anderer Beleg hat denselben Lieferanten und dieselbe Rechnungsnummer. Bitte auf Dublette prüfen. Angaben trotzdem speichern?")) return;
+  stagedReceiptCost = null;
+  Object.assign(doc, result.data, { metadataUpdatedAt: new Date().toISOString() });
+  await saveLocal("document_metadata_updated", "Belegangaben manuell erfasst; Prüfung offen.", { documentId: doc.id });
+  render();
+  toast(result.warnings.length ? result.warnings.join(" · ") : "Angaben gespeichert. Beleg und mögliche Dubletten bleiben zu prüfen.", result.warnings.length ? "Summen prüfen" : "Belegarchiv");
+}
 
 function importsMarkup() { const lastAuto = state.imports.filter((item) => item.source === "ebay_finances_auto").sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt))).at(-1); return `<div class="ef-columns"><section class="ef-panel"><div class="ef-panel-head"><div><div class="ef-eyebrow">CSV</div><h3>eBay-CSV importieren</h3></div></div><div class="ef-drop"><strong>eBay-Abrechnungs- oder Transaktionsbericht</strong><p class="ef-muted">Vor Übernahme wird eine Vorschau erzeugt. Datensätze aus abgeschlossenen Monaten werden beim Import blockiert.</p><input id="efCsvInput" type="file" accept=".csv,.txt,text/csv"><label class="ef-btn primary" for="efCsvInput">CSV auswählen</label></div>${stagedImport?`<div class="ef-callout good" style="margin-top:13px"><strong>${stagedImport.transactions.length} Datensätze erkannt</strong><br>${escapeHtml(stagedImport.warnings?.join(" · ")||"Spalten wurden zugeordnet.")}</div><div class="ef-actions" style="margin-top:10px"><button class="ef-btn primary" data-ef2-action="confirm-csv">Import übernehmen</button><button class="ef-btn" data-ef2-action="cancel-csv">Verwerfen</button></div>`:""}</section><aside class="ef-panel"><div class="ef-callout good" style="margin-bottom:14px"><strong>Automatischer eBay-Abgleich</strong><div>Cloud-Import täglich um 06:00 UTC (07:00 Uhr MEZ / 08:00 Uhr MESZ), sobald in Production aktiviert. Neue Vorgänge bleiben zur Prüfung offen. ${lastAuto ? `Letzter Lauf: ${escapeHtml(formatDate(lastAuto.createdAt))} · ${num(lastAuto.inserted)} neu · ${num(lastAuto.duplicates)} bekannt · ${num(lastAuto.blockedLockedMonths)} aus abgeschlossenen Monaten blockiert.` : "Noch kein erfolgreicher automatischer Import gespeichert."}</div></div><div class="ef-eyebrow">API</div><h3>eBay Finances API</h3><p class="ef-muted">Liest Verkäufe, Gebühren, Anzeigenkosten, Erstattungen, Gutschriften und Auszahlungen ausschließlich lesend.</p><label class="ef-muted">Zeitraum<select id="efEbayDays" style="width:100%;margin-top:6px;padding:10px;border-radius:11px;background:#020617;color:#e5e7eb;border:1px solid rgba(148,163,184,.18)"><option value="30">30 Tage</option><option value="90" selected>90 Tage</option><option value="365">365 Tage</option></select></label><div class="ef-actions" style="margin-top:12px"><button class="ef-btn" data-ef2-action="ebay-preview">Vorschau laden</button><button class="ef-btn primary" data-ef2-action="confirm-ebay-preview" ${stagedImport?.source==="ebay_api"?"":"disabled"}>Vorschau übernehmen</button></div><div class="ef-callout" style="margin-top:13px">Finance V2 nutzt absichtlich zuerst die Vorschau. So können abgeschlossene Monate vor dem lokalen Merge geschützt werden.</div></aside></div><section class="ef-panel"><div class="ef-panel-head"><h3>Lieferantenkosten ergänzen</h3></div><form id="efSupplierForm" class="ef-form"><label>Bestellnummer<input name="orderId" required></label><label>Lieferant<input name="supplier" placeholder="Lieferant aus Nova"></label><label>Betrag (€)<input name="amount" type="number" min="0" step="0.01" required></label><label>Datum<input name="date" type="date" required></label><label>Artikel-ID optional<input name="itemId"></label><label>Notiz<input name="memo"></label><div class="full"><button class="ef-btn primary" type="submit">Wareneinkauf erfassen</button></div></form></section><section class="ef-panel"><div class="ef-panel-head"><h3>Importverlauf</h3><span class="ef-badge">${state.imports.length}</span></div><div class="ef-list">${state.imports.slice().reverse().slice(0,20).map((item)=>`<div class="ef-list-item"><div><strong>${escapeHtml(item.source||"Import")}</strong><span class="ef-muted">${escapeHtml(formatDate(item.createdAt))} · ${num(item.inserted||item.normalizedCount)} neu · ${num(item.duplicates)} Duplikate · ${num(item.blockedLockedMonths)} gesperrt</span></div><span class="ef-code">${escapeHtml(item.id)}</span></div>`).join("")||'<div class="ef-empty">Noch keine Importe.</div>'}</div></section>`; }
 
-function monthCloseMarkup() { const key=selectedMonthKey(); if(!key) return `<section class="ef-panel"><div class="ef-callout">Für einen Monatsabschluss bitte „Aktueller Monat“, „Vorheriger Monat“ oder einen benutzerdefinierten Zeitraum innerhalb genau eines Kalendermonats wählen.</div></section>`; const rows=currentTransactions(); const readiness=buildMonthCloseReadiness(rows,state.documents); const closure=state.monthClosures?.[key]; return `<section class="ef-panel"><div class="ef-panel-head"><div><div class="ef-eyebrow">Kontrollierter Abschluss</div><h3>${escapeHtml(period.label)} ${closure?.closedAt?"🔒":""}</h3><p class="ef-muted">Nach Abschluss sind Freigabe, Storno, Belegänderungen und Lieferantenkosten für diesen Monat gesperrt.</p></div><span class="ef-status ${closure?.closedAt||readiness.ready?"approved":"needs_review"}">${closure?.closedAt?"abgeschlossen":readiness.ready?"bereit":"nicht bereit"}</span></div>${closure?.closedAt?`<div class="ef-callout good">Abgeschlossen am ${escapeHtml(formatDate(closure.closedAt))}. Snapshot: Umsatz ${money(closure.snapshot?.revenue)} · Gewinn ${money(closure.snapshot?.profit)} · ${closure.snapshot?.transactionCount||0} Vorgänge.</div><button class="ef-btn danger" style="margin-top:13px" data-ef2-action="reopen-month">Monat erneut öffnen</button>`:`<div class="ef-quality">${readiness.blockers.length?readiness.blockers.map((blocker)=>`<div><strong class="ef-warning">⚠ ${escapeHtml(blocker)}</strong></div>`).join(""):'<div><strong class="ef-positive">✓ Vorgänge geprüft</strong></div><div><strong class="ef-positive">✓ Lieferantenkosten zugeordnet</strong></div><div><strong class="ef-positive">✓ Währungen geklärt</strong></div><div><strong class="ef-positive">✓ Belegcheck bestanden</strong></div>'}</div><button class="ef-btn success" style="margin-top:13px" data-ef2-action="close-month" ${readiness.ready?"":"disabled"}>${escapeHtml(period.label)} abschließen</button>`}</section>`; }
+function monthCloseMarkup() { const key=selectedMonthKey(); if(!key) return `<section class="ef-panel"><div class="ef-callout">Für einen Monatsabschluss bitte „Aktueller Monat“, „Vorheriger Monat“ oder einen benutzerdefinierten Zeitraum innerhalb genau eines Kalendermonats wählen.</div></section>`; const rows=currentTransactions(); const readiness=buildMonthCloseReadiness(rows,state.documents,currentRefundTaxReviews()); const closure=state.monthClosures?.[key]; return `<section class="ef-panel"><div class="ef-panel-head"><div><div class="ef-eyebrow">Kontrollierter Abschluss</div><h3>${escapeHtml(period.label)} ${closure?.closedAt?"🔒":""}</h3><p class="ef-muted">Nach Abschluss sind Freigabe, Storno, Belegänderungen und Lieferantenkosten für diesen Monat gesperrt.</p></div><span class="ef-status ${closure?.closedAt||readiness.ready?"approved":"needs_review"}">${closure?.closedAt?"abgeschlossen":readiness.ready?"bereit":"nicht bereit"}</span></div>${closure?.closedAt?`<div class="ef-callout good">Abgeschlossen am ${escapeHtml(formatDate(closure.closedAt))}. Snapshot: Umsatz ${money(closure.snapshot?.revenue)} · Gewinn ${money(closure.snapshot?.profit)} · ${closure.snapshot?.transactionCount||0} Vorgänge.</div><button class="ef-btn danger" style="margin-top:13px" data-ef2-action="reopen-month">Monat erneut öffnen</button>`:`<div class="ef-quality">${readiness.blockers.length?readiness.blockers.map((blocker)=>`<div><strong class="ef-warning">⚠ ${escapeHtml(blocker)}</strong></div>`).join(""):'<div><strong class="ef-positive">✓ Vorgänge geprüft</strong></div><div><strong class="ef-positive">✓ Lieferantenkosten zugeordnet</strong></div><div><strong class="ef-positive">✓ Währungen geklärt</strong></div><div><strong class="ef-positive">✓ Belegcheck bestanden</strong></div>'}</div><button class="ef-btn success" style="margin-top:13px" data-ef2-action="close-month" ${readiness.ready?"":"disabled"}>${escapeHtml(period.label)} abschließen</button>`}</section>`; }
 
-function reportsMarkup() { const rows=currentEurTransactions(); const approved=approvedTransactions(rows); const eur=buildEurSummary(approved); const quality=buildFinanceDataQuality(currentTransactions(),state.documents); return `<div class="ef-columns"><section class="ef-panel"><div class="ef-panel-head"><div><div class="ef-eyebrow">Arbeitsauswertung</div><h3>Einnahmenüberschuss</h3></div><span class="ef-badge">nur freigegebene EUR-Vorgänge</span></div><div class="ef-grid" style="grid-template-columns:repeat(3,minmax(0,1fr))">${metricCard("Betriebseinnahmen",eur.operatingIncome,"positive","freigegeben")}${metricCard("Betriebsausgaben",-eur.operatingExpenses,"negative","freigegeben")}${metricCard("Überschuss",eur.surplus,eur.surplus>=0?"positive":"negative","Arbeitsauswertung")}</div><div class="ef-callout" style="margin-top:13px">${escapeHtml(eur.disclaimer)}</div></section><aside class="ef-panel"><h3>Sichere Exporte</h3><div class="ef-list"><button class="ef-btn" data-ef2-action="download-csv">Transaktionen CSV</button><button class="ef-btn" data-ef2-action="download-datev">DATEV-Vorbereitung</button><button class="ef-btn" data-ef2-action="download-eur">EÜR-Arbeitsauswertung</button><button class="ef-btn" data-ef2-action="download-backup">Komplettes JSON-Backup</button><button class="ef-btn" data-ef2-action="download-audit">Audit-Log</button></div><div class="ef-callout ${quality.foreignCurrencyCount||quality.unapprovedCount?"bad":"good"}" style="margin-top:13px">DATEV/EÜR verwenden nur freigegebene EUR-Vorgänge. ${quality.unapprovedCount} ungeprüft · ${quality.foreignCurrencyCount} Fremdwährung(en).</div></aside></div>`; }
+function reportsMarkup() { const rows=currentEurTransactions(); const approved=approvedTransactions(rows); const eur=buildEurSummary(approved,currentRefundTaxReviews()); const quality=buildFinanceDataQuality(currentTransactions(),state.documents,currentRefundTaxReviews()); return `<div class="ef-columns"><section class="ef-panel"><div class="ef-panel-head"><div><div class="ef-eyebrow">Arbeitsauswertung</div><h3>Einnahmenüberschuss</h3></div><span class="ef-badge">nur freigegebene EUR-Vorgänge</span></div>${quality.unclassifiedRefundCount?`<div class="ef-callout bad">Unvollständig: ${quality.unclassifiedRefundCount} Lieferantenerstattung(en) sind steuerlich ungeklärt und hier nicht enthalten. Export und Monatsabschluss sind blockiert.</div>`:""}<div class="ef-grid" style="grid-template-columns:repeat(3,minmax(0,1fr))">${metricCard("Betriebseinnahmen",eur.operatingIncome,"positive","freigegeben")}${metricCard("Betriebsausgaben",-eur.operatingExpenses,"negative","freigegeben")}${metricCard("Überschuss",eur.surplus,eur.surplus>=0?"positive":"negative","Arbeitsauswertung")}</div><div class="ef-callout" style="margin-top:13px">${escapeHtml(eur.disclaimer)}</div></section><aside class="ef-panel"><h3>Sichere Exporte</h3><div class="ef-list"><button class="ef-btn" data-ef2-action="download-csv">Transaktionen CSV</button><button class="ef-btn" data-ef2-action="download-datev" ${rows.some(row=>row.category==="supplier_refund")?"disabled":""}>DATEV-Vorbereitung</button><button class="ef-btn" data-ef2-action="download-eur">EÜR-Arbeitsauswertung</button><button class="ef-btn" data-ef2-action="download-backup">Komplettes JSON-Backup</button><button class="ef-btn" data-ef2-action="download-audit">Audit-Log</button></div><div class="ef-callout ${quality.foreignCurrencyCount||quality.unapprovedCount||quality.unclassifiedRefundCount?"bad":"good"}" style="margin-top:13px">DATEV/EÜR verwenden nur freigegebene EUR-Vorgänge. ${quality.unapprovedCount} ungeprüft · ${quality.foreignCurrencyCount} Fremdwährung(en) · ${quality.unclassifiedRefundCount} steuerlich ungeklärte Lieferantenerstattung(en). ${rows.some(row=>row.category==="supplier_refund")?"DATEV mit Lieferantenerstattungen ist noch nicht unterstützt.":""}</div></aside></div>`; }
 
 function auditMarkup() { const rows=state.auditLog.slice().reverse().slice(0,150); return `<section class="ef-panel"><div class="ef-panel-head"><div><div class="ef-eyebrow">Nachvollziehbarkeit</div><h3>Audit-Log</h3></div><button class="ef-btn" data-ef2-action="download-audit">Exportieren</button></div><div class="ef-callout good">Server-Sync-Ereignisse besitzen eine SHA-256-Hashkette. Finance V2 erzeugt auch für neue lokale Audit-Einträge einen SHA-256-Wert mit previousHash-Verknüpfung, sofern Web Crypto verfügbar ist.</div><div class="ef-list" style="margin-top:12px">${rows.map((entry)=>`<div class="ef-list-item"><div><strong>${escapeHtml(entry.action)}</strong><span class="ef-muted">${escapeHtml(entry.summary||"Änderung protokolliert")} · ${escapeHtml(formatDate(entry.timestamp))}</span>${entry.previousHash?`<div class="ef-code">prev ${escapeHtml(entry.previousHash.slice(0,18))}…</div>`:""}</div><div class="ef-code">${entry.hash?`${escapeHtml(entry.hash.slice(0,22))}…`:"lokal / unverifiziert"}</div></div>`).join("")||'<div class="ef-empty">Noch keine Audit-Ereignisse.</div>'}</div></section>`; }
 
@@ -559,18 +874,27 @@ function settingsMarkup() { const s=state.settings; return `<div class="ef-colum
 <label>Land<input name="sellerCountry" value="${escapeHtml(s.sellerCountry||"DE")}" readonly></label>
 <label>Steuernummer, USt-IdNr. oder Kleinunternehmer-ID (Pflicht)<input name="sellerTaxId" value="${escapeHtml(s.sellerTaxId||"")}" placeholder="Steuerliche Identifikation"></label>
 <div class="ef-callout full">Für Rechnungen müssen Steuerstatus und Verkäuferdaten vollständig gespeichert sein. Neue eBay-Rechnungen werden erst danach und nur nach Einzel-Freigabe ausgestellt. Keine Umsatzsteuer ausweisen. Diese Felder sind keine öffentliche Anzeige, sondern Rechnungspflichtdaten.</div>
-<label>Rechnungspräfix<input name="invoicePrefix" value="${escapeHtml(s.invoicePrefix)}"></label><label>Nächste Rechnungsnummer<input name="nextInvoiceNumber" type="number" min="1" value="${num(s.nextInvoiceNumber)||1}"></label><div class="full ef-actions"><button class="ef-btn primary" type="submit">Einstellungen speichern</button><span class="ef-muted">Rechnungsnummern werden erst beim tatsächlichen Ausstellen serverseitig vergeben. Kein manuelles Nummernreservieren.</span></div></form></section><aside class="ef-panel"><h3>Systemstatus</h3><div class="ef-list"><div class="ef-list-item"><span>Persistenter Speicher</span><strong>${escapeHtml(serverStatus?.store?.mode||"noch nicht geprüft")}</strong></div><div class="ef-list-item"><span>Währung für Kennzahlen</span><strong>EUR</strong></div><div class="ef-list-item"><span>Fremdwährungen</span><strong>${buildFinanceDataQuality(currentTransactions(),state.documents).foreignCurrencyCount}</strong></div></div><button class="ef-btn" style="width:100%;margin-top:12px" data-ef2-action="refresh-status">Systemstatus prüfen</button></aside></div>`; }
+<label>Rechnungspräfix<input name="invoicePrefix" value="${escapeHtml(s.invoicePrefix)}"></label><label>Nächste Rechnungsnummer<input name="nextInvoiceNumber" type="number" min="1" value="${num(s.nextInvoiceNumber)||1}"></label><div class="full ef-actions"><button class="ef-btn primary" type="submit">Einstellungen speichern</button><span class="ef-muted">Rechnungsnummern werden erst beim tatsächlichen Ausstellen serverseitig vergeben. Kein manuelles Nummernreservieren.</span></div></form></section><aside class="ef-panel"><h3>Systemstatus</h3><div class="ef-list"><div class="ef-list-item"><span>Persistenter Speicher</span><strong>${escapeHtml(serverStatus?.store?.mode||"noch nicht geprüft")}</strong></div><div class="ef-list-item"><span>Währung für Kennzahlen</span><strong>EUR</strong></div><div class="ef-list-item"><span>Fremdwährungen</span><strong>${buildFinanceDataQuality(currentTransactions(),state.documents,currentRefundTaxReviews()).foreignCurrencyCount}</strong></div></div><button class="ef-btn" style="width:100%;margin-top:12px" data-ef2-action="refresh-status">Systemstatus prüfen</button></aside></div>`; }
 
 function download(name, content, type="text/plain;charset=utf-8") { const blob=content instanceof Blob?content:new Blob([content],{type}); const url=URL.createObjectURL(blob); const anchor=document.createElement("a"); anchor.href=url; anchor.download=name; document.body.appendChild(anchor); anchor.click(); anchor.remove(); setTimeout(()=>URL.revokeObjectURL(url),1000); }
 function fileStamp() { return new Date().toISOString().replace(/[:.]/g,"-"); }
 function exportRows() { return currentTransactions().filter((entry)=>!entry.voidedAt); }
 function safeAccountingRows() { return approvedTransactions(eurTransactions(exportRows())); }
-function exportAction(action) {
-  const rows=exportRows(); const safe=safeAccountingRows(); const quality=buildFinanceDataQuality(rows,state.documents);
-  if (["download-datev","download-eur"].includes(action) && !selectApprovedEurTransactions(rows).ready) return toast(`Export blockiert: ${quality.unapprovedCount} ungeprüfte Vorgänge, ${quality.foreignCurrencyCount} Fremdwährung(en).`,"Sicherer Export");
+async function exportAction(action) {
+  const rows=exportRows(); const safe=safeAccountingRows(); const quality=buildFinanceDataQuality(rows,state.documents,currentRefundTaxReviews());
+  if (["download-datev","download-eur"].includes(action) && !selectApprovedEurTransactions(rows,currentRefundTaxReviews()).ready) return toast(`Export blockiert: ${quality.unapprovedCount} ungeprüfte Vorgänge, ${quality.foreignCurrencyCount} Fremdwährung(en), ${quality.unclassifiedRefundCount} steuerlich ungeklärte Lieferantenerstattung(en).`,"Sicherer Export");
   if (action==="download-csv") return download(`elyon_finance_${fileStamp()}.csv`,`\uFEFF${exportTransactionsCsv(rows)}`,"text/csv;charset=utf-8");
+  if (action==="download-datev" && rows.some(row=>row.category==="supplier_refund")) return toast("DATEV-Vorbereitung mit Lieferantenerstattungen ist noch nicht unterstützt.","Export blockiert");
   if (action==="download-datev") return download(`elyon_datev_vorbereitung_${fileStamp()}.csv`,`\uFEFF${exportDatevPreparation(safe,state.settings)}`,"text/csv;charset=utf-8");
-  if (action==="download-eur") return download(`elyon_euer_arbeitsauswertung_${fileStamp()}.json`,JSON.stringify(buildEurSummary(safe),null,2),"application/json");
+  if (action==="download-eur") {
+    if (syncReady && !syncConflict && !saveInFlight && !pendingSync() && serverRevision !== null) {
+      const sequence=localSequence,revision=serverRevision,start=period.start||"",end=period.end||"";
+      try { const result=await api("eur-period",{method:"POST",body:{expectedRevision:revision,start,end}});if(sequence!==localSequence||serverRevision!==revision||syncConflict||pendingSync()||(period.start||"")!==start||(period.end||"")!==end)return toast("Finanzdaten oder Zeitraum wurden geändert. Bitte den Export erneut starten.","Export blockiert");return download(`elyon_euer_arbeitsauswertung_${fileStamp()}.json`,JSON.stringify(result.summary,null,2),"application/json"); }
+      catch(error) {return toast(error.message,"Export blockiert");}
+    }
+    if(rows.some(row=>row.category==="supplier_refund"))return toast("Für Lieferantenerstattungen zuerst den aktuellen Serverstand synchronisieren.","Export blockiert");
+    return download(`elyon_euer_arbeitsauswertung_${fileStamp()}.json`,JSON.stringify(buildEurSummary(safe,{}),null,2),"application/json");
+  }
   if (action==="download-audit") return download(`elyon_finance_audit_${fileStamp()}.json`,JSON.stringify(state.auditLog,null,2),"application/json");
   if (action==="download-backup") return download(`elyon_finance_backup_${fileStamp()}.json`,JSON.stringify(state,null,2),"application/json");
 }
@@ -579,7 +903,26 @@ function openDb() { return new Promise((resolve,reject)=>{const request=indexedD
 async function hashFile(file) { const buffer=await file.arrayBuffer(); const digest=await crypto.subtle.digest("SHA-256",buffer); return [...new Uint8Array(digest)].map((byte)=>byte.toString(16).padStart(2,"0")).join(""); }
 async function storeDocumentFile(id,file) { const db=await openDb(); await new Promise((resolve,reject)=>{const tx=db.transaction(DB_STORE,"readwrite");tx.objectStore(DB_STORE).put({id,file});tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);}); db.close(); }
 async function readDocumentFile(id) { const db=await openDb(); const result=await new Promise((resolve,reject)=>{const tx=db.transaction(DB_STORE,"readonly");const request=tx.objectStore(DB_STORE).get(id);request.onsuccess=()=>resolve(request.result?.file||null);request.onerror=()=>reject(request.error);});db.close();return result; }
-async function importDocuments(files) { backupLocal("before_document_import"); for(const file of files){const sha=await hashFile(file);if(state.documents.some((entry)=>entry.sha256===sha))continue;const id=uid("doc");await storeDocumentFile(id,file);state.documents.push({id,name:file.name,type:file.type,size:file.size,sha256:sha,createdAt:new Date().toISOString(),storage:"indexeddb"});} await saveLocal("documents_imported","Belege mit SHA-256-Prüfsumme archiviert.");render(); }
+async function importDocuments(files) {
+  backupLocal("before_document_import");
+  let imported = 0, duplicates = 0;
+  for (const file of files) {
+    const sha = await hashFile(file);
+    if (state.documents.some(entry => entry.sha256 === sha)) { duplicates++; continue; }
+    const id = uid("doc");
+    await storeDocumentFile(id, file);
+    state.documents.push({ id, name: file.name, type: file.type, size: file.size, sha256: sha, createdAt: new Date().toISOString(), storage: "indexeddb", documentType: "unclassified", reviewStatus: "needs_review" });
+    // Persist each successful import so a later failing file does not orphan its metadata.
+    await saveLocal("document_imported", "Originalbeleg mit SHA-256-Prüfsumme lokal gespeichert.", { documentId: id });
+    const saved = safeJson(localStorage.getItem(STATE_KEY), {});
+    if (!Array.isArray(saved.documents) || !saved.documents.some(entry => entry.id === id && entry.sha256 === sha)) {
+      throw new Error("Belegmetadaten konnten nicht dauerhaft im Browser gespeichert werden. Bitte Speicherplatz prüfen; Originaldatei behalten.");
+    }
+    imported++;
+  }
+  render();
+  toast(`${imported} lokal importiert · ${duplicates} identische Datei(en) bereits vorhanden. Cloud-Sicherung prüfen.`, "Belegarchiv");
+}
 
 
 function bytesToBase64(bytes) {
@@ -637,7 +980,7 @@ async function restoreDocumentFromDrive(doc) {
 }
 
 async function approveTransaction(id) { const item=state.transactions.find((entry)=>entry.id===id);if(!item||item.voidedAt)return;if(isLockedDate(item.transactionDate))return toast("Dieser Monat ist abgeschlossen.","Monat gesperrt");item.status="approved";item.updatedAt=new Date().toISOString();await saveLocal("transaction_approved",`Transaktion ${item.transactionId||item.id} geprüft.`);render(); }
-async function voidTransaction(id) { const item=state.transactions.find((entry)=>entry.id===id);if(!item||item.voidedAt)return;if(isLockedDate(item.transactionDate))return toast("Dieser Monat ist abgeschlossen.","Monat gesperrt");const reason=window.prompt("Grund für das Storno / die Korrektur:","Korrektur erforderlich");if(!reason)return;item.voidedAt=new Date().toISOString();item.voidReason=reason;item.status="voided";await saveLocal("transaction_voided",`Transaktion ${item.transactionId||item.id} storniert: ${reason}`);render(); }
+async function voidTransaction(id) { const item=state.transactions.find((entry)=>entry.id===id);if(!item||item.voidedAt)return;if(item.source==='supplier_receipt_verified'&&(item.category==='supplier_refund'||state.transactions.some(row=>row.source==='supplier_receipt_verified'&&row.category==='supplier_refund'&&row.supplierReceipt?.originalTransactionId===item.transactionId)))return toast('Für Lieferantenerstattungen und zugehörige Einkäufe ist ein separater Korrekturablauf erforderlich.','Storno blockiert');if(isLockedDate(item.transactionDate))return toast("Dieser Monat ist abgeschlossen.","Monat gesperrt");const reason=window.prompt("Grund für das Storno / die Korrektur:","Korrektur erforderlich");if(!reason)return;item.voidedAt=new Date().toISOString();item.voidReason=reason;item.status="voided";await saveLocal("transaction_voided",`Transaktion ${item.transactionId||item.id} storniert: ${reason}`);render(); }
 async function approveSelected() { const ids=[...selectedTransactionIds];let changed=0;for(const id of ids){const item=state.transactions.find((entry)=>entry.id===id);if(item&&!item.voidedAt&&!isLockedDate(item.transactionDate)&&item.status!=="approved"){item.status="approved";item.updatedAt=new Date().toISOString();changed+=1;}}selectedTransactionIds.clear();await saveLocal("transactions_selected_approved",`${changed} ausgewählte Vorgänge freigegeben.`,{count:changed});render();toast(`${changed} Vorgänge freigegeben.`); }
 async function attachDocument(id,docId) { const item=state.transactions.find((entry)=>entry.id===id);if(!item||!docId)return;if(isLockedDate(item.transactionDate))return toast("Dieser Monat ist abgeschlossen.","Monat gesperrt");item.documentIds=[...new Set([...(item.documentIds||[]),docId])];await saveLocal("document_linked",`Beleg ${docId} mit ${item.transactionId||item.id} verknüpft.`);render(); }
 
@@ -665,7 +1008,7 @@ async function reserveInvoice() {
   } catch (error) { toast(error.message, "Keine lokale Rechnungsnummer erzeugt"); }
 }
 
-async function closeMonth() { const key=selectedMonthKey();if(!key)return;const rows=currentTransactions();const readiness=buildMonthCloseReadiness(rows,state.documents);if(!readiness.ready)return toast(readiness.blockers.join(" · "),"Monatsabschluss blockiert");const metrics=calculateMetrics(eurTransactions(activeTransactions(rows)));state.monthClosures[key]={closedAt:new Date().toISOString(),periodLabel:period.label,snapshot:{revenue:metrics.revenue,expenses:metrics.expenses,profit:metrics.profit,marginPercent:metrics.marginPercent,transactionCount:metrics.transactionCount},auditState:"closed"};await saveLocal("month_closed",`${period.label} abgeschlossen.`,{month:key,snapshot:state.monthClosures[key].snapshot});render();toast(`${period.label} wurde abgeschlossen.`); }
+async function closeMonth() { const key=selectedMonthKey();if(!key)return;const rows=currentTransactions();const readiness=buildMonthCloseReadiness(rows,state.documents,currentRefundTaxReviews());if(!readiness.ready)return toast(readiness.blockers.join(" · "),"Monatsabschluss blockiert");const metrics=calculateMetrics(eurTransactions(activeTransactions(rows)));state.monthClosures[key]={closedAt:new Date().toISOString(),periodLabel:period.label,snapshot:{revenue:metrics.revenue,expenses:metrics.expenses,profit:metrics.profit,marginPercent:metrics.marginPercent,transactionCount:metrics.transactionCount},auditState:"closed"};await saveLocal("month_closed",`${period.label} abgeschlossen.`,{month:key,snapshot:state.monthClosures[key].snapshot});render();toast(`${period.label} wurde abgeschlossen.`); }
 async function reopenMonth() { const key=selectedMonthKey();const closure=state.monthClosures?.[key];if(!key||!closure)return;const reason=window.prompt(`Grund für das erneute Öffnen von ${period.label}:`,"Korrektur erforderlich");if(!reason)return;state.monthClosures[key]={...closure,reopenedAt:new Date().toISOString(),reopenReason:reason,closedAt:"",auditState:"reopened"};await saveLocal("month_reopened",`${period.label} erneut geöffnet: ${reason}`,{month:key});render(); }
 
 function updatePeriodFromControls() { const preset=document.getElementById("efPeriodPreset")?.value||"month";const start=document.getElementById("efPeriodStart")?.value||"";const end=document.getElementById("efPeriodEnd")?.value||"";period=resolveFinancePeriod(preset,new Date(),start,end);selectedTransactionIds.clear();render(); }
@@ -676,12 +1019,21 @@ function bindEvents() {
     const approve=event.target.closest?.("[data-ef2-approve]")?.dataset.ef2Approve;if(approve)return approveTransaction(approve);
     const voidId=event.target.closest?.("[data-ef2-void]")?.dataset.ef2Void;if(voidId)return voidTransaction(voidId);
     const attach=event.target.closest?.("[data-ef2-attach-doc]")?.dataset.ef2AttachDoc;if(attach){const select=document.querySelector(`[data-ef2-doc-select="${CSS.escape(attach)}"]`);return attachDocument(attach,select?.value);}
+    const matchButton=event.target.closest?.("[data-ef2-match-doc]");
+    if(matchButton){const docId=matchButton.dataset.ef2MatchDoc, transactionId=matchButton.dataset.ef2MatchTransaction;if(window.confirm("Diesen Beleg dem angezeigten Finanzvorgang zuordnen? Es wird keine Buchung oder Zahlung erzeugt."))return attachDocument(transactionId,docId);return;}
+    const recognizeId=event.target.closest?.("[data-ef2-recognize-ubl]")?.dataset.ef2RecognizeUbl;if(recognizeId)return recognizeUblReceipt(recognizeId);
+    const recognizeTextId=event.target.closest?.("[data-ef2-recognize-text]")?.dataset.ef2RecognizeText;if(recognizeTextId)return recognizeUblReceipt(recognizeTextId,true);
+    const suggestCostId=event.target.closest?.("[data-ef2-suggest-cost]")?.dataset.ef2SuggestCost;if(suggestCostId)return fillSuggestedReceiptCost(suggestCostId);
+    const costId=event.target.closest?.("[data-ef2-confirm-cost]")?.dataset.ef2ConfirmCost;if(costId)return confirmReceiptCosts(costId);
+    const refundId=event.target.closest?.("[data-ef2-confirm-refund]")?.dataset.ef2ConfirmRefund;if(refundId)return confirmSupplierRefund(refundId);
+    const reviewRefundId=event.target.closest?.("[data-ef2-review-refund]")?.dataset.ef2ReviewRefund;if(reviewRefundId)return reviewSupplierRefundTax(reviewRefundId);
     const cloudId=event.target.closest?.("[data-ef2-cloud-doc]")?.dataset.ef2CloudDoc;if(cloudId)return uploadDocumentToDrive(cloudId);
     const docId=event.target.closest?.("[data-ef2-download-doc]")?.dataset.ef2DownloadDoc;if(docId){
       const meta=state.documents.find((entry)=>entry.id===docId);
       if(!meta)return toast("Belegmetadaten fehlen.");
       try {
         const file=await readDocumentFile(docId) || await restoreDocumentFromDrive(meta);
+        if (!meta.sha256 || await hashFile(file) !== meta.sha256) throw new Error("Prüfsumme des Originalbelegs stimmt nicht. Bitte Sicherung prüfen.");
         return download(meta.name||"beleg",file,file.type);
       } catch(error) { return toast(error.message,"Originalbeleg"); }
     }
@@ -689,6 +1041,7 @@ function bindEvents() {
     if(action==="load-server")return loadServer();if(action==="save-server")return saveServer();if(action==="refresh-status")return refreshServerStatus();if(action==="reserve-invoice")return reserveInvoice();if(action==="ebay-preview")return ebayPreview();if(action==="confirm-ebay-preview")return confirmStagedImport("ebay_finances_api");if(action==="confirm-csv")return confirmStagedImport("ebay_csv");if(action==="cancel-csv"){stagedImport=null;return render();}if(action==="select-unapproved"){selectedTransactionIds=new Set(currentTransactions().filter((entry)=>!entry.voidedAt&&entry.status!=="approved"&&!isLockedDate(entry.transactionDate)).map((entry)=>entry.id));return render();}if(action==="approve-selected")return approveSelected();if(action==="close-month")return closeMonth();if(action==="reopen-month")return reopenMonth();if(action.startsWith("download-"))return exportAction(action);
   });
   document.addEventListener("change",(event)=>{
+    if(event.target?.name==='originalTransactionId' && event.target.closest?.('[data-ef2-refund-preview]')) {stagedSupplierRefund=null;event.target.closest('details')?.querySelector('[data-ef2-confirm-refund]')?.closest('.ef-callout')?.remove();}
     if(event.target?.id==="mainMenu"){if(event.target.value===TAB_ID)openFinance();else leaveFinance();}
     if(event.target?.id==="efPeriodPreset"){const preset=event.target.value;if(preset==="custom"){period={...period,preset:"custom"};render();}else updatePeriodFromControls();}
     if(event.target?.id==="efPeriodStart"||event.target?.id==="efPeriodEnd")updatePeriodFromControls();
@@ -696,14 +1049,15 @@ function bindEvents() {
     if(event.target?.id==="efDocumentInput"&&event.target.files?.length)importDocuments([...event.target.files]).catch((error)=>toast(error.message,"Belegarchiv"));
     const selectId=event.target?.dataset?.ef2Select;if(selectId){if(event.target.checked)selectedTransactionIds.add(selectId);else selectedTransactionIds.delete(selectId);render();}
   });
-  document.addEventListener("submit",(event)=>{if(event.target?.id==="efSupplierForm"){event.preventDefault();handleSupplierSubmit(event.target);}if(event.target?.id==="efSettingsForm"){event.preventDefault();saveSettings(event.target);}});
+  document.addEventListener('input',event=>{const form=event.target?.closest?.('[data-ef2-cost-preview]');if(form&&event.target?.name==='allocations'&&stagedReceiptCost?.documentId===form.dataset.ef2CostPreview){stagedReceiptCost=null;form.closest('details')?.querySelector('[data-ef2-confirm-cost]')?.closest('.ef-callout')?.remove();}});
+  document.addEventListener("submit",(event)=>{if(event.target?.matches?.("[data-ef2-cost-preview]")){event.preventDefault();previewReceiptCosts(event.target);return;}if(event.target?.matches?.("[data-ef2-refund-preview]")){event.preventDefault();previewSupplierRefund(event.target);return;}if(event.target?.matches?.("[data-ef2-document-form]")){event.preventDefault();void saveDocumentMetadata(event.target);return;}if(event.target?.id==="efSupplierForm"){event.preventDefault();handleSupplierSubmit(event.target);}if(event.target?.id==="efSettingsForm"){event.preventDefault();saveSettings(event.target);}});
   window.addEventListener("hashchange",()=>{if(location.hash==="#finance")openFinance();});
 }
 
 function install() {
   if (installDone || typeof document === "undefined") return;
   installDone=true;installStyles();loadLocal();installMenu();ensureTab();bindEvents();
-  window.ElyonSellerFinance={open:openFinance,openInvoices:()=>openFinancePanel("invoices"),openSettings:()=>openFinancePanel("settings"),state:()=>structuredClone(state),status:refreshServerStatus,load:loadServer,save:saveServer,period:()=>({...period}),quality:()=>buildFinanceDataQuality(currentTransactions(),state.documents)};
+  window.ElyonSellerFinance={open:openFinance,openInvoices:()=>openFinancePanel("invoices"),openSettings:()=>openFinancePanel("settings"),state:()=>structuredClone(state),status:refreshServerStatus,load:loadServer,save:saveServer,period:()=>({...period}),quality:()=>buildFinanceDataQuality(currentTransactions(),state.documents,currentRefundTaxReviews())};
   if(location.hash==="#finance"||document.getElementById("mainMenu")?.value===TAB_ID)openFinance();
   void loadServer({ automatic: true });
 }

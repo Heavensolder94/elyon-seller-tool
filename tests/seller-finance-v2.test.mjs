@@ -1,11 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { spawnSync } from 'node:child_process';
 import { normalizeFinanceTransaction } from "../seller-finance-core.js";
 import {
   resolveFinancePeriod,
   filterFinanceTransactions,
   buildFinanceDataQuality,
   buildOrderProfitability,
+  buildPeriodProfitability,
   buildProductProfitability,
   reconcilePayouts,
   buildMonthCloseReadiness,
@@ -30,6 +32,14 @@ test("Finance V2 resolves month, previous month and quarter periods", () => {
   assert.equal(localMonthKey(previous.start), "2026-07");
   assert.equal(quarter.label, "Q3 2026");
   assert.equal(localMonthKey(quarter.start), "2026-07");
+});
+
+test('period date controls show local calendar days across time zones and DST',()=>{
+ const code=`import {resolveFinancePeriod,financeLocalDay} from './seller-finance.js'; const now=new Date('2026-11-20T12:00:00Z'); console.log(JSON.stringify(['month','previous_month','quarter','year'].map(p=>{const r=resolveFinancePeriod(p,now);return [financeLocalDay(r.start),financeLocalDay(r.end)];})));`;
+ for(const timezone of ['Europe/Berlin','America/Los_Angeles','UTC']){
+  const result=spawnSync(process.execPath,['--input-type=module','-e',code],{cwd:process.cwd(),env:{...process.env,TZ:timezone},encoding:'utf8'});
+  assert.equal(result.status,0,result.stderr);assert.deepEqual(JSON.parse(result.stdout),[['2026-11-01','2026-11-30'],['2026-10-01','2026-10-31'],['2026-10-01','2026-12-31'],['2026-01-01','2026-12-31']]);
+ }
 });
 
 test("Finance V2 filters transactions to the selected period", () => {
@@ -85,6 +95,24 @@ test("Finance V2 aggregates product profitability by item id", () => {
   assert.equal(product.revenue, 50);
   assert.equal(product.costs, 16);
   assert.equal(product.profit, 34);
+});
+
+test("profitability includes linked costs and refunds across periods without changing the cash-flow period", () => {
+  const rows = [
+    tx({transactionId:"purchase",orderId:"o-1",itemId:"sku-1",transactionType:"SUPPLIER_PURCHASE",category:"supplier_expense",transactionDate:"2026-10-15T12:00:00Z",amount:-10,currency:"EUR",status:"approved"}),
+    tx({transactionId:"sale",orderId:"o-1",itemId:"sku-1",transactionType:"SALE",transactionDate:"2026-11-15T12:00:00Z",amount:30,currency:"EUR",status:"approved"}),
+    tx({transactionId:"refund",orderId:"o-1",itemId:"sku-1",transactionType:"REFUND",category:"refund",transactionDate:"2026-12-15T12:00:00Z",amount:-5,currency:"EUR",status:"approved"}),
+    tx({transactionId:"foreign",orderId:"o-1",transactionType:"SUPPLIER_PURCHASE",category:"supplier_expense",transactionDate:"2026-10-15T12:00:00Z",amount:-1,currency:"USD",status:"approved"}),
+    tx({transactionId:"unassigned",orderId:"o-1",transactionType:"NON_SALE_CHARGE",category:"ebay_fee",transactionDate:"2026-11-15T12:00:00Z",amount:-2,currency:"EUR",status:"approved"}),
+    tx({transactionId:"another",orderId:"o-2",itemId:"sku-2",transactionType:"SALE",transactionDate:"2026-12-15T12:00:00Z",amount:100,currency:"EUR",status:"approved"}),
+    tx({transactionId:"foreign-sale",orderId:"o-3",itemId:"sku-3",transactionType:"SALE",transactionDate:"2026-11-15T12:00:00Z",amount:25,currency:"USD",status:"approved"}),
+  ];
+  const period={start:"2026-11-01T00:00:00Z",end:"2026-11-30T23:59:59Z"};
+  const view=buildPeriodProfitability(rows,period);
+  assert.equal(view.orders.length,1);assert.equal(view.orders[0].profit,13);assert.equal(view.orders[0].complete,false);assert.equal(view.orders[0].foreignCount,1);
+  assert.equal(view.products[0].profit,15);assert.equal(view.unattributedCount,1);assert.equal(view.foreignSalesCount,1);
+  assert.deepEqual(filterFinanceTransactions(rows,period).map(row=>row.transactionId),["sale","unassigned","foreign-sale"]);
+  assert.equal(rows.find(row=>row.transactionId==='purchase').transactionDate,'2026-10-15T12:00:00.000Z');
 });
 
 test("Finance V2 reconciles eBay payouts without supplier costs", () => {
