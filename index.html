@@ -1845,6 +1845,13 @@ Land"></textarea>
 
             <div class="metric"><small>Modus</small><strong>Lesen zuerst</strong></div>
           </div>
+          <div class="settings-section" style="margin-top:14px">
+            <h3>☁️ Google Drive</h3>
+            <p class="hint">Für Belegarchiv und Rechnungs-PDFs. Die Verbindung wird über Google bestätigt; Zugangsdaten werden nicht hier eingegeben.</p>
+            <p id="settingsDriveStatus" role="status">Status noch nicht geprüft.</p>
+            <div class="row"><button id="settingsDriveCheckBtn" type="button" class="secondary full">Drive-Status prüfen</button><button id="settingsDriveConnectBtn" type="button" class="secondary full">Google Drive verbinden</button></div>
+            <p class="hint">Ein eingerichteter Archivordner ist zusätzlich erforderlich. Google Drive allein belegt keine GoBD-Konformität.</p>
+          </div>
           <label>Backend URL</label>
           <input id="setIntBackendUrl" placeholder="z. B. http://localhost:3000 oder https://dein-server.de">
           <div class="row">
@@ -3005,6 +3012,17 @@ function renderIntegrationStatus(){
   safe('setIntEbayStatus', el => el.textContent = ebayStatus);
 
 
+}
+async function checkSettingsDriveStatus(){
+  const target = $('settingsDriveStatus');
+  if(!target) return;
+  target.textContent = 'Google Drive wird geprüft …';
+  try {
+    const response = await fetch('/api/google-drive/status', {credentials:'same-origin'});
+    const data = await response.json();
+    if(!response.ok || !data.ok) throw new Error(data.message || data.error || 'Status nicht abrufbar.');
+    target.textContent = data.connected ? 'Google Drive verbunden.' : 'Google Drive nicht verbunden' + (data.error ? ': ' + String(data.error) : '.');
+  } catch(error){ target.textContent = 'Google Drive konnte nicht geprüft werden: ' + (error.message || 'Unbekannter Fehler.'); }
 }
 function integrationStatusText(service, state){
   if(state === 'ok'){
@@ -10049,6 +10067,8 @@ function bindEvents(){
   makeSettingsDropdowns();
   bindProductAiDelegation();
   bind('settingsBtn','click',openIntegrations);
+  bind('settingsDriveCheckBtn','click',checkSettingsDriveStatus);
+  bind('settingsDriveConnectBtn','click',()=>{ window.location.href='/api/google-drive/oauth/start'; });
   bind('startLauncherBtn','click',openStartLauncher);
   bind('closeStartLauncherBtn','click',closeStartLauncher);
   bind('startRecommendedBtn','click',e=>openStartTarget(e.currentTarget.dataset.startTarget || 'ebay'));
