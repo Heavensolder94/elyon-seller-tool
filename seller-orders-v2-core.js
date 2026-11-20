@@ -67,9 +67,8 @@ export function productForLine(line, products = []) {
       listing.offerId, listing.listingId, listing.ebayItemId, channel.offerId, channel.listingId,
       ...variants.flatMap((variant) => [variant.sku, variant.supplierSku]),
     ].map((value) => text(value).toUpperCase()).filter(Boolean);
-    const skuRoot = text(line.sku).toUpperCase().match(/^(ELY-\d{6,})(?:-\d{2,})?$/);
-    if (skuRoot) productKeys.push(skuRoot[1]);
-    return keys.some((key) => productKeys.includes(key));
+    return keys.some((key) => productKeys.includes(key) ||
+      (/^ELY-\d{6,}-\d{2,}$/.test(key) && productKeys.includes(key.replace(/-\d{2,}$/, ""))));
   });
   return matches.length === 1 ? matches[0] : null; // Never guess on ambiguous matches.
 }
