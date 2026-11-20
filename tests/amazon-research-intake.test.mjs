@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { submitAmazonResearchReview } from "../api/products/review-intake.js";
 
-const product = { asin: "B012345678", title: "Beispielprodukt", sourceUrl: "https://www.amazon.de/dp/B012345678", amazonReferencePrice: 12.34, currency: "EUR", images: ["https://example.test/p.jpg"], details: { Material: "Baumwolle" } };
+const product = { asin: "B012345678", title: "Beispielprodukt", originalTitle: "Originaltitel", originalDescription: "Originalbeschreibung", sourceUrl: "https://www.amazon.de/dp/B012345678", amazonReferencePrice: 12.34, currency: "EUR", images: Array.from({length:12},(_,i)=>`https://example.test/${i}.jpg`), details: { Material: "Baumwolle" }, selectedVariations: { Farbe: "Blau", Größe: "M" }, bullets: ["Eigenschaft"], breadcrumbs: ["Kategorie"], itemSpecifics: { Marke: ["Beispiel"] } };
 const env = { COMPANY_OS_SYNC_CODE: "test-sync-code", COMPANY_OS_URL: "https://company.example" };
 function setup(records = []) {
   const calls = [];
@@ -24,6 +24,12 @@ test("Amazon research reaches Company OS before eBay and retains price as unveri
   assert.equal(request.product.costPrice, null); assert.equal(request.product.salePrice, null);
   assert.equal(request.product.meta.amazonReferencePrice, 12.34); assert.equal(request.product.meta.supplierCostVerified, false);
   assert.equal(request.product.meta.imageRightsVerified, false); assert.equal(request.product.meta.amazonDetails.Material, "Baumwolle");
+  assert.equal(request.product.images.length, 12);
+  assert.equal(request.product.meta.amazonOriginalTitle, "Originaltitel");
+  assert.equal(request.product.meta.amazonOriginalDescription, "Originalbeschreibung");
+  assert.deepEqual(request.product.meta.amazonSelectedVariations, { Farbe: "Blau", Größe: "M" });
+  assert.deepEqual(request.product.meta.amazonBullets, ["Eigenschaft"]);
+  assert.deepEqual(request.product.meta.researchAttributes.itemSpecifics.Marke, ["Beispiel"]);
 });
 
 test("duplicate, mismatched ASIN, unavailable master, and unconfirmed write fail closed", async () => {
