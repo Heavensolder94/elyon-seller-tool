@@ -71,7 +71,7 @@ function injectDesktopSecurity(html) {
     '<style>#elyonSellerSellingFlow.focused-selling-active > .card:first-of-type{display:none!important}</style>',
     '<script type="module" src="/seller-dashboard-v2.js"></script>',
     '<link rel="stylesheet" href="/seller-orders-v2.css?v=orders2-20261120" />',
-    '<script type="module" src="/seller-orders-v2.js?v=orders2-20261120"></script>',
+    '<script defer src="/seller-orders-v2-loader.js?v=orders2-20261120"></script>',
   ].join("\n");
 
   return injectMarkedBlock(html, { startMarker, endMarker, content });
@@ -120,6 +120,7 @@ const filesToMirror = [
   ["seller-order-invoices.js", "public/seller-order-invoices.js"],
   ["seller-orders-v2-core.js", "public/seller-orders-v2-core.js"],
   ["seller-orders-v2.js", "public/seller-orders-v2.js"],
+  ["seller-orders-v2-loader.js", "public/seller-orders-v2-loader.js"],
   ["seller-orders-v2.css", "public/seller-orders-v2.css"],
   ["seller-quickstart-core.js", "public/seller-quickstart-core.js"],
   ["seller-quickstart-snapshot.js", "public/seller-quickstart-snapshot.js"],
