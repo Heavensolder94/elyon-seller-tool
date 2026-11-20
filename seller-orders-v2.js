@@ -175,8 +175,9 @@ function detailsMarkup(order) {
         ${profit === null ? '<small>Erst wenn EK, Versand und Gebühren vollständig sind. Weitere Ausgaben und Retouren separat prüfen.</small>' : ""}</div>
       </section>
       <label class="ocv2-note">Interne Notiz<textarea name="note" rows="3" maxlength="1600" placeholder="Liefertermin, Sonderfall, Einkauf prüfen …">${h(op.note || "")}</textarea></label>
-      <div class="ocv2-details-actions"><button type="submit" class="ocv2-primary" ${state.saving || (!state.financeReady && !state.demoMode) ? "disabled" : ""}>${state.saving ? "Speichert…" : "Interne Angaben sichern"}</button>
-        <button type="button" data-order-shipping>Versand öffnen</button><button type="button" data-order-invoice>Rechnung öffnen</button></div>
+      <div class="ocv2-details-actions"><button type="submit" class="ocv2-primary" ${state.saving || (!state.financeReady && !state.demoMode) ? "disabled" : ""}>${state.saving ? "Speichert…" : state.demoMode ? "Demo-Änderung übernehmen" : "Interne Angaben sichern"}</button>
+        <button type="button" data-order-shipping ${state.demoMode ? "disabled" : ""}>Versand öffnen</button><button type="button" data-order-invoice ${state.demoMode ? "disabled" : ""}>Rechnung öffnen</button></div>
+      ${state.demoMode ? '<div class="ocv2-demo-note">Demo: Kein API-Aufruf, keine Bestellung beim Lieferanten, kein eBay-Update.</div>' : ""}
       <p class="ocv2-hint">Interne Angaben werden revisionsgeschützt gespeichert. Kein automatischer Lieferantenkauf, keine eBay-Versandmeldung und keine Rechnungsausstellung.</p>
     </form>`;
 }
@@ -188,8 +189,9 @@ function render() {
   host.innerHTML = `<div class="ocv2-shell"><header class="ocv2-header">
       <div><span class="ocv2-kicker">ELYON · Order Operations</span><h2>Bestellungen</h2>
       <p>eBay-Aufträge verwalten, Lieferanten zuordnen und tatsächliche Kosten dokumentieren.</p></div>
-      <div class="ocv2-header-actions"><label>Zeitraum<select id="ocv2Range"><option value="7" ${state.days === 7 ? "selected" : ""}>7 Tage</option><option value="30" ${state.days === 30 ? "selected" : ""}>30 Tage</option><option value="90" ${state.days === 90 ? "selected" : ""}>90 Tage</option></select></label>
+      <div class="ocv2-header-actions"><button type="button" class="ocv2-demo-btn" id="ocv2DemoToggle">${state.demoMode ? "Demo beenden" : "Interaktive Demo starten"}</button><label>Zeitraum<select id="ocv2Range"><option value="7" ${state.days === 7 ? "selected" : ""}>7 Tage</option><option value="30" ${state.days === 30 ? "selected" : ""}>30 Tage</option><option value="90" ${state.days === 90 ? "selected" : ""}>90 Tage</option></select></label>
       <button type="button" class="ocv2-primary" id="ocv2Refresh" ${state.loading ? "disabled" : ""}>${state.loading ? "Wird geladen…" : "Mit eBay abgleichen"}</button></div></header>
+      ${state.demoMode ? '<div class="ocv2-demo-banner" role="status"><strong>INTERAKTIVE DEMO</strong> · Alle Bestellungen und Kunden sind erfunden. Änderungen bleiben nur in diesem Browser-Tab und werden nicht gespeichert.</div>' : ""}
       ${state.error ? `<p class="ocv2-alert" role="alert">${h(state.error)}</p>` : ""}
       ${state.warning ? `<p class="ocv2-warning">${h(state.warning)}</p>` : ""}
       ${state.saveNotice ? `<p class="ocv2-success" role="status">${h(state.saveNotice)}</p>` : ""}
@@ -203,9 +205,9 @@ function render() {
           <nav class="ocv2-filters" aria-label="Bestellstatus">
           ${[["all", "Alle"], ["new", "Neu"], ["processing", "Bearbeitung"], ["shipping", "Versand offen"], ["shipped", "Versendet"], ["issues", "Prüfen"]].map(([id, label]) =>
             `<button type="button" data-ocv2-filter="${id}" class="${state.filter === id ? "active" : ""}">${label}</button>`).join("")}</nav>
-          <div class="ocv2-order-list">${!state.sourceReady && !state.loading && !state.demoMode ? '<div class="ocv2-empty">Noch keine eBay-Daten geladen.</div>' :
+          <div class="ocv2-order-list">${!state.sourceReady && !state.loading && !state.demoMode ? '<div class="ocv2-empty"><strong>Bestellungen laden oder Demo ausprobieren</strong><span>Die Demo funktioniert ohne Verkäufe und verändert keine Daten.</span><button type="button" data-ocv2-demo-start>Demo ausprobieren →</button></div>' :
             !rows.length ? `<div class="ocv2-empty"><strong>${state.loading ? "Bestellungen werden geladen…" : "Keine passenden Bestellungen"}</strong>
-            <span>${state.loading ? "eBay wird gelesen." : "Im gewählten Zeitraum liegen keine passenden Aufträge vor."}</span></div>` :
+            <span>${state.loading ? "eBay wird gelesen." : "Im gewählten Zeitraum liegen keine passenden Aufträge vor."}</span>${!state.loading && !state.demoMode && !state.query && state.filter==="all" ? '<button type="button" data-ocv2-demo-start>Mit Beispielbestellungen testen →</button>' : ""}</div>` :
             rows.map(rowMarkup).join("")}</div></section>
         <section class="ocv2-detail-card" id="ocv2Details">
           ${selected ? detailsMarkup(selected) : '<div class="ocv2-empty ocv2-empty-detail"><strong>Bestellung auswählen</strong><span>Hier erscheinen Artikel, Lieferant, Kosten, Rechnung und Versand.</span></div>'}
