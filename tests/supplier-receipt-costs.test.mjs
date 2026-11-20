@@ -21,6 +21,10 @@ test('missing evidence, invalid allocations, closed months and foreign currency 
  for (const doc of [{...receipt(),cloudFileId:''},{...receipt(),currency:'USD'},{...receipt(),paymentDate:''},{...receipt(),documentType:'order_confirmation'},{...receipt(),paymentDate:'2026-02-30'}]) assert.equal(buildReceiptCostProposal(doc,allocations(),[],[doc],{}).ok,false);
  assert.equal(buildReceiptCostProposal(receipt(),[{orderId:'123-456',amount:'9.99'}],[],[receipt()],{}).ok,false);
  assert.equal(buildReceiptCostProposal(receipt(),allocations(),[],[receipt()],{'2026-11':{closedAt:'2026-12-01'}}).ok,false);
+ const mismatched={...receipt(),receiptLineItemsV1:[{title:'Item',quantity:1,amount:'8.00'}],receiptShippingAmountV1:'1.00'};
+ assert.equal(buildReceiptCostProposal(mismatched,allocations(),[],[mismatched],{}).ok,false);
+ const matching={...receipt(),receiptLineItemsV1:[{title:'Item',quantity:1,amount:'8.00'}],receiptShippingAmountV1:'2.00'};
+ assert.equal(buildReceiptCostProposal(matching,allocations(),[],[matching],{}).ok,true);
 });
 
 test('duplicate detection works by document, bytes, and frozen supplier reference even after metadata changes', () => {

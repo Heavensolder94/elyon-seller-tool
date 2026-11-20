@@ -415,6 +415,15 @@ export function buildReceiptCostProposal(doc = {}, allocations = [], transaction
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(date)) || new Date(date).toISOString().slice(0, 10) !== date) errors.push("Gültiges tatsächliches Zahlungsdatum erforderlich.");
   if (date && monthClosures?.[date.slice(0, 7)]?.closedAt) errors.push("Der Zahlungsmonat ist abgeschlossen.");
   if (amount === null || amount <= 0) errors.push("Gültiger bezahlter Gesamtbetrag erforderlich.");
+  const extraFields = [doc.receiptShippingAmountV1, doc.receiptAdditionalAmountV1].map(value => clean(value) ? cents(value) : 0);
+  if (extraFields.some(value => value === null)) errors.push("Versand- oder Zusatzkosten sind ungültig.");
+  if (amount !== null && extraFields.every(value => value !== null) && extraFields[0] + extraFields[1] > amount) errors.push("Versand- und Zusatzkosten übersteigen den Gesamtbetrag.");
+  if (doc.receiptLineItemsV1 !== undefined && !Array.isArray(doc.receiptLineItemsV1)) errors.push("Ungültige Belegpositionen.");
+  if (Array.isArray(doc.receiptLineItemsV1) && doc.receiptLineItemsV1.length) {
+    const itemValues = doc.receiptLineItemsV1.map(item => cents(item?.amount));
+    if (doc.receiptLineItemsV1.length > 100 || doc.receiptLineItemsV1.some((item, i) => !clean(item?.title) || !Number.isSafeInteger(item?.quantity) || item.quantity < 1 || itemValues[i] === null)) errors.push("Belegpositionen enthalten ungültige Angaben.");
+    else if (amount !== null && extraFields.every(value => value !== null) && itemValues.reduce((sum, value) => sum + value, 0) + extraFields[0] + extraFields[1] !== amount) errors.push("Positionen, Versand und Zusatzkosten stimmen nicht mit dem Gesamtbetrag überein.");
+  }
   if (!Array.isArray(allocations) || !allocations.length || allocations.length > 50) errors.push("Eine bis 50 Zuordnungen sind erforderlich.");
   const rows = (Array.isArray(allocations) ? allocations.slice(0, 50) : []).map(row => ({ orderId: clean(row.orderId), itemId: clean(row.itemId), cents: cents(row.amount) }));
   if (rows.some(row => !/^[A-Za-z0-9_-]{3,100}$/.test(row.orderId) || row.itemId.length > 200 || row.cents === null || row.cents <= 0)) errors.push("Jede Zuordnung benötigt eine Bestellnummer und einen positiven EUR-Teilbetrag.");

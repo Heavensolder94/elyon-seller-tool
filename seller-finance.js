@@ -553,6 +553,7 @@ const DOCUMENT_TYPES = {
 export function validateDocumentMetadata(input = {}) {
   const data = {};
   const errors = [];
+  const warnings = [];
   data.documentType = text(input.documentType || "unclassified");
   if (!Object.hasOwn(DOCUMENT_TYPES, data.documentType)) errors.push("Ungültiger Belegtyp.");
   for (const key of ["supplier", "invoiceReference", "orderReference", "ebayOrderId", "productReference"]) data[key] = text(input[key]).slice(0, 200);
@@ -562,15 +563,33 @@ export function validateDocumentMetadata(input = {}) {
   }
   data.amount = text(input.amount).replace(",", ".");
   if (data.amount && (!/^\d{1,12}(?:\.\d{1,2})?$/.test(data.amount) || !Number.isFinite(Number(data.amount)))) errors.push("Betrag muss positiv und auf höchstens zwei Nachkommastellen begrenzt sein.");
+  for (const key of ["receiptShippingAmountV1", "receiptAdditionalAmountV1"]) {
+    data[key] = text(input[key]).replace(",", ".");
+    if (data[key] && !/^\d{1,9}(?:\.\d{1,2})?$/.test(data[key])) errors.push("Versand- und Zusatzkosten benötigen einen gültigen Betrag.");
+  }
+  const lines = String(input.lineItemsText || "").split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+  if (lines.length > 100) errors.push("Höchstens 100 Belegpositionen sind zulässig.");
+  data.receiptLineItemsV1 = lines.slice(0, 100).map(line => {
+    const cells = line.split("|").map(text);
+    const [title, quantity, amount] = cells;
+    if (cells.length !== 3 || !title || title.length > 200 || !/^[1-9]\d{0,5}$/.test(quantity || "") || !/^\d{1,9}(?:[.,]\d{1,2})?$/.test(amount || "")) errors.push("Positionen bitte als Bezeichnung | ganze Menge | Gesamtbetrag angeben.");
+    return { title, quantity: Number(quantity), amount: (amount || "").replace(",", ".") };
+  });
   data.currency = text(input.currency).toUpperCase();
   if (data.currency && !/^[A-Z]{3}$/.test(data.currency)) errors.push("Währung bitte als dreistelligen Code eingeben.");
-  if (data.amount && !data.currency) errors.push("Für den Betrag bitte die Währung angeben.");
+  if ((data.amount || data.receiptShippingAmountV1 || data.receiptAdditionalAmountV1 || lines.length) && !data.currency) errors.push("Für Beträge bitte die Währung angeben.");
+  if (!errors.length && data.amount && data.receiptLineItemsV1.length) {
+    const cents = value => Math.round(Number(value || 0) * 100);
+    const total = data.receiptLineItemsV1.reduce((sum, row) => sum + cents(row.amount), 0) + cents(data.receiptShippingAmountV1) + cents(data.receiptAdditionalAmountV1);
+    if (total !== cents(data.amount)) warnings.push("Positionen, Versand und Zusatzkosten stimmen nicht mit dem Gesamtbetrag überein. Kostenübernahme bis zur Korrektur blockiert.");
+  }
   data.reviewStatus = "needs_review";
-  return { ok: !errors.length, errors, data };
+  return { ok: !errors.length, errors, warnings, data };
 }
 function documentFields(doc) {
   const field = (key, label, type = "text") => `<label>${label}<input name="${key}" type="${type}" value="${escapeHtml(doc[key] || "")}" maxlength="200"></label>`;
-  return `<form class="ef-form" data-ef2-document-form="${escapeHtml(doc.id)}"><label>Belegtyp<select name="documentType">${Object.entries(DOCUMENT_TYPES).map(([id, label]) => `<option value="${id}" ${(doc.documentType || "unclassified") === id ? "selected" : ""}>${escapeHtml(label)}</option>`).join("")}</select></label>${field("supplier", "Lieferant / Kunde")}${field("invoiceReference", "Rechnungsnummer")}${field("orderReference", "Lieferantenbestellung")}${field("ebayOrderId", "eBay-Bestellung")}${field("productReference", "Artikelreferenz")}${field("documentDate", "Belegdatum", "date")}${field("paymentDate", "Zahlungsdatum", "date")}${field("amount", "Betrag (ohne Währungsumrechnung)")}${field("currency", "Währung, z. B. EUR")}<div class="full"><button class="ef-btn" type="submit">Angaben speichern</button> <span class="ef-muted">Zur Prüfung · keine automatische Buchung</span></div></form>`;
+  const lineText = Array.isArray(doc.receiptLineItemsV1) ? doc.receiptLineItemsV1.map(line => [line.title, line.quantity, line.amount].join(" | ")).join("\n") : "";
+  return `<form class="ef-form" data-ef2-document-form="${escapeHtml(doc.id)}"><label>Belegtyp<select name="documentType">${Object.entries(DOCUMENT_TYPES).map(([id, label]) => `<option value="${id}" ${(doc.documentType || "unclassified") === id ? "selected" : ""}>${escapeHtml(label)}</option>`).join("")}</select></label>${field("supplier", "Lieferant / Kunde")}${field("invoiceReference", "Rechnungsnummer")}${field("orderReference", "Lieferantenbestellung")}${field("ebayOrderId", "eBay-Bestellung")}${field("productReference", "Artikelreferenz")}${field("documentDate", "Belegdatum", "date")}${field("paymentDate", "Zahlungsdatum", "date")}${field("amount", "Betrag (ohne Währungsumrechnung)")}${field("currency", "Währung, z. B. EUR")}${field("receiptShippingAmountV1", "Lieferantenversand im Gesamtbetrag")}${field("receiptAdditionalAmountV1", "Zusatzkosten im Gesamtbetrag")}<label class="full">Artikelpositionen (optional: Bezeichnung | Menge | Positionsbetrag)<textarea name="lineItemsText" rows="3">${escapeHtml(lineText)}</textarea></label><div class="full"><button class="ef-btn" type="submit">Angaben speichern</button> <span class="ef-muted">Zur Prüfung · keine automatische Buchung</span></div></form>`;
 }
 function receiptCostMarkup(doc) {
   const preview = stagedReceiptCost?.documentId === doc.id ? stagedReceiptCost : null;
@@ -630,7 +649,7 @@ async function saveDocumentMetadata(form) {
   Object.assign(doc, result.data, { metadataUpdatedAt: new Date().toISOString() });
   await saveLocal("document_metadata_updated", "Belegangaben manuell erfasst; Prüfung offen.", { documentId: doc.id });
   render();
-  toast("Angaben gespeichert. Beleg und mögliche Dubletten bleiben zu prüfen.");
+  toast(result.warnings.length ? result.warnings.join(" · ") : "Angaben gespeichert. Beleg und mögliche Dubletten bleiben zu prüfen.", result.warnings.length ? "Summen prüfen" : "Belegarchiv");
 }
 
 function importsMarkup() { const lastAuto = state.imports.filter((item) => item.source === "ebay_finances_auto").sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt))).at(-1); return `<div class="ef-columns"><section class="ef-panel"><div class="ef-panel-head"><div><div class="ef-eyebrow">CSV</div><h3>eBay-CSV importieren</h3></div></div><div class="ef-drop"><strong>eBay-Abrechnungs- oder Transaktionsbericht</strong><p class="ef-muted">Vor Übernahme wird eine Vorschau erzeugt. Datensätze aus abgeschlossenen Monaten werden beim Import blockiert.</p><input id="efCsvInput" type="file" accept=".csv,.txt,text/csv"><label class="ef-btn primary" for="efCsvInput">CSV auswählen</label></div>${stagedImport?`<div class="ef-callout good" style="margin-top:13px"><strong>${stagedImport.transactions.length} Datensätze erkannt</strong><br>${escapeHtml(stagedImport.warnings?.join(" · ")||"Spalten wurden zugeordnet.")}</div><div class="ef-actions" style="margin-top:10px"><button class="ef-btn primary" data-ef2-action="confirm-csv">Import übernehmen</button><button class="ef-btn" data-ef2-action="cancel-csv">Verwerfen</button></div>`:""}</section><aside class="ef-panel"><div class="ef-callout good" style="margin-bottom:14px"><strong>Automatischer eBay-Abgleich</strong><div>Cloud-Import täglich um 06:00 UTC (07:00 Uhr MEZ / 08:00 Uhr MESZ), sobald in Production aktiviert. Neue Vorgänge bleiben zur Prüfung offen. ${lastAuto ? `Letzter Lauf: ${escapeHtml(formatDate(lastAuto.createdAt))} · ${num(lastAuto.inserted)} neu · ${num(lastAuto.duplicates)} bekannt · ${num(lastAuto.blockedLockedMonths)} aus abgeschlossenen Monaten blockiert.` : "Noch kein erfolgreicher automatischer Import gespeichert."}</div></div><div class="ef-eyebrow">API</div><h3>eBay Finances API</h3><p class="ef-muted">Liest Verkäufe, Gebühren, Anzeigenkosten, Erstattungen, Gutschriften und Auszahlungen ausschließlich lesend.</p><label class="ef-muted">Zeitraum<select id="efEbayDays" style="width:100%;margin-top:6px;padding:10px;border-radius:11px;background:#020617;color:#e5e7eb;border:1px solid rgba(148,163,184,.18)"><option value="30">30 Tage</option><option value="90" selected>90 Tage</option><option value="365">365 Tage</option></select></label><div class="ef-actions" style="margin-top:12px"><button class="ef-btn" data-ef2-action="ebay-preview">Vorschau laden</button><button class="ef-btn primary" data-ef2-action="confirm-ebay-preview" ${stagedImport?.source==="ebay_api"?"":"disabled"}>Vorschau übernehmen</button></div><div class="ef-callout" style="margin-top:13px">Finance V2 nutzt absichtlich zuerst die Vorschau. So können abgeschlossene Monate vor dem lokalen Merge geschützt werden.</div></aside></div><section class="ef-panel"><div class="ef-panel-head"><h3>Lieferantenkosten ergänzen</h3></div><form id="efSupplierForm" class="ef-form"><label>Bestellnummer<input name="orderId" required></label><label>Lieferant<input name="supplier" placeholder="Lieferant aus Nova"></label><label>Betrag (€)<input name="amount" type="number" min="0" step="0.01" required></label><label>Datum<input name="date" type="date" required></label><label>Artikel-ID optional<input name="itemId"></label><label>Notiz<input name="memo"></label><div class="full"><button class="ef-btn primary" type="submit">Wareneinkauf erfassen</button></div></form></section><section class="ef-panel"><div class="ef-panel-head"><h3>Importverlauf</h3><span class="ef-badge">${state.imports.length}</span></div><div class="ef-list">${state.imports.slice().reverse().slice(0,20).map((item)=>`<div class="ef-list-item"><div><strong>${escapeHtml(item.source||"Import")}</strong><span class="ef-muted">${escapeHtml(formatDate(item.createdAt))} · ${num(item.inserted||item.normalizedCount)} neu · ${num(item.duplicates)} Duplikate · ${num(item.blockedLockedMonths)} gesperrt</span></div><span class="ef-code">${escapeHtml(item.id)}</span></div>`).join("")||'<div class="ef-empty">Noch keine Importe.</div>'}</div></section>`; }

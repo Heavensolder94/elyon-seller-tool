@@ -49,3 +49,13 @@ test('document metadata is manual, unbooked and validates amounts and dates', ()
   assert.equal(valid.data.supplier, 'Example');
   for (const value of [{ amount: '-2', currency: 'EUR' }, { amount: '2.345', currency: 'EUR' }, { amount: '2' }, { documentDate: '2026-02-30' }, { documentType: 'invented' }]) assert.equal(validateDocumentMetadata(value).ok, false);
 });
+
+test('receipt positions, quantities, shipping and extra costs stay manually reviewable', () => {
+  const result = validateDocumentMetadata({ currency: 'EUR', amount: '15.50', receiptShippingAmountV1: '2,00', receiptAdditionalAmountV1: '0.50', lineItemsText: 'Artikel A | 2 | 10,00\nArtikel B | 1 | 3.00' });
+  assert.equal(result.ok, true); assert.equal(result.warnings.length, 0);
+  assert.deepEqual(result.data.receiptLineItemsV1, [{title:'Artikel A',quantity:2,amount:'10.00'},{title:'Artikel B',quantity:1,amount:'3.00'}]);
+  assert.equal(result.data.reviewStatus,'needs_review');
+  assert.equal(validateDocumentMetadata({currency:'EUR',lineItemsText:'A | 0 | 10'}).ok,false);
+  const mismatch=validateDocumentMetadata({currency:'EUR',amount:'20',lineItemsText:'A | 1 | 10'});
+  assert.equal(mismatch.ok,true); assert.equal(mismatch.warnings.length,1);
+});

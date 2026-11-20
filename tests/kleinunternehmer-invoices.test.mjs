@@ -77,3 +77,11 @@ test('legacy sync cannot inject an issued invoice or mutate a signed server snap
   assert.equal(stale.state.invoiceMeta.abc.invoiceNumber, issued.invoiceNumber);
   assert.equal(stale.state.invoiceMeta.abc.invoice.total, 29);
 });
+
+
+test('one-cent mismatch or missing line currency cannot be issued as a confirmed EUR invoice', () => {
+  const mismatch = order(); mismatch.pricingSummary.total.value = '29.01';
+  assert.equal(buildKleinunternehmerInvoiceDraft(mismatch, settings).ok, false);
+  const unknownCurrency = order(); delete unknownCurrency.lineItems[0].lineItemCost.currency;
+  assert.equal(buildKleinunternehmerInvoiceDraft(unknownCurrency, settings).ok, false);
+});
