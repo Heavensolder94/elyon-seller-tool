@@ -4,6 +4,8 @@ import { ebayUserSession, callEbayJson, publicEbayError } from "../../lib/ebay-p
 import { readFinanceState, writeFinanceState, getFinanceStoreDescription, reserveFinanceInvoiceNumber } from "../../lib/finance-store.js";
 import { normalizeEbayApiTransactions, mergeTransactions, calculateMetrics, buildEurSummary, selectApprovedEurTransactions, buildReceiptCostProposal } from "../../seller-finance-core.js";
 import { issueKleinunternehmerInvoice } from "../../lib/kleinunternehmer-invoice-store.js";
+import { getRefreshTokenCookie, downloadFinanceDocumentFromDrive } from "../../lib/google-drive.js";
+import { readGoogleDriveToken } from "../../lib/google-drive-token-store.js";
 
 function text(value) {
   return String(value ?? "").trim();
@@ -171,6 +173,17 @@ async function handleReceiptCosts(req, res) {
   if (!doc) return res.status(404).json({ ok: false, error: "document_not_found", message: "Beleg fehlt im Finance-Serverstand." });
   const proposal = buildReceiptCostProposal(doc, req.body?.allocations, current.transactions, current.documents, current.monthClosures);
   if (!proposal.ok) return res.status(409).json({ ok: false, error: "receipt_cost_blocked", message: proposal.errors.join(" · "), blockers: proposal.errors });
+  // A cloud ID in browser-supplied metadata alone does not prove that the
+  // original exists or still matches. Reuse the bound Drive download verifier.
+  try {
+    const cookie = getRefreshTokenCookie(req);
+    const stored = cookie ? null : await readGoogleDriveToken();
+    const refreshToken = cookie || stored?.refresh_token || stored?.refreshToken || "";
+    if (!refreshToken) throw new Error("drive_not_connected");
+    await downloadFinanceDocumentFromDrive({ refreshToken, documentId: doc.id, fileId: doc.cloudFileId, sha256: doc.sha256 });
+  } catch {
+    return res.status(503).json({ ok: false, error: "receipt_original_unavailable", message: "Originalbeleg konnte in Google Drive nicht geprüft werden. Keine Kosten erfasst; Drive-Verbindung und Datei prüfen." });
+  }
   const result = await writeFinanceState({ transactions: proposal.allocations }, {
     action: "supplier_receipt_costs_recorded", source: "supplier_receipt_verified", actor: "seller", summary: `Prüfbedürftige Lieferantenkosten aus Beleg ${doc.id} erfasst.`
   }, { expectedRevision: expected, allowReceiptCosts: true });
