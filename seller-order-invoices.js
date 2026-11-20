@@ -253,6 +253,7 @@
         data.message || data.error || 'Rechnung wurde nicht ausgestellt (HTTP ' + response.status + ')'
       );
       serverState.invoiceMeta = {
+        ...readJson(META_KEY, {}),
         ...(serverState.invoiceMeta || {}),
         [order.id]: {
           immutable: true, status: 'issued', orderId: order.id,
