@@ -37,3 +37,5 @@ Ein separater Berichtigungsbeleg kann Namen, Straße, Postleitzahl oder Ort beri
 ## Begrenzte Betragsberichtigung (Entwurf)
 
 Eine manuelle Berichtigung ist nur bei einer Position mit Menge 1 ohne Versand und Rabatt möglich und betrifft sowohl Positions- als auch Gesamtbetrag. Keine eBay-Änderung und keine automatische Anpassung von Transaktionen, Erstattungen oder EÜR. Alle komplexeren Fälle bleiben blockiert; fachliche und produktive Prüfung ist erforderlich.
+
+Nach einer Berichtigung sind Vollstorno und Ersatzrechnung bis zum fachlichen Abgleich gesperrt. Konkurrierende Berichtigungs- und Stornoanfragen sind revisionsgeschützt. Damit wird kein Stornobeleg mit ungeprüft veralteter Adresse oder Summe ausgegeben.

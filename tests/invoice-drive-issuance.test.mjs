@@ -35,20 +35,24 @@ test('parallel issuance preserves one invoice and its verified PDF; failed Drive
   const sellerChange={field:'sellerStreet',newValue:'Neuer Weg 5',reason:'Adresse korrigieren'};const sellerCorrection=await issueInvoiceCorrection(order.orderId,sellerChange,{refreshToken:'test'});assert.equal(sellerCorrection.ok,true);assert.equal(sellerCorrection.invoice.oldValue,'Testweg 2');assert.equal(sellerCorrection.invoice.newValue,'Neuer Weg 5');
   const badAmount=await issueInvoiceCorrection(order.orderId,{field:'singleLineAmount',newValue:'-1',reason:'Betrag korrigieren'},{refreshToken:'test'});assert.equal(badAmount.ok,false);
   const priceCorrection=await issueInvoiceCorrection(order.orderId,{field:'singleLineAmount',newValue:'12,50',reason:'Betrag korrigieren'},{refreshToken:'test'});assert.equal(priceCorrection.ok,true);assert.equal(priceCorrection.invoice.oldValue,'10.00');assert.equal(priceCorrection.invoice.newValue,'12,50');assert.equal(priceCorrection.invoice.itemTitle,'Beispiel');
-  const beforeStorno=await issueReplacementInvoice(order,{refreshToken:'test'});assert.equal(beforeStorno.ok,false);
-  const blocked=await cancelIssuedInvoice(order.orderId,'', {refreshToken:'test'});assert.equal(blocked.ok,false);
-  failDrive=true;const noDrive=await cancelIssuedInvoice(order.orderId,'Bestellung storniert',{refreshToken:'test'});assert.equal(noDrive.ok,false);assert.equal(Object.keys((await readFinanceState()).invoiceMeta).length,4);
-  failDrive=false;const cancellations=await Promise.all([cancelIssuedInvoice(order.orderId,'Bestellung storniert',{refreshToken:'test'}),cancelIssuedInvoice(order.orderId,'Bestellung storniert',{refreshToken:'test'})]);
-  assert.ok(cancellations.every(x=>x.ok));assert.equal(cancellations[0].invoice.invoiceNumber,cancellations[1].invoice.invoiceNumber);assert.notEqual(cancellations[0].invoice.invoiceNumber,results[0].invoiceNumber);
-  assert.equal(cancellations[0].invoice.originalInvoiceNumber,results[0].invoiceNumber);assert.equal(cancellations[0].invoice.total,-10);const after=await readFinanceState();assert.equal(Object.keys(after.invoiceMeta).length,5);assert.equal(JSON.stringify(after.invoiceMeta[order.orderId]),originalBefore);
-  const again=await cancelIssuedInvoice(order.orderId,'Bestellung storniert',{refreshToken:'test'});assert.equal(again.existing,true);assert.equal(Object.keys((await readFinanceState()).invoiceMeta).length,5);
-  assert.equal((await issueInvoiceCorrection(order.orderId,{...change,field:'buyerName',newValue:'Anders'},{refreshToken:'test'})).ok,false);
-  const invalid={...order,pricingSummary:{total:{value:'15.00',currency:'EUR'}}};assert.equal((await issueReplacementInvoice(invalid,{refreshToken:'test'})).ok,false);
-  const replacements=await Promise.all([issueReplacementInvoice(order,{refreshToken:'test'}),issueReplacementInvoice(order,{refreshToken:'test'})]);
-  assert.ok(replacements.every(x=>x.ok));assert.equal(replacements[0].invoice.invoiceNumber,replacements[1].invoice.invoiceNumber);
-  assert.notEqual(replacements[0].invoice.invoiceNumber,results[0].invoiceNumber);assert.notEqual(replacements[0].invoice.invoiceNumber,cancellations[0].invoice.invoiceNumber);
-  assert.equal(replacements[0].invoice.originalInvoiceNumber,results[0].invoiceNumber);assert.equal(replacements[0].invoice.cancellationInvoiceNumber,cancellations[0].invoice.invoiceNumber);
-  assert.equal(Object.keys((await readFinanceState()).invoiceMeta).length,6);assert.equal((await issueReplacementInvoice(order,{refreshToken:'test'})).existing,true);
+  const correctedCancellation=await cancelIssuedInvoice(order.orderId,'Bestellung storniert',{refreshToken:'test'});assert.equal(correctedCancellation.ok,false);assert.match(correctedCancellation.message,/Berichtigung/);
+  assert.equal(JSON.stringify((await readFinanceState()).invoiceMeta[order.orderId]),originalBefore);
+  const plainOrder={...order,orderId:'22222-22222-22222'};const issued=await issueKleinunternehmerInvoice(plainOrder,{refreshToken:'test'});assert.equal(issued.ok,true);
+  const beforeStorno=await issueReplacementInvoice(plainOrder,{refreshToken:'test'});assert.equal(beforeStorno.ok,false);
+  failDrive=true;assert.equal((await cancelIssuedInvoice(plainOrder.orderId,'Bestellung storniert',{refreshToken:'test'})).ok,false);
+  failDrive=false;const cancellations=await Promise.all([cancelIssuedInvoice(plainOrder.orderId,'Bestellung storniert',{refreshToken:'test'}),cancelIssuedInvoice(plainOrder.orderId,'Bestellung storniert',{refreshToken:'test'})]);
+  assert.ok(cancellations.every(x=>x.ok));assert.equal(cancellations[0].invoice.invoiceNumber,cancellations[1].invoice.invoiceNumber);assert.notEqual(cancellations[0].invoice.invoiceNumber,issued.invoiceNumber);
+  assert.equal(cancellations[0].invoice.originalInvoiceNumber,issued.invoiceNumber);assert.equal(cancellations[0].invoice.total,-10);
+  assert.equal((await cancelIssuedInvoice(plainOrder.orderId,'Bestellung storniert',{refreshToken:'test'})).existing,true);
+  assert.equal((await issueInvoiceCorrection(plainOrder.orderId,{...change,field:'buyerName',newValue:'Anders'},{refreshToken:'test'})).ok,false);
+  const invalid={...plainOrder,pricingSummary:{total:{value:'15.00',currency:'EUR'}}};assert.equal((await issueReplacementInvoice(invalid,{refreshToken:'test'})).ok,false);
+  const replacements=await Promise.all([issueReplacementInvoice(plainOrder,{refreshToken:'test'}),issueReplacementInvoice(plainOrder,{refreshToken:'test'})]);
+  assert.ok(replacements.every(x=>x.ok));assert.equal(replacements[0].invoice.invoiceNumber,replacements[1].invoice.invoiceNumber);assert.notEqual(replacements[0].invoice.invoiceNumber,issued.invoiceNumber);assert.notEqual(replacements[0].invoice.invoiceNumber,cancellations[0].invoice.invoiceNumber);
+  assert.equal(replacements[0].invoice.originalInvoiceNumber,issued.invoiceNumber);assert.equal(replacements[0].invoice.cancellationInvoiceNumber,cancellations[0].invoice.invoiceNumber);assert.equal((await issueReplacementInvoice(plainOrder,{refreshToken:'test'})).existing,true);
+  const racingOrder={...order,orderId:'33333-33333-33333'};assert.equal((await issueKleinunternehmerInvoice(racingOrder,{refreshToken:'test'})).ok,true);
+  const competing=await Promise.all([cancelIssuedInvoice(racingOrder.orderId,'Storno Test',{refreshToken:'test'}),issueInvoiceCorrection(racingOrder.orderId,{field:'buyerCity',newValue:'Andere Stadt',reason:'Korrektur'},{refreshToken:'test'})]);
+  assert.equal(competing.filter(x=>x.ok).length,1);
   const shippingOrder={...order,orderId:'55555-55555-55555',pricingSummary:{total:{value:'12.00',currency:'EUR'},deliveryCost:{value:'2.00',currency:'EUR'}}};assert.equal((await issueKleinunternehmerInvoice(shippingOrder,{refreshToken:'test'})).ok,true);const shippingCorrection=await issueInvoiceCorrection(shippingOrder.orderId,{field:'singleLineAmount',newValue:'13',reason:'Prüfung'},{refreshToken:'test'});assert.equal(shippingCorrection.ok,false);
+
  }finally{globalThis.fetch=oldFetch;for(const name of names)old[name]===undefined?delete process.env[name]:process.env[name]=old[name]}
 });
