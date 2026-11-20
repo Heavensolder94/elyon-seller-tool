@@ -56,6 +56,14 @@ test('incomplete buyer, missing order lines and foreign delivery fail closed', (
   assert.ok(result.errors.some(s => /Artikelposition/.test(s)));
 });
 
+test('automatic invoice issuance requires an explicitly paid eBay order', () => {
+  for(const status of ['',undefined,'UNPAID','NOT_PAID','PARTIALLY_PAID','PENDING','FAILED','UNKNOWN','PAID_UNKNOWN']){
+    const raw=order();raw.orderPaymentStatus=status;const result=buildKleinunternehmerInvoiceDraft(raw,settings);
+    assert.equal(result.ok,false,`unexpectedly accepted ${status}`);assert.ok(result.errors.some(error=>error.includes('Zahlungsstatus')));
+  }
+  assert.equal(buildKleinunternehmerInvoiceDraft(order(),settings).ok,true);
+});
+
 test('wrong currency, mismatched totals and marketplace tax never result in invoice', () => {
   const raw = order(); raw.pricingSummary.total.value = '35.00';
   raw.pricingSummary.tax = { value: '1.00', currency: 'EUR' };

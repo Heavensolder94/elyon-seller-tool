@@ -23,6 +23,8 @@ test('parallel issuance preserves one invoice and its verified PDF; failed Drive
  };
  try{
   assert.equal((await writeFinanceState({settings},{},{expectedRevision:0})).ok,true);
+  const unpaidBefore=await readFinanceState();const unpaid=await issueKleinunternehmerInvoice({...order,orderPaymentStatus:'UNPAID'},{refreshToken:'test'});
+  assert.equal(unpaid.ok,false);assert.equal(unpaid.status,422);assert.equal(files.size,0);assert.equal((await readFinanceState()).revision,unpaidBefore.revision);
   failDrive=true;const failed=await issueKleinunternehmerInvoice(order,{refreshToken:'test'});assert.equal(failed.ok,false);assert.equal((await readFinanceState()).invoiceMeta[order.orderId],undefined);
   failDrive=false;const results=await Promise.all([issueKleinunternehmerInvoice(order,{refreshToken:'test'}),issueKleinunternehmerInvoice(order,{refreshToken:'test'})]);assert.ok(results.every(x=>x.ok));assert.equal(results[0].invoiceNumber,results[1].invoiceNumber);const state=await readFinanceState();assert.equal(Object.keys(state.invoiceMeta).length,1);assert.ok(files.has(state.invoiceMeta[order.orderId].pdfArchive.fileId));assert.equal(results[0].pdfArchive.fileId,results[1].pdfArchive.fileId);
   const originalBefore=JSON.stringify(state.invoiceMeta[order.orderId]);
