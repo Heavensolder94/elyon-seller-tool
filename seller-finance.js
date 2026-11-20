@@ -480,6 +480,12 @@ function installMenu() {
 function ensureTab() { let tab = document.getElementById(TAB_ID); if (!tab) { tab = document.createElement("section"); tab.id = TAB_ID; tab.className = "tab"; (document.querySelector("main") || document.body).appendChild(tab); } return tab; }
 function openFinance() { installMenu(); const menu = document.getElementById("mainMenu"); if (menu) menu.value = TAB_ID; document.querySelectorAll(".tab").forEach((tab) => tab.classList.toggle("active", tab.id === TAB_ID)); const financeTab = ensureTab(); financeTab.style.display = "block"; financeTab.classList.add("active"); if (location.hash !== "#finance") history.replaceState(null, "", "#finance"); render(); }
 function leaveFinance() { const tab = document.getElementById(TAB_ID); if (tab) tab.style.display = "none"; }
+function openFinancePanel(panel) {
+  if (!["invoices", "settings"].includes(panel)) return openFinance();
+  activePanel = panel;
+  openFinance();
+}
+
 
 function periodMarkup() {
   const custom = period.preset === "custom";
@@ -697,7 +703,7 @@ function bindEvents() {
 function install() {
   if (installDone || typeof document === "undefined") return;
   installDone=true;installStyles();loadLocal();installMenu();ensureTab();bindEvents();
-  window.ElyonSellerFinance={open:openFinance,state:()=>structuredClone(state),status:refreshServerStatus,load:loadServer,save:saveServer,period:()=>({...period}),quality:()=>buildFinanceDataQuality(currentTransactions(),state.documents)};
+  window.ElyonSellerFinance={open:openFinance,openInvoices:()=>openFinancePanel("invoices"),openSettings:()=>openFinancePanel("settings"),state:()=>structuredClone(state),status:refreshServerStatus,load:loadServer,save:saveServer,period:()=>({...period}),quality:()=>buildFinanceDataQuality(currentTransactions(),state.documents)};
   if(location.hash==="#finance"||document.getElementById("mainMenu")?.value===TAB_ID)openFinance();
   void loadServer({ automatic: true });
 }
