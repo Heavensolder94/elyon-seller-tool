@@ -612,13 +612,13 @@ async function recognizeUblReceipt(id) {
     const labels={supplier:'Lieferant',invoiceReference:'Rechnungsnummer',orderReference:'Bestellnummer',documentDate:'Belegdatum',amount:'Zahlbetrag',currency:'Währung'};
     const rows=Object.entries(labels).filter(([key])=>proposal[key]).map(([key,label])=>label+': '+proposal[key]);
     if(proposal.lineItems?.length)rows.push('Positionen: '+proposal.lineItems.map(line=>`${line.title} × ${line.quantity} = ${line.amount} ${proposal.currency}`).join('; '));
-    const message='Vorschläge aus den strukturierten Originaldaten (keine Prüfung auf steuerliche Gültigkeit):\n'+(rows.join('\n')||'Keine eindeutigen Angaben erkannt.')+(proposal.warnings?.length?'\n\n'+proposal.warnings.join('\n'):'')+'\n\nNur leere Felder befüllen und anschließend selbst prüfen?';
+    const message='Vorschläge aus dem Originalbeleg (keine Prüfung auf steuerliche Gültigkeit):\n'+(rows.join('\n')||'Keine eindeutigen Angaben erkannt.')+(proposal.warnings?.length?'\n\n'+proposal.warnings.join('\n'):'')+'\n\nNur leere Felder befüllen und anschließend selbst prüfen?';
     if(!window.confirm(message))return;
     for(const key of Object.keys(labels)) {const field=form.elements.namedItem(key);if(field&&!field.value&&proposal[key])field.value=proposal[key];}
     const lineField=form.elements.namedItem('lineItemsText');if(lineField&&!lineField.value&&proposal.lineItems?.length)lineField.value=proposal.lineItems.map(line=>[line.title,line.quantity,line.amount].join(' | ')).join('\n');
     const kind=form.elements.namedItem('documentType');if(kind&&kind.value==='unclassified'&&proposal.documentType)kind.value=proposal.documentType;
     toast('Vorschläge eingefügt. Bitte Original prüfen und Angaben ausdrücklich speichern.');
-  } catch(error) {toast(error.message,'XML-Erkennung');}
+  } catch(error) {toast(error.message,'Belegerkennung');}
 }
 
 function receiptCostMarkup(doc) {
