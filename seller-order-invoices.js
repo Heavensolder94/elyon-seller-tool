@@ -27,7 +27,7 @@
   const num = (value) => Number.isFinite(Number(value)) ? Number(value) : 0;
   const money = (value, currency) => {
     try { return new Intl.NumberFormat('de-DE', { style: 'currency', currency: currency || 'EUR' }).format(num(value)); }
-    catch { return num(value).toFixed(2) + ' ' + (currency || 'EUR'); }
+    catch { return num(value).toFixed(2) + ' ' + esc(currency || 'EUR'); }
   };
   const readJson = (key, fallback) => { try { return JSON.parse(localStorage.getItem(key) || '') || fallback; } catch { return fallback; } };
   const readMeta = () => serverLoaded && Object.keys(serverState.invoiceMeta || {}).length ? serverState.invoiceMeta : readJson(META_KEY, {});
