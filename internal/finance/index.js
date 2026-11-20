@@ -310,7 +310,7 @@ export default async function handler(req, res) {
     if (action === "recognize-pdf-receipt") {
       if (req.method !== "POST") return res.status(405).json({ok:false,error:"Nur POST erlaubt."});
       try { return res.status(200).json({ok:true,proposal:await recognizePdfIsolated(req.body?.base64)}); }
-      catch { return res.status(422).json({ok:false,error:"receipt_pdf_unavailable",message:"PDF konnte nicht sicher verarbeitet werden. XML separat importieren oder später erneut versuchen."}); }
+      catch { return res.status(422).json({ok:false,error:"receipt_pdf_unavailable",message:"PDF konnte nicht sicher ausgelesen werden. Bei Scans oder Fotos Angaben bitte manuell erfassen; falls vorhanden, XML separat importieren."}); }
     }
     if (action === "recognize-ubl-receipt") {
       if (req.method !== "POST") return res.status(405).json({ok:false,error:"Nur POST erlaubt."});
