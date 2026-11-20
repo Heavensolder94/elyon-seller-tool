@@ -1,3 +1,4 @@
+import { extractUblReceipt } from '../../lib/receipt-ubl.js';
 import { requireSellerAccess } from "../../lib/seller-access.js";
 import { financeSigningStatus, signFinancesGetRequest } from "../../lib/ebay-finance-signature.js";
 import { ebayUserSession, callEbayJson, publicEbayError } from "../../lib/ebay-production.js";
@@ -305,6 +306,11 @@ export default async function handler(req, res) {
     if (action === "status") return handleStatus(req, res);
     if (action === "load") return handleLoad(req, res);
     if (action === "save") return handleSave(req, res);
+    if (action === "recognize-ubl-receipt") {
+      if (req.method !== "POST") return res.status(405).json({ok:false,error:"Nur POST erlaubt."});
+      try {return res.status(200).json({ok:true,proposal:extractUblReceipt(req.body?.xml)});}
+      catch(error) {return res.status(422).json({ok:false,error:"receipt_xml_invalid",message:error.message});}
+    }
     if (action === "record-receipt-costs") return handleReceiptCosts(req, res);
     if (action === "ebay-preview" || action === "ebay-transactions") return handleEbayPreview(req, res);
     if (action === "ebay-sync") return handleEbaySync(req, res);
