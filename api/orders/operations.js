@@ -24,6 +24,7 @@ export default async function handler(req, res) {
     }
     const body = req.body && typeof req.body === "object" && !Array.isArray(req.body) ? req.body : {};
     const orderId = text(body.orderId);
+    if (/^DEMO-/i.test(orderId)) return res.status(400).json({ ok:false, error:"demo_order_blocked", message:"Beispielbestellungen dürfen nicht auf den Server gespeichert werden." });
     if (!/^[\w|:-]{5,120}$/.test(orderId)) {
       return res.status(400).json({ ok: false, error: "invalid_order_id", message: "Ungültige eBay-Bestellnummer." });
     }
