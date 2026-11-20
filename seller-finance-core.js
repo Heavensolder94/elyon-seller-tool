@@ -415,11 +415,18 @@ export function buildReceiptCostProposal(doc = {}, allocations = [], transaction
   const supplier = clean(doc.supplier), reference = clean(doc.invoiceReference);
   const date = clean(doc.paymentDate);
   const amount = cents(doc.amount);
+  const currency = clean(doc.currency).toUpperCase();
+  const proofId = clean(doc.receiptPaymentProofIdV1);
+  const proofs = documents.filter(item => clean(item.id) === proofId);
+  const proof = proofs.length === 1 ? proofs[0] : null;
+  const foreign = currency !== 'EUR';
+  const paidAmount = foreign ? cents(proof?.amount) : amount;
   if (!id || !/^[a-f0-9]{64}$/.test(sha)) errors.push("Original und SHA-256-Prüfsumme fehlen.");
   if (!clean(doc.cloudFileId)) errors.push("Original zuerst in Drive sichern und Finance synchronisieren.");
   if (!["supplier_invoice", "internal_receipt"].includes(doc.documentType)) errors.push("Nur Lieferantenrechnungen oder gekennzeichnete Eigenbelege können hier Kosten auslösen.");
   if (!supplier || !reference) errors.push("Lieferant und Rechnungs-/Belegreferenz werden für die Dublettenprüfung benötigt.");
-  if (clean(doc.currency).toUpperCase() !== "EUR") errors.push("Nur EUR-Beträge; Fremdwährung und Umrechnung müssen gesondert geprüft werden.");
+  if (!/^[A-Z]{3}$/.test(currency)) errors.push("Gültige Belegwährung erforderlich.");
+  if (foreign && (!proof || proofId === id || proof.documentType !== 'payment_proof' || clean(proof.currency).toUpperCase() !== 'EUR' || paidAmount === null || paidAmount <= 0 || clean(proof.paymentDate) !== date || !clean(proof.cloudFileId) || !/^[a-f0-9]{64}$/.test(clean(proof.sha256).toLowerCase()) || clean(proof.sha256).toLowerCase() === sha)) errors.push("Für Fremdwährung ist ein separater archivierter EUR-Zahlungsnachweis mit passendem Zahlungsdatum und tatsächlichem Abbuchungsbetrag erforderlich.");
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(date)) || new Date(date).toISOString().slice(0, 10) !== date) errors.push("Gültiges tatsächliches Zahlungsdatum erforderlich.");
   if (date && monthClosures?.[date.slice(0, 7)]?.closedAt) errors.push("Der Zahlungsmonat ist abgeschlossen.");
   if (amount === null || amount <= 0) errors.push("Gültiger bezahlter Gesamtbetrag erforderlich.");
@@ -435,12 +442,13 @@ export function buildReceiptCostProposal(doc = {}, allocations = [], transaction
   if (!Array.isArray(allocations) || !allocations.length || allocations.length > 50) errors.push("Eine bis 50 Zuordnungen sind erforderlich.");
   const rows = (Array.isArray(allocations) ? allocations.slice(0, 50) : []).map(row => ({ orderId: clean(row.orderId), itemId: clean(row.itemId), cents: cents(row.amount) }));
   if (rows.some(row => !/^[A-Za-z0-9_-]{3,100}$/.test(row.orderId) || row.itemId.length > 200 || row.cents === null || row.cents <= 0)) errors.push("Jede Zuordnung benötigt eine Bestellnummer und einen positiven EUR-Teilbetrag.");
-  if (amount !== null && rows.reduce((sum, row) => sum + (row.cents || 0), 0) !== amount) errors.push("Summe der Teilbeträge muss dem bezahlten Gesamtbetrag entsprechen.");
+  if (paidAmount !== null && rows.reduce((sum, row) => sum + (row.cents || 0), 0) !== paidAmount) errors.push("Summe der EUR-Teilbeträge muss dem tatsächlichen Zahlungsbetrag entsprechen.");
   const comparable = value => clean(value).toLocaleLowerCase("de-DE");
   const duplicate = transactions.some(tx => {
     if (tx.category !== "supplier_expense" && tx.transactionType !== "SUPPLIER_PURCHASE") return false;
     const linked = (Array.isArray(tx.documentIds) ? tx.documentIds : []).map(link => documents.find(item => item.id === link)).filter(Boolean);
     if ((tx.documentIds || []).includes(id)) return true;
+    if (foreign && proof && (clean(tx.supplierReceipt?.paymentProofDocumentId) === proofId || clean(tx.supplierReceipt?.paymentProofSha256).toLowerCase() === clean(proof.sha256).toLowerCase())) return true;
     const evidence = [tx.supplierReceipt, ...linked].filter(Boolean);
     return evidence.some(item => (sha && clean(item.sha256).toLowerCase() === sha) || (supplier && reference && comparable(item.supplier) === comparable(supplier) && comparable(item.invoiceReference) === comparable(reference)));
   });
@@ -449,8 +457,8 @@ export function buildReceiptCostProposal(doc = {}, allocations = [], transaction
   return { ok: true, errors: [], allocations: rows.map((row, index) => ({
     transactionId: `receipt_${sha}_${index + 1}`, orderId: row.orderId, itemId: row.itemId,
     transactionDate: date, transactionType: "SUPPLIER_PURCHASE", bookingEntry: "DEBIT", amount: -row.cents / 100,
-    currency: "EUR", title: `${supplier} Wareneinkauf`, category: "supplier_expense", status: "needs_review", documentIds: [id],
-    supplierReceipt: { documentId: id, sha256: sha, supplier, invoiceReference: reference, documentDate: clean(doc.documentDate), paymentDate: date, totalCents: amount, allocationCents: row.cents },
+    currency: "EUR", title: `${supplier} Wareneinkauf`, category: "supplier_expense", status: "needs_review", documentIds: foreign ? [id, proofId] : [id],
+    supplierReceipt: { documentId: id, sha256: sha, supplier, invoiceReference: reference, documentDate: clean(doc.documentDate), paymentDate: date, totalCents: paidAmount, allocationCents: row.cents, ...(foreign ? { purchaseCurrency: currency, purchaseTotalCents: amount, paymentProofDocumentId: proofId, paymentProofSha256: clean(proof.sha256).toLowerCase() } : {}) },
     source: "supplier_receipt_verified",
   })) };
 }

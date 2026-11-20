@@ -37,6 +37,21 @@ test('duplicate detection works by document, bytes, and frozen supplier referenc
  assert.equal(buildReceiptCostProposal(sameInvoice,allocations(),first,[sameInvoice],{}).ok,false);
 });
 
+test('foreign currency requires an independently archived EUR payment proof and freezes both originals', () => {
+ const doc={...receipt(),currency:'USD',amount:'12.00',receiptPaymentProofIdV1:'proof1',receiptLineItemsV1:[{title:'Item',quantity:1,amount:'12.00'}]};
+ const proof={id:'proof1',sha256:'b'.repeat(64),cloudFileId:'proof-file',documentType:'payment_proof',currency:'EUR',amount:'10.00',paymentDate:doc.paymentDate};
+ const propose=(d,p,existing=[])=>buildReceiptCostProposal(d,allocations(),existing,[d,p],{});
+ const good=propose(doc,proof); assert.equal(good.ok,true);
+ assert.deepEqual(good.allocations[0].documentIds,['doc1','proof1']);
+ assert.equal(good.allocations[0].supplierReceipt.purchaseTotalCents,1200);
+ assert.equal(good.allocations[0].supplierReceipt.totalCents,1000);
+ assert.equal(good.allocations[0].supplierReceipt.paymentProofSha256,proof.sha256);
+ for(const changed of [{...proof,cloudFileId:''},{...proof,currency:'USD'},{...proof,amount:'9.99'},{...proof,paymentDate:'2026-11-04'},{...proof,sha256:doc.sha256},{...proof,documentType:'refund_proof'}]) assert.equal(propose(doc,changed).ok,false);
+ assert.equal(propose({...doc,receiptLineItemsV1:[{title:'Item',quantity:1,amount:'10.00'}]},proof).ok,false);
+ const other={...doc,id:'doc2',sha256:'c'.repeat(64),invoiceReference:'INV-43'};
+ assert.equal(propose(other,proof,good.allocations).ok,false);
+});
+
 test('ordinary sync cannot create verified allocations or change recorded amounts, references and provenance', () => {
  const doc=receipt(); const rows=buildReceiptCostProposal(doc,allocations(),[],[doc],{}).allocations;
  const injected=mergeFinanceState({}, {transactions:rows}).state;
@@ -80,4 +95,24 @@ test('server action rejects parallel and repeat recording without duplicate cost
   globalThis.fetch=oldFetch;
   for(const k of envNames) before[k]===undefined ? delete process.env[k] : process.env[k]=before[k];
  }
+});
+
+test('server verifies both original files before recording a foreign-currency purchase', async () => {
+ const names=['ELYON_FINANCE_STORE_MODE','UPSTASH_REDIS_REST_URL','UPSTASH_REDIS_REST_TOKEN','ELYON_SELLER_ACCESS_TOKEN','GOOGLE_CLIENT_ID','GOOGLE_CLIENT_SECRET','GOOGLE_DRIVE_BACKUP_FOLDER_ID'];
+ const before=Object.fromEntries(names.map(k=>[k,process.env[k]])), oldFetch=globalThis.fetch;
+ Object.assign(process.env,{ELYON_FINANCE_STORE_MODE:'upstash',UPSTASH_REDIS_REST_URL:'https://example.invalid',UPSTASH_REDIS_REST_TOKEN:'test',ELYON_SELLER_ACCESS_TOKEN:'synthetic-token',GOOGLE_CLIENT_ID:'test-id',GOOGLE_CLIENT_SECRET:'test-secret',GOOGLE_DRIVE_BACKUP_FOLDER_ID:'test-folder'});
+ const files=[Buffer.from('synthetic purchase'),Buffer.from('synthetic payment')];
+ const docs=[{...receipt(),id:'doc_synthetic123',cloudFileId:'testCloudFileId123',sha256:createHash('sha256').update(files[0]).digest('hex'),currency:'USD',amount:'12.00',receiptPaymentProofIdV1:'doc_paymentproof123'}, {id:'doc_paymentproof123',cloudFileId:'testCloudFileId456',sha256:createHash('sha256').update(files[1]).digest('hex'),documentType:'payment_proof',currency:'EUR',amount:'10.00',paymentDate:'2026-11-03'}];
+ let saved=null,failProof=true;const result=value=>({ok:true,json:async()=>({result:value})});
+ globalThis.fetch=async(url,options={})=>{
+  const target=String(url);
+  if(target.includes('oauth2.googleapis.com/token'))return {ok:true,json:async()=>({access_token:'test-access'})};
+  if(target.includes('drive/v3/files/')){const index=target.includes(docs[1].cloudFileId)?1:0;if(index===1&&failProof)return {ok:false};const data=files[index];return target.includes('alt=media')?{ok:true,arrayBuffer:async()=>data.buffer.slice(data.byteOffset,data.byteOffset+data.byteLength)}:{ok:true,json:async()=>({size:String(data.length),parents:['test-folder'],appProperties:{elyonFinanceDocument:'true',documentId:docs[index].id,sha256:docs[index].sha256}})};}
+  if(!options.method||options.method==='GET')return result(saved);
+  const args=JSON.parse(options.body);if(JSON.parse(saved||'{"revision":0}').revision!==Number(args[4]))return result(0);saved=args[5];return result(1);
+ };
+ const response=()=>({status(code){this.code=code;return this},setHeader(){return this},json(body){this.body=body;return this}});
+ const req={method:'POST',query:{action:'record-receipt-costs'},headers:{'x-elyon-seller-token':'synthetic-token',host:'localhost',cookie:'elyon_google_drive_refresh_token=test-refresh'},body:{expectedRevision:1,documentId:docs[0].id,allocations:allocations()}};
+ try {assert.equal((await writeFinanceState({documents:docs},{},{expectedRevision:0})).ok,true);const failed=response();await handler(req,failed);assert.equal(failed.code,503);assert.equal((await readFinanceState()).transactions.length,0);failProof=false;const success=response();await handler(req,success);assert.equal(success.code,200);assert.equal((await readFinanceState()).transactions.length,2);}
+ finally {globalThis.fetch=oldFetch;for(const k of names)before[k]===undefined?delete process.env[k]:process.env[k]=before[k];}
 });

@@ -183,6 +183,10 @@ async function handleReceiptCosts(req, res) {
     const refreshToken = cookie || stored?.refresh_token || stored?.refreshToken || "";
     if (!refreshToken) throw new Error("drive_not_connected");
     await downloadFinanceDocumentFromDrive({ refreshToken, documentId: doc.id, fileId: doc.cloudFileId, sha256: doc.sha256 });
+    if (text(doc.currency).toUpperCase() !== 'EUR') {
+      const proof = current.documents.find(item => item.id === doc.receiptPaymentProofIdV1);
+      await downloadFinanceDocumentFromDrive({ refreshToken, documentId: proof.id, fileId: proof.cloudFileId, sha256: proof.sha256 });
+    }
   } catch {
     return res.status(503).json({ ok: false, error: "receipt_original_unavailable", message: "Originalbeleg konnte in Google Drive nicht geprüft werden. Keine Kosten erfasst; Drive-Verbindung und Datei prüfen." });
   }
@@ -206,10 +210,12 @@ async function handleSupplierRefund(req,res) {
   const original=state.transactions.find(row=>row.transactionId===originalId);
   const originalDoc=state.documents.find(item=>item.id===original?.supplierReceipt?.documentId);
   if(!originalDoc||text(originalDoc.sha256).toLowerCase()!==text(original.supplierReceipt.sha256).toLowerCase()||!text(originalDoc.cloudFileId))return res.status(409).json({ok:false,error:'original_receipt_unavailable',message:'Ursprünglicher Einkaufsbeleg fehlt oder ist widersprüchlich.'});
+  const paymentEvidence = original.supplierReceipt.paymentProofDocumentId ? state.documents.find(item=>item.id===original.supplierReceipt.paymentProofDocumentId) : null;
+  if(original.supplierReceipt.paymentProofDocumentId&&(!paymentEvidence||text(paymentEvidence.sha256).toLowerCase()!==original.supplierReceipt.paymentProofSha256||!text(paymentEvidence.cloudFileId)))return res.status(409).json({ok:false,error:'original_payment_proof_unavailable',message:'Der ursprüngliche EUR-Zahlungsnachweis fehlt oder ist widersprüchlich.'});
   try {
     const cookie=getRefreshTokenCookie(req),stored=cookie?null:await readGoogleDriveToken();
     const refreshToken=cookie||stored?.refresh_token||stored?.refreshToken||'';if(!refreshToken)throw new Error('drive_not_connected');
-    for(const item of [originalDoc,doc])await downloadFinanceDocumentFromDrive({refreshToken,documentId:item.id,fileId:item.cloudFileId,sha256:item.sha256});
+    for(const item of [originalDoc,doc,...(paymentEvidence?[paymentEvidence]:[])])await downloadFinanceDocumentFromDrive({refreshToken,documentId:item.id,fileId:item.cloudFileId,sha256:item.sha256});
   } catch {return res.status(503).json({ok:false,error:'receipt_original_unavailable',message:'Einkaufsbeleg oder Erstattungsnachweis konnte in Drive nicht geprüft werden.'});}
   const saved=await writeFinanceState({transactions:proposal.allocations},{action:'supplier_refund_recorded',source:'supplier_receipt_verified',actor:'seller',summary:`Prüfbedürftige Lieferantenerstattung aus Beleg ${doc.id} erfasst.`},{expectedRevision:expected,allowReceiptCosts:true});
   if(!saved.ok)return res.status(saved.conflict?409:503).json({ok:false,error:saved.conflict?'finance_conflict':'finance_store_unavailable',message:saved.error});
@@ -228,11 +234,13 @@ async function handleSupplierRefundTaxReview(req,res) {
   const purchase=state.transactions.find(item=>item.transactionId===receipt.originalTransactionId);
   const proof=state.documents.find(item=>item.id===receipt.documentId),originalDoc=state.documents.find(item=>item.id===purchase?.supplierReceipt?.documentId);
   if(!purchase||purchase.voidedAt||purchase.source!=='supplier_receipt_verified'||purchase.category!=='supplier_expense'||receipt.originalDocumentId!==purchase.supplierReceipt?.documentId||!proof||!originalDoc||text(proof.sha256)!==receipt.sha256||text(originalDoc.sha256)!==purchase.supplierReceipt.sha256)return res.status(409).json({ok:false,error:'refund_evidence_missing',message:'Einkauf oder Nachweise sind nicht eindeutig nachvollziehbar.'});
+  const paymentEvidence=purchase.supplierReceipt.paymentProofDocumentId?state.documents.find(item=>item.id===purchase.supplierReceipt.paymentProofDocumentId):null;
+  if(purchase.supplierReceipt.paymentProofDocumentId&&(!paymentEvidence||text(paymentEvidence.sha256).toLowerCase()!==purchase.supplierReceipt.paymentProofSha256||!text(paymentEvidence.cloudFileId)))return res.status(409).json({ok:false,error:'original_payment_proof_unavailable'});
   const current=state.supplierRefundTaxReviews?.[transactionId];
   if(current!==undefined&&(!Array.isArray(current)||!getSupplierRefundTaxReview(row,state.supplierRefundTaxReviews)))return res.status(409).json({ok:false,error:'refund_review_corrupt',message:'Vorherige Zuordnung ist nicht überprüfbar.'});
   const history=current||[];if(history.length>=50)return res.status(409).json({ok:false,error:'refund_review_limit'});
   if(history.at(-1)?.method===method&&history.at(-1)?.note===note)return res.status(200).json({ok:true,existing:true,state});
-  try{const cookie=getRefreshTokenCookie(req),stored=cookie?null:await readGoogleDriveToken(),refreshToken=cookie||stored?.refresh_token||stored?.refreshToken||'';if(!refreshToken)throw new Error('drive_not_connected');for(const item of [originalDoc,proof])await downloadFinanceDocumentFromDrive({refreshToken,documentId:item.id,fileId:item.cloudFileId,sha256:item.sha256});}
+  try{const cookie=getRefreshTokenCookie(req),stored=cookie?null:await readGoogleDriveToken(),refreshToken=cookie||stored?.refresh_token||stored?.refreshToken||'';if(!refreshToken)throw new Error('drive_not_connected');for(const item of [originalDoc,proof,...(paymentEvidence?[paymentEvidence]:[])])await downloadFinanceDocumentFromDrive({refreshToken,documentId:item.id,fileId:item.cloudFileId,sha256:item.sha256});}
   catch{return res.status(503).json({ok:false,error:'receipt_original_unavailable',message:'Einkaufsbeleg oder Erstattungsnachweis konnte in Drive nicht geprüft werden.'});}
   const review={version:1,confirmed:true,transactionId,method,note,proofSha:receipt.sha256,originalTransactionId:receipt.originalTransactionId,amountCents,paymentDate,reviewedAt:new Date().toISOString()};
   const saved=await writeFinanceState({supplierRefundTaxReviews:{[transactionId]:[...history,review]}},{action:'supplier_refund_tax_reviewed',actor:'seller',source:'seller_manual_review',summary:`Manuelle Zuordnung für Lieferantenerstattung ${transactionId} dokumentiert.`},{expectedRevision:expected,allowRefundTaxReview:true});
