@@ -1,3 +1,4 @@
+import { recognizePdfIsolated } from '../../lib/receipt-pdf-isolated.js';
 import { extractUblReceipt } from '../../lib/receipt-ubl.js';
 import { requireSellerAccess } from "../../lib/seller-access.js";
 import { financeSigningStatus, signFinancesGetRequest } from "../../lib/ebay-finance-signature.js";
@@ -307,9 +308,9 @@ export default async function handler(req, res) {
     if (action === "load") return handleLoad(req, res);
     if (action === "save") return handleSave(req, res);
     if (action === "recognize-pdf-receipt") {
-      // PDF attachment decompression is not bounded by the input-size check.
-      // Keep this unavailable until a bounded isolation strategy is tested.
-      return res.status(503).json({ok:false,error:"receipt_pdf_recognition_disabled",message:"PDF-Erkennung ist aus Sicherheitsgründen noch nicht freigegeben. XML separat importieren."});
+      if (req.method !== "POST") return res.status(405).json({ok:false,error:"Nur POST erlaubt."});
+      try { return res.status(200).json({ok:true,proposal:await recognizePdfIsolated(req.body?.base64)}); }
+      catch { return res.status(422).json({ok:false,error:"receipt_pdf_unavailable",message:"PDF konnte nicht sicher verarbeitet werden. XML separat importieren oder später erneut versuchen."}); }
     }
     if (action === "recognize-ubl-receipt") {
       if (req.method !== "POST") return res.status(405).json({ok:false,error:"Nur POST erlaubt."});
