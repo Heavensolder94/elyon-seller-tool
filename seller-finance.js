@@ -34,6 +34,7 @@ let stagedImport = null;
 let stagedReceiptCost = null;
 let stagedSupplierRefund = null;
 let serverStatus = null;
+let driveStatus = null;
 let selectedTransactionIds = new Set();
 let period = defaultPeriod();
 let installDone = false;
@@ -402,6 +403,15 @@ async function api(action, options = {}) {
 }
 
 async function refreshServerStatus() { try { serverStatus = await api("status"); } catch (error) { serverStatus = { ok: false, message: error.message }; } render(); return serverStatus; }
+async function refreshDriveStatus() {
+  try {
+    const response = await fetch('/api/google-drive/status', {credentials:'same-origin'});
+    const result = await response.json();
+    driveStatus = response.ok && result.ok ? {connected:result.connected === true, error:String(result.error || '')} : {connected:false,error:result.message || result.error || 'Status nicht abrufbar.'};
+  } catch { driveStatus = {connected:false,error:'Status nicht abrufbar.'}; }
+  render();
+}
+
 async function loadServer({ automatic = false } = {}) {
   try {
     const data = await api("load");
@@ -872,7 +882,7 @@ function settingsMarkup() { const s=state.settings; return `<div class="ef-colum
 <label>Land<input name="sellerCountry" value="${escapeHtml(s.sellerCountry||"DE")}" readonly></label>
 <label>Steuernummer, USt-IdNr. oder Kleinunternehmer-ID (Pflicht)<input name="sellerTaxId" value="${escapeHtml(s.sellerTaxId||"")}" placeholder="Steuerliche Identifikation"></label>
 <div class="ef-callout full">Für Rechnungen müssen Steuerstatus und Verkäuferdaten vollständig gespeichert sein. Neue eBay-Rechnungen werden erst danach und nur nach Einzel-Freigabe ausgestellt. Keine Umsatzsteuer ausweisen. Diese Felder sind keine öffentliche Anzeige, sondern Rechnungspflichtdaten.</div>
-<label>Rechnungspräfix<input name="invoicePrefix" value="${escapeHtml(s.invoicePrefix)}"></label><label>Nächste Rechnungsnummer<input name="nextInvoiceNumber" type="number" min="1" value="${num(s.nextInvoiceNumber)||1}"></label><div class="full ef-actions"><button class="ef-btn primary" type="submit">Einstellungen speichern</button><span class="ef-muted">Rechnungsnummern werden erst beim tatsächlichen Ausstellen serverseitig vergeben. Kein manuelles Nummernreservieren.</span></div></form></section><aside class="ef-panel"><h3>Systemstatus</h3><div class="ef-list"><div class="ef-list-item"><span>Persistenter Speicher</span><strong>${escapeHtml(serverStatus?.store?.mode||"noch nicht geprüft")}</strong></div><div class="ef-list-item"><span>Währung für Kennzahlen</span><strong>EUR</strong></div><div class="ef-list-item"><span>Fremdwährungen</span><strong>${buildFinanceDataQuality(currentTransactions(),state.documents,currentRefundTaxReviews()).foreignCurrencyCount}</strong></div></div><button class="ef-btn" style="width:100%;margin-top:12px" data-ef2-action="refresh-status">Systemstatus prüfen</button></aside></div>`; }
+<label>Rechnungspräfix<input name="invoicePrefix" value="${escapeHtml(s.invoicePrefix)}"></label><label>Nächste Rechnungsnummer<input name="nextInvoiceNumber" type="number" min="1" value="${num(s.nextInvoiceNumber)||1}"></label><div class="full ef-actions"><button class="ef-btn primary" type="submit">Einstellungen speichern</button><span class="ef-muted">Rechnungsnummern werden erst beim tatsächlichen Ausstellen serverseitig vergeben. Kein manuelles Nummernreservieren.</span></div></form></section><aside class="ef-panel"><h3>Systemstatus</h3><div class="ef-list"><div class="ef-list-item"><span>Persistenter Speicher</span><strong>${escapeHtml(serverStatus?.store?.mode||"noch nicht geprüft")}</strong></div><div class="ef-list-item"><span>Währung für Kennzahlen</span><strong>EUR</strong></div><div class="ef-list-item"><span>Fremdwährungen</span><strong>${buildFinanceDataQuality(currentTransactions(),state.documents,currentRefundTaxReviews()).foreignCurrencyCount}</strong></div></div><button class="ef-btn" style="width:100%;margin-top:12px" data-ef2-action="refresh-status">Systemstatus prüfen</button><h3>Google Drive · Belegarchiv</h3><p class="ef-muted">${driveStatus ? (driveStatus.connected ? 'Verbunden' : 'Nicht verbunden' + (driveStatus.error ? ': ' + escapeHtml(driveStatus.error) : '')) : 'Status noch nicht geprüft.'}</p><div class="ef-actions"><button class="ef-btn" type="button" data-ef2-drive-status>Drive-Status prüfen</button><a class="ef-btn" href="/api/google-drive/oauth/start">Google Drive verbinden</a></div><p class="ef-muted">Die Verbindung startet die Anmeldung bei Google. Die Archivierung setzt zusätzlich einen korrekt eingerichteten Drive-Ordner voraus.</p></aside></div>`; }
 
 function download(name, content, type="text/plain;charset=utf-8") { const blob=content instanceof Blob?content:new Blob([content],{type}); const url=URL.createObjectURL(blob); const anchor=document.createElement("a"); anchor.href=url; anchor.download=name; document.body.appendChild(anchor); anchor.click(); anchor.remove(); setTimeout(()=>URL.revokeObjectURL(url),1000); }
 function fileStamp() { return new Date().toISOString().replace(/[:.]/g,"-"); }
@@ -1019,6 +1029,7 @@ function bindEvents() {
     const attach=event.target.closest?.("[data-ef2-attach-doc]")?.dataset.ef2AttachDoc;if(attach){const select=document.querySelector(`[data-ef2-doc-select="${CSS.escape(attach)}"]`);return attachDocument(attach,select?.value);}
     const matchButton=event.target.closest?.("[data-ef2-match-doc]");
     if(matchButton){const docId=matchButton.dataset.ef2MatchDoc, transactionId=matchButton.dataset.ef2MatchTransaction;if(window.confirm("Diesen Beleg dem angezeigten Finanzvorgang zuordnen? Es wird keine Buchung oder Zahlung erzeugt."))return attachDocument(transactionId,docId);return;}
+    if(event.target.closest?.("[data-ef2-drive-status]"))return refreshDriveStatus();
     const recognizeId=event.target.closest?.("[data-ef2-recognize-ubl]")?.dataset.ef2RecognizeUbl;if(recognizeId)return recognizeUblReceipt(recognizeId);
     const recognizeTextId=event.target.closest?.("[data-ef2-recognize-text]")?.dataset.ef2RecognizeText;if(recognizeTextId)return recognizeUblReceipt(recognizeTextId,true);
     const suggestCostId=event.target.closest?.("[data-ef2-suggest-cost]")?.dataset.ef2SuggestCost;if(suggestCostId)return fillSuggestedReceiptCost(suggestCostId);
