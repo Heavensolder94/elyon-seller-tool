@@ -4,7 +4,7 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { mergeFinanceState, readFinanceState, writeFinanceState } from '../lib/finance-store.js';
-import { validateDocumentMetadata } from '../seller-finance.js';
+import { validateDocumentMetadata, suggestSupplierFromFilename } from '../seller-finance.js';
 
 test('issuance never replaces a legacy record that appeared concurrently', () => {
   const legacy = { invoiceNumber: 'OLD-1', createdAt: '2026-01-01' };
@@ -58,4 +58,12 @@ test('receipt positions, quantities, shipping and extra costs stay manually revi
   assert.equal(validateDocumentMetadata({currency:'EUR',lineItemsText:'A | 0 | 10'}).ok,false);
   const mismatch=validateDocumentMetadata({currency:'EUR',amount:'20',lineItemsText:'A | 1 | 10'});
   assert.equal(mismatch.ok,true); assert.equal(mismatch.warnings.length,1);
+});
+
+
+test('supplier filename hints avoid ambiguous and partial matches', () => {
+ assert.equal(suggestSupplierFromFilename('Temu-Rechnung.pdf'),'Temu');
+ assert.equal(suggestSupplierFromFilename('Amazon_Temu.pdf'),'');
+ assert.equal(suggestSupplierFromFilename('notamazon.pdf'),'');
+ assert.equal(suggestSupplierFromFilename('unbekannt.pdf'),'');
 });
