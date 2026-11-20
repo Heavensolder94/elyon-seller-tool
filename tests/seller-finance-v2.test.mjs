@@ -6,6 +6,7 @@ import {
   filterFinanceTransactions,
   buildFinanceDataQuality,
   buildOrderProfitability,
+  buildPeriodProfitability,
   buildProductProfitability,
   reconcilePayouts,
   buildMonthCloseReadiness,
@@ -85,6 +86,24 @@ test("Finance V2 aggregates product profitability by item id", () => {
   assert.equal(product.revenue, 50);
   assert.equal(product.costs, 16);
   assert.equal(product.profit, 34);
+});
+
+test("profitability includes linked costs and refunds across periods without changing the cash-flow period", () => {
+  const rows = [
+    tx({transactionId:"purchase",orderId:"o-1",itemId:"sku-1",transactionType:"SUPPLIER_PURCHASE",category:"supplier_expense",transactionDate:"2026-10-15T12:00:00Z",amount:-10,currency:"EUR",status:"approved"}),
+    tx({transactionId:"sale",orderId:"o-1",itemId:"sku-1",transactionType:"SALE",transactionDate:"2026-11-15T12:00:00Z",amount:30,currency:"EUR",status:"approved"}),
+    tx({transactionId:"refund",orderId:"o-1",itemId:"sku-1",transactionType:"REFUND",category:"refund",transactionDate:"2026-12-15T12:00:00Z",amount:-5,currency:"EUR",status:"approved"}),
+    tx({transactionId:"foreign",orderId:"o-1",transactionType:"SUPPLIER_PURCHASE",category:"supplier_expense",transactionDate:"2026-10-15T12:00:00Z",amount:-1,currency:"USD",status:"approved"}),
+    tx({transactionId:"unassigned",orderId:"o-1",transactionType:"NON_SALE_CHARGE",category:"ebay_fee",transactionDate:"2026-11-15T12:00:00Z",amount:-2,currency:"EUR",status:"approved"}),
+    tx({transactionId:"another",orderId:"o-2",itemId:"sku-2",transactionType:"SALE",transactionDate:"2026-12-15T12:00:00Z",amount:100,currency:"EUR",status:"approved"}),
+    tx({transactionId:"foreign-sale",orderId:"o-3",itemId:"sku-3",transactionType:"SALE",transactionDate:"2026-11-15T12:00:00Z",amount:25,currency:"USD",status:"approved"}),
+  ];
+  const period={start:"2026-11-01T00:00:00Z",end:"2026-11-30T23:59:59Z"};
+  const view=buildPeriodProfitability(rows,period);
+  assert.equal(view.orders.length,1);assert.equal(view.orders[0].profit,13);assert.equal(view.orders[0].complete,false);assert.equal(view.orders[0].foreignCount,1);
+  assert.equal(view.products[0].profit,15);assert.equal(view.unattributedCount,1);assert.equal(view.foreignSalesCount,1);
+  assert.deepEqual(filterFinanceTransactions(rows,period).map(row=>row.transactionId),["sale","unassigned","foreign-sale"]);
+  assert.equal(rows.find(row=>row.transactionId==='purchase').transactionDate,'2026-10-15T12:00:00.000Z');
 });
 
 test("Finance V2 reconciles eBay payouts without supplier costs", () => {

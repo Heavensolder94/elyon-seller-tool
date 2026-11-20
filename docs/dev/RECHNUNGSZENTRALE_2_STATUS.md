@@ -29,6 +29,10 @@ UBL-Rechnungen und UBL-Gutschriften können aus dem Original-XML deterministisch
 
 Bei einem PDF ohne eingebettete XML können ausdrücklich beschriftete Lieferantennamen, Rechnungs- und Bestellnummern, das Belegdatum und eindeutig beschriftete EUR-Zahlbeträge aus auswählbarem Text vorgeschlagen werden. Dies ist keine OCR: Scans und Fotos bleiben manuell zu erfassen. Mehrdeutige, nicht unterstützte oder widersprüchliche Angaben bleiben leer; vor dem Speichern ist der Originalbeleg zu prüfen.
 
+## Nachkalkulation über Zeiträume
+
+In der Bestell- und Produktprofitabilität bestimmt das Datum des EUR-Umsatzvorgangs den gewählten Zeitraum. Für die gefundenen Bestellreferenzen werden zugehörige gespeicherte EUR-Kosten, Gebühren und Erstattungen auch aus anderen Zeiträumen einbezogen. Die Zahlen sind vorläufig; vorhandene Einkaufskosten beweisen keine vollständige Zuordnung aller Artikel. Fremdwährungsvorgänge bleiben unberücksichtigt und werden markiert. Vorgänge ohne Artikelreferenz erscheinen nicht in der Produktprofitabilität und werden dort als Einschränkung ausgewiesen. Die Zahlungsflussansicht und EÜR bleiben weiterhin nach tatsächlichem Vorgangsdatum gefiltert; es werden keine alten Werte oder Buchungen geändert.
+
 Für UBL und CII werden Positionen nur vorgeschlagen, wenn alle unterstützten Angaben eindeutig sind und ihre Summe exakt dem Zahlbetrag entspricht; andernfalls erscheint ein Prüfhinweis. Steuer, Versand, Rabatte oder Vorauszahlungen können dazu führen, dass keine Positionen vorgeschlagen werden. Die Originaldatei und alle Vorschläge sind manuell zu prüfen. Es erfolgt weder eine Signaturprüfung noch eine steuerliche Freigabe.
 
 
