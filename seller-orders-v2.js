@@ -85,8 +85,8 @@ function detailsMarkup(order) {
     <h4>Artikel & Produktverknüpfungen</h4><div class="ocv2-lines">${lines}</div>
     <form id="ocv2OrderForm" data-order-id="${cleanAttr(order.id)}">
       <h4>Lieferant und Bearbeitung</h4>
-      <div class="ocv2-fields"><label>Interner Bearbeitungsstatus<select name="status">${phaseOptions.map(([id, label]) =>
-        `<option value="${id}" ${(op.status || "NEW") === id ? "selected" : ""}>${h(label)}</option>`).join("")}</select></label>
+      <div class="ocv2-fields"><label>Interner Bearbeitungsstatus<select name="workflowStatus">${phaseOptions.map(([id, label]) =>
+        `<option value="${id}" ${(op.workflowStatus || "NEW") === id ? "selected" : ""}>${h(label)}</option>`).join("")}</select></label>
         <label>Lieferant<input name="supplierName" maxlength="160" value="${h(op.supplierName || "")}" placeholder="${h(supplierGuess || "Lieferant eintragen")}"></label>
         <label>Lieferanten-Bestellnummer<input name="supplierOrderId" maxlength="160" value="${h(op.supplierOrderId || "")}" placeholder="Nach deinem Einkauf eintragen"></label>
         <label>Versanddienstleister<input name="carrier" maxlength="80" value="${h(op.carrier || "")}" placeholder="z. B. DHL"></label>
