@@ -18,3 +18,7 @@ Eingehende elektronische Belege sind grundsätzlich im ursprünglichen Format au
 ## PDF-Erweiterung (Entwurf)
 
 Neue Rechnungen benötigen die bestehende Google-Drive-Verbindung; Original-PDF wird vor Ausstellung hochgeladen, erneut auf Integrität geprüft und im unveränderlichen Rechnungssnapshot referenziert. Alte Snapshots bleiben unverändert. Ein unterbrochener Upload oder parallele Anfragen können nicht referenzierte, vorläufig benannte Drive-Dateien hinterlassen, die nicht automatisch gelöscht werden. Die Produktionsfähigkeit und GoBD-Konformität sind nicht nachgewiesen; Live- und Wiederherstellungstests stehen aus. Storno-/Korrekturrechnungen bleiben offen.
+
+## Vollstorno (Entwurf)
+
+Die Oberfläche kann eine vollständige Stornorechnung mit Grund, eigener Nummer und Verweis auf das unveränderte Original anfordern. Original und Storno-PDF müssen in Drive prüfbar sein. Die Aktion veranlasst keine Erstattung, Nachricht oder Finanzbuchung. Teilstornos, Ersatzrechnungen und eine steuerliche sowie produktive Ende-zu-Ende-Prüfung sind offen. Parallele Versuche können vorläufige unreferenzierte Drive-Dateien hinterlassen.
