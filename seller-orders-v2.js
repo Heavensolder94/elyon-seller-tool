@@ -23,21 +23,50 @@ const phaseOptions = [
   ["SHIPPED", "Intern als versendet"], ["COMPLETED", "Abgeschlossen"],
   ["ISSUE", "Problemfall"], ["CANCELLED", "Storniert (intern)"],
 ];
+// Preview-only example orders, kept in memory. Never sent to any backend.
+const DEMO = {
+  orders: [
+    normalizeEbayOrder({ orderId:"DEMO-1001", creationDate:new Date().toISOString(),
+      orderPaymentStatus:"PAID", orderFulfillmentStatus:"NOT_STARTED",
+      buyer:{username:"demo_kunde_01"}, fulfillmentStartInstructions:[{shippingStep:{shipTo:{fullName:"Beispielkunde A",contactAddress:{addressLine1:"Musterstraße 12",postalCode:"12345",city:"Musterstadt",countryCode:"DE"}}}}],
+      pricingSummary:{total:{value:"59.90",currency:"EUR"}},
+      lineItems:[{lineItemId:"d1",title:"USB-C Schreibtischlampe (Beispiel)",sku:"ELY-000001",quantity:1,lineItemCost:{value:"59.90"}}] }),
+    normalizeEbayOrder({ orderId:"DEMO-1002", creationDate:new Date(Date.now()-86400000).toISOString(),
+      orderPaymentStatus:"PAID", orderFulfillmentStatus:"NOT_STARTED",
+      buyer:{username:"demo_kunde_02"}, pricingSummary:{total:{value:"32.50",currency:"EUR"}},
+      lineItems:[{lineItemId:"d2",title:"Kabel-Organizer (Beispiel)",sku:"ELY-000002",quantity:2,lineItemCost:{value:"32.50"}}] }),
+    normalizeEbayOrder({ orderId:"DEMO-1003", creationDate:new Date(Date.now()-2*86400000).toISOString(),
+      orderPaymentStatus:"NOT_PAID", orderFulfillmentStatus:"NOT_STARTED",
+      buyer:{username:"demo_kunde_03"}, pricingSummary:{total:{value:"89.00",currency:"EUR"}},
+      lineItems:[{lineItemId:"d3",title:"Monitorhalterung (Beispiel)",sku:"ELY-000003",quantity:1,lineItemCost:{value:"89.00"}}] }),
+  ],
+  products:[
+    {id:"demo-p1",articleNumber:"ELY-000001",title:"USB-C Schreibtischlampe",supplier:{name:"Demo-Lieferant A"},pricing:{buyPrice:24,shippingCost:4,estimatedFees:7}},
+    {id:"demo-p2",articleNumber:"ELY-000002",title:"Kabel-Organizer",supplier:{name:"Demo-Lieferant B"},pricing:{buyPrice:6,shippingCost:2,estimatedFees:2}},
+    {id:"demo-p3",articleNumber:"ELY-000003",title:"Monitorhalterung",supplier:{name:"Demo-Lieferant C"},pricing:{buyPrice:42,shippingCost:8,estimatedFees:10}},
+  ],
+  operations:{"DEMO-1002":{workflowStatus:"PROCESSING",supplierName:"Demo-Lieferant B"}},
+  history:[],
+};
+const ordersNow = () => state.demoMode ? DEMO.orders : state.orders;
+const operationsNow = () => state.demoMode ? DEMO.operations : state.operations;
+const productsNow = () => state.demoMode ? DEMO.products : state.products;
 const state = {
   orders: [], products: [], operations: {}, invoices: {}, revision: null,
   selectedId: "", filter: "all", query: "", days: 90, loading: false,
   saving: false, refreshedAt: "", error: "", warning: "", saveNotice: "",
   truncated: false, sourceReady: false, financeReady: false, drafts: {},
+  demoMode: false, activeSection: "overview",
 };
 try { const v = Number(localStorage.getItem(RANGE_KEY)); if ([7, 30, 90].includes(v)) state.days = v; } catch {}
 
 const root = () => document.getElementById(ROOT_ID);
-const opFor = (id) => obj(state.operations[id]);
+const opFor = (id) => obj(operationsNow()[id]);
 const statusOf = (order) => workflowStatus(order, opFor(order.id));
 const readableMoney = (val, curr = "EUR") => val === null || val === undefined ? "Noch offen" : money(val, curr);
 const cleanAttr = (value) => h(value);
 function labelForLine(line) {
-  const p = productForLine(line, state.products);
+  const p = productForLine(line, productsNow());
   return p ? `<span class="ocv2-match">✓ ${h(p.articleNumber || p.sku || p.id)} · ${h(p.title || "")}</span>` :
     '<span class="ocv2-unknown">Keine eindeutige Company-OS-Zuordnung</span>';
 }
@@ -60,7 +89,7 @@ function rowMarkup(order) {
 function detailsMarkup(order) {
   const op = { ...opFor(order.id), ...obj(state.drafts[order.id]) };
   const status = statusOf(order);
-  const estimated = estimatedOrderCosts(order, state.products);
+  const estimated = estimatedOrderCosts(order, productsNow());
   const profit = actualOrderProfit(order, op);
   const lines = order.lines.length ? order.lines.map((line) => `<div class="ocv2-line">
     <div><strong>${h(line.title)}</strong><span class="ocv2-small">SKU: ${h(line.sku || "Nicht angegeben")} · ${h(line.quantity)} Stk. · ${h(readableMoney(line.total, order.currency))}</span>
@@ -105,16 +134,16 @@ function detailsMarkup(order) {
       <div class="ocv2-profit ${profit === null ? "is-open" : profit < 0 ? "is-loss" : ""}"><span>Ergebnis nach erfassten Kosten</span><strong>${profit === null ? "Noch nicht berechenbar" : h(money(profit))}</strong>
         ${profit === null ? '<small>Erst wenn EK, Versand und Gebühren vollständig sind. Weitere Ausgaben und Retouren separat prüfen.</small>' : ""}</div>
       <label class="ocv2-note">Interne Notiz<textarea name="note" rows="3" maxlength="1600" placeholder="Liefertermin, Sonderfall, Einkauf prüfen …">${h(op.note || "")}</textarea></label>
-      <div class="ocv2-details-actions"><button type="submit" class="ocv2-primary" ${state.saving || !state.financeReady ? "disabled" : ""}>${state.saving ? "Speichert…" : "Interne Angaben sichern"}</button>
+      <div class="ocv2-details-actions"><button type="submit" class="ocv2-primary" ${state.saving || (!state.financeReady && !state.demoMode) ? "disabled" : ""}>${state.saving ? "Speichert…" : "Interne Angaben sichern"}</button>
         <button type="button" data-order-shipping>Versand öffnen</button><button type="button" data-order-invoice>Rechnung öffnen</button></div>
       <p class="ocv2-hint">Interne Angaben werden revisionsgeschützt gespeichert. Kein automatischer Lieferantenkauf, keine eBay-Versandmeldung und keine Rechnungsausstellung.</p>
     </form>`;
 }
 function render() {
   const host = root(); if (!host) return;
-  const summary = summarizeOrders(state.orders, state.operations);
-  const rows = visibleOrders(state.orders, state.operations, { query: state.query, filter: state.filter });
-  const selected = state.orders.find((entry) => entry.id === state.selectedId);
+  const summary = summarizeOrders(ordersNow(), operationsNow());
+  const rows = visibleOrders(ordersNow(), operationsNow(), { query: state.query, filter: state.filter });
+  const selected = ordersNow().find((entry) => entry.id === state.selectedId);
   host.innerHTML = `<div class="ocv2-shell"><header class="ocv2-header">
       <div><span class="ocv2-kicker">ELYON · Order Operations</span><h2>Bestellungen</h2>
       <p>eBay-Aufträge verwalten, Lieferanten zuordnen und tatsächliche Kosten dokumentieren.</p></div>
@@ -133,7 +162,7 @@ function render() {
           <nav class="ocv2-filters" aria-label="Bestellstatus">
           ${[["all", "Alle"], ["new", "Neu"], ["processing", "Bearbeitung"], ["shipping", "Versand offen"], ["shipped", "Versendet"], ["issues", "Prüfen"]].map(([id, label]) =>
             `<button type="button" data-ocv2-filter="${id}" class="${state.filter === id ? "active" : ""}">${label}</button>`).join("")}</nav>
-          <div class="ocv2-order-list">${!state.sourceReady && !state.loading ? '<div class="ocv2-empty">Noch keine eBay-Daten geladen.</div>' :
+          <div class="ocv2-order-list">${!state.sourceReady && !state.loading && !state.demoMode ? '<div class="ocv2-empty">Noch keine eBay-Daten geladen.</div>' :
             !rows.length ? `<div class="ocv2-empty"><strong>${state.loading ? "Bestellungen werden geladen…" : "Keine passenden Bestellungen"}</strong>
             <span>${state.loading ? "eBay wird gelesen." : "Im gewählten Zeitraum liegen keine passenden Aufträge vor."}</span></div>` :
             rows.map(rowMarkup).join("")}</div></section>
@@ -245,7 +274,7 @@ function bind() {
     state.query = value;
     const list = host.querySelector(".ocv2-order-list");
     if (!list) return;
-    const rows = visibleOrders(state.orders, state.operations, { query: value, filter: state.filter });
+    const rows = visibleOrders(ordersNow(), operationsNow(), { query: value, filter: state.filter });
     list.innerHTML = rows.length ? rows.map(rowMarkup).join("") : '<div class="ocv2-empty">Keine passenden Bestellungen.</div>';
     event.target.setSelectionRange(pos, pos);
   });
