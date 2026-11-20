@@ -319,7 +319,18 @@ export default async function handler(req, res) {
       const record = state.invoiceMeta[orderId];
       if (!record || record.immutable !== true || !record.invoice) return res.status(404).json({ok:false,error:"issued_invoice_not_found"});
       if (!verifyInvoiceSnapshot(record)) return res.status(409).json({ok:false,error:"invoice_integrity_failed",message:"Rechnungssnapshot kann nicht überprüft werden. Archivbestand prüfen."});
-      return res.status(200).json({ok:true, invoice:record.invoice, snapshotHash:record.snapshotHash});
+      let pdfBase64 = null;
+      if (record.pdfArchive) {
+        try {
+          const cookie = getRefreshTokenCookie(req);
+          const stored = cookie ? null : await readGoogleDriveToken();
+          const refreshToken = cookie || stored?.refresh_token || stored?.refreshToken || "";
+          if (!refreshToken) throw new Error("drive_not_connected");
+          const file = await downloadFinanceDocumentFromDrive({refreshToken, documentId:record.pdfArchive.documentId,fileId:record.pdfArchive.fileId,sha256:record.pdfArchive.sha256});
+          pdfBase64 = file.base64;
+        } catch { return res.status(503).json({ok:false,error:"invoice_pdf_unavailable",message:"Archiv-PDF kann nicht überprüft werden. Drive-Verbindung prüfen."}); }
+      }
+      return res.status(200).json({ok:true, invoice:record.invoice, snapshotHash:record.snapshotHash,pdfBase64});
     }
     if (action === "issue-kleinunternehmer-invoice") {
       if (req.method !== 'POST') return res.status(405).json({ ok: false, error: 'Nur POST erlaubt.' });
@@ -341,7 +352,9 @@ export default async function handler(req, res) {
       if (text(original.orderId) !== orderId) return res.status(502).json({
         ok: false, error: 'order_identity_mismatch', message: 'eBay-Bestellung konnte nicht eindeutig verifiziert werden.'
       });
-      const issued = await issueKleinunternehmerInvoice(original);
+      const cookie = getRefreshTokenCookie(req);
+      const savedToken = cookie ? null : await readGoogleDriveToken();
+      const issued = await issueKleinunternehmerInvoice(original, {refreshToken:cookie || savedToken?.refresh_token || savedToken?.refreshToken || ''});
       return res.status(issued.ok ? 200 : issued.status || 422).json(issued);
     }
 

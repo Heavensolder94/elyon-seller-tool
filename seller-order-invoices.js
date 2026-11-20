@@ -227,6 +227,12 @@
     popup.document.write(html);
     popup.document.close();
   }
+  function displayOriginalPdf(base64, popup) {
+    const bytes = Uint8Array.from(atob(base64), ch => ch.charCodeAt(0));
+    const url = URL.createObjectURL(new Blob([bytes], {type:'application/pdf'}));
+    popup.location.href = url;
+    setTimeout(() => URL.revokeObjectURL(url), 600000);
+  }
   async function openExistingInvoice(meta, orderId) {
     if (!meta?.immutable || !meta.invoice) {
       notify('Historische Metadaten stehen unten in der Rechnungsliste. Ein Original ist daraus nicht belegbar; keine neue Rechnung erzeugt.', 'Historischer Beleg');
@@ -238,7 +244,8 @@
       const response = await fetch('/api/finance?action=read-issued-invoice&orderId=' + encodeURIComponent(orderId || meta.invoice.orderId), { credentials:'same-origin', cache:'no-store', headers:{Accept:'application/json'} });
       const data = await response.json().catch(() => ({}));
       if (!response.ok || !data.ok || !data.invoice) throw new Error(data.message || 'Archiv-Rechnung konnte nicht geprüft werden.');
-      printInvoice(data.invoice, popup);
+      if (data.pdfBase64) displayOriginalPdf(data.pdfBase64, popup);
+      else { notify('Historische Rechnung: kein Original-PDF archiviert. Vorschau wird aus dem Snapshot rekonstruiert.', 'Historischer Beleg'); printInvoice(data.invoice, popup); }
     } catch (error) {
       try { popup.close(); } catch {}
       window.alert('Rechnung nicht geöffnet: ' + error.message);
@@ -281,13 +288,21 @@
       };
       serverLoaded = true;
       try { localStorage.setItem(META_KEY, JSON.stringify(serverState.invoiceMeta)); } catch {}
-      printInvoice(data.invoice, printWindow);
+      // Always re-read the persisted archive winner; concurrent requests may
+      // have produced a different, unreferenced provisional Drive object.
+      if (printWindow) {
+        const archivedResponse = await fetch('/api/finance?action=read-issued-invoice&orderId=' + encodeURIComponent(order.id), {credentials:'same-origin',cache:'no-store',headers:{Accept:'application/json'}});
+        const archived = await archivedResponse.json().catch(() => ({}));
+        if (!archivedResponse.ok || !archived.ok) throw new Error('Rechnung ausgestellt, aber archiviertes Original nicht abrufbar. Bitte Archiv prüfen und nicht erneut ausstellen.');
+        if (archived.pdfBase64) displayOriginalPdf(archived.pdfBase64, printWindow);
+        else printInvoice(archived.invoice, printWindow);
+      }
       notify('Rechnung ' + data.invoiceNumber + (data.existing ? ' erneut geöffnet.' : ' ausgestellt und serverseitig gesichert.') +
         ' Versand an den Kunden erfolgt nicht automatisch.', 'Rechnung');
     } catch (error) {
       try { printWindow?.close(); } catch {}
-      notify('Keine Rechnung ausgestellt: ' + error.message, 'Pflichtfeldprüfung');
-      window.alert('Rechnung blockiert:\n' + error.message +
+      notify('Rechnungsstatus prüfen: ' + error.message, 'Rechnung');
+      window.alert('Rechnungsstatus prüfen:\n' + error.message +
         '\n\nVerkäuferdaten und Kleinunternehmerstatus bitte unter Finanzen → Einstellungen prüfen.');
     } finally {
       issueBusy.delete(order.id);
