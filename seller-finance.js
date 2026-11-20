@@ -638,6 +638,17 @@ function documentFields(doc) {
   const lineText = Array.isArray(doc.receiptLineItemsV1) ? doc.receiptLineItemsV1.map(line => [line.title, line.quantity, line.amount].join(" | ")).join("\n") : "";
   return `<form class="ef-form" data-ef2-document-form="${escapeHtml(doc.id)}">${supplierHint ? `<div class="full ef-callout">Dateiname deutet auf ${escapeHtml(supplierHint)} hin. Bitte anhand des Originalbelegs prüfen und Lieferant manuell eintragen.</div>` : ""}${/\.(?:xml|pdf)$/i.test(doc.name || "") ? `<div class="full"><button type="button" class="ef-btn" data-ef2-recognize-ubl="${escapeHtml(doc.id)}">Rechnungsdaten erkennen</button><span class="ef-muted"> Vorschläge werden vor dem Speichern angezeigt.</span></div>` : ""}<label>Belegtyp<select name="documentType">${Object.entries(DOCUMENT_TYPES).map(([id, label]) => `<option value="${id}" ${(doc.documentType || "unclassified") === id ? "selected" : ""}>${escapeHtml(label)}</option>`).join("")}</select></label>${field("supplier", "Lieferant / Kunde")}${field("invoiceReference", "Rechnungsnummer")}${field("orderReference", "Lieferantenbestellung")}${field("ebayOrderId", "eBay-Bestellung")}${field("productReference", "Artikelreferenz")}${field("documentDate", "Belegdatum", "date")}${field("paymentDate", doc.documentType === "refund_proof" ? "Tatsächlicher Erstattungseingang" : "Zahlungsdatum", "date")}${field("amount", "Betrag (ohne Währungsumrechnung)")}${field("currency", "Währung, z. B. EUR")}${field("receiptShippingAmountV1", "Lieferantenversand im Gesamtbetrag")}${field("receiptAdditionalAmountV1", "Zusatzkosten im Gesamtbetrag")}<label class="full">Artikelpositionen (optional: Bezeichnung | Menge | Positionsbetrag)<textarea name="lineItemsText" rows="3">${escapeHtml(lineText)}</textarea></label><div class="full"><button class="ef-btn" type="submit">Angaben speichern</button> <span class="ef-muted">Zur Prüfung · keine automatische Buchung</span></div></form>`;
 }
+// Amount and currency are a pair: never combine a newly extracted amount with
+// a different currency already entered by the user (or vice versa).
+export function reconcileReceiptMoneySuggestion(proposal = {}, existingAmount = '', existingCurrency = '') {
+  const amount=text(proposal.amount).replace(',','.'),currency=text(proposal.currency).toUpperCase();
+  if(!/^\d{1,12}(?:\.\d{1,2})?$/.test(amount)||!/^[A-Z]{3}$/.test(currency))return {amount:'',currency:'',conflict:false};
+  const currentAmount=text(existingAmount).replace(',','.'),currentCurrency=text(existingCurrency).toUpperCase();
+  const amountMismatch=Boolean(currentAmount)&&(!/^\d{1,12}(?:\.\d{1,2})?$/.test(currentAmount)||Math.round(Number(currentAmount)*100)!==Math.round(Number(amount)*100));
+  const currencyMismatch=Boolean(currentCurrency)&&currentCurrency!==currency;
+  if(amountMismatch||currencyMismatch)return {amount:'',currency:'',conflict:true};
+  return {amount:currentAmount?'':amount,currency:currentCurrency?'':currency,conflict:false};
+}
 async function recognizeUblReceipt(id) {
   const doc=state.documents.find(item=>item.id===id);
   const form=document.querySelector(`[data-ef2-document-form="${CSS.escape(id)}"]`);
@@ -651,10 +662,14 @@ async function recognizeUblReceipt(id) {
     const proposal=response.proposal || {};
     const labels={supplier:'Lieferant',invoiceReference:'Rechnungsnummer',orderReference:'Bestellnummer',documentDate:'Belegdatum',amount:'Zahlbetrag',currency:'Währung'};
     const rows=Object.entries(labels).filter(([key])=>proposal[key]).map(([key,label])=>label+': '+proposal[key]);
+    const amountField=form.elements.namedItem('amount'),currencyField=form.elements.namedItem('currency');
+    const moneyProposal=reconcileReceiptMoneySuggestion(proposal,amountField?.value,currencyField?.value);
     if(proposal.lineItems?.length)rows.push('Positionen: '+proposal.lineItems.map(line=>`${line.title} × ${line.quantity} = ${line.amount} ${proposal.currency}`).join('; '));
-    const message='Vorschläge aus dem Originalbeleg (keine Prüfung auf steuerliche Gültigkeit):\n'+(rows.join('\n')||'Keine eindeutigen Angaben erkannt.')+(proposal.warnings?.length?'\n\n'+proposal.warnings.join('\n'):'')+'\n\nNur leere Felder befüllen und anschließend selbst prüfen?';
+    const message='Vorschläge aus dem Originalbeleg (keine Prüfung auf steuerliche Gültigkeit):\n'+(rows.join('\n')||'Keine eindeutigen Angaben erkannt.')+(proposal.warnings?.length?'\n\n'+proposal.warnings.join('\n'):'')+(moneyProposal.conflict?'\n\nBetrag oder Währung widersprechen deinen Eingaben und werden nicht übernommen.':'')+'\n\nNur leere Felder befüllen und anschließend selbst prüfen?';
     if(!window.confirm(message))return;
-    for(const key of Object.keys(labels)) {const field=form.elements.namedItem(key);if(field&&!field.value&&proposal[key])field.value=proposal[key];}
+    for(const key of Object.keys(labels).filter(key=>!['amount','currency'].includes(key))) {const field=form.elements.namedItem(key);if(field&&!field.value&&proposal[key])field.value=proposal[key];}
+    if(amountField&&!amountField.value&&moneyProposal.amount)amountField.value=moneyProposal.amount;
+    if(currencyField&&!currencyField.value&&moneyProposal.currency)currencyField.value=moneyProposal.currency;
     const lineField=form.elements.namedItem('lineItemsText');if(lineField&&!lineField.value&&proposal.lineItems?.length)lineField.value=proposal.lineItems.map(line=>[line.title,line.quantity,line.amount].join(' | ')).join('\n');
     const kind=form.elements.namedItem('documentType');if(kind&&kind.value==='unclassified'&&proposal.documentType)kind.value=proposal.documentType;
     toast('Vorschläge eingefügt. Bitte Original prüfen und Angaben ausdrücklich speichern.');
