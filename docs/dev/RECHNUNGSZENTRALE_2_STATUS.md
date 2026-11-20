@@ -32,4 +32,4 @@ Sicherheitsblocker: Die PDF-Erkennung ist über die API gesperrt; pdfjs dekompri
 
 ## Berichtigung einzelner Empfängerangaben (Entwurf)
 
-Ein separater Berichtigungsbeleg kann Namen, Straße, Postleitzahl oder Ort berichtigen. Er verweist auf das ursprüngliche Original; die gespeicherte Rechnung wird nicht verändert. Eine zweite Änderung desselben Felds und Änderungen nach Vollstorno sind blockiert. Geldbeträge, Verkäuferdaten, Teilstornos und die steuerliche/fachliche Prüfung bleiben offen. Kein automatischer Versand und keine Buchung.
+Ein separater Berichtigungsbeleg kann Namen, Straße, Postleitzahl oder Ort berichtigen. Er verweist auf das ursprüngliche Original; die gespeicherte Rechnung wird nicht verändert. Eine zweite Änderung desselben Felds und Änderungen nach Vollstorno sind blockiert. Geldbeträge, Teilstornos und die steuerliche/fachliche Prüfung bleiben offen. Kein automatischer Versand und keine Buchung.
