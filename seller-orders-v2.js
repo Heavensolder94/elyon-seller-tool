@@ -265,6 +265,16 @@ async function refresh() {
 }
 async function save(form) {
   const id = form.dataset.orderId;
+  if (state.demoMode) {
+    if (!DEMO.orders.some((order) => order.id === id)) return;
+    DEMO.operations[id] = { ...opFor(id), ...normalizeOperationInput(Object.fromEntries(new FormData(form).entries())) };
+    delete state.drafts[id];
+    DEMO.history.unshift("Bestellung " + id + " · Angaben in der Demo übernommen");
+    state.saveNotice = "Demo aktualisiert. Es wurden keine echten Daten gespeichert.";
+    state.error = ""; state.warning = "";
+    render();
+    return;
+  }
   if (!state.financeReady || state.saving || !state.orders.some((item) => item.id === id)) return;
   const values = Object.fromEntries(new FormData(form).entries());
   const operation = normalizeOperationInput(values);
@@ -284,6 +294,59 @@ async function save(form) {
     state.financeReady = false; // Prevent stale retries.
   } finally { state.saving = false; render(); }
 }
+function openDemo() {
+  if (!state.demoMode && Object.keys(state.drafts).some((id) => !id.startsWith("DEMO-"))) {
+    state.warning = "Bitte ungespeicherte echte Bestelländerungen zuerst speichern oder die Seite neu laden."; render(); return;
+  }
+  state.demoMode = true; state.query = ""; state.filter = "all";
+  state.selectedId = DEMO.orders[0]?.id || ""; state.activeSection = "overview";
+  state.error = ""; state.warning = ""; state.saveNotice = ""; render();
+}
+function closeDemo() {
+  if (!state.demoMode) return;
+  state.demoMode = false;
+  for (const id of Object.keys(state.drafts)) if (id.startsWith("DEMO-")) delete state.drafts[id];
+  state.selectedId = state.orders[0]?.id || ""; state.activeSection = "overview";
+  state.filter = "all"; state.query = ""; state.error = ""; state.warning = "";
+  state.saveNotice = "Demo beendet. Es wurden keine echten eBay- oder Finanzdaten geändert.";
+  render();
+}
+function changeSection(name) {
+  if (!SECTION_TABS.some(([id]) => id === name)) return;
+  state.activeSection = name; render();
+}
+function choosePhase(next) {
+  const order = ordersNow().find((entry) => entry.id === state.selectedId);
+  const allowed = phaseOptions.some(([id]) => id === next);
+  if (!order || !allowed || state.saving) return;
+  if (!paymentConfirmed(order) && ["PROCESSING","SUPPLIER_ORDERED","SHIPPED","COMPLETED"].includes(next)) {
+    state.warning = "eBay meldet noch keine vollständige Zahlung. Bearbeitung beim Lieferanten erst nach Zahlungsprüfung fortsetzen.";
+    render(); return;
+  }
+  state.warning = "";
+  if (state.demoMode) {
+    DEMO.operations[order.id] = { ...opFor(order.id), workflowStatus: next };
+    DEMO.history.unshift("Bestellung " + order.id + " · Schritt: " + (phaseOptions.find(([id]) => id===next)?.[1] || next));
+    state.saveNotice = "Demo-Schritt geändert – kein echter Bestellstatus aktualisiert.";
+  } else {
+    state.drafts[order.id] = { ...opFor(order.id), ...obj(state.drafts[order.id]), workflowStatus: next };
+    state.saveNotice = "Interner Status vorgemerkt. Zum Übernehmen bitte »Interne Angaben sichern« wählen.";
+  }
+  if (next === "SUPPLIER_ORDERED" || next === "PROCESSING") state.activeSection = "supplier";
+  else if (next === "SHIPPED") state.activeSection = "shipping";
+  else if (next === "COMPLETED") state.activeSection = "finance";
+  render();
+}
+function updateLiveProfit(form) {
+  const order = ordersNow().find((entry) => entry.id === form.dataset.orderId);
+  const indicator = form.querySelector(".ocv2-profit");
+  if (!order || !indicator) return;
+  const profit = actualOrderProfit(order, { ...opFor(order.id), ...obj(state.drafts[order.id]) });
+  const strong = indicator.querySelector("strong");
+  if (strong) strong.textContent = profit === null ? "Noch nicht berechenbar" : money(profit);
+  indicator.classList.toggle("is-open", profit === null);
+  indicator.classList.toggle("is-loss", profit !== null && profit < 0);
+}
 function goToTab(tab) {
   const select = document.getElementById("mainMenu");
   if (select) {
@@ -295,21 +358,32 @@ function bind() {
   const host = root();
   if (!host) return;
   host.addEventListener("click", (event) => {
-    if (event.target.closest("#ocv2Refresh")) return refresh();
+    if (event.target.closest("#ocv2DemoToggle")) return state.demoMode ? closeDemo() : openDemo();
+    if (event.target.closest("[data-ocv2-demo-start]")) return openDemo();
+    const tab = event.target.closest("[data-ocv2-section]");
+    if (tab) return changeSection(tab.dataset.ocv2Section);
+    const phase = event.target.closest("[data-ocv2-phase]");
+    if (phase) return choosePhase(phase.dataset.ocv2Phase);
+    if (event.target.closest("#ocv2Refresh")) return state.demoMode ? closeDemo() : refresh();
     const choose = event.target.closest("[data-order-open]");
-    if (choose) { state.selectedId = choose.dataset.orderOpen; state.saveNotice = ""; return render(); }
+    if (choose) { state.selectedId = choose.dataset.orderOpen; state.activeSection = "overview"; state.saveNotice = ""; return render(); }
     const filter = event.target.closest("[data-ocv2-filter]");
     if (filter) { state.filter = filter.dataset.ocv2Filter; return render(); }
     if (event.target.closest("[data-order-invoice]")) {
+      if (state.demoMode) return;
       if (window.ElyonSellerFinance?.openInvoices) window.ElyonSellerFinance.openInvoices();
       else goToTab("financeTab");
     }
-    if (event.target.closest("[data-order-shipping]")) goToTab("automationTab");
+    if (event.target.closest("[data-order-shipping]")) {
+      if (state.demoMode) return;
+      goToTab("automationTab");
+    }
   });
   host.addEventListener("input", (event) => {
     if (event.target.closest("#ocv2OrderForm")) {
       const form = event.target.closest("#ocv2OrderForm");
       state.drafts[form.dataset.orderId] = Object.fromEntries(new FormData(form).entries());
+      updateLiveProfit(form);
       return;
     }
     if (event.target.id !== "ocv2Search") return;
