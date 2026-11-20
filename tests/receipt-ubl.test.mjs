@@ -18,3 +18,11 @@ test('conflicting supplier names are not automatically resolved',()=>{
  const p=extractUblReceipt(invoice.replace('<a:PartyLegalEntity>','<a:PartyName><b:Name>Another Co</b:Name></a:PartyName><a:PartyLegalEntity>'));
  assert.equal(p.supplier,'');assert.ok(p.warnings.length);
 });
+test('offers UBL lines only when all amounts and currencies match the payable total',()=>{
+ const line='<a:InvoiceLine><b:InvoicedQuantity>2.000</b:InvoicedQuantity><b:LineExtensionAmount currencyID="EUR">12.50</b:LineExtensionAmount><a:Item><b:Name>Artikel A</b:Name></a:Item></a:InvoiceLine>';
+ const withLine=invoice.replace('</Invoice>',line+'</Invoice>');
+ assert.deepEqual(extractUblReceipt(withLine).lineItems,[{title:'Artikel A',quantity:2,amount:'12.50'}]);
+ for(const bad of [withLine.replace('12.50</b:LineExtensionAmount>','12.49</b:LineExtensionAmount>'),withLine.replace('currencyID="EUR">12.50</b:LineExtensionAmount>','currencyID="USD">12.50</b:LineExtensionAmount>'),withLine.replace('Artikel A','Artikel | A'),withLine.replace('2.000','0.5')]){
+  const proposal=extractUblReceipt(bad);assert.deepEqual(proposal.lineItems,[]);assert.ok(proposal.warnings.some(x=>x.includes('Positionen')));
+ }
+});
