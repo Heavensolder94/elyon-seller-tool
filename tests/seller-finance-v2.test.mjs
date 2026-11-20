@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { spawnSync } from 'node:child_process';
 import { normalizeFinanceTransaction } from "../seller-finance-core.js";
 import {
   resolveFinancePeriod,
@@ -31,6 +32,14 @@ test("Finance V2 resolves month, previous month and quarter periods", () => {
   assert.equal(localMonthKey(previous.start), "2026-07");
   assert.equal(quarter.label, "Q3 2026");
   assert.equal(localMonthKey(quarter.start), "2026-07");
+});
+
+test('period date controls show local calendar days across time zones and DST',()=>{
+ const code=`import {resolveFinancePeriod,financeLocalDay} from './seller-finance.js'; const now=new Date('2026-11-20T12:00:00Z'); console.log(JSON.stringify(['month','previous_month','quarter','year'].map(p=>{const r=resolveFinancePeriod(p,now);return [financeLocalDay(r.start),financeLocalDay(r.end)];})));`;
+ for(const timezone of ['Europe/Berlin','America/Los_Angeles','UTC']){
+  const result=spawnSync(process.execPath,['--input-type=module','-e',code],{cwd:process.cwd(),env:{...process.env,TZ:timezone},encoding:'utf8'});
+  assert.equal(result.status,0,result.stderr);assert.deepEqual(JSON.parse(result.stdout),[['2026-11-01','2026-11-30'],['2026-10-01','2026-10-31'],['2026-10-01','2026-12-31'],['2026-01-01','2026-12-31']]);
+ }
 });
 
 test("Finance V2 filters transactions to the selected period", () => {

@@ -116,7 +116,11 @@ function defaultPeriod(now = new Date()) {
 }
 
 function monthLabel(date) { return new Intl.DateTimeFormat("de-DE", { month: "long", year: "numeric" }).format(date); }
-function isoDay(date) { return new Date(date).toISOString().slice(0, 10); }
+export function financeLocalDay(value) {
+  const date=new Date(value);if(Number.isNaN(date.getTime()))return '';
+  return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+}
+function isoDay(date) { return financeLocalDay(date); }
 function monthKey(value) { const date = new Date(value); return Number.isNaN(date.getTime()) ? "" : `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`; }
 
 export function resolveFinancePeriod(preset = "month", now = new Date(), customStart = "", customEnd = "") {
