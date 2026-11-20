@@ -7,6 +7,8 @@ import {
   mergeTransactions,
   calculateMetrics,
   exportDatevPreparation,
+  exportTransactionsCsv,
+  parseDelimited,
   buildEurSummary,
 } from "../seller-finance-core.js";
 
@@ -88,4 +90,17 @@ test("creates DATEV preparation and EÜR working summary without filing", () => 
   assert.equal(eur.operatingIncome, 10);
   assert.equal(eur.surplus, 10);
   assert.match(eur.disclaimer, /keine Steuererklärung/i);
+});
+
+test("spreadsheet exports neutralize untrusted formulas while retaining numeric amounts", () => {
+  const transaction = normalizeFinanceTransaction({transactionId:'=HYPERLINK("https://example.invalid")',orderId:'+EXAMPLE',transactionDate:'2026-11-20T12:00:00Z',transactionType:'SUPPLIER_PURCHASE',category:'supplier_expense',amount:-10.25,currency:'EUR',memo:'@untrusted;"text"',status:'approved'});
+  const csvRows=parseDelimited(exportTransactionsCsv([transaction]),';').rows;
+  assert.equal(csvRows[1][1],"'=HYPERLINK(\"https://example.invalid\")");assert.equal(csvRows[1][2],"'+EXAMPLE");
+  assert.equal(csvRows[1][4],"'@untrusted;\"text\"");assert.equal(csvRows[1][5],'-10,25');
+  const datevRows=parseDelimited(exportDatevPreparation([transaction],{goodsAccount:'=ATTACK'}),';').rows;
+  assert.equal(datevRows[1][0],'10,25');assert.equal(datevRows[1][4],"'+EXAMPLE");assert.equal(datevRows[1][6],"'=ATTACK");
+  for(const value of ['=X','+X','-X','@X','\t=X','\n=X','\u00a0=X']){
+    const parsed=parseDelimited(exportTransactionsCsv([{...transaction,memo:value}]),';').rows;
+    assert.equal(parsed[1][4],"'"+value.trim());
+  }
 });

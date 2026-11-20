@@ -35,6 +35,8 @@ Bei einem PDF ohne eingebettete XML können ausdrücklich beschriftete Lieferant
 
 In der Bestell- und Produktprofitabilität bestimmt das Datum des EUR-Umsatzvorgangs den gewählten Zeitraum. Für die gefundenen Bestellreferenzen werden zugehörige gespeicherte EUR-Kosten, Gebühren und Erstattungen auch aus anderen Zeiträumen einbezogen. Die Zahlen sind vorläufig; vorhandene Einkaufskosten beweisen keine vollständige Zuordnung aller Artikel. Fremdwährungsvorgänge bleiben unberücksichtigt und werden markiert. Vorgänge ohne Artikelreferenz erscheinen nicht in der Produktprofitabilität und werden dort als Einschränkung ausgewiesen. Die Zahlungsflussansicht und EÜR bleiben weiterhin nach tatsächlichem Vorgangsdatum gefiltert; es werden keine alten Werte oder Buchungen geändert.
 
+Transaktions-CSV und DATEV-Vorbereitung kennzeichnen formelähnliche Textfelder beim Export mit einem Apostroph, um deren Auswertung in Tabellenprogrammen zu erschweren. Rechnerisch erzeugte Betragsfelder bleiben Zahlenangaben. Die gespeicherten Originaldaten werden nicht verändert; bei der Weiterverarbeitung müssen gekennzeichnete Texte bei Bedarf geprüft werden.
+
 Für UBL und CII werden Positionen nur vorgeschlagen, wenn alle unterstützten Angaben eindeutig sind und ihre Summe exakt dem Zahlbetrag entspricht; andernfalls erscheint ein Prüfhinweis. Steuer, Versand, Rabatte oder Vorauszahlungen können dazu führen, dass keine Positionen vorgeschlagen werden. Die Originaldatei und alle Vorschläge sind manuell zu prüfen. Es erfolgt weder eine Signaturprüfung noch eine steuerliche Freigabe.
 
 

@@ -516,9 +516,12 @@ export function calculateMetrics(transactions = []) {
   };
 }
 
-function quoteCsv(value, delimiter) {
+function quoteCsv(value, delimiter, numeric = false) {
   const raw = String(value ?? "");
-  return raw.includes(delimiter) || /["\r\n]/.test(raw) ? `"${raw.replaceAll('"', '""')}"` : raw;
+  // Spreadsheet programs may evaluate untrusted CSV cells as formulas, even
+  // when the cell is CSV-quoted. Amount columns are generated numbers only.
+  const safe = !numeric && /^[\s\u0000-\u001f\ufeff]*[=+@\-\t\r\n]/u.test(raw) ? "'" + raw : raw;
+  return safe.includes(delimiter) || /["\r\n]/.test(safe) ? `"${safe.replaceAll('"', '""')}"` : safe;
 }
 
 export function exportTransactionsCsv(transactions = [], delimiter = ";") {
@@ -537,7 +540,7 @@ export function exportTransactionsCsv(transactions = [], delimiter = ";") {
       item.source,
     ];
   });
-  return [headers, ...rows].map((row) => row.map((value) => quoteCsv(value, delimiter)).join(delimiter)).join("\r\n");
+  return [headers, ...rows].map((row, rowIndex) => row.map((value, index) => quoteCsv(value, delimiter, rowIndex > 0 && index === 5)).join(delimiter)).join("\r\n");
 }
 
 export function exportDatevPreparation(transactions = [], settings = {}) {
@@ -560,7 +563,7 @@ export function exportDatevPreparation(transactions = [], settings = {}) {
       item.id,
     ];
   });
-  return [headers, ...rows].map((row) => row.map((value) => quoteCsv(value, delimiter)).join(delimiter)).join("\r\n");
+  return [headers, ...rows].map((row, rowIndex) => row.map((value, index) => quoteCsv(value, delimiter, rowIndex > 0 && index === 0)).join(delimiter)).join("\r\n");
 }
 
 
