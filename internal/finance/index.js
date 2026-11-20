@@ -1,4 +1,5 @@
 import { recognizePdfIsolated } from '../../lib/receipt-pdf-isolated.js';
+import { extractReceiptTextSuggestions } from '../../lib/receipt-text.js';
 import { extractUblReceipt } from '../../lib/receipt-ubl.js';
 import { requireSellerAccess } from "../../lib/seller-access.js";
 import { financeSigningStatus, signFinancesGetRequest } from "../../lib/ebay-finance-signature.js";
@@ -381,6 +382,14 @@ export default async function handler(req, res) {
       if (req.method !== "POST") return res.status(405).json({ok:false,error:"Nur POST erlaubt."});
       try { return res.status(200).json({ok:true,proposal:await recognizePdfIsolated(req.body?.base64)}); }
       catch { return res.status(422).json({ok:false,error:"receipt_pdf_unavailable",message:"PDF konnte nicht sicher ausgelesen werden. Bei Scans oder Fotos Angaben bitte manuell erfassen; falls vorhanden, XML separat importieren."}); }
+    }
+    if (action === "recognize-receipt-text") {
+      if (req.method !== "POST") return res.status(405).json({ok:false,error:"Nur POST erlaubt."});
+      const input = req.body?.text;
+      if (typeof input !== 'string' || !input.trim() || input.length > 200000) return res.status(422).json({ok:false,error:'receipt_text_invalid',message:'Bitte einen erkannten Belegtext bis 200.000 Zeichen eingeben.'});
+      const proposal = extractReceiptTextSuggestions(input);
+      proposal.warnings[0] = 'Diese Angaben sind Vorschläge aus erkanntem Text. Erkennungsfehler und steuerliche Eignung anhand des Originals selbst prüfen.';
+      return res.status(200).json({ok:true,proposal});
     }
     if (action === "recognize-ubl-receipt") {
       if (req.method !== "POST") return res.status(405).json({ok:false,error:"Nur POST erlaubt."});

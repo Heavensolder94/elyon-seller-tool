@@ -16,3 +16,15 @@ test('authenticated PDF endpoint returns suggestions only for bounded structured
  const res={setHeader(){return this},status(code){this.code=code;return this},json(body){this.body=body;return this}};
  try{await handler(req,res);assert.equal(res.code,200);assert.equal(res.body.proposal.invoiceReference,'TEST-123');assert.equal('paymentDate' in res.body.proposal,false);}finally{old===undefined?delete process.env.ELYON_SELLER_ACCESS_TOKEN:process.env.ELYON_SELLER_ACCESS_TOKEN=old}
 });
+
+test('recognized image text yields reviewable suggestions and rejects excessive or missing input',async()=>{
+ const old=process.env.ELYON_SELLER_ACCESS_TOKEN;process.env.ELYON_SELLER_ACCESS_TOKEN='synthetic-test';
+ const request=text=>({method:'POST',query:{action:'recognize-receipt-text'},headers:{host:'localhost','x-elyon-seller-token':'synthetic-test'},body:{text}});
+ const response=()=>({setHeader(){return this},status(code){this.code=code;return this},json(body){this.body=body;return this}});
+ try {
+  const valid=response();await handler(request('Rechnungsnummer: TEST-123\nGesamtbetrag: 12,50 EUR'),valid);
+  assert.equal(valid.code,200);assert.equal(valid.body.proposal.invoiceReference,'TEST-123');assert.equal(valid.body.proposal.amount,'12.50');assert.equal('paymentDate' in valid.body.proposal,false);
+  for(const input of ['',123,'x'.repeat(200001)]){const bad=response();await handler(request(input),bad);assert.equal(bad.code,422);}
+  const conflict=response();await handler(request('Gesamtbetrag: 12,50 EUR\nGesamtbetrag: 13,50 EUR'),conflict);assert.equal(conflict.body.proposal.amount,'');
+ } finally {old===undefined?delete process.env.ELYON_SELLER_ACCESS_TOKEN:process.env.ELYON_SELLER_ACCESS_TOKEN=old;}
+});

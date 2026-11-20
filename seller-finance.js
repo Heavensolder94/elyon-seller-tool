@@ -638,7 +638,7 @@ function documentFields(doc) {
   const supplierHint = !doc.supplier && suggestSupplierFromFilename(doc.name);
   const lineText = Array.isArray(doc.receiptLineItemsV1) ? doc.receiptLineItemsV1.map(line => [line.title, line.quantity, line.amount].join(" | ")).join("\n") : "";
   const paymentProofs = state.documents.filter(item => item.id !== doc.id && item.documentType === 'payment_proof');
-  return `<form class="ef-form" data-ef2-document-form="${escapeHtml(doc.id)}">${supplierHint ? `<div class="full ef-callout">Dateiname deutet auf ${escapeHtml(supplierHint)} hin. Bitte anhand des Originalbelegs prüfen und Lieferant manuell eintragen.</div>` : ""}${/\.(?:xml|pdf)$/i.test(doc.name || "") ? `<div class="full"><button type="button" class="ef-btn" data-ef2-recognize-ubl="${escapeHtml(doc.id)}">Rechnungsdaten erkennen</button><span class="ef-muted"> Vorschläge werden vor dem Speichern angezeigt.</span></div>` : ""}<label>Belegtyp<select name="documentType">${Object.entries(DOCUMENT_TYPES).map(([id, label]) => `<option value="${id}" ${(doc.documentType || "unclassified") === id ? "selected" : ""}>${escapeHtml(label)}</option>`).join("")}</select></label>${field("supplier", "Lieferant / Kunde")}${field("invoiceReference", "Rechnungsnummer")}${field("orderReference", "Lieferantenbestellung")}${field("ebayOrderId", "eBay-Bestellung")}${field("productReference", "Artikelreferenz")}${field("documentDate", "Belegdatum", "date")}${field("paymentDate", doc.documentType === "refund_proof" ? "Tatsächlicher Erstattungseingang" : "Zahlungsdatum", "date")}${field("amount", "Betrag (ohne Währungsumrechnung)")}${field("currency", "Währung, z. B. EUR")}${field("receiptShippingAmountV1", "Lieferantenversand im Gesamtbetrag")}${field("receiptAdditionalAmountV1", "Zusatzkosten im Gesamtbetrag")}<label class="full">Bei Fremdwährung: separater EUR-Zahlungsnachweis<select name="receiptPaymentProofIdV1"><option value="">Keiner ausgewählt</option>${paymentProofs.map(item=>`<option value="${escapeHtml(item.id)}" ${item.id===doc.receiptPaymentProofIdV1?'selected':''}>${escapeHtml(item.name || item.id)}</option>`).join('')}</select><span class="ef-muted">Im Zahlungsnachweis den tatsächlich abgebuchten EUR-Betrag und dasselbe Zahlungsdatum eintragen. Beide Originale müssen in Drive gesichert sein.</span></label><label class="full">Artikelpositionen (optional: Bezeichnung | Menge | Positionsbetrag)<textarea name="lineItemsText" rows="3">${escapeHtml(lineText)}</textarea></label><div class="full"><button class="ef-btn" type="submit">Angaben speichern</button> <span class="ef-muted">Zur Prüfung · keine automatische Buchung</span></div></form>`;
+  return `<form class="ef-form" data-ef2-document-form="${escapeHtml(doc.id)}">${supplierHint ? `<div class="full ef-callout">Dateiname deutet auf ${escapeHtml(supplierHint)} hin. Bitte anhand des Originalbelegs prüfen und Lieferant manuell eintragen.</div>` : ""}${/\.(?:xml|pdf)$/i.test(doc.name || "") ? `<div class="full"><button type="button" class="ef-btn" data-ef2-recognize-ubl="${escapeHtml(doc.id)}">Rechnungsdaten erkennen</button><span class="ef-muted"> Vorschläge werden vor dem Speichern angezeigt.</span></div>` : ""}<div class="full"><button type="button" class="ef-btn" data-ef2-recognize-text="${escapeHtml(doc.id)}">Text aus Foto oder Scan übernehmen</button><span class="ef-muted"> Geräteerkennung oder kopierten Text verwenden. Der erkannte Text wird zur Auswertung an die Finance-API gesendet.</span></div><label>Belegtyp<select name="documentType">${Object.entries(DOCUMENT_TYPES).map(([id, label]) => `<option value="${id}" ${(doc.documentType || "unclassified") === id ? "selected" : ""}>${escapeHtml(label)}</option>`).join("")}</select></label>${field("supplier", "Lieferant / Kunde")}${field("invoiceReference", "Rechnungsnummer")}${field("orderReference", "Lieferantenbestellung")}${field("ebayOrderId", "eBay-Bestellung")}${field("productReference", "Artikelreferenz")}${field("documentDate", "Belegdatum", "date")}${field("paymentDate", doc.documentType === "refund_proof" ? "Tatsächlicher Erstattungseingang" : "Zahlungsdatum", "date")}${field("amount", "Betrag (ohne Währungsumrechnung)")}${field("currency", "Währung, z. B. EUR")}${field("receiptShippingAmountV1", "Lieferantenversand im Gesamtbetrag")}${field("receiptAdditionalAmountV1", "Zusatzkosten im Gesamtbetrag")}<label class="full">Bei Fremdwährung: separater EUR-Zahlungsnachweis<select name="receiptPaymentProofIdV1"><option value="">Keiner ausgewählt</option>${paymentProofs.map(item=>`<option value="${escapeHtml(item.id)}" ${item.id===doc.receiptPaymentProofIdV1?'selected':''}>${escapeHtml(item.name || item.id)}</option>`).join('')}</select><span class="ef-muted">Im Zahlungsnachweis den tatsächlich abgebuchten EUR-Betrag und dasselbe Zahlungsdatum eintragen. Beide Originale müssen in Drive gesichert sein.</span></label><label class="full">Artikelpositionen (optional: Bezeichnung | Menge | Positionsbetrag)<textarea name="lineItemsText" rows="3">${escapeHtml(lineText)}</textarea></label><div class="full"><button class="ef-btn" type="submit">Angaben speichern</button> <span class="ef-muted">Zur Prüfung · keine automatische Buchung</span></div></form>`;
 }
 // Amount and currency are a pair: never combine a newly extracted amount with
 // a different currency already entered by the user (or vice versa).
@@ -651,16 +651,34 @@ export function reconcileReceiptMoneySuggestion(proposal = {}, existingAmount = 
   if(amountMismatch||currencyMismatch)return {amount:'',currency:'',conflict:true};
   return {amount:currentAmount?'':amount,currency:currentCurrency?'':currency,conflict:false};
 }
-async function recognizeUblReceipt(id) {
+// Native support differs between browsers. No external OCR service is called.
+export async function recognizeImageText(file, Detector = globalThis.TextDetector, makeBitmap = globalThis.createImageBitmap) {
+  if (!/^image\/(png|jpeg|webp)$/i.test(file.type) || typeof Detector !== 'function' || typeof makeBitmap !== 'function') return '';
+  const bitmap = await makeBitmap(file);
+  try {
+    if (!bitmap.width || !bitmap.height || bitmap.width * bitmap.height > 16000000) throw new Error('Das Bild ist für die Geräteerkennung zu groß.');
+    const blocks = await new Detector().detect(bitmap);
+    if (!Array.isArray(blocks) || blocks.length > 10000) throw new Error('Ungültiges Ergebnis der Geräteerkennung.');
+    return blocks.filter(block => typeof block?.rawValue === 'string').sort((a,b) => (a.boundingBox?.y || 0) - (b.boundingBox?.y || 0) || (a.boundingBox?.x || 0) - (b.boundingBox?.x || 0)).map(block => block.rawValue).join('\n').slice(0, 200000);
+  } finally { bitmap.close?.(); }
+}
+async function recognizeUblReceipt(id, useImageOrText = false) {
   const doc=state.documents.find(item=>item.id===id);
   const form=document.querySelector(`[data-ef2-document-form="${CSS.escape(id)}"]`);
   if(!doc||!form)return;
   try {
     const file=await readDocumentFile(id) || await restoreDocumentFromDrive(doc);
     const isPdf=/\.pdf$/i.test(doc.name || '');
-    if(file.size>(isPdf?2500000:1000000))throw new Error('Datei überschreitet das unterstützte Limit.');
+    if(file.size>(isPdf||useImageOrText?2500000:1000000))throw new Error('Datei überschreitet das unterstützte Limit.');
     if(!doc.sha256 || await hashFile(file)!==doc.sha256)throw new Error('Originaldatei stimmt nicht mit der Prüfsumme überein.');
-    const response=isPdf ? await api('recognize-pdf-receipt',{method:'POST',body:{base64:bytesToBase64(new Uint8Array(await file.arrayBuffer()))}}) : await api('recognize-ubl-receipt',{method:'POST',body:{xml:await file.text()}});
+    let response;
+    if (useImageOrText) {
+      let extracted='';
+      try { extracted=await recognizeImageText(file); } catch { toast('Geräteerkennung fehlgeschlagen. Du kannst kopierten Text eingeben.'); }
+      if (!extracted.trim()) extracted=window.prompt('Erkannten Text vom Foto oder Scan hier einfügen (z. B. mit der Texterkennung deines Geräts kopieren):','') || '';
+      if (!extracted.trim()) return;
+      response=await api('recognize-receipt-text',{method:'POST',body:{text:extracted}});
+    } else response=isPdf ? await api('recognize-pdf-receipt',{method:'POST',body:{base64:bytesToBase64(new Uint8Array(await file.arrayBuffer()))}}) : await api('recognize-ubl-receipt',{method:'POST',body:{xml:await file.text()}});
     const proposal=response.proposal || {};
     const labels={supplier:'Lieferant',invoiceReference:'Rechnungsnummer',orderReference:'Bestellnummer',documentDate:'Belegdatum',amount:'Zahlbetrag',currency:'Währung'};
     const rows=Object.entries(labels).filter(([key])=>proposal[key]).map(([key,label])=>label+': '+proposal[key]);
@@ -1002,6 +1020,7 @@ function bindEvents() {
     const matchButton=event.target.closest?.("[data-ef2-match-doc]");
     if(matchButton){const docId=matchButton.dataset.ef2MatchDoc, transactionId=matchButton.dataset.ef2MatchTransaction;if(window.confirm("Diesen Beleg dem angezeigten Finanzvorgang zuordnen? Es wird keine Buchung oder Zahlung erzeugt."))return attachDocument(transactionId,docId);return;}
     const recognizeId=event.target.closest?.("[data-ef2-recognize-ubl]")?.dataset.ef2RecognizeUbl;if(recognizeId)return recognizeUblReceipt(recognizeId);
+    const recognizeTextId=event.target.closest?.("[data-ef2-recognize-text]")?.dataset.ef2RecognizeText;if(recognizeTextId)return recognizeUblReceipt(recognizeTextId,true);
     const suggestCostId=event.target.closest?.("[data-ef2-suggest-cost]")?.dataset.ef2SuggestCost;if(suggestCostId)return fillSuggestedReceiptCost(suggestCostId);
     const costId=event.target.closest?.("[data-ef2-confirm-cost]")?.dataset.ef2ConfirmCost;if(costId)return confirmReceiptCosts(costId);
     const refundId=event.target.closest?.("[data-ef2-confirm-refund]")?.dataset.ef2ConfirmRefund;if(refundId)return confirmSupplierRefund(refundId);

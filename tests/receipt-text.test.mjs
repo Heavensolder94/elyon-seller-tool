@@ -3,7 +3,16 @@ import assert from 'node:assert/strict';
 import { PDFDocument, StandardFonts } from 'pdf-lib';
 import { extractReceiptTextSuggestions } from '../lib/receipt-text.js';
 import { recognizePdfIsolated } from '../lib/receipt-pdf-isolated.js';
-import { reconcileReceiptMoneySuggestion } from '../seller-finance.js';
+import { reconcileReceiptMoneySuggestion, recognizeImageText } from '../seller-finance.js';
+
+test('device text detection is optional, orders recognized text and closes bounded image resources',async()=>{
+ let closed=0;const bitmap={width:100,height:100,close(){closed++}};
+ class Detector {async detect(){return [{rawValue:'Gesamtbetrag: 12,50 EUR',boundingBox:{y:40,x:0}},{rawValue:'Rechnungsnummer: R-123',boundingBox:{y:10,x:0}}]}}
+ assert.equal(await recognizeImageText({type:'image/jpeg'},Detector,async()=>bitmap),'Rechnungsnummer: R-123\nGesamtbetrag: 12,50 EUR');assert.equal(closed,1);
+ assert.equal(await recognizeImageText({type:'application/pdf'},Detector,async()=>bitmap),'');
+ assert.equal(await recognizeImageText({type:'image/jpeg'},null,async()=>bitmap),'');
+ await assert.rejects(recognizeImageText({type:'image/png'},Detector,async()=>({...bitmap,width:200000})));assert.equal(closed,2);
+});
 
 test('extracts only explicitly labelled PDF-text fields and never infers payment',()=>{
  const p=extractReceiptTextSuggestions('Lieferant: Beispiel GmbH\nRechnungsnummer: R-123\nBestellnummer: B-456\nRechnungsdatum: 20.11.2026\nGesamtbetrag: 12,50 EUR');
