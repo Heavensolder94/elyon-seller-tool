@@ -596,7 +596,7 @@ function documentFields(doc) {
   const field = (key, label, type = "text") => `<label>${label}<input name="${key}" type="${type}" value="${escapeHtml(doc[key] || "")}" maxlength="200"></label>`;
   const supplierHint = !doc.supplier && suggestSupplierFromFilename(doc.name);
   const lineText = Array.isArray(doc.receiptLineItemsV1) ? doc.receiptLineItemsV1.map(line => [line.title, line.quantity, line.amount].join(" | ")).join("\n") : "";
-  return `<form class="ef-form" data-ef2-document-form="${escapeHtml(doc.id)}">${supplierHint ? `<div class="full ef-callout">Dateiname deutet auf ${escapeHtml(supplierHint)} hin. Bitte anhand des Originalbelegs prüfen und Lieferant manuell eintragen.</div>` : ""}${/\.xml$/i.test(doc.name || "") ? `<div class="full"><button type="button" class="ef-btn" data-ef2-recognize-ubl="${escapeHtml(doc.id)}">UBL-XML erkennen</button><span class="ef-muted"> Vorschläge werden vor dem Speichern angezeigt.</span></div>` : ""}<label>Belegtyp<select name="documentType">${Object.entries(DOCUMENT_TYPES).map(([id, label]) => `<option value="${id}" ${(doc.documentType || "unclassified") === id ? "selected" : ""}>${escapeHtml(label)}</option>`).join("")}</select></label>${field("supplier", "Lieferant / Kunde")}${field("invoiceReference", "Rechnungsnummer")}${field("orderReference", "Lieferantenbestellung")}${field("ebayOrderId", "eBay-Bestellung")}${field("productReference", "Artikelreferenz")}${field("documentDate", "Belegdatum", "date")}${field("paymentDate", "Zahlungsdatum", "date")}${field("amount", "Betrag (ohne Währungsumrechnung)")}${field("currency", "Währung, z. B. EUR")}${field("receiptShippingAmountV1", "Lieferantenversand im Gesamtbetrag")}${field("receiptAdditionalAmountV1", "Zusatzkosten im Gesamtbetrag")}<label class="full">Artikelpositionen (optional: Bezeichnung | Menge | Positionsbetrag)<textarea name="lineItemsText" rows="3">${escapeHtml(lineText)}</textarea></label><div class="full"><button class="ef-btn" type="submit">Angaben speichern</button> <span class="ef-muted">Zur Prüfung · keine automatische Buchung</span></div></form>`;
+  return `<form class="ef-form" data-ef2-document-form="${escapeHtml(doc.id)}">${supplierHint ? `<div class="full ef-callout">Dateiname deutet auf ${escapeHtml(supplierHint)} hin. Bitte anhand des Originalbelegs prüfen und Lieferant manuell eintragen.</div>` : ""}${/\.(?:xml|pdf)$/i.test(doc.name || "") ? `<div class="full"><button type="button" class="ef-btn" data-ef2-recognize-ubl="${escapeHtml(doc.id)}">Rechnungsdaten erkennen</button><span class="ef-muted"> Vorschläge werden vor dem Speichern angezeigt.</span></div>` : ""}<label>Belegtyp<select name="documentType">${Object.entries(DOCUMENT_TYPES).map(([id, label]) => `<option value="${id}" ${(doc.documentType || "unclassified") === id ? "selected" : ""}>${escapeHtml(label)}</option>`).join("")}</select></label>${field("supplier", "Lieferant / Kunde")}${field("invoiceReference", "Rechnungsnummer")}${field("orderReference", "Lieferantenbestellung")}${field("ebayOrderId", "eBay-Bestellung")}${field("productReference", "Artikelreferenz")}${field("documentDate", "Belegdatum", "date")}${field("paymentDate", "Zahlungsdatum", "date")}${field("amount", "Betrag (ohne Währungsumrechnung)")}${field("currency", "Währung, z. B. EUR")}${field("receiptShippingAmountV1", "Lieferantenversand im Gesamtbetrag")}${field("receiptAdditionalAmountV1", "Zusatzkosten im Gesamtbetrag")}<label class="full">Artikelpositionen (optional: Bezeichnung | Menge | Positionsbetrag)<textarea name="lineItemsText" rows="3">${escapeHtml(lineText)}</textarea></label><div class="full"><button class="ef-btn" type="submit">Angaben speichern</button> <span class="ef-muted">Zur Prüfung · keine automatische Buchung</span></div></form>`;
 }
 async function recognizeUblReceipt(id) {
   const doc=state.documents.find(item=>item.id===id);
@@ -604,18 +604,19 @@ async function recognizeUblReceipt(id) {
   if(!doc||!form)return;
   try {
     const file=await readDocumentFile(id) || await restoreDocumentFromDrive(doc);
-    if(file.size>1000000)throw new Error('XML überschreitet 1 MB.');
+    const isPdf=/\.pdf$/i.test(doc.name || '');
+    if(file.size>(isPdf?2500000:1000000))throw new Error('Datei überschreitet das unterstützte Limit.');
     if(!doc.sha256 || await hashFile(file)!==doc.sha256)throw new Error('Originaldatei stimmt nicht mit der Prüfsumme überein.');
-    const response=await api('recognize-ubl-receipt',{method:'POST',body:{xml:await file.text()}});
+    const response=isPdf ? await api('recognize-pdf-receipt',{method:'POST',body:{base64:bytesToBase64(new Uint8Array(await file.arrayBuffer()))}}) : await api('recognize-ubl-receipt',{method:'POST',body:{xml:await file.text()}});
     const proposal=response.proposal || {};
     const labels={supplier:'Lieferant',invoiceReference:'Rechnungsnummer',orderReference:'Bestellnummer',documentDate:'Belegdatum',amount:'Zahlbetrag',currency:'Währung'};
     const rows=Object.entries(labels).filter(([key])=>proposal[key]).map(([key,label])=>label+': '+proposal[key]);
-    const message='Vorschläge aus dem UBL-Original (keine Prüfung auf steuerliche Gültigkeit):\n'+(rows.join('\n')||'Keine eindeutigen Angaben erkannt.')+(proposal.warnings?.length?'\n\n'+proposal.warnings.join('\n'):'')+'\n\nNur leere Felder befüllen und anschließend selbst prüfen?';
+    const message='Vorschläge aus den strukturierten Originaldaten (keine Prüfung auf steuerliche Gültigkeit):\n'+(rows.join('\n')||'Keine eindeutigen Angaben erkannt.')+(proposal.warnings?.length?'\n\n'+proposal.warnings.join('\n'):'')+'\n\nNur leere Felder befüllen und anschließend selbst prüfen?';
     if(!window.confirm(message))return;
     for(const key of Object.keys(labels)) {const field=form.elements.namedItem(key);if(field&&!field.value&&proposal[key])field.value=proposal[key];}
     const kind=form.elements.namedItem('documentType');if(kind&&kind.value==='unclassified'&&proposal.documentType)kind.value=proposal.documentType;
     toast('Vorschläge eingefügt. Bitte Original prüfen und Angaben ausdrücklich speichern.');
-  } catch(error) {toast(error.message,'UBL-Erkennung');}
+  } catch(error) {toast(error.message,'XML-Erkennung');}
 }
 
 function receiptCostMarkup(doc) {
