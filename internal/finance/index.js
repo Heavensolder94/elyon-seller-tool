@@ -3,7 +3,7 @@ import { financeSigningStatus, signFinancesGetRequest } from "../../lib/ebay-fin
 import { ebayUserSession, callEbayJson, publicEbayError } from "../../lib/ebay-production.js";
 import { readFinanceState, writeFinanceState, getFinanceStoreDescription, reserveFinanceInvoiceNumber } from "../../lib/finance-store.js";
 import { normalizeEbayApiTransactions, mergeTransactions, calculateMetrics, buildEurSummary, selectApprovedEurTransactions, buildReceiptCostProposal } from "../../seller-finance-core.js";
-import { issueKleinunternehmerInvoice } from "../../lib/kleinunternehmer-invoice-store.js";
+import { issueKleinunternehmerInvoice, verifyInvoiceSnapshot } from "../../lib/kleinunternehmer-invoice-store.js";
 import { getRefreshTokenCookie, downloadFinanceDocumentFromDrive } from "../../lib/google-drive.js";
 import { readGoogleDriveToken } from "../../lib/google-drive-token-store.js";
 
@@ -311,6 +311,16 @@ export default async function handler(req, res) {
     if (action === "payouts") return handlePayouts(req, res);
     if (action === "eur") return handleEur(req, res);
     if (action === "reserve-invoice-number") return handleReserveInvoiceNumber(req, res);
+    if (action === "read-issued-invoice") {
+      if (req.method !== "GET") return res.status(405).json({ ok: false, error: "Nur GET erlaubt." });
+      const orderId = text(req.query?.orderId);
+      if (!/^[A-Za-z0-9_-]{6,70}$/.test(orderId)) return res.status(400).json({ok:false,error:"invalid_order_id"});
+      const state = await readFinanceState();
+      const record = state.invoiceMeta[orderId];
+      if (!record || record.immutable !== true || !record.invoice) return res.status(404).json({ok:false,error:"issued_invoice_not_found"});
+      if (!verifyInvoiceSnapshot(record)) return res.status(409).json({ok:false,error:"invoice_integrity_failed",message:"Rechnungssnapshot kann nicht überprüft werden. Archivbestand prüfen."});
+      return res.status(200).json({ok:true, invoice:record.invoice, snapshotHash:record.snapshotHash});
+    }
     if (action === "issue-kleinunternehmer-invoice") {
       if (req.method !== 'POST') return res.status(405).json({ ok: false, error: 'Nur POST erlaubt.' });
       const orderId = text(req.body?.orderId);

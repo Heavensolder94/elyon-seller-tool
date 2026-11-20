@@ -227,16 +227,26 @@
     popup.document.write(html);
     popup.document.close();
   }
-  function openExistingInvoice(meta) {
+  async function openExistingInvoice(meta, orderId) {
     if (!meta?.immutable || !meta.invoice) {
       notify('Historische Metadaten stehen unten in der Rechnungsliste. Ein Original ist daraus nicht belegbar; keine neue Rechnung erzeugt.', 'Historischer Beleg');
       return;
     }
-    printInvoice(meta.invoice);
+    const popup = window.open('', '_blank');
+    if (!popup) { notify('Bitte Pop-ups für das Seller Tool erlauben.', 'Rechnung'); return; }
+    try {
+      const response = await fetch('/api/finance?action=read-issued-invoice&orderId=' + encodeURIComponent(orderId || meta.invoice.orderId), { credentials:'same-origin', cache:'no-store', headers:{Accept:'application/json'} });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.ok || !data.invoice) throw new Error(data.message || 'Archiv-Rechnung konnte nicht geprüft werden.');
+      printInvoice(data.invoice, popup);
+    } catch (error) {
+      try { popup.close(); } catch {}
+      window.alert('Rechnung nicht geöffnet: ' + error.message);
+    }
   }
   async function createInvoice(order) {
     const meta = readMeta();
-    if (meta[order.id]) return openExistingInvoice(meta[order.id]);
+    if (meta[order.id]) return openExistingInvoice(meta[order.id], order.id);
     if (issueBusy.has(order.id)) return;
     if (!window.confirm(
       'Rechnung für eBay-Bestellung ' + order.id +
@@ -342,7 +352,7 @@
   document.addEventListener('click', (event) => {
     if (event.target.closest && event.target.closest('[data-eoi-load]')) return loadOrders();
     const archivedButton = event.target.closest && event.target.closest('[data-eoi-archive]');
-    if (archivedButton) { openExistingInvoice(readMeta()[archivedButton.dataset.eoiArchive]); return; }
+    if (archivedButton) { openExistingInvoice(readMeta()[archivedButton.dataset.eoiArchive], archivedButton.dataset.eoiArchive); return; }
     const invoiceButton = event.target.closest && event.target.closest('[data-eoi-invoice]');
     if (invoiceButton) { const order = orders.find((item) => item.id === invoiceButton.dataset.eoiInvoice); if (order) createInvoice(order); return; }
     const saveButton = event.target.closest && event.target.closest('[data-eoi-save]');
