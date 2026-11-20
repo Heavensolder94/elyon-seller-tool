@@ -77,12 +77,19 @@ function detailsMarkup(order) {
     ["feeCost", "Tatsächliche eBay-Gebühren €", op.feeCost, "0.00"],
   ].map(([name, label, value, placeholder]) => `<label>${h(label)}<input type="number" min="0" step="0.01" name="${name}" value="${value !== null && value !== undefined ? h(value) : ""}" placeholder="${placeholder}"></label>`).join("");
   const invoice = state.invoices[order.id];
+  const addr = obj(order.shippingAddress);
+  const addressParts = [addr.recipient, addr.street, addr.extra,
+    [addr.postalCode, addr.city].filter(Boolean).join(" "), addr.country].filter(Boolean);
+  const shippingAddress = addressParts.length > 1 ?
+    `<h4>Lieferadresse laut eBay</h4><div class="ocv2-address">${addressParts.map(h).join("<br>")}
+    <p class="ocv2-hint">Vor dem Einkauf beim Lieferanten mit dem eBay-Auftrag abgleichen.</p></div>` : "";
   return `<div class="ocv2-details-head"><div><small>eBay-Bestellung</small><h3>${h(order.id)}</h3></div><span class="ocv2-state ocv2-state--${h(status)}">${h(statusLabels[status] || status)}</span></div>
     <div class="ocv2-details-meta"><span>${h(date(order.createdAt))}</span><strong>${h(money(order.total, order.currency))}</strong></div>
     <div class="ocv2-chips"><span>Bezahlung: ${h(order.paymentStatus)}</span><span>eBay-Versand: ${h(order.fulfillmentStatus)}</span>
     <span>Rechnung: ${invoice ? h(invoice.invoiceNumber) : "noch keine"}</span></div>
     ${!paymentConfirmed(order) ? '<p class="ocv2-alert">eBay meldet die Bestellung nicht als vollständig bezahlt. Vor einem Einkauf bitte überprüfen.</p>' : ""}
     <h4>Artikel & Produktverknüpfungen</h4><div class="ocv2-lines">${lines}</div>
+    ${shippingAddress}
     <form id="ocv2OrderForm" data-order-id="${cleanAttr(order.id)}">
       <h4>Lieferant und Bearbeitung</h4>
       <div class="ocv2-fields"><label>Interner Bearbeitungsstatus<select name="workflowStatus">${phaseOptions.map(([id, label]) =>
