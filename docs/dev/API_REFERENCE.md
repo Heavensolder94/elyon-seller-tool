@@ -68,3 +68,9 @@ Bestellung dort als versendet. Es ist die einzige Route, die eBay-Fulfillment sc
 - Der Browser schreibt nach jedem `saveSales()` zusätzlich einen Snapshot (`keepalive`),
   Fehler dabei ändern den lokalen Ablauf nicht.
 - Der Browser bleibt die Arbeitskopie; der Snapshot ist das Wiederherstellungsnetz.
+
+## Amazon-Recherche an Company OS (2026-11-20)
+
+`POST /api/products/review-intake` akzeptiert zusätzlich `mode: "amazon_research"` mit einem `product` (ASIN, Titel, Amazon-URL, optionale Referenzdaten). Die Route erfordert Seller-Zugang und dieselbe Origin. Sie prüft die Company-OS-Fähigkeit `createOnlyReview`, erkennt bekannte Identitäten und sendet einen create-only Workflow-Übergang. Sie erzeugt keinen eBay-Entwurf und publiziert nichts. Amazon-Preis und Bilder sind ungeprüfte Recherche; Kosten und Rechte bleiben offen. Ein Timeout ist kein Erfolgsnachweis; vor Wiederholung Company OS prüfen. Das Company-OS-Update muss zuerst produktiv sein.
+
+Bei FX-Draft-Feeds bestätigt `draftVisible` aus Kompatibilitätsgründen nur einen laut eBay erfolgreich verarbeiteten Feed-Eintrag. Der aktuelle Bestand im Seller Hub wird dadurch nicht bestätigt und muss dort geprüft werden.
