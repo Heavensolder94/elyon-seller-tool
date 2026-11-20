@@ -28,7 +28,7 @@ test('parallel issuance preserves one invoice and its verified PDF; failed Drive
   const originalBefore=JSON.stringify(state.invoiceMeta[order.orderId]);
   const change={field:'buyerCity',newValue:'Neue Stadt',reason:'Adresse berichtigen'};
   assert.equal((await issueInvoiceCorrection(order.orderId,{...change,field:'total'},{refreshToken:'test'})).ok,false);
-  const correction=await issueInvoiceCorrection(order.orderId,change,{refreshToken:'test'});assert.equal(correction.ok,true);assert.equal(correction.invoice.oldValue,'Stadt');assert.equal(correction.invoice.newValue,'Neue Stadt');
+  const attempts=await Promise.all([issueInvoiceCorrection(order.orderId,change,{refreshToken:'test'}),issueInvoiceCorrection(order.orderId,change,{refreshToken:'test'})]);const correction=attempts.find(x=>x.ok);assert.ok(correction);assert.ok(attempts.filter(x=>x.ok&&!x.existing).length<=1);assert.equal(correction.invoice.oldValue,'Stadt');assert.equal(correction.invoice.newValue,'Neue Stadt');
   assert.equal((await issueInvoiceCorrection(order.orderId,change,{refreshToken:'test'})).existing,true);
   assert.equal((await issueInvoiceCorrection(order.orderId,{...change,newValue:'Andere Stadt'},{refreshToken:'test'})).ok,false);
 
