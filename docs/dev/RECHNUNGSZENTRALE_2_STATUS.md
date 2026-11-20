@@ -27,6 +27,8 @@ Die Oberfläche kann eine vollständige Stornorechnung mit Grund, eigener Nummer
 
 UBL-Rechnungen und UBL-Gutschriften können aus dem Original-XML deterministisch ausgelesen werden. Der Nutzer sieht Vorschläge und übernimmt sie in leere Felder erst nach Bestätigung; die Daten bleiben prüfbedürftig. Übereinstimmende Bestell-/Artikelreferenzen liefern Vorschläge für vorhandene Finanzvorgänge, die einzeln bestätigt werden. Keine automatische Buchung oder Zahlung. Ausgewählte CII-Felder sowie eine einzelne eingebettete UBL-/CII-XML-Datei in PDF werden unterstützt. XML-/PDF-A-Schema- oder Profilvalidierung, PDF-Text-/Bild-OCR und ein echter Mehrgeräte-Test sind offen. Dekomprimierungsgrenzen und Deploymentfähigkeit der PDF-Verarbeitung benötigen vor Produktivfreigabe zusätzliche Prüfung.
 
+Für UBL und CII werden Positionen nur vorgeschlagen, wenn alle unterstützten Angaben eindeutig sind und ihre Summe exakt dem Zahlbetrag entspricht; andernfalls erscheint ein Prüfhinweis. Steuer, Versand, Rabatte oder Vorauszahlungen können dazu führen, dass keine Positionen vorgeschlagen werden. Die Originaldatei und alle Vorschläge sind manuell zu prüfen. Es erfolgt weder eine Signaturprüfung noch eine steuerliche Freigabe.
+
 
 PDF-Erkennung läuft im Entwurf in einem separaten Linux-Prozess mit geprüftem Adressraumlimit, Zeitlimit und maximal einem Prozess pro Instanz. Eine lokal getestete Datei mit stark komprimiertem 64-MB-Anhang wurde blockiert. Die Zielumgebung, die Dateibündelung, Speicher- und Lastverhalten sowie Mehrgeräteabläufe müssen vor der Produktivfreigabe geprüft werden; bei fehlendem Limit wird nicht verarbeitet.
 
