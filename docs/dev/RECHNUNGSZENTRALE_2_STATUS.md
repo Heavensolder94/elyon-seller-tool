@@ -33,3 +33,7 @@ Sicherheitsblocker: Die PDF-Erkennung ist über die API gesperrt; pdfjs dekompri
 ## Berichtigung einzelner Empfängerangaben (Entwurf)
 
 Ein separater Berichtigungsbeleg kann Namen, Straße, Postleitzahl oder Ort berichtigen. Er verweist auf das ursprüngliche Original; die gespeicherte Rechnung wird nicht verändert. Eine zweite Änderung desselben Felds und Änderungen nach Vollstorno sind blockiert. Geldbeträge, Teilstornos und die steuerliche/fachliche Prüfung bleiben offen. Kein automatischer Versand und keine Buchung.
+
+## Begrenzte Betragsberichtigung (Entwurf)
+
+Eine manuelle Berichtigung ist nur bei einer Position mit Menge 1 ohne Versand und Rabatt möglich und betrifft sowohl Positions- als auch Gesamtbetrag. Keine eBay-Änderung und keine automatische Anpassung von Transaktionen, Erstattungen oder EÜR. Alle komplexeren Fälle bleiben blockiert; fachliche und produktive Prüfung ist erforderlich.

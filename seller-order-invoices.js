@@ -335,12 +335,12 @@
 
   async function correctInvoice(orderId) {
     const entry=readMeta()[orderId];if(!entry?.invoice)return;
-    const choices={'1':['buyerName','Name',entry.invoice.buyer?.name],'2':['buyerStreet','Straße',entry.invoice.buyer?.addressLine1],'3':['buyerPostalCode','Postleitzahl',entry.invoice.buyer?.postalCode],'4':['buyerCity','Empfängerort',entry.invoice.buyer?.city],'5':['sellerName','Verkäufername',entry.invoice.seller?.name],'6':['sellerStreet','Verkäuferstraße',entry.invoice.seller?.addressLine1],'7':['sellerPostalCode','Verkäufer-PLZ',entry.invoice.seller?.postalCode],'8':['sellerCity','Verkäuferort',entry.invoice.seller?.city],'9':['sellerTaxId','Steuerliche Identifikation',entry.invoice.seller?.taxId]};
-    const choice=window.prompt('Welche Angabe berichtigen? Empfänger: 1 Name · 2 Straße · 3 PLZ · 4 Ort. Verkäufer: 5 Name · 6 Straße · 7 PLZ · 8 Ort · 9 Steuer-ID.','');
+    const choices={'1':['buyerName','Name',entry.invoice.buyer?.name],'2':['buyerStreet','Straße',entry.invoice.buyer?.addressLine1],'3':['buyerPostalCode','Postleitzahl',entry.invoice.buyer?.postalCode],'4':['buyerCity','Empfängerort',entry.invoice.buyer?.city],'5':['sellerName','Verkäufername',entry.invoice.seller?.name],'6':['sellerStreet','Verkäuferstraße',entry.invoice.seller?.addressLine1],'7':['sellerPostalCode','Verkäufer-PLZ',entry.invoice.seller?.postalCode],'8':['sellerCity','Verkäuferort',entry.invoice.seller?.city],'9':['sellerTaxId','Steuerliche Identifikation',entry.invoice.seller?.taxId],'10':['singleLineAmount','Positions- und Gesamtbetrag in EUR',entry.invoice.total]};
+    const choice=window.prompt('Welche Angabe berichtigen? Empfänger: 1 Name · 2 Straße · 3 PLZ · 4 Ort. Verkäufer: 5 Name · 6 Straße · 7 PLZ · 8 Ort · 9 Steuer-ID. Betrag: 10 (nur Einzelposition ohne Versand und Rabatt).','');
     if(!choice)return;const selected=choices[choice.trim()];if(!selected){window.alert('Ungültige Auswahl.');return;}
     const newValue=window.prompt('Berichtigter Wert für '+selected[1]+' (bisher: '+(selected[2]||'unbekannt')+')','');if(!newValue)return;
     const reason=window.prompt('Grund der Berichtigung:','');if(!reason)return;
-    if(!window.confirm('Berichtigungsbeleg zur ursprünglichen Rechnung verbindlich ausstellen? Keine Beträge, Buchungen oder Zahlungen werden geändert.'))return;
+    if(!window.confirm('Berichtigungsbeleg zur ursprünglichen Rechnung verbindlich ausstellen? Keine Buchungen, Rückzahlungen oder Zahlungen werden automatisch geändert.'))return;
     try{
       const response=await fetch('/api/finance?action=correct-issued-invoice',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify({orderId,change:{field:selected[0],newValue,reason}})});
       const data=await response.json().catch(()=>({}));if(!response.ok||!data.ok)throw new Error(data.message||'Berichtigung nicht bestätigt.');
