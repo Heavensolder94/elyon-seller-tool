@@ -104,3 +104,8 @@ test("spreadsheet exports neutralize untrusted formulas while retaining numeric 
     assert.equal(parsed[1][4],"'"+value.trim());
   }
 });
+
+test("EÜR working summary returns amounts on cent boundaries",()=>{
+ const rows=[normalizeFinanceTransaction({transactionId:'s1',transactionType:'SALE',amount:0.1,status:'approved'}),normalizeFinanceTransaction({transactionId:'s2',transactionType:'SALE',amount:0.2,status:'approved'}),normalizeFinanceTransaction({transactionId:'cost',transactionType:'SUPPLIER_PURCHASE',amount:-0.1,status:'approved'})];
+ const summary=buildEurSummary(rows);assert.equal(summary.operatingIncome,0.3);assert.equal(summary.operatingExpenses,0.1);assert.equal(summary.surplus,0.2);
+});

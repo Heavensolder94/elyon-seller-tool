@@ -614,39 +614,61 @@ export function exportDatevPreparation(transactions = [], settings = {}) {
  * review or with an unconverted currency must never leak into a tax working
  * export. Voided entries are excluded, not treated as blockers.
  */
-export function selectApprovedEurTransactions(transactions = []) {
+export function getSupplierRefundTaxReview(transaction, reviews = {}) {
+  const row=normalizeFinanceTransaction(transaction,transaction?.source);
+  if(row.category!=='supplier_refund'||row.source!=='supplier_receipt_verified'||row.supplierReceipt?.kind!=='refund'||row.amount<=0)return null;
+  const history=reviews && typeof reviews==='object' ? reviews[row.transactionId] : null;
+  if(!Array.isArray(history)||!history.length||history.length>50)return null;
+  const amountCents=Math.round(row.amount*100),proofSha=text(row.supplierReceipt.sha256).toLowerCase(),original=text(row.supplierReceipt.originalTransactionId),date=row.transactionDate.slice(0,10);
+  if(!Number.isSafeInteger(amountCents)||amountCents<=0||row.amount!==amountCents/100||row.supplierReceipt.allocationCents!==amountCents||!/^[a-f0-9]{64}$/.test(proofSha)||!original)return null;
+  for(const review of history)if(!review||review.version!==1||review.confirmed!==true||review.transactionId!==row.transactionId||review.proofSha!==proofSha||review.originalTransactionId!==original||review.amountCents!==amountCents||review.paymentDate!==date||!['expense_reduction','other_income'].includes(review.method)||typeof review.note!=='string'||review.note.trim().length<3||review.note.length>300||Number.isNaN(Date.parse(review.reviewedAt)))return null;
+  return history[history.length-1];
+}
+
+export function selectApprovedEurTransactions(transactions = [], reviews = {}) {
   const active = transactions.map((entry) => normalizeFinanceTransaction(entry, entry.source))
     .filter((entry) => !entry.voidedAt);
   const unapproved = active.filter((entry) => entry.status !== "approved");
   const foreignCurrencies = [...new Set(active.filter((entry) => entry.currency !== "EUR").map((entry) => entry.currency))];
-  const unclassifiedRefundCount = active.filter(entry => entry.category === 'supplier_refund').length;
+  const unclassifiedRefundCount = active.filter(entry => entry.category === 'supplier_refund' && !getSupplierRefundTaxReview(entry,reviews)).length;
   return {
     ready: unapproved.length === 0 && foreignCurrencies.length === 0 && unclassifiedRefundCount === 0,
     unapprovedCount: unapproved.length,
     unclassifiedRefundCount,
     foreignCurrencies,
-    transactions: active.filter((entry) => entry.status === "approved" && entry.currency === "EUR" && entry.category !== 'supplier_refund'),
+    transactions: active.filter((entry) => entry.status === "approved" && entry.currency === "EUR" && (entry.category !== 'supplier_refund' || getSupplierRefundTaxReview(entry,reviews))),
   };
 }
 
-export function buildEurSummary(transactions = []) {
+export function buildEurSummary(transactions = [], reviews = {}) {
   const normalized=transactions.map(entry=>normalizeFinanceTransaction(entry,entry.source));
-  const excludedRefundCount=normalized.filter(entry=>!entry.voidedAt&&entry.category==='supplier_refund').length;
-  const metrics = calculateMetrics(normalized.filter(entry=>entry.category!=='supplier_refund'));
+  const excludedRefundCount=normalized.filter(entry=>!entry.voidedAt&&entry.category==='supplier_refund'&&!getSupplierRefundTaxReview(entry,reviews)).length;
+  const manualRefundReviews=normalized.filter(entry=>!entry.voidedAt&&entry.category==='supplier_refund').flatMap(entry=>{
+    const review=getSupplierRefundTaxReview(entry,reviews);return review?[{transactionId:entry.transactionId,documentId:entry.supplierReceipt.documentId,originalTransactionId:review.originalTransactionId,method:review.method,amount:entry.amount,paymentDate:review.paymentDate,reviewedAt:review.reviewedAt,note:review.note}]:[];
+  });
+  const workingRows=normalized.flatMap(entry=>{
+    if(entry.category!=='supplier_refund')return [entry];
+    const review=getSupplierRefundTaxReview(entry,reviews);if(!review)return [];
+    return [review.method==='other_income'?{...entry,transactionType:'ADJUSTMENT',category:'other_income'}:entry];
+  });
+  const metrics = calculateMetrics(workingRows);
+  const incomeCents=Math.round(metrics.revenue*100),expenseCents=Math.round(metrics.expenses*100);
+  const money=value=>Math.round(value*100)/100;
   return {
     period: "laufender Datenbestand",
-    operatingIncome: metrics.revenue,
-    operatingExpenses: metrics.expenses,
-    surplus: metrics.profit,
+    operatingIncome: incomeCents/100,
+    operatingExpenses: expenseCents/100,
+    surplus: (incomeCents-expenseCents)/100,
     details: {
-      refunds: metrics.refunds,
-      ebayFees: metrics.ebayFees,
-      advertising: metrics.advertising,
-      goodsAndSupplier: metrics.supplier,
-      shipping: metrics.shipping,
-      otherExpenses: metrics.otherExpenses,
+      refunds: money(metrics.refunds),
+      ebayFees: money(metrics.ebayFees),
+      advertising: money(metrics.advertising),
+      goodsAndSupplier: money(metrics.supplier),
+      shipping: money(metrics.shipping),
+      otherExpenses: money(metrics.otherExpenses),
     },
-    disclaimer: "Arbeitsauswertung zur Buchhaltungsvorbereitung; keine Steuererklärung und keine steuerliche Freigabe."+(excludedRefundCount ? ` ${excludedRefundCount} Lieferantenerstattungen sind nicht enthalten; steuerliche Zuordnung offen.` : ""),
+    manualRefundReviews,
+    disclaimer: "Arbeitsauswertung zur Buchhaltungsvorbereitung; keine Steuererklärung und keine steuerliche Freigabe."+(manualRefundReviews.length ? " Lieferantenerstattungen wurden manuell zugeordnet; die Software prüft die steuerliche Richtigkeit nicht." : "")+(excludedRefundCount ? ` ${excludedRefundCount} Lieferantenerstattungen sind nicht enthalten; steuerliche Zuordnung offen.` : ""),
   };
 }
 

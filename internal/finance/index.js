@@ -4,7 +4,7 @@ import { requireSellerAccess } from "../../lib/seller-access.js";
 import { financeSigningStatus, signFinancesGetRequest } from "../../lib/ebay-finance-signature.js";
 import { ebayUserSession, callEbayJson, publicEbayError } from "../../lib/ebay-production.js";
 import { readFinanceState, writeFinanceState, getFinanceStoreDescription, reserveFinanceInvoiceNumber } from "../../lib/finance-store.js";
-import { normalizeEbayApiTransactions, mergeTransactions, calculateMetrics, buildEurSummary, selectApprovedEurTransactions, buildReceiptCostProposal, buildSupplierRefundProposal } from "../../seller-finance-core.js";
+import { normalizeEbayApiTransactions, mergeTransactions, calculateMetrics, buildEurSummary, selectApprovedEurTransactions, buildReceiptCostProposal, buildSupplierRefundProposal, getSupplierRefundTaxReview } from "../../seller-finance-core.js";
 import { issueKleinunternehmerInvoice, verifyInvoiceSnapshot, cancelIssuedInvoice, issueReplacementInvoice, issueInvoiceCorrection } from "../../lib/kleinunternehmer-invoice-store.js";
 import { getRefreshTokenCookie, downloadFinanceDocumentFromDrive } from "../../lib/google-drive.js";
 import { readGoogleDriveToken } from "../../lib/google-drive-token-store.js";
@@ -216,6 +216,31 @@ async function handleSupplierRefund(req,res) {
   return res.status(200).json({ok:true,state:saved.state,recorded:1});
 }
 
+async function handleSupplierRefundTaxReview(req,res) {
+  if(req.method!=='POST')return res.status(405).json({ok:false,error:'Nur POST erlaubt.'});
+  const expected=req.body?.expectedRevision, transactionId=text(req.body?.transactionId), method=text(req.body?.method), note=text(req.body?.note);
+  if(req.body?.confirm!==true||!Number.isSafeInteger(expected)||expected<0||!/^receipt_refund_[a-f0-9]{64}$/.test(transactionId)||!['expense_reduction','other_income'].includes(method)||note.length<3||note.length>300||/[\r\n\x00-\x1f]/.test(note))return res.status(400).json({ok:false,error:'invalid_refund_tax_review',message:'Bestätigte Auswahl und Begründung (3–300 Zeichen) erforderlich.'});
+  const store=getFinanceStoreDescription();if(!store.persistent||!store.configured)return res.status(503).json({ok:false,error:'finance_store_unavailable'});
+  const state=await readFinanceState();if(state.revision!==expected)return res.status(409).json({ok:false,error:'finance_conflict',message:'Finanzdaten geändert; bitte erneut prüfen.'});
+  const rows=state.transactions.filter(row=>row.transactionId===transactionId),row=rows.length===1?rows[0]:null;
+  const receipt=row?.supplierReceipt, amountCents=Math.round(Number(row?.amount)*100),paymentDate=text(row?.transactionDate).slice(0,10);
+  if(!row||row.voidedAt||row.status!=='approved'||row.source!=='supplier_receipt_verified'||row.category!=='supplier_refund'||row.currency!=='EUR'||receipt?.kind!=='refund'||!Number.isSafeInteger(amountCents)||amountCents<=0||row.amount!==amountCents/100||receipt.allocationCents!==amountCents||!/^[a-f0-9]{64}$/.test(text(receipt.sha256))||!/^\d{4}-\d{2}-\d{2}$/.test(paymentDate)||state.monthClosures?.[paymentDate.slice(0,7)]?.closedAt)return res.status(409).json({ok:false,error:'refund_not_reviewable',message:'Erstattung muss geprüft und im offenen Monat nachvollziehbar vorliegen.'});
+  const purchase=state.transactions.find(item=>item.transactionId===receipt.originalTransactionId);
+  const proof=state.documents.find(item=>item.id===receipt.documentId),originalDoc=state.documents.find(item=>item.id===purchase?.supplierReceipt?.documentId);
+  if(!purchase||purchase.voidedAt||purchase.source!=='supplier_receipt_verified'||purchase.category!=='supplier_expense'||receipt.originalDocumentId!==purchase.supplierReceipt?.documentId||!proof||!originalDoc||text(proof.sha256)!==receipt.sha256||text(originalDoc.sha256)!==purchase.supplierReceipt.sha256)return res.status(409).json({ok:false,error:'refund_evidence_missing',message:'Einkauf oder Nachweise sind nicht eindeutig nachvollziehbar.'});
+  const current=state.supplierRefundTaxReviews?.[transactionId];
+  if(current!==undefined&&(!Array.isArray(current)||!getSupplierRefundTaxReview(row,state.supplierRefundTaxReviews)))return res.status(409).json({ok:false,error:'refund_review_corrupt',message:'Vorherige Zuordnung ist nicht überprüfbar.'});
+  const history=current||[];if(history.length>=50)return res.status(409).json({ok:false,error:'refund_review_limit'});
+  if(history.at(-1)?.method===method&&history.at(-1)?.note===note)return res.status(200).json({ok:true,existing:true,state});
+  try{const cookie=getRefreshTokenCookie(req),stored=cookie?null:await readGoogleDriveToken(),refreshToken=cookie||stored?.refresh_token||stored?.refreshToken||'';if(!refreshToken)throw new Error('drive_not_connected');for(const item of [originalDoc,proof])await downloadFinanceDocumentFromDrive({refreshToken,documentId:item.id,fileId:item.cloudFileId,sha256:item.sha256});}
+  catch{return res.status(503).json({ok:false,error:'receipt_original_unavailable',message:'Einkaufsbeleg oder Erstattungsnachweis konnte in Drive nicht geprüft werden.'});}
+  const review={version:1,confirmed:true,transactionId,method,note,proofSha:receipt.sha256,originalTransactionId:receipt.originalTransactionId,amountCents,paymentDate,reviewedAt:new Date().toISOString()};
+  const saved=await writeFinanceState({supplierRefundTaxReviews:{[transactionId]:[...history,review]}},{action:'supplier_refund_tax_reviewed',actor:'seller',source:'seller_manual_review',summary:`Manuelle Zuordnung für Lieferantenerstattung ${transactionId} dokumentiert.`},{expectedRevision:expected,allowRefundTaxReview:true});
+  if(!saved.ok)return res.status(saved.conflict?409:503).json({ok:false,error:saved.conflict?'finance_conflict':'finance_store_unavailable',message:saved.error});
+  if(!getSupplierRefundTaxReview(row,saved.state.supplierRefundTaxReviews))return res.status(409).json({ok:false,error:'refund_review_not_saved'});
+  return res.status(200).json({ok:true,state:saved.state,existing:false});
+}
+
 async function handleEbayPreview(req, res) {
   const environment = environmentFrom(req);
   const days = Math.max(1, Math.min(Number(req?.query?.days || req?.body?.days || 90), 730));
@@ -295,7 +320,7 @@ async function handlePayouts(req, res) {
 
 async function handleEur(req, res) {
   const state = await readFinanceState();
-  const selection = selectApprovedEurTransactions(state.transactions);
+  const selection = selectApprovedEurTransactions(state.transactions,state.supplierRefundTaxReviews);
   if (!selection.ready) return res.status(409).json({
     ok: false,
     error: "eur_export_blocked",
@@ -305,10 +330,23 @@ async function handleEur(req, res) {
     foreignCurrencies: selection.foreignCurrencies,
   });
   return res.status(200).json({
-    ok: true, summary: buildEurSummary(selection.transactions),
+    ok: true, summary: buildEurSummary(selection.transactions,state.supplierRefundTaxReviews),
     transactionCount: selection.transactions.length,
     generatedAt: new Date().toISOString(),
   });
+}
+
+async function handleEurPeriod(req,res) {
+  if(req.method!=='POST')return res.status(405).json({ok:false,error:'Nur POST erlaubt.'});
+  const expected=req.body?.expectedRevision,start=text(req.body?.start),end=text(req.body?.end);
+  if(!Number.isSafeInteger(expected)||expected<0||Boolean(start)!==Boolean(end))return res.status(400).json({ok:false,error:'invalid_period'});
+  const first=start?Date.parse(start):-Infinity,last=end?Date.parse(end):Infinity;
+  if(Number.isNaN(first)||Number.isNaN(last)||first>last||(start&&(!/^\d{4}-\d{2}-\d{2}T.*Z$/.test(start)||!/^\d{4}-\d{2}-\d{2}T.*Z$/.test(end))))return res.status(400).json({ok:false,error:'invalid_period'});
+  const state=await readFinanceState();if(state.revision!==expected)return res.status(409).json({ok:false,error:'finance_conflict',message:'Finanzdaten geändert. Bitte Serverstand laden und Export erneut prüfen.'});
+  const rows=state.transactions.filter(row=>{const when=Date.parse(row.transactionDate);return Number.isFinite(when)&&when>=first&&when<=last;});
+  const selected=selectApprovedEurTransactions(rows,state.supplierRefundTaxReviews);
+  if(!selected.ready)return res.status(409).json({ok:false,error:'eur_export_blocked',message:'Ungeprüfte Vorgänge, Fremdwährungen oder nicht zugeordnete Lieferantenerstattungen vorhanden.',unapprovedCount:selected.unapprovedCount,unclassifiedRefundCount:selected.unclassifiedRefundCount,foreignCurrencies:selected.foreignCurrencies});
+  return res.status(200).json({ok:true,summary:buildEurSummary(selected.transactions,state.supplierRefundTaxReviews),transactionCount:selected.transactions.length,revision:state.revision,start,end,generatedAt:new Date().toISOString()});
 }
 
 async function handleReserveInvoiceNumber(req, res) {
@@ -343,10 +381,12 @@ export default async function handler(req, res) {
     }
     if (action === "record-receipt-costs") return handleReceiptCosts(req, res);
     if (action === "record-supplier-refund") return handleSupplierRefund(req, res);
+    if (action === "review-supplier-refund-tax") return handleSupplierRefundTaxReview(req,res);
     if (action === "ebay-preview" || action === "ebay-transactions") return handleEbayPreview(req, res);
     if (action === "ebay-sync") return handleEbaySync(req, res);
     if (action === "payouts") return handlePayouts(req, res);
     if (action === "eur") return handleEur(req, res);
+    if (action === "eur-period") return handleEurPeriod(req,res);
     if (action === "reserve-invoice-number") return handleReserveInvoiceNumber(req, res);
     if (action === "read-issued-invoice") {
       if (req.method !== "GET") return res.status(405).json({ ok: false, error: "Nur GET erlaubt." });

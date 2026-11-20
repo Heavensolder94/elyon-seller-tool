@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildSupplierRefundProposal, buildReceiptCostProposal, calculateMetrics, selectApprovedEurTransactions, buildEurSummary, exportDatevPreparation, mergeTransactions } from '../seller-finance-core.js';
+import { buildSupplierRefundProposal, buildReceiptCostProposal, calculateMetrics, selectApprovedEurTransactions, buildEurSummary, exportDatevPreparation, mergeTransactions, getSupplierRefundTaxReview } from '../seller-finance-core.js';
 import { mergeFinanceState, writeFinanceState, readFinanceState } from '../lib/finance-store.js';
 import { buildPeriodProfitability, buildMonthCloseReadiness, isSupplierRefundPreviewCurrent, isReceiptCostPreviewCurrent } from '../seller-finance.js';
 import handler from '../internal/finance/index.js';
@@ -52,6 +52,31 @@ test('refund adjusts economic cost but blocks tax exports and month close pendin
  const invalid={...refund,amount:-3,status:'approved'};assert.equal(calculateMetrics([purchase(),invalid]).supplier,10);assert.equal(buildPeriodProfitability([sale,purchase(),invalid],{start:'2026-11-01T00:00:00Z',end:'2026-11-30T23:59:59Z'}).orders[0].profit,20);
  assert.equal(buildMonthCloseReadiness([{...refund,status:'approved'}],[proof()]).ready,false);
 });
+test('only explicit bound manual reviews unlock EÜR, with both accounting choices and no DATEV export',()=>{
+ const refund={...buildSupplierRefundProposal(proof(),'purchase-1',[purchase()],{}).allocations[0],status:'approved'};
+ const sale={id:'sale',transactionId:'sale',transactionType:'SALE',category:'revenue',orderId:'123-456',itemId:'SKU-1',amount:30,currency:'EUR',transactionDate:'2026-11-15T12:00:00Z',status:'approved'};
+ const review={version:1,confirmed:true,transactionId:refund.transactionId,method:'expense_reduction',note:'Manuell geprüft',proofSha:refund.supplierReceipt.sha256,originalTransactionId:'purchase-1',amountCents:300,paymentDate:'2026-12-01',reviewedAt:'2026-12-10T12:00:00Z'};
+ const reviews={[refund.transactionId]:[review]},rows=[sale,purchase(),refund];
+ assert.equal(getSupplierRefundTaxReview(refund,reviews).method,'expense_reduction');assert.equal(selectApprovedEurTransactions(rows,reviews).ready,true);
+ const reduced=buildEurSummary(rows,reviews);assert.equal(reduced.operatingIncome,30);assert.equal(reduced.operatingExpenses,7);assert.equal(reduced.surplus,23);assert.equal(reduced.manualRefundReviews[0].documentId,'refund-doc');assert.equal(reduced.manualRefundReviews[0].method,'expense_reduction');assert.match(reduced.disclaimer,/manuell zugeordnet/);
+ const incomeReviews={[refund.transactionId]:[review,{...review,method:'other_income',reviewedAt:'2026-12-11T12:00:00Z'}]};
+ const income=buildEurSummary(rows,incomeReviews);assert.equal(income.operatingIncome,33);assert.equal(income.operatingExpenses,10);assert.equal(income.surplus,23);
+ assert.throws(()=>exportDatevPreparation(rows));
+ for(const invalid of [{...review,amountCents:301},{...review,proofSha:'x'.repeat(64)},{...review,method:'unknown'},{...review,confirmed:false}])assert.equal(selectApprovedEurTransactions(rows,{[refund.transactionId]:[invalid]}).ready,false);
+ assert.equal(buildMonthCloseReadiness([refund],[proof()],reviews).ready,true);
+});
+test('ordinary sync cannot inject, rewrite or delete manual refund review history',()=>{
+ const first={version:1,confirmed:true,method:'expense_reduction',note:'Geprüft'};
+ const key='receipt_refund_'+'b'.repeat(64);
+ assert.deepEqual(mergeFinanceState({}, {supplierRefundTaxReviews:{[key]:[first]}}).state.supplierRefundTaxReviews,{});
+ const server=mergeFinanceState({}, {supplierRefundTaxReviews:{[key]:[first]}},{},{allowRefundTaxReview:true}).state;
+ const tampered=mergeFinanceState(server,{supplierRefundTaxReviews:{[key]:[{...first,method:'other_income'}]}}).state;
+ assert.deepEqual(tampered.supplierRefundTaxReviews[key],[first]);
+ const rejected=mergeFinanceState(server,{supplierRefundTaxReviews:{[key]:[{...first,method:'other_income'}]}},{},{allowRefundTaxReview:true}).state;
+ assert.deepEqual(rejected.supplierRefundTaxReviews[key],[first]);
+ const later={...first,method:'other_income',note:'Fachlich geändert'};const appended=mergeFinanceState(server,{supplierRefundTaxReviews:{[key]:[first,later]}},{},{allowRefundTaxReview:true}).state;
+ assert.deepEqual(appended.supplierRefundTaxReviews[key],[first,later]);
+});
 test('regular sync cannot inject or alter a receipt-backed supplier refund',()=>{
  const refund=buildSupplierRefundProposal(proof(),'purchase-1',[purchase()],{}).allocations[0];
  const injected=mergeFinanceState({}, {transactions:[refund]});assert.equal(injected.state.transactions.length,0);
@@ -88,5 +113,22 @@ test('server verifies both originals and rejects concurrent or repeated refund r
   const third=response(),fourth=response();await Promise.all([handler(request(after.revision,true,extraDocs[0].id),third),handler(request(after.revision,true,extraDocs[1].id),fourth)]);assert.deepEqual([third.code,fourth.code].sort(),[200,409]);
   const fullyRefunded=await readFinanceState();const rejectedId=third.code===409?extraDocs[0].id:extraDocs[1].id;const beyond=response();await handler(request(fullyRefunded.revision,true,rejectedId),beyond);assert.equal(beyond.code,409);assert.equal(fullyRefunded.transactions.filter(row=>row.category==='supplier_refund').length,2);
   const eur=response();await handler({method:'GET',query:{action:'eur'},headers:{'x-elyon-seller-token':'synthetic-token',host:'localhost'}},eur);assert.equal(eur.code,409);assert.equal(eur.body.unclassifiedRefundCount,2);
+  assert.equal((await writeFinanceState({transactions:fullyRefunded.transactions.map(row=>({...row,status:'approved'}))},{},{expectedRevision:fullyRefunded.revision})).ok,true);
+  const approved=await readFinanceState(),refunds=approved.transactions.filter(row=>row.category==='supplier_refund');
+  const reviewRequest=(revision,row,method='expense_reduction',note='Fachlich geprüft',confirm=true)=>({method:'POST',query:{action:'review-supplier-refund-tax'},headers:{'x-elyon-seller-token':'synthetic-token',host:'localhost',cookie:'elyon_google_drive_refresh_token=test-refresh'},body:{expectedRevision:revision,transactionId:row.transactionId,method,note,confirm}});
+  const missingConfirmation=response();await handler(reviewRequest(approved.revision,refunds[0],'expense_reduction','Fachlich geprüft',false),missingConfirmation);assert.equal(missingConfirmation.code,400);
+  driveOK=false;const inaccessible=response();await handler(reviewRequest(approved.revision,refunds[0]),inaccessible);assert.equal(inaccessible.code,503);driveOK=true;
+  const firstReview=response();await handler(reviewRequest(approved.revision,refunds[0]),firstReview);assert.equal(firstReview.code,200);
+  const firstState=await readFinanceState();const duplicateReview=response();await handler(reviewRequest(firstState.revision,refunds[0]),duplicateReview);assert.equal(duplicateReview.code,200);assert.equal(duplicateReview.body.existing,true);
+  const reviewA=response(),reviewB=response();await Promise.all([handler(reviewRequest(firstState.revision,refunds[1],'expense_reduction','Prüfung A'),reviewA),handler(reviewRequest(firstState.revision,refunds[1],'other_income','Prüfung B'),reviewB)]);assert.deepEqual([reviewA.code,reviewB.code].sort(),[200,409]);
+  const reviewed=await readFinanceState();assert.equal(reviewed.supplierRefundTaxReviews[refunds[1].transactionId].length,1);
+  const eurReviewed=response();await handler({method:'GET',query:{action:'eur'},headers:{'x-elyon-seller-token':'synthetic-token',host:'localhost'}},eurReviewed);assert.equal(eurReviewed.code,200);assert.equal(eurReviewed.body.summary.surplus,0);
+  const periodRequest=(revision,start,end)=>({method:'POST',query:{action:'eur-period'},headers:{'x-elyon-seller-token':'synthetic-token',host:'localhost'},body:{expectedRevision:revision,start,end}});
+  const november=response();await handler(periodRequest(reviewed.revision,'2026-11-01T00:00:00.000Z','2026-11-30T23:59:59.999Z'),november);assert.equal(november.code,200);assert.equal(november.body.summary.surplus,-10);
+  const december=response();await handler(periodRequest(reviewed.revision,'2026-12-01T00:00:00.000Z','2026-12-31T23:59:59.999Z'),december);assert.equal(december.code,200);assert.equal(december.body.summary.surplus,10);
+  const stale=response();await handler(periodRequest(reviewed.revision-1,'',''),stale);assert.equal(stale.code,409);
+  const invalidPeriod=response();await handler(periodRequest(reviewed.revision,'invalid',''),invalidPeriod);assert.equal(invalidPeriod.code,400);
+  const changeReview=response();await handler(reviewRequest(reviewed.revision,refunds[0],'other_income','Fachlich geändert'),changeReview);assert.equal(changeReview.code,200);
+  const afterChange=await readFinanceState();assert.equal(afterChange.supplierRefundTaxReviews[refunds[0].transactionId].length,2);assert.equal(afterChange.supplierRefundTaxReviews[refunds[0].transactionId][0].method,'expense_reduction');
  }finally{globalThis.fetch=oldFetch;for(const key of keys)before[key]===undefined?delete process.env[key]:process.env[key]=before[key];}
 });
