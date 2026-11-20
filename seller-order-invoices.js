@@ -66,12 +66,14 @@
       const data = await response.json().catch(() => ({}));
       if (!response.ok || data.ok === false) throw new Error(data.message || data.error || 'Finance-Sync HTTP ' + response.status);
       const incoming = data.state || {};
-      serverState = { ...serverState, ...incoming, orderOperations: incoming.orderOperations || {}, invoiceMeta: incoming.invoiceMeta || {}, inventory: incoming.inventory || {}, returns: incoming.returns || {}, safety: incoming.safety || {} };
+      const localInvoiceMeta = readJson(META_KEY, {});
+      const serverInvoiceMeta = incoming.invoiceMeta || {};
+      serverState = { ...serverState, ...incoming, orderOperations: incoming.orderOperations || {}, invoiceMeta: { ...localInvoiceMeta, ...serverInvoiceMeta }, inventory: incoming.inventory || {}, returns: incoming.returns || {}, safety: incoming.safety || {} };
       serverLoaded = true;
       const hadLocalOps = !Object.keys(serverState.orderOperations).length && Object.keys(readJson(OPS_KEY, {})).length;
-      const hadLocalMeta = !Object.keys(serverState.invoiceMeta).length && Object.keys(readJson(META_KEY, {})).length;
+      const hadLocalMeta = Object.keys(localInvoiceMeta).some(orderId => !Object.hasOwn(serverInvoiceMeta, orderId));
       if (hadLocalOps) serverState.orderOperations = readJson(OPS_KEY, {});
-      if (hadLocalMeta) serverState.invoiceMeta = readJson(META_KEY, {});
+      // Legacy entries missing on server are merged without replacing issued snapshots.
       try { localStorage.setItem(OPS_KEY, JSON.stringify(serverState.orderOperations)); localStorage.setItem(META_KEY, JSON.stringify(serverState.invoiceMeta)); } catch {}
       if (hadLocalOps || hadLocalMeta) persistServerState();
     } catch (error) {
