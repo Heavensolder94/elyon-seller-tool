@@ -70,8 +70,8 @@ function labelForLine(line) {
   return p ? `<span class="ocv2-match">✓ ${h(p.articleNumber || p.sku || p.id)} · ${h(p.title || "")}</span>` :
     '<span class="ocv2-unknown">Keine eindeutige Company-OS-Zuordnung</span>';
 }
-function statsCard(label, value, tone = "") {
-  return `<div class="ocv2-stat"><small>${h(label)}</small><strong class="${h(tone)}">${h(value)}</strong></div>`;
+function statsCard(label, value, filter = "all") {
+  return `<button type="button" data-ocv2-filter="${filter}" class="ocv2-stat ${state.filter===filter?"active":""}" aria-pressed="${state.filter===filter}"><small>${h(label)}</small><strong>${h(value)}</strong></button>`;
 }
 function rowMarkup(order) {
   const status = statusOf(order);
@@ -178,6 +178,7 @@ function detailsMarkup(order) {
       <div class="ocv2-details-actions"><button type="submit" class="ocv2-primary" ${state.saving || (!state.financeReady && !state.demoMode) ? "disabled" : ""}>${state.saving ? "Speichert…" : state.demoMode ? "Demo-Änderung übernehmen" : "Interne Angaben sichern"}</button>
         <button type="button" data-order-shipping ${state.demoMode ? "disabled" : ""}>Versand öffnen</button><button type="button" data-order-invoice ${state.demoMode ? "disabled" : ""}>Rechnung öffnen</button></div>
       ${state.demoMode ? '<div class="ocv2-demo-note">Demo: Kein API-Aufruf, keine Bestellung beim Lieferanten, kein eBay-Update.</div>' : ""}
+      ${state.demoMode && DEMO.history.length ? `<div class="ocv2-demo-history"><strong>Letzte Demo-Aktionen</strong>${DEMO.history.slice(0,3).map((entry) => `<span>• ${h(entry)}</span>`).join("")}</div>` : ""}
       <p class="ocv2-hint">Interne Angaben werden revisionsgeschützt gespeichert. Kein automatischer Lieferantenkauf, keine eBay-Versandmeldung und keine Rechnungsausstellung.</p>
     </form>`;
 }
@@ -190,13 +191,13 @@ function render() {
       <div><span class="ocv2-kicker">ELYON · Order Operations</span><h2>Bestellungen</h2>
       <p>eBay-Aufträge verwalten, Lieferanten zuordnen und tatsächliche Kosten dokumentieren.</p></div>
       <div class="ocv2-header-actions"><button type="button" class="ocv2-demo-btn" id="ocv2DemoToggle">${state.demoMode ? "Demo beenden" : "Interaktive Demo starten"}</button><label>Zeitraum<select id="ocv2Range"><option value="7" ${state.days === 7 ? "selected" : ""}>7 Tage</option><option value="30" ${state.days === 30 ? "selected" : ""}>30 Tage</option><option value="90" ${state.days === 90 ? "selected" : ""}>90 Tage</option></select></label>
-      <button type="button" class="ocv2-primary" id="ocv2Refresh" ${state.loading ? "disabled" : ""}>${state.loading ? "Wird geladen…" : "Mit eBay abgleichen"}</button></div></header>
+      <button type="button" class="ocv2-primary" id="ocv2Refresh" ${state.loading ? "disabled" : ""}>${state.loading && !state.demoMode ? "Wird geladen…" : state.demoMode ? "Echte Bestellungen anzeigen" : "Mit eBay abgleichen"}</button></div></header>
       ${state.demoMode ? '<div class="ocv2-demo-banner" role="status"><strong>INTERAKTIVE DEMO</strong> · Alle Bestellungen und Kunden sind erfunden. Änderungen bleiben nur in diesem Browser-Tab und werden nicht gespeichert.</div>' : ""}
       ${state.error ? `<p class="ocv2-alert" role="alert">${h(state.error)}</p>` : ""}
       ${state.warning ? `<p class="ocv2-warning">${h(state.warning)}</p>` : ""}
       ${state.saveNotice ? `<p class="ocv2-success" role="status">${h(state.saveNotice)}</p>` : ""}
-      <div class="ocv2-stats">${statsCard("Bestellungen", String(summary.total))}${statsCard("Neu", String(summary.new))}
-        ${statsCard("Versand offen", String(summary.shipping))}${statsCard("Achtung / Zahlung", String(summary.issues))}</div>
+      <div class="ocv2-stats">${statsCard("Bestellungen", String(summary.total), "all")}${statsCard("Neu", String(summary.new), "new")}
+        ${statsCard("Versand offen", String(summary.shipping), "shipping")}${statsCard("Achtung / Zahlung", String(summary.issues), "issues")}</div>
       <div class="ocv2-content">
         <section class="ocv2-list-card"><div class="ocv2-list-header"><div><h3>Bestellübersicht</h3>
           <span class="ocv2-small">${rows.length} angezeigt · ${summary.shipped} versendet/abgeschlossen
@@ -260,7 +261,7 @@ async function refresh() {
     state.products = [];
     state.warning += " Company OS konnte nicht geladen werden; Produktverknüpfungen sind vorübergehend nicht verfügbar.";
   }
-  if (!state.orders.some((order) => order.id === state.selectedId)) state.selectedId = state.orders[0]?.id || "";
+  if (!state.demoMode && !state.orders.some((order) => order.id === state.selectedId)) state.selectedId = state.orders[0]?.id || "";
   state.loading = false; render();
 }
 async function save(form) {
