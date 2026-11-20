@@ -9293,10 +9293,7 @@ function importFullBackup(e){
 }
 function padInvoiceNumber(num){ return String(num).padStart(4,'0'); }
 function buildInvoiceNumber(){
-  const prefix = invoiceSettings.prefix || 'RE';
-  const year = invoiceSettings.useYear === 'yes' ? '-' + new Date().getFullYear() : '';
-  const num = padInvoiceNumber(invoiceSettings.nextNumber || 1);
-  return prefix + year + '-' + num;
+  throw new Error('Lokale Rechnungsnummern sind deaktiviert. Bitte Finanzen & Buchhaltung → Rechnungen verwenden.');
 }
 function findInvoiceBySaleId(saleId){ return invoices.find(inv=>String(inv.saleId)===String(saleId)); }
 function getInvoiceAmount(invoice){
