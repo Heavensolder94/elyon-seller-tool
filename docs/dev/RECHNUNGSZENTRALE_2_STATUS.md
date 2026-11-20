@@ -37,6 +37,12 @@ In der Bestell- und Produktprofitabilität bestimmt das Datum des EUR-Umsatzvorg
 
 Transaktions-CSV und DATEV-Vorbereitung kennzeichnen formelähnliche Textfelder beim Export mit einem Apostroph, um deren Auswertung in Tabellenprogrammen zu erschweren. Rechnerisch erzeugte Betragsfelder bleiben Zahlenangaben. Die gespeicherten Originaldaten werden nicht verändert; bei der Weiterverarbeitung müssen gekennzeichnete Texte bei Bedarf geprüft werden.
 
+## Teilweise Lieferantenerstattungen (Entwurf)
+
+Nach tatsächlichem EUR-Geldzufluss kann ein gesicherter Erstattungsnachweis nach Vorschau und ausdrücklicher Bestätigung einer bestehenden beleggebundenen EUR-Einkaufszuordnung zugeordnet werden. Belegdatum und Geldflussdatum bleiben getrennt; beide Originale werden serverseitig anhand ihres Drive-Hashes überprüft. Bei konkurrierenden Anfragen schützt die Finance-Revision vor Übererfassung; zusammen dürfen Erstattungen die ursprüngliche Zuordnung nicht übersteigen. Die vorläufige Nachkalkulation vermindert die Einkaufskosten, ohne Verkäufe zu erhöhen. Ein Nachweis kann derzeit nur einer Zuordnung gelten. Doppelte Lieferantenreferenzen blockieren vorsorglich und können auch legitime Fälle zur manuellen Prüfung markieren; frühere, nicht beleggebundene manuelle Buchungen sind separat abzugleichen.
+
+Der Vorgang ist keine steuerlich klassifizierte Buchung. EÜR-/DATEV-Export und Monatsabschluss bleiben bei nicht stornierten Lieferantenerstattungen blockiert, auch nach einer allgemeinen Freigabe des Vorgangs. Eine Oberfläche und ein geprüftes Verfahren zur steuerlichen Zuordnung fehlen noch. Das Stornieren der Erstattung und des verknüpften Einkaufs ist derzeit gesperrt; ein eigener Korrekturablauf fehlt. Die Funktion ist nicht produktiv oder geräteübergreifend live geprüft.
+
 Für UBL und CII werden Positionen nur vorgeschlagen, wenn alle unterstützten Angaben eindeutig sind und ihre Summe exakt dem Zahlbetrag entspricht; andernfalls erscheint ein Prüfhinweis. Steuer, Versand, Rabatte oder Vorauszahlungen können dazu führen, dass keine Positionen vorgeschlagen werden. Die Originaldatei und alle Vorschläge sind manuell zu prüfen. Es erfolgt weder eine Signaturprüfung noch eine steuerliche Freigabe.
 
 

@@ -4,7 +4,7 @@ import { requireSellerAccess } from "../../lib/seller-access.js";
 import { financeSigningStatus, signFinancesGetRequest } from "../../lib/ebay-finance-signature.js";
 import { ebayUserSession, callEbayJson, publicEbayError } from "../../lib/ebay-production.js";
 import { readFinanceState, writeFinanceState, getFinanceStoreDescription, reserveFinanceInvoiceNumber } from "../../lib/finance-store.js";
-import { normalizeEbayApiTransactions, mergeTransactions, calculateMetrics, buildEurSummary, selectApprovedEurTransactions, buildReceiptCostProposal } from "../../seller-finance-core.js";
+import { normalizeEbayApiTransactions, mergeTransactions, calculateMetrics, buildEurSummary, selectApprovedEurTransactions, buildReceiptCostProposal, buildSupplierRefundProposal } from "../../seller-finance-core.js";
 import { issueKleinunternehmerInvoice, verifyInvoiceSnapshot, cancelIssuedInvoice, issueReplacementInvoice, issueInvoiceCorrection } from "../../lib/kleinunternehmer-invoice-store.js";
 import { getRefreshTokenCookie, downloadFinanceDocumentFromDrive } from "../../lib/google-drive.js";
 import { readGoogleDriveToken } from "../../lib/google-drive-token-store.js";
@@ -193,6 +193,29 @@ async function handleReceiptCosts(req, res) {
   return res.status(200).json({ ok: true, state: result.state, recorded: proposal.allocations.length });
 }
 
+async function handleSupplierRefund(req,res) {
+  if(req.method!=='POST')return res.status(405).json({ok:false,error:'Nur POST erlaubt.'});
+  if(req.body?.confirm!==true)return res.status(400).json({ok:false,error:'confirmation_required'});
+  const store=getFinanceStoreDescription();if(!store.persistent||!store.configured)return res.status(503).json({ok:false,error:'finance_store_unavailable'});
+  const expected=req.body?.expectedRevision;if(!Number.isSafeInteger(expected)||expected<0)return res.status(400).json({ok:false,error:'invalid_revision'});
+  const state=await readFinanceState();if(state.revision!==expected)return res.status(409).json({ok:false,error:'finance_conflict',message:'Finanzdaten geändert; Erstattung erneut prüfen.'});
+  const doc=state.documents.find(item=>item.id===text(req.body?.documentId));if(!doc)return res.status(404).json({ok:false,error:'document_not_found'});
+  const originalId=text(req.body?.originalTransactionId);
+  const proposal=buildSupplierRefundProposal(doc,originalId,state.transactions,state.monthClosures);
+  if(!proposal.ok)return res.status(409).json({ok:false,error:'supplier_refund_blocked',message:proposal.errors.join(' · '),blockers:proposal.errors});
+  const original=state.transactions.find(row=>row.transactionId===originalId);
+  const originalDoc=state.documents.find(item=>item.id===original?.supplierReceipt?.documentId);
+  if(!originalDoc||text(originalDoc.sha256).toLowerCase()!==text(original.supplierReceipt.sha256).toLowerCase()||!text(originalDoc.cloudFileId))return res.status(409).json({ok:false,error:'original_receipt_unavailable',message:'Ursprünglicher Einkaufsbeleg fehlt oder ist widersprüchlich.'});
+  try {
+    const cookie=getRefreshTokenCookie(req),stored=cookie?null:await readGoogleDriveToken();
+    const refreshToken=cookie||stored?.refresh_token||stored?.refreshToken||'';if(!refreshToken)throw new Error('drive_not_connected');
+    for(const item of [originalDoc,doc])await downloadFinanceDocumentFromDrive({refreshToken,documentId:item.id,fileId:item.cloudFileId,sha256:item.sha256});
+  } catch {return res.status(503).json({ok:false,error:'receipt_original_unavailable',message:'Einkaufsbeleg oder Erstattungsnachweis konnte in Drive nicht geprüft werden.'});}
+  const saved=await writeFinanceState({transactions:proposal.allocations},{action:'supplier_refund_recorded',source:'supplier_receipt_verified',actor:'seller',summary:`Prüfbedürftige Lieferantenerstattung aus Beleg ${doc.id} erfasst.`},{expectedRevision:expected,allowReceiptCosts:true});
+  if(!saved.ok)return res.status(saved.conflict?409:503).json({ok:false,error:saved.conflict?'finance_conflict':'finance_store_unavailable',message:saved.error});
+  return res.status(200).json({ok:true,state:saved.state,recorded:1});
+}
+
 async function handleEbayPreview(req, res) {
   const environment = environmentFrom(req);
   const days = Math.max(1, Math.min(Number(req?.query?.days || req?.body?.days || 90), 730));
@@ -276,8 +299,9 @@ async function handleEur(req, res) {
   if (!selection.ready) return res.status(409).json({
     ok: false,
     error: "eur_export_blocked",
-    message: "EÜR-Arbeitsauswertung gesperrt: ungeprüfte Vorgänge oder Fremdwährungen vorhanden.",
+    message: "EÜR-Arbeitsauswertung gesperrt: ungeprüfte Vorgänge, Fremdwährungen oder steuerlich ungeklärte Lieferantenerstattungen vorhanden.",
     unapprovedCount: selection.unapprovedCount,
+    unclassifiedRefundCount: selection.unclassifiedRefundCount,
     foreignCurrencies: selection.foreignCurrencies,
   });
   return res.status(200).json({
@@ -318,6 +342,7 @@ export default async function handler(req, res) {
       catch(error) {return res.status(422).json({ok:false,error:"receipt_xml_invalid",message:error.message});}
     }
     if (action === "record-receipt-costs") return handleReceiptCosts(req, res);
+    if (action === "record-supplier-refund") return handleSupplierRefund(req, res);
     if (action === "ebay-preview" || action === "ebay-transactions") return handleEbayPreview(req, res);
     if (action === "ebay-sync") return handleEbaySync(req, res);
     if (action === "payouts") return handlePayouts(req, res);
