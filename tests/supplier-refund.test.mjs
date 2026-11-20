@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildSupplierRefundProposal, buildReceiptCostProposal, calculateMetrics, selectApprovedEurTransactions, buildEurSummary, exportDatevPreparation, mergeTransactions } from '../seller-finance-core.js';
 import { mergeFinanceState, writeFinanceState, readFinanceState } from '../lib/finance-store.js';
-import { buildPeriodProfitability, buildMonthCloseReadiness } from '../seller-finance.js';
+import { buildPeriodProfitability, buildMonthCloseReadiness, isSupplierRefundPreviewCurrent, isReceiptCostPreviewCurrent } from '../seller-finance.js';
 import handler from '../internal/finance/index.js';
 import { createHash } from 'node:crypto';
 
@@ -25,6 +25,19 @@ test('refund rejects ambiguity, missing proof, duplicate evidence and amounts ab
  assert.equal(buildSupplierRefundProposal({...newProof,amount:'1.00'},'purchase-1',[purchaseRow,{...accepted,amount:9}],{}).ok,false);
  assert.equal(buildSupplierRefundProposal({...newProof,amount:'1.00'},'purchase-1',[purchaseRow,{...accepted,supplierReceipt:{kind:'refund'}}],{}).ok,false);
  assert.equal(buildSupplierRefundProposal({...newProof,amount:'1.00'},'purchase-1',[purchaseRow],{'2026-12':{closedAt:'2026-12-31'}}).ok,false);
+});
+test('cost and refund confirmations reject stale previews after a change',()=>{
+ const originalDoc={id:'purchase-doc',sha256:'a'.repeat(64),cloudFileId:'purchase-file',documentType:'supplier_invoice',supplier:'Lieferant',invoiceReference:'I-1',documentDate:'2026-11-01',paymentDate:'2026-11-01',amount:'10.00',currency:'EUR'};
+ const submitted=[{orderId:'123-456',itemId:'SKU-1',amount:'10.00'}];const cost=buildReceiptCostProposal(originalDoc,submitted,[],[originalDoc],{});
+ const costPreview={documentId:originalDoc.id,submitted,allocations:cost.allocations};
+ assert.equal(isReceiptCostPreviewCurrent(costPreview,originalDoc,[],[originalDoc],{}),true);
+ assert.equal(isReceiptCostPreviewCurrent(costPreview,{...originalDoc,supplier:'Different'},[],[originalDoc],{}),false);
+ assert.equal(isReceiptCostPreviewCurrent(costPreview,originalDoc,cost.allocations,[originalDoc],{}),false);
+ const doc=proof(),proposal=buildSupplierRefundProposal(doc,'purchase-1',[purchase()],{});
+ const refundPreview={documentId:doc.id,originalTransactionId:'purchase-1',allocation:proposal.allocations[0]};
+ assert.equal(isSupplierRefundPreviewCurrent(refundPreview,doc,[purchase()],{}),true);
+ assert.equal(isSupplierRefundPreviewCurrent(refundPreview,{...doc,amount:'4.00'},[purchase()],{}),false);
+ assert.equal(isSupplierRefundPreviewCurrent(refundPreview,doc,[purchase(),proposal.allocations[0]],{}),false);
 });
 test('refund adjusts economic cost but blocks tax exports and month close pending classification',()=>{
  const refund=buildSupplierRefundProposal(proof(),'purchase-1',[purchase()],{}).allocations[0];

@@ -688,10 +688,17 @@ function previewReceiptCosts(form) {
   render();
   document.querySelector(`[data-ef2-cost-preview="${CSS.escape(doc.id)}"]`)?.closest("details")?.setAttribute("open", "");
 }
+export function isReceiptCostPreviewCurrent(preview,doc,transactions,documents,monthClosures) {
+  if(!preview||!doc||preview.documentId!==doc.id)return false;
+  const checked=buildReceiptCostProposal(doc,preview.submitted,transactions,documents,monthClosures);
+  return checked.ok&&JSON.stringify(checked.allocations)===JSON.stringify(preview.allocations);
+}
 async function confirmReceiptCosts(id) {
   const preview = stagedReceiptCost;
   if (!preview || preview.documentId !== id) return toast("Bitte die Zuordnung zuerst erneut prüfen.");
   if (!syncReady || syncConflict || pendingSync() || saveInFlight || serverRevision === null) return toast("Bitte zuerst alle Finanzdaten erfolgreich mit dem Server synchronisieren.", "Zuordnung blockiert");
+  const doc=state.documents.find(item=>item.id===id);
+  if(!isReceiptCostPreviewCurrent(preview,doc,state.transactions,state.documents,state.monthClosures)){stagedReceiptCost=null;render();return toast('Beleg oder Zuordnung hat sich geändert. Bitte eine neue Vorschau erstellen.','Zuordnung blockiert');}
   if (!window.confirm("Die angezeigten, tatsächlich bezahlten Kosten jetzt als prüfbedürftige Vorgänge erfassen? Bitte auch vorhandene manuelle Kosten auf Dubletten prüfen.")) return;
   const sequence = localSequence;
   try {
@@ -720,7 +727,7 @@ function supplierRefundMarkup(doc) {
   if(doc.documentType!=='refund_proof')return '';
   const candidates=state.transactions.filter(row=>!row.voidedAt&&row.source==='supplier_receipt_verified'&&row.category==='supplier_expense'&&text(row.supplierReceipt?.supplier).toLocaleLowerCase('de-DE')===text(doc.supplier).toLocaleLowerCase('de-DE'));
   const staged=stagedSupplierRefund?.documentId===doc.id?stagedSupplierRefund:null;
-  return `<details><summary>Erhaltene Lieferantenerstattung zuordnen</summary><p class="ef-muted">Tatsächliches Erstattungsdatum und EUR-Betrag oben speichern. Einkaufsbeleg und Erstattungsnachweis müssen in Drive gesichert und synchronisiert sein. Eine Gutschrift allein belegt keinen Geldzufluss. Je Nachweis ist hier eine Einkaufszuordnung möglich.</p><form class="ef-form" data-ef2-refund-preview="${escapeHtml(doc.id)}"><label class="full">Ursprüngliche Einkaufszuordnung<select name="originalTransactionId" required><option value="">Bitte auswählen</option>${candidates.map(row=>`<option value="${escapeHtml(row.transactionId)}" ${staged?.originalTransactionId===row.transactionId?'selected':''}>${escapeHtml(row.orderId)} · ${escapeHtml(row.itemId||'ohne Artikel-ID')} · ${escapeHtml(money(-row.amount))}</option>`).join('')}</select></label><div class="full"><button class="ef-btn" type="submit">Erstattung prüfen</button></div></form>${staged?`<div class="ef-callout"><strong>Vorschau – noch nicht erfasst</strong><div>Bestellung ${escapeHtml(staged.allocation.orderId)} · ${escapeHtml(money(staged.allocation.amount))} · ${escapeHtml(staged.allocation.transactionDate)}</div><p>Die steuerliche Zuordnung und ein Korrekturablauf sind noch nicht umgesetzt. EÜR- und DATEV-Export bleiben für den betroffenen Zeitraum gesperrt. Ein nachträgliches Storno ist derzeit nicht möglich; keine Zahlung wird ausgelöst.</p><button class="ef-btn primary" type="button" data-ef2-confirm-refund="${escapeHtml(doc.id)}">Erstattung erfassen</button></div>`:''}</details>`;
+  return `<details><summary>Erhaltene Lieferantenerstattung zuordnen</summary><p class="ef-muted">Tatsächliches Erstattungsdatum und EUR-Betrag oben speichern. Einkaufsbeleg und Erstattungsnachweis müssen in Drive gesichert und synchronisiert sein. Eine Gutschrift allein belegt keinen Geldzufluss. Prüfe selbst, ob diese Zahlung bereits über einen anderen Nachweis oder manuell erfasst wurde. Je Nachweis ist hier eine Einkaufszuordnung möglich.</p><form class="ef-form" data-ef2-refund-preview="${escapeHtml(doc.id)}"><label class="full">Ursprüngliche Einkaufszuordnung<select name="originalTransactionId" required><option value="">Bitte auswählen</option>${candidates.map(row=>`<option value="${escapeHtml(row.transactionId)}" ${staged?.originalTransactionId===row.transactionId?'selected':''}>${escapeHtml(row.orderId)} · ${escapeHtml(row.itemId||'ohne Artikel-ID')} · ${escapeHtml(money(-row.amount))}</option>`).join('')}</select></label><div class="full"><button class="ef-btn" type="submit">Erstattung prüfen</button></div></form>${staged?`<div class="ef-callout"><strong>Vorschau – noch nicht erfasst</strong><div>Bestellung ${escapeHtml(staged.allocation.orderId)} · ${escapeHtml(money(staged.allocation.amount))} · ${escapeHtml(staged.allocation.transactionDate)}</div><p>Die steuerliche Zuordnung und ein Korrekturablauf sind noch nicht umgesetzt. EÜR- und DATEV-Export bleiben für den betroffenen Zeitraum gesperrt. Ein nachträgliches Storno ist derzeit nicht möglich; keine Zahlung wird ausgelöst.</p><button class="ef-btn primary" type="button" data-ef2-confirm-refund="${escapeHtml(doc.id)}">Erstattung erfassen</button></div>`:''}</details>`;
 }
 function previewSupplierRefund(form) {
   const doc=state.documents.find(item=>item.id===form.dataset.ef2RefundPreview);if(!doc)return;
@@ -730,12 +737,17 @@ function previewSupplierRefund(form) {
   stagedSupplierRefund={documentId:doc.id,originalTransactionId,allocation:proposal.allocations[0]};render();
   document.querySelector(`[data-ef2-refund-preview="${CSS.escape(doc.id)}"]`)?.closest('details')?.setAttribute('open','');
 }
+export function isSupplierRefundPreviewCurrent(preview,doc,transactions,monthClosures) {
+  if(!preview||!doc||preview.documentId!==doc.id)return false;
+  const checked=buildSupplierRefundProposal(doc,preview.originalTransactionId,transactions,monthClosures);
+  return checked.ok&&JSON.stringify(checked.allocations[0])===JSON.stringify(preview.allocation);
+}
 async function confirmSupplierRefund(id) {
   const preview=stagedSupplierRefund;
   if(!preview||preview.documentId!==id)return toast('Bitte die Erstattung zuerst erneut prüfen.');
   if(!syncReady||syncConflict||pendingSync()||saveInFlight||serverRevision===null)return toast('Bitte zuerst alle Finanzdaten erfolgreich mit dem Server synchronisieren.','Erstattung blockiert');
-  const doc=state.documents.find(item=>item.id===id),checked=doc&&buildSupplierRefundProposal(doc,preview.originalTransactionId,state.transactions,state.monthClosures);
-  if(!checked?.ok||JSON.stringify(checked.allocations[0])!==JSON.stringify(preview.allocation)){stagedSupplierRefund=null;render();return toast('Beleg oder Einkaufszuordnung hat sich geändert. Bitte eine neue Vorschau erstellen.','Erstattung blockiert');}
+  const doc=state.documents.find(item=>item.id===id);
+  if(!isSupplierRefundPreviewCurrent(preview,doc,state.transactions,state.monthClosures)){stagedSupplierRefund=null;render();return toast('Beleg oder Einkaufszuordnung hat sich geändert. Bitte eine neue Vorschau erstellen.','Erstattung blockiert');}
   if(!window.confirm('Ist der Betrag tatsächlich eingegangen und gehört er zu dieser Einkaufszuordnung? Die steuerliche Zuordnung bleibt offen; ein späteres Storno ist derzeit nicht möglich.'))return;
   const sequence=localSequence;
   try {
@@ -948,6 +960,7 @@ function bindEvents() {
     if(action==="load-server")return loadServer();if(action==="save-server")return saveServer();if(action==="refresh-status")return refreshServerStatus();if(action==="reserve-invoice")return reserveInvoice();if(action==="ebay-preview")return ebayPreview();if(action==="confirm-ebay-preview")return confirmStagedImport("ebay_finances_api");if(action==="confirm-csv")return confirmStagedImport("ebay_csv");if(action==="cancel-csv"){stagedImport=null;return render();}if(action==="select-unapproved"){selectedTransactionIds=new Set(currentTransactions().filter((entry)=>!entry.voidedAt&&entry.status!=="approved"&&!isLockedDate(entry.transactionDate)).map((entry)=>entry.id));return render();}if(action==="approve-selected")return approveSelected();if(action==="close-month")return closeMonth();if(action==="reopen-month")return reopenMonth();if(action.startsWith("download-"))return exportAction(action);
   });
   document.addEventListener("change",(event)=>{
+    if(event.target?.name==='originalTransactionId' && event.target.closest?.('[data-ef2-refund-preview]')) {stagedSupplierRefund=null;event.target.closest('details')?.querySelector('[data-ef2-confirm-refund]')?.closest('.ef-callout')?.remove();}
     if(event.target?.id==="mainMenu"){if(event.target.value===TAB_ID)openFinance();else leaveFinance();}
     if(event.target?.id==="efPeriodPreset"){const preset=event.target.value;if(preset==="custom"){period={...period,preset:"custom"};render();}else updatePeriodFromControls();}
     if(event.target?.id==="efPeriodStart"||event.target?.id==="efPeriodEnd")updatePeriodFromControls();
@@ -955,6 +968,7 @@ function bindEvents() {
     if(event.target?.id==="efDocumentInput"&&event.target.files?.length)importDocuments([...event.target.files]).catch((error)=>toast(error.message,"Belegarchiv"));
     const selectId=event.target?.dataset?.ef2Select;if(selectId){if(event.target.checked)selectedTransactionIds.add(selectId);else selectedTransactionIds.delete(selectId);render();}
   });
+  document.addEventListener('input',event=>{const form=event.target?.closest?.('[data-ef2-cost-preview]');if(form&&event.target?.name==='allocations'&&stagedReceiptCost?.documentId===form.dataset.ef2CostPreview){stagedReceiptCost=null;form.closest('details')?.querySelector('[data-ef2-confirm-cost]')?.closest('.ef-callout')?.remove();}});
   document.addEventListener("submit",(event)=>{if(event.target?.matches?.("[data-ef2-cost-preview]")){event.preventDefault();previewReceiptCosts(event.target);return;}if(event.target?.matches?.("[data-ef2-refund-preview]")){event.preventDefault();previewSupplierRefund(event.target);return;}if(event.target?.matches?.("[data-ef2-document-form]")){event.preventDefault();void saveDocumentMetadata(event.target);return;}if(event.target?.id==="efSupplierForm"){event.preventDefault();handleSupplierSubmit(event.target);}if(event.target?.id==="efSettingsForm"){event.preventDefault();saveSettings(event.target);}});
   window.addEventListener("hashchange",()=>{if(location.hash==="#finance")openFinance();});
 }
