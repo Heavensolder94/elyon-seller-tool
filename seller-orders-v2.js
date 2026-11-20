@@ -27,7 +27,7 @@ const state = {
   orders: [], products: [], operations: {}, invoices: {}, revision: null,
   selectedId: "", filter: "all", query: "", days: 90, loading: false,
   saving: false, refreshedAt: "", error: "", warning: "", saveNotice: "",
-  truncated: false, sourceReady: false, financeReady: false,
+  truncated: false, sourceReady: false, financeReady: false, drafts: {},
 };
 try { const v = Number(localStorage.getItem(RANGE_KEY)); if ([7, 30, 90].includes(v)) state.days = v; } catch {}
 
@@ -58,7 +58,7 @@ function rowMarkup(order) {
   </button>`;
 }
 function detailsMarkup(order) {
-  const op = opFor(order.id);
+  const op = { ...opFor(order.id), ...obj(state.drafts[order.id]) };
   const status = statusOf(order);
   const estimated = estimatedOrderCosts(order, state.products);
   const profit = actualOrderProfit(order, op);
@@ -86,7 +86,7 @@ function detailsMarkup(order) {
     <form id="ocv2OrderForm" data-order-id="${cleanAttr(order.id)}">
       <h4>Lieferant und Bearbeitung</h4>
       <div class="ocv2-fields"><label>Interner Bearbeitungsstatus<select name="workflowStatus">${phaseOptions.map(([id, label]) =>
-        `<option value="${id}" ${(op.workflowStatus || "NEW") === id ? "selected" : ""}>${h(label)}</option>`).join("")}</select></label>
+        `<option value="${id}" ${(op.workflowStatus || (order.fulfillmentStatus === "FULFILLED" || op.status === "SHIPPED" ? "SHIPPED" : "NEW")) === id ? "selected" : ""}>${h(label)}</option>`).join("")}</select></label>
         <label>Lieferant<input name="supplierName" maxlength="160" value="${h(op.supplierName || "")}" placeholder="${h(supplierGuess || "Lieferant eintragen")}"></label>
         <label>Lieferanten-Bestellnummer<input name="supplierOrderId" maxlength="160" value="${h(op.supplierOrderId || "")}" placeholder="Nach deinem Einkauf eintragen"></label>
         <label>Versanddienstleister<input name="carrier" maxlength="80" value="${h(op.carrier || "")}" placeholder="z. B. DHL"></label>
@@ -95,8 +95,8 @@ function detailsMarkup(order) {
       <h4>Kosten und Gewinn</h4>
       ${help}
       <div class="ocv2-fields ocv2-cost-fields">${fields}</div>
-      <div class="ocv2-profit ${profit === null ? "is-open" : profit < 0 ? "is-loss" : ""}"><span>Ist-Gewinn</span><strong>${profit === null ? "Noch nicht berechenbar" : h(money(profit))}</strong>
-        ${profit === null ? '<small>Erst wenn EK, Versand und Gebühren vollständig sind.</small>' : ""}</div>
+      <div class="ocv2-profit ${profit === null ? "is-open" : profit < 0 ? "is-loss" : ""}"><span>Ergebnis nach erfassten Kosten</span><strong>${profit === null ? "Noch nicht berechenbar" : h(money(profit))}</strong>
+        ${profit === null ? '<small>Erst wenn EK, Versand und Gebühren vollständig sind. Weitere Ausgaben und Retouren separat prüfen.</small>' : ""}</div>
       <label class="ocv2-note">Interne Notiz<textarea name="note" rows="3" maxlength="1600" placeholder="Liefertermin, Sonderfall, Einkauf prüfen …">${h(op.note || "")}</textarea></label>
       <div class="ocv2-details-actions"><button type="submit" class="ocv2-primary" ${state.saving || !state.financeReady ? "disabled" : ""}>${state.saving ? "Speichert…" : "Interne Angaben sichern"}</button>
         <button type="button" data-order-shipping>Versand öffnen</button><button type="button" data-order-invoice>Rechnung öffnen</button></div>
@@ -142,6 +142,11 @@ async function json(url, options) {
 }
 async function refresh() {
   if (state.loading) return;
+  if (Object.keys(state.drafts).length) {
+    state.warning = "Nicht gespeicherte Änderungen vorhanden. Bitte zuerst die Bestellangaben sichern oder die Seite neu laden.";
+    render();
+    return;
+  }
   state.loading = true; state.error = ""; state.warning = ""; state.saveNotice = ""; render();
   const [ebay, finance, product] = await Promise.allSettled([
     json(`/api/ebay?action=orders&environment=production&days=${state.days}&status=all`),
@@ -184,6 +189,7 @@ async function save(form) {
   if (!state.financeReady || state.saving || !state.orders.some((item) => item.id === id)) return;
   const values = Object.fromEntries(new FormData(form).entries());
   const operation = normalizeOperationInput(values);
+  state.drafts[id] = values;
   state.saving = true; state.error = ""; state.saveNotice = ""; render();
   try {
     const result = await json("/api/orders/operations", {
@@ -191,6 +197,7 @@ async function save(form) {
       body: JSON.stringify({ orderId: id, operation, expectedRevision: state.revision }),
     });
     state.operations[id] = result.operation;
+    delete state.drafts[id];
     state.revision = result.revision;
     state.saveNotice = "Interne Bestellangaben sicher gespeichert. eBay wurde nicht verändert.";
   } catch (error) {
@@ -221,6 +228,11 @@ function bind() {
     if (event.target.closest("[data-order-shipping]")) goToTab("automationTab");
   });
   host.addEventListener("input", (event) => {
+    if (event.target.closest("#ocv2OrderForm")) {
+      const form = event.target.closest("#ocv2OrderForm");
+      state.drafts[form.dataset.orderId] = Object.fromEntries(new FormData(form).entries());
+      return;
+    }
     if (event.target.id !== "ocv2Search") return;
     const value = event.target.value, pos = event.target.selectionStart;
     state.query = value;
@@ -231,6 +243,11 @@ function bind() {
     event.target.setSelectionRange(pos, pos);
   });
   host.addEventListener("change", (event) => {
+    if (event.target.closest("#ocv2OrderForm")) {
+      const form = event.target.closest("#ocv2OrderForm");
+      state.drafts[form.dataset.orderId] = Object.fromEntries(new FormData(form).entries());
+      return;
+    }
     if (event.target.id === "ocv2Range") {
       state.days = Number(event.target.value);
       try { localStorage.setItem(RANGE_KEY, String(state.days)); } catch {}
