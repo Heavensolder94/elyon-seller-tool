@@ -9386,20 +9386,20 @@ function createInvoiceForSale(saleId){
 function invoiceHTML(invoice,sale){
   const qty = +sale.qty || 1;
   const net = (+sale.price || 0) * qty;
-  const sellerAddress = String(invoiceSettings.sellerAddress || '').split(String.fromCharCode(13)).join('').split(String.fromCharCode(10)).join('<br>');
-  const sellerName = invoiceSettings.sellerName || 'Bitte Verkäuferdaten in Einstellungen eintragen';
-  const taxId = invoiceSettings.taxId ? '<div class="invoice-taxid">'+invoiceSettings.taxId+'</div>' : '';
-  const paymentNote = invoiceSettings.paymentNote || 'Bereits über Plattform bezahlt.';
-  const footerNote = (invoiceSettings.footerNote || '').trim();
+  const sellerAddress = String(invoiceSettings.sellerAddress || '').split(String.fromCharCode(13)).join('').split(String.fromCharCode(10)).map(escapeHtml).join('<br>');
+  const sellerName = escapeHtml(invoiceSettings.sellerName || 'Historische Verkäuferdaten fehlen');
+  const taxId = invoiceSettings.taxId ? '<div class="invoice-taxid">'+escapeHtml(invoiceSettings.taxId)+'</div>' : '';
+  const paymentNote = escapeHtml(invoiceSettings.paymentNote || 'Bereits über Plattform bezahlt.');
+  const footerNote = escapeHtml((invoiceSettings.footerNote || '').trim());
   const kleinunternehmer = invoiceSettings.smallBusiness === 'yes' ? 'Kleinunternehmer gemäß § 19 UStG. Es wird keine Umsatzsteuer ausgewiesen.' : '';
-  const buyer = sale.customerName || sale.shipToRecipientName || sale.buyerRef || 'Käufer / Plattform-Bestellung';
+  const buyer = escapeHtml(sale.customerName || sale.shipToRecipientName || sale.buyerRef || 'Käufer / Plattform-Bestellung');
   const buyerAddress = formatShippingAddressBlock(sale.customerName || sale.shipToRecipientName || '', sale.customerAddressHint || sale.shipToAddressHint || '', composeSaleAddressText(sale) || sale.shipToAddress || '');
-  const contactLine = [sale.customerEmail ? 'E-Mail: ' + sale.customerEmail : '', sale.customerPhone ? 'Telefon: ' + sale.customerPhone : ''].filter(Boolean).join(' · ');
+  const contactLine = escapeHtml([sale.customerEmail ? 'E-Mail: ' + sale.customerEmail : '', sale.customerPhone ? 'Telefon: ' + sale.customerPhone : ''].filter(Boolean).join(' · '));
   let html='';
-  html+='<div class="invoice-top"><div class="invoice-sender"><div class="invoice-label">Absender</div><h1>Rechnung</h1><p><strong>'+sellerName+'</strong><br>'+sellerAddress+'</p>'+taxId+'</div><div class="invoice-meta"><div class="invoice-label">Belegdaten</div><div class="invoice-number">'+invoice.number+'</div><div class="invoice-date">Datum: '+invoice.date+'</div></div></div>';
-  html+='<div class="invoice-box"><h3>Rechnung an</h3><p><strong>'+buyer+'</strong><br>Order-ID: '+(sale.orderNo||'ohne Order-ID')+'<br>Plattform: '+(sale.platform||'eBay')+'</p>'+(contactLine ? '<p>'+contactLine+'</p>' : '')+'</div>';
+  html+='<div class="invoice-top"><div class="invoice-sender"><div class="invoice-label">Absender</div><h1>Rechnung</h1><p><strong>'+sellerName+'</strong><br>'+sellerAddress+'</p>'+taxId+'</div><div class="invoice-meta"><div class="invoice-label">Belegdaten</div><div class="invoice-number">'+escapeHtml(invoice.number)+'</div><div class="invoice-date">Datum: '+escapeHtml(invoice.date)+'</div></div></div>';
+  html+='<div class="invoice-box"><h3>Rechnung an</h3><p><strong>'+buyer+'</strong><br>Order-ID: '+escapeHtml(sale.orderNo||'ohne Order-ID')+'<br>Plattform: '+escapeHtml(sale.platform||'eBay')+'</p>'+(contactLine ? '<p>'+contactLine+'</p>' : '')+'</div>';
   if(buyerAddress) html += buyerAddress;
-  html+='<table class="invoice-table"><thead><tr><th>Position</th><th>Menge</th><th>Einzelpreis</th><th>Gesamt</th></tr></thead><tbody><tr><td>'+sale.product+'</td><td>'+qty+'</td><td>'+euro(sale.price)+'</td><td>'+euro(net)+'</td></tr></tbody></table>';
+  html+='<table class="invoice-table"><thead><tr><th>Position</th><th>Menge</th><th>Einzelpreis</th><th>Gesamt</th></tr></thead><tbody><tr><td>'+escapeHtml(sale.product)+'</td><td>'+qty+'</td><td>'+euro(sale.price)+'</td><td>'+euro(net)+'</td></tr></tbody></table>';
   html+='<div class="invoice-total">Rechnungsbetrag: '+euro(net)+'</div>';
   html+='<div class="invoice-footer"><p>'+paymentNote+'</p>'+(kleinunternehmer ? '<p>'+kleinunternehmer+'</p>' : '')+(footerNote ? '<p>'+footerNote+'</p>' : '')+'</div>';
 
