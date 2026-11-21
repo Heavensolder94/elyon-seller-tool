@@ -7,7 +7,7 @@
     if (!tab || !tab.classList.contains("active")) return;
     started = true;
     observer?.disconnect();
-    import("/seller-orders-v2.js?v=orders2-20261121-compact-checklist").catch((error) => {
+    import("/seller-orders-v2.js?v=orders2-20261121-nova-pair-fix1").catch((error) => {
       started = false;
       console.error("ELYON Bestellzentrale konnte nicht geladen werden:", error);
     });
