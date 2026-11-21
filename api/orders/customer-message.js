@@ -4,7 +4,7 @@ import { readFinanceState,writeFinanceState,getFinanceStoreDescription } from ".
 import { ebayUserSession,callEbayJson } from "../../lib/ebay-production.js";
 import { normalizeEbayOrder,paymentConfirmed } from "../../seller-orders-v2-core.js";
 import { DEFAULT_ORDER_THANK_YOU,validateThankYouTemplate } from "../../seller-order-message-core.js";
-import { verifiedInvoicePdf,attachmentUrl,messageDeliveryEnabled } from "../../lib/order-message-attachment.js";
+import { verifiedInvoicePdf,attachmentUrl,attachmentBaseStatus,messageDeliveryEnabled } from "../../lib/order-message-attachment.js";
 
 const text=x=>String(x??"").trim();
 const validOrder=id=>/^[A-Za-z0-9_-]{6,70}$/.test(text(id));
@@ -127,6 +127,7 @@ export default async function handler(req,res){
         ok:true,revision:state.revision,
         template:state.settings?.orderThankYouTemplate||DEFAULT_ORDER_THANK_YOU,
         sendReady:messageDeliveryEnabled()&&getFinanceStoreDescription().persistent===true,
+        attachmentBase:attachmentBaseStatus(process.env.ELYON_MESSAGE_ATTACHMENT_BASE_URL),
         invoice:validOrder(orderId)&&state.invoiceMeta?.[orderId]?.immutable===true
           ? {invoiceNumber:state.invoiceMeta[orderId].invoiceNumber} : null,
         delivery:validOrder(orderId)?delivery(state.orderOperations?.[orderId]):null,
