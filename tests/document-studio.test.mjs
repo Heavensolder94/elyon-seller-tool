@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { normalizeEbayOrder, buildOrderDocumentContext } from "../seller-orders-v2-core.js";
 import { applyStudioChange, normalizeStudioState, sanitizeStudioMarkup, documentSummary, STUDIO_DOCUMENT_TYPES } from "../lib/document-studio-core.js";
 
 const draft = (overrides = {}) => ({
@@ -176,4 +177,69 @@ test("recipient address keeps manually entered postal line breaks when saved and
   assert.match(frontend, /<textarea id="edsRecipient"/);
   assert.match(frontend, /eds-recipient-address/);
   assert.match(frontend, /withBreaks/);
+});
+
+
+test("order handoff uses only safe eBay fields and preserves multiline postal address", () => {
+  const order = normalizeEbayOrder({
+    orderId: "03-12345-67890", creationDate: "2026-11-21T10:00:00.000Z",
+    orderPaymentStatus: "PAID", orderFulfillmentStatus: "NOT_STARTED",
+    buyer: { username: "user123", email: "secret@example.com" },
+    fulfillmentStartInstructions: [{
+      shippingStep: { shipTo: { fullName: "Max Mustermann",
+        contactAddress: { addressLine1: "Musterstraße 12", addressLine2: "2. OG",
+          postalCode: "12345", city: "Musterstadt", countryCode: "DE" } } }
+    }],
+    pricingSummary: { total: { value: "59.90", currency: "EUR" } },
+    lineItems: [{ lineItemId: "a", title: "Schreibtischlampe", quantity: 2,
+      lineItemCost: { value: "29.95" }, sku: "ELY-000001" }]
+  });
+  const context = buildOrderDocumentContext(order, { carrier: "DHL", trackingNumber: "AB123" });
+  assert.equal(context.source, "ebay_order");
+  assert.equal(context.orderId, "03-12345-67890");
+  assert.equal(context.recipientAddress, "Max Mustermann\nMusterstraße 12\n2. OG\n12345 Musterstadt\nDE");
+  assert.equal(context.addressComplete, true);
+  assert.equal(context.total, 59.9);
+  assert.deepEqual(context.lines, [{ title: "Schreibtischlampe", quantity: 2, lineTotal: 29.95 }]);
+  assert.equal(context.carrier, "DHL");
+  assert.equal(context.trackingNumber, "AB123");
+  assert.equal(context.demo, false);
+  assert.doesNotMatch(JSON.stringify(context), /secret@example.com|supplier|buyPrice|invoiceNumber/);
+});
+
+test("order handoff never guesses missing recipients, prices or dates", () => {
+  const order = normalizeEbayOrder({ orderId: "DEMO-1002", orderPaymentStatus: "NOT_PAID",
+    lineItems: [{ title: "Artikel", quantity: 1 }] });
+  const context = buildOrderDocumentContext(order, { demo: true });
+  assert.equal(context.recipientAddress, "");
+  assert.equal(context.addressComplete, false);
+  assert.equal(context.createdAt, "");
+  assert.equal(context.paymentStatus, "NOT_PAID");
+  assert.equal(context.lines[0].lineTotal, null);
+  assert.equal(context.demo, true);
+  assert.equal(buildOrderDocumentContext({ id: "<bad-id>" }), null);
+});
+
+test("order cockpit exposes only an explicit manual document handoff, with demo isolation", () => {
+  const cockpit = readFileSync(new URL("../seller-orders-v2.js", import.meta.url), "utf8");
+  const studio = readFileSync(new URL("../seller-document-studio.js", import.meta.url), "utf8");
+  const runtime = readFileSync(new URL("../seller-runtime-loader.js", import.meta.url), "utf8");
+  assert.match(cockpit, /data-order-document/);
+  assert.match(cockpit, /buildOrderDocumentContext/);
+  assert.match(cockpit, /bridge\.openFromOrder\(context, templateId\)/);
+  assert.match(runtime, /ElyonSellerDocumentBridge/);
+  assert.match(runtime, /requestGroup\("elyonDocumentStudioTab"\)/);
+  assert.match(studio, /openFromOrder\(context, templateId\)/);
+  assert.match(studio, /if \(state\.demoOrderDraft\) return status\("Demo-Bestellungen/);
+  assert.match(studio, /sourceOrderId = orderId/);
+});
+
+test("eBay source order metadata persists through document archive without creating an invoice", () => {
+  const first = applyStudioChange(null, "save", draft({
+    kind: "offer", title: "Bestellbestätigung", templateId: "bestellbestaetigung",
+    sourceOrderId: "03-12345-67890", reference: "03-12345-67890"
+  }));
+  assert.equal(first.documents[0].sourceOrderId, "03-12345-67890");
+  assert.equal(documentSummary(first.documents[0]).sourceOrderId, "03-12345-67890");
+  assert.equal(STUDIO_DOCUMENT_TYPES.includes("invoice"), false);
 });
