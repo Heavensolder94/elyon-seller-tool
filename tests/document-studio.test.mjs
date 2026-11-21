@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { applyStudioChange, normalizeStudioState, sanitizeStudioMarkup, documentSummary, STUDIO_DOCUMENT_TYPES } from "../lib/document-studio-core.js";
 
 const draft = (overrides = {}) => ({
@@ -148,4 +149,17 @@ test("text blocks reject oversized and unsafe content", () => {
   assert.throws(() => applyStudioChange(null, "save-block", { ...example, title: "" }), /Bausteintitel/);
   assert.throws(() => applyStudioChange(null, "delete-block", null, "block_missing"), /nicht gefunden/);
   assert.equal(normalizeStudioState(null).customBlocks.length, 0);
+});
+
+test("bestelleingang and auftragsbestaetigung are separate document templates", () => {
+  const studioSource = readFileSync(new URL("../seller-document-studio.js", import.meta.url), "utf8");
+  const orderReceipt = studioSource.split("\\n").find((line) => line.includes('["bestellbestaetigung", "Verkauf"'));
+  const orderAcceptance = studioSource.split("\\n").find((line) => line.includes('["auftragsbestaetigung", "Verkauf"'));
+  assert.ok(orderReceipt, "Bestelleingangsbestätigung must exist");
+  assert.ok(orderAcceptance, "Existing Auftragsbestätigung must remain");
+  assert.match(orderReceipt, /Bestellbestätigung \\(Bestelleingang\\)/);
+  assert.match(orderReceipt, /Eingang Ihrer Bestellung/);
+  assert.match(orderReceipt, /Bestelldatum bitte prüfen/);
+  assert.doesNotMatch(orderReceipt, /noch kein (Kaufvertrag|Vertrag)|erst mit.*Vertrag/);
+  assert.match(studioSource, /\\["order-received", "Verkauf", "Bestelleingang bestätigen"/);
 });
