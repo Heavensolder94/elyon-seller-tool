@@ -98,6 +98,26 @@ test("real send stays opt-in and no invoice message can be sent on the sample pa
   assert.match(bundle,/seller-order-message-core\.js/);
   assert.match(ebay,/commerce\.message/);
 });
+test("message template is compactly hidden in an accessible on-demand modal", async()=>{
+  const ui=await readFile(new URL("../seller-order-invoices.js",import.meta.url),"utf8");
+  assert.match(ui,/data-eoi-message-settings/);
+  assert.match(ui,/function openMessageSettings\(trigger\)/);
+  assert.match(ui,/function closeMessageDialog\(\)/);
+  assert.match(ui,/messageEditorOpen/);
+  assert.match(ui,/role="dialog" aria-modal="true" aria-labelledby="eoiDialogTitle"/);
+  assert.match(ui,/data-eoi-dialog-backdrop/);
+  assert.match(ui,/data-eoi-dialog-close/);
+  assert.match(ui,/event\.key === 'Escape'/);
+  assert.match(ui,/event\.key === 'Tab'/);
+  assert.match(ui,/messageEditorDraft=event\.target\.value/);
+  assert.match(ui,/const template = messageEditorDraft/);
+  assert.match(ui,/messageEditorPreview=!messageEditorPreview/);
+  assert.match(ui,/function prepareInvoiceMessage\(id, demo = false, trigger = null\)/);
+  assert.match(ui,/if \(messageEditorOpen\) \{/);
+  assert.ok(!ui.includes("html += '<section class=\\"eoi-template-box\\"><div class=\\"eoi-template-heading\\"><h4>Individuelle Dankesnachricht"));
+  assert.match(ui,/ElyonOrderInvoices = \{ mount, load: loadOrders, create: createInvoice, download: downloadInvoice \}/);
+});
+
 test("send feature is disabled by default",()=>{
   const a=process.env.ELYON_EBAY_MESSAGE_SEND_ENABLED;
   const b=process.env.ELYON_MESSAGE_ATTACHMENT_BASE_URL;
