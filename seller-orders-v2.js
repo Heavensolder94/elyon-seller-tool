@@ -546,15 +546,42 @@ async function downloadOrderReceipt(documentId) {
     link.href=ref;link.download=meta.filename;link.click();URL.revokeObjectURL(ref);
   }catch(error){state.error="Originalbeleg konnte nicht geladen werden: "+error.message;render();}
 }
-function applyNovaSupplierOrder() {
+async function reloadNovaInbox() {
+  if(state.demoMode||state.novaInboxBusy)return;
+  state.novaInboxBusy=true;state.error="";render();
+  try{
+    const result=await json("/api/orders/nova-inbox");
+    state.novaInbox=Array.isArray(result.items)?result.items:[];
+    state.saveNotice="Nova-Eingang aktualisiert: "+state.novaInbox.length+" Lieferantenbestellungen.";
+  }catch(error){state.warning="Nova-Eingang nicht geladen: "+error.message;}
+  finally{state.novaInboxBusy=false;render();}
+}
+async function pairNova() {
+  if(state.demoMode||state.novaPairingBusy)return;
+  if(!window.confirm("ELYON Nova jetzt mit dem SellerTool koppeln? Der Schlüssel gilt 14 Tage nur für Lieferantenbestell-Import, nicht für deinen eigentlichen SellerTool-Zugang."))return;
+  state.novaPairingBusy=true;state.error="";render();
+  try{
+    const pair=await json("/api/orders/nova-pairing",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});
+    if(!pair.token)throw Error("Kein Kopplungsschlüssel erhalten.");
+    try{
+      await navigator.clipboard.writeText(pair.token);
+      state.saveNotice="Nova-Kopplungsschlüssel für 14 Tage kopiert. In Nova → Bestellverwaltung → Verbindung einfügen.";
+    }catch{
+      window.prompt("Nova-Kopplungsschlüssel kopieren und in der Erweiterung unter Bestellverwaltung einfügen:",pair.token);
+      state.saveNotice="Nova-Kopplung erstellt. Den angezeigten Schlüssel in Nova einfügen.";
+    }
+  }catch(error){state.error="Nova-Kopplung fehlgeschlagen: "+error.message;}
+  finally{state.novaPairingBusy=false;render();}
+}
+function applyNovaSupplierOrder(handoffInput=null) {
   if(state.demoMode || !state.financeReady || state.saving)return;
   const selected=state.orders.find(item=>item.id===state.selectedId);
   const form=root()?.querySelector("#ocv2OrderForm");
-  const json=root()?.querySelector("#ocv5SupplierHandoff")?.value;
-  if(!selected||!form||!json){state.warning="Zuerst eine eBay-Bestellung und Nova-Importdaten auswählen.";render();return;}
+  const raw=handoffInput?JSON.stringify(handoffInput):root()?.querySelector("#ocv5SupplierHandoff")?.value;
+  if(!selected||!form||!raw){state.warning="Zuerst eine eBay-Bestellung und Nova-Importdaten auswählen.";render();return;}
   const current={...opFor(selected.id),...obj(state.drafts[selected.id])};
   const suggested=supplierSuggestionForOrder(selected,productsNow());
-  const outcome=validateSupplierOrderHandoff(json,{supplierSuggestion:suggested,existingOperation:current});
+  const outcome=validateSupplierOrderHandoff(raw,{supplierSuggestion:suggested,existingOperation:current});
   if(!outcome.ok){state.warning="Nova-Übernahme blockiert: "+outcome.errors.join(" · ");render();return;}
   if(!window.confirm("Lieferantenauftrag "+outcome.values.supplierOrderId+" ("+outcome.values.supplierName+
     ") genau der eBay-Bestellung "+selected.id+" zuordnen?\\n\\nDanach die Angaben kontrollieren und gesondert speichern."))return;
@@ -750,6 +777,14 @@ function bind() {
   const host = root();
   if (!host) return;
   host.addEventListener("click", (event) => {
+    if (event.target.closest("[data-nova-pairing]")) return void pairNova();
+    if (event.target.closest("[data-nova-inbox-refresh]")) return void reloadNovaInbox();
+    const novaItem=event.target.closest("[data-nova-link-id]");
+    if(novaItem) {
+      const item=state.novaInbox.find(entry=>entry.id===novaItem.dataset.novaLinkId);
+      if(!item||item.linkedOrders?.length||state.demoMode)return;
+      return applyNovaSupplierOrder(item);
+    }
     if (event.target.closest("[data-ocv5-supplier-import]")) return applyNovaSupplierOrder();
     if (event.target.closest("[data-order-receipt-upload]")) return void uploadOrderReceipt();
     const downloadReceipt=event.target.closest("[data-order-receipt-download]");
