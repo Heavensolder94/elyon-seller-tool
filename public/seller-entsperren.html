@@ -19,6 +19,8 @@
     button:disabled,input:disabled{opacity:.65;cursor:wait}
     a{color:#94c8ff}
     .secondary{display:block;text-align:center;margin-top:20px;font-size:.95rem}
+    .probe{background:#253957;color:#eaf2ff;margin-top:16px}
+    pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:.78rem;background:#0b1220;padding:12px;border-radius:10px}
     .status{margin:17px 0 0;min-height:22px;font-size:.92rem;line-height:1.45;color:#b5c5d5}
     .status.error{color:#ffabab}.status.good{color:#a7e9c8}
     .hint{margin:19px 0 0;font-size:.78rem;color:#8496ae}
@@ -35,6 +37,8 @@
     <button id="unlockSubmit" type="submit">Sicher anmelden</button>
   </form>
   <div id="result" class="status" role="status" aria-live="polite">Anmeldestatus wird überprüft …</div>
+  <button id="pdfCheck" class="probe" type="button" hidden>Schritt 9: PDF-Selbsttest ausführen</button>
+  <pre id="pdfResult" hidden aria-live="polite"></pre>
   <a class="secondary" href="/">Zum ELYON SellerTool</a>
   <p class="hint">Der Sicherheitscode wird nur über die verschlüsselte Verbindung an deine eigene ELYON-API gesendet und nicht im Browser gespeichert. Bitte niemals im Chat teilen.</p>
 </main>
@@ -45,6 +49,21 @@
   const input=document.getElementById("sellerCode");
   const submit=document.getElementById("unlockSubmit");
   const status=document.getElementById("result");
+  const pdfCheck=document.getElementById("pdfCheck");
+  const pdfResult=document.getElementById("pdfResult");
+  pdfCheck.addEventListener("click",async()=>{
+    pdfCheck.disabled=true;
+    pdfResult.hidden=false;
+    pdfResult.textContent="PDF-Selbsttest wird durchgeführt …";
+    try{
+      const response=await fetch("/api/orders/attachment-check",{method:"GET",credentials:"same-origin",cache:"no-store",headers:{Accept:"application/json"}});
+      const data=await response.json();
+      pdfResult.textContent=JSON.stringify({httpStatus:response.status,...data},null,2);
+      if(response.status===403)setStatus("Die Sitzungsprüfung erkennt dich, der PDF-Endpunkt jedoch nicht. Bitte das angezeigte Testergebnis melden; keine Zugangsdaten weitergeben.","error");
+    }catch{
+      pdfResult.textContent="PDF-Test nicht erreichbar. Bitte Netzwerk oder Deployment prüfen.";
+    }finally{pdfCheck.disabled=false;}
+  });
   const setStatus=(message,tone="")=>{status.textContent=message;status.className="status"+(tone?" "+tone:"");};
   async function session(method,body){
     const options={method,credentials:"same-origin",cache:"no-store",headers:{Accept:"application/json"}};
@@ -62,7 +81,7 @@
       if(!response.ok||data.ok!==true)throw Error("ELYON konnte die Sitzung nicht prüfen.");
       if(data.authenticated===true){
         setStatus("Du bist auf dieser Adresse bereits angemeldet. Weiterleitung zum SellerTool …","good");
-        window.location.replace("/");
+        pdfCheck.hidden=false;
         return;
       }
       if(data.configured!==true){
@@ -93,7 +112,7 @@
         return;
       }
       setStatus("Erfolgreich angemeldet! Du wirst zum SellerTool weitergeleitet.","good");
-      window.location.replace("/");
+      pdfCheck.hidden=false;
     }catch{
       setStatus("Netzwerkfehler während der Anmeldung. Bitte erneut versuchen.","error");
     }finally{

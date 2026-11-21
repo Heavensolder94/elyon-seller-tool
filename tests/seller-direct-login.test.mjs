@@ -12,7 +12,10 @@ test("direct login fallback uses the existing secure SellerTool session endpoint
   assert.match(page, /session\("POST",\{token\}\)/);
   assert.match(page, /session\("GET"\)/);
   assert.match(page, /verified\.data\.authenticated!==true/);
-  assert.match(page, /window\.location\.replace\("\/"\)/);
+  assert.match(page, /pdfCheck\.hidden=false/);
+  assert.match(page, /fetch\("\/api\/orders\/attachment-check"/);
+  assert.match(page, /credentials:"same-origin"/);
+  assert.match(page, /response\.status===403/);
   assert.doesNotMatch(page, /localStorage|sessionStorage/);
   assert.doesNotMatch(page, /[?&]token=/);
 });
