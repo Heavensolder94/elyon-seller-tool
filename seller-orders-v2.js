@@ -119,7 +119,7 @@ function progressMarkup(order, op) {
 }
 function completionFor(order, op) {
   const invoice = state.demoMode
-    ? { issued: demoInvoiceChecks.has(order.id) }
+    ? { issued: demoInvoiceChecks.has(order.id), invoiceNumber: demoInvoiceChecks.has(order.id) ? "DEMO-MUSTER" : "" }
     : state.invoices[order.id];
   return orderCompletionChecklist(order, op, invoice);
 }
