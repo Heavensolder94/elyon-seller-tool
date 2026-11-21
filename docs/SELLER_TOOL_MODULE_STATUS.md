@@ -44,6 +44,7 @@ Nova
 | Bestellungen | eBay-Orders kontrolliert bearbeiten |
 | Versand | Fulfillment, Tracking und Versandstatus verwalten |
 | Finanzen | Umsatz, Kosten, Rechnungen, Auszahlungen und tatsächlichen Gewinn auswerten |
+| Dokumentenstudio | Universelle Dokumententwürfe und Vorlagen geschützt verwalten; bestehende Rechnungslogik bleibt separat |
 | Retouren | Rückgaben, Erstattungen und Verluste dokumentieren |
 | Einstellungen | eBay, Product Master, Sicherheit, Backup und technische Diagnose |
 | Virtuelle Mitarbeiter | Operative KI-Agenten, Aufgaben und Freigaben |
