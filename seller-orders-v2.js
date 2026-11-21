@@ -397,7 +397,7 @@ async function refresh() {
     state.products = [];
     state.warning += " Company OS konnte nicht geladen werden; Produktverknüpfungen sind vorübergehend nicht verfügbar.";
   }
-  if (!state.demoMode && !state.orders.some((order) => order.id === state.selectedId)) state.selectedId = state.orders[0]?.id || "";
+  if (!state.demoMode && state.selectedId && !state.orders.some((order) => order.id === state.selectedId)) state.selectedId = "";
   state.loading = false; render();
 }
 async function save(form) {
@@ -436,7 +436,7 @@ function openDemo() {
     state.warning = "Bitte ungespeicherte echte Bestelländerungen zuerst speichern oder die Seite neu laden."; render(); return;
   }
   state.demoMode = true; state.demoModal = ""; state.demoNotice = ""; state.query = ""; state.filter = "all";
-  state.selectedId = DEMO.orders[0]?.id || ""; state.activeSection = "overview";
+  state.selectedId = ""; state.activeSection = "overview";
   state.error = ""; state.warning = ""; state.saveNotice = ""; render();
 }
 function closeDemo() {
@@ -445,7 +445,7 @@ function closeDemo() {
   state.demoModal = "";
   state.demoNotice = "";
   for (const id of Object.keys(state.drafts)) if (id.startsWith("DEMO-")) delete state.drafts[id];
-  state.selectedId = state.orders[0]?.id || ""; state.activeSection = "overview";
+  state.selectedId = ""; state.activeSection = "overview";
   state.filter = "all"; state.query = ""; state.error = ""; state.warning = "";
   state.saveNotice = "Demo beendet. Es wurden keine echten eBay- oder Finanzdaten geändert.";
   render();
@@ -521,7 +521,7 @@ function bind() {
     if (phase) return choosePhase(phase.dataset.ocv2Phase);
     if (event.target.closest("#ocv2Refresh")) return state.demoMode ? closeDemo() : refresh();
     const choose = event.target.closest("[data-order-open]");
-    if (choose) { state.selectedId = choose.dataset.orderOpen; state.activeSection = "overview"; state.saveNotice = ""; return render(); }
+    if (choose) { state.selectedId = choose.dataset.orderOpen; state.activeSection = "overview"; state.saveNotice = ""; render(); root()?.querySelector(".ocv3-drawer-content")?.focus(); return; }
     const filter = event.target.closest("[data-ocv2-filter]");
     if (filter) { state.filter = filter.dataset.ocv2Filter; return render(); }
     if (event.target.closest("[data-order-invoice]")) {
