@@ -147,7 +147,9 @@ export function suggestRecordedCosts(operation = {}, hints = {}) {
 export function orderCompletionChecklist(order = {}, operation = {}, invoice = null) {
   const op = object(operation);
   const shipping = text(order.fulfillmentStatus).toUpperCase() === "FULFILLED";
-  const invoiceIssued = invoice?.issued === true || (invoice?.immutable === true && Boolean(text(invoice?.invoiceNumber)));
+  const invoiceIssued = Boolean(invoice?.issued === true && text(invoice?.invoiceNumber)) ||
+    Boolean(invoice?.immutable === true && text(invoice?.invoiceNumber) &&
+      text(invoice?.invoice?.invoiceNumber) === text(invoice.invoiceNumber));
   const checks = [
     { key: "payment", title: "eBay-Zahlung bestätigt", done: paymentConfirmed(order), section: "overview", required: true },
     { key: "supplier", title: "Lieferant eingetragen", done: Boolean(text(op.supplierName)), section: "supplier", required: true },
