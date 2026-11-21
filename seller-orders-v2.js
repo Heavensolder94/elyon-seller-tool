@@ -342,7 +342,7 @@ function render() {
       <div class="ocv2-stats">${statsCard("Alle Bestellungen", String(summary.total), "all")}${statsCard("Neu", String(summary.new), "new")}
         ${statsCard("Versand offen", String(summary.shipping), "shipping")}${statsCard("Prüfen", String(summary.issues), "issues")}</div>
       <div class="ocv2-content">
-        <section class="ocv2-list-card"><div class="ocv2-list-header"><div><h3>Bestellübersicht</h3>
+        <section class="ocv2-list-card"><div class="ocv2-list-header"><div><h3>Deine Bestellungen</h3>
           <span class="ocv2-small">${rows.length} angezeigt · ${summary.shipped} versendet/abgeschlossen
             ${state.refreshedAt ? " · Aktualisiert " + h(date(state.refreshedAt)) : ""}</span></div>
           <input id="ocv2Search" aria-label="Bestellungen durchsuchen" value="${h(state.query)}" placeholder="Bestellung, Artikel, SKU suchen …" type="search"></div>
