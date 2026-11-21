@@ -118,6 +118,7 @@ const filesToMirror = [
   ["seller-finance-core.js", "public/seller-finance-core.js"],
   ["seller-finance.js", "public/seller-finance.js"],
   ["seller-order-invoices.js", "public/seller-order-invoices.js"],
+  ["seller-order-message-core.js", "public/seller-order-message-core.js"],
   ["seller-orders-v2-core.js", "public/seller-orders-v2-core.js"],
   ["seller-orders-v2.js", "public/seller-orders-v2.js"],
   ["seller-orders-v2-loader.js", "public/seller-orders-v2-loader.js"],
