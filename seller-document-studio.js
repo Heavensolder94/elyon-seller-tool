@@ -384,6 +384,7 @@
       notice.classList.toggle("eds-order-demo", state.demoOrderDraft);
       notice.textContent = (state.demoOrderDraft ? "DEMO · Speichern und Export gesperrt. " : "") +
         "eBay-Bestellung " + orderId + " wurde als bearbeitbarer, noch nicht gespeicherter Entwurf übernommen. " +
+        "Als Empfänger wird die Lieferanschrift laut eBay verwendet; eine abweichende Rechnungsadresse bitte gesondert prüfen. " +
         (!order.addressComplete ? "Bitte Empfängeranschrift vervollständigen. " : "") +
         (!["PAID", "FULLY_PAID"].includes(String(order.paymentStatus).toUpperCase()) ? "Zahlung noch nicht bestätigt. " : "") +
         "Artikel, Beträge und Formulierungen kontrollieren. Keine automatische eBay-Aktion.";
@@ -775,6 +776,7 @@
       renderLibrary();
       renderList();
       if (!state.current) showDoc(newDocument("blank"));
+      else if (!state.dirty) renderPreview(); // Refresh newly loaded seller branding without rewriting any edits.
       status(state.documents.length + " Dokument(e) im geschützten Serverarchiv.");
     } catch (error) {
       status("Speicher nicht bereit: " + error.message + " Export bleibt möglich, Speichern nicht.", true);
