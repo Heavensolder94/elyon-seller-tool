@@ -705,6 +705,12 @@
   }
 
   function start() {
+    if (!el("elyonDocumentPaperStyles")) {
+      const paperStyle = document.createElement("style");
+      paperStyle.id = "elyonDocumentPaperStyles";
+      paperStyle.textContent = documentCss();
+      document.head.appendChild(paperStyle);
+    }
     if (!el("elyonDocumentStudioStyles")) {
       const stylesheet = document.createElement("link");
       stylesheet.id = "elyonDocumentStudioStyles";
