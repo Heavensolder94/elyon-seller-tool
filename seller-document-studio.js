@@ -58,8 +58,32 @@
     ["notiz", "Organisation", "Interne Notiz", "blank", "<h2>Interne Notiz</h2><p>Datum: {{Datum}}</p><p>Bezug: {{Referenz}}</p><p>[Notizen]</p>"],
     ["leer", "Organisation", "Leeres A4-Dokument", "blank", "<h2>Neues Dokument</h2><p>Beginnen Sie hier mit dem Inhalt.</p>"]
   ].map(([id, category, name, kind, html]) => ({ id, category, name, kind, html }));
+
+  const BUILTIN_BLOCKS = [
+    ["greeting-formal", "Begrüßung", "Förmliche Anrede", "<p>Sehr geehrte Damen und Herren,</p>"],
+    ["greeting-friendly", "Begrüßung", "Freundliche Anrede", "<p>Guten Tag,</p>"],
+    ["greeting-personal", "Begrüßung", "Persönliche Anrede", "<p>Guten Tag {{Empfänger}},</p>"],
+    ["closing-formal", "Abschluss", "Mit freundlichen Grüßen", "<p>Mit freundlichen Grüßen</p><p>{{Firma}}</p>"],
+    ["closing-thanks", "Abschluss", "Dank und Rückmeldung", "<p>Vielen Dank für Ihre Unterstützung. Wir freuen uns auf Ihre Rückmeldung.</p><p>Mit freundlichen Grüßen</p><p>{{Firma}}</p>"],
+    ["closing-contact", "Abschluss", "Für Rückfragen", "<p>Bei Rückfragen stehen wir Ihnen gerne zur Verfügung.</p>"],
+    ["offer-intro", "Verkauf", "Angebotseinleitung", "<p>Vielen Dank für Ihr Interesse. Gerne unterbreiten wir Ihnen folgendes Angebot:</p>"],
+    ["offer-conditions", "Verkauf", "Angebotskonditionen", "<p>Gültig bis: [Datum]. Lieferzeit: [Zeitraum]. Zahlungsbedingungen: [Angaben].</p>"],
+    ["offer-position", "Verkauf", "Positionstabelle", "<table><tr><th>Artikel / Leistung</th><th>Menge</th><th>Einzelpreis</th></tr><tr><td>[Beschreibung]</td><td>1</td><td>[Betrag]</td></tr></table>"],
+    ["order-confirm", "Verkauf", "Bestellung bestätigen", "<p>Vielen Dank für Ihre Bestellung mit der Referenz {{Referenz}}. Die angegebenen Positionen und Lieferbedingungen entnehmen Sie bitte diesem Schreiben.</p>"],
+    ["dispatch-confirm", "Verkauf", "Versandbestätigung", "<p>Ihre Bestellung {{Referenz}} wurde an unseren Versanddienstleister übergeben. Sendungsnummer: [Nummer].</p>"],
+    ["complaint-ack", "Kundenservice", "Reklamation bestätigen", "<p>Vielen Dank für Ihre Nachricht. Wir haben Ihre Reklamation zu {{Referenz}} erhalten und prüfen Ihr Anliegen.</p>"],
+    ["complaint-photo", "Kundenservice", "Fotos erbitten", "<p>Für die weitere Bearbeitung bitten wir Sie um Fotos des Artikels und gegebenenfalls der beschädigten Verpackung.</p>"],
+    ["complaint-solution", "Kundenservice", "Lösung anbieten", "<p>Wir bieten Ihnen folgende Lösung an: [Lösung ergänzen]. Bitte teilen Sie uns mit, ob Sie damit einverstanden sind.</p>"],
+    ["return-info", "Kundenservice", "Rücksendung klären", "<p>Bitte nennen Sie uns Ihre Bestellnummer {{Referenz}} und den Grund Ihrer Anfrage, damit wir den weiteren Ablauf klären können. Gesetzliche Rechte bleiben unberührt.</p>"],
+    ["supplier-inquiry", "Lieferanten", "Verfügbarkeit anfragen", "<p>Bitte teilen Sie uns mit, ob der Artikel [Artikelnummer] derzeit verfügbar ist und welche Lieferzeiten und Konditionen gelten.</p>"],
+    ["supplier-bill", "Lieferanten", "Originalbeleg erbitten", "<p>Bitte senden Sie uns den zugehörigen Original-Kaufbeleg mit Angabe von Rechnungsdatum, Artikelbezeichnung und Ihrem vollständigen Unternehmensnamen.</p>"],
+    ["supplier-defect", "Lieferanten", "Mangel melden", "<p>Bei der Lieferung zu {{Referenz}} haben wir folgenden Mangel festgestellt: [Beschreibung]. Bitte teilen Sie uns das weitere Vorgehen mit.</p>"],
+    ["org-nextsteps", "Organisation", "Nächste Schritte", "<h3>Nächste Schritte</h3><ul><li>[Aufgabe] – [Verantwortlich] – [Termin]</li></ul>"],
+    ["org-signature", "Organisation", "Unterschriftszeile", "<p>Ort, Datum: __________________________</p><p>Unterschrift: ________________________</p>"],
+    ["org-reference", "Organisation", "Vorgangsübersicht", "<table><tr><th>Vorgang</th><th>Referenz</th><th>Datum</th></tr><tr><td>[Beschreibung]</td><td>{{Referenz}}</td><td>{{Datum}}</td></tr></table>"]
+  ].map(([id, category, title, html]) => ({ id, category, title, html }));
   const DEFAULT_DESIGN = "elyon";
-  const state = { revision: null, documents: [], customTemplates: [], current: null, profile: {}, logoData: "", dirty: false, showArchived: false, search: "", librarySearch: "", category: "Alle", favoritesOnly: false, favorites: [], libraryOpen: true, designId: DEFAULT_DESIGN, preview: true, loading: false };
+  const state = { revision: null, documents: [], customTemplates: [], customBlocks: [], blockCategory: "Alle", blockSearch: "", lastRange: null, current: null, profile: {}, logoData: "", dirty: false, showArchived: false, search: "", librarySearch: "", category: "Alle", favoritesOnly: false, favorites: [], libraryOpen: true, designId: DEFAULT_DESIGN, preview: true, loading: false };
 
   const el = (id) => document.getElementById(id);
   const escapeHtml = (value) => String(value == null ? "" : value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
