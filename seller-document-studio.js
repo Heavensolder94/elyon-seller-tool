@@ -85,7 +85,7 @@
     ["org-reference", "Organisation", "Vorgangsübersicht", "<table><tr><th>Vorgang</th><th>Referenz</th><th>Datum</th></tr><tr><td>[Beschreibung]</td><td>{{Referenz}}</td><td>{{Datum}}</td></tr></table>"]
   ].map(([id, category, title, html]) => ({ id, category, title, html }));
   const DEFAULT_DESIGN = "elyon";
-  const state = { revision: null, documents: [], customTemplates: [], customBlocks: [], blockCategory: "Alle", blockSearch: "", lastRange: null, current: null, profile: {}, logoData: "", dirty: false, showArchived: false, search: "", librarySearch: "", category: "Alle", favoritesOnly: false, favorites: [], libraryOpen: true, designId: DEFAULT_DESIGN, preview: true, loading: false };
+  const state = { demoOrderDraft: false, revision: null, documents: [], customTemplates: [], customBlocks: [], blockCategory: "Alle", blockSearch: "", lastRange: null, current: null, profile: {}, logoData: "", dirty: false, showArchived: false, search: "", librarySearch: "", category: "Alle", favoritesOnly: false, favorites: [], libraryOpen: true, designId: DEFAULT_DESIGN, preview: true, loading: false };
 
   const el = (id) => document.getElementById(id);
   const escapeHtml = (value) => String(value == null ? "" : value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
@@ -141,7 +141,7 @@
 
   function newDocument(kind) {
     const type = Object.hasOwn(templates, kind) ? kind : "blank";
-    return { id: newId(), kind: type, title: labels[type] + " – " + new Date().toLocaleDateString("de-DE"), recipient: "", reference: "", contentHtml: templates[type], designId: state.designId, templateId: "", accentColor: "", headerText: "", footerText: "", logoData: "", createdAt: "", updatedAt: "", version: 0, archivedAt: null };
+    return { id: newId(), kind: type, title: labels[type] + " – " + new Date().toLocaleDateString("de-DE"), recipient: "", reference: "", sourceOrderId: "", contentHtml: templates[type], designId: state.designId, templateId: "", accentColor: "", headerText: "", footerText: "", logoData: "", createdAt: "", updatedAt: "", version: 0, archivedAt: null };
   }
 
   function ensureUI() {
@@ -168,7 +168,7 @@
         '<label class="eds-check" style="margin-top:12px"><input type="checkbox" id="edsShowArchived"> Archivierte anzeigen</label>',
         '<div id="edsList" class="eds-doc-list" aria-label="Dokumentenliste"></div></div>',
       '</aside><div class="eds-card">',
-        '<div class="eds-section-title"><h3>Dokument bearbeiten</h3><span class="eds-muted">Text direkt auf der A4-Seite bearbeiten · Änderungen bewusst speichern</span></div><div class="eds-meta">',
+        '<div class="eds-section-title"><h3>Dokument bearbeiten</h3><span class="eds-muted">Text direkt auf der A4-Seite bearbeiten · Änderungen bewusst speichern</span></div><div id="edsOrderSourceNotice" class="eds-order-source-notice" hidden></div><div class="eds-meta">',
           '<label class="eds-field">Dokumententitel<input id="edsTitle" maxlength="120" autocomplete="off"></label>',
           '<label class="eds-field">Dokumentenart<select id="edsKind"></select></label>',
           '<label class="eds-field eds-recipient-field">Empfänger / Anschrift<textarea id="edsRecipient" maxlength="300" rows="5" autocomplete="off" placeholder="Vorname Nachname&#10;Firma (optional)&#10;Musterstraße 12&#10;12345 Musterstadt"></textarea><span class="eds-muted">Name, Straße und PLZ/Ort jeweils in eine neue Zeile schreiben.</span></label>',
@@ -398,6 +398,7 @@
 
   async function saveSelectedBlock() {
     if (!state.current || state.current.archivedAt) return status("Bitte zuerst ein bearbeitbares Dokument öffnen.", true);
+    if (state.demoOrderDraft) return status("Demo-Aufträge können keine Textbausteine dauerhaft speichern.", true);
     if (state.revision === null) return status("Textbausteine benötigen den Dokumentenspeicher.", true);
     const body = el("edsPageBody");
     const range = state.lastRange;
@@ -459,6 +460,7 @@
   async function savePersonalTemplate() {
     const doc = readForm();
     if (!doc) return;
+    if (state.demoOrderDraft) return status("Aus einem Demo-Auftrag können keine persönlichen Vorlagen gespeichert werden.", true);
     if (state.revision === null) return status("Vorlagen können erst nach Verbindung zum Dokumentenspeicher gespeichert werden.", true);
     const suggested = (doc.title || labels[doc.kind] || "Neue Vorlage").slice(0, 120);
     const name = window.prompt("Name für deine eigene Vorlage:", suggested);
@@ -545,6 +547,9 @@
   }
 
   function showDoc(doc) {
+    state.demoOrderDraft = false;
+    const sourceNotice = el("edsOrderSourceNotice");
+    if (sourceNotice) { sourceNotice.hidden = true; sourceNotice.textContent = ""; }
     state.current = { ...doc };
     state.dirty = false;
     state.preview = true;
@@ -688,6 +693,7 @@
   async function save() {
     const doc = readForm();
     if (!doc) return;
+    if (state.demoOrderDraft) return status("Demo-Bestellungen dürfen nicht dauerhaft gespeichert werden.", true);
     if (state.revision === null) return status("Keine Serververbindung. Dokument zuerst exportieren und später erneut versuchen.", true);
     if (doc.archivedAt) return status("Archivierte Dokumente erst wiederherstellen.", true);
     if (!doc.title || doc.title.length > 120) return status("Bitte Titel mit höchstens 120 Zeichen eintragen.", true);
@@ -809,6 +815,7 @@
   }
 
   function printDocument() {
+    if (state.demoOrderDraft) return status("Demo-Muster werden nicht als PDF ausgegeben.", true);
     const doc = readForm();
     if (!doc) return;
     const popup = window.open("", "_blank", "width=960,height=1100");
@@ -926,6 +933,7 @@
   }
 
   async function exportDocx() {
+    if (state.demoOrderDraft) return status("Demo-Muster werden nicht als Word-Datei ausgegeben.", true);
     const doc = readForm();
     if (!doc) return;
     const style = DESIGNS[doc.designId] || DESIGNS.elyon;
@@ -1107,7 +1115,7 @@
     else if (el("mainMenu")?.value === TAB_ID) openStudio();
   }
 
-  window.ElyonDocumentStudio = { open: openStudio };
+  window.ElyonDocumentStudio = { open: openStudio, openFromOrder };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
   else start();
 })();
