@@ -102,7 +102,7 @@ export function estimatedOrderCosts(order, products = []) {
 export function financeOrderCostHints(transactions = [], { orderIds = [] } = {}) {
   const allowed = new Set((Array.isArray(orderIds) ? orderIds : []).map(text).filter(Boolean));
   const scopes = { supplier_expense: "purchaseCost", shipping_expense: "shippingCost", ebay_fee: "feeCost" };
-  const rows = {};
+  const rows = Object.create(null);
   const dedup = new Set();
   for (const item of Array.isArray(transactions) ? transactions : []) {
     const line = object(item);
@@ -117,7 +117,7 @@ export function financeOrderCostHints(transactions = [], { orderIds = [] } = {})
     const identity = [field, orderId, uniqueId].join("|");
     if (dedup.has(identity)) continue;
     dedup.add(identity);
-    const byOrder = rows[orderId] ||= {};
+    const byOrder = rows[orderId] ||= Object.create(null);
     const entry = byOrder[field] ||= { value: 0, count: 0, approved: true, source: "finance_transactions" };
     entry.value += Math.abs(rawAmount);
     entry.count += 1;
