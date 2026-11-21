@@ -2,16 +2,23 @@
 
 ## Funktionsumfang
 
-- Bestehende Vorlagenbibliothek (30 Dokumentvorlagen), vier Layoutdesigns und persönliche Vorlagen aus V2 bleiben erhalten.
+- Bestehende Vorlagenbibliothek (31 Dokumentvorlagen), vier Layoutdesigns und persönliche Vorlagen aus V2 bleiben erhalten.
 - **A4-Direkteditor:** Der Text wird innerhalb der angezeigten A4-Seite bearbeitet (`contenteditable` am Inhalt, nicht an Firmendaten/Metadaten). Das versteckte V2-Quellfeld ist nur ein interner synchronisierter Fallback; es erscheint nicht mehr als zweiter Editor.
 - **Live-Layout:** Kopf, Fuß, Logo, Akzentfarbe, Empfänger und Dokumententitel bleiben auf derselben A4-Fläche sichtbar. Das Layout entspricht dem HTML/CSS des PDF-Drucks; Browser-Druckeffekte und Seitenumbrüche können weiterhin abweichen.
-- **21 integrierte Textbausteine**: Begrüßung, Abschluss, Verkauf, Kundenservice, Lieferanten, Organisation. Diese Texte sind Einstiegshilfen, keine rechtlich geprüften Klauseln.
+- **22 integrierte Textbausteine**: Begrüßung, Abschluss, Verkauf, Kundenservice, Lieferanten, Organisation. Diese Texte sind Einstiegshilfen, keine rechtlich geprüften Klauseln.
 - **Persönliche Textbausteine:** Text auf der A4-Seite markieren → „Auswahl als Baustein speichern“ → Titel vergeben. Neue oder namensgleiche eigene Bausteine (nach Bestätigung) werden im Dokumentenarchiv revisionssicher gespeichert; max. 60 Bausteine, je 5.000 HTML-Zeichen.
 - **Einfügen an Cursorposition:** Klick in Dokument → Textbaustein anklicken; zuletzt gewählte Textposition wird bewahrt. HTML wird client- und serverseitig auf die vorhandene semantische Allowlist beschränkt. Bereits eingefügter Text ist frei bearbeitbar.
 - Eigene Bausteine können gelöscht werden, ohne Dokumente zu ändern, in denen der Text vorher eingefügt wurde.
 - Platzhalter wie `{{Firma}}`, `{{Empfänger}}`, `{{Datum}}`, `{{Referenz}}` werden im Editor als editierbare Tokens angezeigt und erst für PDF-/DOCX-Export mit vorhandenen Firmen-/Dokumentdaten ersetzt.
 - Vorlagen-, Dokument-, Design- und Logo-Funktionen aus V2 bleiben erhalten.
 - Weiterhin keine zusätzlichen KI-Aufrufe, Gebühren oder neue Pflicht-Secrets.
+
+## Unterschied: Bestell- vs. Auftragsbestätigung
+
+- **Bestellbestätigung (Bestelleingang):** Separate Vorlage in „Verkauf“ zur sachlichen Bestätigung des Bestellungseingangs; mit Bestellnummer, Artikeltabelle, Bearbeitungs- und Versandhinweis. Das Bestelldatum ist als zu prüfendes Feld ausgeführt, nicht aus dem Erstellungsdatum erfunden. Keine Aussage darüber, ob der Vertrag bereits geschlossen wurde.
+- **Auftragsbestätigung:** Bestehende eigene Vorlage für die Bestätigung eines konkreten Auftrags und seiner Konditionen.
+- **Textbaustein:** „Bestelleingang bestätigen“ separat von der bisherigen „Bestellung bestätigen“-Formulierung.
+- Keine Änderung des eBay-Order-Status; ELYON erstellt nur manuell kontrollierte Dokumententwürfe.
 
 ## API & Datensicherheit
 
