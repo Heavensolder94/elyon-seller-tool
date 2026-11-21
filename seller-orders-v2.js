@@ -102,8 +102,11 @@ function progressMarkup(order, op) {
   const steps = [["NEW","Eingang"],["PROCESSING","Bearbeitung"],["SUPPLIER_ORDERED","Lieferant"],["SHIPPED","Versand"],["COMPLETED","Fertig"]];
   const current = text(op.workflowStatus || op.status || (order.fulfillmentStatus==="FULFILLED" ? "SHIPPED":"NEW")).toUpperCase();
   const index = Math.max(0, steps.findIndex(([id]) => id===current));
-  return `<div class="ocv2-progress" aria-label="Interner Bestellablauf">${steps.map(([id,label],i) =>
-    `<button type="button" data-ocv2-phase="${id}" aria-label="Internen Schritt ${h(label)} auswählen" aria-current="${index===i?"step":"false"}" class="${i<index?"done":i===index?"current":""}"><span class="ocv2-dot">${i<index?"✓":i+1}</span><span>${h(label)}</span></button>`).join("")}</div>`;
+  const finished = current === "COMPLETED";
+  return `<div class="ocv2-progress" aria-label="${finished ? "Bestellung abgeschlossen" : "Interner Bestellablauf"}">${steps.map(([id,label],i) => {
+    const done = i < index || (finished && i === index);
+    return `<button type="button" data-ocv2-phase="${id}" aria-label="Internen Schritt ${h(label)} auswählen" aria-current="${!finished && index===i?"step":"false"}" class="${done?"done":i===index?"current":""}"><span class="ocv2-dot">${done?"✓":i+1}</span><span>${h(label)}</span></button>`;
+  }).join("")}</div>`;
 }
 function nextActionMarkup(order) {
   const status = statusOf(order);
