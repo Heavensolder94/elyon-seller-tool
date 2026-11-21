@@ -2,6 +2,7 @@ import {
   escapeHtml as h, normalizeEbayOrder, workflowStatus, paymentConfirmed,
   productForLine, supplierSuggestionForOrder, estimatedOrderCosts, actualOrderProfit, summarizeOrders,
   visibleOrders, normalizeOperationInput, financeOrderCostHints, suggestRecordedCosts, orderCompletionChecklist,
+  buildOrderDocumentContext,
 } from "./seller-orders-v2-core.js";
 import { validateSupplierOrderHandoff } from "./seller-supplier-order-import-core.js";
 
@@ -232,6 +233,22 @@ function detailsMarkup(order) {
     ${!paymentConfirmed(order) ? '<p class="ocv2-alert">eBay meldet die Bestellung nicht als vollständig bezahlt. Vor einem Einkauf bitte überprüfen.</p>' : ""}
     <h4>Artikel & Produktverknüpfungen</h4><div class="ocv2-lines">${lines}</div>
     ${shippingAddress}
+    <section class="ocv2-order-documents" aria-label="Dokument aus Bestellung erstellen">
+      <h4>Dokumente zu dieser Bestellung</h4>
+      <p class="ocv2-hint">Übernimmt geprüfte eBay-Daten in einen bearbeitbaren Entwurf. Keine automatische Erstellung, kein Kundenversand und keine Änderung bei eBay.</p>
+      <div class="ocv4-inline-action">
+        <label for="ocv2DocumentKind">Vorlage
+          <select id="ocv2DocumentKind" aria-label="Dokumentvorlage auswählen">
+            <option value="bestellbestaetigung">Bestellbestätigung (Eingang)</option>
+            <option value="auftragsbestaetigung">Auftragsbestätigung</option>
+            <option value="lieferschein">Lieferschein</option>
+            <option value="versandbestaetigung">Versandbestätigung</option>
+          </select>
+        </label>
+        <button type="button" class="ocv2-primary" data-order-document>Dokument erstellen</button>
+      </div>
+      ${state.demoMode ? '<p class="ocv2-hint">Demo: Das Dokument wird nur als Muster geöffnet und kann nicht gespeichert oder exportiert werden.</p>' : ""}
+    </section>
     </section>
     <form id="ocv2OrderForm" data-order-id="${cleanAttr(order.id)}">
       <section class="ocv2-pane" data-pane="supplier" ${state.activeSection!=="supplier"?"hidden":""}>
@@ -711,6 +728,37 @@ function updateLiveProfit(form) {
   indicator.classList.toggle("is-loss", profit !== null && profit < 0);
   indicator.classList.add("is-provisional");
 }
+async function openOrderDocument() {
+  const order = ordersNow().find((item) => item.id === state.selectedId);
+  if (!order) return;
+  const templateId = root()?.querySelector("#ocv2DocumentKind")?.value || "bestellbestaetigung";
+  if (!["bestellbestaetigung", "auftragsbestaetigung", "lieferschein", "versandbestaetigung"].includes(templateId)) return;
+  if (order.cancelStatus?.includes("CANCEL") || statusOf(order) === "cancelled") {
+    state.warning = "Für stornierte Bestellungen wird keine Bestell- oder Versandbestätigung vorbereitet.";
+    render(); return;
+  }
+  if (templateId === "versandbestaetigung" && order.fulfillmentStatus !== "FULFILLED") {
+    state.warning = "Die Versandbestätigung ist erst verfügbar, wenn eBay den Auftrag als versendet bestätigt. Du kannst bis dahin einen Lieferschein vorbereiten.";
+    render(); return;
+  }
+  const operation = opFor(order.id);
+  const context = buildOrderDocumentContext(order, {
+    demo: state.demoMode, carrier: operation.carrier, trackingNumber: operation.trackingNumber
+  });
+  if (!context) {
+    state.warning = "Die eBay-Bestelldaten sind für eine sichere Dokumentenerstellung unvollständig.";
+    render(); return;
+  }
+  try {
+    const bridge = window.ElyonSellerDocumentBridge;
+    if (typeof bridge?.openFromOrder !== "function") throw new Error("Die Dokumentenstudio-Verbindung ist nicht geladen.");
+    await bridge.openFromOrder(context, templateId);
+  } catch (error) {
+    state.warning = "Dokumentenstudio konnte nicht geöffnet werden: " + text(error.message);
+    render();
+  }
+}
+
 async function openOrderInvoice() {
   if (state.demoMode) return openDemoModal("invoice");
   const order = state.orders.find((item) => item.id === state.selectedId);
@@ -819,6 +867,7 @@ function bind() {
     if (choose) { state.selectedId = choose.dataset.orderOpen; state.activeSection = "overview"; state.saveNotice = ""; render(); root()?.querySelector(".ocv3-drawer-content")?.focus(); if(!state.demoMode)void loadOrderReceipts(state.selectedId); return; }
     const filter = event.target.closest("[data-ocv2-filter]");
     if (filter) { state.filter = filter.dataset.ocv2Filter; return render(); }
+    if (event.target.closest("[data-order-document]")) return void openOrderDocument();
     if (event.target.closest("[data-order-invoice]")) return void openOrderInvoice();
     if (event.target.closest("[data-order-shipping]")) {
       if (state.demoMode) return openDemoModal("shipping");
