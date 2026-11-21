@@ -305,3 +305,119 @@ body.light #elyonOrdersV2Root .ocv3-drawer-content,
 body.light #elyonOrdersV2Root .ocv3-drawer-top { background:#fff; }
 body.light #elyonOrdersV2Root .ocv3-drawer-top strong { color:#0f172a; }
 body.light #elyonOrdersV2Root .ocv3-drawer-open .ocv2-details-actions { background:rgba(255,255,255,.97); }
+
+/* ELYON Bestellzentrale Business Compact 3.1
+   Deliberately scoped to the orders screen: dense ERP-like rows, not oversized cards.
+   Interactive handlers, backend data and order detail behavior remain untouched. */
+#elyonOrdersV2Root .ocv2-shell { max-width:1540px; gap:13px; padding:6px clamp(8px,1.2vw,16px) 34px; }
+#elyonOrdersV2Root .ocv2-header { gap:12px; padding-bottom:12px; border-color:rgba(148,163,184,.12); }
+#elyonOrdersV2Root .ocv2-header h2 { font-size:clamp(23px,2vw,28px); margin:4px 0 5px; line-height:1.15; letter-spacing:-.02em; }
+#elyonOrdersV2Root .ocv2-kicker { letter-spacing:.07em; font-size:10px; color:#94a3b8; }
+#elyonOrdersV2Root .ocv2-header p { font-size:12px; line-height:1.45; }
+#elyonOrdersV2Root .ocv2-header-actions { gap:7px; align-items:flex-end; }
+#elyonOrdersV2Root .ocv2-header-actions label { font-size:10px; gap:3px; line-height:1.25; }
+#elyonOrdersV2Root .ocv2-header-actions select { min-width:100px; }
+#elyonOrdersV2Root .ocv2-header-actions button,
+#elyonOrdersV2Root .ocv2-header-actions select { min-height:33px; padding:7px 11px; font-size:11px; font-weight:650; border-radius:6px; box-shadow:none; }
+#elyonOrdersV2Root button.ocv2-primary { background:#394d76; border:1px solid #50648d; color:#f8fafc; border-radius:6px; box-shadow:none; }
+#elyonOrdersV2Root button.ocv2-primary:hover { background:#465f8b; }
+#elyonOrdersV2Root .ocv2-demo-btn { background:transparent; color:#a7b4cb; border:1px solid rgba(148,163,184,.27); border-style:solid; border-radius:6px; }
+#elyonOrdersV2Root .ocv2-demo-btn:hover { background:rgba(148,163,184,.08); }
+#elyonOrdersV2Root .ocv2-stats { gap:8px; grid-template-columns:repeat(4,minmax(0,1fr)); }
+#elyonOrdersV2Root button.ocv2-stat { display:flex; flex-direction:column; justify-content:center; align-items:flex-start; min-height:64px; padding:10px 13px; border-radius:6px; background:rgba(16,26,42,.55); border:1px solid rgba(148,163,184,.16); box-shadow:none; }
+#elyonOrdersV2Root button.ocv2-stat:hover { background:rgba(33,47,68,.55); border-color:rgba(148,163,184,.35); }
+#elyonOrdersV2Root button.ocv2-stat.active { border-color:#8091ac; box-shadow:inset 2px 0 0 #aab5c8; }
+#elyonOrdersV2Root .ocv2-stat small { font-size:11px; font-weight:500; color:#9daabd; letter-spacing:0; }
+#elyonOrdersV2Root .ocv2-stat strong { font-size:21px; line-height:1.1; font-weight:720; margin:3px 0 0; color:#e9eef6; }
+#elyonOrdersV2Root .ocv2-list-card { padding:12px 15px 7px; border-radius:8px; background:rgba(14,23,38,.70); border:1px solid rgba(148,163,184,.15); box-shadow:none; }
+#elyonOrdersV2Root .ocv2-list-header { align-items:center; margin-bottom:10px; gap:10px; }
+#elyonOrdersV2Root .ocv2-list-header h3 { font-size:15px; font-weight:700; margin:0 0 3px; letter-spacing:0; }
+#elyonOrdersV2Root .ocv2-list-header .ocv2-small { font-size:10px; }
+#elyonOrdersV2Root .ocv2-list-header input { max-width:320px; min-height:33px; font-size:11px; padding:7px 11px; border-radius:6px; background:#0b1525; }
+#elyonOrdersV2Root .ocv2-filters { padding-bottom:8px; margin-bottom:1px; gap:3px; border-color:rgba(148,163,184,.10); }
+#elyonOrdersV2Root .ocv2-filters button { font-size:11px; font-weight:600; padding:6px 11px; min-height:30px; border:0; border-bottom:2px solid transparent; border-radius:3px 3px 0 0; background:transparent; color:#9ba8bc; }
+#elyonOrdersV2Root .ocv2-filters button:hover { background:rgba(148,163,184,.07); }
+#elyonOrdersV2Root .ocv2-filters button.active { background:rgba(148,163,184,.07); border-color:#b5c4da; color:#f1f5f9; }
+#elyonOrdersV2Root .ocv3-order-list-header.ocv4-order-head,
+#elyonOrdersV2Root button.ocv2-order.ocv4-order-row {
+  display:grid; grid-template-columns:minmax(190px,2.4fr) minmax(100px,1fr) minmax(120px,.95fr) minmax(85px,.72fr) minmax(115px,.95fr);
+  align-items:center; column-gap:13px; text-align:left; width:100%;
+}
+#elyonOrdersV2Root .ocv3-order-list-header.ocv4-order-head {
+  min-height:33px; padding:7px 11px; font-size:10px; color:#8493a8; font-weight:650;
+  letter-spacing:.025em; background:rgba(148,163,184,.04); text-transform:none;
+  border-bottom:1px solid rgba(148,163,184,.18);
+}
+#elyonOrdersV2Root .ocv4-order-head span:nth-child(4),
+#elyonOrdersV2Root .ocv4-order-head span:last-child { text-align:right; }
+#elyonOrdersV2Root .ocv2-order-list { display:block; max-height:none; overflow:visible; padding:0; }
+#elyonOrdersV2Root button.ocv2-order.ocv4-order-row {
+  min-height:55px; padding:8px 11px; gap:13px; border:0; border-bottom:1px solid rgba(148,163,184,.12);
+  border-radius:0; background:transparent; box-shadow:none; color:#d9e2ee; font-size:12px;
+  font-weight:400; cursor:pointer;
+}
+#elyonOrdersV2Root button.ocv2-order.ocv4-order-row:last-child { border-bottom:0; }
+#elyonOrdersV2Root button.ocv2-order.ocv4-order-row:hover { background:rgba(148,163,184,.075); }
+#elyonOrdersV2Root button.ocv2-order.ocv4-order-row.is-selected { background:rgba(148,163,184,.10); box-shadow:inset 2px 0 0 #94a3b8; }
+#elyonOrdersV2Root .ocv4-order-product { display:block; min-width:0; overflow:hidden; }
+#elyonOrdersV2Root .ocv4-order-product strong { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:12px; font-weight:650; color:#e3ebf7; line-height:1.35; margin:0; }
+#elyonOrdersV2Root .ocv4-order-product small { display:block; margin-top:2px; line-height:1.2; font-size:10px; font-weight:450; color:#8595aa; }
+#elyonOrdersV2Root .ocv4-mobile-meta { display:none!important; }
+#elyonOrdersV2Root .ocv4-buyer,
+#elyonOrdersV2Root .ocv4-date { min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:#b1bfd0; font-size:11px; }
+#elyonOrdersV2Root .ocv4-amount { text-align:right; color:#e3ebf7; white-space:nowrap; font-size:12px; font-weight:650; font-variant-numeric:tabular-nums; }
+#elyonOrdersV2Root .ocv4-status { display:flex; align-items:center; justify-content:flex-end; gap:7px; color:#b8c4d3; font-size:11px; font-weight:500; line-height:1.25; text-align:right; white-space:nowrap; overflow:hidden; }
+#elyonOrdersV2Root .ocv4-status-dot { display:inline-block; flex:0 0 6px; width:6px; height:6px; border-radius:50%; background:#8a9aad; }
+#elyonOrdersV2Root .ocv4-status--new .ocv4-status-dot { background:#6fae95; }
+#elyonOrdersV2Root .ocv4-status--awaiting_payment .ocv4-status-dot,
+#elyonOrdersV2Root .ocv4-status--issue .ocv4-status-dot,
+#elyonOrdersV2Root .ocv4-status--cancelled .ocv4-status-dot { background:#d2a36c; }
+#elyonOrdersV2Root .ocv4-status--shipped .ocv4-status-dot,
+#elyonOrdersV2Root .ocv4-status--completed .ocv4-status-dot { background:#80b4a3; }
+#elyonOrdersV2Root .ocv2-empty { min-height:190px; padding:28px 15px; }
+#elyonOrdersV2Root .ocv3-drawer-content { width:min(100%,555px); }
+#elyonOrdersV2Root .ocv3-drawer-open .ocv2-progress { gap:2px; padding:5px; margin-top:6px; border-radius:5px; background:transparent; }
+#elyonOrdersV2Root .ocv3-drawer-open .ocv2-progress button { font-size:10px; font-weight:500; padding:4px 2px; border:0; border-radius:3px; box-shadow:none; }
+#elyonOrdersV2Root .ocv3-drawer-open .ocv2-progress .ocv2-dot { width:19px; height:19px; font-size:9px; }
+#elyonOrdersV2Root .ocv3-drawer-open .ocv2-detail-tabs button { font-size:11px; font-weight:650; min-height:34px; padding:7px 10px; }
+#elyonOrdersV2Root .ocv3-drawer-content input,
+#elyonOrdersV2Root .ocv3-drawer-content select,
+#elyonOrdersV2Root .ocv3-drawer-content textarea { border-radius:5px; padding:8px 10px; font-size:12px; }
+#elyonOrdersV2Root .ocv3-drawer-content button { border-radius:5px; font-size:11px; }
+#elyonOrdersV2Root .ocv3-drawer-content h4 { font-size:12px; margin:15px 0 8px; }
+#elyonOrdersV2Root .ocv3-drawer-content .ocv2-line { padding:9px 10px; border-radius:5px; }
+#elyonOrdersV2Root .ocv3-drawer-content .ocv2-next { border-radius:5px; padding:10px; }
+@media (max-width:1040px) {
+ #elyonOrdersV2Root .ocv3-order-list-header.ocv4-order-head,
+ #elyonOrdersV2Root button.ocv2-order.ocv4-order-row { grid-template-columns:minmax(160px,2.2fr) minmax(92px,1fr) 100px 85px minmax(99px,.9fr); column-gap:9px; }
+}
+@media (max-width:780px) {
+ #elyonOrdersV2Root .ocv3-order-list-header.ocv4-order-head,
+ #elyonOrdersV2Root button.ocv2-order.ocv4-order-row { grid-template-columns:minmax(140px,1fr) 90px 118px; column-gap:9px; }
+ #elyonOrdersV2Root .ocv4-order-head span:nth-child(2),
+ #elyonOrdersV2Root .ocv4-order-head span:nth-child(3),
+ #elyonOrdersV2Root .ocv4-buyer, #elyonOrdersV2Root .ocv4-date { display:none; }
+ #elyonOrdersV2Root .ocv4-mobile-meta { display:block!important; font-size:10px; margin-top:3px; }
+ #elyonOrdersV2Root .ocv4-order-head span:nth-child(4) { text-align:right; }
+ #elyonOrdersV2Root .ocv4-order-head span:last-child { text-align:right; }
+ #elyonOrdersV2Root .ocv2-list-card { padding:10px 9px; }
+}
+@media (max-width:470px) {
+ #elyonOrdersV2Root .ocv2-stats { grid-template-columns:repeat(2,minmax(0,1fr)); }
+ #elyonOrdersV2Root .ocv3-order-list-header.ocv4-order-head,
+ #elyonOrdersV2Root button.ocv2-order.ocv4-order-row { grid-template-columns:minmax(116px,1fr) 77px 96px; column-gap:5px; }
+ #elyonOrdersV2Root button.ocv2-order.ocv4-order-row { padding:9px 5px; min-height:55px; }
+ #elyonOrdersV2Root .ocv4-status { font-size:10px; gap:4px; }
+ #elyonOrdersV2Root .ocv4-amount { font-size:11px; }
+ #elyonOrdersV2Root .ocv2-list-header input { width:100%; max-width:none; }
+ #elyonOrdersV2Root .ocv3-drawer-content { width:100%; }
+}
+body.light #elyonOrdersV2Root .ocv2-list-card,
+body.light #elyonOrdersV2Root button.ocv2-stat { background:#fff; }
+body.light #elyonOrdersV2Root .ocv4-order-product strong,
+body.light #elyonOrdersV2Root .ocv4-amount { color:#0f172a; }
+body.light #elyonOrdersV2Root .ocv4-buyer,
+body.light #elyonOrdersV2Root .ocv4-date,
+body.light #elyonOrdersV2Root .ocv4-status { color:#475569; }
+body.light #elyonOrdersV2Root button.ocv2-order.ocv4-order-row:hover { background:#f1f5f9; }
+body.light #elyonOrdersV2Root .ocv2-stat strong { color:#0f172a; }

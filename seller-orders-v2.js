@@ -82,15 +82,24 @@ function statsCard(label, value, filter = "all") {
 }
 function rowMarkup(order) {
   const status = statusOf(order);
-  const chosen = state.selectedId === order.id;
   const first = order.lines[0];
   const title = first?.title || "eBay-Bestellung";
   const more = order.lines.length > 1 ? ` + ${order.lines.length - 1} weitere` : "";
-  return `<button type="button" class="ocv2-order ${chosen ? "is-selected" : ""}" data-order-open="${cleanAttr(order.id)}" aria-pressed="${chosen}">
-    <div class="ocv3-order-icon" aria-hidden="true">▣</div><div class="ocv2-order-main"><strong>${h(title + more)}</strong><span class="ocv2-small">#${h(order.id)} · ${h(date(order.createdAt))}</span>
-    <span class="ocv2-small">${h(order.buyerRef || "Käuferreferenz unbekannt")} · ${order.lines.reduce((sum, line) => sum + line.quantity, 0)} Stk.</span></div>
-    <div class="ocv2-order-right"><strong>${h(money(order.total, order.currency))}</strong>
-    <span class="ocv2-state ocv2-state--${h(status)}">${h(statusLabels[status] || status)}</span></div><span class="ocv3-order-arrow" aria-hidden="true">›</span>
+  const qty = order.lines.reduce((sum, line) => sum + line.quantity, 0);
+  const selected = state.selectedId === order.id;
+  const dateLabel = date(order.createdAt);
+  return `<button type="button" class="ocv2-order ocv4-order-row ${selected ? "is-selected" : ""}"
+      data-order-open="${cleanAttr(order.id)}" aria-pressed="${selected}"
+      aria-label="Bestellung ${h(order.id)} öffnen: ${h(title)}">
+    <span class="ocv4-order-product">
+      <strong>${h(title + more)}</strong>
+      <small>${h(order.id)} · ${h(String(qty))} Stk.</small>
+      <small class="ocv4-mobile-meta">${h(order.buyerRef || "Käufer unbekannt")} · ${h(dateLabel)}</small>
+    </span>
+    <span class="ocv4-buyer" title="${h(order.buyerRef || "")}">${h(order.buyerRef || "–")}</span>
+    <span class="ocv4-date">${h(dateLabel)}</span>
+    <span class="ocv4-amount">${h(money(order.total, order.currency))}</span>
+    <span class="ocv4-status ocv4-status--${h(status)}"><span class="ocv4-status-dot" aria-hidden="true"></span>${h(statusLabels[status] || status)}</span>
   </button>`;
 }
 const SECTION_TABS = [["overview","Überblick"],["supplier","Lieferant"],["shipping","Versand"],["finance","Finanzen"]];
@@ -340,7 +349,7 @@ function render() {
           <nav class="ocv2-filters" aria-label="Bestellstatus">
           ${[["all", "Alle"], ["new", "Neu"], ["processing", "Bearbeitung"], ["shipping", "Versand offen"], ["shipped", "Versendet"], ["issues", "Prüfen"]].map(([id, label]) =>
             `<button type="button" data-ocv2-filter="${id}" class="${state.filter === id ? "active" : ""}">${label}</button>`).join("")}</nav>
-          <div class="ocv3-order-list-header"><span>Bestellung / Artikel</span><span>Betrag / Status</span></div><div class="ocv2-order-list">${!state.sourceReady && !state.loading && !state.demoMode ? '<div class="ocv2-empty"><strong>Bestellungen laden oder Demo ausprobieren</strong><span>Die Demo funktioniert ohne Verkäufe und verändert keine Daten.</span><button type="button" data-ocv2-demo-start>Demo ausprobieren →</button></div>' :
+          <div class="ocv3-order-list-header ocv4-order-head" aria-hidden="true"><span>Bestellung / Artikel</span><span>Käufer</span><span>Bestelldatum</span><span>Betrag</span><span>Status</span></div><div class="ocv2-order-list">${!state.sourceReady && !state.loading && !state.demoMode ? '<div class="ocv2-empty"><strong>Bestellungen laden oder Demo ausprobieren</strong><span>Die Demo funktioniert ohne Verkäufe und verändert keine Daten.</span><button type="button" data-ocv2-demo-start>Demo ausprobieren →</button></div>' :
             !rows.length ? `<div class="ocv2-empty"><strong>${state.loading ? "Bestellungen werden geladen…" : "Keine passenden Bestellungen"}</strong>
             <span>${state.loading ? "eBay wird gelesen." : "Im gewählten Zeitraum liegen keine passenden Aufträge vor."}</span>${!state.loading && !state.demoMode && !state.query && state.filter==="all" ? '<button type="button" data-ocv2-demo-start>Mit Beispielbestellungen testen →</button>' : ""}</div>` :
             rows.map(rowMarkup).join("")}</div></section>
