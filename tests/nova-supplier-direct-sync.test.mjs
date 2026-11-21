@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import crypto from "node:crypto";
 import {readFile} from "node:fs/promises";
 import {issueNovaPairToken,verifyNovaPairToken,parseNovaOrderCapture,novaInboxView,NOVA_PAIR_TTL_SECONDS}
   from "../lib/nova-supplier-sync.js";
