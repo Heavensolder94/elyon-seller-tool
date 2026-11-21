@@ -78,3 +78,16 @@ Bestellung dort als versendet. Es ist die einzige Route, die eBay-Fulfillment sc
 Für neue Rechercheimporte bleiben bis zu zwölf Quellbilder, Originaltitel und -beschreibung, ausgewählte Varianten, Bulletpoints, Breadcrumbs und eingelesene Recherchemerkmale als Quelldaten erhalten. Die ausgewählten Varianten sind keine vollständige, bestätigte Variantenmatrix und alle Inhalte bleiben ohne Rechte- oder Lieferantenbestätigung.
 
 Bei FX-Draft-Feeds bestätigt `draftVisible` aus Kompatibilitätsgründen nur einen laut eBay erfolgreich verarbeiteten Feed-Eintrag. Der aktuelle Bestand im Seller Hub wird dadurch nicht bestätigt und muss dort geprüft werden.
+
+## Dokumentenstudio V1 (2026-11-21)
+
+Alle Endpunkte sind seller-authentifiziert und verwenden den separaten Redis-Bereich elyon-seller-tool:document-studio:v1:
+
+- GET /api/document-studio?action=list: Revision und Dokumenten-Metadaten.
+- GET /api/document-studio?action=get&id=...: ein Dokument inklusive gespeichertem HTML.
+- GET /api/document-studio?action=profile: bereits gespeicherte Geschäftsangaben aus Finance.
+- POST /api/document-studio?action=save: erwartete Revision und Dokument-Objekt (bearbeitbarer Entwurf).
+- POST /api/document-studio?action=archive: erwartete Revision und Dokument-ID.
+- POST /api/document-studio?action=restore: erwartete Revision und Dokument-ID.
+
+Bei gleichzeitiger Änderung HTTP 409, ohne persistenten Redis-Speicher HTTP 503. Keine Rechnungsausstellung und kein Versand über diesen Endpunkt. Details in docs/DOKUMENTENSTUDIO_V1.md.

@@ -52,6 +52,7 @@
       { src: "/seller-finance.js", type: "module" },
       { src: "/seller-order-invoices.js", type: "module" },
     ],
+    elyonDocumentStudioTab: [{ src: "/seller-document-studio.js" }],
     settingsTab: [
       { src: "/seller-system-status-settings.js" },
       { src: "/seller-settings-layout-experiment.js" },
@@ -890,6 +891,18 @@
     });
   }
 
+  // The order cockpit uses the existing lazy-loaded studio, not a new document service.
+  // No browser storage or order writes: data is transferred in memory on explicit click.
+  window.ElyonSellerDocumentBridge = Object.freeze({
+    async openFromOrder(context, templateId) {
+      await requestGroup("elyonDocumentStudioTab");
+      if (typeof window.ElyonDocumentStudio?.openFromOrder !== "function") {
+        throw new Error("Das Dokumentenstudio konnte nicht gestartet werden.");
+      }
+      return window.ElyonDocumentStudio.openFromOrder(context, templateId);
+    },
+  });
+
   function requestQuickstart(manual = true) {
     return requestGroup("quickstart")
       .then(() => window.ElyonSellerQuickstart?.open?.({ manual }))
@@ -948,6 +961,33 @@
     }
   }
 
+  function installDocumentStudioEntry() {
+    const menu = document.getElementById("mainMenu");
+    if (menu && !menu.querySelector('option[value="elyonDocumentStudioTab"]')) {
+      const option = document.createElement("option");
+      option.value = "elyonDocumentStudioTab";
+      option.textContent = "📄 Dokumentenstudio";
+      menu.appendChild(option);
+    }
+    const nav = document.querySelector(".nav-menu");
+    if (nav && !document.getElementById("elyonDocumentStudioRuntimeNav")) {
+      const link = document.createElement("a");
+      link.id = "elyonDocumentStudioRuntimeNav";
+      link.href = "#dokumentenstudio";
+      link.className = "nav-item";
+      link.dataset.tab = "elyonDocumentStudioTab";
+      link.innerHTML = '<span class="nav-icon">📄</span><span>Dokumentenstudio</span>';
+      link.addEventListener("click", (event) => {
+        event.preventDefault();
+        if (menu) menu.value = "elyonDocumentStudioTab";
+        requestGroup("elyonDocumentStudioTab")
+          .then(() => window.ElyonDocumentStudio?.open?.())
+          .catch(() => {});
+      });
+      nav.appendChild(link);
+    }
+  }
+
   function tabFromClick(target) {
     if (!(target instanceof Element)) return "";
     const explicit = target.closest("[data-tab],[data-tab-id],[data-target-tab],[data-sd-tab],[data-seller-open-tab]");
@@ -971,6 +1011,7 @@
   function install() {
     installLegacyQuickstartBridge();
     installFinanceEntry();
+    installDocumentStudioEntry();
     ensureListingWorkspaces();
 
     document.addEventListener("change", (event) => {
@@ -1006,9 +1047,10 @@
 
     window.addEventListener("hashchange", () => {
       if (window.location.hash === "#finance") requestGroup("financeTab").catch(() => {});
+      if (window.location.hash === "#dokumentenstudio") requestGroup("elyonDocumentStudioTab").then(() => window.ElyonDocumentStudio?.open?.(false)).catch(() => {});
     });
 
-    const initial = window.location.hash === "#finance" ? "financeTab" : activeTabId();
+    const initial = window.location.hash === "#finance" ? "financeTab" : window.location.hash === "#dokumentenstudio" ? "elyonDocumentStudioTab" : activeTabId();
     if (initial) {
       const start = () => requestGroup(initial).catch(() => {});
       if ("requestIdleCallback" in window) {
