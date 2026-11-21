@@ -1,0 +1,41 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import crypto from "node:crypto";
+import {readFile} from "node:fs/promises";
+import {parseOriginalReceipt,receiptBytes,receiptMetadata,MAX_RECEIPT_BYTES} from "../lib/order-supplier-receipts.js";
+const pdf=Buffer.from("%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\n%%EOF\n");
+const opts=(extra={})=>({orderId:"12-34567-89012",filename:"supplier-invoice.pdf",mediaType:"application/pdf",base64:pdf.toString("base64"),...extra});
+test("uploaded supplier original is hashed and scoped exactly to order",()=>{
+  const a=parseOriginalReceipt(opts()),b=parseOriginalReceipt(opts());
+  assert.equal(a.id,b.id);
+  assert.equal(a.kind,"supplier_original");
+  assert.equal(a.origin,"user_upload");
+  assert.equal(a.verification,"user_supplied_unverified");
+  assert.equal(a.sha256,crypto.createHash("sha256").update(pdf).digest("hex"));
+  assert.deepEqual(receiptBytes(a),pdf);
+  assert.equal(receiptMetadata(a).originalBase64,undefined);
+  assert.notEqual(parseOriginalReceipt(opts({orderId:"12-34567-89013"})).id,a.id);
+});
+test("reject demo, tampered files, unknown formats and oversized content",()=>{
+  assert.throws(()=>parseOriginalReceipt(opts({orderId:"DEMO-1001"})));
+  assert.throws(()=>parseOriginalReceipt(opts({mediaType:"image/png"})));
+  assert.throws(()=>parseOriginalReceipt(opts({base64:Buffer.from("fake.exe fake.exe fake.exe").toString("base64")})));
+  assert.throws(()=>parseOriginalReceipt(opts({base64:Buffer.alloc(MAX_RECEIPT_BYTES+1,10).toString("base64")})));
+  const doc=parseOriginalReceipt(opts());
+  assert.throws(()=>receiptBytes({...doc,sha256:"0".repeat(64)}));
+});
+test("receipts API does not manufacture purchase invoices, automatically book costs or send messages",async()=>{
+ const api=await readFile(new URL("../api/orders/supplier-receipts.js",import.meta.url),"utf8");
+ const ui=await readFile(new URL("../seller-orders-v2.js",import.meta.url),"utf8");
+ assert.match(api,/requireSellerAccess\(req,res/);
+ assert.match(api,/expectedRevision/);
+ assert.match(api,/writeFinanceState\(\{documents:\[receipt\]\}/);
+ assert.match(api,/receiptBytes\(doc\)/);
+ assert.doesNotMatch(api,/send_message|issue-kleinunternehmer-invoice|reserveFinanceInvoiceNumber/);
+ assert.match(ui,/data-order-receipt-upload/);
+ assert.match(ui,/data-order-receipt-download/);
+ assert.match(ui,/loadOrderReceipts/);
+ assert.match(ui,/user_upload|Originalbeleg|Original-Einkaufsbelege/);
+ assert.match(ui,/Ist-Kosten/);
+ assert.match(ui,/state.demoMode\|\|state.receiptBusy/);
+});
