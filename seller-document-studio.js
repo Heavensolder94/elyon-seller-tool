@@ -514,8 +514,44 @@
     } catch (error) { status(error.message, true); }
   }
 
+
+  function documentCss() {
+    return [
+      '.eds-page{--eds-accent:#1d4ed8;--eds-ink:#13243d;--eds-muted:#53657a;--eds-font:Arial,sans-serif;box-sizing:border-box;width:100%;min-height:100%;padding:7.8% 8%;background:#fff;color:var(--eds-ink);font:13px/1.65 var(--eds-font);position:relative;overflow-wrap:anywhere}',
+      '.eds-page *{box-sizing:border-box;max-width:100%}',
+      '.eds-page .eds-paper-head{display:flex;justify-content:space-between;align-items:flex-start;gap:15px;padding-bottom:19px;border-bottom:2px solid var(--eds-accent)}',
+      '.eds-page .eds-paper-brand{font-size:22px;font-weight:750;line-height:1.14;letter-spacing:-.6px;color:var(--eds-accent);margin:0 0 7px}',
+      '.eds-page .eds-paper-sender{font-size:10px;line-height:1.45;color:var(--eds-muted)}',
+      '.eds-page .eds-paper-meta{text-align:right;color:var(--eds-muted);font-size:10px;line-height:1.55;white-space:normal}',
+      '.eds-page .eds-paper-recipient{padding:25px 0 19px;min-height:56px;display:flex;justify-content:space-between;gap:12px;color:var(--eds-ink);font-size:12px}',
+      '.eds-page .eds-paper-recipient .eds-paper-reference{text-align:right;font-size:10px;color:var(--eds-muted)}',
+      '.eds-page .eds-paper-title{font-size:23px;font-weight:750;line-height:1.25;letter-spacing:-.55px;color:var(--eds-ink);margin:4px 0 22px;break-after:avoid}',
+      '.eds-page .eds-export-body{min-height:90px;line-height:1.65}',
+      '.eds-page p{margin:0 0 12px}',
+      '.eds-page h1,.eds-page h2,.eds-page h3{line-height:1.3;break-after:avoid;color:var(--eds-ink);margin:16px 0 9px}',
+      '.eds-page h1{font-size:21px}.eds-page h2{font-size:16px}.eds-page h3{font-size:13px}',
+      '.eds-page ul,.eds-page ol{padding-left:22px;margin:8px 0 14px}',
+      '.eds-page li{margin:3px 0}.eds-page blockquote{padding:7px 13px;border-left:3px solid var(--eds-accent);background:#f8fafc;margin:12px 0}',
+      '.eds-page table{border-collapse:collapse;width:100%;margin:15px 0 19px;font-size:11px;table-layout:auto}',
+      '.eds-page tr{break-inside:avoid}.eds-page th{background:#eff4f9;font-weight:700;color:var(--eds-ink);text-align:left}',
+      '.eds-page td,.eds-page th{border:1px solid #cfd8e3;padding:9px;vertical-align:top;overflow-wrap:anywhere}',
+      '.eds-page .eds-paper-footer{margin-top:45px;padding-top:12px;border-top:1px solid #d9e2ec;font-size:10px;color:var(--eds-muted);display:flex;justify-content:space-between;gap:10px;break-inside:avoid}',
+      '.eds-page[data-design="classic"] .eds-paper-head{border-bottom:1px solid #6b7280}',
+      '.eds-page[data-design="classic"] .eds-paper-brand{font-family:Georgia,serif;font-weight:400;letter-spacing:1px}',
+      '.eds-page[data-design="classic"] .eds-paper-title{font-family:Georgia,serif;letter-spacing:0;font-weight:400}',
+      '.eds-page[data-design="modern"] .eds-paper-head{padding:17px 18px;background:#ecfdfb;border:0;border-left:5px solid var(--eds-accent);border-radius:5px}',
+      '.eds-page[data-design="modern"] .eds-paper-title{border-left:4px solid var(--eds-accent);padding-left:11px}',
+      '.eds-page[data-design="minimal"] .eds-paper-head{border-color:#e2e8f0;border-width:1px}',
+      '.eds-page[data-design="minimal"] .eds-paper-brand{color:var(--eds-ink);font-size:17px;letter-spacing:1.5px;text-transform:uppercase}',
+      '.eds-page[data-design="minimal"] .eds-paper-title{font-size:21px;font-weight:500}',
+      '@media print{@page{size:A4;margin:0}html,body{margin:0!important;padding:0!important;background:#fff!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}.eds-page{width:210mm;min-height:297mm;padding:19mm 18mm;overflow:visible;break-after:auto}.eds-page .eds-paper-footer{break-inside:avoid}}'
+    ].join("\n");
+  }
+
   function resolved(doc) {
     const p = state.profile || {};
+    const styleId = DESIGNS[doc.designId] ? doc.designId : DEFAULT_DESIGN;
+    const design = DESIGNS[styleId];
     const values = {
       Firma: p.name || p.brand || "[Geschäftsdaten in Finanzen ergänzen]",
       Empfänger: doc.recipient || "[Empfänger eintragen]",
@@ -523,32 +559,45 @@
       Referenz: doc.reference || "[Referenz eintragen]"
     };
     const body = sanitize(doc.contentHtml).replace(/\{\{\s*(Firma|Empfänger|Datum|Referenz)\s*\}\}/g, (_, key) => escapeHtml(values[key]));
-    const address = [p.street, [p.postalCode, p.city].filter(Boolean).join(" "), p.country].filter(Boolean).map(escapeHtml).join("<br>");
-    return '<div style="display:flex;justify-content:space-between;gap:28px;align-items:flex-start;border-bottom:2px solid #2563eb;padding-bottom:20px;margin-bottom:27px"><div><h1 style="color:#1d4ed8;font-size:25px;margin:0">' + escapeHtml(p.brand || p.name || "ELYON") + '</h1><div style="font-size:12px;color:#475569;line-height:1.6">' + escapeHtml(p.name || "") + '<br>' + address + '</div></div><div style="font-size:12px;color:#475569;text-align:right">' + escapeHtml(labels[doc.kind] || "Dokument") + '<br>' + escapeHtml(new Date().toLocaleDateString("de-DE")) + '</div></div>' +
-      (doc.recipient ? '<p style="font-size:13px;color:#475569">An: ' + escapeHtml(doc.recipient) + '</p>' : "") +
-      (doc.reference ? '<p style="font-size:13px;color:#475569">Referenz: ' + escapeHtml(doc.reference) + '</p>' : "") +
-      '<h2 style="font-size:19px;margin:24px 0">' + escapeHtml(doc.title) + '</h2><div class="eds-export-body">' + body + '</div>';
+    const address = [p.street, [p.postalCode, p.city].filter(Boolean).join(" "), p.country].filter(Boolean).map(escapeHtml).join(", ");
+    const sender = escapeHtml(p.name || p.brand || "Unternehmensprofil ergänzen");
+    const brand = escapeHtml(p.brand || p.name || "ELYON");
+    const recipient = doc.recipient ? escapeHtml(doc.recipient) : "Empfänger nicht angegeben";
+    const date = escapeHtml(new Date().toLocaleDateString("de-DE"));
+    const ref = doc.reference ? '<div class="eds-paper-reference">Referenz: ' + escapeHtml(doc.reference) + '</div>' : "";
+    const documentLabel = escapeHtml(labels[doc.kind] || "Dokument");
+    return '<article class="eds-page" data-design="' + styleId + '" style="--eds-accent:' + design.accent +
+      ';--eds-ink:' + design.ink + ';--eds-muted:' + design.muted + ';--eds-font:' + design.font + '">' +
+      '<header class="eds-paper-head"><div><div class="eds-paper-brand">' + brand +
+      '</div><div class="eds-paper-sender">' + sender + (address ? '<div>' + address + '</div>' : '') +
+      '</div></div><div class="eds-paper-meta"><strong>' + documentLabel + '</strong><div>' + date + '</div></div></header>' +
+      '<div class="eds-paper-recipient"><div>' + recipient + '</div><div class="eds-paper-reference">' + ref + '</div></div>' +
+      '<h1 class="eds-paper-title">' + escapeHtml(doc.title || "Dokument") + '</h1>' +
+      '<section class="eds-export-body">' + body + '</section>' +
+      '<footer class="eds-paper-footer"><span>' + sender + '</span><span>' + address + '</span></footer></article>';
   }
 
   function renderPreview() {
     const preview = el("edsPreview");
     if (!preview) return;
     preview.innerHTML = resolved(readForm() || newDocument("blank"));
-    preview.classList.toggle("open", state.preview);
+    preview.classList.add("open");
   }
 
   function printDocument() {
     const doc = readForm();
     if (!doc) return;
     const popup = window.open("", "_blank", "width=960,height=1100");
-    if (!popup) return status("Druckfenster wurde blockiert. Pop-ups für ELYON erlauben.", true);
+    if (!popup) return status("Druckfenster blockiert. Pop-ups für ELYON erlauben.", true);
     popup.opener = null;
     popup.document.open();
-    popup.document.write('<!doctype html><html lang="de"><head><meta charset="utf-8"><title>' + escapeHtml(doc.title) + '</title><style>@page{size:A4;margin:19mm}body{font:14px/1.6 Arial,sans-serif;color:#172033;margin:0}h1,h2,h3{break-after:avoid}table{border-collapse:collapse;width:100%}td,th{border:1px solid #cbd5e1;padding:7px}p{margin:0 0 12px}blockquote{border-left:3px solid #94a3b8;padding-left:12px}*{box-sizing:border-box}</style></head><body>' + resolved(doc) + '</body></html>');
+    popup.document.write('<!doctype html><html lang="de"><head><meta charset="utf-8"><title>' +
+      escapeHtml(doc.title) + '</title><style>' + documentCss() + '</style></head><body>' +
+      resolved(doc) + '</body></html>');
     popup.document.close();
     popup.focus();
-    popup.setTimeout(() => popup.print(), 300);
-    status("Druckansicht geöffnet: im Browser «Als PDF speichern» auswählen.");
+    popup.setTimeout(() => popup.print(), 350);
+    status("A4-PDF-Druckansicht geöffnet. Im Dialog „Als PDF speichern“ wählen; Kopf-/Fußzeilen des Browsers deaktivieren.");
   }
 
   function crc32(bytes) {
