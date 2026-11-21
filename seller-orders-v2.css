@@ -470,3 +470,13 @@ body.light #elyonOrdersV2Root .ocv4-inline-action button { background:#e2e8f0; c
   #elyonOrdersV2Root .ocv2-nova-inbox-item {align-items:flex-start;flex-direction:column;}
   #elyonOrdersV2Root .ocv2-nova-inbox-item button {width:100%;}
 }
+
+/* Explicit read-only order → document handoff. No invoice or eBay action is attached. */
+#elyonOrdersV2Root .ocv2-order-documents{margin:18px 0 4px;padding:14px;border:1px solid rgba(96,165,250,.27);border-radius:9px;background:rgba(59,130,246,.055)}
+#elyonOrdersV2Root .ocv2-order-documents h4{margin:0 0 7px}
+#elyonOrdersV2Root .ocv2-order-documents .ocv4-inline-action{background:transparent;border:0;padding:5px 0 0;margin:0;justify-content:flex-start;gap:12px}
+#elyonOrdersV2Root .ocv2-order-documents label{display:grid;gap:5px;flex:1 1 220px;min-width:0;font-size:12px}
+#elyonOrdersV2Root .ocv2-order-documents select{min-height:40px}
+#elyonOrdersV2Root .ocv2-order-documents button[data-order-document]{flex:0 0 auto;align-self:end;min-height:40px;background:#2563eb;color:white;border-color:#3b82f6;font-size:12px;font-weight:700}
+#elyonOrdersV2Root .ocv2-order-documents button[data-order-document]:hover{background:#1d4ed8}
+@media(max-width:540px){#elyonOrdersV2Root .ocv2-order-documents .ocv4-inline-action{display:grid;grid-template-columns:1fr}#elyonOrdersV2Root .ocv2-order-documents button[data-order-document]{width:100%}}
