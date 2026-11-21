@@ -142,3 +142,12 @@
  #elyonDocumentStudioTab .eds-preview .eds-export-body{min-height:220px}
  #elyonDocumentStudioTab .eds-paper-head{gap:8px}
 }
+
+/* Multiline postal recipient: names, street and city stay on separate lines. */
+#elyonDocumentStudioTab .eds-recipient-field{grid-column:span 2}
+#elyonDocumentStudioTab .eds-recipient-field textarea{width:100%;min-width:0;min-height:112px;resize:vertical;border-radius:10px;padding:10px 11px;border:1px solid rgba(148,163,184,.24);color:var(--text,#e5e7eb);background:var(--field,rgba(2,6,23,.6));outline:none;font:inherit;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere}
+#elyonDocumentStudioTab .eds-recipient-field textarea:focus{outline:2px solid #60a5fa;outline-offset:2px}
+#elyonDocumentStudioTab .eds-recipient-field>.eds-muted{font-weight:400}
+#elyonDocumentStudioTab .eds-paper-recipient .eds-recipient-address{flex:1;min-width:0;white-space:normal;overflow-wrap:anywhere;line-height:1.6}
+@media(max-width:900px){#elyonDocumentStudioTab .eds-recipient-field{grid-column:span 2}}
+@media(max-width:550px){#elyonDocumentStudioTab .eds-recipient-field{grid-column:span 1}}
