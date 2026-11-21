@@ -9,6 +9,30 @@ const sha256 = (value) => crypto.createHash("sha256").update(value).digest("hex"
 export default async function handler(req, res) {
   if (!requireSellerAccess(req, res)) return;
   if (req.method !== "GET") return res.status(405).json({ ok:false, error:"method_not_allowed" });
+
+  if (text(req.query?.demo) === "1") {
+    // Strictly synthetic sample. No eBay lookup, no number reservation and no writes.
+    const sample = {
+      taxMode:"small_business",currency:"EUR",invoiceNumber:"MUSTER-KEINE-NUMMER",
+      orderId:"DEMO-1001",issuedAt:"2026-11-21T10:00:00.000Z",orderedAt:"2026-11-20T14:30:00.000Z",
+      seller:{brand:"ELYON",name:"Max Musterhändler",addressLine1:"Musterstraße 12",
+        postalCode:"12345",city:"Musterstadt",country:"DE",taxId:"MUSTER-KEINE-STEUERNUMMER"},
+      buyer:{name:"Erika Beispiel",addressLine1:"Beispielweg 7",
+        postalCode:"54321",city:"Beispielstadt",country:"DE"},
+      lineItems:[
+        {title:"USB-C Schreibtischlampe (Beispiel)",quantity:1,total:54.90,sku:"ELY-000001"},
+      ],shipping:5,discount:0,total:59.90,
+      note:"Für diesen Umsatz gilt die Steuerbefreiung für Kleinunternehmer gemäß § 19 UStG. Es wird keine Umsatzsteuer ausgewiesen.",
+    };
+    const pdf = createKleinunternehmerInvoicePdf(sample,{demo:true});
+    res.setHeader("Content-Type","application/pdf");
+    res.setHeader("Content-Disposition",'inline; filename="ELYON-Musterrechnung-A4-UNGUELTIG.pdf"');
+    res.setHeader("Content-Length",String(pdf.length));
+    res.setHeader("Cache-Control","private, no-store, max-age=0");
+    res.setHeader("X-Content-Type-Options","nosniff");
+    return res.status(200).end(pdf);
+  }
+
   const orderId = text(req.query?.orderId);
   if (!/^[A-Za-z0-9_-]{6,70}$/.test(orderId)) return res.status(400).json({
     ok:false, error:"invalid_order_id", message:"Gültige Bestellnummer erforderlich."
