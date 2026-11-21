@@ -83,3 +83,62 @@
 @media(max-width:1440px){#elyonDocumentStudioTab .eds-workspace{grid-template-columns:1fr}#elyonDocumentStudioTab .eds-editor{min-height:280px;max-height:370px}#elyonDocumentStudioTab .eds-preview .eds-page{max-width:650px;margin:auto;font-size:13px}}
 @media(max-width:900px){#elyonDocumentStudioTab .eds-layout{grid-template-columns:1fr}#elyonDocumentStudioTab .eds-template-list{grid-template-columns:repeat(2,minmax(0,1fr));max-height:245px}#elyonDocumentStudioTab .eds-meta{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:550px){#elyonDocumentStudioTab .eds-meta{grid-template-columns:1fr}#elyonDocumentStudioTab .eds-template-list{grid-template-columns:1fr}#elyonDocumentStudioTab .eds-preview .eds-page{min-height:440px}#elyonDocumentStudioTab .eds-preview{padding:5px}#elyonDocumentStudioTab .eds-card{padding:12px}#elyonDocumentStudioTab .eds-page .eds-paper-brand{font-size:16px}#elyonDocumentStudioTab .eds-page .eds-paper-title{font-size:18px}}
+
+/* V3: direct-to-page WYSIWYG editing with adjacent reusable text blocks. */
+#elyonDocumentStudioTab{max-width:1850px}
+#elyonDocumentStudioTab .eds-layout{grid-template-columns:minmax(220px,258px) minmax(0,1fr);gap:12px}
+#elyonDocumentStudioTab .eds-workspace{display:grid;grid-template-columns:minmax(0,1fr) minmax(230px,288px);gap:15px;align-items:start}
+#elyonDocumentStudioTab .eds-edit-panel{grid-column:1/-1;display:block}
+#elyonDocumentStudioTab .eds-edit-panel h3{font-size:12px;color:var(--muted,#94a3b8);margin:7px 0 4px}
+#elyonDocumentStudioTab .eds-editor{display:none!important}
+#elyonDocumentStudioTab .eds-editor-toolbar{display:flex;flex-wrap:wrap;gap:6px;margin:7px 0 5px}
+#elyonDocumentStudioTab .eds-preview-panel{grid-column:1;min-width:0}
+#elyonDocumentStudioTab .eds-preview{background:#dfe5ec;padding:clamp(7px,2vw,22px);border:1px solid #c6d0de;border-radius:13px;overflow:visible}
+#elyonDocumentStudioTab .eds-preview .eds-page{box-sizing:border-box;width:100%;min-height:0;aspect-ratio:210/297;max-width:780px;margin:0 auto;background:white;box-shadow:0 8px 28px rgba(15,23,42,.13);font-size:13px;border-radius:2px;padding:7.8% 8%;overflow-wrap:anywhere}
+#elyonDocumentStudioTab .eds-preview .eds-export-body{border-radius:3px;min-height:330px;cursor:text;outline:none;white-space:normal;caret-color:#1d4ed8}
+#elyonDocumentStudioTab .eds-preview .eds-export-body:hover{background:rgba(59,130,246,.025)}
+#elyonDocumentStudioTab .eds-preview .eds-export-body:focus{outline:2px dashed rgba(59,130,246,.48);outline-offset:9px;background:rgba(239,246,255,.35)}
+#elyonDocumentStudioTab .eds-preview .eds-export-body:empty::before{content:"Hier klicken und deinen Text schreiben …";color:#94a3b8;pointer-events:none}
+#elyonDocumentStudioTab .eds-preview .eds-export-body table{width:100%}
+#elyonDocumentStudioTab .eds-preview .eds-export-body td,#elyonDocumentStudioTab .eds-preview .eds-export-body th{min-width:32px}
+#elyonDocumentStudioTab .eds-snippets-panel{grid-column:2;min-width:0;border:1px solid rgba(148,163,184,.21);border-radius:14px;padding:15px;background:rgba(148,163,184,.055);position:sticky;top:12px;max-height:calc(100vh - 40px);overflow:auto}
+#elyonDocumentStudioTab .eds-snippets-panel>.eds-muted{margin:0 0 12px}
+#elyonDocumentStudioTab .eds-block-list{display:grid;gap:7px;max-height:450px;overflow:auto;padding-right:3px;margin:9px 0}
+#elyonDocumentStudioTab .eds-block{display:flex;align-items:center;border:1px solid rgba(148,163,184,.19);background:rgba(148,163,184,.055);border-radius:10px;min-height:54px;gap:4px}
+#elyonDocumentStudioTab .eds-block:hover{border-color:rgba(96,165,250,.65)}
+#elyonDocumentStudioTab .eds-block-insert{display:flex;align-items:center;flex:1;gap:9px;min-width:0;padding:9px;background:none;border:0;color:inherit;text-align:left;cursor:pointer}
+#elyonDocumentStudioTab .eds-block-insert>span:last-child{display:grid;gap:3px;min-width:0}
+#elyonDocumentStudioTab .eds-block-insert strong{font-size:12px;line-height:1.35;overflow-wrap:anywhere}
+#elyonDocumentStudioTab .eds-block-insert small{font-size:10px;color:var(--muted,#94a3b8)}
+#elyonDocumentStudioTab .eds-block-plus{width:25px;height:25px;border-radius:7px;background:rgba(37,99,235,.17);color:#93c5fd;display:grid;place-items:center;font-size:19px;font-weight:700;flex-shrink:0}
+#elyonDocumentStudioTab .eds-snippets-save{display:grid;gap:8px;padding-top:14px;margin-top:14px;border-top:1px solid rgba(148,163,184,.24)}
+#elyonDocumentStudioTab .eds-snippets-save strong{font-size:13px}
+#elyonDocumentStudioTab .eds-snippets-save .eds-muted{margin:0}
+#elyonDocumentStudioTab .eds-hint{font-size:11px;color:var(--muted,#94a3b8);margin-top:11px;line-height:1.6}
+#elyonDocumentStudioTab .eds-hint code{color:inherit;padding:1px 3px;border-radius:3px;background:rgba(148,163,184,.12)}
+#elyonDocumentStudioTab .eds-meta{grid-template-columns:repeat(4,minmax(0,1fr))}
+#elyonDocumentStudioTab .eds-brand-logo{align-self:end;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding-bottom:10px}
+@media(max-width:1550px){
+ #elyonDocumentStudioTab .eds-workspace{grid-template-columns:minmax(0,1fr) minmax(205px,245px)}
+ #elyonDocumentStudioTab .eds-meta{grid-template-columns:repeat(3,minmax(0,1fr))}
+ #elyonDocumentStudioTab .eds-preview .eds-page{font-size:12px}
+}
+@media(max-width:1180px){
+ #elyonDocumentStudioTab .eds-workspace{grid-template-columns:1fr}
+ #elyonDocumentStudioTab .eds-preview-panel,#elyonDocumentStudioTab .eds-snippets-panel{grid-column:1}
+ #elyonDocumentStudioTab .eds-snippets-panel{position:static;max-height:none}
+ #elyonDocumentStudioTab .eds-block-list{grid-template-columns:repeat(2,minmax(0,1fr));max-height:330px}
+}
+@media(max-width:900px){
+ #elyonDocumentStudioTab .eds-layout{grid-template-columns:1fr}
+ #elyonDocumentStudioTab .eds-meta{grid-template-columns:repeat(2,minmax(0,1fr))}
+ #elyonDocumentStudioTab .eds-preview .eds-page{max-width:620px;font-size:12px}
+}
+@media(max-width:550px){
+ #elyonDocumentStudioTab .eds-meta{grid-template-columns:1fr}
+ #elyonDocumentStudioTab .eds-block-list{grid-template-columns:1fr}
+ #elyonDocumentStudioTab .eds-preview{padding:5px}
+ #elyonDocumentStudioTab .eds-preview .eds-page{min-height:450px;aspect-ratio:auto;font-size:11px}
+ #elyonDocumentStudioTab .eds-preview .eds-export-body{min-height:220px}
+ #elyonDocumentStudioTab .eds-paper-head{gap:8px}
+}
