@@ -671,7 +671,7 @@
     const local = [], central = [];
     let offset = 0;
     for (const [name, content] of Object.entries(files)) {
-      const filename = enc.encode(name), data = enc.encode(content), crc = crc32(data);
+      const filename = enc.encode(name), data = content instanceof Uint8Array ? content : enc.encode(content), crc = crc32(data);
       const header = Uint8Array.from([...le32(0x04034b50), ...le16(20), ...le16(0), ...le16(0), ...le16(0), ...le16(0), ...le32(crc), ...le32(data.length), ...le32(data.length), ...le16(filename.length), ...le16(0), ...filename]);
       local.push(header, data);
       central.push(Uint8Array.from([...le32(0x02014b50), ...le16(20), ...le16(20), ...le16(0), ...le16(0), ...le16(0), ...le16(0), ...le32(crc), ...le32(data.length), ...le32(data.length), ...le16(filename.length), ...le16(0), ...le16(0), ...le16(0), ...le16(0), ...le32(0), ...le32(offset), ...filename]));
@@ -749,7 +749,7 @@
     return wordPara(runs, { before: heading ? 210 : 0, after: heading ? 120 : 145, keepNext: heading });
   }
 
-  function exportDocx() {
+  async function exportDocx() {
     const doc = readForm();
     if (!doc) return;
     const style = DESIGNS[doc.designId] || DESIGNS.elyon;
@@ -774,8 +774,35 @@
       content,
       wordPara(wordRun(doc.footerText || sender, { color: "64748B", size: 17, serif }), { before: 360, border: "CBD5E1", after: 30 })
     ];
+    // Self-contained Word logo: the image is embedded and never loaded from an external host.
+    let logoBytes = null, logoType = "jpeg", logoExtent = null;
+    if (/^data:image\/(png|jpeg|webp);base64,[a-zA-Z0-9+/=]{1,48000}$/.test(doc.logoData || "")) {
+      try {
+        logoType = /^data:image\/(png|jpeg|webp)/.exec(doc.logoData)[1];
+        const image = new Image();
+        image.src = doc.logoData;
+        await image.decode();
+        const width = image.naturalWidth, height = image.naturalHeight;
+        if (!width || !height) throw new Error("Empty logo");
+        const scale = Math.min(1_500_000 / width, 720_000 / height);
+        logoExtent = { cx: Math.round(width * scale), cy: Math.round(height * scale) };
+        const bytes = atob(doc.logoData.split(",")[1]);
+        logoBytes = Uint8Array.from(bytes, (symbol) => symbol.charCodeAt(0));
+      } catch { logoBytes = null; }
+    }
+    if (logoBytes && logoExtent) {
+      const drawing = '<w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0">' +
+        '<wp:extent cx="' + logoExtent.cx + '" cy="' + logoExtent.cy + '"/>' +
+        '<wp:docPr id="1" name="ELYON Firmenlogo"/><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">' +
+        '<pic:pic><pic:nvPicPr><pic:cNvPr id="1" name="Logo"/><pic:cNvPicPr/></pic:nvPicPr>' +
+        '<pic:blipFill><a:blip r:embed="rId1"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>' +
+        '<pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="' + logoExtent.cx + '" cy="' + logoExtent.cy +
+        '"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic>' +
+        '</a:graphicData></a:graphic></wp:inline></w:drawing></w:r>';
+      parts.unshift(wordPara(drawing, { after: 140 }));
+    }
     const documentXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
-      '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>' +
+      '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><w:body>' +
       parts.join("") +
       '<w:sectPr><w:pgSz w:w="11906" w:h="16838"/>' +
       '<w:pgMar w:top="1080" w:right="1050" w:bottom="1080" w:left="1050" w:header="500" w:footer="500"/>' +
@@ -785,6 +812,12 @@
       "_rels/.rels": '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>',
       "word/document.xml": documentXml
     };
+    if (logoBytes) {
+      const ext = logoType === "jpeg" ? "jpg" : logoType;
+      files["word/media/logo." + ext] = logoBytes;
+      files["word/_rels/document.xml.rels"] = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/logo.' + ext + '"/></Relationships>';
+      files["[Content_Types].xml"] = files["[Content_Types].xml"].replace("</Types>", '<Default Extension="' + ext + '" ContentType="image/' + logoType + '"/></Types>');
+    }
     const blob = new Blob([zip(files)], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
