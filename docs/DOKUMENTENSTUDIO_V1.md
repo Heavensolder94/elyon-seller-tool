@@ -2,7 +2,7 @@
 
 ## Einbindung
 - Aufruf innerhalb der SellerTool-Oberfläche über „📄 Dokumentenstudio“ im Menü und ggf. der Seitenleiste.
-- Build: scripts/prepare-vercel.mjs spiegelt die neuen CSS/JS-Dateien nach public und bindet beide nur im Desktop-Build ein.
+- Build: scripts/prepare-vercel.mjs spiegelt CSS/JS nach public. seller-runtime-loader.js lädt das Studio-Skript erst beim Öffnen; das Studio lädt sein Stylesheet selbst nach (kein zusätzliches Start-JavaScript).
 - Direkt über die Seiten-URL mit Fragment #dokumentenstudio erreichbar.
 - Bestehende Rechnungsansicht, invoiceMeta, Rechnungsnummernvergabe, eBay-Listings und Bestellversand bleiben unverändert.
 
