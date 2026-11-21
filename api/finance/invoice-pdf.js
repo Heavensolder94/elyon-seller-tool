@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import { requireSellerAccess } from "../../lib/seller-access.js";
 import { readFinanceState } from "../../lib/finance-store.js";
 import { createKleinunternehmerInvoicePdf } from "../../lib/kleinunternehmer-invoice-pdf.js";
+import { buildKleinunternehmerInvoiceSample } from "../../lib/kleinunternehmer-invoice-core.js";
 
 const text = (value) => String(value ?? "").trim();
 const sha256 = (value) => crypto.createHash("sha256").update(value).digest("hex");
@@ -11,26 +12,29 @@ export default async function handler(req, res) {
   if (req.method !== "GET") return res.status(405).json({ ok:false, error:"method_not_allowed" });
 
   if (text(req.query?.demo) === "1") {
-    // Strictly synthetic sample. No eBay lookup, no number reservation and no writes.
-    const sample = {
-      taxMode:"small_business",currency:"EUR",invoiceNumber:"MUSTER-KEINE-NUMMER",
-      orderId:"DEMO-1001",issuedAt:"2026-11-21T10:00:00.000Z",orderedAt:"2026-11-20T14:30:00.000Z",
-      seller:{brand:"ELYON",name:"Max Musterhändler",addressLine1:"Musterstraße 12",
-        postalCode:"12345",city:"Musterstadt",country:"DE",taxId:"MUSTER-KEINE-STEUERNUMMER"},
-      buyer:{name:"Erika Beispiel",addressLine1:"Beispielweg 7",
-        postalCode:"54321",city:"Beispielstadt",country:"DE"},
-      lineItems:[
-        {title:"USB-C Schreibtischlampe (Beispiel)",quantity:1,total:54.90,sku:"ELY-000001"},
-      ],shipping:5,discount:0,total:59.90,
-      note:"Für diesen Umsatz gilt die Steuerbefreiung für Kleinunternehmer gemäß § 19 UStG. Es wird keine Umsatzsteuer ausgewiesen.",
-    };
-    const pdf = createKleinunternehmerInvoicePdf(sample,{demo:true});
-    res.setHeader("Content-Type","application/pdf");
-    res.setHeader("Content-Disposition",'inline; filename="ELYON-Musterrechnung-A4-UNGUELTIG.pdf"');
-    res.setHeader("Content-Length",String(pdf.length));
-    res.setHeader("Cache-Control","private, no-store, max-age=0");
-    res.setHeader("X-Content-Type-Options","nosniff");
-    return res.status(200).end(pdf);
+    // Read only: no eBay call, invoice numbering, customer send or finance writes.
+    // The seller is always taken from the server-stored settings, not browser input.
+    res.setHeader("Cache-Control", "private, no-store, max-age=0");
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    try {
+      const state = await readFinanceState();
+      const prepared = buildKleinunternehmerInvoiceSample(state.settings);
+      if (!prepared.ok) return res.status(422).json({
+        ok: false, error: "seller_invoice_settings_incomplete",
+        message: "Geschäftsdaten sind noch nicht vollständig im Finance-Server gespeichert. In Finanzen → Einstellungen prüfen und 'Persistent sichern' verwenden.",
+        blockers: prepared.errors,
+      });
+      const pdf = createKleinunternehmerInvoicePdf(prepared.sample, { demo: true });
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", 'inline; filename="ELYON-Musterrechnung-A4-UNGUELTIG.pdf"');
+      res.setHeader("Content-Length", String(pdf.length));
+      return res.status(200).end(pdf);
+    } catch (error) {
+      return res.status(503).json({
+        ok: false, error: "invoice_demo_unavailable",
+        message: "Muster-PDF kann nicht geladen werden. Finanz-Server und gespeicherte Geschäftsdaten prüfen.",
+      });
+    }
   }
 
   const orderId = text(req.query?.orderId);
