@@ -1,7 +1,7 @@
 import {
   escapeHtml as h, normalizeEbayOrder, workflowStatus, paymentConfirmed,
   productForLine, estimatedOrderCosts, actualOrderProfit, summarizeOrders,
-  visibleOrders, normalizeOperationInput,
+  visibleOrders, normalizeOperationInput, financeOrderCostHints, suggestRecordedCosts,
 } from "./seller-orders-v2-core.js";
 
 const ROOT_ID = "elyonOrdersV2Root";
@@ -47,16 +47,23 @@ const DEMO = {
   ],
   operations:{"DEMO-1002":{workflowStatus:"PROCESSING",supplierName:"Demo-Lieferant B"}},
   history:[],
+  financeTransactions:[
+    {id:"DEMO-PURCHASE-1",orderId:"DEMO-1001",category:"supplier_expense",amount:-24,currency:"EUR",status:"approved"},
+    {id:"DEMO-SHIPPING-1",orderId:"DEMO-1001",category:"shipping_expense",amount:-4,currency:"EUR",status:"approved"},
+    {id:"DEMO-EBAY-FEE-1",orderId:"DEMO-1001",category:"ebay_fee",amount:-7,currency:"EUR",status:"needs_review"},
+    {id:"DEMO-PURCHASE-2",orderId:"DEMO-1002",category:"supplier_expense",amount:-12,currency:"EUR",status:"needs_review"},
+  ],
 };
 const ordersNow = () => state.demoMode ? DEMO.orders : state.orders;
 const operationsNow = () => state.demoMode ? DEMO.operations : state.operations;
 const productsNow = () => state.demoMode ? DEMO.products : state.products;
+const financeHintsNow = () => state.demoMode ? financeOrderCostHints(DEMO.financeTransactions) : state.financeCostHints;
 const state = {
   orders: [], products: [], operations: {}, invoices: {}, revision: null,
   selectedId: "", filter: "all", query: "", days: 90, loading: false,
   saving: false, refreshedAt: "", error: "", warning: "", saveNotice: "",
   truncated: false, sourceReady: false, financeReady: false, drafts: {},
-  demoMode: false, activeSection: "overview", demoModal: "", demoNotice: "",
+  demoMode: false, activeSection: "overview", demoModal: "", demoNotice: "", financeCostHints: {},
 };
 try { const v = Number(localStorage.getItem(RANGE_KEY)); if ([7, 30, 90].includes(v)) state.days = v; } catch {}
 
@@ -122,7 +129,7 @@ function detailsMarkup(order) {
   const lines = order.lines.length ? order.lines.map((line) => `<div class="ocv2-line">
     <div><strong>${h(line.title)}</strong><span class="ocv2-small">SKU: ${h(line.sku || "Nicht angegeben")} · ${h(line.quantity)} Stk. · ${h(readableMoney(line.total, order.currency))}</span>
     ${labelForLine(line)}</div></div>`).join("") : '<p class="ocv2-muted">Keine Artikelpositionen übermittelt.</p>';
-  const products = order.lines.map((line) => productForLine(line, state.products)).filter(Boolean);
+  const products = order.lines.map((line) => productForLine(line, productsNow())).filter(Boolean);
   const supplierGuess = products.length === order.lines.length && products.length &&
     products.every((p) => text(p.supplier?.name || p.product?.supplier?.name) === text(products[0].supplier?.name || products[0].product?.supplier?.name)) ?
     text(products[0].supplier?.name || products[0].product?.supplier?.name) : "";
@@ -338,12 +345,13 @@ async function refresh() {
   }
   if (finance.status === "fulfilled") {
     state.operations = obj(finance.value.orderOperations);
+    state.financeCostHints = obj(finance.value.financeCostHints);
     state.invoices = obj(finance.value.invoices);
     state.revision = Number.isSafeInteger(finance.value.revision) ? finance.value.revision : null;
     state.financeReady = finance.value.persistent === true && state.revision !== null;
     if (!state.financeReady) state.warning += " Der dauerhafte Finance-Speicher ist nicht verfügbar; internes Speichern bleibt gesperrt.";
   } else {
-    state.financeReady = false; state.revision = null; state.operations = {}; state.invoices = {};
+    state.financeReady = false; state.revision = null; state.operations = {}; state.invoices = {}; state.financeCostHints = {};
     state.warning += " Interne Bestelldaten konnten nicht geladen werden; Speichern ist aus Sicherheitsgründen gesperrt.";
   }
   if (product.status === "fulfilled") {
