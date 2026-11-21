@@ -171,7 +171,7 @@
         '<div class="eds-section-title"><h3>Dokument bearbeiten</h3><span class="eds-muted">Text direkt auf der A4-Seite bearbeiten · Änderungen bewusst speichern</span></div><div class="eds-meta">',
           '<label class="eds-field">Dokumententitel<input id="edsTitle" maxlength="120" autocomplete="off"></label>',
           '<label class="eds-field">Dokumentenart<select id="edsKind"></select></label>',
-          '<label class="eds-field">Empfänger / Ansprechpartner<input id="edsRecipient" maxlength="300" autocomplete="off"></label>',
+          '<label class="eds-field eds-recipient-field">Empfänger / Anschrift<textarea id="edsRecipient" maxlength="300" rows="5" autocomplete="off" placeholder="Vorname Nachname&#10;Firma (optional)&#10;Musterstraße 12&#10;12345 Musterstadt"></textarea><span class="eds-muted">Name, Straße und PLZ/Ort jeweils in eine neue Zeile schreiben.</span></label>',
           '<label class="eds-field">Referenz (z. B. Bestellnummer)<input id="edsReference" maxlength="120" autocomplete="off"></label><label class="eds-field">Designvorlage<select id="edsDesign" aria-label="Designvorlage"></select></label><label class="eds-field">Akzentfarbe<input id="edsAccent" type="color" value="#1d4ed8" title="Individuelle Akzentfarbe"></label><label class="eds-field">Kopfzeile / Marke<input id="edsHeaderText" maxlength="120" placeholder="Optionaler Absendername"></label><label class="eds-field">Fußzeile<input id="edsFooterText" maxlength="180" placeholder="Optionaler Fußzeilentext"></label><label class="eds-field">Eigenes Logo (PNG/JPG/WebP)<input id="edsLogoUpload" type="file" accept="image/png,image/jpeg,image/webp"></label><div class="eds-brand-logo"><span id="edsLogoStatus" class="eds-muted">Kein Logo ausgewählt</span><button class="eds-btn" type="button" data-eds-action="remove-logo">Logo entfernen</button></div>',
         '</div>',
         '<div id="edsAssistantPanel" class="eds-assistant"><div class="eds-side-head"><strong>Dokumentenassistent</strong><button type="button" class="eds-btn" data-eds-action="close-assistant">Schließen</button></div><p class="eds-muted">Vervollständigt eine ausgewählte Vorlage aus deinen Angaben – lokal, ohne kostenpflichtigen KI-Aufruf.</p><label class="eds-field">Anlass / Betreff<input id="edsAssistantSubject" maxlength="120" placeholder="z. B. Angebot für Büroausstattung"></label><label class="eds-field">Wichtige Angaben<textarea id="edsAssistantDetails" maxlength="2500" rows="3" placeholder="Artikel, Fristen, gewünschte Antwort …"></textarea></label><button type="button" class="eds-btn eds-primary" data-eds-action="generate">Dokument aufbauen</button></div><div class="eds-workspace"><div class="eds-edit-panel"><h3>Textformatierung</h3><div class="eds-editor-toolbar" role="toolbar" aria-label="Textformatierung">',
@@ -771,12 +771,12 @@
       Referenz: doc.reference || "[Referenz eintragen]"
     };
     const rawBody = sanitize(doc.contentHtml);
-    const body = editing ? rawBody : rawBody.replace(/\{\{\s*(Firma|Empfänger|Datum|Referenz)\s*\}\}/g, (_, key) => escapeHtml(values[key]));
+    const body = editing ? rawBody : rawBody.replace(/\{\{\s*(Firma|Empfänger|Datum|Referenz)\s*\}\}/g, (_, key) => escapeHtml(values[key]).replace(/\r\n?|\n/g, "<br>"));
     const address = [p.street, [p.postalCode, p.city].filter(Boolean).join(" "), p.country].filter(Boolean).map(escapeHtml).join(", ");
     const sender = escapeHtml(p.name || p.brand || "Unternehmensprofil ergänzen");
     const brand = escapeHtml(doc.headerText || p.brand || p.name || "ELYON");
     const footer = escapeHtml(doc.footerText || [p.street, [p.postalCode, p.city].filter(Boolean).join(" "), p.country].filter(Boolean).join(" · "));
-    const recipient = doc.recipient ? escapeHtml(doc.recipient) : "Empfänger nicht angegeben";
+    const recipient = doc.recipient ? escapeHtml(doc.recipient).replace(/\r\n?|\n/g, "<br>") : "Empfänger nicht angegeben";
     const date = escapeHtml(new Date().toLocaleDateString("de-DE"));
     const ref = doc.reference ? '<div class="eds-paper-reference">Referenz: ' + escapeHtml(doc.reference) + '</div>' : "";
     const documentLabel = escapeHtml(labels[doc.kind] || "Dokument");
@@ -785,7 +785,7 @@
       '<header class="eds-paper-head"><div class="eds-paper-identity">' + (logo ? '<img class="eds-paper-logo" src="' + escapeHtml(logo) + '" alt="Firmenlogo">' : "") + '<div><div class="eds-paper-brand">' + brand +
       '</div><div class="eds-paper-sender">' + sender + (address ? '<div>' + address + '</div>' : '') +
       '</div></div></div><div class="eds-paper-meta"><strong>' + documentLabel + '</strong><div>' + date + '</div></div></header>' +
-      '<div class="eds-paper-recipient"><div>' + recipient + '</div><div class="eds-paper-reference">' + ref + '</div></div>' +
+      '<div class="eds-paper-recipient"><div class="eds-recipient-address">' + recipient + '</div><div class="eds-paper-reference">' + ref + '</div></div>' +
       '<h1 class="eds-paper-title">' + escapeHtml(doc.title || "Dokument") + '</h1>' +
       '<section class="eds-export-body">' + body + '</section>' +
       '<footer class="eds-paper-footer"><span>' + sender + '</span><span>' + footer + '</span></footer></article>';
@@ -867,7 +867,8 @@
       (opts.bold ? '<w:b/>' : '') + (opts.italic ? '<w:i/>' : '') +
       (opts.underline ? '<w:u w:val="single"/>' : '') +
       (opts.size ? '<w:sz w:val="' + opts.size + '"/>' : '') + color + '</w:rPr>';
-    return '<w:r>' + properties + '<w:t xml:space="preserve">' + safe + '</w:t></w:r>';
+    const withBreaks = safe.replace(/\r\n?|\n/g, '</w:t><w:br/><w:t xml:space="preserve">');
+    return '<w:r>' + properties + '<w:t xml:space="preserve">' + withBreaks + '</w:t></w:r>';
   }
 
   function wordInline(node, opts = {}) {
@@ -1094,7 +1095,7 @@
       const stylesheet = document.createElement("link");
       stylesheet.id = "elyonDocumentStudioStyles";
       stylesheet.rel = "stylesheet";
-      stylesheet.href = "/seller-document-studio.css?v=docs-v3-20261121";
+      stylesheet.href = "/seller-document-studio.css?v=docs-v3-address-20261121";
       document.head.appendChild(stylesheet);
     }
     installEntry();
