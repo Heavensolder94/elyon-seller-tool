@@ -39,6 +39,8 @@
   <div id="result" class="status" role="status" aria-live="polite">Anmeldestatus wird überprüft …</div>
   <button id="pdfCheck" class="probe" type="button" hidden>Schritt 9: PDF-Selbsttest ausführen</button>
   <pre id="pdfResult" hidden aria-live="polite"></pre>
+  <button id="sendCheck" class="probe" type="button" hidden>Schritt 10: Rechnungsversand prüfen</button>
+  <pre id="sendResult" hidden aria-live="polite"></pre>
   <a class="secondary" href="/">Zum ELYON SellerTool</a>
   <p class="hint">Der Sicherheitscode wird nur über die verschlüsselte Verbindung an deine eigene ELYON-API gesendet und nicht im Browser gespeichert. Bitte niemals im Chat teilen.</p>
 </main>
@@ -51,6 +53,19 @@
   const status=document.getElementById("result");
   const pdfCheck=document.getElementById("pdfCheck");
   const pdfResult=document.getElementById("pdfResult");
+  const sendCheck=document.getElementById("sendCheck");
+  const sendResult=document.getElementById("sendResult");
+  sendCheck.addEventListener("click",async()=>{
+    sendCheck.disabled=true;
+    sendResult.hidden=false;
+    sendResult.textContent="Versandvoraussetzungen werden gelesen …";
+    try{
+      const response=await fetch("/api/orders/invoice-send-check",{method:"GET",credentials:"same-origin",cache:"no-store",headers:{Accept:"application/json"}});
+      const data=await response.json();
+      sendResult.textContent=JSON.stringify({httpStatus:response.status,...data},null,2);
+    }catch{sendResult.textContent="Versandvorprüfung momentan nicht erreichbar."}
+    finally{sendCheck.disabled=false;}
+  });
   pdfCheck.addEventListener("click",async()=>{
     pdfCheck.disabled=true;
     pdfResult.hidden=false;
@@ -82,6 +97,7 @@
       if(data.authenticated===true){
         setStatus("Du bist auf dieser Adresse bereits angemeldet. Weiterleitung zum SellerTool …","good");
         pdfCheck.hidden=false;
+        sendCheck.hidden=false;
         return;
       }
       if(data.configured!==true){
@@ -113,6 +129,7 @@
       }
       setStatus("Erfolgreich angemeldet! Du wirst zum SellerTool weitergeleitet.","good");
       pdfCheck.hidden=false;
+        sendCheck.hidden=false;
     }catch{
       setStatus("Netzwerkfehler während der Anmeldung. Bitte erneut versuchen.","error");
     }finally{
