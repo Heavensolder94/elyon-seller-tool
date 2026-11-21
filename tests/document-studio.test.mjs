@@ -10,7 +10,7 @@ const draft = (overrides = {}) => ({
 
 test("document studio accepts basic semantic rich text and drops unsafe HTML", () => {
   assert.equal(sanitizeStudioMarkup('<h2 class="x">Test</h2><script>alert(1)</script><p onclick="x()">Hi</p><strong>Fett</strong>'),
-    "<h2>Test</h2>alert(1)Hi<strong>Fett</strong>");
+    "<h2>Test</h2>alert(1)<p>Hi</p><strong>Fett</strong>");
   assert.equal(sanitizeStudioMarkup('<img src=x onerror=alert(1)><a href="javascript:alert(1)">Text</a>'), "Text");
 });
 
