@@ -64,6 +64,7 @@ const state = {
   saving: false, refreshedAt: "", error: "", warning: "", saveNotice: "",
   truncated: false, sourceReady: false, financeReady: false, drafts: {},
   demoMode: false, activeSection: "overview", demoModal: "", demoNotice: "", financeCostHints: {}, actionBusy: false,
+  receiptLists: {}, receiptBusy: false,
 };
 try { const v = Number(localStorage.getItem(RANGE_KEY)); if ([7, 30, 90].includes(v)) state.days = v; } catch {}
 
@@ -183,6 +184,8 @@ function detailsMarkup(order) {
     <div><strong>${h(line.title)}</strong><span class="ocv2-small">SKU: ${h(line.sku || "Nicht angegeben")} · ${h(line.quantity)} Stk. · ${h(readableMoney(line.total, order.currency))}</span>
     ${labelForLine(line)}</div></div>`).join("") : '<p class="ocv2-muted">Keine Artikelpositionen übermittelt.</p>';
   const products = order.lines.map((line) => productForLine(line, productsNow())).filter(Boolean);
+  const supplierLinks = products.map(p=>({name:text(p.supplier?.name||p.product?.supplier?.name),url:text(p.supplier?.url||p.supplier?.productUrl||p.product?.supplier?.url||p.sourceUrl)})).filter(p=>p.name);
+  const savedReceipts = state.demoMode ? [] : (state.receiptLists[order.id] || []);
   const supplierGuess = products.length === order.lines.length && products.length &&
     products.every((p) => text(p.supplier?.name || p.product?.supplier?.name) === text(products[0].supplier?.name || products[0].product?.supplier?.name)) ?
     text(products[0].supplier?.name || products[0].product?.supplier?.name) : "";
@@ -233,7 +236,20 @@ function detailsMarkup(order) {
         `<option value="${id}" ${(op.workflowStatus || (order.fulfillmentStatus === "FULFILLED" || op.status === "SHIPPED" ? "SHIPPED" : "NEW")) === id ? "selected" : ""}>${h(label)}</option>`).join("")}</select></label>
         <label>Lieferant<input name="supplierName" maxlength="160" value="${h(op.supplierName || "")}" placeholder="${h(supplierGuess || "Lieferant eintragen")}"></label>
         <label>Lieferanten-Bestellnummer<input name="supplierOrderId" maxlength="160" value="${h(op.supplierOrderId || "")}" placeholder="Nach deinem Einkauf eintragen"></label>
-      </div></section>
+      </div>
+      <h4>Lieferantenreferenz aus Company OS</h4>
+      ${supplierLinks.length ? supplierLinks.map(p=>'<p class="ocv2-hint">'+h(p.name)+(p.url&&/^https:\/\//i.test(p.url)?' · <a href="'+h(p.url)+'" target="_blank" rel="noopener noreferrer">Lieferantenartikel öffnen</a>':'')+'</p>').join("") :
+        '<p class="ocv2-hint">Keine eindeutige Produkt- und Lieferantenzuordnung. Bitte manuell prüfen.</p>'}
+      <h4>Original-Einkaufsbelege</h4>
+      <p class="ocv2-hint">Nur echte Dateien vom Lieferanten hochladen, keine selbst erstellten Ersatzrechnungen. Erlaubt: PDF, PNG, JPG bis 192 KiB pro Datei. Größere Originale vorerst extern unverändert archivieren.</p>
+      <div class="ocv4-inline-action">
+        <input type="file" id="ocv5ReceiptFile" accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg" ${state.demoMode?"disabled":""} aria-label="Originalbeleg auswählen">
+        <button type="button" data-order-receipt-upload ${state.demoMode||state.receiptBusy||!state.financeReady?"disabled":""}>Originalbeleg sichern</button>
+      </div>
+      <div class="ocv2-hint" role="status">${state.demoMode ? "Demo: Keine echten Belege gespeichert." :
+        savedReceipts.length ? savedReceipts.map(d=>'<div>✓ '+h(d.filename)+' · Original vom Nutzer hochgeladen · ungeprüft <button type="button" data-order-receipt-download="'+h(d.id)+'">Herunterladen</button></div>').join("") :
+        "Noch kein Originalbeleg für diese Bestellung zugeordnet."}</div>
+      </section>
       <section class="ocv2-pane" data-pane="shipping" ${state.activeSection!=="shipping"?"hidden":""}>
       <h4>Versand vorbereiten</h4>
       <p class="ocv2-hint">Die Sendungsdaten zunächst intern sichern. Erst die gesondert bestätigte eBay-Meldung verändert den Versandstatus bei eBay.</p>
@@ -246,6 +262,7 @@ function detailsMarkup(order) {
       <h4>Rechnung</h4><div class="ocv4-inline-action"><span>${state.demoMode && demoInvoiceChecks.has(order.id) ? "Musterrechnung geprüft – keine echte Rechnung erstellt." : invoice ? `Rechnung ${h(invoice.invoiceNumber)} ist ausgestellt.` : "Noch keine ausgestellte Rechnung vorhanden."}</span>
       <button type="button" data-order-invoice ${state.actionBusy ? "disabled" : ""}>${invoice ? "Rechnung öffnen" : "Rechnung prüfen / ausstellen"}</button></div>
       <h4>Kosten und Gewinn</h4>
+      <p class="ocv2-hint">Belegstatus: ${savedReceipts.length} hochgeladene(s) Original(e). Ein hochgeladener Beleg bestätigt den Betrag nicht automatisch. Einkauf, Versand und eBay-Gebühren bitte mit dem tatsächlichen Nachweis abgleichen.</p>
       ${help}
       ${sourceInfo}
       <div class="ocv2-fields ocv2-cost-fields">${fields}</div>
@@ -443,6 +460,53 @@ async function refresh() {
   if (!state.demoMode && state.selectedId && !state.orders.some((order) => order.id === state.selectedId)) state.selectedId = "";
   state.loading = false; render();
 }
+async function loadOrderReceipts(orderId) {
+  if (state.demoMode || !orderId || /^DEMO-/i.test(orderId)) return;
+  try {
+    const result=await json("/api/orders/supplier-receipts?orderId="+encodeURIComponent(orderId));
+    state.receiptLists[orderId]=result.documents||[];
+  }catch(error) { state.warning="Originalbelege nicht geladen: "+error.message; }
+  render();
+}
+async function uploadOrderReceipt() {
+  if(state.demoMode||state.receiptBusy||!state.financeReady||Object.keys(state.drafts).length) {
+    state.warning="Zuerst ungespeicherte Bestellangaben sichern. Demo-Uploads sind deaktiviert.";render();return;
+  }
+  const orderId=state.selectedId;
+  const input=root()?.querySelector("#ocv5ReceiptFile");
+  const file=input?.files?.[0];
+  if(!orderId||!file)return;
+  if(file.size<16||file.size>192*1024){state.warning="Beleg muss 16 Byte bis 192 KiB groß sein.";render();return;}
+  state.receiptBusy=true;state.error="";state.saveNotice="";render();
+  try {
+    const buffer=new Uint8Array(await file.arrayBuffer());
+    let binary="";
+    for(let i=0;i<buffer.length;i+=8192) binary+=String.fromCharCode(...buffer.subarray(i,i+8192));
+    const result=await json("/api/orders/supplier-receipts",{
+      method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({orderId,filename:file.name,mediaType:file.type,base64:btoa(binary),expectedRevision:state.revision}),
+    });
+    state.revision=result.revision;
+    state.saveNotice=result.existing?"Dieser Originalbeleg war bereits vorhanden.":"Originalbeleg revisionsgeschützt gespeichert. Inhalt und Betrag noch nicht automatisch geprüft.";
+    const list=await json("/api/orders/supplier-receipts?orderId="+encodeURIComponent(orderId));
+    state.receiptLists[orderId]=list.documents||[];
+  } catch(error) {
+    state.error="Originalbeleg nicht gespeichert: "+error.message+". Bitte Serverstand prüfen.";
+  } finally {state.receiptBusy=false;render();}
+}
+async function downloadOrderReceipt(documentId) {
+  const orderId=state.selectedId;
+  const meta=(state.receiptLists[orderId]||[]).find(d=>d.id===documentId);
+  if(!meta||state.demoMode)return;
+  try {
+    const response=await fetch("/api/orders/supplier-receipts?orderId="+encodeURIComponent(orderId)+"&documentId="+encodeURIComponent(documentId),
+      {credentials:"same-origin",cache:"no-store"});
+    if(!response.ok)throw Error("Abruf fehlgeschlagen (HTTP "+response.status+")");
+    const blob=await response.blob();
+    const ref=URL.createObjectURL(blob),link=document.createElement("a");
+    link.href=ref;link.download=meta.filename;link.click();URL.revokeObjectURL(ref);
+  }catch(error){state.error="Originalbeleg konnte nicht geladen werden: "+error.message;render();}
+}
 async function save(form) {
   const id = form.dataset.orderId;
   if (state.demoMode) {
@@ -626,6 +690,9 @@ function bind() {
   const host = root();
   if (!host) return;
   host.addEventListener("click", (event) => {
+    if (event.target.closest("[data-order-receipt-upload]")) return void uploadOrderReceipt();
+    const downloadReceipt=event.target.closest("[data-order-receipt-download]");
+    if(downloadReceipt)return void downloadOrderReceipt(downloadReceipt.dataset.orderReceiptDownload);
     if (event.target.closest("[data-ocv4-complete]")) return choosePhase("COMPLETED");
     if (event.target.closest("[data-order-ebay-shipping]")) return void sendOrderShipping();
     if (event.target.closest("[data-ocv3-drawer-close]")) return closeOrderDrawer();
@@ -646,7 +713,7 @@ function bind() {
     if (phase) return choosePhase(phase.dataset.ocv2Phase);
     if (event.target.closest("#ocv2Refresh")) return state.demoMode ? closeDemo() : refresh();
     const choose = event.target.closest("[data-order-open]");
-    if (choose) { state.selectedId = choose.dataset.orderOpen; state.activeSection = "overview"; state.saveNotice = ""; render(); root()?.querySelector(".ocv3-drawer-content")?.focus(); return; }
+    if (choose) { state.selectedId = choose.dataset.orderOpen; state.activeSection = "overview"; state.saveNotice = ""; render(); root()?.querySelector(".ocv3-drawer-content")?.focus(); if(!state.demoMode)void loadOrderReceipts(state.selectedId); return; }
     const filter = event.target.closest("[data-ocv2-filter]");
     if (filter) { state.filter = filter.dataset.ocv2Filter; return render(); }
     if (event.target.closest("[data-order-invoice]")) return void openOrderInvoice();
@@ -656,6 +723,7 @@ function bind() {
     }
   });
   host.addEventListener("input", (event) => {
+    if (event.target.id==="ocv5ReceiptFile") return;
     if (event.target.closest("#ocv2OrderForm")) {
       const form = event.target.closest("#ocv2OrderForm");
       state.drafts[form.dataset.orderId] = Object.fromEntries(new FormData(form).entries());
@@ -672,6 +740,7 @@ function bind() {
     event.target.setSelectionRange(pos, pos);
   });
   host.addEventListener("change", (event) => {
+    if (event.target.id==="ocv5ReceiptFile") return;
     if (event.target.closest("#ocv2OrderForm")) {
       const form = event.target.closest("#ocv2OrderForm");
       state.drafts[form.dataset.orderId] = Object.fromEntries(new FormData(form).entries());
