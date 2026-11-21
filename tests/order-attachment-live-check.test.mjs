@@ -37,7 +37,9 @@ test("signed probe gets only a visibly invalid synthetic PDF through the actual 
     assert.equal(result.headers["cache-control"],"no-store, private, max-age=0");
     assert.match(result.body.toString("latin1"),/^%PDF-1\.4/);
     assert.ok(result.body.equals(getProbePdf()));
-    assert.ok(result.body.toString("latin1").includes("MUSTER"));
+    assert.ok(result.body.toString("latin1").includes(
+      Buffer.from("MUSTER - NICHT ZUR VERWENDUNG","latin1").toString("hex").toUpperCase()
+    ));
   } finally {
     if(old===undefined)delete process.env.ELYON_SELLER_ACCESS_TOKEN;
     else process.env.ELYON_SELLER_ACCESS_TOKEN=old;
