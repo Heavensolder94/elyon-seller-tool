@@ -72,8 +72,6 @@ function injectDesktopSecurity(html) {
     '<script type="module" src="/seller-dashboard-v2.js"></script>',
     '<link rel="stylesheet" href="/seller-orders-v2.css?v=orders2-20261121-nova-pair-fix1" />',
     '<script defer src="/seller-orders-v2-loader.js?v=orders2-20261121-nova-pair-fix1"></script>',
-    '<link rel="stylesheet" href="/seller-document-studio.css?v=docs-v1-20261121" />',
-    '<script defer src="/seller-document-studio.js?v=docs-v1-20261121"></script>',
   ].join("\n");
 
   return injectMarkedBlock(html, { startMarker, endMarker, content });
