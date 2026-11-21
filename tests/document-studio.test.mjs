@@ -164,3 +164,16 @@ test("bestelleingang and auftragsbestaetigung are separate document templates", 
   assert.doesNotMatch(orderReceipt, /noch kein (Kaufvertrag|Vertrag)|erst mit.*Vertrag/);
   assert.ok(studioSource.includes('["order-received", "Verkauf", "Bestelleingang bestätigen"'));
 });
+
+test("recipient address keeps manually entered postal line breaks when saved and reloaded", () => {
+  const address = "Max Mustermann\\nMusterstraße 12\\n12345 Musterstadt";
+  const first = applyStudioChange(null, "save", draft({ recipient: address }));
+  assert.equal(first.documents[0].recipient, address);
+  assert.equal(documentSummary(first.documents[0]).recipient, address);
+  const second = applyStudioChange(first, "save", { ...first.documents[0], title: "Bestellbestätigung" });
+  assert.equal(second.documents[0].recipient, address);
+  const frontend = readFileSync(new URL("../seller-document-studio.js", import.meta.url), "utf8");
+  assert.match(frontend, /<textarea id="edsRecipient"/);
+  assert.match(frontend, /eds-recipient-address/);
+  assert.match(frontend, /withBreaks/);
+});
