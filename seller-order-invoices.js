@@ -171,61 +171,48 @@
   }
 
   const issueBusy = new Set();
+  const pdfUrl = (orderId, download = false) =>
+    '/api/finance/invoice-pdf?orderId=' + encodeURIComponent(orderId) + (download ? '&download=1' : '');
+
   function printInvoice(invoice, preopenedWindow = null) {
-    if (!invoice?.invoiceNumber || !invoice?.seller?.taxId || invoice.taxMode !== 'small_business') {
-      notify('Diese Rechnung hat keinen vollständigen, geprüften Ausstellungsstand.', 'Rechnung');
+    // Only an issued immutable snapshot can be downloaded from the protected server.
+    // Never synthesize a new invoice or number from the browser.
+    if (!invoice?.invoiceNumber || !invoice?.orderId ||
+        !invoice?.seller?.taxId || invoice.taxMode !== 'small_business') {
+      try { preopenedWindow?.close(); } catch {}
+      notify('Keine vollständig ausgestellte Kleinunternehmer-Rechnung vorhanden.', 'Rechnung');
       return;
     }
     const popup = preopenedWindow || window.open('', '_blank');
-    if (!popup) { notify('Bitte Pop-ups für das Seller Tool erlauben.', 'Rechnung'); return; }
-    const s = invoice.seller, b = invoice.buyer;
-    const addr = person => [
-      person.name, person.addressLine1, person.addressLine2,
-      [person.postalCode, person.city].filter(Boolean).join(' '),
-      person.country === 'DE' ? 'Deutschland' : person.country
-    ].filter(Boolean).map(esc).join('<br>');
-    const issuedDate = dateTime.format(new Date(invoice.issuedAt));
-    const lineRows = (invoice.lineItems || []).map(line =>
-      '<tr><td>' + esc(line.title) + '</td><td class="num">' + esc(line.quantity) + '</td>' +
-      '<td class="num">' + money(line.total, 'EUR') + '</td></tr>'
-    ).join('');
-    const shippingRow = invoice.shipping ? '<tr><td>Versand</td><td class="num">1</td><td class="num">' +
-      money(invoice.shipping, 'EUR') + '</td></tr>' : '';
-    const discountRow = invoice.discount ? '<tr><td>Rabatt</td><td class="num">1</td><td class="num">−' +
-      money(invoice.discount, 'EUR') + '</td></tr>' : '';
-    const html = [
-      '<!doctype html><html lang="de"><head><meta charset="utf-8">',
-      '<title>Rechnung ' + esc(invoice.invoiceNumber) + '</title>',
-      '<style>body{font:15px/1.5 Arial,sans-serif;max-width:820px;margin:35px auto;padding:0 25px;color:#172033}',
-      'header{display:flex;justify-content:space-between;border-bottom:3px solid #1b6b45;padding-bottom:18px}',
-      'h1{margin:0;font-size:29px}h2{font-size:16px}.muted{color:#5b6473;font-size:13px}',
-      '.grid{display:grid;grid-template-columns:1fr 1fr;gap:28px;margin:26px 0}',
-      'table{border-collapse:collapse;width:100%;margin:25px 0}th,td{text-align:left;padding:12px 7px;border-bottom:1px solid #ddd}',
-      '.num{text-align:right;white-space:nowrap}.sum{text-align:right;font-size:22px;font-weight:bold;margin:16px 0}',
-      '.tax{background:#edf8f0;padding:14px;margin:22px 0;border:1px solid #acd3b8}',
-      '.print{margin:0 0 18px;padding:10px 14px;background:#176a3d;color:#fff;border:0;border-radius:5px}',
-      '@page{size:A4;margin:17mm}@media print{body{padding:0;margin:0}.print{display:none}}',
-      '</style></head><body>',
-      '<button type="button" class="print" onclick="window.print()">Drucken / als PDF speichern</button>',
-      '<header><div><h1>' + esc(s.brand || 'ELYON') + '</h1><p><strong>' + esc(s.name) + '</strong><br>' +
-      esc(s.addressLine1) + '<br>' + esc(s.postalCode) + ' ' + esc(s.city) +
-      '<br>Deutschland<br>Steuernummer / steuerliche ID: ' + esc(s.taxId) + '</p></div>',
-      '<div style="text-align:right"><h2>Rechnung</h2><strong>' + esc(invoice.invoiceNumber) +
-      '</strong><br>Ausgestellt am: ' + esc(issuedDate) + '</div></header>',
-      '<div class="grid"><section><h2>Rechnungsempfänger</h2>' + addr(b) + '</section>',
-      '<section><h2>Bestellung</h2>eBay: ' + esc(invoice.orderId) +
-      '<br>Bestelldatum: ' + esc(dateTime.format(new Date(invoice.orderedAt))) + '</section></div>',
-      '<h2>Gelieferte Waren / bestellte Artikel</h2>',
-      '<table><thead><tr><th>Bezeichnung</th><th class="num">Menge</th><th class="num">Betrag</th></tr></thead><tbody>',
-      lineRows + shippingRow + discountRow,
-      '</tbody></table><div class="sum">Gesamtbetrag: ' + money(invoice.total, 'EUR') + '</div>',
-      '<div class="tax">' + esc(invoice.note) + '</div>',
-      '<p class="muted">Ausgestellt auf Grundlage einer geprüften eBay-Bestellung. Keine separate Umsatzsteuer.</p>',
-      '</body></html>'
-    ].join('');
-    popup.document.open();
-    popup.document.write(html);
-    popup.document.close();
+    if (!popup) {
+      notify('Bitte Pop-ups für das Seller Tool erlauben. Alternativ PDF herunterladen.', 'Rechnung');
+      return;
+    }
+    popup.location.replace(pdfUrl(invoice.orderId));
+  }
+  async function downloadInvoice(orderId) {
+    if (!/^[A-Za-z0-9_-]{6,70}$/.test(String(orderId || ''))) return;
+    try {
+      const response = await fetch(pdfUrl(orderId,true), {
+        credentials:'same-origin',cache:'no-store',headers:{Accept:'application/pdf'}
+      });
+      if (!response.ok || !(response.headers.get('content-type') || '').includes('application/pdf')) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.message || error.error || 'HTTP ' + response.status);
+      }
+      const blob = await response.blob();
+      const ref = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = ref;
+      a.download = 'ELYON-Rechnung-' + orderId.replace(/[^A-Za-z0-9_-]/g,'') + '.pdf';
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(ref), 60_000);
+    } catch(error) {
+      notify('PDF konnte nicht heruntergeladen werden: ' + error.message, 'Rechnungsarchiv');
+    }
   }
   function openExistingInvoice(meta) {
     if (!meta?.immutable || !meta.invoice) {
@@ -310,7 +297,8 @@
         archived.sort((a,b)=>String(b.invoice?.issuedAt||'').localeCompare(String(a.invoice?.issuedAt||'')))
           .map(entry=>'<tr><td>' + esc(entry.invoiceNumber) + '</td><td>' + esc(entry.invoice.orderId) +
             '</td><td>' + money(entry.invoice.total,'EUR') + '</td><td><button type="button" class="eoi-btn" data-eoi-archive="' +
-            esc(entry.invoice.orderId) + '">Rechnung öffnen / PDF</button></td></tr>').join('') + '</tbody></table></div>';
+            esc(entry.invoice.orderId) + '">PDF öffnen</button> <button type="button" class="eoi-btn" data-eoi-download="' +
+            esc(entry.invoice.orderId) + '">PDF herunterladen</button></td></tr>').join('') + '</tbody></table></div>';
     }
     const legacyCount = Object.values(meta).filter(entry => entry && !entry.immutable).length;
     if (legacyCount) html += '<div class="eoi-error" style="margin-top:10px">' +
@@ -339,6 +327,8 @@
 
   document.addEventListener('click', (event) => {
     if (event.target.closest && event.target.closest('[data-eoi-load]')) return loadOrders();
+    const pdfDownloadButton = event.target.closest && event.target.closest('[data-eoi-download]');
+    if (pdfDownloadButton) { void downloadInvoice(pdfDownloadButton.dataset.eoiDownload); return; }
     const archivedButton = event.target.closest && event.target.closest('[data-eoi-archive]');
     if (archivedButton) { openExistingInvoice(readMeta()[archivedButton.dataset.eoiArchive]); return; }
     const invoiceButton = event.target.closest && event.target.closest('[data-eoi-invoice]');
@@ -359,5 +349,5 @@
     }
   });
 
-  window.ElyonOrderInvoices = { mount, load: loadOrders, create: createInvoice };
+  window.ElyonOrderInvoices = { mount, load: loadOrders, create: createInvoice, download: downloadInvoice };
 })();
