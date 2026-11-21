@@ -70,8 +70,8 @@ function injectDesktopSecurity(html) {
     '<script defer src="/seller-runtime-loader.js"></script>',
     '<style>#elyonSellerSellingFlow.focused-selling-active > .card:first-of-type{display:none!important}</style>',
     '<script type="module" src="/seller-dashboard-v2.js"></script>',
-    '<link rel="stylesheet" href="/seller-orders-v2.css?v=orders2-20261121-compact-checklist" />',
-    '<script defer src="/seller-orders-v2-loader.js?v=orders2-20261121-compact-checklist"></script>',
+    '<link rel="stylesheet" href="/seller-orders-v2.css?v=orders2-20261121-nova-pair-fix1" />',
+    '<script defer src="/seller-orders-v2-loader.js?v=orders2-20261121-nova-pair-fix1"></script>',
   ].join("\n");
 
   return injectMarkedBlock(html, { startMarker, endMarker, content });
