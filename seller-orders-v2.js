@@ -56,7 +56,7 @@ const state = {
   selectedId: "", filter: "all", query: "", days: 90, loading: false,
   saving: false, refreshedAt: "", error: "", warning: "", saveNotice: "",
   truncated: false, sourceReady: false, financeReady: false, drafts: {},
-  demoMode: false, activeSection: "overview",
+  demoMode: false, activeSection: "overview", demoModal: "", demoNotice: "",
 };
 try { const v = Number(localStorage.getItem(RANGE_KEY)); if ([7, 30, 90].includes(v)) state.days = v; } catch {}
 
@@ -176,12 +176,102 @@ function detailsMarkup(order) {
       </section>
       <label class="ocv2-note">Interne Notiz<textarea name="note" rows="3" maxlength="1600" placeholder="Liefertermin, Sonderfall, Einkauf prüfen …">${h(op.note || "")}</textarea></label>
       <div class="ocv2-details-actions"><button type="submit" class="ocv2-primary" ${state.saving || (!state.financeReady && !state.demoMode) ? "disabled" : ""}>${state.saving ? "Speichert…" : state.demoMode ? "Demo-Änderung übernehmen" : "Interne Angaben sichern"}</button>
-        <button type="button" data-order-shipping ${state.demoMode ? "disabled" : ""}>Versand öffnen</button><button type="button" data-order-invoice ${state.demoMode ? "disabled" : ""}>Rechnung öffnen</button></div>
+        <button type="button" data-order-shipping>Versand öffnen</button><button type="button" data-order-invoice>Rechnung öffnen</button></div>
       ${state.demoMode ? '<div class="ocv2-demo-note">Demo: Kein API-Aufruf, keine Bestellung beim Lieferanten, kein eBay-Update.</div>' : ""}
       ${state.demoMode && DEMO.history.length ? `<div class="ocv2-demo-history"><strong>Letzte Demo-Aktionen</strong>${DEMO.history.slice(0,3).map((entry) => `<span>• ${h(entry)}</span>`).join("")}</div>` : ""}
       <p class="ocv2-hint">Interne Angaben werden revisionsgeschützt gespeichert. Kein automatischer Lieferantenkauf, keine eBay-Versandmeldung und keine Rechnungsausstellung.</p>
     </form>`;
 }
+// All demonstration dialogs are local UI only. Never create invoice numbers or call any API.
+const demoInvoiceChecks = new Set();
+function demoModalMarkup() {
+  if (!state.demoMode || !["shipping", "invoice"].includes(state.demoModal)) return "";
+  const order = DEMO.orders.find((item) => item.id === state.selectedId);
+  if (!order) return "";
+  const draft = { ...obj(DEMO.operations[order.id]), ...obj(state.drafts[order.id]) };
+  const shipping = state.demoModal === "shipping";
+  const address = obj(order.shippingAddress);
+  const addressLines = [address.recipient, address.street, address.extra,
+    [address.postalCode, address.city].filter(Boolean).join(" "), address.country].filter(Boolean);
+  const rows = order.lines.map((line) =>
+    `<tr><td>${h(line.title)}<span class="ocv2-small">SKU ${h(line.sku || "–")}</span></td>
+      <td>${h(line.quantity)}</td><td>${h(line.total===null?"–":money(line.total,order.currency))}</td></tr>`).join("");
+  const title = shipping ? "Versand simulieren" : "Rechnungsvorschau";
+  const content = shipping ?
+    `<p class="ocv2-hint">Du kannst Versanddienst und Tracking für die Beispielbestellung eingeben. Der Versandstatus ändert sich nur in der Demo.</p>
+      <div class="ocv2-demo-panel"><strong>Versandadresse (Beispiel)</strong><p>${addressLines.length ? addressLines.map(h).join("<br>") : "Keine Beispieladresse hinterlegt."}</p></div>
+      <form id="ocv2DemoShippingForm" data-demo-order="${h(order.id)}">
+        <div class="ocv2-fields"><label>Versanddienstleister
+          <select name="carrier" required><option value="">Bitte auswählen</option>
+          ${["DHL","Hermes","DPD","GLS","UPS","Sonstige"].map((carrier) =>
+            `<option value="${h(carrier)}" ${text(draft.carrier)===carrier?"selected":""}>${h(carrier)}</option>`).join("")}</select></label>
+          <label>Beispiel-Trackingnummer<input name="trackingNumber" required maxlength="120" minlength="3"
+            value="${h(draft.trackingNumber || "")}" placeholder="z. B. DEMO-TRACK-12345" /></label></div>
+        ${!paymentConfirmed(order) ?
+          '<p class="ocv2-alert">Zahlung offen: Die Simulation einer Versandbestätigung ist für diesen Auftrag gesperrt.</p>' : ""}
+        <button type="submit" class="ocv2-primary" ${!paymentConfirmed(order)?"disabled":""}>Versand in Demo simulieren</button>
+      </form>` :
+    `<div class="ocv2-demo-panel"><strong>Belegstatus</strong><p>${demoInvoiceChecks.has(order.id)?
+      "Rechnungsangaben in der Demo als geprüft markiert. Keine Rechnung ausgestellt.":
+      "Noch nicht geprüft. Keine Rechnungsnummer vergeben."}</p></div>
+      <div class="ocv2-invoice-sheet">
+        <div class="ocv2-invoice-stamp">MUSTER · KEINE GÜLTIGE RECHNUNG</div>
+        <div class="ocv2-invoice-top"><strong>ELYON · DEMO</strong><span>Rechnungsnummer: nicht vergeben</span></div>
+        <p>Beispielkundenreferenz: ${h(order.buyerRef || "Demo-Kunde")}<br>
+          eBay-Beispielbestellung: ${h(order.id)}<br>Datum der Beispielbestellung: ${h(date(order.createdAt))}</p>
+        <table class="ocv2-invoice-table"><thead><tr><th>Position</th><th>Menge</th><th>Betrag laut eBay</th></tr></thead>
+          <tbody>${rows}</tbody></table>
+        <div class="ocv2-invoice-total"><span>eBay-Bestellsumme (Beispiel)</span><strong>${h(money(order.total,order.currency))}</strong></div>
+        <p class="ocv2-hint">Dies ist ausschließlich eine interaktive Vorschau mit erfundenen Daten. Keine Steuerberechnung, keine Nummernvergabe und kein rechtsgültiger Beleg.</p>
+      </div>
+      <button type="button" class="ocv2-primary" data-demo-invoice-check>
+        ${demoInvoiceChecks.has(order.id)?"Erneut als geprüft markieren":"Rechnungsdaten in Demo prüfen"}</button>`;
+  return `<div class="ocv2-demo-overlay" role="presentation">
+    <div class="ocv2-demo-dialog" role="dialog" aria-modal="true" aria-labelledby="ocv2DemoDialogTitle" tabindex="-1">
+      <div class="ocv2-demo-dialog-head"><div><small>INTERAKTIVE DEMO · ${h(order.id)}</small>
+        <h3 id="ocv2DemoDialogTitle">${title}</h3></div>
+        <button type="button" data-demo-modal-close aria-label="Vorschau schließen">✕</button></div>
+      <div class="ocv2-demo-dialog-body">${state.demoNotice?
+        `<div class="ocv2-success" role="status">${h(state.demoNotice)}</div>`:""}
+        ${content}</div>
+      <div class="ocv2-demo-dialog-footer"><span>Keine echten Daten oder API-Aktionen</span>
+        <button type="button" data-demo-modal-close>Zurück zur Bestellung</button></div>
+    </div></div>`;
+}
+function openDemoModal(type) {
+  if (!state.demoMode || !["shipping", "invoice"].includes(type)) return;
+  state.demoModal = type;
+  state.demoNotice = "";
+  render();
+  root()?.querySelector(".ocv2-demo-dialog")?.focus();
+}
+function closeDemoModal() {
+  state.demoModal = "";
+  state.demoNotice = "";
+  render();
+  root()?.querySelector('[data-order-shipping]')?.focus();
+}
+function submitDemoShipping(form) {
+  if (!state.demoMode || state.demoModal !== "shipping") return;
+  const order = DEMO.orders.find((item) => item.id === form.dataset.demoOrder && item.id === state.selectedId);
+  if (!order || !paymentConfirmed(order)) return;
+  const values = Object.fromEntries(new FormData(form).entries());
+  const carrier = text(values.carrier).slice(0, 80);
+  const trackingNumber = text(values.trackingNumber).slice(0, 120);
+  if (!["DHL","Hermes","DPD","GLS","UPS","Sonstige"].includes(carrier) || trackingNumber.length < 3) return;
+  DEMO.operations[order.id] = { ...obj(DEMO.operations[order.id]), carrier, trackingNumber,
+    workflowStatus:"SHIPPED" };
+  // Clear only the draft fields we just simulated; other unsaved inputs stay untouched.
+  if (state.drafts[order.id]) {
+    state.drafts[order.id] = { ...state.drafts[order.id], carrier, trackingNumber, workflowStatus:"SHIPPED" };
+  }
+  DEMO.history.unshift("Demo-Versand für " + order.id + " simuliert (" + carrier + ")");
+  state.demoNotice = "Versand in der Demo simuliert. Bei eBay wurde nichts gemeldet.";
+  state.saveNotice = "Beispielbestellung intern als versendet markiert – nur Demo.";
+  render();
+  root()?.querySelector(".ocv2-demo-dialog")?.focus();
+}
+
 function render() {
   const host = root(); if (!host) return;
   const summary = summarizeOrders(ordersNow(), operationsNow());
@@ -213,6 +303,7 @@ function render() {
         <section class="ocv2-detail-card" id="ocv2Details">
           ${selected ? detailsMarkup(selected) : '<div class="ocv2-empty ocv2-empty-detail"><strong>Bestellung auswählen</strong><span>Hier erscheinen Artikel, Lieferant, Kosten, Rechnung und Versand.</span></div>'}
         </section></div></div>`;
+  host.insertAdjacentHTML("beforeend", demoModalMarkup());
 }
 async function json(url, options) {
   const response = await fetch(url, { credentials: "same-origin", cache: "no-store", ...options });
@@ -299,13 +390,15 @@ function openDemo() {
   if (!state.demoMode && Object.keys(state.drafts).some((id) => !id.startsWith("DEMO-"))) {
     state.warning = "Bitte ungespeicherte echte Bestelländerungen zuerst speichern oder die Seite neu laden."; render(); return;
   }
-  state.demoMode = true; state.query = ""; state.filter = "all";
+  state.demoMode = true; state.demoModal = ""; state.demoNotice = ""; state.query = ""; state.filter = "all";
   state.selectedId = DEMO.orders[0]?.id || ""; state.activeSection = "overview";
   state.error = ""; state.warning = ""; state.saveNotice = ""; render();
 }
 function closeDemo() {
   if (!state.demoMode) return;
   state.demoMode = false;
+  state.demoModal = "";
+  state.demoNotice = "";
   for (const id of Object.keys(state.drafts)) if (id.startsWith("DEMO-")) delete state.drafts[id];
   state.selectedId = state.orders[0]?.id || ""; state.activeSection = "overview";
   state.filter = "all"; state.query = ""; state.error = ""; state.warning = "";
@@ -359,6 +452,15 @@ function bind() {
   const host = root();
   if (!host) return;
   host.addEventListener("click", (event) => {
+    if (event.target.closest("[data-demo-modal-close]")) return closeDemoModal();
+    if (event.target.closest("[data-demo-invoice-check]") && state.demoMode && state.demoModal === "invoice") {
+      const order = DEMO.orders.find((item) => item.id === state.selectedId);
+      if (!order) return;
+      demoInvoiceChecks.add(order.id);
+      DEMO.history.unshift("Demo-Rechnungsangaben für " + order.id + " geprüft (kein Beleg erstellt)");
+      state.demoNotice = "Demo-Rechnungsangaben geprüft. Es wurde keine echte Rechnung erstellt.";
+      return render();
+    }
     if (event.target.closest("#ocv2DemoToggle")) return state.demoMode ? closeDemo() : openDemo();
     if (event.target.closest("[data-ocv2-demo-start]")) return openDemo();
     const tab = event.target.closest("[data-ocv2-section]");
@@ -371,12 +473,12 @@ function bind() {
     const filter = event.target.closest("[data-ocv2-filter]");
     if (filter) { state.filter = filter.dataset.ocv2Filter; return render(); }
     if (event.target.closest("[data-order-invoice]")) {
-      if (state.demoMode) return;
+      if (state.demoMode) return openDemoModal("invoice");
       if (window.ElyonSellerFinance?.openInvoices) window.ElyonSellerFinance.openInvoices();
       else goToTab("financeTab");
     }
     if (event.target.closest("[data-order-shipping]")) {
-      if (state.demoMode) return;
+      if (state.demoMode) return openDemoModal("shipping");
       goToTab("automationTab");
     }
   });
@@ -409,6 +511,10 @@ function bind() {
     }
   });
   host.addEventListener("submit", (event) => {
+    if (event.target.id === "ocv2DemoShippingForm") {
+      event.preventDefault();
+      return submitDemoShipping(event.target);
+    }
     if (event.target.id !== "ocv2OrderForm") return;
     event.preventDefault();
     void save(event.target);
@@ -421,6 +527,12 @@ function mount() {
   tab.appendChild(host);
   tab.classList.add("elyon-orders-v2-active");
   bind(); render(); void refresh();
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && state.demoMode && state.demoModal) {
+      event.preventDefault();
+      closeDemoModal();
+    }
+  });
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden && document.getElementById("ordersTab")?.classList.contains("active") &&
       Date.now() - Date.parse(state.refreshedAt || 0) > 5 * 60 * 1000) void refresh();
