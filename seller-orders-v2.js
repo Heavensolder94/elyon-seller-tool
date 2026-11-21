@@ -126,8 +126,9 @@ function completionFor(order, op) {
 function nextActionMarkup(order) {
   const completion = completionFor(order, { ...opFor(order.id), ...obj(state.drafts[order.id]) });
   const next = completion.next;
+  const nextTitle = state.demoMode && next?.key === "invoice" ? "Musterrechnung in der Demo prüfen" : next?.title;
   return `<div class="ocv2-next"><span><small>${completion.ready ? "Bereit zum Abschluss" : "Nächster Schritt"}</small>
-    <strong>${h(next?.title || "Alle erforderlichen Schritte erledigt")}</strong></span>
+    <strong>${h(nextTitle || "Alle erforderlichen Schritte erledigt")}</strong></span>
     ${next ? `<button type="button" data-ocv2-section="${h(next.section)}">Öffnen →</button>` : ""}
   </div>`;
 }
@@ -139,7 +140,7 @@ function checklistMarkup(order, op) {
     <div class="ocv4-task-list">${assessment.checks.map((item) =>
       `<button type="button" data-ocv2-section="${h(item.section)}" class="ocv4-task ${item.done ? "done" : "open"}">
         <span class="ocv4-check" aria-hidden="true">${item.done ? "✓" : "·"}</span>
-        <span>${h(item.title)}${item.required ? "" : ' <small>(empfohlen)</small>'}</span>
+        <span>${h(state.demoMode && item.key === "invoice" ? "Musterrechnung geprüft (Demo)" : item.title)}${item.required ? "" : ' <small>(empfohlen)</small>'}</span>
         <span class="ocv4-task-action">${item.done ? "Erledigt" : "Prüfen"}</span>
       </button>`).join("")}</div>
     <div class="ocv4-complete">
@@ -217,7 +218,7 @@ function detailsMarkup(order) {
     ${checklistMarkup(order, op)}
     <div class="ocv2-details-meta"><span>${h(date(order.createdAt))}</span><strong>${h(money(order.total, order.currency))}</strong></div>
     <div class="ocv2-chips"><span>Bezahlung: ${h(order.paymentStatus)}</span><span>eBay-Versand: ${h(order.fulfillmentStatus)}</span>
-    <span>Rechnung: ${invoice ? h(invoice.invoiceNumber) : "noch keine"}</span></div>
+    <span>Rechnung: ${state.demoMode && demoInvoiceChecks.has(order.id) ? "Muster geprüft (Demo)" : invoice ? h(invoice.invoiceNumber) : "noch keine"}</span></div>
     ${!paymentConfirmed(order) ? '<p class="ocv2-alert">eBay meldet die Bestellung nicht als vollständig bezahlt. Vor einem Einkauf bitte überprüfen.</p>' : ""}
     <h4>Artikel & Produktverknüpfungen</h4><div class="ocv2-lines">${lines}</div>
     ${shippingAddress}
@@ -239,7 +240,7 @@ function detailsMarkup(order) {
       </div><div class="ocv4-inline-action"><span>eBay-Versandstatus: ${h(order.fulfillmentStatus)}</span><button type="button" data-order-ebay-shipping ${state.actionBusy || !state.financeReady && !state.demoMode ? "disabled" : ""}>${state.demoMode ? "Versand simulieren" : "Versand an eBay melden"}</button></div>
       <p class="ocv2-hint">Der Button sendet erst nach ausdrücklicher Bestätigung. Ohne gespeicherten Lieferantenauftrag und Tracking wird nichts versendet.</p></section>
       <section class="ocv2-pane" data-pane="finance" ${state.activeSection!=="finance"?"hidden":""}>
-      <h4>Rechnung</h4><div class="ocv4-inline-action"><span>${invoice ? `Rechnung ${h(invoice.invoiceNumber)} ist ausgestellt.` : "Noch keine ausgestellte Rechnung vorhanden."}</span>
+      <h4>Rechnung</h4><div class="ocv4-inline-action"><span>${state.demoMode && demoInvoiceChecks.has(order.id) ? "Musterrechnung geprüft – keine echte Rechnung erstellt." : invoice ? `Rechnung ${h(invoice.invoiceNumber)} ist ausgestellt.` : "Noch keine ausgestellte Rechnung vorhanden."}</span>
       <button type="button" data-order-invoice ${state.actionBusy ? "disabled" : ""}>${invoice ? "Rechnung öffnen" : "Rechnung prüfen / ausstellen"}</button></div>
       <h4>Kosten und Gewinn</h4>
       ${help}
