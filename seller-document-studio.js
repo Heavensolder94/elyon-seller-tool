@@ -325,6 +325,114 @@
     if (count) count.textContent = state.documents.length + " gespeichert";
   }
 
+  function activeEditor() {
+    return el("edsPageBody") || el("edsEditor");
+  }
+
+  function markEdited() {
+    state.dirty = true;
+    status("Nicht gespeicherte Änderungen – bitte speichern.");
+  }
+
+  function renderBlocks() {
+    const container = el("edsBlocksList"), categories = el("edsBlockCategories");
+    if (!container || !categories) return;
+    const all = [...BUILTIN_BLOCKS, ...state.customBlocks.map((block) => ({
+      id: block.id, title: block.title, category: block.category, html: block.contentHtml, custom: true
+    }))];
+    const filters = ["Alle", "Begrüßung", "Abschluss", "Verkauf", "Kundenservice", "Lieferanten", "Organisation", "Eigene"];
+    categories.innerHTML = filters.map((name) =>
+      '<button type="button" class="eds-category' + (name === state.blockCategory ? " active" : "") +
+      '" data-eds-block-category="' + escapeHtml(name) + '">' + escapeHtml(name) + '</button>'
+    ).join("");
+    const entries = all.filter((block) =>
+      (state.blockCategory === "Alle" || block.category === state.blockCategory) &&
+      (block.title + " " + block.category).toLocaleLowerCase("de-DE").includes(state.blockSearch)
+    );
+    container.innerHTML = entries.map((block) =>
+      '<div class="eds-block"><button type="button" class="eds-block-insert" data-eds-block="' + escapeHtml(block.id) +
+      '" title="An der Cursorposition einfügen"><span class="eds-block-plus">+</span><span><strong>' + escapeHtml(block.title) +
+      '</strong><small>' + escapeHtml(block.category) + '</small></span></button>' +
+      (block.custom ? '<button class="eds-remove" type="button" data-eds-delete-block="' + escapeHtml(block.id) +
+      '" aria-label="Eigenen Baustein löschen" title="Baustein löschen">×</button>' : '') + '</div>'
+    ).join("") || '<p class="eds-muted">Keine Bausteine gefunden.</p>';
+    el("edsBlockCount").textContent = all.length + " verfügbar";
+  }
+
+  function insertHtmlAtCursor(html) {
+    if (state.current?.archivedAt) return status("Archiviertes Dokument zuerst wiederherstellen.", true);
+    const editor = activeEditor();
+    if (!editor) return;
+    const selection = window.getSelection();
+    let range = state.lastRange;
+    if (!range || !editor.contains(range.commonAncestorContainer) || !range.startContainer.isConnected) {
+      range = document.createRange();
+      range.selectNodeContents(editor);
+      range.collapse(false);
+    }
+    selection.removeAllRanges();
+    selection.addRange(range);
+    editor.focus();
+    const safe = sanitize(html);
+    if (!document.execCommand("insertHTML", false, safe)) {
+      const fragment = range.createContextualFragment(safe);
+      const last = fragment.lastChild;
+      range.deleteContents();
+      range.insertNode(fragment);
+      if (last) { range.setStartAfter(last); range.collapse(true); }
+      selection.removeAllRanges();
+      selection.addRange(range);
+    }
+    handleInput({ target: editor });
+  }
+
+  function insertTextBlock(id) {
+    const entry = BUILTIN_BLOCKS.find((block) => block.id === id) ||
+      state.customBlocks.find((block) => block.id === id);
+    if (!entry) return status("Textbaustein nicht gefunden.", true);
+    insertHtmlAtCursor(entry.html || entry.contentHtml);
+    status("Textbaustein eingefügt: " + entry.title + ". Inhalt kann direkt auf A4 angepasst werden.");
+  }
+
+  async function saveSelectedBlock() {
+    if (!state.current || state.current.archivedAt) return status("Bitte zuerst ein bearbeitbares Dokument öffnen.", true);
+    if (state.revision === null) return status("Textbausteine benötigen den Dokumentenspeicher.", true);
+    const body = el("edsPageBody");
+    const range = state.lastRange;
+    if (!body || !range || range.collapsed || !body.contains(range.commonAncestorContainer)) {
+      return status("Bitte erst den gewünschten Text auf der A4-Seite markieren.", true);
+    }
+    const fragment = document.createElement("div");
+    fragment.appendChild(range.cloneContents());
+    const html = sanitize(fragment.innerHTML);
+    if (!html.trim() || html.length > 5000) return status("Auswahl leer oder zu lang (max. 5.000 Zeichen).", true);
+    const title = window.prompt("Name für den neuen Textbaustein:", "Mein Textbaustein");
+    if (!title?.trim()) return;
+    const record = { id: "block_" + newId(), title: title.trim().slice(0, 120), category: "Eigene", contentHtml: html };
+    try {
+      const result = await api("save-block", { expectedRevision: state.revision, document: record });
+      state.revision = result.revision;
+      state.customBlocks = result.blocks || [];
+      state.documents = result.documents || state.documents;
+      state.blockCategory = "Eigene";
+      renderBlocks();
+      status("Eigener Textbaustein gespeichert: " + record.title + ".");
+    } catch (error) { status("Textbaustein nicht gespeichert: " + error.message, true); }
+  }
+
+  async function deleteSelectedBlock(id) {
+    if (!state.customBlocks.some((block) => block.id === id)) return;
+    if (!window.confirm("Diesen eigenen Textbaustein löschen? Bereits eingefügte Texte bleiben erhalten.")) return;
+    try {
+      const result = await api("delete-block", { expectedRevision: state.revision, id });
+      state.revision = result.revision;
+      state.customBlocks = result.blocks || [];
+      state.documents = result.documents || state.documents;
+      renderBlocks();
+      status("Baustein gelöscht. Bereits verwendete Texte bleiben erhalten.");
+    } catch (error) { status(error.message, true); }
+  }
+
   function applyPreset(templateId) {
     const preset = PRESETS.find((p) => p.id === templateId) || state.customTemplates.find((p) => p.id === templateId);
     if (!preset) return status("Vorlage nicht gefunden.", true);
