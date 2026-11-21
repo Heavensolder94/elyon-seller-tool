@@ -59,7 +59,7 @@
     ["leer", "Organisation", "Leeres A4-Dokument", "blank", "<h2>Neues Dokument</h2><p>Beginnen Sie hier mit dem Inhalt.</p>"]
   ].map(([id, category, name, kind, html]) => ({ id, category, name, kind, html }));
   const DEFAULT_DESIGN = "elyon";
-  const state = { revision: null, documents: [], customTemplates: [], current: null, profile: {}, dirty: false, showArchived: false, search: "", librarySearch: "", category: "Alle", favoritesOnly: false, favorites: [], libraryOpen: true, designId: DEFAULT_DESIGN, preview: true, loading: false };
+  const state = { revision: null, documents: [], customTemplates: [], current: null, profile: {}, logoData: "", dirty: false, showArchived: false, search: "", librarySearch: "", category: "Alle", favoritesOnly: false, favorites: [], libraryOpen: true, designId: DEFAULT_DESIGN, preview: true, loading: false };
 
   const el = (id) => document.getElementById(id);
   const escapeHtml = (value) => String(value == null ? "" : value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
@@ -115,7 +115,7 @@
 
   function newDocument(kind) {
     const type = Object.hasOwn(templates, kind) ? kind : "blank";
-    return { id: newId(), kind: type, title: labels[type] + " – " + new Date().toLocaleDateString("de-DE"), recipient: "", reference: "", contentHtml: templates[type], designId: state.designId, templateId: "", createdAt: "", updatedAt: "", version: 0, archivedAt: null };
+    return { id: newId(), kind: type, title: labels[type] + " – " + new Date().toLocaleDateString("de-DE"), recipient: "", reference: "", contentHtml: templates[type], designId: state.designId, templateId: "", accentColor: "", headerText: "", footerText: "", logoData: "", createdAt: "", updatedAt: "", version: 0, archivedAt: null };
   }
 
   function ensureUI() {
@@ -146,7 +146,7 @@
           '<label class="eds-field">Dokumententitel<input id="edsTitle" maxlength="120" autocomplete="off"></label>',
           '<label class="eds-field">Dokumentenart<select id="edsKind"></select></label>',
           '<label class="eds-field">Empfänger / Ansprechpartner<input id="edsRecipient" maxlength="300" autocomplete="off"></label>',
-          '<label class="eds-field">Referenz (z. B. Bestellnummer)<input id="edsReference" maxlength="120" autocomplete="off"></label><label class="eds-field">Designvorlage<select id="edsDesign" aria-label="Designvorlage"></select></label>',
+          '<label class="eds-field">Referenz (z. B. Bestellnummer)<input id="edsReference" maxlength="120" autocomplete="off"></label><label class="eds-field">Designvorlage<select id="edsDesign" aria-label="Designvorlage"></select></label><label class="eds-field">Akzentfarbe<input id="edsAccent" type="color" value="#1d4ed8" title="Individuelle Akzentfarbe"></label><label class="eds-field">Kopfzeile / Marke<input id="edsHeaderText" maxlength="120" placeholder="Optionaler Absendername"></label><label class="eds-field">Fußzeile<input id="edsFooterText" maxlength="180" placeholder="Optionaler Fußzeilentext"></label><label class="eds-field">Eigenes Logo (PNG/JPG/WebP)<input id="edsLogoUpload" type="file" accept="image/png,image/jpeg,image/webp"></label><div class="eds-brand-logo"><span id="edsLogoStatus" class="eds-muted">Kein Logo ausgewählt</span><button class="eds-btn" type="button" data-eds-action="remove-logo">Logo entfernen</button></div>',
         '</div>',
         '<div id="edsAssistantPanel" class="eds-assistant"><div class="eds-side-head"><strong>Dokumentenassistent</strong><button type="button" class="eds-btn" data-eds-action="close-assistant">Schließen</button></div><p class="eds-muted">Vervollständigt eine ausgewählte Vorlage aus deinen Angaben – lokal, ohne kostenpflichtigen KI-Aufruf.</p><label class="eds-field">Anlass / Betreff<input id="edsAssistantSubject" maxlength="120" placeholder="z. B. Angebot für Büroausstattung"></label><label class="eds-field">Wichtige Angaben<textarea id="edsAssistantDetails" maxlength="2500" rows="3" placeholder="Artikel, Fristen, gewünschte Antwort …"></textarea></label><button type="button" class="eds-btn eds-primary" data-eds-action="generate">Dokument aufbauen</button></div><div class="eds-workspace"><div class="eds-edit-panel"><h3>Inhalt</h3><div class="eds-editor-toolbar" role="toolbar" aria-label="Textformatierung">',
           '<button type="button" class="eds-btn" data-eds-format="bold" title="Fett"><strong>B</strong></button>',
@@ -191,6 +191,7 @@
     root.addEventListener("click", handleClick);
     root.addEventListener("input", handleInput);
     root.addEventListener("change", handleChange);
+    el("edsLogoUpload").addEventListener("change", onLogoFile);
     el("edsEditor").addEventListener("paste", (event) => {
       event.preventDefault();
       const plain = event.clipboardData?.getData("text/plain") || "";
@@ -253,7 +254,8 @@
     if (!container || !categories) return;
     const all = [...PRESETS, ...state.customTemplates.map((t) => ({
       id: t.id, category: "Eigene", name: t.name, kind: t.kind,
-      html: t.contentHtml, designId: t.designId
+      html: t.contentHtml, designId: t.designId,
+      accentColor: t.accentColor, headerText: t.headerText, footerText: t.footerText, logoData: t.logoData
     }))];
     const names = ["Alle", "Korrespondenz", "Verkauf", "Kundenservice", "Einkauf", "Verträge", "Organisation", "Eigene"];
     categories.innerHTML = names.map((cat) =>
@@ -289,6 +291,10 @@
     doc.contentHtml = preset.html || preset.contentHtml || "";
     doc.templateId = preset.id;
     doc.designId = DESIGNS[preset.designId] ? preset.designId : state.designId;
+    doc.accentColor = preset.accentColor || "";
+    doc.headerText = preset.headerText || "";
+    doc.footerText = preset.footerText || "";
+    doc.logoData = preset.logoData || "";
     showDoc(doc);
     status("Vorlage „" + preset.name + "“ geöffnet. Bitte Daten prüfen und Dokument speichern.");
     if (window.innerWidth < 860) el("edsTitle")?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -303,7 +309,8 @@
     if (!name || !name.trim()) return;
     const record = {
       id: "tpl_" + newId().replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 70),
-      name: name.trim().slice(0, 120), kind: doc.kind, designId: doc.designId, contentHtml: doc.contentHtml
+      name: name.trim().slice(0, 120), kind: doc.kind, designId: doc.designId, contentHtml: doc.contentHtml,
+      accentColor: doc.accentColor, headerText: doc.headerText, footerText: doc.footerText, logoData: doc.logoData
     };
     try {
       const result = await api("save-template", { expectedRevision: state.revision, document: record });
@@ -336,6 +343,31 @@
     renderLibrary();
   }
 
+  async function onLogoFile(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!["image/png", "image/jpeg", "image/webp"].includes(file.type) || file.size > 8_000_000) {
+      return status("Nur PNG, JPG oder WebP bis 8 MB hochladen.", true);
+    }
+    try {
+      const bitmap = await createImageBitmap(file);
+      const canvas = document.createElement("canvas");
+      const factor = Math.min(1, 400 / Math.max(bitmap.width, bitmap.height));
+      canvas.width = Math.max(1, Math.round(bitmap.width * factor));
+      canvas.height = Math.max(1, Math.round(bitmap.height * factor));
+      canvas.getContext("2d").drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      bitmap.close?.();
+      let encoded = canvas.toDataURL("image/jpeg", .78);
+      if (encoded.length > 48000) encoded = canvas.toDataURL("image/jpeg", .45);
+      if (encoded.length > 48000) throw new Error("Logo ist nach Komprimierung noch zu groß.");
+      state.logoData = encoded;
+      el("edsLogoStatus").textContent = "Logo: " + file.name;
+      state.dirty = true;
+      renderPreview();
+      status("Logo übernommen. Zum Sichern Dokument oder eigene Vorlage speichern.");
+    } catch (error) { status("Logo nicht geladen: " + error.message, true); }
+  }
+
   function assistantGenerate() {
     const doc = readForm();
     if (!doc) return;
@@ -359,7 +391,13 @@
     state.dirty = false;
     state.preview = true;
     state.designId = DESIGNS[doc.designId] ? doc.designId : DEFAULT_DESIGN;
+    state.logoData = doc.logoData || "";
     el("edsDesign").value = state.designId;
+    el("edsAccent").value = /^#[0-9a-fA-F]{6}$/.test(doc.accentColor || "") ? doc.accentColor : DESIGNS[state.designId].accent;
+    el("edsHeaderText").value = doc.headerText || "";
+    el("edsFooterText").value = doc.footerText || "";
+    el("edsLogoStatus").textContent = state.logoData ? "Logo geladen" : "Kein Logo ausgewählt";
+    el("edsLogoUpload").value = "";
     el("edsTitle").value = doc.title || "";
     el("edsKind").value = doc.kind || "blank";
     el("edsRecipient").value = doc.recipient || "";
@@ -382,14 +420,18 @@
       reference: el("edsReference").value.trim(),
       contentHtml: sanitize(el("edsEditor").innerHTML),
       designId: el("edsDesign").value,
-      templateId: state.current.templateId || ""
+      templateId: state.current.templateId || "",
+      accentColor: el("edsAccent").value,
+      headerText: el("edsHeaderText").value.trim(),
+      footerText: el("edsFooterText").value.trim(),
+      logoData: state.logoData
     };
   }
 
   function handleInput(event) {
     if (event.target?.id === "edsSearch") { state.search = event.target.value.toLowerCase(); renderList(); return; }
     if (event.target?.id === "edsLibrarySearch") { state.librarySearch = event.target.value.toLocaleLowerCase("de-DE"); renderLibrary(); return; }
-    if (!["edsTitle", "edsKind", "edsRecipient", "edsReference", "edsEditor"].includes(event.target?.id)) return;
+    if (!["edsTitle", "edsKind", "edsRecipient", "edsReference", "edsEditor", "edsAccent", "edsHeaderText", "edsFooterText"].includes(event.target?.id)) return;
     state.dirty = true;
     status("Nicht gespeicherte Änderungen.");
     renderPreview();
@@ -403,9 +445,11 @@
       state.search = event.target.value.toLowerCase(); renderList();
     }
     if (event.target?.id === "edsKind") handleInput(event);
+    if (["edsAccent", "edsHeaderText", "edsFooterText"].includes(event.target?.id)) handleInput(event);
     if (event.target?.id === "edsFavoritesOnly") { state.favoritesOnly = event.target.checked; renderLibrary(); }
     if (event.target?.id === "edsDesign") {
       state.designId = DESIGNS[event.target.value] ? event.target.value : DEFAULT_DESIGN;
+      el("edsAccent").value = DESIGNS[state.designId].accent;
       try { window.localStorage.setItem("elyon-eds-design", state.designId); } catch {}
       state.dirty = true;
       renderPreview();
@@ -779,6 +823,7 @@
     if (action === "close-assistant") { el("edsAssistantPanel").classList.remove("open"); return; }
     if (action === "generate") return assistantGenerate();
     if (action === "save-template") return savePersonalTemplate();
+    if (action === "remove-logo") { state.logoData = ""; el("edsLogoUpload").value = ""; el("edsLogoStatus").textContent = "Kein Logo ausgewählt"; state.dirty = true; renderPreview(); return; }
     if (action === "save") return save();
     if (action === "archive") return archiveOrRestore();
     if (action === "print") return printDocument();
