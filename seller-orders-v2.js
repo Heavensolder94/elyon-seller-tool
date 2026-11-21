@@ -577,11 +577,11 @@ function applyNovaSupplierOrder(handoffInput=null) {
   if(state.demoMode || !state.financeReady || state.saving)return;
   const selected=state.orders.find(item=>item.id===state.selectedId);
   const form=root()?.querySelector("#ocv2OrderForm");
-  const raw=handoffInput?JSON.stringify(handoffInput):root()?.querySelector("#ocv5SupplierHandoff")?.value;
-  if(!selected||!form||!raw){state.warning="Zuerst eine eBay-Bestellung und Nova-Importdaten auswählen.";render();return;}
+  const json=handoffInput?JSON.stringify(handoffInput):root()?.querySelector("#ocv5SupplierHandoff")?.value;
+  if(!selected||!form||!json){state.warning="Zuerst eine eBay-Bestellung und Nova-Importdaten auswählen.";render();return;}
   const current={...opFor(selected.id),...obj(state.drafts[selected.id])};
   const suggested=supplierSuggestionForOrder(selected,productsNow());
-  const outcome=validateSupplierOrderHandoff(raw,{supplierSuggestion:suggested,existingOperation:current});
+  const outcome=validateSupplierOrderHandoff(json,{supplierSuggestion:suggested,existingOperation:current});
   if(!outcome.ok){state.warning="Nova-Übernahme blockiert: "+outcome.errors.join(" · ");render();return;}
   if(!window.confirm("Lieferantenauftrag "+outcome.values.supplierOrderId+" ("+outcome.values.supplierName+
     ") genau der eBay-Bestellung "+selected.id+" zuordnen?\\n\\nDanach die Angaben kontrollieren und gesondert speichern."))return;
