@@ -564,6 +564,8 @@
       '.eds-page{--eds-accent:#1d4ed8;--eds-ink:#13243d;--eds-muted:#53657a;--eds-font:Arial,sans-serif;box-sizing:border-box;width:100%;min-height:100%;padding:7.8% 8%;background:#fff;color:var(--eds-ink);font:13px/1.65 var(--eds-font);position:relative;overflow-wrap:anywhere}',
       '.eds-page *{box-sizing:border-box;max-width:100%}',
       '.eds-page .eds-paper-head{display:flex;justify-content:space-between;align-items:flex-start;gap:15px;padding-bottom:19px;border-bottom:2px solid var(--eds-accent)}',
+      '.eds-page .eds-paper-identity{display:flex;align-items:flex-start;gap:12px;min-width:0}',
+      '.eds-page .eds-paper-logo{width:70px;max-height:65px;object-fit:contain;flex-shrink:0}',
       '.eds-page .eds-paper-brand{font-size:22px;font-weight:750;line-height:1.14;letter-spacing:-.6px;color:var(--eds-accent);margin:0 0 7px}',
       '.eds-page .eds-paper-sender{font-size:10px;line-height:1.45;color:var(--eds-muted)}',
       '.eds-page .eds-paper-meta{text-align:right;color:var(--eds-muted);font-size:10px;line-height:1.55;white-space:normal}',
@@ -596,6 +598,8 @@
     const p = state.profile || {};
     const styleId = DESIGNS[doc.designId] ? doc.designId : DEFAULT_DESIGN;
     const design = DESIGNS[styleId];
+    const accent = /^#[0-9a-fA-F]{6}$/.test(doc.accentColor || "") ? doc.accentColor : design.accent;
+    const logo = /^data:image\/(?:png|jpeg|webp);base64,[a-zA-Z0-9+/=]{1,48000}$/.test(doc.logoData || "") ? doc.logoData : "";
     const values = {
       Firma: p.name || p.brand || "[Geschäftsdaten in Finanzen ergänzen]",
       Empfänger: doc.recipient || "[Empfänger eintragen]",
@@ -605,20 +609,21 @@
     const body = sanitize(doc.contentHtml).replace(/\{\{\s*(Firma|Empfänger|Datum|Referenz)\s*\}\}/g, (_, key) => escapeHtml(values[key]));
     const address = [p.street, [p.postalCode, p.city].filter(Boolean).join(" "), p.country].filter(Boolean).map(escapeHtml).join(", ");
     const sender = escapeHtml(p.name || p.brand || "Unternehmensprofil ergänzen");
-    const brand = escapeHtml(p.brand || p.name || "ELYON");
+    const brand = escapeHtml(doc.headerText || p.brand || p.name || "ELYON");
+    const footer = escapeHtml(doc.footerText || [p.street, [p.postalCode, p.city].filter(Boolean).join(" "), p.country].filter(Boolean).join(" · "));
     const recipient = doc.recipient ? escapeHtml(doc.recipient) : "Empfänger nicht angegeben";
     const date = escapeHtml(new Date().toLocaleDateString("de-DE"));
     const ref = doc.reference ? '<div class="eds-paper-reference">Referenz: ' + escapeHtml(doc.reference) + '</div>' : "";
     const documentLabel = escapeHtml(labels[doc.kind] || "Dokument");
-    return '<article class="eds-page" data-design="' + styleId + '" style="--eds-accent:' + design.accent +
+    return '<article class="eds-page" data-design="' + styleId + '" style="--eds-accent:' + accent +
       ';--eds-ink:' + design.ink + ';--eds-muted:' + design.muted + ';--eds-font:' + design.font + '">' +
-      '<header class="eds-paper-head"><div><div class="eds-paper-brand">' + brand +
+      '<header class="eds-paper-head"><div class="eds-paper-identity">' + (logo ? '<img class="eds-paper-logo" src="' + escapeHtml(logo) + '" alt="Firmenlogo">' : "") + '<div><div class="eds-paper-brand">' + brand +
       '</div><div class="eds-paper-sender">' + sender + (address ? '<div>' + address + '</div>' : '') +
       '</div></div><div class="eds-paper-meta"><strong>' + documentLabel + '</strong><div>' + date + '</div></div></header>' +
       '<div class="eds-paper-recipient"><div>' + recipient + '</div><div class="eds-paper-reference">' + ref + '</div></div>' +
       '<h1 class="eds-paper-title">' + escapeHtml(doc.title || "Dokument") + '</h1>' +
       '<section class="eds-export-body">' + body + '</section>' +
-      '<footer class="eds-paper-footer"><span>' + sender + '</span><span>' + address + '</span></footer></article>';
+      '<footer class="eds-paper-footer"><span>' + sender + '</span><span>' + footer + '</span></footer></article>';
   }
 
   function renderPreview() {
