@@ -129,7 +129,7 @@ function detailsMarkup(order) {
   const autoCost = suggestRecordedCosts(op, costHints);
   const calculatedOp = autoCost.values;
   const hasUnconfirmedFinanceCosts = Object.keys(autoCost.sources).length > 0;
-  const actualProfit = actualOrderProfit(order, op);
+  const actualProfit = state.drafts[order.id] ? null : actualOrderProfit(order, opFor(order.id));
   const financePreviewProfit = actualOrderProfit(order, calculatedOp);
   const estimatedProfit = estimated && [estimated.purchase, estimated.shipping, estimated.fees].every(Number.isFinite)
     && order.currency === "EUR"
@@ -140,7 +140,7 @@ function detailsMarkup(order) {
     : financePreviewProfit !== null ? "finance_preview"
     : estimatedProfit !== null ? "estimate" : "missing";
   const profitHeadline = {
-    confirmed: "Ergebnis nach bestätigten Kosten",
+    confirmed: state.demoMode ? "Ergebnis nach übernommenen Demo-Kosten" : "Ergebnis nach gespeicherten Ist-Kosten",
     finance_preview: "Vorläufiges Ergebnis aus Finanzbuchungen",
     estimate: "Geschätzter Gewinn aus Company OS",
     missing: "Gewinn noch nicht berechenbar"
@@ -477,11 +477,18 @@ function updateLiveProfit(form) {
   const order = ordersNow().find((entry) => entry.id === form.dataset.orderId);
   const indicator = form.querySelector(".ocv2-profit");
   if (!order || !indicator) return;
-  const profit = actualOrderProfit(order, { ...opFor(order.id), ...obj(state.drafts[order.id]) });
+  const operation = { ...opFor(order.id), ...obj(state.drafts[order.id]) };
+  const profit = actualOrderProfit(order, operation);
   const strong = indicator.querySelector("strong");
+  const label = indicator.querySelector("[data-ocv2-profit-label]");
+  const help = indicator.querySelector("[data-ocv2-profit-help]");
   if (strong) strong.textContent = profit === null ? "Noch nicht berechenbar" : money(profit);
+  if (label) label.textContent = profit === null
+    ? "Gewinn noch nicht berechenbar" : "Vorschau nach deinen Änderungen";
+  if (help) help.textContent = "Änderungen noch nicht gespeichert. Bitte Ist-Kosten vor dem Sichern prüfen.";
   indicator.classList.toggle("is-open", profit === null);
   indicator.classList.toggle("is-loss", profit !== null && profit < 0);
+  indicator.classList.add("is-provisional");
 }
 function goToTab(tab) {
   const select = document.getElementById("mainMenu");
