@@ -125,30 +125,30 @@
     root.id = TAB_ID;
     root.className = "tab";
     root.innerHTML = [
-      '<div class="eds-head"><div><div class="eds-pill" style="display:inline-block">ELYON SELLERTOOL · DOKUMENTENSTUDIO</div><h2>Universelles Dokumentenstudio</h2><p class="eds-muted">Dokumente und Vorlagen bearbeiten, geschützt archivieren und exportieren.</p></div></div>',
+      '<div class="eds-head"><div><div class="eds-pill" style="display:inline-block">ELYON SELLERTOOL · DOKUMENTENSTUDIO</div><h2>Dokumentenstudio 2.0</h2><p class="eds-muted">Professionelle Vorlagen, vier Designs und eine Live-A4-Vorschau – ohne zusätzliche KI-Kosten.</p></div></div>',
       '<div class="eds-toolbar">',
-        '<button type="button" class="eds-btn eds-primary" data-eds-action="new">+ Neues Dokument</button>',
-        '<select id="edsTemplateSelect" class="eds-btn" aria-label="Dokumentvorlage"></select>',
-        '<button type="button" class="eds-btn" data-eds-action="template">Vorlage anwenden</button>',
+        '<button type="button" class="eds-btn eds-primary" data-eds-action="library">Vorlagenbibliothek</button>',
+        '<button type="button" class="eds-btn" data-eds-action="assistant">Dokumentenassistent</button>',
+        '<button type="button" class="eds-btn" data-eds-action="new">Leeres Dokument</button>',
         '<button type="button" class="eds-btn eds-primary" data-eds-action="save">Speichern</button>',
-        '<button type="button" class="eds-btn" data-eds-action="preview">Vorschau</button>',
-        '<button type="button" class="eds-btn" data-eds-action="print">PDF / Drucken</button>',
+        '<button type="button" class="eds-btn" data-eds-action="save-template">Als Vorlage speichern</button>',
+        '<button type="button" class="eds-btn" data-eds-action="print">PDF erstellen / Drucken</button>',
         '<button type="button" class="eds-btn" data-eds-action="docx">Word (.docx)</button>',
         '<button type="button" class="eds-btn eds-danger" data-eds-action="archive" id="edsArchiveBtn">Archivieren</button>',
       '</div>',
-      '<div class="eds-layout"><aside class="eds-card">',
-        '<div class="eds-side-head"><strong>Dokumentenarchiv</strong><button type="button" class="eds-btn" data-eds-action="refresh">↻</button></div>',
+      '<div class="eds-layout"><aside class="eds-card"><div id="edsLibrary" class="eds-library"><div class="eds-side-head"><strong>Vorlagenbibliothek</strong><span class="eds-count">30 Designs & Vorlagen</span></div><input id="edsLibrarySearch" class="eds-search" type="search" placeholder="Vorlagen suchen …" aria-label="Vorlagen suchen"><div class="eds-categories" id="edsCategories"></div><label class="eds-check"><input type="checkbox" id="edsFavoritesOnly"> Nur Favoriten</label><div class="eds-template-list" id="edsTemplateCards"></div></div><div class="eds-archive"><div class="eds-side-head"><strong>Eigene Dokumente</strong><span class="eds-count" id="edsDocumentCount"></span></div>',
+        '<div class="eds-side-head"><span class="eds-muted">Archiv & Entwürfe</span><button type="button" class="eds-btn" data-eds-action="refresh" title="Neu laden">↻</button></div>',
         '<input class="eds-search" id="edsSearch" type="search" placeholder="Dokumente suchen …" aria-label="Dokumente suchen">',
         '<label class="eds-check" style="margin-top:12px"><input type="checkbox" id="edsShowArchived"> Archivierte anzeigen</label>',
-        '<div id="edsList" class="eds-doc-list" aria-label="Dokumentenliste"></div>',
+        '<div id="edsList" class="eds-doc-list" aria-label="Dokumentenliste"></div></div>',
       '</aside><div class="eds-card">',
-        '<div class="eds-meta">',
+        '<div class="eds-section-title"><h3>Dokument bearbeiten</h3><span class="eds-muted">Alle Änderungen erscheinen rechts sofort.</span></div><div class="eds-meta">',
           '<label class="eds-field">Dokumententitel<input id="edsTitle" maxlength="120" autocomplete="off"></label>',
           '<label class="eds-field">Dokumentenart<select id="edsKind"></select></label>',
           '<label class="eds-field">Empfänger / Ansprechpartner<input id="edsRecipient" maxlength="300" autocomplete="off"></label>',
-          '<label class="eds-field">Referenz (z. B. Bestellnummer)<input id="edsReference" maxlength="120" autocomplete="off"></label>',
+          '<label class="eds-field">Referenz (z. B. Bestellnummer)<input id="edsReference" maxlength="120" autocomplete="off"></label><label class="eds-field">Designvorlage<select id="edsDesign" aria-label="Designvorlage"></select></label>',
         '</div>',
-        '<div class="eds-editor-toolbar" role="toolbar" aria-label="Textformatierung">',
+        '<div id="edsAssistantPanel" class="eds-assistant"><div class="eds-side-head"><strong>Dokumentenassistent</strong><button type="button" class="eds-btn" data-eds-action="close-assistant">Schließen</button></div><p class="eds-muted">Vervollständigt eine ausgewählte Vorlage aus deinen Angaben – lokal, ohne kostenpflichtigen KI-Aufruf.</p><label class="eds-field">Anlass / Betreff<input id="edsAssistantSubject" maxlength="120" placeholder="z. B. Angebot für Büroausstattung"></label><label class="eds-field">Wichtige Angaben<textarea id="edsAssistantDetails" maxlength="2500" rows="3" placeholder="Artikel, Fristen, gewünschte Antwort …"></textarea></label><button type="button" class="eds-btn eds-primary" data-eds-action="generate">Dokument aufbauen</button></div><div class="eds-workspace"><div class="eds-edit-panel"><h3>Inhalt</h3><div class="eds-editor-toolbar" role="toolbar" aria-label="Textformatierung">',
           '<button type="button" class="eds-btn" data-eds-format="bold" title="Fett"><strong>B</strong></button>',
           '<button type="button" class="eds-btn" data-eds-format="italic" title="Kursiv"><em>I</em></button>',
           '<button type="button" class="eds-btn" data-eds-format="underline" title="Unterstrichen"><u>U</u></button>',
@@ -159,21 +159,35 @@
           '<button type="button" class="eds-btn" data-eds-insert="{{Datum}}">+ Datum</button>',
           '<button type="button" class="eds-btn" data-eds-insert="{{Referenz}}">+ Referenz</button>',
         '</div>',
-        '<div id="edsEditor" class="eds-editor" contenteditable="true" role="textbox" aria-label="Dokumententext" aria-multiline="true" spellcheck="true"></div>',
-        '<div id="edsPreview" class="eds-preview" aria-label="Dokumentenvorschau"></div>',
+        '<div id="edsEditor" class="eds-editor" contenteditable="true" role="textbox" aria-label="Dokumententext" aria-multiline="true" spellcheck="true"></div></div><div class="eds-preview-panel"><div class="eds-side-head"><strong>A4-Live-Vorschau</strong><span class="eds-muted">210 × 297 mm</span></div>',
+        '<div id="edsPreview" class="eds-preview open" aria-label="Dokumentenvorschau"></div></div></div>',
         '<div class="eds-bottom"><div id="edsStatus" class="eds-status" role="status" aria-live="polite">Lade Dokumente …</div><span class="eds-muted" id="edsVersion"></span></div>',
-        '<p class="eds-legal">Rechnungen für eBay-Bestellungen werden weiterhin ausschließlich im bestehenden Rechnungsmodul erstellt und ausgestellt. Ein frei bearbeitbares Dokument ersetzt weder eine Lieferantenrechnung noch eine steuerlich korrekte Ausgangsrechnung.</p>',
+        '<p class="eds-legal">Verträge und Vertragsklauseln vor Verwendung rechtlich prüfen lassen. Rechnungen für eBay-Bestellungen werden weiterhin ausschließlich im bestehenden Rechnungsmodul erstellt und ausgestellt. Ein frei bearbeitbares Dokument ersetzt weder eine Lieferantenrechnung noch eine steuerlich korrekte Ausgangsrechnung.</p>',
       '</div></div>'
     ].join("");
     (document.querySelector("main") || document.body).appendChild(root);
     for (const [key, label] of Object.entries(labels)) {
-      for (const select of [el("edsTemplateSelect"), el("edsKind")]) {
+      for (const select of [el("edsKind")]) {
         const option = document.createElement("option");
         option.value = key;
         option.textContent = label;
         select.appendChild(option);
       }
     }
+    const designSelect = el("edsDesign");
+    for (const [key, design] of Object.entries(DESIGNS)) {
+      const option = document.createElement("option");
+      option.value = key;
+      option.textContent = design.label;
+      designSelect.appendChild(option);
+    }
+    try {
+      const favorites = JSON.parse(window.localStorage.getItem("elyon-eds-favorites") || "[]");
+      state.favorites = Array.isArray(favorites) ? favorites.filter((id) => typeof id === "string").slice(0, 80) : [];
+      const preferredDesign = window.localStorage.getItem("elyon-eds-design");
+      if (DESIGNS[preferredDesign]) state.designId = preferredDesign;
+    } catch { /* storage may be unavailable: defaults work without it */ }
+    renderLibrary();
     root.addEventListener("click", handleClick);
     root.addEventListener("input", handleInput);
     root.addEventListener("change", handleChange);
