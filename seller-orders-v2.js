@@ -335,6 +335,7 @@ function submitDemoShipping(form) {
   if (!["DHL","Hermes","DPD","GLS","UPS","Sonstige"].includes(carrier) || trackingNumber.length < 3) return;
   DEMO.operations[order.id] = { ...obj(DEMO.operations[order.id]), carrier, trackingNumber,
     workflowStatus:"SHIPPED" };
+  order.fulfillmentStatus = "FULFILLED"; // demo-only eBay status simulation, no network
   // Clear only the draft fields we just simulated; other unsaved inputs stay untouched.
   if (state.drafts[order.id]) {
     state.drafts[order.id] = { ...state.drafts[order.id], carrier, trackingNumber, workflowStatus:"SHIPPED" };
@@ -509,6 +510,14 @@ function choosePhase(next) {
     state.warning = "eBay meldet noch keine vollständige Zahlung. Bearbeitung beim Lieferanten erst nach Zahlungsprüfung fortsetzen.";
     render(); return;
   }
+  if (next === "COMPLETED") {
+    const assessment = completionFor(order, { ...opFor(order.id), ...obj(state.drafts[order.id]) });
+    if (!assessment.ready) {
+      state.activeSection = "overview";
+      state.warning = "Abschluss gesperrt: " + assessment.blockers.map((item) => item.title).join(" · ");
+      render(); return;
+    }
+  }
   state.warning = "";
   if (state.demoMode) {
     DEMO.operations[order.id] = { ...opFor(order.id), workflowStatus: next };
@@ -540,6 +549,68 @@ function updateLiveProfit(form) {
   indicator.classList.toggle("is-loss", profit !== null && profit < 0);
   indicator.classList.add("is-provisional");
 }
+async function openOrderInvoice() {
+  if (state.demoMode) return openDemoModal("invoice");
+  const order = state.orders.find((item) => item.id === state.selectedId);
+  if (!order || state.actionBusy) return;
+  if (Object.keys(state.drafts).length) {
+    state.warning = "Bitte zuerst deine internen Bestelländerungen sichern, bevor du eine Rechnung ausstellst.";
+    render(); return;
+  }
+  state.actionBusy = true; state.error = ""; state.warning = ""; render();
+  try {
+    // Reuse the existing verified Kleinunternehmer invoice flow (same server, numbering, print).
+    await import("/seller-order-invoices.js");
+    if (!window.ElyonOrderInvoices?.create) throw new Error("Die Rechnungszentrale konnte nicht geladen werden.");
+    await window.ElyonOrderInvoices.create({ id: order.id });
+    const finance = await json("/api/orders/operations");
+    state.invoices = obj(finance.invoices);
+    state.operations = obj(finance.orderOperations);
+    state.revision = finance.revision;
+    state.saveNotice = state.invoices[order.id]
+      ? "Rechnungsstand aus der Buchhaltung aktualisiert."
+      : "Es wurde keine neue Rechnung bestätigt. Bitte die Hinweise der Rechnungszentrale prüfen.";
+  } catch (error) {
+    state.error = "Rechnung nicht geöffnet: " + error.message;
+  } finally { state.actionBusy = false; state.activeSection = "finance"; render(); }
+}
+async function sendOrderShipping() {
+  if (state.demoMode) return openDemoModal("shipping");
+  const order = state.orders.find((item) => item.id === state.selectedId);
+  if (!order || state.actionBusy) return;
+  const op = opFor(order.id);
+  if (Object.keys(state.drafts).length) {
+    state.warning = "Versandmeldung noch gesperrt: Bitte zuerst alle internen Änderungen speichern.";
+    render(); return;
+  }
+  if (!paymentConfirmed(order) || !op.supplierName || !op.supplierOrderId ||
+      !op.carrier || !op.trackingNumber) {
+    state.warning = "Vor der eBay-Versandmeldung: Zahlung, Lieferant, Lieferantenbestellnummer sowie Carrier und Tracking prüfen und intern sichern.";
+    render(); return;
+  }
+  if (order.fulfillmentStatus === "FULFILLED") {
+    state.warning = "eBay meldet diese Bestellung bereits als versendet. Es wird nichts erneut gesendet.";
+    render(); return;
+  }
+  if (!window.confirm("ECHTE eBay-Versandmeldung für Bestellung " + order.id + " auslösen?\n" +
+    op.carrier + " · " + op.trackingNumber +
+    "\n\nNur bestätigen, wenn die Ware tatsächlich versendet wurde. Diese Aktion verändert den eBay-Versandstatus.")) return;
+  state.actionBusy = true; state.error = ""; state.warning = ""; render();
+  try {
+    const outcome = await json("/api/orders/shipping", {
+      method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ orderId: order.id, carrier: op.carrier, trackingNumber: op.trackingNumber,
+        expectedRevision: state.revision, confirmation: "CONFIRM_EBAY_SHIPPING" }),
+    });
+    state.saveNotice = outcome.message || "eBay hat die Versandmeldung angenommen.";
+    state.actionBusy = false;
+    await refresh(); // Read eBay status back. Never invent a successful shipment state.
+    state.saveNotice = outcome.message || "eBay hat die Versandmeldung angenommen.";
+    state.activeSection = "shipping";
+  } catch (error) {
+    state.error = "Keine bestätigte Versandmeldung: " + error.message;
+  } finally { state.actionBusy = false; render(); }
+}
 function goToTab(tab) {
   const select = document.getElementById("mainMenu");
   if (select) {
@@ -551,6 +622,8 @@ function bind() {
   const host = root();
   if (!host) return;
   host.addEventListener("click", (event) => {
+    if (event.target.closest("[data-ocv4-complete]")) return choosePhase("COMPLETED");
+    if (event.target.closest("[data-order-ebay-shipping]")) return void sendOrderShipping();
     if (event.target.closest("[data-ocv3-drawer-close]")) return closeOrderDrawer();
     if (event.target.closest("[data-demo-modal-close]")) return closeDemoModal();
     if (event.target.closest("[data-demo-invoice-check]") && state.demoMode && state.demoModal === "invoice") {
@@ -572,14 +645,10 @@ function bind() {
     if (choose) { state.selectedId = choose.dataset.orderOpen; state.activeSection = "overview"; state.saveNotice = ""; render(); root()?.querySelector(".ocv3-drawer-content")?.focus(); return; }
     const filter = event.target.closest("[data-ocv2-filter]");
     if (filter) { state.filter = filter.dataset.ocv2Filter; return render(); }
-    if (event.target.closest("[data-order-invoice]")) {
-      if (state.demoMode) return openDemoModal("invoice");
-      if (window.ElyonSellerFinance?.openInvoices) window.ElyonSellerFinance.openInvoices();
-      else goToTab("financeTab");
-    }
+    if (event.target.closest("[data-order-invoice]")) return void openOrderInvoice();
     if (event.target.closest("[data-order-shipping]")) {
       if (state.demoMode) return openDemoModal("shipping");
-      goToTab("automationTab");
+      return changeSection("shipping");
     }
   });
   host.addEventListener("input", (event) => {
