@@ -633,22 +633,108 @@
     return joinBytes([...local, directory, end]);
   }
   function xml(value) { return String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;"); }
+
+  function wordRun(textValue, opts = {}) {
+    const safe = xml(String(textValue ?? "").replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, ""));
+    if (!safe) return "";
+    const color = opts.color ? '<w:color w:val="' + opts.color + '"/>' : "";
+    const properties = '<w:rPr><w:rFonts w:ascii="' + (opts.serif ? "Georgia" : "Arial") +
+      '" w:hAnsi="' + (opts.serif ? "Georgia" : "Arial") + '"/>' +
+      (opts.bold ? '<w:b/>' : '') + (opts.italic ? '<w:i/>' : '') +
+      (opts.underline ? '<w:u w:val="single"/>' : '') +
+      (opts.size ? '<w:sz w:val="' + opts.size + '"/>' : '') + color + '</w:rPr>';
+    return '<w:r>' + properties + '<w:t xml:space="preserve">' + safe + '</w:t></w:r>';
+  }
+
+  function wordInline(node, opts = {}) {
+    if (node.nodeType === Node.TEXT_NODE) return wordRun(node.textContent, opts);
+    if (node.nodeType !== Node.ELEMENT_NODE) return "";
+    const tag = node.tagName.toLowerCase();
+    if (tag === "br") return "<w:r><w:br/></w:r>";
+    const next = { ...opts, bold: opts.bold || ["b", "strong"].includes(tag),
+      italic: opts.italic || ["em", "i"].includes(tag), underline: opts.underline || tag === "u" };
+    return Array.from(node.childNodes).map((child) => wordInline(child, next)).join("");
+  }
+
+  function wordPara(content, opts = {}) {
+    const before = opts.before ?? 0, after = opts.after ?? 150;
+    const border = opts.border ? '<w:pBdr><w:bottom w:val="single" w:sz="12" w:space="7" w:color="' + opts.border + '"/></w:pBdr>' : "";
+    const settings = '<w:pPr><w:spacing w:before="' + before + '" w:after="' + after + '" w:line="300" w:lineRule="auto"/>' +
+      (opts.keepNext ? "<w:keepNext/>" : "") + border + '</w:pPr>';
+    return '<w:p>' + settings + content + '</w:p>';
+  }
+
+  function wordBlock(node, accent, serif) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      const value = node.textContent.trim();
+      return value ? wordPara(wordRun(value, { serif })) : "";
+    }
+    if (node.nodeType !== Node.ELEMENT_NODE) return "";
+    const tag = node.tagName.toLowerCase();
+    if (tag === "table") {
+      let rows = Array.from(node.querySelectorAll("tr")).map((tr) => {
+        const cells = Array.from(tr.children).filter((c) => ["TD", "TH"].includes(c.tagName));
+        return '<w:tr>' + cells.map((cell) => {
+          const isHead = cell.tagName === "TH";
+          const shading = isHead ? '<w:shd w:fill="EAF1F8"/>' : "";
+          const props = '<w:tcPr><w:tcW w:w="2200" w:type="dxa"/>' + shading + '</w:tcPr>';
+          return '<w:tc>' + props + wordPara(wordInline(cell, { bold: isHead, serif, size: 20 }), { after: 40 }) + '</w:tc>';
+        }).join("") + '</w:tr>';
+      }).join("");
+      return '<w:tbl><w:tblPr><w:tblW w:w="0" w:type="auto"/><w:tblBorders>' +
+        ["top", "left", "bottom", "right", "insideH", "insideV"].map((side) =>
+          '<w:' + side + ' w:val="single" w:sz="5" w:color="CBD5E1"/>').join("") +
+        '</w:tblBorders><w:tblCellMar><w:top w:w="100" w:type="dxa"/><w:bottom w:w="100" w:type="dxa"/>' +
+        '<w:left w:w="115" w:type="dxa"/><w:right w:w="115" w:type="dxa"/></w:tblCellMar></w:tblPr>' + rows + '</w:tbl>';
+    }
+    if (tag === "ul" || tag === "ol") {
+      return Array.from(node.children).filter((c) => c.tagName === "LI")
+        .map((child, index) => wordPara(wordRun(tag === "ol" ? (index + 1) + ". " : "• ", { serif }) +
+          wordInline(child, { serif }), { after: 70 })).join("");
+    }
+    if (tag === "hr") return wordPara(wordRun("__________________________________________", { color: accent }), { after: 120 });
+    if (["div", "section"].includes(tag)) return Array.from(node.childNodes).map((c) => wordBlock(c, accent, serif)).join("");
+    const heading = ["h1", "h2", "h3"].includes(tag);
+    const size = tag === "h1" ? 32 : tag === "h2" ? 28 : tag === "h3" ? 24 : 22;
+    const runs = wordInline(node, { serif, bold: heading, color: heading ? accent : undefined, size });
+    return wordPara(runs, { before: heading ? 210 : 0, after: heading ? 120 : 145, keepNext: heading });
+  }
+
   function exportDocx() {
     const doc = readForm();
     if (!doc) return;
-    const safe = new DOMParser().parseFromString('<div>' + resolved(doc) + '</div>', "text/html").body;
-    const lines = [];
-    for (const node of safe.querySelectorAll("h1,h2,h3,p,li,tr")) {
-      if (node.closest("p p, li li")) continue;
-      const value = node.textContent.trim();
-      if (value) lines.push(value);
-    }
-    const content = [doc.title, doc.recipient, doc.reference ? "Referenz: " + doc.reference : "", ...lines].filter(Boolean);
-    const paragraphs = content.map((line) => '<w:p><w:r><w:t xml:space="preserve">' + xml(line) + '</w:t></w:r></w:p>').join("");
+    const style = DESIGNS[doc.designId] || DESIGNS.elyon;
+    const accent = style.accent.replace("#", "").toUpperCase();
+    const serif = doc.designId === "classic";
+    const p = state.profile || {};
+    const brand = p.brand || p.name || "ELYON";
+    const sender = [p.name || p.brand || "", p.street || "",
+      [p.postalCode, p.city].filter(Boolean).join(" "), p.country || ""].filter(Boolean).join(" · ");
+    const base = new DOMParser().parseFromString('<div>' + resolved(doc) + '</div>', "text/html").body;
+    const body = base.querySelector(".eds-export-body");
+    const content = body ? Array.from(body.childNodes).map((node) => wordBlock(node, accent, serif)).join("") : "";
+    const parts = [
+      wordPara(wordRun(brand, { bold: doc.designId !== "classic", color: accent, size: 42, serif }),
+        { after: 80, border: accent }),
+      wordPara(wordRun(sender, { color: "64748B", size: 18, serif }), { after: 230 }),
+      wordPara(wordRun(doc.recipient || "Empfänger nicht angegeben", { size: 20, serif }) +
+        (doc.reference ? wordRun("    Referenz: " + doc.reference, { size: 18, color: "64748B", serif }) : ""),
+        { after: 180 }),
+      wordPara(wordRun(doc.title || "Dokument", { bold: !serif, color: style.ink.replace("#", "").toUpperCase(), size: 36, serif }),
+        { before: 130, after: 220, keepNext: true }),
+      content,
+      wordPara(wordRun(sender, { color: "64748B", size: 17, serif }), { before: 360, border: "CBD5E1", after: 30 })
+    ];
+    const documentXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+      '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>' +
+      parts.join("") +
+      '<w:sectPr><w:pgSz w:w="11906" w:h="16838"/>' +
+      '<w:pgMar w:top="1080" w:right="1050" w:bottom="1080" w:left="1050" w:header="500" w:footer="500"/>' +
+      '</w:sectPr></w:body></w:document>';
     const files = {
       "[Content_Types].xml": '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>',
       "_rels/.rels": '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>',
-      "word/document.xml": '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>' + paragraphs + '<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134"/></w:sectPr></w:body></w:document>'
+      "word/document.xml": documentXml
     };
     const blob = new Blob([zip(files)], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
     const url = URL.createObjectURL(blob);
@@ -657,7 +743,7 @@
     link.download = (doc.title.normalize("NFKD").replace(/[^a-z0-9_-]+/gi, "-").slice(0, 65) || "elyon-dokument") + ".docx";
     link.click();
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-    status("Word-Dokument exportiert (Textbasis, ohne komplexes Seitenlayout).");
+    status("Word-Dokument mit Überschriften, Textformatierung und Tabellen exportiert.");
   }
 
   async function handleClick(event) {
