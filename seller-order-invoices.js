@@ -1,3 +1,5 @@
+import { DEFAULT_ORDER_THANK_YOU,renderOrderThankYou } from "./seller-order-message-core.js";
+
 (() => {
   'use strict';
 
@@ -20,6 +22,17 @@
   let errorMessage = '';
   let serverLoaded = false;
   let serverSyncBusy = false;
+  let messageTemplate = DEFAULT_ORDER_THANK_YOU;
+  let messageRevision = null;
+  let messageReady = false;
+  let messageLoading = false;
+  let messageBusy = false;
+  let messageSelectedId = "";
+  let messageDraft = "";
+  let messageDispatch = null;
+  let messageError = "";
+  let messageNotice = "";
+  let messageIsDemo = false;
   let serverState = { orderOperations: {}, invoiceMeta: {}, inventory: {}, returns: {}, safety: {} };
 
   const text = (value) => String(value == null ? '' : value).trim();
@@ -80,6 +93,85 @@
       serverLoaded = false;
       notify('Server-Sync nicht verfügbar. Lokale Sicherung bleibt erhalten.', 'Synchronisierung');
     }
+  }
+  async function messageApi(url, options = {}) {
+    const response = await fetch(url, { credentials:'same-origin',cache:'no-store',...options });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data.ok === false) throw new Error(data.message || data.error || 'HTTP '+response.status);
+    return data;
+  }
+  async function loadMessageSettings(orderId = "") {
+    if (messageLoading) return;
+    messageLoading = true;
+    try {
+      const q = orderId ? '?orderId='+encodeURIComponent(orderId) : '';
+      const data = await messageApi('/api/orders/customer-message'+q);
+      messageRevision = data.revision;
+      messageReady = data.sendReady === true;
+      messageTemplate = data.template || DEFAULT_ORDER_THANK_YOU;
+      if (orderId) messageDispatch = data.delivery || null;
+      messageError = '';
+    } catch(error) {
+      messageError = 'Nachrichteneinstellungen nicht geladen: '+error.message;
+      messageRevision = null;
+      messageReady = false;
+    } finally { messageLoading=false;render(); }
+  }
+  function messageContext(id) {
+    const meta = readMeta()[id] || {};
+    const entry = orders.find(item => item.id === id);
+    const invoice = meta.immutable === true ? meta.invoice : null;
+    return {
+      buyerName: invoice?.buyer?.name || entry?.buyerName || 'liebe Kundin, lieber Kunde',
+      orderId:id,
+      invoiceNumber:meta.immutable===true ? meta.invoiceNumber : 'MUSTER-RECHNUNG',
+      shopName: invoice?.seller?.brand || serverState.settings?.sellerBrand || 'ELYON',
+    };
+  }
+  async function saveMessageTemplate() {
+    if(messageBusy || !Number.isSafeInteger(messageRevision)) return;
+    const textarea = document.querySelector('#'+ROOT_ID+' [data-eoi-template]');
+    const template = textarea?.value || '';
+    messageBusy=true;messageError='';messageNotice='';render();
+    try {
+      const data = await messageApi('/api/orders/customer-message',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({action:'save-template',expectedRevision:messageRevision,template})
+      });
+      messageTemplate=data.template;messageRevision=data.revision;
+      messageNotice='Dankesnachricht als Vorlage gespeichert. Kein Kunde wurde kontaktiert.';
+      if(!messageSelectedId) messageIsDemo=true;
+    } catch(error) {
+      messageError='Vorlage nicht gespeichert: '+error.message;
+      await loadMessageSettings().catch(()=>{});
+    } finally {messageBusy=false;render();}
+  }
+  async function prepareInvoiceMessage(id, demo = false) {
+    messageSelectedId=id;messageIsDemo=demo;messageDispatch=null;messageError='';messageNotice='';
+    if(!demo)await loadMessageSettings(id);
+    messageDraft=renderOrderThankYou(messageTemplate,messageContext(id)).text;
+    render();
+  }
+  async function sendInvoiceMessage() {
+    const orderId=messageSelectedId;
+    if(messageBusy||messageIsDemo||!messageReady||!orderId||messageDispatch?.status) return;
+    const preview=renderOrderThankYou(messageDraft,messageContext(orderId));
+    if(!preview.ok){messageError=preview.errors.join(' · ');render();return;}
+    if(!window.confirm('ECHTE eBay-Nachricht mit Rechnungs-PDF an den Käufer der Bestellung '+
+      orderId+' senden?\\n\\nBitte Empfänger, Rechnung und Text geprüft haben. Kein automatischer Wiederholungsversand.'))return;
+    messageBusy=true;messageError='';messageNotice='';render();
+    try {
+      const data=await messageApi('/api/orders/customer-message',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({action:'send-invoice',orderId,expectedRevision:messageRevision,
+          messageText:preview.text,confirmation:'SEND_ORDER_INVOICE_MESSAGE'})
+      });
+      messageDispatch={status:'sent',messageId:data.messageId};
+      messageNotice=data.message||'eBay hat den Versand bestätigt.';
+    } catch(error) {
+      messageError='Versand nicht bestätigt: '+error.message;
+      messageDispatch={status:'unknown'};
+    } finally {messageBusy=false;await loadMessageSettings(orderId);render();}
   }
   const settings = () => readJson(SETTINGS_KEY, {}).settings || {};
   const notify = (message, eyebrow) => { if (typeof window.toast === 'function') window.toast(message, eyebrow || 'Bestellzentrale'); };
@@ -279,6 +371,7 @@
     const style = document.createElement('style'); style.id = 'elyonOrderInvoiceStyles';
     // Keep the PDF example action neat next to the existing refresh button.
     style.textContent = '#' + ROOT_ID + '{margin:18px 0}.eoi-head{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;flex-wrap:wrap}.eoi-head h3{margin:0 0 6px}.eoi-muted{color:#94a3b8;font-size:12px}.eoi-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-top:14px}.eoi-card{padding:12px;border:1px solid rgba(148,163,184,.18);border-radius:12px;background:rgba(15,23,42,.5)}.eoi-card strong{display:block;font-size:18px}.eoi-table{width:100%;border-collapse:collapse;margin-top:14px}.eoi-table th,.eoi-table td{padding:10px 8px;text-align:left;border-bottom:1px solid rgba(148,163,184,.18);vertical-align:top}.eoi-table th{color:#94a3b8;font-size:11px;text-transform:uppercase}.eoi-btn{border:1px solid rgba(148,163,184,.25);background:rgba(15,23,42,.65);color:inherit;border-radius:10px;padding:8px 11px;cursor:pointer}.eoi-btn.primary{background:#2563eb;border-color:#2563eb}.eoi-status{font-size:11px;color:#86efac}.eoi-error{color:#fecaca;padding:10px;border-radius:10px;background:rgba(127,29,29,.24)}.eoi-controls{display:grid;grid-template-columns:140px 130px minmax(140px,1fr) minmax(160px,1fr) 90px 130px auto;gap:7px;align-items:center}.eoi-controls select,.eoi-controls input{width:100%;box-sizing:border-box;border:1px solid rgba(148,163,184,.25);background:#0f172a;color:inherit;border-radius:8px;padding:7px}.eoi-total{font-size:12px;color:#86efac}.eoi-note{margin-top:10px;color:#cbd5e1;font-size:12px}@media(max-width:800px){.eoi-controls{grid-template-columns:1fr 1fr}.eoi-controls .eoi-save{grid-column:span 2}}';
+    style.textContent += '.eoi-template-box{border:1px solid rgba(148,163,184,.22);background:rgba(148,163,184,.045);border-radius:7px;padding:14px;margin:14px 0}.eoi-template-heading{display:flex;gap:10px;justify-content:space-between;align-items:center;flex-wrap:wrap}.eoi-template-heading h4{font-size:13px;margin:0}.eoi-template-box textarea{width:100%;resize:vertical;min-height:105px;box-sizing:border-box;background:rgba(15,23,42,.5);border:1px solid rgba(148,163,184,.3);border-radius:5px;color:inherit;padding:11px;font:12px/1.55 inherit}.eoi-template-box p{margin:9px 0}.eoi-template-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:9px}.eoi-template-actions .eoi-btn{border-radius:5px;font-size:11px}.eoi-template-actions .eoi-btn:disabled{opacity:.6;cursor:not-allowed}.eoi-message-preview{border-color:rgba(96,165,250,.3)}';
     document.head.appendChild(style);
   }
 
@@ -290,6 +383,39 @@
     const count = (status) => orders.filter((order) => operationFor(order).status === status).length;
     let html = '<div class="eoi-head"><div><h3>Bestellzentrale · Rechnung · Versand</h3><div class="eoi-muted">eBay-Bestellungen, interne Statusführung und verifizierte DIN-A4-PDF-Rechnungen.</div></div><div class="eoi-actions"><button type="button" class="eoi-btn" data-eoi-pdf-demo>Muster-PDF ansehen</button> <button type="button" class="eoi-btn primary" data-eoi-load>' + (loading ? 'Lade…' : 'Bestellungen laden') + '</button></div></div>';
     html += '<div class="eoi-summary"><div class="eoi-card"><span class="eoi-muted">Bestellungen</span><strong>' + orders.length + '</strong></div><div class="eoi-card"><span class="eoi-muted">Offen</span><strong>' + (count('NEW') + count('PAID') + count('TO_BE_SHIPPED')) + '</strong></div><div class="eoi-card"><span class="eoi-muted">Versendet</span><strong>' + count('SHIPPED') + '</strong></div><div class="eoi-card"><span class="eoi-muted">Umsatz</span><strong>' + money(total, 'EUR') + '</strong><span class="eoi-muted">Kosten/Gewinn noch nicht zugeordnet</span></div></div>';
+    html += '<section class="eoi-template-box"><div class="eoi-template-heading"><h4>Individuelle Dankesnachricht</h4><span class="eoi-muted">Einmal speichern, für Bestellungen automatisch personalisieren.</span></div>' +
+      '<p class="eoi-muted">Platzhalter: {Kundenname} · {Bestellnummer} · {Rechnungsnummer} · {Shopname}</p>' +
+      '<textarea data-eoi-template rows="7" maxlength="1700" aria-label="Dankesnachricht als Vorlage">'+esc(messageTemplate)+'</textarea>' +
+      '<div class="eoi-template-actions"><button type="button" class="eoi-btn primary" data-eoi-template-save '+
+      (messageBusy || !Number.isSafeInteger(messageRevision) ? 'disabled' : '')+'>Vorlage speichern</button>' +
+      ' <button type="button" class="eoi-btn" data-eoi-message-demo>Muster-Nachricht ansehen</button></div>' +
+      '<p class="eoi-muted">Keine automatische Kundenwerbung. Eine Rechnung wird nur nach deiner ausdrücklichen Bestätigung verschickt.</p></section>';
+    if(messageError) html += '<p class="eoi-error" role="alert">'+esc(messageError)+'</p>';
+    if(messageNotice) html += '<p class="eoi-note" role="status">'+esc(messageNotice)+'</p>';
+    if(messageSelectedId) {
+      const ctx = messageIsDemo ? {buyerName:'Erika Beispiel',orderId:'DEMO-1001',
+        invoiceNumber:'MUSTER-RECHNUNG',shopName:'ELYON'} : messageContext(messageSelectedId);
+      const preview=renderOrderThankYou(messageDraft || messageTemplate,ctx);
+      const invoice=messageIsDemo?null:readMeta()[messageSelectedId];
+      const canSend=!messageIsDemo && messageReady && invoice?.immutable===true &&
+        !messageDispatch?.status && preview.ok && !messageBusy;
+      html += '<section class="eoi-template-box eoi-message-preview"><div class="eoi-template-heading"><h4>'+
+        (messageIsDemo?'Muster-Nachricht':'Rechnung an eBay-Käufer senden')+'</h4>' +
+        '<span class="eoi-muted">'+esc(ctx.orderId)+' · '+esc(ctx.invoiceNumber)+'</span></div>' +
+        '<label class="eoi-muted" for="eoiMessageDraft">Nachricht für diesen Käufer</label>' +
+        '<textarea data-eoi-draft id="eoiMessageDraft" rows="8" maxlength="2000" aria-label="Nachricht vor dem Versand prüfen">'+esc(messageDraft || preview.text)+'</textarea>' +
+        (preview.ok?'':'<p class="eoi-error">'+esc(preview.errors.join(' · '))+'</p>') +
+        '<p class="eoi-muted">PDF: '+(invoice?.immutable===true?'ausgestellte Rechnung ist zugeordnet':messageIsDemo?'nur Vorschau – keine echte Rechnung':'noch keine Rechnung ausgestellt')+'</p>' +
+        (messageDispatch?.status?'<p class="eoi-note">Nachrichtenstatus: '+esc(messageDispatch.status)+
+        (messageDispatch.messageId?' · '+esc(messageDispatch.messageId):'')+'</p>':'') +
+        '<div class="eoi-template-actions"><button type="button" class="eoi-btn primary" data-eoi-message-send '+
+        (canSend?'':'disabled')+'>Rechnung mit Dankesnachricht senden</button>' +
+        ' <button type="button" class="eoi-btn" data-eoi-message-close>Schließen</button></div>' +
+        '<p class="eoi-muted">'+(messageIsDemo?'Muster: Kein eBay-Aufruf und kein Beleg wird ausgestellt.':
+          !messageReady?'Direktversand ist noch gesperrt, bis die eBay-Nachrichtenberechtigung und der sichere PDF-Abruf eingerichtet und geprüft sind.':
+          'Nur nach Bestätigung. Der Versand ist nicht automatisiert; doppelte Versuche werden blockiert.')+'</p></section>';
+    }
+
     if (error || errorMessage) html += '<div class="eoi-error">' + esc(error || errorMessage) + '</div>';
     const archived = Object.values(meta).filter(entry => entry?.immutable === true && entry.invoice);
     if (archived.length) {
@@ -299,7 +425,8 @@
           .map(entry=>'<tr><td>' + esc(entry.invoiceNumber) + '</td><td>' + esc(entry.invoice.orderId) +
             '</td><td>' + money(entry.invoice.total,'EUR') + '</td><td><button type="button" class="eoi-btn" data-eoi-archive="' +
             esc(entry.invoice.orderId) + '">PDF öffnen</button> <button type="button" class="eoi-btn" data-eoi-download="' +
-            esc(entry.invoice.orderId) + '">PDF herunterladen</button></td></tr>').join('') + '</tbody></table></div>';
+            esc(entry.invoice.orderId) + '">PDF herunterladen</button> <button type="button" class="eoi-btn" data-eoi-message-compose="' +
+            esc(entry.invoice.orderId) + '">Nachricht vorbereiten</button></td></tr>').join('') + '</tbody></table></div>';
     }
     const legacyCount = Object.values(meta).filter(entry => entry && !entry.immutable).length;
     if (legacyCount) html += '<div class="eoi-error" style="margin-top:10px">' +
@@ -310,7 +437,8 @@
       html += orders.map((order) => {
         const invoice = meta[order.id]; const op = operationFor(order);
         const options = STATUS_OPTIONS.map((item) => '<option value="' + item[0] + '"' + (item[0] === op.status ? ' selected' : '') + '>' + item[1] + '</option>').join('');
-        return '<tr><td><strong>' + esc(order.id) + '</strong><div class="eoi-muted">' + esc(order.buyerName || 'Käuferdaten nicht übermittelt') + '</div></td><td>' + esc(order.ebayStatus) + '</td><td>' + money(order.total, order.currency) + '</td><td><div class="eoi-controls"><select data-eoi-status="' + esc(order.id) + '">' + options + '</select><input data-eoi-carrier="' + esc(order.id) + '" placeholder="Versanddienst" value="' + esc(op.carrier) + '"><input data-eoi-tracking="' + esc(order.id) + '" placeholder="Trackingnummer" value="' + esc(op.trackingNumber) + '"><input data-eoi-url="' + esc(order.id) + '" placeholder="Tracking-URL (optional)" value="' + esc(op.trackingUrl) + '"><input data-eoi-stock="' + esc(order.id) + '" placeholder="Bestand" value="' + esc(op.stockQuantity || (serverState.inventory?.[order.lines[0]?.itemId]?.quantity ?? '')) + '"><select data-eoi-return="' + esc(order.id) + '"><option value="NONE"' + (op.returnStatus === "NONE" ? " selected" : "") + '>Keine Retoure</option><option value="REQUESTED"' + (op.returnStatus === "REQUESTED" ? " selected" : "") + '>Angefragt</option><option value="APPROVED"' + (op.returnStatus === "APPROVED" ? " selected" : "") + '>Genehmigt</option><option value="RECEIVED"' + (op.returnStatus === "RECEIVED" ? " selected" : "") + '>Eingegangen</option><option value="REFUNDED"' + (op.returnStatus === "REFUNDED" ? " selected" : "") + '>Erstattet</option></select><button type="button" class="eoi-btn eoi-save" data-eoi-save="' + esc(order.id) + '">Speichern</button></div><div class="eoi-note">' + (op.updatedAt ? 'Zuletzt gespeichert: ' + esc(dateTime.format(new Date(op.updatedAt))) : 'Noch nicht intern erfasst') + '</div></td><td>' + (invoice ? '<span class="eoi-status">' + esc(invoice.invoiceNumber) + '</span><br>' : '') + '<button type="button" class="eoi-btn" data-eoi-invoice="' + esc(order.id) + '">' + (issueBusy.has(order.id) ? 'Wird geprüft…' : invoice ? (invoice.immutable ? 'Rechnung öffnen' : 'Altrechnung prüfen') : 'Rechnung ausstellen') + '</button></td></tr>';
+        return '<tr><td><strong>' + esc(order.id) + '</strong><div class="eoi-muted">' + esc(order.buyerName || 'Käuferdaten nicht übermittelt') + '</div></td><td>' + esc(order.ebayStatus) + '</td><td>' + money(order.total, order.currency) + '</td><td><div class="eoi-controls"><select data-eoi-status="' + esc(order.id) + '">' + options + '</select><input data-eoi-carrier="' + esc(order.id) + '" placeholder="Versanddienst" value="' + esc(op.carrier) + '"><input data-eoi-tracking="' + esc(order.id) + '" placeholder="Trackingnummer" value="' + esc(op.trackingNumber) + '"><input data-eoi-url="' + esc(order.id) + '" placeholder="Tracking-URL (optional)" value="' + esc(op.trackingUrl) + '"><input data-eoi-stock="' + esc(order.id) + '" placeholder="Bestand" value="' + esc(op.stockQuantity || (serverState.inventory?.[order.lines[0]?.itemId]?.quantity ?? '')) + '"><select data-eoi-return="' + esc(order.id) + '"><option value="NONE"' + (op.returnStatus === "NONE" ? " selected" : "") + '>Keine Retoure</option><option value="REQUESTED"' + (op.returnStatus === "REQUESTED" ? " selected" : "") + '>Angefragt</option><option value="APPROVED"' + (op.returnStatus === "APPROVED" ? " selected" : "") + '>Genehmigt</option><option value="RECEIVED"' + (op.returnStatus === "RECEIVED" ? " selected" : "") + '>Eingegangen</option><option value="REFUNDED"' + (op.returnStatus === "REFUNDED" ? " selected" : "") + '>Erstattet</option></select><button type="button" class="eoi-btn eoi-save" data-eoi-save="' + esc(order.id) + '">Speichern</button></div><div class="eoi-note">' + (op.updatedAt ? 'Zuletzt gespeichert: ' + esc(dateTime.format(new Date(op.updatedAt))) : 'Noch nicht intern erfasst') + '</div></td><td>' + (invoice ? '<span class="eoi-status">' + esc(invoice.invoiceNumber) + '</span><br>' : '') + '<button type="button" class="eoi-btn" data-eoi-invoice="' + esc(order.id) + '">' + (issueBusy.has(order.id) ? 'Wird geprüft…' : invoice ? (invoice.immutable ? 'Rechnung öffnen' : 'Altrechnung prüfen') : 'Rechnung ausstellen') + '</button>' +
+        (invoice?.immutable===true ? ' <button type="button" class="eoi-btn" data-eoi-message-compose="'+esc(order.id)+'">Dankesnachricht</button>' : '') + '</td></tr>';
       }).join('');
       html += '</tbody></table></div><div class="eoi-note">Die Versanddaten werden im Seller Tool gespeichert. Es wird keine Bestellung ausgelöst und keine eBay-Nachricht automatisch versendet.</div>';
     }
@@ -324,6 +452,7 @@
     if (!root) { root = document.createElement('section'); root.id = ROOT_ID; root.className = 'ef-panel'; tab.appendChild(root); }
     mounted = true; render();
     if (!serverLoaded) loadServerState().then(() => render());
+    void loadMessageSettings();
   }
 
   document.addEventListener('click', (event) => {
@@ -331,6 +460,22 @@
       const popup = window.open('/api/finance/invoice-pdf?demo=1','_blank');
       if (!popup) notify('Bitte Pop-ups für die Muster-PDF erlauben.','Musterrechnung');
       return;
+    }
+    if (event.target.closest && event.target.closest('[data-eoi-template-save]')) {
+      void saveMessageTemplate(); return;
+    }
+    if (event.target.closest && event.target.closest('[data-eoi-message-demo]')) {
+      void prepareInvoiceMessage('DEMO-1001',true);return;
+    }
+    if (event.target.closest && event.target.closest('[data-eoi-message-compose]')) {
+      void prepareInvoiceMessage(event.target.closest('[data-eoi-message-compose]').dataset.eoiMessageCompose);
+      return;
+    }
+    if (event.target.closest && event.target.closest('[data-eoi-message-send]')) {
+      void sendInvoiceMessage();return;
+    }
+    if (event.target.closest && event.target.closest('[data-eoi-message-close]')) {
+      messageSelectedId='';messageDraft='';messageIsDemo=false;render();return;
     }
     if (event.target.closest && event.target.closest('[data-eoi-load]')) return loadOrders();
     const pdfDownloadButton = event.target.closest && event.target.closest('[data-eoi-download]');
@@ -355,5 +500,10 @@
     }
   });
 
+  document.addEventListener('input', event => {
+    if (event.target?.matches?.('[data-eoi-draft]')) {
+      messageDraft=event.target.value;
+    }
+  });
   window.ElyonOrderInvoices = { mount, load: loadOrders, create: createInvoice, download: downloadInvoice };
 })();
