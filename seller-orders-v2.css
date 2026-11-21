@@ -210,3 +210,98 @@ body.light #elyonOrdersV2Root .ocv2-cost-import span {color:#334155}
 body.light #elyonOrdersV2Root .ocv2-profit.is-provisional strong {color:#3730a3}
 body.light #elyonOrdersV2Root .ocv2-profit [data-ocv2-profit-label] {color:#334155}
 body.light #elyonOrdersV2Root .ocv2-profit [data-ocv2-profit-help] {color:#475569}
+
+/* ELYON Bestellzentrale 3.0 — calm list-first workspace with an on-demand drawer */
+#ordersTab #elyonOrdersV2Root { container-type: normal; }
+#elyonOrdersV2Root .ocv2-shell { max-width:1540px; gap:21px; padding:13px clamp(12px,2vw,28px) 52px; }
+#elyonOrdersV2Root .ocv2-header { align-items:center; gap:18px; border-bottom:1px solid rgba(148,163,184,.13); padding-bottom:20px; }
+#elyonOrdersV2Root .ocv2-header h2 { font-size:clamp(30px,3.2vw,40px); margin:5px 0 7px; letter-spacing:-.035em; }
+#elyonOrdersV2Root .ocv2-header p { font-size:13px; line-height:1.6; max-width:700px; }
+#elyonOrdersV2Root .ocv2-header-actions { align-items:end; justify-content:flex-end; gap:9px; }
+#elyonOrdersV2Root .ocv2-demo-btn { border-radius:11px; }
+#elyonOrdersV2Root .ocv2-stats { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; }
+#elyonOrdersV2Root button.ocv2-stat { text-align:left; padding:16px 18px; border-radius:15px; background:rgba(22,32,51,.74); border:1px solid rgba(148,163,184,.14); box-shadow:none; }
+#elyonOrdersV2Root button.ocv2-stat:hover { background:rgba(37,52,77,.82); border-color:rgba(129,140,248,.37); }
+#elyonOrdersV2Root button.ocv2-stat.active { border-color:rgba(129,140,248,.72); box-shadow:inset 0 2px 0 #818cf8; }
+#elyonOrdersV2Root .ocv2-stat strong { display:block; font-size:27px; line-height:1.1; margin-top:9px; color:#f8fafc; }
+#elyonOrdersV2Root .ocv2-stat small { font-size:12px; line-height:1.4; }
+#elyonOrdersV2Root .ocv2-content { display:block; width:100%; min-width:0; }
+#elyonOrdersV2Root .ocv2-list-card { min-width:0; width:100%; padding:22px 23px; border-radius:19px; background:rgba(15,23,42,.64); border:1px solid rgba(148,163,184,.14); box-shadow:none; }
+#elyonOrdersV2Root .ocv2-list-header { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:15px; margin:0 0 17px; }
+#elyonOrdersV2Root .ocv2-list-header h3 { font-size:18px; margin:0 0 7px; letter-spacing:-.012em; }
+#elyonOrdersV2Root .ocv2-list-header > div { min-width:0; }
+#elyonOrdersV2Root .ocv2-list-header input { width:min(100%,330px); flex:1 1 250px; padding:12px 15px; border-radius:12px; }
+#elyonOrdersV2Root .ocv2-filters { display:flex; flex-wrap:wrap; gap:8px; padding-bottom:16px; margin-bottom:10px; border-bottom:1px solid rgba(148,163,184,.14); }
+#elyonOrdersV2Root .ocv2-filters button { background:transparent; border:1px solid transparent; padding:8px 14px; color:#94a3b8; font-size:12px; font-weight:650; border-radius:10px; }
+#elyonOrdersV2Root .ocv2-filters button:hover { background:rgba(148,163,184,.09); color:#e2e8f0; }
+#elyonOrdersV2Root .ocv2-filters button.active { background:rgba(99,102,241,.15); border-color:rgba(129,140,248,.27); color:#c7d2fe; }
+#elyonOrdersV2Root .ocv3-order-list-header { display:grid; grid-template-columns:minmax(0,1fr) 190px; align-items:center; padding:8px 36px 11px 62px; color:#64748b; font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; }
+#elyonOrdersV2Root .ocv3-order-list-header span:last-child { text-align:right; }
+#elyonOrdersV2Root .ocv2-order-list { display:grid; gap:0; max-height:none; overflow:visible; padding:0; }
+#elyonOrdersV2Root button.ocv2-order { display:flex; gap:16px; width:100%; padding:17px 12px; align-items:center; min-height:87px; border:0; border-bottom:1px solid rgba(148,163,184,.11); border-radius:0; background:transparent; color:#e2e8f0; text-align:left; }
+#elyonOrdersV2Root button.ocv2-order:last-child { border-bottom:0; }
+#elyonOrdersV2Root button.ocv2-order:hover { background:rgba(99,102,241,.075); border-color:rgba(129,140,248,.23); }
+#elyonOrdersV2Root button.ocv2-order.is-selected { border:0; border-bottom:1px solid rgba(148,163,184,.11); background:rgba(99,102,241,.12); box-shadow:inset 3px 0 0 #818cf8; }
+#elyonOrdersV2Root .ocv3-order-icon { width:38px; height:38px; flex:0 0 38px; border-radius:11px; display:grid; place-items:center; background:rgba(148,163,184,.12); color:#a5b4fc; font-size:19px; font-weight:500; }
+#elyonOrdersV2Root .ocv2-order-main { flex:1 1 auto; min-width:0; }
+#elyonOrdersV2Root .ocv2-order-main strong { font-size:14px; line-height:1.4; font-weight:750; }
+#elyonOrdersV2Root .ocv2-order-main .ocv2-small { margin:4px 0 2px; font-size:11px; }
+#elyonOrdersV2Root .ocv2-order-right { justify-items:end; display:grid; gap:8px; min-width:130px; text-align:right; }
+#elyonOrdersV2Root .ocv2-order-right strong { font-size:15px; font-variant-numeric:tabular-nums; }
+#elyonOrdersV2Root .ocv2-state { font-size:10px; padding:5px 10px; }
+#elyonOrdersV2Root .ocv3-order-arrow { font-size:28px; line-height:1; color:#64748b; }
+#elyonOrdersV2Root .ocv2-empty { min-height:270px; padding:45px 20px; }
+#elyonOrdersV2Root .ocv3-drawer-closed { display:none !important; }
+#elyonOrdersV2Root .ocv3-drawer-open { display:flex; position:fixed; inset:0; z-index:999900; padding:0; margin:0; width:auto; min-width:0; max-width:none; background:transparent; border:0; border-radius:0; overflow:visible; justify-content:flex-end; align-items:stretch; box-shadow:none; }
+#elyonOrdersV2Root .ocv3-drawer-backdrop { display:block; position:absolute; inset:0; width:100%; height:100%; padding:0; margin:0; border:0; border-radius:0; background:rgba(3,9,23,.76); cursor:pointer; backdrop-filter:blur(4px); }
+#elyonOrdersV2Root .ocv3-drawer-content { position:relative; z-index:2; width:min(100%,585px); height:100dvh; min-width:0; overflow-y:auto; overscroll-behavior:contain; padding:0 25px 28px; background:#0d182a; box-shadow:-15px 0 80px rgba(0,0,0,.46); border-left:1px solid rgba(148,163,184,.18); outline:none; }
+#elyonOrdersV2Root .ocv3-drawer-top { position:sticky; top:0; z-index:3; display:flex; align-items:center; justify-content:space-between; gap:12px; margin:0 -25px 15px; padding:18px 25px; background:#0d182a; border-bottom:1px solid rgba(148,163,184,.14); }
+#elyonOrdersV2Root .ocv3-drawer-top > div { display:grid; gap:5px; min-width:0; }
+#elyonOrdersV2Root .ocv3-drawer-top small { letter-spacing:.11em; font-weight:850; color:#a5b4fc; font-size:10px; }
+#elyonOrdersV2Root .ocv3-drawer-top strong { font-size:17px; color:#f8fafc; overflow-wrap:anywhere; }
+#elyonOrdersV2Root .ocv3-drawer-close { border:1px solid rgba(148,163,184,.17); border-radius:11px; min-width:38px; height:38px; padding:5px; font-size:16px; }
+#elyonOrdersV2Root .ocv3-drawer-open .ocv2-details-head { margin:0 0 12px; }
+#elyonOrdersV2Root .ocv3-drawer-open .ocv2-details-head > div { display:none; }
+#elyonOrdersV2Root .ocv3-drawer-open .ocv2-progress { margin-top:8px; gap:5px; padding:7px; border-color:rgba(148,163,184,.13); background:rgba(148,163,184,.045); }
+#elyonOrdersV2Root .ocv3-drawer-open .ocv2-progress button { font-size:10px; padding:4px 2px; gap:6px; }
+#elyonOrdersV2Root .ocv3-drawer-open .ocv2-progress .ocv2-dot { width:23px; height:23px; font-size:10px; }
+#elyonOrdersV2Root .ocv3-drawer-open .ocv2-detail-tabs { margin-top:13px; }
+#elyonOrdersV2Root .ocv3-drawer-open .ocv2-details-actions { position:sticky; bottom:0; margin-top:20px; padding:13px 0; background:rgba(13,24,42,.97); }
+#elyonOrdersV2Root .ocv3-drawer-open .ocv2-details-actions button { flex:1 1 auto; }
+#elyonOrdersV2Root .ocv3-drawer-open .ocv2-details-meta { margin-top:11px; }
+#elyonOrdersV2Root .ocv3-drawer-open .ocv2-next { margin-top:10px; }
+@media (max-width:960px) {
+  #elyonOrdersV2Root .ocv2-header { align-items:flex-start; }
+  #elyonOrdersV2Root .ocv2-header-actions { justify-content:flex-start; }
+  #elyonOrdersV2Root .ocv2-list-card { padding:18px 16px; }
+}
+@media (max-width:680px) {
+  #elyonOrdersV2Root .ocv2-stats { grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px; }
+  #elyonOrdersV2Root button.ocv2-stat { padding:14px; }
+  #elyonOrdersV2Root .ocv2-stat strong { font-size:24px; }
+  #elyonOrdersV2Root .ocv2-header-actions { width:100%; }
+  #elyonOrdersV2Root .ocv2-header-actions button { flex:1 1 auto; }
+  #elyonOrdersV2Root .ocv2-list-header { display:grid; grid-template-columns:minmax(0,1fr); }
+  #elyonOrdersV2Root .ocv2-list-header input { width:100%; }
+  #elyonOrdersV2Root .ocv3-order-list-header { display:none; }
+  #elyonOrdersV2Root button.ocv2-order { padding:14px 7px; gap:10px; }
+  #elyonOrdersV2Root .ocv3-order-icon { width:32px; height:32px; flex-basis:32px; }
+  #elyonOrdersV2Root .ocv2-order-right { min-width:0; }
+  #elyonOrdersV2Root .ocv2-order-right strong { font-size:13px; }
+  #elyonOrdersV2Root .ocv3-order-arrow { font-size:22px; }
+  #elyonOrdersV2Root .ocv3-drawer-content { width:100%; padding:0 17px 24px; border-left:0; }
+  #elyonOrdersV2Root .ocv3-drawer-top { margin-inline:-17px; padding:14px 17px; }
+}
+@media (prefers-reduced-motion:no-preference) {
+  #elyonOrdersV2Root .ocv3-drawer-content { animation:ocv3-drawer-in .19s ease-out both; }
+  @keyframes ocv3-drawer-in { from { transform:translateX(18px); opacity:.86 } to { transform:translateX(0); opacity:1 } }
+}
+body.light #elyonOrdersV2Root button.ocv2-stat,
+body.light #elyonOrdersV2Root .ocv2-list-card { background:#fff; }
+body.light #elyonOrdersV2Root button.ocv2-order { background:transparent; color:#0f172a; }
+body.light #elyonOrdersV2Root button.ocv2-order:hover { background:#eef2ff; }
+body.light #elyonOrdersV2Root .ocv3-order-icon { background:#f1f5f9; color:#4f46e5; }
+body.light #elyonOrdersV2Root .ocv3-drawer-content,
+body.light #elyonOrdersV2Root .ocv3-drawer-top { background:#fff; }
+body.light #elyonOrdersV2Root .ocv3-drawer-top strong { color:#0f172a; }
+body.light #elyonOrdersV2Root .ocv3-drawer-open .ocv2-details-actions { background:rgba(255,255,255,.97); }
