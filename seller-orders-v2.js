@@ -1,7 +1,7 @@
 import {
   escapeHtml as h, normalizeEbayOrder, workflowStatus, paymentConfirmed,
   productForLine, estimatedOrderCosts, actualOrderProfit, summarizeOrders,
-  visibleOrders, normalizeOperationInput, financeOrderCostHints, suggestRecordedCosts,
+  visibleOrders, normalizeOperationInput, financeOrderCostHints, suggestRecordedCosts, orderCompletionChecklist,
 } from "./seller-orders-v2-core.js";
 
 const ROOT_ID = "elyonOrdersV2Root";
@@ -63,7 +63,7 @@ const state = {
   selectedId: "", filter: "all", query: "", days: 90, loading: false,
   saving: false, refreshedAt: "", error: "", warning: "", saveNotice: "",
   truncated: false, sourceReady: false, financeReady: false, drafts: {},
-  demoMode: false, activeSection: "overview", demoModal: "", demoNotice: "", financeCostHints: {},
+  demoMode: false, activeSection: "overview", demoModal: "", demoNotice: "", financeCostHints: {}, actionBusy: false,
 };
 try { const v = Number(localStorage.getItem(RANGE_KEY)); if ([7, 30, 90].includes(v)) state.days = v; } catch {}
 
@@ -117,21 +117,38 @@ function progressMarkup(order, op) {
     return `<button type="button" data-ocv2-phase="${id}" aria-label="Internen Schritt ${h(label)} auswählen" aria-current="${!finished && index===i?"step":"false"}" class="${done?"done":i===index?"current":""}"><span class="ocv2-dot">${done?"✓":i+1}</span><span>${h(label)}</span></button>`;
   }).join("")}</div>`;
 }
+function completionFor(order, op) {
+  const invoice = state.demoMode
+    ? { issued: demoInvoiceChecks.has(order.id) }
+    : state.invoices[order.id];
+  return orderCompletionChecklist(order, op, invoice);
+}
 function nextActionMarkup(order) {
-  const status = statusOf(order);
-  const actions = {
-    new:["Lieferant und EK prüfen","supplier"],
-    processing:["Lieferantenbestellung dokumentieren","supplier"],
-    supplier_ordered:["Versand und Tracking vorbereiten","shipping"],
-    shipped:["Kosten und Ergebnis kontrollieren","finance"],
-    completed:["Rechnungsstand prüfen","finance"],
-    issue:["Problemfall dokumentieren","supplier"],
-    awaiting_payment:["Erst eBay-Zahlung prüfen","overview"],
-    cancelled:["Stornierung prüfen","overview"],
-  };
-  const [label,section] = actions[status] || actions.new;
-  return `<div class="ocv2-next"><span><small>Nächster Schritt</small><strong>${h(label)}</strong></span>
-    <button type="button" data-ocv2-section="${section}">Öffnen →</button></div>`;
+  const completion = completionFor(order, { ...opFor(order.id), ...obj(state.drafts[order.id]) });
+  const next = completion.next;
+  return `<div class="ocv2-next"><span><small>${completion.ready ? "Bereit zum Abschluss" : "Nächster Schritt"}</small>
+    <strong>${h(next?.title || "Alle erforderlichen Schritte erledigt")}</strong></span>
+    ${next ? `<button type="button" data-ocv2-section="${h(next.section)}">Öffnen →</button>` : ""}
+  </div>`;
+}
+function checklistMarkup(order, op) {
+  const assessment = completionFor(order, op);
+  return `<section class="ocv4-checklist" aria-label="Abschlussprüfung">
+    <div class="ocv4-checklist-heading"><strong>Aufgaben & Abschlussprüfung</strong>
+      <span>${assessment.checks.filter((item) => item.done).length} / ${assessment.checks.length} erledigt</span></div>
+    <div class="ocv4-task-list">${assessment.checks.map((item) =>
+      `<button type="button" data-ocv2-section="${h(item.section)}" class="ocv4-task ${item.done ? "done" : "open"}">
+        <span class="ocv4-check" aria-hidden="true">${item.done ? "✓" : "·"}</span>
+        <span>${h(item.title)}${item.required ? "" : ' <small>(empfohlen)</small>'}</span>
+        <span class="ocv4-task-action">${item.done ? "Erledigt" : "Prüfen"}</span>
+      </button>`).join("")}</div>
+    <div class="ocv4-complete">
+      <button type="button" data-ocv4-complete ${assessment.ready && !state.actionBusy ? "" : "disabled"}>
+        ${assessment.ready ? "Bestellung zum Abschluss vormerken" : "Abschluss noch gesperrt"}
+      </button>
+      <small>${assessment.ready ? "Nach dem Vormerken intern sichern. Der Server prüft eBay und Rechnungsstand erneut." :
+      "Erforderliche Schritte zuerst erledigen. Ist-Kosten bleiben eine separate Empfehlung."}</small>
+    </div></section>`;
 }
 function detailsMarkup(order) {
   const op = { ...opFor(order.id), ...obj(state.drafts[order.id]) };
@@ -197,6 +214,7 @@ function detailsMarkup(order) {
     ${sectionNav()}
     <section class="ocv2-pane" data-pane="overview" ${state.activeSection!=="overview"?"hidden":""}>
     ${nextActionMarkup(order)}
+    ${checklistMarkup(order, op)}
     <div class="ocv2-details-meta"><span>${h(date(order.createdAt))}</span><strong>${h(money(order.total, order.currency))}</strong></div>
     <div class="ocv2-chips"><span>Bezahlung: ${h(order.paymentStatus)}</span><span>eBay-Versand: ${h(order.fulfillmentStatus)}</span>
     <span>Rechnung: ${invoice ? h(invoice.invoiceNumber) : "noch keine"}</span></div>
@@ -214,12 +232,15 @@ function detailsMarkup(order) {
       </div></section>
       <section class="ocv2-pane" data-pane="shipping" ${state.activeSection!=="shipping"?"hidden":""}>
       <h4>Versand vorbereiten</h4>
-      <p class="ocv2-hint">Die Sendungsdaten sind zunächst nur intern. eBay wird nicht automatisch benachrichtigt.</p>
+      <p class="ocv2-hint">Die Sendungsdaten zunächst intern sichern. Erst die gesondert bestätigte eBay-Meldung verändert den Versandstatus bei eBay.</p>
       <div class="ocv2-fields">
         <label>Versanddienstleister<input name="carrier" maxlength="80" value="${h(op.carrier || "")}" placeholder="z. B. DHL"></label>
         <label>Trackingnummer<input name="trackingNumber" maxlength="120" value="${h(op.trackingNumber || "")}" placeholder="Sendungsnummer"></label>
-      </div></section>
+      </div><div class="ocv4-inline-action"><span>eBay-Versandstatus: ${h(order.fulfillmentStatus)}</span><button type="button" data-order-ebay-shipping ${state.actionBusy || !state.financeReady && !state.demoMode ? "disabled" : ""}>${state.demoMode ? "Versand simulieren" : "Versand an eBay melden"}</button></div>
+      <p class="ocv2-hint">Der Button sendet erst nach ausdrücklicher Bestätigung. Ohne gespeicherten Lieferantenauftrag und Tracking wird nichts versendet.</p></section>
       <section class="ocv2-pane" data-pane="finance" ${state.activeSection!=="finance"?"hidden":""}>
+      <h4>Rechnung</h4><div class="ocv4-inline-action"><span>${invoice ? `Rechnung ${h(invoice.invoiceNumber)} ist ausgestellt.` : "Noch keine ausgestellte Rechnung vorhanden."}</span>
+      <button type="button" data-order-invoice ${state.actionBusy ? "disabled" : ""}>${invoice ? "Rechnung öffnen" : "Rechnung prüfen / ausstellen"}</button></div>
       <h4>Kosten und Gewinn</h4>
       ${help}
       ${sourceInfo}
@@ -232,7 +253,7 @@ function detailsMarkup(order) {
         <button type="button" data-order-shipping>Versand öffnen</button><button type="button" data-order-invoice>Rechnung öffnen</button></div>
       ${state.demoMode ? '<div class="ocv2-demo-note">Demo: Kein API-Aufruf, keine Bestellung beim Lieferanten, kein eBay-Update.</div>' : ""}
       ${state.demoMode && DEMO.history.length ? `<div class="ocv2-demo-history"><strong>Letzte Demo-Aktionen</strong>${DEMO.history.slice(0,3).map((entry) => `<span>• ${h(entry)}</span>`).join("")}</div>` : ""}
-      <p class="ocv2-hint">Interne Angaben werden revisionsgeschützt gespeichert. Kein automatischer Lieferantenkauf, keine eBay-Versandmeldung und keine Rechnungsausstellung.</p>
+      <p class="ocv2-hint">Interne Angaben werden revisionsgeschützt gespeichert. Lieferantenkäufe bleiben manuell; eBay-Versand und Rechnungen erfordern jeweils deine ausdrückliche Bestätigung.</p>
     </form>`;
 }
 // All demonstration dialogs are local UI only. Never create invoice numbers or call any API.
