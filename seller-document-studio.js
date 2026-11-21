@@ -52,7 +52,7 @@
   }
 
   async function api(action, options) {
-    const isGet = !options;
+    const isGet = !options || options.__get === true;
     const query = new URLSearchParams({ action });
     if (options?.id && isGet) query.set("id", options.id);
     const response = await fetch(API + "?" + query.toString(), {
