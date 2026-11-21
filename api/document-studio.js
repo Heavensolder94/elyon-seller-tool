@@ -70,6 +70,10 @@ export default async function handler(req, res) {
       const state = await load();
       return send(res, 200, { ok: true, revision: state.revision, persistent: true, documents: state.documents.map(documentSummary) });
     }
+    if (req.method === "GET" && action === "blocks") {
+      const state = await load();
+      return send(res, 200, { ok: true, revision: state.revision, blocks: state.customBlocks });
+    }
     if (req.method === "GET" && action === "templates") {
       const state = await load();
       return send(res, 200, { ok: true, revision: state.revision, templates: state.customTemplates });
@@ -81,7 +85,7 @@ export default async function handler(req, res) {
       if (!doc) return send(res, 404, { ok: false, message: "Dokument nicht gefunden." });
       return send(res, 200, { ok: true, revision: state.revision, document: doc });
     }
-    if (req.method === "POST" && ["save", "archive", "restore", "save-template", "delete-template"].includes(action)) {
+    if (req.method === "POST" && ["save", "archive", "restore", "save-template", "delete-template", "save-block", "delete-block"].includes(action)) {
       const expected = req.body?.expectedRevision;
       if (!Number.isSafeInteger(expected) || expected < 0) return send(res, 400, { ok: false, message: "Zuerst Dokumentenbestand laden (Revision fehlt)." });
       const current = await load();
@@ -92,7 +96,8 @@ export default async function handler(req, res) {
       if (!(await compareSet(next, expected))) {
         return send(res, 409, { ok: false, error: "revision_conflict", message: "Zeitgleiche Änderung. Bitte Dokumentenbestand neu laden." });
       }
-      return send(res, 200, { ok: true, revision: next.revision, documents: next.documents.map(documentSummary), templates: ["save-template", "delete-template"].includes(action) ? next.customTemplates : undefined });
+      return send(res, 200, { ok: true, revision: next.revision, documents: next.documents.map(documentSummary), templates: ["save-template", "delete-template"].includes(action) ? next.customTemplates : undefined,
+        blocks: ["save-block", "delete-block"].includes(action) ? next.customBlocks : undefined });
     }
     return send(res, 405, { ok: false, message: "Aktion oder Methode nicht erlaubt." });
   } catch (error) {
