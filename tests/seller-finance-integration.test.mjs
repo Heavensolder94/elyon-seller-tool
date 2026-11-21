@@ -54,7 +54,7 @@ test("finance UI contains all three stages and no destructive storage reset", as
   const invoiceUi = await read("seller-order-invoices.js");
   assert.match(invoiceUi, /data-eoi-invoice/);
   assert.match(invoiceUi, /invoiceNumber/);
-  assert.match(invoiceUi, /window\.print/);
+  assert.match(invoiceUi, /api\/finance\/invoice-pdf\?orderId=/);
   assert.match(invoiceUi, /elyon_order_operations_v1/);
   assert.match(invoiceUi, /data-eoi-tracking/);
   assert.match(invoiceUi, /data-eoi-save/);
