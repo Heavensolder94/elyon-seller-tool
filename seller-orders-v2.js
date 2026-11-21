@@ -87,10 +87,10 @@ function rowMarkup(order) {
   const title = first?.title || "eBay-Bestellung";
   const more = order.lines.length > 1 ? ` + ${order.lines.length - 1} weitere` : "";
   return `<button type="button" class="ocv2-order ${chosen ? "is-selected" : ""}" data-order-open="${cleanAttr(order.id)}" aria-pressed="${chosen}">
-    <div class="ocv2-order-main"><strong>${h(title + more)}</strong><span class="ocv2-small">#${h(order.id)} · ${h(date(order.createdAt))}</span>
+    <div class="ocv3-order-icon" aria-hidden="true">▣</div><div class="ocv2-order-main"><strong>${h(title + more)}</strong><span class="ocv2-small">#${h(order.id)} · ${h(date(order.createdAt))}</span>
     <span class="ocv2-small">${h(order.buyerRef || "Käuferreferenz unbekannt")} · ${order.lines.reduce((sum, line) => sum + line.quantity, 0)} Stk.</span></div>
     <div class="ocv2-order-right"><strong>${h(money(order.total, order.currency))}</strong>
-    <span class="ocv2-state ocv2-state--${h(status)}">${h(statusLabels[status] || status)}</span></div>
+    <span class="ocv2-state ocv2-state--${h(status)}">${h(statusLabels[status] || status)}</span></div><span class="ocv3-order-arrow" aria-hidden="true">›</span>
   </button>`;
 }
 const SECTION_TABS = [["overview","Überblick"],["supplier","Lieferant"],["shipping","Versand"],["finance","Finanzen"]];
@@ -322,25 +322,25 @@ function render() {
   const rows = visibleOrders(ordersNow(), operationsNow(), { query: state.query, filter: state.filter });
   const selected = ordersNow().find((entry) => entry.id === state.selectedId);
   host.innerHTML = `<div class="ocv2-shell"><header class="ocv2-header">
-      <div><span class="ocv2-kicker">ELYON · Order Operations</span><h2>Bestellungen</h2>
-      <p>eBay-Aufträge verwalten, Lieferanten zuordnen und tatsächliche Kosten dokumentieren.</p></div>
+      <div><span class="ocv2-kicker">ELYON · AUFTRAGSVERWALTUNG</span><h2>Bestellungen</h2>
+      <p>Deine eBay-Verkäufe übersichtlich an einem Ort – Details nur, wenn du sie brauchst.</p></div>
       <div class="ocv2-header-actions"><button type="button" class="ocv2-demo-btn" id="ocv2DemoToggle">${state.demoMode ? "Demo beenden" : "Interaktive Demo starten"}</button><label>Zeitraum<select id="ocv2Range"><option value="7" ${state.days === 7 ? "selected" : ""}>7 Tage</option><option value="30" ${state.days === 30 ? "selected" : ""}>30 Tage</option><option value="90" ${state.days === 90 ? "selected" : ""}>90 Tage</option></select></label>
       <button type="button" class="ocv2-primary" id="ocv2Refresh" ${state.loading ? "disabled" : ""}>${state.loading && !state.demoMode ? "Wird geladen…" : state.demoMode ? "Echte Bestellungen anzeigen" : "Mit eBay abgleichen"}</button></div></header>
       ${state.demoMode ? '<div class="ocv2-demo-banner" role="status"><strong>INTERAKTIVE DEMO</strong> · Alle Bestellungen und Kunden sind erfunden. Änderungen bleiben nur in diesem Browser-Tab und werden nicht gespeichert.</div>' : ""}
       ${state.error ? `<p class="ocv2-alert" role="alert">${h(state.error)}</p>` : ""}
       ${state.warning ? `<p class="ocv2-warning">${h(state.warning)}</p>` : ""}
       ${state.saveNotice ? `<p class="ocv2-success" role="status">${h(state.saveNotice)}</p>` : ""}
-      <div class="ocv2-stats">${statsCard("Bestellungen", String(summary.total), "all")}${statsCard("Neu", String(summary.new), "new")}
-        ${statsCard("Versand offen", String(summary.shipping), "shipping")}${statsCard("Achtung / Zahlung", String(summary.issues), "issues")}</div>
+      <div class="ocv2-stats">${statsCard("Alle Bestellungen", String(summary.total), "all")}${statsCard("Neu", String(summary.new), "new")}
+        ${statsCard("Versand offen", String(summary.shipping), "shipping")}${statsCard("Prüfen", String(summary.issues), "issues")}</div>
       <div class="ocv2-content">
-        <section class="ocv2-list-card"><div class="ocv2-list-header"><div><h3>Bestellübersicht</h3>
+        <section class="ocv2-list-card"><div class="ocv2-list-header"><div><h3>Deine Bestellungen</h3>
           <span class="ocv2-small">${rows.length} angezeigt · ${summary.shipped} versendet/abgeschlossen
             ${state.refreshedAt ? " · Aktualisiert " + h(date(state.refreshedAt)) : ""}</span></div>
           <input id="ocv2Search" aria-label="Bestellungen durchsuchen" value="${h(state.query)}" placeholder="Bestellung, Artikel, SKU suchen …" type="search"></div>
           <nav class="ocv2-filters" aria-label="Bestellstatus">
           ${[["all", "Alle"], ["new", "Neu"], ["processing", "Bearbeitung"], ["shipping", "Versand offen"], ["shipped", "Versendet"], ["issues", "Prüfen"]].map(([id, label]) =>
             `<button type="button" data-ocv2-filter="${id}" class="${state.filter === id ? "active" : ""}">${label}</button>`).join("")}</nav>
-          <div class="ocv2-order-list">${!state.sourceReady && !state.loading && !state.demoMode ? '<div class="ocv2-empty"><strong>Bestellungen laden oder Demo ausprobieren</strong><span>Die Demo funktioniert ohne Verkäufe und verändert keine Daten.</span><button type="button" data-ocv2-demo-start>Demo ausprobieren →</button></div>' :
+          <div class="ocv3-order-list-header"><span>Bestellung / Artikel</span><span>Betrag / Status</span></div><div class="ocv2-order-list">${!state.sourceReady && !state.loading && !state.demoMode ? '<div class="ocv2-empty"><strong>Bestellungen laden oder Demo ausprobieren</strong><span>Die Demo funktioniert ohne Verkäufe und verändert keine Daten.</span><button type="button" data-ocv2-demo-start>Demo ausprobieren →</button></div>' :
             !rows.length ? `<div class="ocv2-empty"><strong>${state.loading ? "Bestellungen werden geladen…" : "Keine passenden Bestellungen"}</strong>
             <span>${state.loading ? "eBay wird gelesen." : "Im gewählten Zeitraum liegen keine passenden Aufträge vor."}</span>${!state.loading && !state.demoMode && !state.query && state.filter==="all" ? '<button type="button" data-ocv2-demo-start>Mit Beispielbestellungen testen →</button>' : ""}</div>` :
             rows.map(rowMarkup).join("")}</div></section>
@@ -459,11 +459,13 @@ function closeDemo() {
   render();
 }
 function closeOrderDrawer() {
+  const previousId = state.selectedId;
   state.selectedId = "";
   state.activeSection = "overview";
   state.saveNotice = "";
   render();
-  root()?.querySelector(".ocv2-order-list")?.focus?.();
+  const source = [...(root()?.querySelectorAll("[data-order-open]") || [])].find((button) => button.dataset.orderOpen === previousId);
+  source?.focus();
 }
 function changeSection(name) {
   if (!SECTION_TABS.some(([id]) => id === name)) return;
