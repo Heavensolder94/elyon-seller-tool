@@ -45,3 +45,46 @@ test("document studio never implements a second issued-invoice document kind", (
   assert.throws(() => applyStudioChange(null, "save", draft({ contentHtml: "x".repeat(25001) })), /zu lang/);
   assert.equal(normalizeStudioState({ revision: -2 }).revision, 0);
 });
+
+test("document studio persists design identity without modifying rich text", () => {
+  const base = applyStudioChange(null, "save", draft({
+    designId: "classic", templateId: "auftragsbestaetigung",
+    contentHtml: "<table><tr><th>Artikel</th></tr><tr><td>Test</td></tr></table>"
+  }));
+  assert.equal(base.documents[0].designId, "classic");
+  assert.equal(base.documents[0].templateId, "auftragsbestaetigung");
+  const revised = applyStudioChange(base, "save", { ...base.documents[0], designId: "modern" });
+  assert.equal(revised.documents[0].designId, "modern");
+  assert.equal(revised.documents[0].contentHtml, base.documents[0].contentHtml);
+  assert.equal(documentSummary(revised.documents[0]).designId, "modern");
+});
+
+test("personal templates can be saved and deleted without touching documents", () => {
+  const first = applyStudioChange(null, "save", draft());
+  const template = {
+    id: "tpl_1234567890123", name: "Eigener Geschäftsbrief", kind: "letter",
+    designId: "minimal", contentHtml: "<h2>Mein Text</h2><p>{{Firma}}</p>"
+  };
+  const second = applyStudioChange(first, "save-template", template);
+  assert.equal(second.documents.length, 1);
+  assert.equal(second.customTemplates.length, 1);
+  assert.equal(second.customTemplates[0].designId, "minimal");
+  assert.match(second.customTemplates[0].contentHtml, /Mein Text/);
+  const revised = applyStudioChange(second, "save-template", { ...template, name: "Neue Vorlage" });
+  assert.equal(revised.customTemplates.length, 1);
+  const deleted = applyStudioChange(revised, "delete-template", null, template.id);
+  assert.equal(deleted.customTemplates.length, 0);
+  assert.equal(deleted.documents[0].contentHtml, first.documents[0].contentHtml);
+});
+
+test("custom templates reject unsupported types, invoice models and excessive documents", () => {
+  assert.throws(() => applyStudioChange(null, "save-template", {
+    id: "tpl_123456789", name: "Fake Rechnung", kind: "invoice", contentHtml: "Rechnung"
+  }), /Dokumentenart/);
+  assert.throws(() => applyStudioChange(null, "save-template", {
+    id: "tpl_123456789", name: "Schlechtes Template", kind: "letter",
+    contentHtml: "x".repeat(25001)
+  }), /zu lang/);
+  assert.throws(() => applyStudioChange(null, "delete-template", null, "tpl_unknown"), /nicht gefunden/);
+  assert.equal(normalizeStudioState({ documents: [] }).customTemplates.length, 0);
+});
