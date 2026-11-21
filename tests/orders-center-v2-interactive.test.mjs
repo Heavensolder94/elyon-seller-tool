@@ -26,7 +26,8 @@ test("demo path returns before any server save and server rejects demo order IDs
   assert.ok(ui.slice(guard, post).includes("return;"), "demo branch must return before POST");
   assert.match(api, /\^DEMO-/);
   assert.match(api, /demo_order_blocked/);
-  assert.match(ui, /if \(state\.demoMode\) return;/);
+  assert.match(ui, /if \(state\.demoMode\) return openDemoModal\("shipping"\)/);
+  assert.match(ui, /if \(state\.demoMode\) return openDemoModal\("invoice"\)/);
 });
 
 test("a guided, clickable timeline and responsive section tabs exist", () => {
@@ -56,3 +57,32 @@ test("demo launch is lazy and the startup budget remains unchanged", () => {
   assert.match(prepare, /seller-orders-v2-loader\.js/);
   assert.doesNotMatch(prepare, /<script type="module" src="\/seller-orders-v2\.js/);
 });
+
+test("demo Versand and Rechnung buttons are enabled and open safe dialogs", () => {
+  assert.match(ui, /<button type="button" data-order-shipping>Versand öffnen<\/button>/);
+  assert.match(ui, /<button type="button" data-order-invoice>Rechnung öffnen<\/button>/);
+  assert.doesNotMatch(ui, /data-order-shipping \\\$\{state\.demoMode \? "disabled"/);
+  assert.match(ui, /function demoModalMarkup\(\)/);
+  assert.match(ui, /aria-modal="true"/);
+  assert.match(ui, /role="dialog"/);
+  assert.match(ui, /ocv2DemoShippingForm/);
+  assert.match(ui, /submitDemoShipping\(event\.target\)/);
+  assert.match(ui, /Rechnungsdaten in Demo prüfen/);
+  assert.match(ui, /MUSTER · KEINE GÜLTIGE RECHNUNG/);
+  assert.match(ui, /Rechnungsnummer: nicht vergeben/);
+  assert.match(ui, /Keine Steuerberechnung, keine Nummernvergabe/);
+  assert.match(css, /ocv2-demo-overlay/);
+  assert.match(css, /ocv2-invoice-sheet/);
+});
+
+test("demo changes are in memory only; order operations endpoint rejects DEMO IDs", () => {
+  const shipping = ui.slice(ui.indexOf("function submitDemoShipping("), ui.indexOf("function render()", ui.indexOf("function submitDemoShipping(")));
+  assert.match(shipping, /if \(!state\.demoMode/);
+  assert.match(shipping, /DEMO\.orders\.find/);
+  assert.match(shipping, /paymentConfirmed\(order\)/);
+  assert.match(shipping, /DEMO\.operations\[order\.id\] =/);
+  assert.doesNotMatch(shipping, /\bfetch\(|\bjson\(|\bXMLHttpRequest\b|\/api\//);
+  assert.match(ui, /demoInvoiceChecks\.add\(order\.id\)/);
+  assert.match(api, /demo_order_blocked/);
+});
+
