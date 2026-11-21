@@ -3,6 +3,7 @@ import {
   productForLine, supplierSuggestionForOrder, estimatedOrderCosts, actualOrderProfit, summarizeOrders,
   visibleOrders, normalizeOperationInput, financeOrderCostHints, suggestRecordedCosts, orderCompletionChecklist,
 } from "./seller-orders-v2-core.js";
+import { validateSupplierOrderHandoff } from "./seller-supplier-order-import-core.js";
 
 const ROOT_ID = "elyonOrdersV2Root";
 const RANGE_KEY = "elyon_orders_v2_range";
@@ -243,6 +244,11 @@ function detailsMarkup(order) {
       <p class="ocv2-hint">${supplierSuggestion ?
         '<strong>Auto-Vorschlag aus Company OS:</strong> Lieferant und eindeutige Produktreferenzen sind vorausgefüllt, sofern noch nicht manuell gespeichert. Mit „Interne Angaben sichern“ bestätigen. Keine Lieferantenbestellung ausgelöst.' :
         'Keine vollständig eindeutige Lieferantenzuordnung für alle Positionen. Bereits gespeicherte Daten bleiben erhalten; fehlende Werte bitte manuell eintragen.'}</p>
+      <h4>Bestellnummer aus ELYON Nova übernehmen</h4>
+      <p class="ocv2-hint">In Nova bei der Lieferanten-Bestelldetailseite „Für SellerTool kopieren“ wählen. Hier in <strong>genau diesen ausgewählten eBay-Auftrag</strong> einfügen. Es erfolgt kein automatischer Versand, kein Einkauf und keine Buchung.</p>
+      <textarea id="ocv5SupplierHandoff" rows="4" maxlength="2500" autocomplete="off" spellcheck="false" placeholder="JSON aus ELYON Nova einfügen" aria-label="ELYON Nova Lieferantenauftrag"${state.demoMode?' disabled':''}></textarea>
+      <div class="ocv4-inline-action"><button type="button" data-ocv5-supplier-import ${state.demoMode||!state.financeReady?'disabled':''}>Auftrag prüfen und Felder übernehmen</button></div>
+      <p class="ocv2-hint">Nach der Prüfung müssen die Daten wie gewohnt mit „Interne Angaben sichern“ gespeichert werden.</p>
       <h4>Lieferantenreferenz aus Company OS</h4>
       ${supplierSuggestion?.references.map(ref =>
         '<p class="ocv2-hint">eBay-SKU: '+h(ref.ebaySku||'–')+' · ELYON: '+h(ref.articleNumber||'–')+
@@ -517,6 +523,27 @@ async function downloadOrderReceipt(documentId) {
     link.href=ref;link.download=meta.filename;link.click();URL.revokeObjectURL(ref);
   }catch(error){state.error="Originalbeleg konnte nicht geladen werden: "+error.message;render();}
 }
+function applyNovaSupplierOrder() {
+  if(state.demoMode || !state.financeReady || state.saving)return;
+  const selected=state.orders.find(item=>item.id===state.selectedId);
+  const form=root()?.querySelector("#ocv2OrderForm");
+  const json=root()?.querySelector("#ocv5SupplierHandoff")?.value;
+  if(!selected||!form||!json){state.warning="Zuerst eine eBay-Bestellung und Nova-Importdaten auswählen.";render();return;}
+  const current={...opFor(selected.id),...obj(state.drafts[selected.id])};
+  const suggested=supplierSuggestionForOrder(selected,productsNow());
+  const outcome=validateSupplierOrderHandoff(json,{supplierSuggestion:suggested,existingOperation:current});
+  if(!outcome.ok){state.warning="Nova-Übernahme blockiert: "+outcome.errors.join(" · ");render();return;}
+  if(!window.confirm("Lieferantenauftrag "+outcome.values.supplierOrderId+" ("+outcome.values.supplierName+
+    ") genau der eBay-Bestellung "+selected.id+" zuordnen?\\n\\nDanach die Angaben kontrollieren und gesondert speichern."))return;
+  for(const [key,value] of Object.entries(outcome.values)){
+    if(!value)continue;
+    const input=form.elements.namedItem(key);
+    if(input)input.value=value;
+  }
+  state.drafts[selected.id]=Object.fromEntries(new FormData(form).entries());
+  state.saveNotice="Lieferantenauftrag für eBay "+selected.id+" nur ins Formular übernommen. Erst „Interne Angaben sichern“ speichert dauerhaft.";
+  state.warning="";render();
+}
 async function save(form) {
   const id = form.dataset.orderId;
   if (state.demoMode) {
@@ -700,6 +727,7 @@ function bind() {
   const host = root();
   if (!host) return;
   host.addEventListener("click", (event) => {
+    if (event.target.closest("[data-ocv5-supplier-import]")) return applyNovaSupplierOrder();
     if (event.target.closest("[data-order-receipt-upload]")) return void uploadOrderReceipt();
     const downloadReceipt=event.target.closest("[data-order-receipt-download]");
     if(downloadReceipt)return void downloadOrderReceipt(downloadReceipt.dataset.orderReceiptDownload);
@@ -733,7 +761,7 @@ function bind() {
     }
   });
   host.addEventListener("input", (event) => {
-    if (event.target.id==="ocv5ReceiptFile") return;
+    if (event.target.id==="ocv5ReceiptFile" || event.target.id==="ocv5SupplierHandoff") return;
     if (event.target.closest("#ocv2OrderForm")) {
       const form = event.target.closest("#ocv2OrderForm");
       state.drafts[form.dataset.orderId] = Object.fromEntries(new FormData(form).entries());
