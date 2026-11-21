@@ -531,6 +531,8 @@
     const greeting = doc.kind === "form" || doc.kind === "delivery" || doc.kind === "purchase_note" ? "" : "<p>Sehr geehrte Damen und Herren,</p>";
     const ending = doc.kind === "form" || doc.kind === "delivery" || doc.kind === "purchase_note" ? "" : "<p>Mit freundlichen Grüßen</p><p>{{Firma}}</p>";
     el("edsEditor").innerHTML = "<h2>" + escapeHtml(subject) + "</h2>" + greeting + clauses + ending;
+    el("edsPreview").replaceChildren();
+    state.lastRange = null;
     el("edsTitle").value = subject.slice(0, 120);
     el("edsAssistantPanel").classList.remove("open");
     handleInput({ target: el("edsEditor") });
@@ -554,6 +556,8 @@
     el("edsRecipient").value = doc.recipient || "";
     el("edsReference").value = doc.reference || "";
     el("edsEditor").innerHTML = sanitize(doc.contentHtml || "");
+    el("edsPreview").replaceChildren();
+    state.lastRange = null;
     renderPreview();
     el("edsArchiveBtn").textContent = doc.archivedAt ? "Wiederherstellen" : "Archivieren";
     el("edsVersion").textContent = doc.version ? "Version " + doc.version : "Neuer Entwurf";
@@ -569,7 +573,7 @@
       kind: el("edsKind").value,
       recipient: el("edsRecipient").value.trim(),
       reference: el("edsReference").value.trim(),
-      contentHtml: sanitize(el("edsEditor").innerHTML),
+      contentHtml: sanitize((el("edsPageBody") || el("edsEditor")).innerHTML),
       designId: el("edsDesign").value,
       templateId: state.current.templateId || "",
       accentColor: el("edsAccent").value,
@@ -582,6 +586,8 @@
   function handleInput(event) {
     if (event.target?.id === "edsSearch") { state.search = event.target.value.toLowerCase(); renderList(); return; }
     if (event.target?.id === "edsLibrarySearch") { state.librarySearch = event.target.value.toLocaleLowerCase("de-DE"); renderLibrary(); return; }
+    if (event.target?.id === "edsBlockSearch") { state.blockSearch = event.target.value.toLocaleLowerCase("de-DE"); renderBlocks(); return; }
+    if (event.target?.id === "edsPageBody") { el("edsEditor").innerHTML = sanitize(event.target.innerHTML); markEdited(); return; }
     if (!["edsTitle", "edsKind", "edsRecipient", "edsReference", "edsEditor", "edsAccent", "edsHeaderText", "edsFooterText"].includes(event.target?.id)) return;
     state.dirty = true;
     status("Nicht gespeicherte Änderungen.");
@@ -649,11 +655,13 @@
     state.loading = true;
     status("Lade geschütztes Dokumentenarchiv …");
     try {
-      const [result, profile, custom] = await Promise.all([api("list"), api("profile").catch(() => ({ profile: {} })), api("templates").catch(() => ({ templates: [] }))]);
+      const [result, profile, custom, blocks] = await Promise.all([api("list"), api("profile").catch(() => ({ profile: {} })), api("templates").catch(() => ({ templates: [] })), api("blocks").catch(() => ({ blocks: [] }))]);
       state.revision = result.revision;
       state.documents = result.documents || [];
       state.profile = profile.profile || {};
       state.customTemplates = custom.templates || [];
+      state.customBlocks = blocks.blocks || [];
+      renderBlocks();
       renderLibrary();
       renderList();
       if (!state.current) showDoc(newDocument("blank"));
@@ -745,7 +753,7 @@
     ].join("\n");
   }
 
-  function resolved(doc) {
+  function resolved(doc, editing = false) {
     const p = state.profile || {};
     const styleId = DESIGNS[doc.designId] ? doc.designId : DEFAULT_DESIGN;
     const design = DESIGNS[styleId];
@@ -757,7 +765,8 @@
       Datum: new Date().toLocaleDateString("de-DE"),
       Referenz: doc.reference || "[Referenz eintragen]"
     };
-    const body = sanitize(doc.contentHtml).replace(/\{\{\s*(Firma|Empfänger|Datum|Referenz)\s*\}\}/g, (_, key) => escapeHtml(values[key]));
+    const rawBody = sanitize(doc.contentHtml);
+    const body = editing ? rawBody : rawBody.replace(/\{\{\s*(Firma|Empfänger|Datum|Referenz)\s*\}\}/g, (_, key) => escapeHtml(values[key]));
     const address = [p.street, [p.postalCode, p.city].filter(Boolean).join(" "), p.country].filter(Boolean).map(escapeHtml).join(", ");
     const sender = escapeHtml(p.name || p.brand || "Unternehmensprofil ergänzen");
     const brand = escapeHtml(doc.headerText || p.brand || p.name || "ELYON");
@@ -780,7 +789,17 @@
   function renderPreview() {
     const preview = el("edsPreview");
     if (!preview) return;
-    preview.innerHTML = resolved(readForm() || newDocument("blank"));
+    preview.innerHTML = resolved(readForm() || newDocument("blank"), true);
+    const body = preview.querySelector(".eds-export-body");
+    if (body) {
+      body.id = "edsPageBody";
+      body.contentEditable = state.current?.archivedAt ? "false" : "true";
+      body.setAttribute("role", "textbox");
+      body.setAttribute("aria-label", "Dokument direkt auf A4 bearbeiten");
+      body.setAttribute("aria-multiline", "true");
+      body.spellcheck = true;
+    }
+    state.lastRange = null;
     preview.classList.add("open");
   }
 
@@ -980,7 +999,7 @@
   }
 
   function moveEditorBlock(direction) {
-    const editor = el("edsEditor");
+    const editor = activeEditor();
     const selection = window.getSelection();
     let node = selection?.anchorNode;
     if (!node || !editor.contains(node)) return status("Bitte zuerst den gewünschten Textblock anklicken.", true);
@@ -1006,7 +1025,7 @@
     if (category) { state.category = category.dataset.edsCategory; renderLibrary(); return; }
     const format = event.target.closest("[data-eds-format]");
     if (format) {
-      const editor = el("edsEditor");
+      const editor = activeEditor();
       editor.focus();
       document.execCommand(format.dataset.edsFormat, false, format.dataset.edsValue || null);
       handleInput({ target: editor });
@@ -1014,7 +1033,7 @@
     }
     const token = event.target.closest("[data-eds-insert]");
     if (token) {
-      const editor = el("edsEditor");
+      const editor = activeEditor();
       editor.focus();
       document.execCommand("insertText", false, token.dataset.edsInsert);
       handleInput({ target: editor });
@@ -1023,14 +1042,14 @@
     const action = event.target.closest("[data-eds-action]")?.dataset.edsAction;
     if (!action) return;
     if (action === "insert-table") {
-      el("edsEditor").focus();
+      activeEditor().focus();
       document.execCommand("insertHTML", false, '<table><tr><th>Spalte 1</th><th>Spalte 2</th></tr><tr><td>Text</td><td>Text</td></tr></table><p></p>');
-      handleInput({ target: el("edsEditor") }); return;
+      handleInput({ target: activeEditor() }); return;
     }
     if (action === "insert-rule") {
-      el("edsEditor").focus();
+      activeEditor().focus();
       document.execCommand("insertHTML", false, "<hr><p></p>");
-      handleInput({ target: el("edsEditor") }); return;
+      handleInput({ target: activeEditor() }); return;
     }
     if (action === "move-up") return moveEditorBlock("up");
     if (action === "move-down") return moveEditorBlock("down");
