@@ -110,3 +110,10 @@ test("malicious prototype order IDs do not poison cost hint map", () => {
   assert.equal(hints.__proto__.purchaseCost.value, 3);
   assert.equal({}.purchaseCost, undefined);
 });
+
+test("the completed workflow step is shown as completed rather than pending", async () => {
+  const ui = await readFile(new URL("../seller-orders-v2.js", import.meta.url), "utf8");
+  assert.match(ui, /const finished = current === "COMPLETED"/);
+  assert.match(ui, /i < index \|\| \(finished && i === index\)/);
+  assert.match(ui, /Bestellung abgeschlossen/);
+});
