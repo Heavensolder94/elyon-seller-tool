@@ -118,3 +118,34 @@ test("brand settings survive custom template save", () => {
   assert.equal(state.customTemplates[0].logoData, logo);
   assert.equal(state.documents.length, 0);
 });
+
+test("reusable text blocks preserve content independently of documents and templates", () => {
+  const first = applyStudioChange(null, "save", draft({ title: "Kundenbrief" }));
+  const block = {
+    id: "block_1234567890", title: "Höflicher Abschluss", category: "Eigene",
+    contentHtml: "<p>Mit freundlichen Grüßen</p><p>{{Firma}}</p>"
+  };
+  const second = applyStudioChange(first, "save-block", block);
+  assert.equal(second.documents.length, 1);
+  assert.equal(second.customBlocks.length, 1);
+  assert.equal(second.customBlocks[0].title, "Höflicher Abschluss");
+  assert.match(second.customBlocks[0].contentHtml, /{{Firma}}/);
+  const updated = applyStudioChange(second, "save-block", { ...block, title: "Gruß" });
+  assert.equal(updated.customBlocks.length, 1);
+  assert.equal(updated.customBlocks[0].title, "Gruß");
+  const removed = applyStudioChange(updated, "delete-block", null, block.id);
+  assert.equal(removed.customBlocks.length, 0);
+  assert.equal(removed.documents[0].contentHtml, first.documents[0].contentHtml);
+  assert.equal(removed.revision, 4);
+});
+
+test("text blocks reject oversized and unsafe content", () => {
+  const example = { id: "block_abcdefgh123", title: "Sicherer Block", category: "Eigene", contentHtml: '<p onclick="attack()">Hallo</p><img src=x onerror=alert(1)>' };
+  const state = applyStudioChange(null, "save-block", example);
+  assert.equal(state.customBlocks[0].contentHtml, "<p>Hallo</p>");
+  assert.throws(() => applyStudioChange(null, "save-block", { ...example, category: "Rechnung" }), /Kategorie/);
+  assert.throws(() => applyStudioChange(null, "save-block", { ...example, contentHtml: "x".repeat(5001) }), /5.000/);
+  assert.throws(() => applyStudioChange(null, "save-block", { ...example, title: "" }), /Bausteintitel/);
+  assert.throws(() => applyStudioChange(null, "delete-block", null, "block_missing"), /nicht gefunden/);
+  assert.equal(normalizeStudioState(null).customBlocks.length, 0);
+});
