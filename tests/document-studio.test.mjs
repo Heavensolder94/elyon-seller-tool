@@ -153,13 +153,14 @@ test("text blocks reject oversized and unsafe content", () => {
 
 test("bestelleingang and auftragsbestaetigung are separate document templates", () => {
   const studioSource = readFileSync(new URL("../seller-document-studio.js", import.meta.url), "utf8");
-  const orderReceipt = studioSource.split("\\n").find((line) => line.includes('["bestellbestaetigung", "Verkauf"'));
-  const orderAcceptance = studioSource.split("\\n").find((line) => line.includes('["auftragsbestaetigung", "Verkauf"'));
+  const rows = studioSource.split(String.fromCharCode(10));
+  const orderReceipt = rows.find((line) => line.includes('["bestellbestaetigung", "Verkauf"'));
+  const orderAcceptance = rows.find((line) => line.includes('["auftragsbestaetigung", "Verkauf"'));
   assert.ok(orderReceipt, "Bestelleingangsbestätigung must exist");
   assert.ok(orderAcceptance, "Existing Auftragsbestätigung must remain");
-  assert.match(orderReceipt, /Bestellbestätigung \\(Bestelleingang\\)/);
+  assert.ok(orderReceipt.includes("Bestellbestätigung (Bestelleingang)"));
   assert.match(orderReceipt, /Eingang Ihrer Bestellung/);
   assert.match(orderReceipt, /Bestelldatum bitte prüfen/);
   assert.doesNotMatch(orderReceipt, /noch kein (Kaufvertrag|Vertrag)|erst mit.*Vertrag/);
-  assert.match(studioSource, /\\["order-received", "Verkauf", "Bestelleingang bestätigen"/);
+  assert.ok(studioSource.includes('["order-received", "Verkauf", "Bestelleingang bestätigen"'));
 });
