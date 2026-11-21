@@ -125,7 +125,30 @@ function detailsMarkup(order) {
   const op = { ...opFor(order.id), ...obj(state.drafts[order.id]) };
   const status = statusOf(order);
   const estimated = estimatedOrderCosts(order, productsNow());
-  const profit = actualOrderProfit(order, op);
+  const costHints = obj(financeHintsNow()[order.id]);
+  const autoCost = suggestRecordedCosts(op, costHints);
+  const calculatedOp = autoCost.values;
+  const hasUnconfirmedFinanceCosts = Object.keys(autoCost.sources).length > 0;
+  const actualProfit = actualOrderProfit(order, op);
+  const financePreviewProfit = actualOrderProfit(order, calculatedOp);
+  const estimatedProfit = estimated && [estimated.purchase, estimated.shipping, estimated.fees].every(Number.isFinite)
+    && order.currency === "EUR"
+    ? Math.round((order.total - estimated.purchase - estimated.shipping - estimated.fees) * 100) / 100
+    : null;
+  const profit = actualProfit ?? financePreviewProfit ?? estimatedProfit;
+  const profitStage = actualProfit !== null ? "confirmed"
+    : financePreviewProfit !== null ? "finance_preview"
+    : estimatedProfit !== null ? "estimate" : "missing";
+  const profitHeadline = {
+    confirmed: "Ergebnis nach bestätigten Kosten",
+    finance_preview: "Vorläufiges Ergebnis aus Finanzbuchungen",
+    estimate: "Geschätzter Gewinn aus Company OS",
+    missing: "Gewinn noch nicht berechenbar"
+  }[profitStage];
+  const profitHelp = profitStage === "confirmed" ? "Weitere Werbung, Retouren und Ausgaben bitte separat prüfen."
+    : profitStage === "finance_preview" ? "Automatisch zugeordnete Buchungen müssen noch geprüft und gespeichert werden. Zusätzliche Kosten können fehlen."
+    : profitStage === "estimate" ? "Nur eine Prognose auf Basis der Company-OS-Kalkulation. Kein bestätigter Gewinn."
+    : "Noch nicht alle Ist-Kosten vorhanden. Vorschläge werden nur bei eindeutiger Bestellzuordnung angezeigt.";
   const lines = order.lines.length ? order.lines.map((line) => `<div class="ocv2-line">
     <div><strong>${h(line.title)}</strong><span class="ocv2-small">SKU: ${h(line.sku || "Nicht angegeben")} · ${h(line.quantity)} Stk. · ${h(readableMoney(line.total, order.currency))}</span>
     ${labelForLine(line)}</div></div>`).join("") : '<p class="ocv2-muted">Keine Artikelpositionen übermittelt.</p>';
@@ -136,10 +159,20 @@ function detailsMarkup(order) {
   const help = estimated ? `<p class="ocv2-hint">Company OS: geschätzter EK ${h(readableMoney(estimated.purchase))}, Versand ${h(readableMoney(estimated.shipping))}, Gebühren ${h(readableMoney(estimated.fees))}. Diese Werte sind <strong>keine Ist-Kosten</strong>.</p>` :
     '<p class="ocv2-hint">Keine vollständigen Company-OS-Kostenschätzungen vorhanden. Bitte Lieferantenkosten prüfen.</p>';
   const fields = [
-    ["purchaseCost", "Tatsächlicher Einkauf €", op.purchaseCost, "0.00"],
-    ["shippingCost", "Tatsächlicher Versand €", op.shippingCost, "0.00"],
-    ["feeCost", "Tatsächliche eBay-Gebühren €", op.feeCost, "0.00"],
-  ].map(([name, label, value, placeholder]) => `<label>${h(label)}<input type="number" min="0" step="0.01" name="${name}" value="${value !== null && value !== undefined ? h(value) : ""}" placeholder="${placeholder}"></label>`).join("");
+    ["purchaseCost", "Tatsächlicher Einkauf €"],
+    ["shippingCost", "Tatsächlicher Versand €"],
+    ["feeCost", "Tatsächliche eBay-Gebühren €"],
+  ].map(([name, label]) => {
+    const value = calculatedOp[name];
+    const source = autoCost.sources[name];
+    const provenance = source ? `<small class="ocv2-cost-provenance">${source.approved ? "Automatisch aus geprüfter Finanzbuchung" : "Automatisch aus Finanzbuchung · noch prüfen"}${state.demoMode ? " · DEMO" : ""}</small>` : "";
+    return `<label>${h(label)}<input type="number" min="0" step="0.01" name="${name}" value="${value !== null && value !== undefined ? h(value) : ""}" placeholder="Noch kein Ist-Betrag">${provenance}</label>`;
+  }).join("");
+  const costHintCount = Object.keys(autoCost.sources).length;
+  const sourceInfo = costHintCount
+    ? `<div class="ocv2-cost-import"><strong>${h(costHintCount)} von 3 Kostenpositionen automatisch vorgeschlagen</strong>
+      <span>${state.demoMode ? "Simulierte" : "Gespeicherte"} Finanzbuchungen wurden anhand der genauen Bestellnummer zugeordnet. Die Werte stehen bereits in den Feldern, werden aber erst mit „Interne Angaben sichern“ bestätigt.</span></div>`
+    : '<p class="ocv2-hint">Noch keine passenden tatsächlichen Kostenbuchungen vorhanden. Die Company-OS-Schätzung bleibt separat als Prognose sichtbar.</p>';
   const invoice = state.invoices[order.id];
   const addr = obj(order.shippingAddress);
   const addressParts = [addr.recipient, addr.street, addr.extra,
@@ -177,9 +210,10 @@ function detailsMarkup(order) {
       <section class="ocv2-pane" data-pane="finance" ${state.activeSection!=="finance"?"hidden":""}>
       <h4>Kosten und Gewinn</h4>
       ${help}
+      ${sourceInfo}
       <div class="ocv2-fields ocv2-cost-fields">${fields}</div>
-      <div class="ocv2-profit ${profit === null ? "is-open" : profit < 0 ? "is-loss" : ""}"><span>Ergebnis nach erfassten Kosten</span><strong>${profit === null ? "Noch nicht berechenbar" : h(money(profit))}</strong>
-        ${profit === null ? '<small>Erst wenn EK, Versand und Gebühren vollständig sind. Weitere Ausgaben und Retouren separat prüfen.</small>' : ""}</div>
+      <div class="ocv2-profit ${profit === null ? "is-open" : profit < 0 ? "is-loss" : ""} ${profitStage !== "confirmed" ? "is-provisional" : ""}"><span data-ocv2-profit-label>${h(profitHeadline)}</span><strong>${profit === null ? "Noch nicht berechenbar" : h(money(profit))}</strong>
+        <small data-ocv2-profit-help>${h(profitHelp)}</small></div>
       </section>
       <label class="ocv2-note">Interne Notiz<textarea name="note" rows="3" maxlength="1600" placeholder="Liefertermin, Sonderfall, Einkauf prüfen …">${h(op.note || "")}</textarea></label>
       <div class="ocv2-details-actions"><button type="submit" class="ocv2-primary" ${state.saving || (!state.financeReady && !state.demoMode) ? "disabled" : ""}>${state.saving ? "Speichert…" : state.demoMode ? "Demo-Änderung übernehmen" : "Interne Angaben sichern"}</button>
