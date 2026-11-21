@@ -16,7 +16,7 @@ export default async function handler(req, res) {
     if (req.method === "GET") {
       const state = await readFinanceState();
       const invoices = Object.fromEntries(Object.entries(state.invoiceMeta || {})
-        .filter(([, entry]) => entry?.immutable && entry?.invoiceNumber)
+        .filter(([, entry]) => entry?.immutable === true && entry?.invoiceNumber && entry?.invoice?.invoiceNumber === entry.invoiceNumber)
         .map(([id, entry]) => [id, { invoiceNumber: entry.invoiceNumber, issued: true }]));
       return res.status(200).json({
         ok: true, revision: state.revision, orderOperations: state.orderOperations || {},
