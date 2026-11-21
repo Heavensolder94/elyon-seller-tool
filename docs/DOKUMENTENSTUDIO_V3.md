@@ -29,6 +29,7 @@
 - Kategorien werden serverseitig validiert. Skripte, HTML-Attribute und eingebettete Remote-Bilder werden beim Speichern entfernt. Dokument- und Vorlagenänderungen bleiben unabhängig von Textbaustein-CRUD.
 - Die serverseitige Revisionsprüfung schützt vor konkurrierenden Schreibzugriffen. Bei Konflikten werden Änderungen nicht still überschrieben.
 - Keine Änderungen an `invoiceMeta`, der eBay-Listingstrecke oder der bisherigen Rechnungs-API.
+- **Neu in der Preview:** Manueller Einstieg aus der Bestellzentrale mit den eBay-Auftragsdaten. Kein eBay-Schreibzugriff, keine automatische Dokumentenerstellung. Details: `docs/DOKUMENTENSTUDIO_BESTELLANBINDUNG.md`.
 
 ## Grenzen
 
