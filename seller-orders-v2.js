@@ -411,6 +411,9 @@ function render() {
       <div class="ocv2-header-actions"><button type="button" data-nova-pairing ${state.novaPairingBusy||state.demoMode?"disabled":""}>${state.novaPairingBusy?"Kopplung wird erstellt…":"Nova koppeln"}</button><button type="button" class="ocv2-demo-btn" id="ocv2DemoToggle">${state.demoMode ? "Demo beenden" : "Interaktive Demo starten"}</button><label>Zeitraum<select id="ocv2Range"><option value="7" ${state.days === 7 ? "selected" : ""}>7 Tage</option><option value="30" ${state.days === 30 ? "selected" : ""}>30 Tage</option><option value="90" ${state.days === 90 ? "selected" : ""}>90 Tage</option></select></label>
       <button type="button" class="ocv2-primary" id="ocv2Refresh" ${state.loading ? "disabled" : ""}>${state.loading && !state.demoMode ? "Wird geladen…" : state.demoMode ? "Echte Bestellungen anzeigen" : "Mit eBay abgleichen"}</button></div></header>
       ${state.demoMode ? '<div class="ocv2-demo-banner" role="status"><strong>INTERAKTIVE DEMO</strong> · Alle Bestellungen und Kunden sind erfunden. Änderungen bleiben nur in diesem Browser-Tab und werden nicht gespeichert.</div>' : ""}
+      ${!state.demoMode && state.novaInbox.some(item=>!item.linkedOrders?.length)?
+        '<div class="ocv2-demo-note" role="status"><strong>ELYON Nova:</strong> '+h(String(state.novaInbox.filter(item=>!item.linkedOrders?.length).length))+
+        ' Lieferantenbestellung(en) zum Zuordnen bereit. Öffne den passenden eBay-Auftrag → Lieferant.</div>':""}
       ${state.error ? `<p class="ocv2-alert" role="alert">${h(state.error)}</p>` : ""}
       ${state.warning ? `<p class="ocv2-warning">${h(state.warning)}</p>` : ""}
       ${state.saveNotice ? `<p class="ocv2-success" role="status">${h(state.saveNotice)}</p>` : ""}
@@ -617,6 +620,10 @@ async function save(form) {
       body: JSON.stringify({ orderId: id, operation, expectedRevision: state.revision }),
     });
     state.operations[id] = result.operation;
+    state.novaInbox=state.novaInbox.map(item=>
+      item.supplierOrderId===result.operation?.supplierOrderId &&
+      String(item.supplierName||"").toLowerCase()===String(result.operation?.supplierName||"").toLowerCase()
+        ? {...item,linkedOrders:[...new Set([...(item.linkedOrders||[]),id])]} : item);
     delete state.drafts[id];
     state.revision = result.revision;
     state.saveNotice = "Interne Bestellangaben sicher gespeichert. eBay wurde nicht verändert.";
