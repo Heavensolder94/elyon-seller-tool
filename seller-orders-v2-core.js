@@ -81,6 +81,35 @@ export function productForLine(line, products = []) {
   return matches.length === 1 ? matches[0] : null; // Never guess on ambiguous matches.
 }
 
+// A supplier suggestion is safe only when every eBay line matches exactly one
+// Company OS product and all matched products identify the same supplier.
+// Suggestions are NOT purchase orders and never certify actual purchase cost.
+export function supplierSuggestionForOrder(order = {}, products = []) {
+  const lines = Array.isArray(order.lines) ? order.lines : [];
+  if (!lines.length) return null;
+  const matched = lines.map(line => ({line, product:productForLine(line,products)}));
+  if (matched.some(item => !item.product)) return null;
+  const suppliers = matched.map(({product}) => {
+    const supplier = object(product.supplier);
+    const nested = object(object(product.product).supplier);
+    const name = text(supplier.name || nested.name);
+    return {name, url:text(supplier.productUrl || supplier.url || nested.productUrl || nested.url || product.sourceUrl)};
+  });
+  const supplierName=suppliers[0].name;
+  if (!supplierName || suppliers.some(item => item.name.toLocaleLowerCase("de-DE") !== supplierName.toLocaleLowerCase("de-DE")))
+    return null;
+  const references = matched.map(({line,product}) => ({
+    ebaySku:text(line.sku),
+    productId:text(product.id || product.productId),
+    articleNumber:text(product.articleNumber || product.sku),
+    supplierSku:text(product.supplierSku || object(product.supplier).sku || object(product.product).supplierSku),
+    quantity:Math.max(1,Number(line.quantity)||1),
+  }));
+  const productUrl=suppliers.length && suppliers.every(item=>item.url===suppliers[0].url) &&
+    /^https:\/\//i.test(suppliers[0].url) ? suppliers[0].url : "";
+  return {supplierName, productUrl, references, source:"company_os_suggestion"};
+}
+
 export function estimatedOrderCosts(order, products = []) {
   const items = order.lines.map((line) => ({ line, product: productForLine(line, products) }));
   if (!items.length || items.some(({ product }) => !product)) return null;
@@ -225,6 +254,7 @@ export function normalizeOperationInput(input = {}) {
     workflowStatus: allowed.includes(status) ? status : "NEW",
     supplierName: text(source.supplierName).slice(0, 160),
     supplierOrderId: text(source.supplierOrderId).slice(0, 160),
+    supplierProductRef: text(source.supplierProductRef).slice(0, 160),
     purchaseCost: money("purchaseCost"),
     shippingCost: money("shippingCost"),
     feeCost: money("feeCost"),

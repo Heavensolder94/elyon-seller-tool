@@ -1,6 +1,6 @@
 import {
   escapeHtml as h, normalizeEbayOrder, workflowStatus, paymentConfirmed,
-  productForLine, estimatedOrderCosts, actualOrderProfit, summarizeOrders,
+  productForLine, supplierSuggestionForOrder, estimatedOrderCosts, actualOrderProfit, summarizeOrders,
   visibleOrders, normalizeOperationInput, financeOrderCostHints, suggestRecordedCosts, orderCompletionChecklist,
 } from "./seller-orders-v2-core.js";
 
@@ -184,11 +184,13 @@ function detailsMarkup(order) {
     <div><strong>${h(line.title)}</strong><span class="ocv2-small">SKU: ${h(line.sku || "Nicht angegeben")} · ${h(line.quantity)} Stk. · ${h(readableMoney(line.total, order.currency))}</span>
     ${labelForLine(line)}</div></div>`).join("") : '<p class="ocv2-muted">Keine Artikelpositionen übermittelt.</p>';
   const products = order.lines.map((line) => productForLine(line, productsNow())).filter(Boolean);
+  const supplierSuggestion = supplierSuggestionForOrder(order,productsNow());
+  const suggestedSupplierName = supplierSuggestion?.supplierName || "";
+  const suggestedProductRef = supplierSuggestion?.references.length===1 ?
+    text(supplierSuggestion.references[0].supplierSku || supplierSuggestion.references[0].articleNumber || supplierSuggestion.references[0].productId) : "";
   const supplierLinks = products.map(p=>({name:text(p.supplier?.name||p.product?.supplier?.name),url:text(p.supplier?.url||p.supplier?.productUrl||p.product?.supplier?.url||p.sourceUrl)})).filter(p=>p.name);
   const savedReceipts = state.demoMode ? [] : (state.receiptLists[order.id] || []);
-  const supplierGuess = products.length === order.lines.length && products.length &&
-    products.every((p) => text(p.supplier?.name || p.product?.supplier?.name) === text(products[0].supplier?.name || products[0].product?.supplier?.name)) ?
-    text(products[0].supplier?.name || products[0].product?.supplier?.name) : "";
+  const supplierGuess = suggestedSupplierName;
   const help = estimated ? `<p class="ocv2-hint">Company OS: geschätzter EK ${h(readableMoney(estimated.purchase))}, Versand ${h(readableMoney(estimated.shipping))}, Gebühren ${h(readableMoney(estimated.fees))}. Diese Werte sind <strong>keine Ist-Kosten</strong>.</p>` :
     '<p class="ocv2-hint">Keine vollständigen Company-OS-Kostenschätzungen vorhanden. Bitte Lieferantenkosten prüfen.</p>';
   const fields = [
@@ -234,10 +236,17 @@ function detailsMarkup(order) {
       <h4>Lieferant und Bearbeitung</h4>
       <div class="ocv2-fields"><label>Interner Bearbeitungsstatus<select name="workflowStatus">${phaseOptions.map(([id, label]) =>
         `<option value="${id}" ${(op.workflowStatus || (order.fulfillmentStatus === "FULFILLED" || op.status === "SHIPPED" ? "SHIPPED" : "NEW")) === id ? "selected" : ""}>${h(label)}</option>`).join("")}</select></label>
-        <label>Lieferant<input name="supplierName" maxlength="160" value="${h(op.supplierName || "")}" placeholder="${h(supplierGuess || "Lieferant eintragen")}"></label>
+        <label>Lieferant<input name="supplierName" maxlength="160" value="${h(op.supplierName || suggestedSupplierName)}" placeholder="${h(supplierGuess || "Lieferant eintragen")}"></label>
+        <label>Lieferanten-Artikelreferenz<input name="supplierProductRef" maxlength="160" value="${h(op.supplierProductRef || suggestedProductRef)}" placeholder="Lieferanten-SKU / Artikelnummer"></label>
         <label>Lieferanten-Bestellnummer<input name="supplierOrderId" maxlength="160" value="${h(op.supplierOrderId || "")}" placeholder="Nach deinem Einkauf eintragen"></label>
       </div>
+      <p class="ocv2-hint">${supplierSuggestion ?
+        '<strong>Auto-Vorschlag aus Company OS:</strong> Lieferant und eindeutige Produktreferenzen sind vorausgefüllt, sofern noch nicht manuell gespeichert. Mit „Interne Angaben sichern“ bestätigen. Keine Lieferantenbestellung ausgelöst.' :
+        'Keine vollständig eindeutige Lieferantenzuordnung für alle Positionen. Bereits gespeicherte Daten bleiben erhalten; fehlende Werte bitte manuell eintragen.'}</p>
       <h4>Lieferantenreferenz aus Company OS</h4>
+      ${supplierSuggestion?.references.map(ref =>
+        '<p class="ocv2-hint">eBay-SKU: '+h(ref.ebaySku||'–')+' · ELYON: '+h(ref.articleNumber||'–')+
+        ' · Lieferanten-SKU: '+h(ref.supplierSku||'nicht hinterlegt')+' · Menge: '+h(String(ref.quantity))+'</p>').join("")||""}
       ${supplierLinks.length ? supplierLinks.map(p=>'<p class="ocv2-hint">'+h(p.name)+(p.url&&/^https:\/\//i.test(p.url)?' · <a href="'+h(p.url)+'" target="_blank" rel="noopener noreferrer">Lieferantenartikel öffnen</a>':'')+'</p>').join("") :
         '<p class="ocv2-hint">Keine eindeutige Produkt- und Lieferantenzuordnung. Bitte manuell prüfen.</p>'}
       <h4>Original-Einkaufsbelege</h4>
@@ -262,6 +271,7 @@ function detailsMarkup(order) {
       <h4>Rechnung</h4><div class="ocv4-inline-action"><span>${state.demoMode && demoInvoiceChecks.has(order.id) ? "Musterrechnung geprüft – keine echte Rechnung erstellt." : invoice ? `Rechnung ${h(invoice.invoiceNumber)} ist ausgestellt.` : "Noch keine ausgestellte Rechnung vorhanden."}</span>
       <button type="button" data-order-invoice ${state.actionBusy ? "disabled" : ""}>${invoice ? "Rechnung öffnen" : "Rechnung prüfen / ausstellen"}</button></div>
       <h4>Kosten und Gewinn</h4>
+      <p class="ocv2-hint">Automatisch aus Company OS: nur <strong>unverbindliche EK-, Versand- und Gebührenprognosen</strong>. Die tatsächlichen Kostenfelder werden dadurch nicht überschrieben.</p>
       <p class="ocv2-hint">Belegstatus: ${savedReceipts.length} hochgeladene(s) Original(e). Ein hochgeladener Beleg bestätigt den Betrag nicht automatisch. Einkauf, Versand und eBay-Gebühren bitte mit dem tatsächlichen Nachweis abgleichen.</p>
       ${help}
       ${sourceInfo}
