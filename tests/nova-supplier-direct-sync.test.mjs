@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import crypto from "node:crypto";
 import {readFile} from "node:fs/promises";
 import {issueNovaPairToken,verifyNovaPairToken,parseNovaOrderCapture,novaInboxView,NOVA_PAIR_TTL_SECONDS}
   from "../lib/nova-supplier-sync.js";
@@ -19,7 +20,18 @@ test("Nova token is cryptographically scoped and expires without sharing SellerT
     assert.equal(verifyNovaPairToken(token,now+NOVA_PAIR_TTL_SECONDS*1000+1000),false);
     assert.equal(verifyNovaPairToken(token.slice(0,-1)+"X",now),false);
     assert.equal(verifyNovaPairToken("test-unlock-secret-avoid-in-extension",now),false);
+    assert.equal(NOVA_PAIR_TTL_SECONDS,90*24*60*60);
     assert.equal(Date.parse(expiresAt),now+NOVA_PAIR_TTL_SECONDS*1000);
+    assert.equal(verifyNovaPairToken(token,now+NOVA_PAIR_TTL_SECONDS*1000-1000),true);
+    // A signed 14-day token issued by an earlier version is not extended
+    // when the server begins accepting newly issued 90-day tokens.
+    const oldSegment=Buffer.from(JSON.stringify({v:1,purpose:"elyon_nova_supplier_ingest",
+      exp:Math.floor(now/1000)+14*24*60*60,nonce:"a".repeat(24)})).toString("base64url");
+    const oldMac=crypto.createHmac("sha256",process.env.ELYON_SELLER_ACCESS_TOKEN)
+      .update("elyon_nova_supplier_ingest:"+oldSegment).digest("base64url");
+    const oldToken="nv1."+oldSegment+"."+oldMac;
+    assert.equal(verifyNovaPairToken(oldToken,now+13*24*60*60*1000),true);
+    assert.equal(verifyNovaPairToken(oldToken,now+15*24*60*60*1000),false);
   }finally{
     if(prior===undefined)delete process.env.ELYON_SELLER_ACCESS_TOKEN;
     else process.env.ELYON_SELLER_ACCESS_TOKEN=prior;

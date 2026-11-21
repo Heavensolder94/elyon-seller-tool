@@ -561,14 +561,14 @@ async function reloadNovaInbox() {
 }
 async function pairNova() {
   if(state.demoMode||state.novaPairingBusy)return;
-  if(!window.confirm("ELYON Nova jetzt mit dem SellerTool koppeln? Der Schlüssel gilt 14 Tage nur für Lieferantenbestell-Import, nicht für deinen eigentlichen SellerTool-Zugang."))return;
+  if(!window.confirm("ELYON Nova jetzt mit dem SellerTool koppeln? Der neu erstellte Schlüssel gilt 90 Tage nur für Lieferantenbestell-Import, nicht für deinen eigentlichen SellerTool-Zugang."))return;
   state.novaPairingBusy=true;state.error="";render();
   try{
     const pair=await json("/api/orders/nova-pairing",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});
     if(!pair.token)throw Error("Kein Kopplungsschlüssel erhalten.");
     try{
       await navigator.clipboard.writeText(pair.token);
-      state.saveNotice="Nova-Kopplungsschlüssel für 14 Tage kopiert. In Nova → Bestellverwaltung → Verbindung einfügen.";
+      state.saveNotice="Nova-Kopplungsschlüssel für 90 Tage kopiert. Nach Ablauf manuell neu koppeln. In Nova → Bestellverwaltung → Verbindung einfügen.";
     }catch{
       window.prompt("Nova-Kopplungsschlüssel kopieren und in der Erweiterung unter Bestellverwaltung einfügen:",pair.token);
       state.saveNotice="Nova-Kopplung erstellt. Den angezeigten Schlüssel in Nova einfügen.";
