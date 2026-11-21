@@ -70,8 +70,8 @@ function injectDesktopSecurity(html) {
     '<script defer src="/seller-runtime-loader.js"></script>',
     '<style>#elyonSellerSellingFlow.focused-selling-active > .card:first-of-type{display:none!important}</style>',
     '<script type="module" src="/seller-dashboard-v2.js"></script>',
-    '<link rel="stylesheet" href="/seller-orders-v2.css?v=orders2-20261120" />',
-    '<script defer src="/seller-orders-v2-loader.js?v=orders2-20261120"></script>',
+    '<link rel="stylesheet" href="/seller-orders-v2.css?v=orders2-20261121-nova-pair-fix1" />',
+    '<script defer src="/seller-orders-v2-loader.js?v=orders2-20261121-nova-pair-fix1"></script>',
   ].join("\n");
 
   return injectMarkedBlock(html, { startMarker, endMarker, content });
@@ -120,6 +120,7 @@ const filesToMirror = [
   ["seller-order-invoices.js", "public/seller-order-invoices.js"],
   ["seller-order-message-core.js", "public/seller-order-message-core.js"],
   ["seller-orders-v2-core.js", "public/seller-orders-v2-core.js"],
+  ["seller-supplier-order-import-core.js", "public/seller-supplier-order-import-core.js"],
   ["seller-orders-v2.js", "public/seller-orders-v2.js"],
   ["seller-orders-v2-loader.js", "public/seller-orders-v2-loader.js"],
   ["seller-orders-v2.css", "public/seller-orders-v2.css"],
