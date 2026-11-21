@@ -33,6 +33,9 @@ import { DEFAULT_ORDER_THANK_YOU,renderOrderThankYou } from "./seller-order-mess
   let messageError = "";
   let messageNotice = "";
   let messageIsDemo = false;
+  let invoicePreviewId = "";
+  const invoicePreflight = new Map();
+  const invoicePreflightBusy = new Set();
   let messageEditorOpen = false;
   let messageEditorDraft = DEFAULT_ORDER_THANK_YOU;
   let messageEditorPreview = false;
@@ -193,12 +196,13 @@ import { DEFAULT_ORDER_THANK_YOU,renderOrderThankYou } from "./seller-order-mess
     if (!demo) await loadMessageSettings(id);
     if (!messageEditorOpen || messageSelectedId !== id) return;
     messageDraft = renderOrderThankYou(messageTemplate,messageContext(id)).text;
+    if (!demo) void checkInvoiceSend(id);
     render();
     document.querySelector('#'+ROOT_ID+' [data-eoi-draft]')?.focus();
   }
   async function sendInvoiceMessage() {
     const orderId=messageSelectedId;
-    if(messageBusy||messageIsDemo||!messageReady||!orderId||messageDispatch?.status) return;
+    if(messageBusy||messageIsDemo||!messageReady||!orderId||messageDispatch?.status||invoicePreflight.get(orderId)?.ready!==true) return;
     const preview=renderOrderThankYou(messageDraft,messageContext(orderId));
     if(!preview.ok){messageError=preview.errors.join(' · ');render();return;}
     if(!window.confirm('ECHTE eBay-Nachricht mit Rechnungs-PDF an den Käufer der Bestellung '+
@@ -217,6 +221,45 @@ import { DEFAULT_ORDER_THANK_YOU,renderOrderThankYou } from "./seller-order-mess
       messageDispatch={status:'unknown'};
     } finally {messageBusy=false;await loadMessageSettings(orderId);render();}
   }
+  async function checkInvoiceSend(id) {
+    if (!id || invoicePreflightBusy.has(id) || !/^[A-Za-z0-9_-]{6,70}$/.test(id)) return;
+    invoicePreflightBusy.add(id);
+    invoicePreflight.delete(id);
+    render();
+    try {
+      const data = await messageApi('/api/orders/invoice-send-check?orderId='+encodeURIComponent(id));
+      invoicePreflight.set(id,{ready:data.readyToSend===true,blockers:data.blockers||[],
+        checks:data.checks||{},checkedAt:new Date().toISOString()});
+    } catch (error) {
+      invoicePreflight.set(id,{ready:false,blockers:['Vorprüfung fehlgeschlagen: '+error.message],checks:{}});
+    } finally { invoicePreflightBusy.delete(id); render(); }
+  }
+
+  const PRECHECK_LABELS = {
+    finance_store_unavailable:'Finanzspeicher nicht verfügbar',
+    attachment_base_invalid:'PDF-Hosting nicht erreichbar',
+    send_feature_disabled:'Echter Nachrichtenversand noch nicht freigeschaltet',
+    invoice_not_issued:'Rechnung muss erst verbindlich ausgestellt werden',
+    prior_send_attempt:'Früheren Nachrichtenversuch zuerst prüfen',
+    invoice_integrity_failed:'Rechnungsarchiv konnte nicht verifiziert werden',
+    ebay_order_mismatch:'Bestellnummer bei eBay nicht bestätigt',
+    payment_not_confirmed:'Zahlung nicht bestätigt',
+    order_cancelled_or_unknown:'Stornierung oder Bestellstatus unklar',
+    recipient_unavailable:'eBay-Empfänger nicht eindeutig',
+    message_scope_not_verified:'eBay-Nachrichtenberechtigung noch nicht bestätigt',
+    ebay_order_lookup_failed:'eBay-Bestellabfrage nicht verfügbar',
+    attachment_delivery_failed:'PDF-Anhang nicht vollständig abrufbar',
+  };
+  function preflightMarkup(id) {
+    const result=invoicePreflight.get(id);
+    if (invoicePreflightBusy.has(id)) return '<div class="eoi-note" role="status">Versandprüfung läuft …</div>';
+    if (!result) return '<div class="eoi-muted">Versandbereitschaft noch nicht geprüft.</div>';
+    const notes=(result.blockers||[]).map(k=>PRECHECK_LABELS[k]||k).map(esc);
+    return '<div class="eoi-note" role="status"><strong>'+(result.ready?'Alle Versandprüfungen bestanden':'Noch nicht versandbereit')+
+      '</strong>'+(notes.length?'<ul><li>'+notes.join('</li><li>')+'</li></ul>':'')+
+      '<span class="eoi-muted">Prüfung ist nur eine Momentaufnahme; keine Nachricht gesendet.</span></div>';
+  }
+
   const settings = () => readJson(SETTINGS_KEY, {}).settings || {};
   const notify = (message, eyebrow) => { if (typeof window.toast === 'function') window.toast(message, eyebrow || 'Bestellzentrale'); };
   const ELYON_SKU_PATTERN = /^ELY-\d{6,}(?:-\d{2,})?$/i;
@@ -448,9 +491,19 @@ import { DEFAULT_ORDER_THANK_YOU,renderOrderThankYou } from "./seller-order-mess
       html += '<div style="overflow:auto"><table class="eoi-table"><thead><tr><th>Bestellung</th><th>eBay</th><th>Betrag</th><th>Prozess & Versand</th><th>Rechnung</th></tr></thead><tbody>';
       html += orders.map((order) => {
         const invoice = meta[order.id]; const op = operationFor(order);
+        const previewOpen = invoicePreviewId === order.id;
         const options = STATUS_OPTIONS.map((item) => '<option value="' + item[0] + '"' + (item[0] === op.status ? ' selected' : '') + '>' + item[1] + '</option>').join('');
         return '<tr><td><strong>' + esc(order.id) + '</strong><div class="eoi-muted">' + esc(order.buyerName || 'Käuferdaten nicht übermittelt') + '</div></td><td>' + esc(order.ebayStatus) + '</td><td>' + money(order.total, order.currency) + '</td><td><div class="eoi-controls"><select data-eoi-status="' + esc(order.id) + '">' + options + '</select><input data-eoi-carrier="' + esc(order.id) + '" placeholder="Versanddienst" value="' + esc(op.carrier) + '"><input data-eoi-tracking="' + esc(order.id) + '" placeholder="Trackingnummer" value="' + esc(op.trackingNumber) + '"><input data-eoi-url="' + esc(order.id) + '" placeholder="Tracking-URL (optional)" value="' + esc(op.trackingUrl) + '"><input data-eoi-stock="' + esc(order.id) + '" placeholder="Bestand" value="' + esc(op.stockQuantity || (serverState.inventory?.[order.lines[0]?.itemId]?.quantity ?? '')) + '"><select data-eoi-return="' + esc(order.id) + '"><option value="NONE"' + (op.returnStatus === "NONE" ? " selected" : "") + '>Keine Retoure</option><option value="REQUESTED"' + (op.returnStatus === "REQUESTED" ? " selected" : "") + '>Angefragt</option><option value="APPROVED"' + (op.returnStatus === "APPROVED" ? " selected" : "") + '>Genehmigt</option><option value="RECEIVED"' + (op.returnStatus === "RECEIVED" ? " selected" : "") + '>Eingegangen</option><option value="REFUNDED"' + (op.returnStatus === "REFUNDED" ? " selected" : "") + '>Erstattet</option></select><button type="button" class="eoi-btn eoi-save" data-eoi-save="' + esc(order.id) + '">Speichern</button></div><div class="eoi-note">' + (op.updatedAt ? 'Zuletzt gespeichert: ' + esc(dateTime.format(new Date(op.updatedAt))) : 'Noch nicht intern erfasst') + '</div></td><td>' + (invoice ? '<span class="eoi-status">' + esc(invoice.invoiceNumber) + '</span><br>' : '') + '<button type="button" class="eoi-btn" data-eoi-invoice="' + esc(order.id) + '">' + (issueBusy.has(order.id) ? 'Wird geprüft…' : invoice ? (invoice.immutable ? 'Rechnung öffnen' : 'Altrechnung prüfen') : 'Rechnung ausstellen') + '</button>' +
-        (invoice?.immutable===true ? ' <button type="button" class="eoi-btn" data-eoi-message-compose="'+esc(order.id)+'">Dankesnachricht</button>' : '') + '</td></tr>';
+        (invoice?.immutable===true ? ' <button type="button" class="eoi-btn" data-eoi-message-compose="'+esc(order.id)+'">Dankesnachricht</button>' : '') +
+        ' <button type="button" class="eoi-btn" data-eoi-preview="'+esc(order.id)+'">'+(previewOpen?'Vorschau schließen':'Rechnungsvorschau')+'</button>'+
+        (invoice?.immutable===true ? ' <button type="button" class="eoi-btn" data-eoi-preflight="'+esc(order.id)+'">Versand prüfen</button>'+preflightMarkup(order.id) : '')+
+        (previewOpen?'<div class="eoi-template-box" role="region" aria-label="Unverbindliche Rechnungsvorschau"><strong>Unverbindliche Rechnungsvorschau</strong>'+
+          '<p class="eoi-muted">Noch keine Rechnung ausgestellt, keine Rechnungsnummer reserviert und kein Kundenversand. Verbindliche Daten werden ausschließlich bei der Ausstellung serverseitig geprüft.</p>'+
+          '<p>eBay-Bestellung: '+esc(order.id)+' · Käufer: '+esc(order.buyerName||'Nicht übermittelt')+
+          ' · Gesamtbetrag: '+money(order.total,order.currency)+'</p>'+
+          '<table class="eoi-table"><thead><tr><th>Artikel</th><th>Menge</th><th>Betrag</th></tr></thead><tbody>'+linesMarkup(order)+'</tbody></table>'+
+          '<p class="eoi-muted">Kleinunternehmer nach § 19 UStG – kein Umsatzsteuerausweis. Absenderdaten werden aus den gespeicherten Geschäftseinstellungen bezogen.</p></div>':'')+
+        '</td></tr>';
       }).join('');
       html += '</tbody></table></div><div class="eoi-note">Die Versanddaten werden im Seller Tool gespeichert. Es wird keine Bestellung ausgelöst und keine eBay-Nachricht automatisch versendet.</div>';
     }
@@ -466,6 +519,7 @@ import { DEFAULT_ORDER_THANK_YOU,renderOrderThankYou } from "./seller-order-mess
       const invoice = settingsMode || messageIsDemo ? null : readMeta()[currentId];
       const preview = renderOrderThankYou(settingsMode ? messageEditorDraft : messageDraft || messageTemplate,ctx);
       const canSend = !settingsMode && !messageIsDemo && messageReady &&
+        invoicePreflight.get(currentId)?.ready===true &&
         invoice?.immutable===true && !messageDispatch?.status && preview.ok && !messageBusy;
       html += '<div class="eoi-dialog-backdrop" data-eoi-dialog-backdrop>' +
         '<section class="eoi-dialog" role="dialog" aria-modal="true" aria-labelledby="eoiDialogTitle" tabindex="-1">' +
@@ -491,6 +545,8 @@ import { DEFAULT_ORDER_THANK_YOU,renderOrderThankYou } from "./seller-order-mess
           '<p class="eoi-muted">PDF: '+(invoice?.immutable===true?
             'Ausgestellte Rechnung ist automatisch zugeordnet':messageIsDemo?
             'Nur Muster – kein echter Beleg':'Noch keine Rechnung ausgestellt')+'</p>'+
+          (!messageIsDemo?preflightMarkup(currentId):'')+
+          '<button type="button" class="eoi-btn" data-eoi-preflight="'+esc(currentId)+'" '+(messageIsDemo?'disabled':'')+'>Versandstatus neu prüfen</button>'+
           (messageDispatch?.status?'<p class="eoi-note">Nachrichtenstatus: '+esc(messageDispatch.status)+
             (messageDispatch.messageId?' · '+esc(messageDispatch.messageId):'')+'</p>':'')+
           '<p class="eoi-muted">'+(messageIsDemo?'Demo: Kein Versand und keine echte Rechnung.':
@@ -554,6 +610,13 @@ import { DEFAULT_ORDER_THANK_YOU,renderOrderThankYou } from "./seller-order-mess
       document.querySelector('#'+ROOT_ID+' [data-eoi-template]')?.focus();
       return;
     }
+    const previewButton = event.target.closest && event.target.closest('[data-eoi-preview]');
+    if (previewButton) {
+      invoicePreviewId = invoicePreviewId === previewButton.dataset.eoiPreview ? '' : previewButton.dataset.eoiPreview;
+      render(); return;
+    }
+    const preflightButton = event.target.closest && event.target.closest('[data-eoi-preflight]');
+    if (preflightButton) { void checkInvoiceSend(preflightButton.dataset.eoiPreflight); return; }
     if (event.target.closest && event.target.closest('[data-eoi-message-compose]')) {
       void prepareInvoiceMessage(event.target.closest('[data-eoi-message-compose]').dataset.eoiMessageCompose,
         false,event.target.closest('[data-eoi-message-compose]'));
