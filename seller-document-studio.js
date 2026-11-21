@@ -293,6 +293,106 @@
   }
 
 
+
+  const ORDER_DRAFT_TYPES = Object.freeze({
+    bestellbestaetigung: { title: "Bestellbestätigung", kind: "offer" },
+    auftragsbestaetigung: { title: "Auftragsbestätigung", kind: "offer" },
+    lieferschein: { title: "Lieferschein", kind: "delivery" },
+    versandbestaetigung: { title: "Versandbestätigung", kind: "delivery" }
+  });
+
+  function makeOrderContent(order, type) {
+    const safe = (value) => escapeHtml(String(value ?? "").slice(0, 500));
+    const displayPrice = (value) => {
+      if (value === null || value === undefined || !Number.isFinite(Number(value))) return "[Betrag prüfen]";
+      try {
+        return new Intl.NumberFormat("de-DE", {
+          style: "currency",
+          currency: /^[A-Z]{3}$/.test(order.currency || "") ? order.currency : "EUR"
+        }).format(Number(value));
+      } catch { return safe(value) + " " + safe(order.currency || "EUR"); }
+    };
+    const date = order.createdAt && Number.isFinite(Date.parse(order.createdAt))
+      ? new Date(order.createdAt).toLocaleDateString("de-DE", { timeZone: "Europe/Berlin" })
+      : "[Bestelldatum prüfen]";
+    const ref = safe(order.orderId);
+    const header = "<p><strong>Bestellnummer:</strong> " + ref + "<br><strong>Bestelldatum:</strong> " + safe(date) + "</p>";
+    const salutation = "<p>Guten Tag" + (order.recipientName ? " " + safe(order.recipientName) : "") + ",</p>";
+    const lines = (Array.isArray(order.lines) ? order.lines : []).slice(0, 40);
+    const priceRows = lines.map((line) =>
+      "<tr><td>" + safe(line.title || "Artikel") + "</td><td>" + safe(line.quantity ?? 1) +
+      "</td><td>" + displayPrice(line.lineTotal) + "</td></tr>"
+    ).join("");
+    const qtyRows = lines.map((line) =>
+      "<tr><td>" + safe(line.title || "Artikel") + "</td><td>" + safe(line.quantity ?? 1) + "</td></tr>"
+    ).join("");
+    const priceTable = "<table><tr><th>Artikel</th><th>Menge</th><th>Betrag laut eBay</th></tr>" +
+      (priceRows || "<tr><td>[Artikel prüfen]</td><td>[Menge]</td><td>[Betrag prüfen]</td></tr>") + "</table>";
+    const qtyTable = "<table><tr><th>Artikel</th><th>Menge</th></tr>" +
+      (qtyRows || "<tr><td>[Artikel prüfen]</td><td>[Menge]</td></tr>") + "</table>";
+    const total = "<p><strong>Bestellsumme laut eBay:</strong> " + displayPrice(order.total) + "</p>";
+    const paymentWarning = !["PAID", "FULLY_PAID"].includes(String(order.paymentStatus).toUpperCase())
+      ? "<p><strong>Zahlungshinweis:</strong> eBay hat den Zahlungseingang noch nicht bestätigt. Bitte vor dem Versand prüfen.</p>"
+      : "";
+    if (type === "bestellbestaetigung") return "<h2>Vielen Dank für Ihre Bestellung</h2>" +
+      salutation + "<p>Wir haben Ihre Bestellung erhalten und kümmern uns um die weitere Bearbeitung.</p>" +
+      header + priceTable + total + paymentWarning +
+      "<p>Über den weiteren Verlauf und den Versand informieren wir Sie gesondert.</p><p>Mit freundlichen Grüßen</p><p>{{Firma}}</p>";
+    if (type === "auftragsbestaetigung") return "<h2>Auftragsbestätigung</h2>" +
+      salutation + "<p>Wir bestätigen Ihren Auftrag zu den folgenden Positionen.</p>" +
+      header + priceTable + total + paymentWarning +
+      "<p>Liefertermin: [Angabe vor Versand prüfen]</p><p>Mit freundlichen Grüßen</p><p>{{Firma}}</p>";
+    if (type === "lieferschein") return "<h2>Lieferschein</h2>" + header +
+      "<p><strong>Empfänger:</strong> " + safe(order.recipientName || "[Name prüfen]") + "</p>" +
+      qtyTable + "<p>Versanddatum: [Bei Versand ergänzen]</p><p>Dieser Lieferschein ist keine Rechnung.</p>";
+    if (type === "versandbestaetigung") return "<h2>Ihre Bestellung wurde versendet</h2>" +
+      salutation + "<p>Ihre Bestellung " + ref + " wurde laut eBay versendet.</p>" +
+      qtyTable + "<p><strong>Versanddienstleister:</strong> " + safe(order.carrier || "[Dienstleister prüfen]") +
+      "<br><strong>Sendungsnummer:</strong> " + safe(order.trackingNumber || "[Sendungsnummer prüfen]") +
+      "</p><p>Vielen Dank für Ihren Einkauf.</p><p>Mit freundlichen Grüßen</p><p>{{Firma}}</p>";
+    return "";
+  }
+
+  // Explicit click only: prepare a local draft from read-only order data.
+  function openFromOrder(context, templateId) {
+    const meta = ORDER_DRAFT_TYPES[templateId];
+    const order = context && typeof context === "object" ? context : {};
+    const orderId = String(order.orderId || "");
+    if (!meta || order.source !== "ebay_order" || !/^[A-Za-z0-9_-]{5,100}$/.test(orderId)) {
+      throw new Error("Ungültige Bestellung oder Dokumentvorlage.");
+    }
+    if (String(order.cancelStatus || "").includes("CANCEL")) {
+      throw new Error("Für stornierte Aufträge werden keine Bestätigungen vorbereitet.");
+    }
+    if (templateId === "versandbestaetigung" && order.fulfillmentStatus !== "FULFILLED") {
+      throw new Error("Eine Versandbestätigung setzt den bestätigten eBay-Versand voraus.");
+    }
+    if (!shouldDiscard()) return false;
+    openStudio();
+    const doc = newDocument(meta.kind);
+    doc.title = (meta.title + " – " + orderId).slice(0, 120);
+    doc.templateId = templateId;
+    doc.reference = orderId;
+    doc.sourceOrderId = orderId;
+    doc.recipient = String(order.recipientAddress || "").slice(0, 300);
+    doc.contentHtml = makeOrderContent(order, templateId);
+    showDoc(doc);
+    state.demoOrderDraft = order.demo === true;
+    const notice = el("edsOrderSourceNotice");
+    if (notice) {
+      notice.hidden = false;
+      notice.classList.toggle("eds-order-demo", state.demoOrderDraft);
+      notice.textContent = (state.demoOrderDraft ? "DEMO · Speichern und Export gesperrt. " : "") +
+        "eBay-Bestellung " + orderId + " wurde als bearbeitbarer, noch nicht gespeicherter Entwurf übernommen. " +
+        (!order.addressComplete ? "Bitte Empfängeranschrift vervollständigen. " : "") +
+        (!["PAID", "FULLY_PAID"].includes(String(order.paymentStatus).toUpperCase()) ? "Zahlung noch nicht bestätigt. " : "") +
+        "Artikel, Beträge und Formulierungen kontrollieren. Keine automatische eBay-Aktion.";
+    }
+    status(meta.title + " für " + orderId + " vorbereitet. " +
+      (state.demoOrderDraft ? "Nur Demo – kein Export/Speichern." : "Bitte prüfen und dann speichern."));
+    return true;
+  }
+
   function renderLibrary() {
     const container = el("edsTemplateCards");
     const categories = el("edsCategories");
