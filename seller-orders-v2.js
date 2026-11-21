@@ -66,6 +66,7 @@ const state = {
   truncated: false, sourceReady: false, financeReady: false, drafts: {},
   demoMode: false, activeSection: "overview", demoModal: "", demoNotice: "", financeCostHints: {}, actionBusy: false,
   receiptLists: {}, receiptBusy: false,
+  novaInbox: [], novaInboxBusy: false, novaPairingBusy: false,
 };
 try { const v = Number(localStorage.getItem(RANGE_KEY)); if ([7, 30, 90].includes(v)) state.days = v; } catch {}
 
@@ -244,11 +245,26 @@ function detailsMarkup(order) {
       <p class="ocv2-hint">${supplierSuggestion ?
         '<strong>Auto-Vorschlag aus Company OS:</strong> Lieferant und eindeutige Produktreferenzen sind vorausgefüllt, sofern noch nicht manuell gespeichert. Mit „Interne Angaben sichern“ bestätigen. Keine Lieferantenbestellung ausgelöst.' :
         'Keine vollständig eindeutige Lieferantenzuordnung für alle Positionen. Bereits gespeicherte Daten bleiben erhalten; fehlende Werte bitte manuell eintragen.'}</p>
-      <h4>Bestellnummer aus ELYON Nova übernehmen</h4>
-      <p class="ocv2-hint">In Nova bei der Lieferanten-Bestelldetailseite „Für SellerTool kopieren“ wählen. Hier in <strong>genau diesen ausgewählten eBay-Auftrag</strong> einfügen. Es erfolgt kein automatischer Versand, kein Einkauf und keine Buchung.</p>
-      <textarea id="ocv5SupplierHandoff" rows="4" maxlength="2500" autocomplete="off" spellcheck="false" placeholder="JSON aus ELYON Nova einfügen" aria-label="ELYON Nova Lieferantenauftrag"${state.demoMode?' disabled':''}></textarea>
-      <div class="ocv4-inline-action"><button type="button" data-ocv5-supplier-import ${state.demoMode||!state.financeReady?'disabled':''}>Auftrag prüfen und Felder übernehmen</button></div>
-      <p class="ocv2-hint">Nach der Prüfung müssen die Daten wie gewohnt mit „Interne Angaben sichern“ gespeichert werden.</p>
+      <h4>Synchronisierte Lieferantenbestellungen aus ELYON Nova</h4>
+      <p class="ocv2-hint">Nach einmaliger Kopplung sendet Nova erkannte Lieferanten-Bestellnummern automatisch hierher. Die Zuordnung zu deinem gewählten eBay-Auftrag bleibt bestätigungspflichtig.</p>
+      <div class="ocv4-inline-action"><button type="button" data-nova-inbox-refresh ${state.demoMode||state.novaInboxBusy?'disabled':''}>Nova-Eingang aktualisieren</button><span>${state.demoMode?'Demo: kein Echtbetrieb':h(String(state.novaInbox.filter(item=>!item.linkedOrders?.length).length))+' offen'}</span></div>
+      <div class="ocv2-nova-inbox">
+        ${state.demoMode?'<p class="ocv2-hint">Die Demo zeigt keine echten Lieferantenbestellungen.</p>':
+          state.novaInbox.length ? state.novaInbox.slice(0,25).map(item=>{
+            const linked=Array.isArray(item.linkedOrders)?item.linkedOrders:[];
+            const same=linked.includes(order.id),elsewhere=linked.some(id=>id!==order.id);
+            const why=same?'Bereits mit dieser eBay-Bestellung verknüpft':elsewhere?'Bereits zugeordnet: '+linked.join(', '):'Noch ungeprüft';
+            return '<div class="ocv2-nova-inbox-item"><div><strong>'+h(item.supplierName)+' · '+h(item.supplierOrderId)+'</strong>'+
+              '<small>SKU: '+h(item.supplierSku||'nicht erfasst')+' · '+h(why)+'</small></div>'+
+              '<button type="button" data-nova-link-id="'+h(item.id)+'" '+(same||elsewhere||!state.financeReady?'disabled':'')+'>Zuordnen</button></div>';
+          }).join(""):'<p class="ocv2-hint">Noch keine Nova-Bestellungen synchronisiert. Über „Nova koppeln“ oben in der Bestellzentrale die Verbindung einrichten.</p>'}
+      </div>
+      <details class="ocv2-nova-fallback"><summary>Alternativ: bisheriges JSON manuell übernehmen</summary>
+        <p class="ocv2-hint">Nur falls die direkte Synchronisierung einmal nicht verfügbar ist.</p>
+        <textarea id="ocv5SupplierHandoff" rows="4" maxlength="2500" autocomplete="off" spellcheck="false" placeholder="JSON aus ELYON Nova einfügen" aria-label="ELYON Nova Lieferantenauftrag"${state.demoMode?' disabled':''}></textarea>
+        <div class="ocv4-inline-action"><button type="button" data-ocv5-supplier-import ${state.demoMode||!state.financeReady?'disabled':''}>Manuellen Import prüfen</button></div>
+      </details>
+      <p class="ocv2-hint">Erst nach deiner Prüfung mit „Interne Angaben sichern“ dauerhaft speichern. Keine automatische eBay-Aktion.</p>
       <h4>Lieferantenreferenz aus Company OS</h4>
       ${supplierSuggestion?.references.map(ref =>
         '<p class="ocv2-hint">eBay-SKU: '+h(ref.ebaySku||'–')+' · ELYON: '+h(ref.articleNumber||'–')+
@@ -392,9 +408,12 @@ function render() {
   host.innerHTML = `<div class="ocv2-shell"><header class="ocv2-header">
       <div><span class="ocv2-kicker">ELYON · AUFTRAGSVERWALTUNG</span><h2>Bestellungen</h2>
       <p>Deine eBay-Verkäufe übersichtlich an einem Ort – Details nur, wenn du sie brauchst.</p></div>
-      <div class="ocv2-header-actions"><button type="button" class="ocv2-demo-btn" id="ocv2DemoToggle">${state.demoMode ? "Demo beenden" : "Interaktive Demo starten"}</button><label>Zeitraum<select id="ocv2Range"><option value="7" ${state.days === 7 ? "selected" : ""}>7 Tage</option><option value="30" ${state.days === 30 ? "selected" : ""}>30 Tage</option><option value="90" ${state.days === 90 ? "selected" : ""}>90 Tage</option></select></label>
+      <div class="ocv2-header-actions"><button type="button" data-nova-pairing ${state.novaPairingBusy||state.demoMode?"disabled":""}>${state.novaPairingBusy?"Kopplung wird erstellt…":"Nova koppeln"}</button><button type="button" class="ocv2-demo-btn" id="ocv2DemoToggle">${state.demoMode ? "Demo beenden" : "Interaktive Demo starten"}</button><label>Zeitraum<select id="ocv2Range"><option value="7" ${state.days === 7 ? "selected" : ""}>7 Tage</option><option value="30" ${state.days === 30 ? "selected" : ""}>30 Tage</option><option value="90" ${state.days === 90 ? "selected" : ""}>90 Tage</option></select></label>
       <button type="button" class="ocv2-primary" id="ocv2Refresh" ${state.loading ? "disabled" : ""}>${state.loading && !state.demoMode ? "Wird geladen…" : state.demoMode ? "Echte Bestellungen anzeigen" : "Mit eBay abgleichen"}</button></div></header>
       ${state.demoMode ? '<div class="ocv2-demo-banner" role="status"><strong>INTERAKTIVE DEMO</strong> · Alle Bestellungen und Kunden sind erfunden. Änderungen bleiben nur in diesem Browser-Tab und werden nicht gespeichert.</div>' : ""}
+      ${!state.demoMode && state.novaInbox.some(item=>!item.linkedOrders?.length)?
+        '<div class="ocv2-demo-note" role="status"><strong>ELYON Nova:</strong> '+h(String(state.novaInbox.filter(item=>!item.linkedOrders?.length).length))+
+        ' Lieferantenbestellung(en) zum Zuordnen bereit. Öffne den passenden eBay-Auftrag → Lieferant.</div>':""}
       ${state.error ? `<p class="ocv2-alert" role="alert">${h(state.error)}</p>` : ""}
       ${state.warning ? `<p class="ocv2-warning">${h(state.warning)}</p>` : ""}
       ${state.saveNotice ? `<p class="ocv2-success" role="status">${h(state.saveNotice)}</p>` : ""}
@@ -439,10 +458,11 @@ async function refresh() {
     return;
   }
   state.loading = true; state.error = ""; state.warning = ""; state.saveNotice = ""; render();
-  const [ebay, finance, product] = await Promise.allSettled([
+  const [ebay, finance, product, novaInboxResponse] = await Promise.allSettled([
     json(`/api/ebay?action=orders&environment=production&days=${state.days}&status=all`),
     json("/api/orders/operations"),
     json("/api/products"),
+    json("/api/orders/nova-inbox"),
   ]);
   if (ebay.status === "fulfilled") {
     state.orders = [...new Map((ebay.value.orders || []).map((raw) => {
@@ -472,6 +492,12 @@ async function refresh() {
   } else {
     state.products = [];
     state.warning += " Company OS konnte nicht geladen werden; Produktverknüpfungen sind vorübergehend nicht verfügbar.";
+  }
+  if(novaInboxResponse.status==="fulfilled") {
+    state.novaInbox=Array.isArray(novaInboxResponse.value.items)?novaInboxResponse.value.items:[];
+  } else {
+    state.novaInbox=[];
+    if(!state.demoMode)state.warning+=" Nova-Eingang derzeit nicht erreichbar.";
   }
   if (!state.demoMode && state.selectedId && !state.orders.some((order) => order.id === state.selectedId)) state.selectedId = "";
   state.loading = false; render();
@@ -523,11 +549,38 @@ async function downloadOrderReceipt(documentId) {
     link.href=ref;link.download=meta.filename;link.click();URL.revokeObjectURL(ref);
   }catch(error){state.error="Originalbeleg konnte nicht geladen werden: "+error.message;render();}
 }
-function applyNovaSupplierOrder() {
+async function reloadNovaInbox() {
+  if(state.demoMode||state.novaInboxBusy)return;
+  state.novaInboxBusy=true;state.error="";render();
+  try{
+    const result=await json("/api/orders/nova-inbox");
+    state.novaInbox=Array.isArray(result.items)?result.items:[];
+    state.saveNotice="Nova-Eingang aktualisiert: "+state.novaInbox.length+" Lieferantenbestellungen.";
+  }catch(error){state.warning="Nova-Eingang nicht geladen: "+error.message;}
+  finally{state.novaInboxBusy=false;render();}
+}
+async function pairNova() {
+  if(state.demoMode||state.novaPairingBusy)return;
+  if(!window.confirm("ELYON Nova jetzt mit dem SellerTool koppeln? Der Schlüssel gilt 14 Tage nur für Lieferantenbestell-Import, nicht für deinen eigentlichen SellerTool-Zugang."))return;
+  state.novaPairingBusy=true;state.error="";render();
+  try{
+    const pair=await json("/api/orders/nova-pairing",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});
+    if(!pair.token)throw Error("Kein Kopplungsschlüssel erhalten.");
+    try{
+      await navigator.clipboard.writeText(pair.token);
+      state.saveNotice="Nova-Kopplungsschlüssel für 14 Tage kopiert. In Nova → Bestellverwaltung → Verbindung einfügen.";
+    }catch{
+      window.prompt("Nova-Kopplungsschlüssel kopieren und in der Erweiterung unter Bestellverwaltung einfügen:",pair.token);
+      state.saveNotice="Nova-Kopplung erstellt. Den angezeigten Schlüssel in Nova einfügen.";
+    }
+  }catch(error){state.error="Nova-Kopplung fehlgeschlagen: "+error.message;}
+  finally{state.novaPairingBusy=false;render();}
+}
+function applyNovaSupplierOrder(handoffInput=null) {
   if(state.demoMode || !state.financeReady || state.saving)return;
   const selected=state.orders.find(item=>item.id===state.selectedId);
   const form=root()?.querySelector("#ocv2OrderForm");
-  const json=root()?.querySelector("#ocv5SupplierHandoff")?.value;
+  const json=handoffInput?JSON.stringify(handoffInput):root()?.querySelector("#ocv5SupplierHandoff")?.value;
   if(!selected||!form||!json){state.warning="Zuerst eine eBay-Bestellung und Nova-Importdaten auswählen.";render();return;}
   const current={...opFor(selected.id),...obj(state.drafts[selected.id])};
   const suggested=supplierSuggestionForOrder(selected,productsNow());
@@ -567,6 +620,10 @@ async function save(form) {
       body: JSON.stringify({ orderId: id, operation, expectedRevision: state.revision }),
     });
     state.operations[id] = result.operation;
+    state.novaInbox=state.novaInbox.map(item=>
+      item.supplierOrderId===result.operation?.supplierOrderId &&
+      String(item.supplierName||"").toLowerCase()===String(result.operation?.supplierName||"").toLowerCase()
+        ? {...item,linkedOrders:[...new Set([...(item.linkedOrders||[]),id])]} : item);
     delete state.drafts[id];
     state.revision = result.revision;
     state.saveNotice = "Interne Bestellangaben sicher gespeichert. eBay wurde nicht verändert.";
@@ -727,6 +784,14 @@ function bind() {
   const host = root();
   if (!host) return;
   host.addEventListener("click", (event) => {
+    if (event.target.closest("[data-nova-pairing]")) return void pairNova();
+    if (event.target.closest("[data-nova-inbox-refresh]")) return void reloadNovaInbox();
+    const novaItem=event.target.closest("[data-nova-link-id]");
+    if(novaItem) {
+      const item=state.novaInbox.find(entry=>entry.id===novaItem.dataset.novaLinkId);
+      if(!item||item.linkedOrders?.length||state.demoMode)return;
+      return applyNovaSupplierOrder(item);
+    }
     if (event.target.closest("[data-ocv5-supplier-import]")) return applyNovaSupplierOrder();
     if (event.target.closest("[data-order-receipt-upload]")) return void uploadOrderReceipt();
     const downloadReceipt=event.target.closest("[data-order-receipt-download]");

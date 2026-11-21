@@ -452,3 +452,21 @@ body.light #elyonOrdersV2Root button.ocv4-task,
 body.light #elyonOrdersV2Root .ocv4-inline-action span { color:#334155; }
 body.light #elyonOrdersV2Root .ocv4-inline-action { background:#f8fafc; }
 body.light #elyonOrdersV2Root .ocv4-inline-action button { background:#e2e8f0; color:#0f172a; }
+
+/* ELYON Nova supplier inbox — scoped to existing order detail drawer. */
+#elyonOrdersV2Root .ocv2-nova-inbox {display:grid;gap:8px;margin:10px 0 14px;}
+#elyonOrdersV2Root .ocv2-nova-inbox-item {
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:12px;border:1px solid rgba(148,163,184,.22);
+  border-radius:12px;background:rgba(15,23,42,.65);
+}
+#elyonOrdersV2Root .ocv2-nova-inbox-item strong {font-size:13px;word-break:break-word;}
+#elyonOrdersV2Root .ocv2-nova-inbox-item small {display:block;margin-top:5px;color:#94a3b8;line-height:1.45;}
+#elyonOrdersV2Root .ocv2-nova-inbox-item button {flex:0 0 auto;width:auto;padding:8px 14px;}
+#elyonOrdersV2Root .ocv2-nova-fallback {margin:12px 0;border:1px solid rgba(148,163,184,.18);padding:12px;border-radius:12px;}
+#elyonOrdersV2Root .ocv2-nova-fallback summary {cursor:pointer;color:#cbd5e1;font-weight:650;}
+#elyonOrdersV2Root .ocv2-nova-fallback textarea {margin-top:10px;width:100%;min-height:84px;}
+@media (max-width:520px) {
+  #elyonOrdersV2Root .ocv2-nova-inbox-item {align-items:flex-start;flex-direction:column;}
+  #elyonOrdersV2Root .ocv2-nova-inbox-item button {width:100%;}
+}
