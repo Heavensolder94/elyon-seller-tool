@@ -277,6 +277,7 @@
   function styles() {
     if (document.getElementById('elyonOrderInvoiceStyles')) return;
     const style = document.createElement('style'); style.id = 'elyonOrderInvoiceStyles';
+    // Keep the PDF example action neat next to the existing refresh button.
     style.textContent = '#' + ROOT_ID + '{margin:18px 0}.eoi-head{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;flex-wrap:wrap}.eoi-head h3{margin:0 0 6px}.eoi-muted{color:#94a3b8;font-size:12px}.eoi-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-top:14px}.eoi-card{padding:12px;border:1px solid rgba(148,163,184,.18);border-radius:12px;background:rgba(15,23,42,.5)}.eoi-card strong{display:block;font-size:18px}.eoi-table{width:100%;border-collapse:collapse;margin-top:14px}.eoi-table th,.eoi-table td{padding:10px 8px;text-align:left;border-bottom:1px solid rgba(148,163,184,.18);vertical-align:top}.eoi-table th{color:#94a3b8;font-size:11px;text-transform:uppercase}.eoi-btn{border:1px solid rgba(148,163,184,.25);background:rgba(15,23,42,.65);color:inherit;border-radius:10px;padding:8px 11px;cursor:pointer}.eoi-btn.primary{background:#2563eb;border-color:#2563eb}.eoi-status{font-size:11px;color:#86efac}.eoi-error{color:#fecaca;padding:10px;border-radius:10px;background:rgba(127,29,29,.24)}.eoi-controls{display:grid;grid-template-columns:140px 130px minmax(140px,1fr) minmax(160px,1fr) 90px 130px auto;gap:7px;align-items:center}.eoi-controls select,.eoi-controls input{width:100%;box-sizing:border-box;border:1px solid rgba(148,163,184,.25);background:#0f172a;color:inherit;border-radius:8px;padding:7px}.eoi-total{font-size:12px;color:#86efac}.eoi-note{margin-top:10px;color:#cbd5e1;font-size:12px}@media(max-width:800px){.eoi-controls{grid-template-columns:1fr 1fr}.eoi-controls .eoi-save{grid-column:span 2}}';
     document.head.appendChild(style);
   }
@@ -287,7 +288,7 @@
     const meta = readMeta(); const ops = readOps();
     const total = orders.reduce((sum, order) => sum + order.total, 0);
     const count = (status) => orders.filter((order) => operationFor(order).status === status).length;
-    let html = '<div class="eoi-head"><div><h3>Bestellzentrale · Rechnung · Versand</h3><div class="eoi-muted">eBay-Bestellungen, interne Statusführung, Tracking und Rechnungsdruck in einem Ablauf.</div></div><button type="button" class="eoi-btn primary" data-eoi-load>' + (loading ? 'Lade…' : 'Bestellungen laden') + '</button></div>';
+    let html = '<div class="eoi-head"><div><h3>Bestellzentrale · Rechnung · Versand</h3><div class="eoi-muted">eBay-Bestellungen, interne Statusführung und verifizierte DIN-A4-PDF-Rechnungen.</div></div><div class="eoi-actions"><button type="button" class="eoi-btn" data-eoi-pdf-demo>Muster-PDF ansehen</button> <button type="button" class="eoi-btn primary" data-eoi-load>' + (loading ? 'Lade…' : 'Bestellungen laden') + '</button></div></div>';
     html += '<div class="eoi-summary"><div class="eoi-card"><span class="eoi-muted">Bestellungen</span><strong>' + orders.length + '</strong></div><div class="eoi-card"><span class="eoi-muted">Offen</span><strong>' + (count('NEW') + count('PAID') + count('TO_BE_SHIPPED')) + '</strong></div><div class="eoi-card"><span class="eoi-muted">Versendet</span><strong>' + count('SHIPPED') + '</strong></div><div class="eoi-card"><span class="eoi-muted">Umsatz</span><strong>' + money(total, 'EUR') + '</strong><span class="eoi-muted">Kosten/Gewinn noch nicht zugeordnet</span></div></div>';
     if (error || errorMessage) html += '<div class="eoi-error">' + esc(error || errorMessage) + '</div>';
     const archived = Object.values(meta).filter(entry => entry?.immutable === true && entry.invoice);
@@ -326,6 +327,11 @@
   }
 
   document.addEventListener('click', (event) => {
+    if (event.target.closest && event.target.closest('[data-eoi-pdf-demo]')) {
+      const popup = window.open('/api/finance/invoice-pdf?demo=1','_blank');
+      if (!popup) notify('Bitte Pop-ups für die Muster-PDF erlauben.','Musterrechnung');
+      return;
+    }
     if (event.target.closest && event.target.closest('[data-eoi-load]')) return loadOrders();
     const pdfDownloadButton = event.target.closest && event.target.closest('[data-eoi-download]');
     if (pdfDownloadButton) { void downloadInvoice(pdfDownloadButton.dataset.eoiDownload); return; }
