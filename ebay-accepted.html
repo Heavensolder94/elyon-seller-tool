@@ -359,7 +359,7 @@
       }
     }
 
-    async function exchangeCode(code) {
+    async function exchangeCode(code, state) {
       const environment = normalizeEnvironment(environmentSelect.value);
       window.localStorage.setItem('ebayEnvironment', environment);
 
@@ -382,12 +382,20 @@
         return null;
       }
 
+      // eBay returns the signed OAuth state alongside the one-time code.
+      // The server rejects a callback without the state, so pass both values.
+      if (!state) {
+        setStatus('eBay hat keinen OAuth-State zurückgegeben. Bitte Login erneut starten.', 'warn');
+        setResult({ ok: false, error: 'oauth_state_missing', message: 'Keine Verbindung wurde überschrieben.' });
+        return null;
+      }
+
       setStatus('Autorisierungscode erkannt. Der Token-Austausch läuft jetzt.', '');
 
       const response = await fetch('/api/ebay/exchange-token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code, environment })
+        body: JSON.stringify({ code, state, environment })
       });
 
       const data = await response.json();
@@ -466,7 +474,7 @@
         return;
       }
 
-      exchangeCode(info.code).catch((error) => {
+      exchangeCode(info.code, info.state).catch((error) => {
         setStatus(error.message || 'Der Token-Austausch ist fehlgeschlagen.', 'warn');
       });
     })();
