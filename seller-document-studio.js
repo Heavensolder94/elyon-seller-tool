@@ -408,7 +408,10 @@
     if (!html.trim() || html.length > 5000) return status("Auswahl leer oder zu lang (max. 5.000 Zeichen).", true);
     const title = window.prompt("Name für den neuen Textbaustein:", "Mein Textbaustein");
     if (!title?.trim()) return;
-    const record = { id: "block_" + newId(), title: title.trim().slice(0, 120), category: "Eigene", contentHtml: html };
+    const normalizedTitle = title.trim().slice(0, 120);
+    const existing = state.customBlocks.find((block) => block.title.toLocaleLowerCase("de-DE") === normalizedTitle.toLocaleLowerCase("de-DE"));
+    if (existing && !window.confirm("Ein eigener Baustein mit diesem Namen existiert. Mit der neuen Auswahl überschreiben?")) return;
+    const record = { id: existing?.id || "block_" + newId(), title: normalizedTitle, category: "Eigene", contentHtml: html };
     try {
       const result = await api("save-block", { expectedRevision: state.revision, document: record });
       state.revision = result.revision;
@@ -1089,7 +1092,7 @@
       const stylesheet = document.createElement("link");
       stylesheet.id = "elyonDocumentStudioStyles";
       stylesheet.rel = "stylesheet";
-      stylesheet.href = "/seller-document-studio.css?v=docs-v2-20261121";
+      stylesheet.href = "/seller-document-studio.css?v=docs-v3-20261121";
       document.head.appendChild(stylesheet);
     }
     installEntry();
