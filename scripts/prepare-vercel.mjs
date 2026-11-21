@@ -72,6 +72,8 @@ function injectDesktopSecurity(html) {
     '<script type="module" src="/seller-dashboard-v2.js"></script>',
     '<link rel="stylesheet" href="/seller-orders-v2.css?v=orders2-20261121-nova-pair-fix1" />',
     '<script defer src="/seller-orders-v2-loader.js?v=orders2-20261121-nova-pair-fix1"></script>',
+    '<link rel="stylesheet" href="/seller-document-studio.css?v=docs-v1-20261121" />',
+    '<script defer src="/seller-document-studio.js?v=docs-v1-20261121"></script>',
   ].join("\n");
 
   return injectMarkedBlock(html, { startMarker, endMarker, content });
@@ -117,6 +119,8 @@ const filesToMirror = [
   ["seller-runtime-loader.js", "public/seller-runtime-loader.js"],
   ["seller-finance-core.js", "public/seller-finance-core.js"],
   ["seller-finance.js", "public/seller-finance.js"],
+  ["seller-document-studio.css", "public/seller-document-studio.css"],
+  ["seller-document-studio.js", "public/seller-document-studio.js"],
   ["seller-order-invoices.js", "public/seller-order-invoices.js"],
   ["seller-order-message-core.js", "public/seller-order-message-core.js"],
   ["seller-orders-v2-core.js", "public/seller-orders-v2-core.js"],
