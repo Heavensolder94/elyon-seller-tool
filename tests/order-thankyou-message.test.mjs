@@ -114,7 +114,7 @@ test("message template is compactly hidden in an accessible on-demand modal", as
   assert.match(ui,/messageEditorPreview=!messageEditorPreview/);
   assert.match(ui,/function prepareInvoiceMessage\(id, demo = false, trigger = null\)/);
   assert.match(ui,/if \(messageEditorOpen\) \{/);
-  assert.ok(!ui.includes("html += '<section class=\\"eoi-template-box\\"><div class=\\"eoi-template-heading\\"><h4>Individuelle Dankesnachricht"));
+  assert.ok(!ui.includes("html += '<section class="));
   assert.match(ui,/ElyonOrderInvoices = \{ mount, load: loadOrders, create: createInvoice, download: downloadInvoice \}/);
 });
 
