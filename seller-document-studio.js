@@ -619,7 +619,7 @@
       ';--eds-ink:' + design.ink + ';--eds-muted:' + design.muted + ';--eds-font:' + design.font + '">' +
       '<header class="eds-paper-head"><div class="eds-paper-identity">' + (logo ? '<img class="eds-paper-logo" src="' + escapeHtml(logo) + '" alt="Firmenlogo">' : "") + '<div><div class="eds-paper-brand">' + brand +
       '</div><div class="eds-paper-sender">' + sender + (address ? '<div>' + address + '</div>' : '') +
-      '</div></div><div class="eds-paper-meta"><strong>' + documentLabel + '</strong><div>' + date + '</div></div></header>' +
+      '</div></div></div><div class="eds-paper-meta"><strong>' + documentLabel + '</strong><div>' + date + '</div></div></header>' +
       '<div class="eds-paper-recipient"><div>' + recipient + '</div><div class="eds-paper-reference">' + ref + '</div></div>' +
       '<h1 class="eds-paper-title">' + escapeHtml(doc.title || "Dokument") + '</h1>' +
       '<section class="eds-export-body">' + body + '</section>' +
@@ -753,10 +753,10 @@
     const doc = readForm();
     if (!doc) return;
     const style = DESIGNS[doc.designId] || DESIGNS.elyon;
-    const accent = style.accent.replace("#", "").toUpperCase();
+    const accent = (/^#[0-9a-fA-F]{6}$/.test(doc.accentColor || "") ? doc.accentColor : style.accent).replace("#", "").toUpperCase();
     const serif = doc.designId === "classic";
     const p = state.profile || {};
-    const brand = p.brand || p.name || "ELYON";
+    const brand = doc.headerText || p.brand || p.name || "ELYON";
     const sender = [p.name || p.brand || "", p.street || "",
       [p.postalCode, p.city].filter(Boolean).join(" "), p.country || ""].filter(Boolean).join(" · ");
     const base = new DOMParser().parseFromString('<div>' + resolved(doc) + '</div>', "text/html").body;
@@ -772,7 +772,7 @@
       wordPara(wordRun(doc.title || "Dokument", { bold: !serif, color: style.ink.replace("#", "").toUpperCase(), size: 36, serif }),
         { before: 130, after: 220, keepNext: true }),
       content,
-      wordPara(wordRun(sender, { color: "64748B", size: 17, serif }), { before: 360, border: "CBD5E1", after: 30 })
+      wordPara(wordRun(doc.footerText || sender, { color: "64748B", size: 17, serif }), { before: 360, border: "CBD5E1", after: 30 })
     ];
     const documentXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
       '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>' +
