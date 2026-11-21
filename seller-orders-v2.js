@@ -211,6 +211,9 @@ function detailsMarkup(order) {
     `<h4>Lieferadresse laut eBay</h4><div class="ocv2-address">${addressParts.map(h).join("<br>")}
     <p class="ocv2-hint">Vor dem Einkauf beim Lieferanten mit dem eBay-Auftrag abgleichen.</p></div>` : "";
   return `<div class="ocv2-details-head"><div><small>eBay-Bestellung</small><h3>${h(order.id)}</h3></div><span class="ocv2-state ocv2-state--${h(status)}">${h(statusLabels[status] || status)}</span></div>
+    ${state.error ? `<p class="ocv2-alert" role="alert">${h(state.error)}</p>` : ""}
+    ${state.warning ? `<p class="ocv2-warning" role="status">${h(state.warning)}</p>` : ""}
+    ${state.saveNotice ? `<p class="ocv2-success" role="status">${h(state.saveNotice)}</p>` : ""}
     ${progressMarkup(order, op)}
     ${sectionNav()}
     <section class="ocv2-pane" data-pane="overview" ${state.activeSection!=="overview"?"hidden":""}>
