@@ -1015,6 +1015,12 @@
   }
 
   async function handleClick(event) {
+    const block = event.target.closest("[data-eds-block]");
+    if (block) return insertTextBlock(block.dataset.edsBlock);
+    const deletedBlock = event.target.closest("[data-eds-delete-block]");
+    if (deletedBlock) return deleteSelectedBlock(deletedBlock.dataset.edsDeleteBlock);
+    const blockCategory = event.target.closest("[data-eds-block-category]");
+    if (blockCategory) { state.blockCategory = blockCategory.dataset.edsBlockCategory; renderBlocks(); return; }
     const preset = event.target.closest("[data-eds-preset]");
     if (preset) return applyPreset(preset.dataset.edsPreset);
     const favorite = event.target.closest("[data-eds-favorite]");
@@ -1059,6 +1065,7 @@
     if (action === "close-assistant") { el("edsAssistantPanel").classList.remove("open"); return; }
     if (action === "generate") return assistantGenerate();
     if (action === "save-template") return savePersonalTemplate();
+    if (action === "save-block") return saveSelectedBlock();
     if (action === "remove-logo") { state.logoData = ""; el("edsLogoUpload").value = ""; el("edsLogoStatus").textContent = "Kein Logo ausgewählt"; state.dirty = true; renderPreview(); return; }
     if (action === "save") return save();
     if (action === "archive") return archiveOrRestore();
