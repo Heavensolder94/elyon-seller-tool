@@ -246,17 +246,126 @@
     if (state.revision === null && !state.loading) refresh();
   }
 
+
+  function renderLibrary() {
+    const container = el("edsTemplateCards");
+    const categories = el("edsCategories");
+    if (!container || !categories) return;
+    const all = [...PRESETS, ...state.customTemplates.map((t) => ({
+      id: t.id, category: "Eigene", name: t.name, kind: t.kind,
+      html: t.contentHtml, designId: t.designId
+    }))];
+    const names = ["Alle", "Korrespondenz", "Verkauf", "Kundenservice", "Einkauf", "Verträge", "Organisation", "Eigene"];
+    categories.innerHTML = names.map((cat) =>
+      '<button type="button" class="eds-category' + (state.category === cat ? ' active' : '') +
+      '" data-eds-category="' + escapeHtml(cat) + '">' + escapeHtml(cat) + '</button>'
+    ).join("");
+    const entries = all.filter((entry) =>
+      (state.category === "Alle" || entry.category === state.category) &&
+      (!state.favoritesOnly || state.favorites.includes(entry.id)) &&
+      (entry.name + " " + entry.category).toLocaleLowerCase("de-DE").includes(state.librarySearch)
+    );
+    container.innerHTML = entries.map((entry) => {
+      const favored = state.favorites.includes(entry.id);
+      const self = entry.category === "Eigene";
+      return '<div class="eds-template-card"><button type="button" class="eds-template-open" data-eds-preset="' + escapeHtml(entry.id) + '">' +
+        '<span class="eds-template-icon">▤</span><span class="eds-template-desc"><strong>' + escapeHtml(entry.name) +
+        '</strong><small>' + escapeHtml(entry.category) + '</small></span></button>' +
+        '<button type="button" class="eds-favorite' + (favored ? ' active' : '') + '" data-eds-favorite="' + escapeHtml(entry.id) +
+        '" title="' + (favored ? "Favorit entfernen" : "Als Favorit markieren") + '" aria-label="' + (favored ? "Favorit entfernen" : "Als Favorit markieren") + '">' + (favored ? "★" : "☆") + '</button>' +
+        (self ? '<button type="button" class="eds-remove" data-eds-remove="' + escapeHtml(entry.id) + '" title="Eigene Vorlage löschen" aria-label="Eigene Vorlage löschen">×</button>' : '') +
+        '</div>';
+    }).join("") || '<p class="eds-muted">Keine passenden Vorlagen gefunden.</p>';
+    const count = el("edsDocumentCount");
+    if (count) count.textContent = state.documents.length + " gespeichert";
+  }
+
+  function applyPreset(templateId) {
+    const preset = PRESETS.find((p) => p.id === templateId) || state.customTemplates.find((p) => p.id === templateId);
+    if (!preset) return status("Vorlage nicht gefunden.", true);
+    if (!shouldDiscard()) return;
+    const doc = newDocument(preset.kind);
+    doc.title = (preset.name || "Dokument") + " – " + new Date().toLocaleDateString("de-DE");
+    doc.contentHtml = preset.html || preset.contentHtml || "";
+    doc.templateId = preset.id;
+    doc.designId = DESIGNS[preset.designId] ? preset.designId : state.designId;
+    showDoc(doc);
+    status("Vorlage „" + preset.name + "“ geöffnet. Bitte Daten prüfen und Dokument speichern.");
+    if (window.innerWidth < 860) el("edsTitle")?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+
+  async function savePersonalTemplate() {
+    const doc = readForm();
+    if (!doc) return;
+    if (state.revision === null) return status("Vorlagen können erst nach Verbindung zum Dokumentenspeicher gespeichert werden.", true);
+    const suggested = (doc.title || labels[doc.kind] || "Neue Vorlage").slice(0, 120);
+    const name = window.prompt("Name für deine eigene Vorlage:", suggested);
+    if (!name || !name.trim()) return;
+    const record = {
+      id: "tpl_" + newId().replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 70),
+      name: name.trim().slice(0, 120), kind: doc.kind, designId: doc.designId, contentHtml: doc.contentHtml
+    };
+    try {
+      const result = await api("save-template", { expectedRevision: state.revision, document: record });
+      state.revision = result.revision;
+      state.customTemplates = result.templates || [];
+      state.documents = result.documents || state.documents;
+      state.category = "Eigene";
+      renderLibrary();
+      status("Eigene Vorlage gespeichert: " + record.name + ".");
+    } catch (error) { status("Vorlage nicht gespeichert: " + error.message, true); }
+  }
+
+  async function deletePersonalTemplate(id) {
+    if (!state.customTemplates.some((template) => template.id === id)) return;
+    if (!window.confirm("Eigene Vorlage wirklich löschen? Bereits erstellte Dokumente bleiben erhalten.")) return;
+    try {
+      const result = await api("delete-template", { expectedRevision: state.revision, id });
+      state.revision = result.revision;
+      state.customTemplates = result.templates || [];
+      state.documents = result.documents || state.documents;
+      renderLibrary();
+      status("Vorlage gelöscht. Bestehende Dokumente bleiben erhalten.");
+    } catch (error) { status(error.message, true); }
+  }
+
+  function toggleFavorite(id) {
+    if (state.favorites.includes(id)) state.favorites = state.favorites.filter((item) => item !== id);
+    else state.favorites = [...state.favorites, id].slice(-80);
+    try { window.localStorage.setItem("elyon-eds-favorites", JSON.stringify(state.favorites)); } catch {}
+    renderLibrary();
+  }
+
+  function assistantGenerate() {
+    const doc = readForm();
+    if (!doc) return;
+    const subject = el("edsAssistantSubject")?.value.trim() || doc.title;
+    const details = el("edsAssistantDetails")?.value.trim();
+    if (!subject && !details) return status("Bitte Anlass oder Angaben eintragen.", true);
+    if (state.dirty && !window.confirm("Den aktuellen Dokumententext durch den Assistentenentwurf ersetzen?")) return;
+    const lines = (details || "[Bitte Angaben ergänzen.]").split(/\n+/).slice(0, 25);
+    const clauses = lines.map((line) => '<p>' + escapeHtml(line) + '</p>').join("");
+    const greeting = doc.kind === "form" || doc.kind === "delivery" || doc.kind === "purchase_note" ? "" : "<p>Sehr geehrte Damen und Herren,</p>";
+    const ending = doc.kind === "form" || doc.kind === "delivery" || doc.kind === "purchase_note" ? "" : "<p>Mit freundlichen Grüßen</p><p>{{Firma}}</p>";
+    el("edsEditor").innerHTML = "<h2>" + escapeHtml(subject) + "</h2>" + greeting + clauses + ending;
+    el("edsTitle").value = subject.slice(0, 120);
+    el("edsAssistantPanel").classList.remove("open");
+    handleInput({ target: el("edsEditor") });
+    status("Entwurf aus deinen Angaben erstellt. Inhalt und rechtliche Angaben bitte prüfen.");
+  }
+
   function showDoc(doc) {
     state.current = { ...doc };
     state.dirty = false;
-    state.preview = false;
+    state.preview = true;
+    state.designId = DESIGNS[doc.designId] ? doc.designId : DEFAULT_DESIGN;
+    el("edsDesign").value = state.designId;
     el("edsTitle").value = doc.title || "";
     el("edsKind").value = doc.kind || "blank";
     el("edsRecipient").value = doc.recipient || "";
     el("edsReference").value = doc.reference || "";
     el("edsEditor").innerHTML = sanitize(doc.contentHtml || "");
-    el("edsPreview").classList.remove("open");
-    el("edsPreview").innerHTML = "";
+    renderPreview();
     el("edsArchiveBtn").textContent = doc.archivedAt ? "Wiederherstellen" : "Archivieren";
     el("edsVersion").textContent = doc.version ? "Version " + doc.version : "Neuer Entwurf";
     renderList();
@@ -271,16 +380,19 @@
       kind: el("edsKind").value,
       recipient: el("edsRecipient").value.trim(),
       reference: el("edsReference").value.trim(),
-      contentHtml: sanitize(el("edsEditor").innerHTML)
+      contentHtml: sanitize(el("edsEditor").innerHTML),
+      designId: el("edsDesign").value,
+      templateId: state.current.templateId || ""
     };
   }
 
   function handleInput(event) {
     if (event.target?.id === "edsSearch") { state.search = event.target.value.toLowerCase(); renderList(); return; }
+    if (event.target?.id === "edsLibrarySearch") { state.librarySearch = event.target.value.toLocaleLowerCase("de-DE"); renderLibrary(); return; }
     if (!["edsTitle", "edsKind", "edsRecipient", "edsReference", "edsEditor"].includes(event.target?.id)) return;
     state.dirty = true;
     status("Nicht gespeicherte Änderungen.");
-    if (state.preview) renderPreview();
+    renderPreview();
   }
 
   function handleChange(event) {
@@ -291,6 +403,14 @@
       state.search = event.target.value.toLowerCase(); renderList();
     }
     if (event.target?.id === "edsKind") handleInput(event);
+    if (event.target?.id === "edsFavoritesOnly") { state.favoritesOnly = event.target.checked; renderLibrary(); }
+    if (event.target?.id === "edsDesign") {
+      state.designId = DESIGNS[event.target.value] ? event.target.value : DEFAULT_DESIGN;
+      try { window.localStorage.setItem("elyon-eds-design", state.designId); } catch {}
+      state.dirty = true;
+      renderPreview();
+      status("Design geändert. Textinhalt bleibt erhalten. Zum Übernehmen speichern.");
+    }
   }
 
   function shouldDiscard() {
@@ -334,10 +454,12 @@
     state.loading = true;
     status("Lade geschütztes Dokumentenarchiv …");
     try {
-      const [result, profile] = await Promise.all([api("list"), api("profile").catch(() => ({ profile: {} }))]);
+      const [result, profile, custom] = await Promise.all([api("list"), api("profile").catch(() => ({ profile: {} })), api("templates").catch(() => ({ templates: [] }))]);
       state.revision = result.revision;
       state.documents = result.documents || [];
       state.profile = profile.profile || {};
+      state.customTemplates = custom.templates || [];
+      renderLibrary();
       renderList();
       if (!state.current) showDoc(newDocument("blank"));
       status(state.documents.length + " Dokument(e) im geschützten Serverarchiv.");
@@ -371,6 +493,7 @@
       state.dirty = false;
       el("edsVersion").textContent = "Version " + state.current.version;
       renderList();
+      renderPreview();
       status("Dokument geschützt gespeichert.");
     } catch (error) { status(error.message + " Ungespeicherte Änderungen bleiben im Editor.", true); }
   }
