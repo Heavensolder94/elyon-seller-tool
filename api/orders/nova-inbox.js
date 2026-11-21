@@ -8,7 +8,7 @@ export default async function handler(req,res) {
   res.setHeader("X-Content-Type-Options","nosniff");
   if(!["GET","POST"].includes(req.method))return res.status(405).json({ok:false,error:"method_not_allowed"});
   if(req.method==="GET" && req.query?.verify==="1") {
-    const bearer=str(req.headers?.authorization).match(/^Bearer\\s+(.+)$/i)?.[1]||"";
+    const bearer=str(req.headers?.authorization).match(/^Bearer\s+(.+)$/i)?.[1]||"";
     if(!verifyNovaPairToken(bearer))return res.status(403).json({ok:false,error:"nova_pairing_required"});
     return res.status(200).json({ok:true,scope:"nova_supplier_ingest",valid:true});
   }
