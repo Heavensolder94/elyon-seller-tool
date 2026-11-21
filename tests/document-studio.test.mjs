@@ -88,3 +88,33 @@ test("custom templates reject unsupported types, invoice models and excessive do
   assert.throws(() => applyStudioChange(null, "delete-template", null, "tpl_unknown"), /nicht gefunden/);
   assert.equal(normalizeStudioState({ documents: [] }).customTemplates.length, 0);
 });
+
+test("branding is stored as validated text and image data, never as remote or active markup", () => {
+  const logo = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQ==";
+  const state = applyStudioChange(null, "save", draft({
+    designId: "modern", accentColor: "#0D9488", headerText: "ELYON · Versandhandel",
+    footerText: "Geschäftliche Korrespondenz", logoData: logo
+  }));
+  const doc = state.documents[0];
+  assert.equal(doc.accentColor, "#0d9488");
+  assert.equal(doc.headerText, "ELYON · Versandhandel");
+  assert.equal(doc.footerText, "Geschäftliche Korrespondenz");
+  assert.equal(doc.logoData, logo);
+  const invalid = applyStudioChange(state, "save", draft({
+    accentColor: "url(javascript:evil)", logoData: "data:image/svg+xml;base64,abc"
+  }));
+  assert.equal(invalid.documents[0].accentColor, "");
+  assert.equal(invalid.documents[0].logoData, "");
+});
+
+test("brand settings survive custom template save", () => {
+  const logo = "data:image/png;base64,aGVsbG8=";
+  const state = applyStudioChange(null, "save-template", {
+    id: "tpl_999999999999", name: "ELYON Angebot", kind: "offer", designId: "elyon",
+    accentColor: "#123abc", headerText: "ELYON Handel", footerText: "Lemgo",
+    logoData: logo, contentHtml: "<h2>Angebot</h2>"
+  });
+  assert.equal(state.customTemplates[0].accentColor, "#123abc");
+  assert.equal(state.customTemplates[0].logoData, logo);
+  assert.equal(state.documents.length, 0);
+});
