@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { normalizeEbayOrder, buildOrderDocumentContext } from "../seller-orders-v2-core.js";
+import { normalizeEbayOrder, buildOrderDocumentContext, orderCompletionChecklist } from "../seller-orders-v2-core.js";
 import { applyStudioChange, normalizeStudioState, sanitizeStudioMarkup, documentSummary, STUDIO_DOCUMENT_TYPES } from "../lib/document-studio-core.js";
 
 const draft = (overrides = {}) => ({
@@ -242,4 +242,38 @@ test("eBay source order metadata persists through document archive without creat
   assert.equal(first.documents[0].sourceOrderId, "03-12345-67890");
   assert.equal(documentSummary(first.documents[0]).sourceOrderId, "03-12345-67890");
   assert.equal(STUDIO_DOCUMENT_TYPES.includes("invoice"), false);
+});
+
+
+test("compact order checklist keeps all six mandatory backend checks intact", () => {
+  const order = normalizeEbayOrder({
+    orderId: "03-12345-67890", orderPaymentStatus: "PAID",
+    orderFulfillmentStatus: "NOT_STARTED",
+  });
+  const first = orderCompletionChecklist(order, {}, null);
+  assert.deepEqual(first.checks.filter((c) => c.required).map((c) => c.key), [
+    "payment", "supplier", "supplierOrder", "carrier", "ebayShipping", "invoice"
+  ]);
+  assert.deepEqual(first.checks.filter((c) => !c.required).map((c) => c.key), ["costs"]);
+  assert.equal(first.ready, false);
+  const complete = orderCompletionChecklist(
+    { ...order, fulfillmentStatus: "FULFILLED" },
+    { supplierName: "Lieferant", supplierOrderId: "L-01", carrier: "DHL", trackingNumber: "ABC123" },
+    { issued: true, invoiceNumber: "ELY-R-1" },
+  );
+  assert.equal(complete.ready, true);
+  assert.equal(complete.checks.find((check) => check.key === "costs").done, false);
+});
+
+test("three-stage order completion is display-only; detailed checks remain available", () => {
+  const cockpit = readFileSync(new URL("../seller-orders-v2.js", import.meta.url), "utf8");
+  assert.ok(cockpit.includes('label: "Einkauf", section: "supplier", keys: ["supplier", "supplierOrder"]'));
+  assert.ok(cockpit.includes('label: "Versand", section: "shipping", keys: ["carrier", "ebayShipping"]'));
+  assert.ok(cockpit.includes('label: state.demoMode ? "Musterrechnung" : "Rechnung", section: "finance", keys: ["invoice"]'));
+  assert.ok(cockpit.includes('completionFor(order, op); // Keep the original required safety checks unchanged.'));
+  assert.match(cockpit, /class="ocv4-checklist-details"/);
+  assert.match(cockpit, /Alle Prüfpunkte anzeigen/);
+  assert.match(cockpit, /data-ocv4-complete/);
+  assert.match(cockpit, /assessment.ready && !state.actionBusy/);
+  assert.doesNotMatch(cockpit, /1\s*\/\s*7\s*erledigt/);
 });
