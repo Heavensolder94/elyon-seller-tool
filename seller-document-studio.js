@@ -661,6 +661,14 @@
   }
 
   async function handleClick(event) {
+    const preset = event.target.closest("[data-eds-preset]");
+    if (preset) return applyPreset(preset.dataset.edsPreset);
+    const favorite = event.target.closest("[data-eds-favorite]");
+    if (favorite) return toggleFavorite(favorite.dataset.edsFavorite);
+    const removed = event.target.closest("[data-eds-remove]");
+    if (removed) return deletePersonalTemplate(removed.dataset.edsRemove);
+    const category = event.target.closest("[data-eds-category]");
+    if (category) { state.category = category.dataset.edsCategory; renderLibrary(); return; }
     const format = event.target.closest("[data-eds-format]");
     if (format) {
       const editor = el("edsEditor");
@@ -680,12 +688,15 @@
     const action = event.target.closest("[data-eds-action]")?.dataset.edsAction;
     if (!action) return;
     if (action === "new") return createNew("blank");
-    if (action === "template") return createNew(el("edsTemplateSelect").value);
+    if (action === "library") { el("edsLibrary").classList.toggle("collapsed"); return; }
+    if (action === "assistant") { el("edsAssistantPanel").classList.toggle("open"); return; }
+    if (action === "close-assistant") { el("edsAssistantPanel").classList.remove("open"); return; }
+    if (action === "generate") return assistantGenerate();
+    if (action === "save-template") return savePersonalTemplate();
     if (action === "save") return save();
     if (action === "archive") return archiveOrRestore();
     if (action === "print") return printDocument();
     if (action === "docx") return exportDocx();
-    if (action === "preview") { state.preview = !state.preview; return renderPreview(); }
     if (action === "refresh") {
       if (!shouldDiscard()) return;
       state.current = null;
@@ -698,7 +709,7 @@
       const stylesheet = document.createElement("link");
       stylesheet.id = "elyonDocumentStudioStyles";
       stylesheet.rel = "stylesheet";
-      stylesheet.href = "/seller-document-studio.css?v=docs-v1-20261121";
+      stylesheet.href = "/seller-document-studio.css?v=docs-v2-20261121";
       document.head.appendChild(stylesheet);
     }
     installEntry();
