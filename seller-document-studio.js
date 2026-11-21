@@ -149,7 +149,7 @@
     root.id = TAB_ID;
     root.className = "tab";
     root.innerHTML = [
-      '<div class="eds-head"><div><div class="eds-pill" style="display:inline-block">ELYON SELLERTOOL · DOKUMENTENSTUDIO</div><h2>Dokumentenstudio 2.0</h2><p class="eds-muted">Professionelle Vorlagen, vier Designs und eine Live-A4-Vorschau – ohne zusätzliche KI-Kosten.</p></div></div>',
+      '<div class="eds-head"><div><div class="eds-pill" style="display:inline-block">ELYON SELLERTOOL · DOKUMENTENSTUDIO</div><h2>Dokumentenstudio 3.0</h2><p class="eds-muted">Direkt auf A4 schreiben, Textbausteine einfügen und professionelle Geschäftsdokumente erstellen.</p></div></div>',
       '<div class="eds-toolbar">',
         '<button type="button" class="eds-btn eds-primary" data-eds-action="library">Vorlagenbibliothek</button>',
         '<button type="button" class="eds-btn" data-eds-action="assistant">Dokumentenassistent</button>',
@@ -166,13 +166,13 @@
         '<label class="eds-check" style="margin-top:12px"><input type="checkbox" id="edsShowArchived"> Archivierte anzeigen</label>',
         '<div id="edsList" class="eds-doc-list" aria-label="Dokumentenliste"></div></div>',
       '</aside><div class="eds-card">',
-        '<div class="eds-section-title"><h3>Dokument bearbeiten</h3><span class="eds-muted">Alle Änderungen erscheinen rechts sofort.</span></div><div class="eds-meta">',
+        '<div class="eds-section-title"><h3>Dokument bearbeiten</h3><span class="eds-muted">Text direkt auf der A4-Seite bearbeiten · Änderungen bewusst speichern</span></div><div class="eds-meta">',
           '<label class="eds-field">Dokumententitel<input id="edsTitle" maxlength="120" autocomplete="off"></label>',
           '<label class="eds-field">Dokumentenart<select id="edsKind"></select></label>',
           '<label class="eds-field">Empfänger / Ansprechpartner<input id="edsRecipient" maxlength="300" autocomplete="off"></label>',
           '<label class="eds-field">Referenz (z. B. Bestellnummer)<input id="edsReference" maxlength="120" autocomplete="off"></label><label class="eds-field">Designvorlage<select id="edsDesign" aria-label="Designvorlage"></select></label><label class="eds-field">Akzentfarbe<input id="edsAccent" type="color" value="#1d4ed8" title="Individuelle Akzentfarbe"></label><label class="eds-field">Kopfzeile / Marke<input id="edsHeaderText" maxlength="120" placeholder="Optionaler Absendername"></label><label class="eds-field">Fußzeile<input id="edsFooterText" maxlength="180" placeholder="Optionaler Fußzeilentext"></label><label class="eds-field">Eigenes Logo (PNG/JPG/WebP)<input id="edsLogoUpload" type="file" accept="image/png,image/jpeg,image/webp"></label><div class="eds-brand-logo"><span id="edsLogoStatus" class="eds-muted">Kein Logo ausgewählt</span><button class="eds-btn" type="button" data-eds-action="remove-logo">Logo entfernen</button></div>',
         '</div>',
-        '<div id="edsAssistantPanel" class="eds-assistant"><div class="eds-side-head"><strong>Dokumentenassistent</strong><button type="button" class="eds-btn" data-eds-action="close-assistant">Schließen</button></div><p class="eds-muted">Vervollständigt eine ausgewählte Vorlage aus deinen Angaben – lokal, ohne kostenpflichtigen KI-Aufruf.</p><label class="eds-field">Anlass / Betreff<input id="edsAssistantSubject" maxlength="120" placeholder="z. B. Angebot für Büroausstattung"></label><label class="eds-field">Wichtige Angaben<textarea id="edsAssistantDetails" maxlength="2500" rows="3" placeholder="Artikel, Fristen, gewünschte Antwort …"></textarea></label><button type="button" class="eds-btn eds-primary" data-eds-action="generate">Dokument aufbauen</button></div><div class="eds-workspace"><div class="eds-edit-panel"><h3>Inhalt</h3><div class="eds-editor-toolbar" role="toolbar" aria-label="Textformatierung">',
+        '<div id="edsAssistantPanel" class="eds-assistant"><div class="eds-side-head"><strong>Dokumentenassistent</strong><button type="button" class="eds-btn" data-eds-action="close-assistant">Schließen</button></div><p class="eds-muted">Vervollständigt eine ausgewählte Vorlage aus deinen Angaben – lokal, ohne kostenpflichtigen KI-Aufruf.</p><label class="eds-field">Anlass / Betreff<input id="edsAssistantSubject" maxlength="120" placeholder="z. B. Angebot für Büroausstattung"></label><label class="eds-field">Wichtige Angaben<textarea id="edsAssistantDetails" maxlength="2500" rows="3" placeholder="Artikel, Fristen, gewünschte Antwort …"></textarea></label><button type="button" class="eds-btn eds-primary" data-eds-action="generate">Dokument aufbauen</button></div><div class="eds-workspace"><div class="eds-edit-panel"><h3>Textformatierung</h3><div class="eds-editor-toolbar" role="toolbar" aria-label="Textformatierung">',
           '<button type="button" class="eds-btn" data-eds-format="bold" title="Fett"><strong>B</strong></button>',
           '<button type="button" class="eds-btn" data-eds-format="italic" title="Kursiv"><em>I</em></button>',
           '<button type="button" class="eds-btn" data-eds-format="underline" title="Unterstrichen"><u>U</u></button>',
@@ -188,8 +188,8 @@
           '<button type="button" class="eds-btn" data-eds-insert="{{Datum}}">+ Datum</button>',
           '<button type="button" class="eds-btn" data-eds-insert="{{Referenz}}">+ Referenz</button>',
         '</div>',
-        '<div id="edsEditor" class="eds-editor" contenteditable="true" role="textbox" aria-label="Dokumententext" aria-multiline="true" spellcheck="true"></div></div><div class="eds-preview-panel"><div class="eds-side-head"><strong>A4-Live-Vorschau</strong><span class="eds-muted">210 × 297 mm</span></div>',
-        '<div id="edsPreview" class="eds-preview open" aria-label="Dokumentenvorschau"></div></div></div>',
+        '<div id="edsEditor" class="eds-editor" contenteditable="true" role="textbox" aria-label="Dokumententext" aria-multiline="true" spellcheck="true"></div></div><div class="eds-preview-panel"><div class="eds-side-head"><strong>Deine bearbeitbare A4-Seite</strong><span class="eds-muted">210 × 297 mm · direkt hineinklicken</span></div>',
+        '<div id="edsPreview" class="eds-preview open" aria-label="Bearbeitbares A4-Dokument"></div><div class="eds-hint">Hinweis: Platzhalter wie <code>{{Firma}}</code> bleiben beim Bearbeiten erhalten und werden erst für den Export durch deine Daten ersetzt.</div></div><aside class="eds-snippets-panel"><div class="eds-side-head"><strong>Textbausteine</strong><span class="eds-count" id="edsBlockCount"></span></div><p class="eds-muted">Klicke in die A4-Seite und füge einen Baustein an der Textposition ein.</p><input type="search" id="edsBlockSearch" class="eds-search" placeholder="Baustein suchen …" aria-label="Textbausteine suchen"><div id="edsBlockCategories" class="eds-categories"></div><div id="edsBlocksList" class="eds-block-list"></div><div class="eds-snippets-save"><strong>Eigenen Baustein speichern</strong><p class="eds-muted">Markiere einen Abschnitt auf der A4-Seite, dann speichere ihn als Baustein.</p><button type="button" class="eds-btn" data-eds-action="save-block">Auswahl als Baustein speichern</button></div></aside></div>',
         '<div class="eds-bottom"><div id="edsStatus" class="eds-status" role="status" aria-live="polite">Lade Dokumente …</div><span class="eds-muted" id="edsVersion"></span></div>',
         '<p class="eds-legal">Verträge und Vertragsklauseln vor Verwendung rechtlich prüfen lassen. Rechnungen für eBay-Bestellungen werden weiterhin ausschließlich im bestehenden Rechnungsmodul erstellt und ausgestellt. Ein frei bearbeitbares Dokument ersetzt weder eine Lieferantenrechnung noch eine steuerlich korrekte Ausgangsrechnung.</p>',
       '</div></div>'
@@ -217,15 +217,29 @@
       if (DESIGNS[preferredDesign]) state.designId = preferredDesign;
     } catch { /* storage may be unavailable: defaults work without it */ }
     renderLibrary();
+    renderBlocks();
     root.addEventListener("click", handleClick);
     root.addEventListener("input", handleInput);
     root.addEventListener("change", handleChange);
     el("edsLogoUpload").addEventListener("change", onLogoFile);
-    el("edsEditor").addEventListener("paste", (event) => {
+    root.addEventListener("paste", (event) => {
+      if (event.target?.id !== "edsPageBody" && event.target?.id !== "edsEditor") return;
       event.preventDefault();
       const plain = event.clipboardData?.getData("text/plain") || "";
       document.execCommand("insertText", false, plain.slice(0, 25000));
-      handleInput({ target: el("edsEditor") });
+      handleInput({ target: activeEditor() });
+    });
+    document.addEventListener("selectionchange", () => {
+      const selection = window.getSelection();
+      const body = el("edsPageBody");
+      if (selection?.rangeCount && body?.contains(selection.anchorNode) && body.contains(selection.focusNode)) {
+        state.lastRange = selection.getRangeAt(0).cloneRange();
+      }
+    });
+    root.addEventListener("pointerdown", (event) => {
+      if (event.target.closest("[data-eds-format], [data-eds-insert], [data-eds-action='insert-table'], [data-eds-action='insert-rule'], [data-eds-action='move-up'], [data-eds-action='move-down'], [data-eds-block]")) {
+        event.preventDefault();
+      }
     });
     return root;
   }
