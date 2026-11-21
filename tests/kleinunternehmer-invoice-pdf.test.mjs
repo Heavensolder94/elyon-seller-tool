@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { createKleinunternehmerInvoicePdf } from "../lib/kleinunternehmer-invoice-pdf.js";
+import { buildKleinunternehmerInvoiceSample } from "../lib/kleinunternehmer-invoice-core.js";
 
 const invoice = () => ({
   invoiceNumber:"ELYON-2026-000001",issuedAt:"2026-11-21T09:00:00.000Z",
@@ -54,10 +55,57 @@ test("watermarked sample is not a real invoice and requires no data write",async
   const endpoint=await readFile(new URL("../api/finance/invoice-pdf.js",import.meta.url),"utf8");
   const ui=await readFile(new URL("../seller-order-invoices.js",import.meta.url),"utf8");
   assert.ok(endpoint.includes("req.query?.demo"));
-  assert.ok(endpoint.includes("KEINE-NUMMER"));
-  assert.ok(endpoint.includes("createKleinunternehmerInvoicePdf(sample,{demo:true})"));
+  assert.ok(endpoint.includes("buildKleinunternehmerInvoiceSample(state.settings)"));
+  assert.ok(endpoint.includes("createKleinunternehmerInvoicePdf(prepared.sample, { demo: true })"));
+  assert.ok(endpoint.includes("seller_invoice_settings_incomplete"));
+  assert.ok(endpoint.includes("readFinanceState()"));
   assert.ok(ui.includes("data-eoi-pdf-demo"));
   assert.ok(ui.includes("/api/finance/invoice-pdf?demo=1"));
+});
+
+test("demo builds from persisted real seller fields, but keeps fictitious buyer and watermark",()=> {
+  const settings={
+    taxMode:"small_business",
+    sellerLegalName:"Beispiel Unternehmer",
+    sellerBrand:"Mein Beispielshop",
+    sellerStreet:"Kaufmannstraße 5",
+    sellerPostalCode:"10115",
+    sellerCity:"Berlin",
+    sellerCountry:"DE",
+    sellerTaxId:"DE123456789",
+  };
+  const built=buildKleinunternehmerInvoiceSample(settings,{now:new Date("2026-11-21T12:00:00Z")});
+  assert.equal(built.ok,true);
+  assert.equal(built.sample.seller.name,settings.sellerLegalName);
+  assert.equal(built.sample.seller.addressLine1,settings.sellerStreet);
+  assert.equal(built.sample.seller.postalCode,settings.sellerPostalCode);
+  assert.equal(built.sample.seller.city,settings.sellerCity);
+  assert.equal(built.sample.seller.taxId,settings.sellerTaxId);
+  assert.equal(built.sample.seller.brand,settings.sellerBrand);
+  assert.equal(built.sample.invoiceNumber,"MUSTER-KEINE-NUMMER");
+  assert.equal(built.sample.orderId,"DEMO-1001");
+  assert.equal(built.sample.buyer.name,"Erika Beispiel");
+
+  const pdf=createKleinunternehmerInvoicePdf(built.sample,{demo:true});
+  const rendered=strings(pdf).join("\n");
+  for(const value of [
+    "MUSTER - NICHT ZUR VERWENDUNG","MUSTER  ·  KEINE GÜLTIGE RECHNUNG",
+    settings.sellerLegalName,settings.sellerStreet,
+    settings.sellerPostalCode,settings.sellerCity,settings.sellerTaxId,settings.sellerBrand,
+    "Erika Beispiel","MUSTER-KEINE-NUMMER","St.-Nr. / USt-IdNr."]) {
+    assert.ok(rendered.includes(value),value);
+  }
+  assert.ok(!rendered.includes("Max Musterhändler"));
+  assert.match(pdf.toString("latin1"),/\/Count 1 /);
+});
+
+test("demo never silently substitutes fictional sender data when Finance server settings are incomplete",()=> {
+  for(const settings of [{},{taxMode:"small_business",sellerLegalName:"Nur Name"}]){
+    const result=buildKleinunternehmerInvoiceSample(settings);
+    assert.equal(result.ok,false);
+    assert.equal(result.sample,null);
+    assert.ok(result.errors.length>0);
+  }
 });
 
 test("same archived snapshot produces byte-identical PDF with stable checksum",()=>{
