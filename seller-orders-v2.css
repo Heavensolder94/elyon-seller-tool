@@ -421,3 +421,34 @@ body.light #elyonOrdersV2Root .ocv4-date,
 body.light #elyonOrdersV2Root .ocv4-status { color:#475569; }
 body.light #elyonOrdersV2Root button.ocv2-order.ocv4-order-row:hover { background:#f1f5f9; }
 body.light #elyonOrdersV2Root .ocv2-stat strong { color:#0f172a; }
+
+/* ELYON Bestellabwicklung 4.0 — compact, operational, no extra page. */
+#elyonOrdersV2Root .ocv4-checklist { margin:12px 0 15px; border:1px solid rgba(148,163,184,.17); border-radius:7px; overflow:hidden; background:rgba(15,23,42,.37); }
+#elyonOrdersV2Root .ocv4-checklist-heading { display:flex; justify-content:space-between; gap:8px; align-items:center; padding:11px 12px; background:rgba(148,163,184,.07); border-bottom:1px solid rgba(148,163,184,.13); }
+#elyonOrdersV2Root .ocv4-checklist-heading strong { font-size:12px; color:#e2e8f0; }
+#elyonOrdersV2Root .ocv4-checklist-heading span { color:#94a3b8; font-size:11px; font-variant-numeric:tabular-nums; }
+#elyonOrdersV2Root .ocv4-task-list { display:grid; }
+#elyonOrdersV2Root button.ocv4-task { border:0; background:transparent; border-bottom:1px solid rgba(148,163,184,.09); border-radius:0; display:grid; grid-template-columns:16px minmax(0,1fr) auto; gap:9px; align-items:center; text-align:left; padding:9px 12px; min-height:36px; color:#cbd5e1; font-size:11px; font-weight:500; }
+#elyonOrdersV2Root button.ocv4-task:hover { background:rgba(148,163,184,.09); }
+#elyonOrdersV2Root .ocv4-task-list button:last-child { border-bottom:0; }
+#elyonOrdersV2Root .ocv4-check { color:#94a3b8; font-size:12px; font-weight:800; }
+#elyonOrdersV2Root .ocv4-task.done .ocv4-check { color:#7db39c; }
+#elyonOrdersV2Root .ocv4-task-action { color:#91a1b6; font-size:10px; }
+#elyonOrdersV2Root .ocv4-task.done .ocv4-task-action { color:#7db39c; }
+#elyonOrdersV2Root .ocv4-task small { color:#8190a5; font-size:10px; font-weight:400; }
+#elyonOrdersV2Root .ocv4-complete { border-top:1px solid rgba(148,163,184,.13); padding:11px 12px; display:grid; gap:7px; }
+#elyonOrdersV2Root .ocv4-complete button { width:100%; min-height:35px; border-radius:5px; background:#394d76; border-color:#50648d; color:#f8fafc; }
+#elyonOrdersV2Root .ocv4-complete button:disabled { background:rgba(148,163,184,.08); border-color:rgba(148,163,184,.16); color:#94a3b8; opacity:1; }
+#elyonOrdersV2Root .ocv4-complete small { color:#8a9ab0; font-size:10px; line-height:1.5; }
+#elyonOrdersV2Root .ocv4-inline-action { margin:10px 0; display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px; padding:10px 12px; background:rgba(148,163,184,.055); border:1px solid rgba(148,163,184,.16); border-radius:5px; }
+#elyonOrdersV2Root .ocv4-inline-action span { color:#cbd5e1; font-size:11px; line-height:1.5; flex:1; }
+#elyonOrdersV2Root .ocv4-inline-action button { flex:0 0 auto; border-radius:5px; border:1px solid rgba(148,163,184,.36); background:#1f304b; color:#e2e8f0; font-size:11px; min-height:33px; padding:7px 12px; }
+#elyonOrdersV2Root .ocv4-inline-action button:hover { background:#304462; }
+#elyonOrdersV2Root .ocv4-inline-action button:disabled { opacity:.55; cursor:not-allowed; }
+body.light #elyonOrdersV2Root .ocv4-checklist { background:#fff; }
+body.light #elyonOrdersV2Root .ocv4-checklist-heading { background:#f8fafc; }
+body.light #elyonOrdersV2Root .ocv4-checklist-heading strong,
+body.light #elyonOrdersV2Root button.ocv4-task,
+body.light #elyonOrdersV2Root .ocv4-inline-action span { color:#334155; }
+body.light #elyonOrdersV2Root .ocv4-inline-action { background:#f8fafc; }
+body.light #elyonOrdersV2Root .ocv4-inline-action button { background:#e2e8f0; color:#0f172a; }
