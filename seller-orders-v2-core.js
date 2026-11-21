@@ -142,6 +142,32 @@ export function suggestRecordedCosts(operation = {}, hints = {}) {
   return { values: result, sources };
 }
 
+// Shared readiness rules for the UI and for the server's final completion gate.
+// Do not trust client-side status labels: the server rechecks payment/fulfilment with eBay.
+export function orderCompletionChecklist(order = {}, operation = {}, invoice = null) {
+  const op = object(operation);
+  const shipping = text(order.fulfillmentStatus).toUpperCase() === "FULFILLED";
+  const invoiceIssued = invoice?.issued === true || (invoice?.immutable === true && Boolean(text(invoice?.invoiceNumber)));
+  const checks = [
+    { key: "payment", title: "eBay-Zahlung bestätigt", done: paymentConfirmed(order), section: "overview", required: true },
+    { key: "supplier", title: "Lieferant eingetragen", done: Boolean(text(op.supplierName)), section: "supplier", required: true },
+    { key: "supplierOrder", title: "Lieferantenauftrag dokumentiert", done: Boolean(text(op.supplierOrderId)), section: "supplier", required: true },
+    { key: "carrier", title: "Versanddienstleister und Tracking erfasst", done: Boolean(text(op.carrier) && text(op.trackingNumber)), section: "shipping", required: true },
+    { key: "ebayShipping", title: "Versand bei eBay bestätigt", done: shipping, section: "shipping", required: true },
+    { key: "invoice", title: "Rechnung verbindlich ausgestellt", done: invoiceIssued, section: "finance", required: true },
+    { key: "costs", title: "Ist-Kosten vollständig dokumentiert", done:
+      ["purchaseCost","shippingCost","feeCost"].every((key) => op[key] !== "" && op[key] !== null &&
+        op[key] !== undefined && Number.isFinite(Number(op[key])) && Number(op[key]) >= 0),
+      section: "finance", required: false },
+  ];
+  return {
+    ready: checks.every((check) => !check.required || check.done),
+    checks,
+    blockers: checks.filter((check) => check.required && !check.done),
+    next: checks.find((check) => check.required && !check.done) || checks.find((check) => !check.done) || null,
+  };
+}
+
 export function actualOrderProfit(order, operation = {}) {
   const purchase = asNumber(operation.purchaseCost);
   const shipping = asNumber(operation.shippingCost);
