@@ -16,7 +16,7 @@ const op = {
   workflowStatus:"PROCESSING", supplierName:"Lieferant", supplierOrderId:"SUP-123",
   carrier:"DHL", trackingNumber:"TRACK-123", purchaseCost:14, shippingCost:3, feeCost:4
 };
-const invoice = {immutable:true,invoiceNumber:"ELYON-2026-0001"};
+const invoice = {immutable:true,invoiceNumber:"ELYON-2026-0001",invoice:{invoiceNumber:"ELYON-2026-0001"}};
 
 test("completion checklist distinguishes mandatory evidence from recommended cost accounting",()=>{
   const empty=orderCompletionChecklist(base(), {}, null);
@@ -28,6 +28,8 @@ test("completion checklist distinguishes mandatory evidence from recommended cos
   assert.equal(ready.ready,true);
   assert.equal(ready.blockers.length,0);
   assert.ok(ready.checks.every(x=>x.done));
+  const incomplete=orderCompletionChecklist(base("PAID","FULFILLED"),op,{immutable:true,invoiceNumber:"ELYON-2026-0001"});
+  assert.equal(incomplete.ready,false,"invoice number without archived snapshot must not pass");
   const noCosts=orderCompletionChecklist(base("PAID","FULFILLED"),
     {...op,purchaseCost:null,shippingCost:null,feeCost:null},invoice);
   assert.equal(noCosts.ready,true);
