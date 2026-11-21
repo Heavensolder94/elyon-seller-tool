@@ -1,6 +1,7 @@
 import { requireSellerAccess } from "../../lib/seller-access.js";
 import { readFinanceState, getFinanceStoreDescription } from "../../lib/finance-store.js";
 import { ebayUserSession, callEbayJson } from "../../lib/ebay-production.js";
+import { summarizeEbayIntrospection } from "../ebay/scope-check.js";
 import { normalizeEbayOrder, paymentConfirmed } from "../../seller-orders-v2-core.js";
 import { attachmentBaseStatus, attachmentUrl, verifiedInvoicePdf, messageDeliveryEnabled } from "../../lib/order-message-attachment.js";
 
@@ -33,6 +34,7 @@ export default async function handler(req, res) {
     paymentConfirmed: false,
     notCancelled: false,
     recipientVerified: false,
+    messageScopeVerified: false,
     attachmentReachable: false,
   };
   const blockers = [];
@@ -61,6 +63,26 @@ export default async function handler(req, res) {
     if (checks.invoicePdfVerified) {
       try {
         const session = await ebayUserSession("production");
+        const clientId = str(process.env.EBAY_CLIENT_ID);
+        const clientSecret = str(process.env.EBAY_CLIENT_SECRET);
+        if (clientId && clientSecret) {
+          try {
+            const introspection = await fetch("https://api.ebay.com/identity/v1/oauth2/token/introspect",{
+              method:"POST",
+              headers:{
+                Authorization:"Basic " + Buffer.from(clientId + ":" + clientSecret).toString("base64"),
+                "Content-Type":"application/x-www-form-urlencoded",Accept:"application/json",
+              },
+              body:new URLSearchParams({token:session.accessToken,token_type_hint:"access_token"}),
+              signal:AbortSignal.timeout(10000),
+            });
+            if (introspection.ok) {
+              const data = await introspection.json();
+              checks.messageScopeVerified = summarizeEbayIntrospection(data).messageScopeGranted === true;
+            }
+          } catch { /* Fail closed. */ }
+        }
+        if (!checks.messageScopeVerified) blockers.push("message_scope_not_verified");
         const raw = await callEbayJson(
           "https://api.ebay.com/sell/fulfillment/v1/order/" + encodeURIComponent(orderId),
           {headers:{Authorization:"Bearer " + session.accessToken,Accept:"application/json"}}
