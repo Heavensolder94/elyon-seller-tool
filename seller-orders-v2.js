@@ -344,8 +344,16 @@ function render() {
             !rows.length ? `<div class="ocv2-empty"><strong>${state.loading ? "Bestellungen werden geladen…" : "Keine passenden Bestellungen"}</strong>
             <span>${state.loading ? "eBay wird gelesen." : "Im gewählten Zeitraum liegen keine passenden Aufträge vor."}</span>${!state.loading && !state.demoMode && !state.query && state.filter==="all" ? '<button type="button" data-ocv2-demo-start>Mit Beispielbestellungen testen →</button>' : ""}</div>` :
             rows.map(rowMarkup).join("")}</div></section>
-        <section class="ocv2-detail-card" id="ocv2Details">
-          ${selected ? detailsMarkup(selected) : '<div class="ocv2-empty ocv2-empty-detail"><strong>Bestellung auswählen</strong><span>Hier erscheinen Artikel, Lieferant, Kosten, Rechnung und Versand.</span></div>'}
+        <section class="ocv2-detail-card ${selected ? "ocv3-drawer-open" : "ocv3-drawer-closed"}" id="ocv2Details"
+          ${selected ? 'role="dialog" aria-modal="true" aria-labelledby="ocv3DrawerLabel"' : 'aria-hidden="true"'}>
+          ${selected ? `<button type="button" class="ocv3-drawer-backdrop" data-ocv3-drawer-close
+              aria-label="Bestelldetails schließen"></button>
+            <div class="ocv3-drawer-content" tabindex="-1">
+              <div class="ocv3-drawer-top"><div><small>BESTELLDETAILS</small>
+                <strong id="ocv3DrawerLabel">${h(selected.id)}</strong></div>
+                <button type="button" data-ocv3-drawer-close class="ocv3-drawer-close" aria-label="Schließen">✕</button></div>
+              ${detailsMarkup(selected)}
+            </div>` : ""}
         </section></div></div>`;
   host.insertAdjacentHTML("beforeend", demoModalMarkup());
 }
@@ -450,6 +458,13 @@ function closeDemo() {
   state.saveNotice = "Demo beendet. Es wurden keine echten eBay- oder Finanzdaten geändert.";
   render();
 }
+function closeOrderDrawer() {
+  state.selectedId = "";
+  state.activeSection = "overview";
+  state.saveNotice = "";
+  render();
+  root()?.querySelector(".ocv2-order-list")?.focus?.();
+}
 function changeSection(name) {
   if (!SECTION_TABS.some(([id]) => id === name)) return;
   state.activeSection = name; render();
@@ -504,6 +519,7 @@ function bind() {
   const host = root();
   if (!host) return;
   host.addEventListener("click", (event) => {
+    if (event.target.closest("[data-ocv3-drawer-close]")) return closeOrderDrawer();
     if (event.target.closest("[data-demo-modal-close]")) return closeDemoModal();
     if (event.target.closest("[data-demo-invoice-check]") && state.demoMode && state.demoModal === "invoice") {
       const order = DEMO.orders.find((item) => item.id === state.selectedId);
@@ -583,6 +599,9 @@ function mount() {
     if (event.key === "Escape" && state.demoMode && state.demoModal) {
       event.preventDefault();
       closeDemoModal();
+    } else if (event.key === "Escape" && state.selectedId) {
+      event.preventDefault();
+      closeOrderDrawer();
     }
   });
   document.addEventListener("visibilitychange", () => {
