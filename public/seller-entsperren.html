@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow,noarchive">
+  <title>ELYON SellerTool · Sicher entsperren</title>
+  <style>
+    :root{color-scheme:dark;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    *{box-sizing:border-box}
+    body{margin:0;min-height:100vh;display:grid;place-items:center;padding:22px;background:#080e18;color:#eaf2ff}
+    main{width:min(100%,440px);background:#111a28;border:1px solid #263c57;border-radius:22px;padding:30px;box-shadow:0 22px 72px #0007}
+    h1{font-size:1.55rem;letter-spacing:-.035em;margin:0 0 10px}
+    p{color:#a9b9cc;line-height:1.55;margin:0 0 22px}
+    label{display:block;font-weight:650;margin-bottom:9px}
+    input{display:block;width:100%;font:inherit;padding:13px 15px;border:1px solid #4a6889;background:#0b1220;color:#fff;border-radius:12px;outline-offset:3px}
+    input:focus{outline:2px solid #5dafff}
+    button{width:100%;margin-top:14px;font:inherit;font-weight:750;border:0;border-radius:12px;padding:13px 14px;background:#367ff5;color:white;cursor:pointer}
+    button:disabled,input:disabled{opacity:.65;cursor:wait}
+    a{color:#94c8ff}
+    .secondary{display:block;text-align:center;margin-top:20px;font-size:.95rem}
+    .status{margin:17px 0 0;min-height:22px;font-size:.92rem;line-height:1.45;color:#b5c5d5}
+    .status.error{color:#ffabab}.status.good{color:#a7e9c8}
+    .hint{margin:19px 0 0;font-size:.78rem;color:#8496ae}
+    [hidden]{display:none!important}
+  </style>
+</head>
+<body>
+<main>
+  <h1>ELYON SellerTool entsperren</h1>
+  <p>Hier kannst du deine SellerTool-Sitzung direkt wiederherstellen, auch wenn das automatische Anmeldefenster nicht erscheint.</p>
+  <form id="unlockForm" hidden>
+    <label for="sellerCode">ELYON-Sicherheitscode</label>
+    <input id="sellerCode" type="password" autocomplete="current-password" required spellcheck="false" maxlength="512">
+    <button id="unlockSubmit" type="submit">Sicher anmelden</button>
+  </form>
+  <div id="result" class="status" role="status" aria-live="polite">Anmeldestatus wird überprüft …</div>
+  <a class="secondary" href="/">Zum ELYON SellerTool</a>
+  <p class="hint">Der Sicherheitscode wird nur über die verschlüsselte Verbindung an deine eigene ELYON-API gesendet und nicht im Browser gespeichert. Bitte niemals im Chat teilen.</p>
+</main>
+<script>
+(() => {
+  "use strict";
+  const form=document.getElementById("unlockForm");
+  const input=document.getElementById("sellerCode");
+  const submit=document.getElementById("unlockSubmit");
+  const status=document.getElementById("result");
+  const setStatus=(message,tone="")=>{status.textContent=message;status.className="status"+(tone?" "+tone:"");};
+  async function session(method,body){
+    const options={method,credentials:"same-origin",cache:"no-store",headers:{Accept:"application/json"}};
+    if(method==="POST"){
+      options.headers["Content-Type"]="application/json";
+      options.body=JSON.stringify(body);
+    }
+    const response=await fetch("/api/auth/session",options);
+    const data=await response.json().catch(()=>({}));
+    return {response,data};
+  }
+  async function check(){
+    try{
+      const {response,data}=await session("GET");
+      if(!response.ok||data.ok!==true)throw Error("ELYON konnte die Sitzung nicht prüfen.");
+      if(data.authenticated===true){
+        setStatus("Du bist auf dieser Adresse bereits angemeldet. Weiterleitung zum SellerTool …","good");
+        window.location.replace("/");
+        return;
+      }
+      if(data.configured!==true){
+        setStatus("Der ELYON-Sicherheitscode ist auf dem Server nicht eingerichtet. Bitte zuerst die Serverkonfiguration prüfen.","error");
+        return;
+      }
+      form.hidden=false;
+      setStatus("Deine Sitzung ist abgelaufen oder fehlt. Gib deinen bisherigen ELYON-Sicherheitscode ein.");
+      input.focus();
+    }catch{
+      setStatus("Die Anmeldung konnte nicht geprüft werden. Prüfe die Verbindung und lade diese Seite erneut.","error");
+    }
+  }
+  form.addEventListener("submit",async(event)=>{
+    event.preventDefault();
+    const token=input.value;
+    if(!token.trim()){setStatus("Bitte deinen ELYON-Sicherheitscode eingeben.","error");input.focus();return;}
+    input.disabled=true;submit.disabled=true;setStatus("Sichere Anmeldung wird geprüft …");
+    try{
+      const {response,data}=await session("POST",{token});
+      if(!response.ok||data.authenticated!==true){
+        setStatus(data.message||"Anmeldung fehlgeschlagen. Bitte Sicherheitscode prüfen.","error");
+        return;
+      }
+      const verified=await session("GET");
+      if(!verified.response.ok||verified.data.authenticated!==true){
+        setStatus("Der Server hat die Anmeldung angenommen, aber die Browser-Sitzung wurde nicht gespeichert. Bitte Cookies für diese Adresse zulassen.","error");
+        return;
+      }
+      setStatus("Erfolgreich angemeldet! Du wirst zum SellerTool weitergeleitet.","good");
+      window.location.replace("/");
+    }catch{
+      setStatus("Netzwerkfehler während der Anmeldung. Bitte erneut versuchen.","error");
+    }finally{
+      input.value="";
+      input.disabled=false;submit.disabled=false;
+    }
+  });
+  check();
+})();
+</script>
+</body>
+</html>
