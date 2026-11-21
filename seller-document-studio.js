@@ -152,13 +152,16 @@
       option.value = TAB_ID;
       option.textContent = "📄 Dokumentenstudio";
       menu.appendChild(option);
+    }
+    if (menu && !menu.dataset.edsWired) {
+      menu.dataset.edsWired = "1";
       menu.addEventListener("change", () => {
-        if (menu.value === TAB_ID) openStudio(false);
+        if (menu.value === TAB_ID) openStudio();
         else hideStudio();
       });
     }
     const nav = document.querySelector(".nav-menu");
-    if (nav && !el("elyonDocumentStudioNav")) {
+    if (nav && !el("elyonDocumentStudioNav") && !el("elyonDocumentStudioRuntimeNav")) {
       const link = document.createElement("a");
       link.id = "elyonDocumentStudioNav";
       link.href = "#dokumentenstudio";
@@ -464,12 +467,20 @@
   }
 
   function start() {
+    if (!el("elyonDocumentStudioStyles")) {
+      const stylesheet = document.createElement("link");
+      stylesheet.id = "elyonDocumentStudioStyles";
+      stylesheet.rel = "stylesheet";
+      stylesheet.href = "/seller-document-studio.css?v=docs-v1-20261121";
+      document.head.appendChild(stylesheet);
+    }
     installEntry();
     window.addEventListener("hashchange", () => {
       if (location.hash === "#dokumentenstudio") openStudio(false);
       else hideStudio();
     });
     if (location.hash === "#dokumentenstudio") openStudio(false);
+    else if (el("mainMenu")?.value === TAB_ID) openStudio();
   }
 
   window.ElyonDocumentStudio = { open: openStudio };
