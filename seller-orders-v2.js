@@ -137,23 +137,62 @@ function nextActionMarkup(order) {
   </div>`;
 }
 function checklistMarkup(order, op) {
-  const assessment = completionFor(order, op);
-  return `<section class="ocv4-checklist" aria-label="Abschlussprüfung">
-    <div class="ocv4-checklist-heading"><strong>Aufgaben & Abschlussprüfung</strong>
-      <span>${assessment.checks.filter((item) => item.done).length} / ${assessment.checks.length} erledigt</span></div>
-    <div class="ocv4-task-list">${assessment.checks.map((item) =>
-      `<button type="button" data-ocv2-section="${h(item.section)}" class="ocv4-task ${item.done ? "done" : "open"}">
-        <span class="ocv4-check" aria-hidden="true">${item.done ? "✓" : "·"}</span>
-        <span>${h(state.demoMode && item.key === "invoice" ? "Musterrechnung geprüft (Demo)" : item.title)}${item.required ? "" : ' <small>(empfohlen)</small>'}</span>
-        <span class="ocv4-task-action">${item.done ? "Erledigt" : "Prüfen"}</span>
-      </button>`).join("")}</div>
-    <div class="ocv4-complete">
-      <button type="button" data-ocv4-complete ${assessment.ready && !state.actionBusy ? "" : "disabled"}>
-        ${assessment.ready ? "Bestellung zum Abschluss vormerken" : "Abschluss noch gesperrt"}
-      </button>
-      <small>${assessment.ready ? "Nach dem Vormerken intern sichern. Der Server prüft eBay und Rechnungsstand erneut." :
-      "Erforderliche Schritte zuerst erledigen. Ist-Kosten bleiben eine separate Empfehlung."}</small>
-    </div></section>`;
+  const assessment = completionFor(order, op); // Keep the original required safety checks unchanged.
+  const checks = assessment.checks;
+  const byKey = (key) => checks.find((check) => check.key === key);
+  const required = checks.filter((check) => check.required);
+  const payment = byKey("payment");
+  const groups = [
+    { label: "Einkauf", section: "supplier", keys: ["supplier", "supplierOrder"] },
+    { label: "Versand", section: "shipping", keys: ["carrier", "ebayShipping"] },
+    { label: state.demoMode ? "Musterrechnung" : "Rechnung", section: "finance", keys: ["invoice"] }
+  ];
+  const sectionsCompleted = groups.filter((group) => group.keys.every((key) => byKey(key)?.done)).length;
+  const groupMarkup = groups.map((group, index) => {
+    const items = group.keys.map(byKey).filter(Boolean);
+    const done = items.filter((item) => item.done).length;
+    const complete = done === group.keys.length;
+    const pending = items.find((item) => !item.done);
+    const pendingTitle = state.demoMode && pending?.key === "invoice"
+      ? "Musterrechnung prüfen (Demo)" : pending?.title;
+    return '<button type="button" data-ocv2-section="' + h(group.section) +
+      '" class="ocv4-step-row ' + (complete ? "done" : "open") +
+      '" aria-label="' + h(group.label) + ": " + h(complete ? "erledigt" : (pendingTitle || "Bitte prüfen") + " offen") + '. Bereich öffnen">' +
+      '<span class="ocv4-step-icon" aria-hidden="true">' + (complete ? "✓" : index + 1) + '</span>' +
+      '<span class="ocv4-step-main"><strong>' + h(group.label) + '</strong><small>' +
+      h(complete ? "Alle Angaben geprüft" : pendingTitle || "Bitte prüfen") + '</small></span>' +
+      '<span class="ocv4-step-count">' + done + '/' + group.keys.length + '</span>' +
+      '<span class="ocv4-step-chevron" aria-hidden="true">›</span></button>';
+  }).join("");
+  const nextMandatory = required.find((check) => !check.done);
+  const details = checks.map((item) =>
+    '<button type="button" data-ocv2-section="' + h(item.section) + '" class="ocv4-task ' +
+    (item.done ? "done" : "open") + '">' +
+    '<span class="ocv4-check" aria-hidden="true">' + (item.done ? "✓" : "·") + '</span>' +
+    '<span>' + h(state.demoMode && item.key === "invoice" ? "Musterrechnung geprüft (Demo)" : item.title) +
+    (item.required ? "" : ' <small>(optional)</small>') + '</span>' +
+    '<span class="ocv4-task-action">' + (item.done ? "Erledigt" : "Prüfen") + '</span></button>'
+  ).join("");
+  const bottomHint = assessment.ready
+    ? "Intern vormerken und anschließend sichern. Der Server prüft eBay- und Rechnungsstatus erneut."
+    : nextMandatory
+      ? "Noch offen: " + h(state.demoMode && nextMandatory.key === "invoice"
+          ? "Musterrechnung prüfen (Demo)" : nextMandatory.title) + ". Die Ist-Kosten sind optional."
+      : "Pflichtprüfungen noch nicht abgeschlossen.";
+  return '<section class="ocv4-checklist ocv4-checklist-simple" aria-label="Bestellung abschließen">' +
+    '<div class="ocv4-checklist-heading"><strong>Bestellung abschließen</strong><span>' +
+      sectionsCompleted + ' von 3 Bereichen erledigt</span></div>' +
+    '<div class="ocv4-auto-payment ' + (payment?.done ? "done" : "open") + '" role="status">' +
+      '<span aria-hidden="true">' + (payment?.done ? "✓" : "!") + '</span><span>' +
+      (payment?.done ? "eBay-Zahlung automatisch bestätigt" : "eBay-Zahlung noch nicht bestätigt") +
+      '</span><small>' + (payment?.done ? "Keine Eingabe nötig" : "Bitte Zahlungseingang abwarten") + '</small></div>' +
+    '<div class="ocv4-step-list">' + groupMarkup + '</div>' +
+    '<details class="ocv4-checklist-details"><summary>Alle Prüfpunkte anzeigen</summary>' +
+      '<div class="ocv4-task-list">' + details + '</div></details>' +
+    '<div class="ocv4-complete"><button type="button" data-ocv4-complete ' +
+      (assessment.ready && !state.actionBusy ? "" : "disabled") + '>' +
+      (assessment.ready ? "Bestellung zum Abschluss vormerken" : "Abschluss noch nicht möglich") +
+      '</button><small>' + bottomHint + '</small></div></section>';
 }
 function detailsMarkup(order) {
   const op = { ...opFor(order.id), ...obj(state.drafts[order.id]) };
@@ -225,7 +264,6 @@ function detailsMarkup(order) {
     ${progressMarkup(order, op)}
     ${sectionNav()}
     <section class="ocv2-pane" data-pane="overview" ${state.activeSection!=="overview"?"hidden":""}>
-    ${nextActionMarkup(order)}
     ${checklistMarkup(order, op)}
     <div class="ocv2-details-meta"><span>${h(date(order.createdAt))}</span><strong>${h(money(order.total, order.currency))}</strong></div>
     <div class="ocv2-chips"><span>Bezahlung: ${h(order.paymentStatus)}</span><span>eBay-Versand: ${h(order.fulfillmentStatus)}</span>
