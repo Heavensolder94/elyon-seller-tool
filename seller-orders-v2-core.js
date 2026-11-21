@@ -265,3 +265,52 @@ export function normalizeOperationInput(input = {}) {
 }
 
 export { ELYON_SKU };
+
+
+// Read-only projection for a manual "Dokument erstellen" handoff.
+// Never includes internal buy prices, supplier information, invoice details or customer email.
+// Transport stays in memory; only an explicit Dokumentenstudio save may persist a draft.
+export function buildOrderDocumentContext(order, { demo = false, carrier = "", trackingNumber = "" } = {}) {
+  const entry = object(order);
+  const orderId = text(entry.id).slice(0, 100);
+  if (!orderId || !/^[A-Za-z0-9_-]{5,100}$/.test(orderId)) return null;
+  const postal = object(entry.shippingAddress);
+  const clean = (value, limit = 160) => text(value).replace(/[\r\n]+/g, " ").slice(0, limit);
+  const recipientName = clean(entry.recipient || postal.recipient, 160);
+  const addressParts = [
+    recipientName,
+    clean(postal.street, 120),
+    clean(postal.extra, 120),
+    [clean(postal.postalCode, 20), clean(postal.city, 100)].filter(Boolean).join(" "),
+    clean(postal.country, 20)
+  ].filter(Boolean);
+  const lines = (Array.isArray(entry.lines) ? entry.lines : []).slice(0, 40).map((raw) => {
+    const line = object(raw);
+    const quantity = Number(line.quantity);
+    const value = Number(line.total);
+    return {
+      title: clean(line.title || "Artikel", 220),
+      quantity: Number.isSafeInteger(quantity) && quantity >= 1 && quantity <= 100000 ? quantity : 1,
+      lineTotal: line.total === null || line.total === undefined || line.total === "" ||
+        !Number.isFinite(value) || value < 0 ? null : Math.round(value * 100) / 100,
+    };
+  });
+  const amount = Number(entry.total);
+  const total = entry.total === null || entry.total === undefined || entry.total === "" ||
+    !Number.isFinite(amount) || amount < 0 ? null : Math.round(amount * 100) / 100;
+  const currency = /^[A-Z]{3}$/.test(text(entry.currency).toUpperCase()) ? text(entry.currency).toUpperCase() : "EUR";
+  const createdDate = new Date(entry.createdAt);
+  const createdAt = entry.createdAt && Number.isFinite(createdDate.getTime()) ? createdDate.toISOString() : "";
+  return {
+    source: "ebay_order", orderId, createdAt,
+    recipientName, recipientAddress: addressParts.join("\n").slice(0, 300),
+    addressComplete: Boolean(recipientName && postal.street && postal.postalCode && postal.city),
+    buyerRef: clean(entry.buyerRef, 100),
+    paymentStatus: clean(entry.paymentStatus, 30).toUpperCase(),
+    fulfillmentStatus: clean(entry.fulfillmentStatus, 30).toUpperCase(),
+    cancelStatus: clean(entry.cancelStatus, 40).toUpperCase(),
+    lines, total, currency,
+    carrier: clean(carrier, 80), trackingNumber: clean(trackingNumber, 120),
+    demo: demo === true
+  };
+}
