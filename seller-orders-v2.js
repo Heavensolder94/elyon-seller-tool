@@ -1,7 +1,7 @@
 import {
   escapeHtml as h, normalizeEbayOrder, workflowStatus, paymentConfirmed,
   productForLine, estimatedOrderCosts, actualOrderProfit, summarizeOrders,
-  visibleOrders, normalizeOperationInput, financeOrderCostHints, suggestRecordedCosts,
+  visibleOrders, normalizeOperationInput, financeOrderCostHints, suggestRecordedCosts, orderCompletionChecklist,
 } from "./seller-orders-v2-core.js";
 
 const ROOT_ID = "elyonOrdersV2Root";
@@ -63,7 +63,7 @@ const state = {
   selectedId: "", filter: "all", query: "", days: 90, loading: false,
   saving: false, refreshedAt: "", error: "", warning: "", saveNotice: "",
   truncated: false, sourceReady: false, financeReady: false, drafts: {},
-  demoMode: false, activeSection: "overview", demoModal: "", demoNotice: "", financeCostHints: {},
+  demoMode: false, activeSection: "overview", demoModal: "", demoNotice: "", financeCostHints: {}, actionBusy: false,
 };
 try { const v = Number(localStorage.getItem(RANGE_KEY)); if ([7, 30, 90].includes(v)) state.days = v; } catch {}
 
@@ -117,21 +117,39 @@ function progressMarkup(order, op) {
     return `<button type="button" data-ocv2-phase="${id}" aria-label="Internen Schritt ${h(label)} auswählen" aria-current="${!finished && index===i?"step":"false"}" class="${done?"done":i===index?"current":""}"><span class="ocv2-dot">${done?"✓":i+1}</span><span>${h(label)}</span></button>`;
   }).join("")}</div>`;
 }
+function completionFor(order, op) {
+  const invoice = state.demoMode
+    ? { issued: demoInvoiceChecks.has(order.id), invoiceNumber: demoInvoiceChecks.has(order.id) ? "DEMO-MUSTER" : "" }
+    : state.invoices[order.id];
+  return orderCompletionChecklist(order, op, invoice);
+}
 function nextActionMarkup(order) {
-  const status = statusOf(order);
-  const actions = {
-    new:["Lieferant und EK prüfen","supplier"],
-    processing:["Lieferantenbestellung dokumentieren","supplier"],
-    supplier_ordered:["Versand und Tracking vorbereiten","shipping"],
-    shipped:["Kosten und Ergebnis kontrollieren","finance"],
-    completed:["Rechnungsstand prüfen","finance"],
-    issue:["Problemfall dokumentieren","supplier"],
-    awaiting_payment:["Erst eBay-Zahlung prüfen","overview"],
-    cancelled:["Stornierung prüfen","overview"],
-  };
-  const [label,section] = actions[status] || actions.new;
-  return `<div class="ocv2-next"><span><small>Nächster Schritt</small><strong>${h(label)}</strong></span>
-    <button type="button" data-ocv2-section="${section}">Öffnen →</button></div>`;
+  const completion = completionFor(order, { ...opFor(order.id), ...obj(state.drafts[order.id]) });
+  const next = completion.next;
+  const nextTitle = state.demoMode && next?.key === "invoice" ? "Musterrechnung in der Demo prüfen" : next?.title;
+  return `<div class="ocv2-next"><span><small>${completion.ready ? "Bereit zum Abschluss" : "Nächster Schritt"}</small>
+    <strong>${h(nextTitle || "Alle erforderlichen Schritte erledigt")}</strong></span>
+    ${next ? `<button type="button" data-ocv2-section="${h(next.section)}">Öffnen →</button>` : ""}
+  </div>`;
+}
+function checklistMarkup(order, op) {
+  const assessment = completionFor(order, op);
+  return `<section class="ocv4-checklist" aria-label="Abschlussprüfung">
+    <div class="ocv4-checklist-heading"><strong>Aufgaben & Abschlussprüfung</strong>
+      <span>${assessment.checks.filter((item) => item.done).length} / ${assessment.checks.length} erledigt</span></div>
+    <div class="ocv4-task-list">${assessment.checks.map((item) =>
+      `<button type="button" data-ocv2-section="${h(item.section)}" class="ocv4-task ${item.done ? "done" : "open"}">
+        <span class="ocv4-check" aria-hidden="true">${item.done ? "✓" : "·"}</span>
+        <span>${h(state.demoMode && item.key === "invoice" ? "Musterrechnung geprüft (Demo)" : item.title)}${item.required ? "" : ' <small>(empfohlen)</small>'}</span>
+        <span class="ocv4-task-action">${item.done ? "Erledigt" : "Prüfen"}</span>
+      </button>`).join("")}</div>
+    <div class="ocv4-complete">
+      <button type="button" data-ocv4-complete ${assessment.ready && !state.actionBusy ? "" : "disabled"}>
+        ${assessment.ready ? "Bestellung zum Abschluss vormerken" : "Abschluss noch gesperrt"}
+      </button>
+      <small>${assessment.ready ? "Nach dem Vormerken intern sichern. Der Server prüft eBay und Rechnungsstand erneut." :
+      "Erforderliche Schritte zuerst erledigen. Ist-Kosten bleiben eine separate Empfehlung."}</small>
+    </div></section>`;
 }
 function detailsMarkup(order) {
   const op = { ...opFor(order.id), ...obj(state.drafts[order.id]) };
@@ -193,13 +211,17 @@ function detailsMarkup(order) {
     `<h4>Lieferadresse laut eBay</h4><div class="ocv2-address">${addressParts.map(h).join("<br>")}
     <p class="ocv2-hint">Vor dem Einkauf beim Lieferanten mit dem eBay-Auftrag abgleichen.</p></div>` : "";
   return `<div class="ocv2-details-head"><div><small>eBay-Bestellung</small><h3>${h(order.id)}</h3></div><span class="ocv2-state ocv2-state--${h(status)}">${h(statusLabels[status] || status)}</span></div>
+    ${state.error ? `<p class="ocv2-alert" role="alert">${h(state.error)}</p>` : ""}
+    ${state.warning ? `<p class="ocv2-warning" role="status">${h(state.warning)}</p>` : ""}
+    ${state.saveNotice ? `<p class="ocv2-success" role="status">${h(state.saveNotice)}</p>` : ""}
     ${progressMarkup(order, op)}
     ${sectionNav()}
     <section class="ocv2-pane" data-pane="overview" ${state.activeSection!=="overview"?"hidden":""}>
     ${nextActionMarkup(order)}
+    ${checklistMarkup(order, op)}
     <div class="ocv2-details-meta"><span>${h(date(order.createdAt))}</span><strong>${h(money(order.total, order.currency))}</strong></div>
     <div class="ocv2-chips"><span>Bezahlung: ${h(order.paymentStatus)}</span><span>eBay-Versand: ${h(order.fulfillmentStatus)}</span>
-    <span>Rechnung: ${invoice ? h(invoice.invoiceNumber) : "noch keine"}</span></div>
+    <span>Rechnung: ${state.demoMode && demoInvoiceChecks.has(order.id) ? "Muster geprüft (Demo)" : invoice ? h(invoice.invoiceNumber) : "noch keine"}</span></div>
     ${!paymentConfirmed(order) ? '<p class="ocv2-alert">eBay meldet die Bestellung nicht als vollständig bezahlt. Vor einem Einkauf bitte überprüfen.</p>' : ""}
     <h4>Artikel & Produktverknüpfungen</h4><div class="ocv2-lines">${lines}</div>
     ${shippingAddress}
@@ -214,12 +236,15 @@ function detailsMarkup(order) {
       </div></section>
       <section class="ocv2-pane" data-pane="shipping" ${state.activeSection!=="shipping"?"hidden":""}>
       <h4>Versand vorbereiten</h4>
-      <p class="ocv2-hint">Die Sendungsdaten sind zunächst nur intern. eBay wird nicht automatisch benachrichtigt.</p>
+      <p class="ocv2-hint">Die Sendungsdaten zunächst intern sichern. Erst die gesondert bestätigte eBay-Meldung verändert den Versandstatus bei eBay.</p>
       <div class="ocv2-fields">
         <label>Versanddienstleister<input name="carrier" maxlength="80" value="${h(op.carrier || "")}" placeholder="z. B. DHL"></label>
         <label>Trackingnummer<input name="trackingNumber" maxlength="120" value="${h(op.trackingNumber || "")}" placeholder="Sendungsnummer"></label>
-      </div></section>
+      </div><div class="ocv4-inline-action"><span>eBay-Versandstatus: ${h(order.fulfillmentStatus)}</span><button type="button" data-order-ebay-shipping ${state.actionBusy || !state.financeReady && !state.demoMode ? "disabled" : ""}>${state.demoMode ? "Versand simulieren" : "Versand an eBay melden"}</button></div>
+      <p class="ocv2-hint">Der Button sendet erst nach ausdrücklicher Bestätigung. Ohne gespeicherten Lieferantenauftrag und Tracking wird nichts versendet.</p></section>
       <section class="ocv2-pane" data-pane="finance" ${state.activeSection!=="finance"?"hidden":""}>
+      <h4>Rechnung</h4><div class="ocv4-inline-action"><span>${state.demoMode && demoInvoiceChecks.has(order.id) ? "Musterrechnung geprüft – keine echte Rechnung erstellt." : invoice ? `Rechnung ${h(invoice.invoiceNumber)} ist ausgestellt.` : "Noch keine ausgestellte Rechnung vorhanden."}</span>
+      <button type="button" data-order-invoice ${state.actionBusy ? "disabled" : ""}>${invoice ? "Rechnung öffnen" : "Rechnung prüfen / ausstellen"}</button></div>
       <h4>Kosten und Gewinn</h4>
       ${help}
       ${sourceInfo}
@@ -232,7 +257,7 @@ function detailsMarkup(order) {
         <button type="button" data-order-shipping>Versand öffnen</button><button type="button" data-order-invoice>Rechnung öffnen</button></div>
       ${state.demoMode ? '<div class="ocv2-demo-note">Demo: Kein API-Aufruf, keine Bestellung beim Lieferanten, kein eBay-Update.</div>' : ""}
       ${state.demoMode && DEMO.history.length ? `<div class="ocv2-demo-history"><strong>Letzte Demo-Aktionen</strong>${DEMO.history.slice(0,3).map((entry) => `<span>• ${h(entry)}</span>`).join("")}</div>` : ""}
-      <p class="ocv2-hint">Interne Angaben werden revisionsgeschützt gespeichert. Kein automatischer Lieferantenkauf, keine eBay-Versandmeldung und keine Rechnungsausstellung.</p>
+      <p class="ocv2-hint">Interne Angaben werden revisionsgeschützt gespeichert. Lieferantenkäufe bleiben manuell; eBay-Versand und Rechnungen erfordern jeweils deine ausdrückliche Bestätigung.</p>
     </form>`;
 }
 // All demonstration dialogs are local UI only. Never create invoice numbers or call any API.
@@ -314,6 +339,7 @@ function submitDemoShipping(form) {
   if (!["DHL","Hermes","DPD","GLS","UPS","Sonstige"].includes(carrier) || trackingNumber.length < 3) return;
   DEMO.operations[order.id] = { ...obj(DEMO.operations[order.id]), carrier, trackingNumber,
     workflowStatus:"SHIPPED" };
+  order.fulfillmentStatus = "FULFILLED"; // demo-only eBay status simulation, no network
   // Clear only the draft fields we just simulated; other unsaved inputs stay untouched.
   if (state.drafts[order.id]) {
     state.drafts[order.id] = { ...state.drafts[order.id], carrier, trackingNumber, workflowStatus:"SHIPPED" };
@@ -488,6 +514,14 @@ function choosePhase(next) {
     state.warning = "eBay meldet noch keine vollständige Zahlung. Bearbeitung beim Lieferanten erst nach Zahlungsprüfung fortsetzen.";
     render(); return;
   }
+  if (next === "COMPLETED") {
+    const assessment = completionFor(order, { ...opFor(order.id), ...obj(state.drafts[order.id]) });
+    if (!assessment.ready) {
+      state.activeSection = "overview";
+      state.warning = "Abschluss gesperrt: " + assessment.blockers.map((item) => item.title).join(" · ");
+      render(); return;
+    }
+  }
   state.warning = "";
   if (state.demoMode) {
     DEMO.operations[order.id] = { ...opFor(order.id), workflowStatus: next };
@@ -519,6 +553,68 @@ function updateLiveProfit(form) {
   indicator.classList.toggle("is-loss", profit !== null && profit < 0);
   indicator.classList.add("is-provisional");
 }
+async function openOrderInvoice() {
+  if (state.demoMode) return openDemoModal("invoice");
+  const order = state.orders.find((item) => item.id === state.selectedId);
+  if (!order || state.actionBusy) return;
+  if (Object.keys(state.drafts).length) {
+    state.warning = "Bitte zuerst deine internen Bestelländerungen sichern, bevor du eine Rechnung ausstellst.";
+    render(); return;
+  }
+  state.actionBusy = true; state.error = ""; state.warning = ""; render();
+  try {
+    // Reuse the existing verified Kleinunternehmer invoice flow (same server, numbering, print).
+    await import("/seller-order-invoices.js");
+    if (!window.ElyonOrderInvoices?.create) throw new Error("Die Rechnungszentrale konnte nicht geladen werden.");
+    await window.ElyonOrderInvoices.create({ id: order.id });
+    const finance = await json("/api/orders/operations");
+    state.invoices = obj(finance.invoices);
+    state.operations = obj(finance.orderOperations);
+    state.revision = finance.revision;
+    state.saveNotice = state.invoices[order.id]
+      ? "Rechnungsstand aus der Buchhaltung aktualisiert."
+      : "Es wurde keine neue Rechnung bestätigt. Bitte die Hinweise der Rechnungszentrale prüfen.";
+  } catch (error) {
+    state.error = "Rechnung nicht geöffnet: " + error.message;
+  } finally { state.actionBusy = false; state.activeSection = "finance"; render(); }
+}
+async function sendOrderShipping() {
+  if (state.demoMode) return openDemoModal("shipping");
+  const order = state.orders.find((item) => item.id === state.selectedId);
+  if (!order || state.actionBusy) return;
+  const op = opFor(order.id);
+  if (Object.keys(state.drafts).length) {
+    state.warning = "Versandmeldung noch gesperrt: Bitte zuerst alle internen Änderungen speichern.";
+    render(); return;
+  }
+  if (!paymentConfirmed(order) || !op.supplierName || !op.supplierOrderId ||
+      !op.carrier || !op.trackingNumber) {
+    state.warning = "Vor der eBay-Versandmeldung: Zahlung, Lieferant, Lieferantenbestellnummer sowie Carrier und Tracking prüfen und intern sichern.";
+    render(); return;
+  }
+  if (order.fulfillmentStatus === "FULFILLED") {
+    state.warning = "eBay meldet diese Bestellung bereits als versendet. Es wird nichts erneut gesendet.";
+    render(); return;
+  }
+  if (!window.confirm("ECHTE eBay-Versandmeldung für Bestellung " + order.id + " auslösen?\n" +
+    op.carrier + " · " + op.trackingNumber +
+    "\n\nNur bestätigen, wenn die Ware tatsächlich versendet wurde. Diese Aktion verändert den eBay-Versandstatus.")) return;
+  state.actionBusy = true; state.error = ""; state.warning = ""; render();
+  try {
+    const outcome = await json("/api/orders/shipping", {
+      method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ orderId: order.id, carrier: op.carrier, trackingNumber: op.trackingNumber,
+        expectedRevision: state.revision, confirmation: "CONFIRM_EBAY_SHIPPING" }),
+    });
+    state.saveNotice = outcome.message || "eBay hat die Versandmeldung angenommen.";
+    state.actionBusy = false;
+    await refresh(); // Read eBay status back. Never invent a successful shipment state.
+    state.saveNotice = outcome.message || "eBay hat die Versandmeldung angenommen.";
+    state.activeSection = "shipping";
+  } catch (error) {
+    state.error = "Keine bestätigte Versandmeldung: " + error.message;
+  } finally { state.actionBusy = false; render(); }
+}
 function goToTab(tab) {
   const select = document.getElementById("mainMenu");
   if (select) {
@@ -530,6 +626,8 @@ function bind() {
   const host = root();
   if (!host) return;
   host.addEventListener("click", (event) => {
+    if (event.target.closest("[data-ocv4-complete]")) return choosePhase("COMPLETED");
+    if (event.target.closest("[data-order-ebay-shipping]")) return void sendOrderShipping();
     if (event.target.closest("[data-ocv3-drawer-close]")) return closeOrderDrawer();
     if (event.target.closest("[data-demo-modal-close]")) return closeDemoModal();
     if (event.target.closest("[data-demo-invoice-check]") && state.demoMode && state.demoModal === "invoice") {
@@ -551,14 +649,10 @@ function bind() {
     if (choose) { state.selectedId = choose.dataset.orderOpen; state.activeSection = "overview"; state.saveNotice = ""; render(); root()?.querySelector(".ocv3-drawer-content")?.focus(); return; }
     const filter = event.target.closest("[data-ocv2-filter]");
     if (filter) { state.filter = filter.dataset.ocv2Filter; return render(); }
-    if (event.target.closest("[data-order-invoice]")) {
-      if (state.demoMode) return openDemoModal("invoice");
-      if (window.ElyonSellerFinance?.openInvoices) window.ElyonSellerFinance.openInvoices();
-      else goToTab("financeTab");
-    }
+    if (event.target.closest("[data-order-invoice]")) return void openOrderInvoice();
     if (event.target.closest("[data-order-shipping]")) {
       if (state.demoMode) return openDemoModal("shipping");
-      goToTab("automationTab");
+      return changeSection("shipping");
     }
   });
   host.addEventListener("input", (event) => {

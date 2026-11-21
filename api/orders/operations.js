@@ -1,6 +1,7 @@
 import { requireSellerAccess } from "../../lib/seller-access.js";
 import { readFinanceState, writeFinanceState, getFinanceStoreDescription } from "../../lib/finance-store.js";
-import { normalizeOperationInput, financeOrderCostHints } from "../../seller-orders-v2-core.js";
+import { normalizeOperationInput, financeOrderCostHints, normalizeEbayOrder, orderCompletionChecklist } from "../../seller-orders-v2-core.js";
+import { ebayUserSession, callEbayJson } from "../../lib/ebay-production.js";
 
 const text = (value) => String(value ?? "").trim();
 
@@ -15,7 +16,7 @@ export default async function handler(req, res) {
     if (req.method === "GET") {
       const state = await readFinanceState();
       const invoices = Object.fromEntries(Object.entries(state.invoiceMeta || {})
-        .filter(([, entry]) => entry?.immutable && entry?.invoiceNumber)
+        .filter(([, entry]) => entry?.immutable === true && entry?.invoiceNumber && entry?.invoice?.invoiceNumber === entry.invoiceNumber)
         .map(([id, entry]) => [id, { invoiceNumber: entry.invoiceNumber, issued: true }]));
       return res.status(200).json({
         ok: true, revision: state.revision, orderOperations: state.orderOperations || {},
@@ -35,9 +36,32 @@ export default async function handler(req, res) {
     if (!body.operation || typeof body.operation !== "object" || Array.isArray(body.operation)) {
       return res.status(400).json({ ok: false, error: "operation_required" });
     }
-    const operation = { ...normalizeOperationInput(body.operation), updatedAt: new Date().toISOString(), source: "orders_center_v2" };
+    const operation = { ...normalizeOperationInput(body.operation), updatedAt: new Date().toISOString(), source: "orders_center_v4" };
+    if (operation.workflowStatus === "COMPLETED") {
+      // Verify independently of client-submitted order data before allowing a final closure.
+      const session = await ebayUserSession("production");
+      const fresh = await callEbayJson(
+        "https://api.ebay.com/sell/fulfillment/v1/order/" + encodeURIComponent(orderId),
+        { headers: { Authorization: "Bearer " + session.accessToken, Accept: "application/json" } }
+      );
+      if (text(fresh.orderId) !== orderId) return res.status(409).json({
+        ok: false, error: "order_identity_mismatch", message: "eBay hat die Bestellidentität nicht bestätigt."
+      });
+      const finance = await readFinanceState();
+      if (finance.revision !== body.expectedRevision) return res.status(409).json({
+        ok: false, error: "finance_conflict", message: "Der Finanzstand wurde geändert. Bitte neu laden.",
+        currentRevision: finance.revision,
+      });
+      const verifiedInvoice = finance.invoiceMeta?.[orderId];
+      const readiness = orderCompletionChecklist(normalizeEbayOrder(fresh), operation, verifiedInvoice);
+      if (!readiness.ready) return res.status(409).json({
+        ok: false, error: "order_completion_blocked",
+        message: "Abschluss gesperrt: " + readiness.blockers.map((item) => item.title).join(" · "),
+        blockers: readiness.blockers.map(({ key, title, section }) => ({ key, title, section })),
+      });
+    }
     const result = await writeFinanceState({ orderOperations: { [orderId]: operation } }, {
-      action: "order_operation_updated", actor: "seller", source: "orders_center_v2",
+      action: "order_operation_updated", actor: "seller", source: "orders_center_v4",
       summary: "Interner Bestellstatus, Lieferanten- oder Kostendaten bearbeitet.",
     }, { expectedRevision: body.expectedRevision });
     if (!result.ok) return res.status(result.conflict ? 409 : 503).json({

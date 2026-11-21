@@ -96,7 +96,7 @@ test("order list pagination, projection and build are all wired into production 
   assert.match(prepare, /seller-orders-v2-core\.js/);
   assert.match(prepare, /seller-orders-v2\.css/);
   assert.match(prepare, /seller-orders-v2\.js/);
-  assert.match(ui, /ElyonSellerFinance\.openInvoices/);
+  assert.match(ui, /ElyonOrderInvoices\.create/);
   assert.match(ui, /data-order-shipping/);
   assert.match(ui, /normalizeOperationInput\(values\)/);
   assert.match(css, /#ordersTab\.elyon-orders-v2-active > :not\(#elyonOrdersV2Root\)/);
