@@ -218,6 +218,7 @@
   }
 
   function handleInput(event) {
+    if (event.target?.id === "edsSearch") { state.search = event.target.value.toLowerCase(); renderList(); return; }
     if (!["edsTitle", "edsKind", "edsRecipient", "edsReference", "edsEditor"].includes(event.target?.id)) return;
     state.dirty = true;
     status("Nicht gespeicherte Änderungen.");
@@ -358,8 +359,9 @@
   function printDocument() {
     const doc = readForm();
     if (!doc) return;
-    const popup = window.open("", "_blank", "noopener,noreferrer,width=960,height=1100");
+    const popup = window.open("", "_blank", "width=960,height=1100");
     if (!popup) return status("Druckfenster wurde blockiert. Pop-ups für ELYON erlauben.", true);
+    popup.opener = null;
     popup.document.open();
     popup.document.write('<!doctype html><html lang="de"><head><meta charset="utf-8"><title>' + escapeHtml(doc.title) + '</title><style>@page{size:A4;margin:19mm}body{font:14px/1.6 Arial,sans-serif;color:#172033;margin:0}h1,h2,h3{break-after:avoid}table{border-collapse:collapse;width:100%}td,th{border:1px solid #cbd5e1;padding:7px}p{margin:0 0 12px}blockquote{border-left:3px solid #94a3b8;padding-left:12px}*{box-sizing:border-box}</style></head><body>' + resolved(doc) + '</body></html>');
     popup.document.close();
