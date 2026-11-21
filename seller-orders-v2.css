@@ -153,3 +153,43 @@ body.light #elyonOrdersV2Root .ocv2-demo-banner strong { color:#312e81; }
 #elyonOrdersV2Root .ocv2-demo-history strong { color:#c7d2fe; font-size:12px; }
 #elyonOrdersV2Root .ocv2-demo-history span { font-size:11px; color:#94a3b8; }
 body.light #elyonOrdersV2Root button.ocv2-stat { background:#fff; color:#0f172a; }
+
+
+/* Modal previews: demo-only shipping and sample invoice; never block real order data. */
+#elyonOrdersV2Root .ocv2-demo-overlay { position:fixed; inset:0; z-index:999999; display:flex; align-items:center; justify-content:center; padding:clamp(12px,3vw,32px); background:rgba(2,6,23,.77); backdrop-filter:blur(5px); }
+#elyonOrdersV2Root .ocv2-demo-dialog { display:flex; flex-direction:column; width:min(100%,660px); max-height:calc(100dvh - 36px); min-width:0; border:1px solid rgba(165,180,252,.43); border-radius:22px; background:#111a2f; box-shadow:0 28px 100px rgba(0,0,0,.52); color:#e2e8f0; outline:none; overflow:hidden; }
+#elyonOrdersV2Root .ocv2-demo-dialog-head { display:flex; justify-content:space-between; align-items:center; gap:16px; padding:20px 23px 16px; border-bottom:1px solid rgba(148,163,184,.16); }
+#elyonOrdersV2Root .ocv2-demo-dialog-head h3 { font-size:23px; letter-spacing:-.025em; margin:5px 0 0; }
+#elyonOrdersV2Root .ocv2-demo-dialog-head small { font-size:10px; letter-spacing:.11em; font-weight:850; color:#a5b4fc; }
+#elyonOrdersV2Root .ocv2-demo-dialog-head button { font-size:18px; min-width:40px; min-height:40px; padding:7px; border-radius:12px; }
+#elyonOrdersV2Root .ocv2-demo-dialog-body { padding:18px 23px 24px; overflow-y:auto; min-height:0; }
+#elyonOrdersV2Root .ocv2-demo-dialog-body form { display:grid; gap:16px; margin:18px 0; }
+#elyonOrdersV2Root .ocv2-demo-dialog-body form button.ocv2-primary { justify-self:start; }
+#elyonOrdersV2Root .ocv2-demo-dialog-footer { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; padding:13px 23px 18px; border-top:1px solid rgba(148,163,184,.16); }
+#elyonOrdersV2Root .ocv2-demo-dialog-footer span { color:#a5b4fc; font-size:11px; }
+#elyonOrdersV2Root .ocv2-demo-panel { background:rgba(99,102,241,.08); border:1px solid rgba(129,140,248,.18); padding:13px 15px; border-radius:13px; margin-top:13px; }
+#elyonOrdersV2Root .ocv2-demo-panel strong { font-size:12px; color:#c7d2fe; }
+#elyonOrdersV2Root .ocv2-demo-panel p { font-size:12px; line-height:1.6; color:#e2e8f0; margin:8px 0 0; }
+#elyonOrdersV2Root .ocv2-invoice-sheet { background:#fff; color:#0f172a; padding:22px 21px; border-radius:13px; border:1px solid #cbd5e1; margin:18px 0; box-shadow:0 9px 30px rgba(0,0,0,.14); }
+#elyonOrdersV2Root .ocv2-invoice-sheet .ocv2-invoice-stamp { color:#991b1b; font-size:11px; font-weight:900; text-align:center; letter-spacing:.07em; padding:9px; border:2px dashed #fca5a5; border-radius:8px; margin-bottom:15px; }
+#elyonOrdersV2Root .ocv2-invoice-top { display:flex; gap:12px; justify-content:space-between; align-items:center; flex-wrap:wrap; }
+#elyonOrdersV2Root .ocv2-invoice-top strong { color:#0f172a; font-size:18px; }
+#elyonOrdersV2Root .ocv2-invoice-top span { color:#475569; font-size:12px; }
+#elyonOrdersV2Root .ocv2-invoice-sheet>p { line-height:1.7; margin:16px 0; font-size:12px; color:#334155; }
+#elyonOrdersV2Root .ocv2-invoice-table { width:100%; border-collapse:collapse; font-size:12px; }
+#elyonOrdersV2Root .ocv2-invoice-table th,#elyonOrdersV2Root .ocv2-invoice-table td { border-bottom:1px solid #e2e8f0; text-align:left; padding:11px 6px; vertical-align:top; }
+#elyonOrdersV2Root .ocv2-invoice-table th:last-child,#elyonOrdersV2Root .ocv2-invoice-table td:last-child { text-align:right; white-space:nowrap; }
+#elyonOrdersV2Root .ocv2-invoice-sheet .ocv2-small { color:#64748b; }
+#elyonOrdersV2Root .ocv2-invoice-total { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px; padding:15px 3px; }
+#elyonOrdersV2Root .ocv2-invoice-total strong { font-size:20px; color:#0f172a; }
+#elyonOrdersV2Root .ocv2-invoice-sheet .ocv2-hint { color:#64748b; margin-bottom:0; }
+@media(max-width:600px) {
+  #elyonOrdersV2Root .ocv2-demo-dialog-head { padding:15px; }
+  #elyonOrdersV2Root .ocv2-demo-dialog-body { padding:16px; }
+  #elyonOrdersV2Root .ocv2-demo-dialog-footer { padding:13px 16px; }
+  #elyonOrdersV2Root .ocv2-invoice-sheet { padding:14px; }
+}
+body.light #elyonOrdersV2Root .ocv2-demo-dialog { background:#fff; color:#0f172a; }
+body.light #elyonOrdersV2Root .ocv2-demo-dialog-head h3 { color:#0f172a; }
+body.light #elyonOrdersV2Root .ocv2-demo-panel p { color:#334155; }
+body.light #elyonOrdersV2Root .ocv2-demo-dialog-footer span { color:#4338ca; }
