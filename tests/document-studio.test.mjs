@@ -166,7 +166,7 @@ test("bestelleingang and auftragsbestaetigung are separate document templates", 
 });
 
 test("recipient address keeps manually entered postal line breaks when saved and reloaded", () => {
-  const address = "Max Mustermann\\nMusterstraße 12\\n12345 Musterstadt";
+  const address = ["Max Mustermann", "Musterstraße 12", "12345 Musterstadt"].join(String.fromCharCode(10));
   const first = applyStudioChange(null, "save", draft({ recipient: address }));
   assert.equal(first.documents[0].recipient, address);
   assert.equal(documentSummary(first.documents[0]).recipient, address);
