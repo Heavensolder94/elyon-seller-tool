@@ -154,6 +154,11 @@
           '<button type="button" class="eds-btn" data-eds-format="underline" title="Unterstrichen"><u>U</u></button>',
           '<button type="button" class="eds-btn" data-eds-format="insertUnorderedList" title="Liste">• Liste</button>',
           '<button type="button" class="eds-btn" data-eds-format="formatBlock" data-eds-value="h2" title="Überschrift">H2</button>',
+          '<button type="button" class="eds-btn" data-eds-format="insertOrderedList" title="Nummerierte Liste">1. Liste</button>',
+          '<button type="button" class="eds-btn" data-eds-action="insert-table" title="Tabelle einfügen">▦ Tabelle</button>',
+          '<button type="button" class="eds-btn" data-eds-action="insert-rule" title="Trennlinie einfügen">— Linie</button>',
+          '<button type="button" class="eds-btn" data-eds-action="move-up" title="Textblock nach oben">↑ Block</button>',
+          '<button type="button" class="eds-btn" data-eds-action="move-down" title="Textblock nach unten">↓ Block</button>',
           '<button type="button" class="eds-btn" data-eds-insert="{{Firma}}">+ Firma</button>',
           '<button type="button" class="eds-btn" data-eds-insert="{{Empfänger}}">+ Empfänger</button>',
           '<button type="button" class="eds-btn" data-eds-insert="{{Datum}}">+ Datum</button>',
@@ -828,6 +833,22 @@
     status("Word-Dokument mit Überschriften, Textformatierung und Tabellen exportiert.");
   }
 
+  function moveEditorBlock(direction) {
+    const editor = el("edsEditor");
+    const selection = window.getSelection();
+    let node = selection?.anchorNode;
+    if (!node || !editor.contains(node)) return status("Bitte zuerst den gewünschten Textblock anklicken.", true);
+    if (node.nodeType !== Node.ELEMENT_NODE) node = node.parentElement;
+    while (node && node.parentElement !== editor) node = node.parentElement;
+    if (!node || node.parentElement !== editor) return status("Kein verschiebbarer Textblock gefunden.", true);
+    const neighbor = direction === "up" ? node.previousElementSibling : node.nextElementSibling;
+    if (!neighbor) return status("Der Textblock ist bereits am Rand.", true);
+    if (direction === "up") editor.insertBefore(node, neighbor);
+    else editor.insertBefore(neighbor, node);
+    handleInput({ target: editor });
+    status("Textblock verschoben.");
+  }
+
   async function handleClick(event) {
     const preset = event.target.closest("[data-eds-preset]");
     if (preset) return applyPreset(preset.dataset.edsPreset);
@@ -855,6 +876,18 @@
     }
     const action = event.target.closest("[data-eds-action]")?.dataset.edsAction;
     if (!action) return;
+    if (action === "insert-table") {
+      el("edsEditor").focus();
+      document.execCommand("insertHTML", false, '<table><tr><th>Spalte 1</th><th>Spalte 2</th></tr><tr><td>Text</td><td>Text</td></tr></table><p></p>');
+      handleInput({ target: el("edsEditor") }); return;
+    }
+    if (action === "insert-rule") {
+      el("edsEditor").focus();
+      document.execCommand("insertHTML", false, "<hr><p></p>");
+      handleInput({ target: el("edsEditor") }); return;
+    }
+    if (action === "move-up") return moveEditorBlock("up");
+    if (action === "move-down") return moveEditorBlock("down");
     if (action === "new") return createNew("blank");
     if (action === "library") { el("edsLibrary").classList.toggle("collapsed"); return; }
     if (action === "assistant") { el("edsAssistantPanel").classList.toggle("open"); return; }
