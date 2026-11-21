@@ -97,6 +97,51 @@ export function estimatedOrderCosts(order, products = []) {
   };
 }
 
+// Cross-check only transactions explicitly linked to the exact eBay order.
+// Company OS prices are estimates and intentionally do NOT enter this function.
+export function financeOrderCostHints(transactions = [], { orderIds = [] } = {}) {
+  const allowed = new Set((Array.isArray(orderIds) ? orderIds : []).map(text).filter(Boolean));
+  const scopes = { supplier_expense: "purchaseCost", shipping_expense: "shippingCost", ebay_fee: "feeCost" };
+  const rows = {};
+  const dedup = new Set();
+  for (const item of Array.isArray(transactions) ? transactions : []) {
+    const line = object(item);
+    const orderId = text(line.orderId);
+    const field = scopes[text(line.category)];
+    if (!orderId || !field || (allowed.size && !allowed.has(orderId))) continue;
+    if (line.voidedAt || text(line.currency).toUpperCase() !== "EUR") continue;
+    const rawAmount = asNumber(line.amount);
+    if (rawAmount === null) continue;
+    const uniqueId = text(line.dedupeKey || line.transactionId || line.id);
+    if (!uniqueId) continue; // Ambiguous records cannot be used as auto-suggestions.
+    const identity = [field, orderId, uniqueId].join("|");
+    if (dedup.has(identity)) continue;
+    dedup.add(identity);
+    const byOrder = rows[orderId] ||= {};
+    const entry = byOrder[field] ||= { value: 0, count: 0, approved: true, source: "finance_transactions" };
+    entry.value += Math.abs(rawAmount);
+    entry.count += 1;
+    if (text(line.status).toLowerCase() !== "approved") entry.approved = false;
+  }
+  for (const group of Object.values(rows)) for (const entry of Object.values(group)) {
+    entry.value = Math.round(entry.value * 100) / 100;
+  }
+  return rows;
+}
+
+// Suggestions are display-only. Never overwrite an already-entered 0 or a manual edit.
+export function suggestRecordedCosts(operation = {}, hints = {}) {
+  const result = { ...object(operation) };
+  const sources = {};
+  for (const field of ["purchaseCost", "shippingCost", "feeCost"]) {
+    const hint = object(hints)[field];
+    if (asNumber(result[field]) !== null || !hint || asNumber(hint.value) === null) continue;
+    result[field] = hint.value;
+    sources[field] = { source: "finance_transactions", approved: hint.approved === true };
+  }
+  return { values: result, sources };
+}
+
 export function actualOrderProfit(order, operation = {}) {
   const purchase = asNumber(operation.purchaseCost);
   const shipping = asNumber(operation.shippingCost);
