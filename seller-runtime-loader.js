@@ -891,6 +891,18 @@
     });
   }
 
+  // The order cockpit uses the existing lazy-loaded studio, not a new document service.
+  // No browser storage or order writes: data is transferred in memory on explicit click.
+  window.ElyonSellerDocumentBridge = Object.freeze({
+    async openFromOrder(context, templateId) {
+      await requestGroup("elyonDocumentStudioTab");
+      if (typeof window.ElyonDocumentStudio?.openFromOrder !== "function") {
+        throw new Error("Das Dokumentenstudio konnte nicht gestartet werden.");
+      }
+      return window.ElyonDocumentStudio.openFromOrder(context, templateId);
+    },
+  });
+
   function requestQuickstart(manual = true) {
     return requestGroup("quickstart")
       .then(() => window.ElyonSellerQuickstart?.open?.({ manual }))
