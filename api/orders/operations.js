@@ -1,6 +1,6 @@
 import { requireSellerAccess } from "../../lib/seller-access.js";
 import { readFinanceState, writeFinanceState, getFinanceStoreDescription } from "../../lib/finance-store.js";
-import { normalizeOperationInput } from "../../seller-orders-v2-core.js";
+import { normalizeOperationInput, financeOrderCostHints } from "../../seller-orders-v2-core.js";
 
 const text = (value) => String(value ?? "").trim();
 
@@ -20,6 +20,7 @@ export default async function handler(req, res) {
       return res.status(200).json({
         ok: true, revision: state.revision, orderOperations: state.orderOperations || {},
         invoices, persistent: store.persistent === true,
+        financeCostHints: financeOrderCostHints(state.transactions),
       });
     }
     const body = req.body && typeof req.body === "object" && !Array.isArray(req.body) ? req.body : {};
