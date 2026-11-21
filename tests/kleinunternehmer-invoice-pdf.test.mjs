@@ -46,6 +46,20 @@ test("invoice text contains DIN-5008-style address, buyer, metadata, tax note an
   assert.ok(!data.includes("Umsatzsteuer 19 %"),"must not introduce VAT");
 });
 
+test("watermarked sample is not a real invoice and requires no data write",async()=>{
+  const sample=createKleinunternehmerInvoicePdf(invoice(),{demo:true});
+  const content=strings(sample).join("\\n");
+  assert.match(content,/MUSTER  ·  KEINE GÜLTIGE RECHNUNG/);
+  assert.match(content,/MUSTER - NICHT ZUR VERWENDUNG/);
+  const endpoint=await readFile(new URL("../api/finance/invoice-pdf.js",import.meta.url),"utf8");
+  const ui=await readFile(new URL("../seller-order-invoices.js",import.meta.url),"utf8");
+  assert.match(endpoint,/req\\.query\\?\\.demo/);
+  assert.match(endpoint,/KEINE-NUMMER/);
+  assert.match(endpoint,/createKleinunternehmerInvoicePdf\\(sample,\\{demo:true\\}\\)/);
+  assert.match(ui,/data-eoi-pdf-demo/);
+  assert.match(ui,/api\\/finance\\/invoice-pdf\\?demo=1/);
+});
+
 test("same archived snapshot produces byte-identical PDF with stable checksum",()=>{
   const a=createKleinunternehmerInvoicePdf(invoice());
   const b=createKleinunternehmerInvoicePdf(structuredClone(invoice()));
