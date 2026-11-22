@@ -29,7 +29,7 @@ const good = {
   byteLength: bytes.length,
   sha256,
   contentBase64: bytes.toString("base64"),
-  summary: { action: "Draft", sku: input.sku },
+  summary: { action: "Draft", sku: input.sku, originalTemplateHeaderPreserved: true },
 };
 const mock = (data, status = 200) => async () => ({
   ok: status === 200, status, json: async () => data,
@@ -65,6 +65,8 @@ test("bridge checks integrity, identity, draft-only status and fail-closed behav
     { sha256: "0".repeat(64) },
     { byteLength: bytes.length + 1 },
     { feedType: "FX_LISTING" },
+    { summary: { ...good.summary, sku: "AMZ-B000000000" } },
+    { summary: { ...good.summary, originalTemplateHeaderPreserved: false } },
     { published: true },
     { uploaded: true },
     { contentBase64: "bad" },
