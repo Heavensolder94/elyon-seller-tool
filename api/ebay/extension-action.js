@@ -185,6 +185,7 @@ export default async function handler(req, res) {
       // Recover only the existing feed task; never create a new eBay draft.
       const recovery = await findRecentSellerHubFeedForSku({
         sku: payload.sku,
+        taskId: payload.taskId,
         environment: payload.environment,
       });
       if (!recovery.found || !recovery.record) {
