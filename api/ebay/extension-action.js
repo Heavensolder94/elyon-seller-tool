@@ -163,7 +163,7 @@ export default async function handler(req, res) {
     }
     if (action === "draft-status") {
       const task = await getSellerHubDraftTask(payload, payload.environment);
-      if (task.draftVisible === true) {
+      if (task.feedConfirmed === true) {
         // Server-side eBay Feed status is checked before registration. No new eBay draft is created.
         try {
           task.registration = await saveExternalDraft(payload, task, "confirmed");
@@ -195,7 +195,7 @@ export default async function handler(req, res) {
       }
       const matched = recovery.record;
       const task = await getSellerHubDraftTask({ taskId: matched.taskId, environment: payload.environment }, payload.environment);
-      if (task.draftVisible !== true || text(task.task?.feedType, 60).toUpperCase() !== "FX_DRAFT") {
+      if (task.feedConfirmed !== true || text(task.task?.feedType, 60).toUpperCase() !== "FX_DRAFT") {
         return res.status(409).json({
           ok: false,
           error: "feed_recovery_not_confirmed",
@@ -231,7 +231,9 @@ export default async function handler(req, res) {
       return res.status(200).json({
         amazonReferenceSync,
         ok: true,
-        draftVisible: true,
+        draftVisible: true, // compatibility alias for confirmed feed processing
+        feedConfirmed: true,
+        sellerHubVisibility: "not_verified",
         complete: true,
         recovered: true,
         taskId: matched.taskId,
