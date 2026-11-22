@@ -159,8 +159,8 @@ test("FX_DRAFT success is feed confirmation, never a verified Seller Hub listing
   }
 });
 
-test("Seller Hub Draft action uses eBay officially supported FX_LISTING feed type", () => {
-  assert.equal(SELLER_HUB_DRAFT_FEED_TYPE, "FX_LISTING");
+test("Current transport targets FX_DRAFT while legacy CSV parser remains readable", () => {
+  assert.equal(SELLER_HUB_DRAFT_FEED_TYPE, "FX_DRAFT");
   const built = buildSellerHubDraftCsv({ categoryId: "12345", sku: "AMZ-B0TEST1234" });
   assert.match(built.csv, /\r\nDraft,AMZ-B0TEST1234,/);
   assert.doesNotMatch(built.csv, /\r\nAdd,/);
