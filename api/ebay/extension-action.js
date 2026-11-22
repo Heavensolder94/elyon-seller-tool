@@ -190,12 +190,12 @@ export default async function handler(req, res) {
         return res.status(404).json({
           ok: false,
           error: "feed_recovery_not_found",
-          message: "Kein passender eBay FX_DRAFT-Task für diese SKU in den letzten sieben Tagen gefunden. Es wurde kein neuer Entwurf angelegt.",
+          message: "Kein passender eBay FX_LISTING-Entwurfs-Task für diese SKU in den letzten sieben Tagen gefunden. Es wurde kein neuer Entwurf angelegt.",
         });
       }
       const matched = recovery.record;
       const task = await getSellerHubDraftTask({ taskId: matched.taskId, environment: payload.environment }, payload.environment);
-      if (task.feedConfirmed !== true || text(task.task?.feedType, 60).toUpperCase() !== "FX_DRAFT") {
+      if (task.feedConfirmed !== true || text(task.task?.feedType, 60).toUpperCase() !== "FX_LISTING") {
         return res.status(409).json({
           ok: false,
           error: "feed_recovery_not_confirmed",

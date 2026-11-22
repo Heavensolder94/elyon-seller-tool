@@ -28,7 +28,7 @@ function mocks(tasks, files = {}) {
       };
     }
     const u = new URL(url);
-    assert.equal(u.searchParams.get("feed_type"), "FX_DRAFT");
+    assert.equal(u.searchParams.get("feed_type"), "FX_LISTING");
     assert.equal(u.searchParams.get("look_back_days"), "7");
     assert.equal(u.searchParams.get("limit"), "25");
     return { ok: true, status: 200, json: async () => ({ tasks, total: tasks.length }) };
@@ -48,8 +48,8 @@ test("CSV identity parser matches exact SKU and extracts original title/price", 
   assert.equal(feedCsvProductForSku(csv, "AMZ-B0BWND9WBR-EXTRA"), null);
 });
 
-test("recovers a completed FX_DRAFT from its original uploaded file with read-only eBay requests", async () => {
-  const mock = mocks([{ taskId: "task-dreamzie", feedType: "FX_DRAFT", status: "COMPLETED" }], {
+test("recovers a completed FX_LISTING from its original uploaded file with read-only eBay requests", async () => {
+  const mock = mocks([{ taskId: "task-dreamzie", feedType: "FX_LISTING", status: "COMPLETED" }], {
     "task-dreamzie": csv,
   });
   const result = await findRecentSellerHubFeedForSku({ sku, ...mock });
@@ -63,7 +63,7 @@ test("recovers a completed FX_DRAFT from its original uploaded file with read-on
 });
 
 test("recovers gzip encoded eBay input file without constructing an eBay draft", async () => {
-  const mock = mocks([{ taskId: "task-gzip", feedType: "FX_DRAFT", status: "COMPLETED" }], {
+  const mock = mocks([{ taskId: "task-gzip", feedType: "FX_LISTING", status: "COMPLETED" }], {
     "task-gzip": gzipSync(Buffer.from(csv)),
   });
   const result = await findRecentSellerHubFeedForSku({ sku, ...mock });
@@ -71,15 +71,15 @@ test("recovers gzip encoded eBay input file without constructing an eBay draft",
 });
 
 test("refuses pending, mismatched and ambiguous Feed history instead of guessing", async () => {
-  const pending = mocks([{ taskId: "pending", feedType: "FX_DRAFT", status: "IN_PROCESS" }], { pending: csv });
+  const pending = mocks([{ taskId: "pending", feedType: "FX_LISTING", status: "IN_PROCESS" }], { pending: csv });
   assert.equal((await findRecentSellerHubFeedForSku({ sku, ...pending })).found, false);
-  const mismatch = mocks([{ taskId: "other", feedType: "FX_DRAFT", status: "COMPLETED" }], {
+  const mismatch = mocks([{ taskId: "other", feedType: "FX_LISTING", status: "COMPLETED" }], {
     other: csv.replace("AMZ-B0BWND9WBR", "AMZ-B0D63HF7Z4"),
   });
   assert.equal((await findRecentSellerHubFeedForSku({ sku, ...mismatch })).found, false);
   const ambiguous = mocks([
-    { taskId: "a", feedType: "FX_DRAFT", status: "COMPLETED" },
-    { taskId: "b", feedType: "FX_DRAFT", status: "COMPLETED" },
+    { taskId: "a", feedType: "FX_LISTING", status: "COMPLETED" },
+    { taskId: "b", feedType: "FX_LISTING", status: "COMPLETED" },
   ], { a: csv, b: csv });
   await assert.rejects(findRecentSellerHubFeedForSku({ sku, ...ambiguous }), /Mehrere abgeschlossene/);
 });
@@ -105,4 +105,12 @@ test("API exposes recovery only through authenticated extension action without c
   assert.match(branch, /saveExternalDraft/);
   assert.doesNotMatch(branch, /createSellerHubDraft/);
   assert.doesNotMatch(branch, /publishEbayOffer/);
+});
+
+test("FX_LISTING recovery accepts only Draft actions, never active listing actions", () => {
+  const listingCsv = csv.replace("Draft," + sku, "Add," + sku);
+  assert.equal(feedCsvProductForSku(listingCsv, sku), null);
+  assert.equal(feedCsvProductForSku(csv.replace("Draft," + sku, "Revise," + sku), sku), null);
+  const combined = listingCsv + "\r\n" + csv.split("\r\n").at(-1);
+  assert.equal(feedCsvProductForSku(combined, sku)?.sku, sku);
 });

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { buildSellerHubDraftCsv, parseSellerHubDraftResult, classifySellerHubFeedEvidence } from "../lib/ebay-seller-hub-drafts.js";
+import { buildSellerHubDraftCsv, parseSellerHubDraftResult, classifySellerHubFeedEvidence, SELLER_HUB_DRAFT_FEED_TYPE } from "../lib/ebay-seller-hub-drafts.js";
 
 test("Seller Hub draft CSV mirrors the downloaded draft template shape", () => {
   const built = buildSellerHubDraftCsv({
@@ -157,4 +157,11 @@ test("FX_DRAFT success is feed confirmation, never a verified Seller Hub listing
     assert.equal(uncertain.feedConfirmed, false);
     assert.equal(uncertain.sellerHubVisibility, "not_verified");
   }
+});
+
+test("Seller Hub Draft action uses eBay officially supported FX_LISTING feed type", () => {
+  assert.equal(SELLER_HUB_DRAFT_FEED_TYPE, "FX_LISTING");
+  const built = buildSellerHubDraftCsv({ categoryId: "12345", sku: "AMZ-B0TEST1234" });
+  assert.match(built.csv, /\r\nDraft,AMZ-B0TEST1234,/);
+  assert.doesNotMatch(built.csv, /\r\nAdd,/);
 });
