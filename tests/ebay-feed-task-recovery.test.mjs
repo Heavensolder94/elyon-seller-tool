@@ -101,7 +101,7 @@ test("API exposes recovery only through authenticated extension action without c
   const branch = source.slice(start, end);
   assert.match(branch, /findRecentSellerHubFeedForSku/);
   assert.match(branch, /getSellerHubDraftTask/);
-  assert.match(branch, /task\.draftVisible !== true/);
+  assert.match(branch, /task\.feedConfirmed !== true/);
   assert.match(branch, /saveExternalDraft/);
   assert.doesNotMatch(branch, /createSellerHubDraft/);
   assert.doesNotMatch(branch, /publishEbayOffer/);
