@@ -28,7 +28,7 @@ function mocks(tasks, files = {}) {
       };
     }
     const u = new URL(url);
-    assert.equal(u.searchParams.get("feed_type"), "FX_LISTING");
+    assert.ok(["FX_DRAFT", "FX_LISTING"].includes(u.searchParams.get("feed_type")));
     assert.equal(u.searchParams.get("look_back_days"), "7");
     assert.equal(u.searchParams.get("limit"), "25");
     return { ok: true, status: 200, json: async () => ({ tasks, total: tasks.length }) };
@@ -57,7 +57,7 @@ test("recovers a completed FX_LISTING from its original uploaded file with read-
   assert.equal(result.record.taskId, "task-dreamzie");
   assert.equal(result.record.sku, sku);
   assert.equal(result.record.price, 20.99);
-  assert.equal(mock.calls.length, 2);
+  assert.equal(mock.calls.length, 3);
   assert.ok(mock.calls.every((call) => !call.options.method || call.options.method === "GET"));
   assert.ok(mock.calls.every((call) => !call.options.body));
 });
@@ -113,4 +113,21 @@ test("FX_LISTING recovery accepts only Draft actions, never active listing actio
   assert.equal(feedCsvProductForSku(csv.replace("Draft," + sku, "Revise," + sku), sku), null);
   const combined = listingCsv + "\r\n" + csv.split("\r\n").at(-1);
   assert.equal(feedCsvProductForSku(combined, sku)?.sku, sku);
+});
+
+test("recovers original semicolon-delimited FX_DRAFT template only for Draft action", async () => {
+  const draftCsv = [
+    "#INFO;Version=0.0.2;Template= eBay-draft-listings-template_DE",
+    "Action(SiteID=Germany|Country=DE|Currency=EUR|Version=1193|CC=UTF-8);Custom label (SKU);Category ID;Title;UPC;Price;Quantity;Item photo URL;Condition ID;Description;Format",
+    "Draft;" + sku + ";1234;Originaler Amazon Import;;20.99;1;https://example.org/image.jpg;NEW;Beschreibung;FixedPrice",
+  ].join("\r\n");
+  assert.equal(feedCsvProductForSku("\uFEFF" + draftCsv, sku)?.title, "Originaler Amazon Import");
+  assert.equal(feedCsvProductForSku(draftCsv.replace("Draft;" + sku, "Add;" + sku), sku), null);
+  const mock = mocks([{ taskId: "draft-1", feedType: "FX_DRAFT", status: "COMPLETED" }], {
+    "draft-1": Buffer.from("\uFEFF" + draftCsv, "utf8"),
+  });
+  const found = await findRecentSellerHubFeedForSku({ sku, ...mock });
+  assert.equal(found.record.taskId, "draft-1");
+  assert.equal(found.record.feedType, "FX_DRAFT");
+  assert.equal(mock.calls.length, 3);
 });
