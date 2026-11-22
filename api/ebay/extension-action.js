@@ -5,6 +5,7 @@ import { createSellerHubDraft, getSellerHubDraftTask } from "../../lib/ebay-sell
 import { getElyonDraftRegistryRecords, registerElyonExternalDraftIdentity } from "../../lib/ebay-draft-registry.js";
 import { findRecentSellerHubFeedForSku } from "../../lib/ebay-feed-task-recovery.js";
 import { syncAmazonPriceReference } from "../../lib/amazon-price-reference-sync.js";
+import { planExternalFeedRegistration, feedRegistrationFailureMessage } from "../../lib/ebay-external-feed-identity.js";
 
 const ALLOWED_ACTIONS = new Set(["setup", "create-draft", "draft", "draft-status", "recover-draft", "publish", "withdraw", "listing-ai"]);
 const EBAY_INVENTORY_DESCRIPTION_MAX = 4000;
@@ -79,28 +80,20 @@ async function saveExternalDraft(payload, task, status) {
   const records = await getElyonDraftRegistryRecords(environment);
   const existing = records.find((record) => record.externalTaskId && record.externalTaskId === task.taskId) || null;
   const details = externalDraftDetails(payload, task, existing);
-  if (!details.sku || !details.externalTaskId) {
-    return { persisted: false, reason: "sku_or_task_missing" };
-  }
-  // A single SKU must not silently switch between unrelated external Feed tasks.
-  if (existing && existing.sku !== details.sku) {
-    return { persisted: false, reason: "feed_task_sku_mismatch" };
-  }
-  if (existing && existing.state !== "draft") {
-    return { persisted: false, reason: "feed_record_no_longer_draft" };
-  }
-  const conflictingSku = records.find((record) => record.sku === details.sku
-    && (record.visibilityMode !== "seller_hub_feed" || (record.externalTaskId && record.externalTaskId !== details.externalTaskId)));
-  if (conflictingSku) {
-    return { persisted: false, reason: "existing_sku_belongs_to_another_draft" };
+  const plan = planExternalFeedRegistration(records, details);
+  if (!plan.ok) {
+    return { persisted: false, reason: plan.reason };
   }
   const result = await registerElyonExternalDraftIdentity({
     ...details,
     externalDraftStatus: status,
   });
-  return { persisted: result.persisted === true, reason: result.persisted ? "" : "storage_unavailable",
+  return {
+    persisted: result.persisted === true,
+    reason: result.persisted ? "" : (result.reason || "storage_unavailable"),
     amazonReferencePrice: result.record?.amazonReferencePrice ?? null,
-    amazonReferenceCapturedAt: result.record?.amazonReferenceCapturedAt || "" };
+    amazonReferenceCapturedAt: result.record?.amazonReferenceCapturedAt || "",
+  };
 }
 
 function publicBridgeError(error) {
@@ -220,7 +213,9 @@ export default async function handler(req, res) {
           ok: false,
           error: "feed_recovery_registration_failed",
           reason: registration.reason,
-          message: "Der eBay-Feed-Task wurde gefunden, aber ELYON konnte ihn nicht sicher ins Entwurfsregister aufnehmen. Es wurde kein neuer Entwurf angelegt.",
+          // Report safe reason text in the extension itself; no developer tools
+          // and no credentials needed to identify a legitimate conflict.
+          message: feedRegistrationFailureMessage(registration.reason),
         });
       }
       const amazonReferenceSync = await syncAmazonPriceReference({
