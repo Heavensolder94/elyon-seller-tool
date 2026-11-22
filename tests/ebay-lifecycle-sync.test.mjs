@@ -190,7 +190,7 @@ test("Feed draft is deduplicated when Inventory observes same SKU and disappears
 
 test("extension Feed registration requires confirmed task status and does not submit a second eBay draft for status", () => {
   const source = fs.readFileSync(new URL("../api/ebay/extension-action.js", import.meta.url), "utf8");
-  assert.match(source, /task\.draftVisible === true/);
+  assert.match(source, /task\.feedConfirmed === true/);
   assert.match(source, /saveExternalDraft\(payload, task, "confirmed"\)/);
   assert.match(source, /saveExternalDraft\(payload, task, "processing"\)/);
   assert.match(source, /getSellerHubDraftTask\(payload, payload\.environment\)/);
