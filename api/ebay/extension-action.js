@@ -2,12 +2,12 @@ import ebayHandler from "./index.js";
 import sellerListingAiHandler from "../seller-listing-ai.js";
 import { applyExtensionSellerSession } from "../../lib/seller-extension-bridge.js";
 import { createSellerHubDraft, getSellerHubDraftTask } from "../../lib/ebay-seller-hub-drafts.js";
-import { getElyonDraftRegistryRecords, registerElyonExternalDraftIdentity } from "../../lib/ebay-draft-registry.js";
+import { getElyonDraftRegistryRecords, registerElyonExternalDraftIdentity, previewManuallyDeletedSellerHubFeed, markManuallyDeletedSellerHubFeed } from "../../lib/ebay-draft-registry.js";
 import { findRecentSellerHubFeedForSku, listRecentAmazonDraftRecoveryCandidates } from "../../lib/ebay-feed-task-recovery.js";
 import { syncAmazonPriceReference } from "../../lib/amazon-price-reference-sync.js";
 import { planExternalFeedRegistration, feedRegistrationFailureMessage } from "../../lib/ebay-external-feed-identity.js";
 
-const ALLOWED_ACTIONS = new Set(["setup", "create-draft", "draft", "draft-status", "recover-draft", "list-draft-recovery-candidates", "publish", "withdraw", "listing-ai"]);
+const ALLOWED_ACTIONS = new Set(["setup", "create-draft", "draft", "draft-status", "recover-draft", "list-draft-recovery-candidates", "preview-deleted-feed", "mark-deleted-feed", "publish", "withdraw", "listing-ai"]);
 const EBAY_INVENTORY_DESCRIPTION_MAX = 4000;
 const EBAY_ASPECT_NAME_MAX = 40;
 const EBAY_ASPECT_VALUE_MAX = 50;
@@ -172,6 +172,55 @@ export default async function handler(req, res) {
         }
       }
       return res.status(200).json(task);
+    }
+
+    if (action === "preview-deleted-feed") {
+      // Read-only ELYON registry lookup. The selected historical eBay task
+      // might differ from the active ELYON task that blocks SKU reuse.
+      const preview = await previewManuallyDeletedSellerHubFeed({
+        sku: payload.sku, environment: payload.environment,
+      });
+      if (!preview.ok) {
+        return res.status(409).json({
+          ok: false, error: preview.reason,
+          message: preview.reason === "manual_feed_active_sku_ambiguous"
+            ? "Mehrere aktive ELYON-Einträge verwenden diese SKU. Zum Schutz der übrigen Entwürfe erfolgt keine automatische Bereinigung."
+            : "Kein eindeutig zugeordneter aktiver ELYON-Feed-Entwurf für diese SKU gefunden. Es wurde nichts geändert.",
+        });
+      }
+      return res.status(200).json({ ok: true, record: preview.record, ebayChanged: false });
+    }
+    if (action === "mark-deleted-feed") {
+      // Manual deletion in Seller Hub is not externally verifiable through
+      // the Feed API. Require explicit confirmation plus exact registry task ID.
+      if (payload.confirmation !== "EBAY_DRAFT_ALREADY_DELETED"
+        || payload.environment === "sandbox" || !payload.externalTaskId) {
+        return res.status(400).json({
+          ok: false, error: "manual_feed_confirmation_required",
+          message: "Nur einen bereits bei eBay manuell gelöschten Produktions-Entwurf mit ausdrücklicher Bestätigung bereinigen.",
+        });
+      }
+      const result = await markManuallyDeletedSellerHubFeed({
+        sku: payload.sku, environment: "production",
+        externalTaskId: payload.externalTaskId,
+      });
+      if (result.persisted !== true) {
+        const reason = result.reason || "manual_feed_cleanup_unconfirmed";
+        return res.status(409).json({
+          ok: false, error: reason,
+          message: reason.includes("ambiguous") || reason.includes("mismatch")
+            ? "Der ELYON-Eintrag passt nicht eindeutig zur ausgewählten SKU und Task-ID. Es wurde nichts geändert."
+            : "Die gezielte Bereinigung konnte nicht bestätigt werden. Der bestehende ELYON-Eintrag bleibt unverändert.",
+        });
+      }
+      return res.status(200).json({
+        ok: true, state: "removed", sku: result.record.sku,
+        externalTaskId: result.record.externalTaskId,
+        alreadyRemoved: result.alreadyRemoved === true,
+        removedAt: result.record.removedAt,
+        ebayChanged: false, published: false, productDeleted: false,
+        message: "Der manuell bei eBay gelöschte Feed-Entwurf ist in ELYON als entfernt markiert. Historie, SKU und Task-ID bleiben erhalten.",
+      });
     }
     if (action === "list-draft-recovery-candidates") {
       // Read-only on eBay and ELYON. The extension can display recovered SKU
