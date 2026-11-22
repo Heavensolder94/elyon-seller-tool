@@ -3,11 +3,11 @@ import sellerListingAiHandler from "../seller-listing-ai.js";
 import { applyExtensionSellerSession } from "../../lib/seller-extension-bridge.js";
 import { createSellerHubDraft, getSellerHubDraftTask } from "../../lib/ebay-seller-hub-drafts.js";
 import { getElyonDraftRegistryRecords, registerElyonExternalDraftIdentity } from "../../lib/ebay-draft-registry.js";
-import { findRecentSellerHubFeedForSku } from "../../lib/ebay-feed-task-recovery.js";
+import { findRecentSellerHubFeedForSku, listRecentAmazonDraftRecoveryCandidates } from "../../lib/ebay-feed-task-recovery.js";
 import { syncAmazonPriceReference } from "../../lib/amazon-price-reference-sync.js";
 import { planExternalFeedRegistration, feedRegistrationFailureMessage } from "../../lib/ebay-external-feed-identity.js";
 
-const ALLOWED_ACTIONS = new Set(["setup", "create-draft", "draft", "draft-status", "recover-draft", "publish", "withdraw", "listing-ai"]);
+const ALLOWED_ACTIONS = new Set(["setup", "create-draft", "draft", "draft-status", "recover-draft", "list-draft-recovery-candidates", "publish", "withdraw", "listing-ai"]);
 const EBAY_INVENTORY_DESCRIPTION_MAX = 4000;
 const EBAY_ASPECT_NAME_MAX = 40;
 const EBAY_ASPECT_VALUE_MAX = 50;
@@ -173,10 +173,19 @@ export default async function handler(req, res) {
       }
       return res.status(200).json(task);
     }
+    if (action === "list-draft-recovery-candidates") {
+      // Read-only on eBay and ELYON. The extension can display recovered SKU
+      // choices when the user no longer has the original Amazon page loaded.
+      const result = await listRecentAmazonDraftRecoveryCandidates({
+        environment: payload.environment,
+      });
+      return res.status(200).json({ ok: true, ...result, published: false, created: false });
+    }
     if (action === "recover-draft") {
       // Recover only the existing feed task; never create a new eBay draft.
       const recovery = await findRecentSellerHubFeedForSku({
         sku: payload.sku,
+        taskId: payload.taskId,
         environment: payload.environment,
       });
       if (!recovery.found || !recovery.record) {
