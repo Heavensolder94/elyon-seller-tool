@@ -101,7 +101,7 @@ test("malformed SKU, missing price and server sync configuration fail without wr
 test("eBay action transfers only confirmed Feed price observations, never changes listing price",()=>{
   const src=fs.readFileSync(new URL("../api/ebay/extension-action.js",import.meta.url),"utf8");
   assert.match(src,/amazonReferencePrice: payload\.amazonReferencePrice/);
-  assert.match(src,/task\.draftVisible === true/);
+  assert.match(src,/task\.feedConfirmed === true/);
   assert.match(src,/amazonReferenceSync = await syncAmazonPriceReference/);
   assert.match(src,/syncAmazonPriceReference\(\{/);
   assert.match(src,/amazonReferencePrice: registration\.amazonReferencePrice/);

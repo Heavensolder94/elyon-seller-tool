@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { buildSellerHubDraftCsv, parseSellerHubDraftResult } from "../lib/ebay-seller-hub-drafts.js";
+import { buildSellerHubDraftCsv, parseSellerHubDraftResult, classifySellerHubFeedEvidence } from "../lib/ebay-seller-hub-drafts.js";
 
 test("Seller Hub draft CSV mirrors the downloaded draft template shape", () => {
   const built = buildSellerHubDraftCsv({
@@ -139,4 +139,22 @@ test("Seller Hub draft result parser extracts FX_DRAFT CSV errors cleanly", () =
   assert.equal(parsed.errors[0].code, "BAF.Error.3");
   assert.equal(parsed.errors[0].severity, "ERROR");
   assert.equal(parsed.errors[0].message, "Error occured try again later!");
+});
+
+test("FX_DRAFT success is feed confirmation, never a verified Seller Hub listing", () => {
+  const successful = classifySellerHubFeedEvidence("COMPLETED", 1, 0);
+  assert.equal(successful.feedConfirmed, true);
+  assert.equal(successful.sellerHubVisibility, "not_verified");
+  assert.equal(successful.draftVisible, true); // historical API alias only
+
+  for (const [status, successes, failures] of [
+    ["PROCESSING", 0, 0],
+    ["COMPLETED", 0, 0],
+    ["COMPLETED_WITH_ERROR", 1, 1],
+    ["COMPLETED", 1, 1],
+  ]) {
+    const uncertain = classifySellerHubFeedEvidence(status, successes, failures);
+    assert.equal(uncertain.feedConfirmed, false);
+    assert.equal(uncertain.sellerHubVisibility, "not_verified");
+  }
 });
