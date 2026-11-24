@@ -184,7 +184,7 @@
         const rows=index.get(key)||[];
         if(rows.some(row=>row.id===d.id))continue;
         // Explicit safe projection. No source/URL, file ref or manual-note text.
-        rows.push({id:d.id,title:safeText(d.title).slice(0,120),type:safeText(p.internalType).slice(0,80),ebayType:safeText(p.ebayDocumentType).slice(0,80),scope:a.scope==="variants"?"variants":"product",variantKeys:Array.isArray(a.variants)?a.variants.slice(0,30).map(v=>safeText(v.key).slice(0,229)):[],companyOsProductId:a.companyOsProductId??null,masterId:a.masterId??null,status:p.review?.status||"REVIEW_REQUIRED",validity:p.review?.validation?.validity||"UNSPECIFIED",validFrom:p.validFrom||null,validUntil:p.validUntil||null,fileStatus:p.review?.validation?.fileStatus||"REFERENCE_ONLY",associationStatus:p.review?.validation?.associationStatus||"RECHECK_REQUIRED"});
+        rows.push({id:d.id,title:safeText(d.title).slice(0,120),type:safeText(p.internalTypeLabel||p.internalType).slice(0,80),ebayType:safeText(p.ebayDocumentType).slice(0,80),scope:a.scope==="variants"?"variants":"product",variantKeys:Array.isArray(a.variants)?a.variants.slice(0,30).map(v=>safeText(v.key).slice(0,229)):[],companyOsProductId:a.companyOsProductId??null,masterId:a.masterId??null,status:p.review?.status||"REVIEW_REQUIRED",validity:p.review?.validation?.validity||"UNSPECIFIED",validFrom:p.validFrom||null,validUntil:p.validUntil||null,fileStatus:p.review?.validation?.fileStatus||"REFERENCE_ONLY",associationStatus:p.review?.validation?.associationStatus||"RECHECK_REQUIRED"});
         index.set(key,rows);
       }
     }
@@ -197,7 +197,7 @@
   async function loadDocumentSummary(){
     if(documentIndex||documentSummaryPending||documentSummaryError)return;
     const epoch=documentSummaryEpoch;
-    const pending=(async()=>{
+    const pending=Promise.resolve().then(async()=>{
       try{
         const response=await fetch("/api/document-studio?action=product-summary",{method:"GET",credentials:"same-origin",cache:"no-store",headers:{Accept:"application/json"}});
         const result=await response.json();
@@ -206,11 +206,10 @@
         if(epoch===documentSummaryEpoch)documentIndex=index;
       }catch{if(epoch===documentSummaryEpoch)documentSummaryError=true;}
       finally{if(epoch===documentSummaryEpoch){documentSummaryPending=null;scheduleDecorate();}}
-    })();
+    });
     documentSummaryPending=pending;
   }
   const docStatusText={METADATA_COMPLETE:"Metadaten vollständig (nicht verifiziert)",REVIEW_REQUIRED:"Prüfung erforderlich",SOURCE_MISSING:"Quelle fehlt",PRODUCT_ASSOCIATION_MISSING:"Zuordnung fehlt",FILE_REFERENCE_MISSING:"Dateireferenz fehlt",OUTDATED:"Abgelaufen",NOT_YET_VALID:"Noch nicht gültig",REJECTED:"Abgelehnt",WITHIN_DECLARED_PERIOD:"Innerhalb angegebener Gültigkeit",EXPIRED:"Abgelaufen",UNSPECIFIED:"Nicht angegeben",MATCH:"Identitäten abgeglichen",RECHECK_REQUIRED:"Prüfung offen",REFERENCE_ONLY:"Nur Referenz",FILE_MISSING:"Datei fehlt",LIMITED_STRUCTURE_PASSED_NOT_STORED:"PDF-Struktur geprüft, nicht gespeichert"};
-  const docTypeText={user_manual:"Bedienungsanleitung",instructions_for_use:"Gebrauchsanweisung",installation_instructions:"Installationsanleitung",safety_information:"Sicherheitsinformation",safety_data_sheet:"Sicherheitsdatenblatt",declaration_of_conformity:"Konformitätserklärung",certificate_of_conformity:"Konformitätszertifikat",manufacturer_document:"Herstellerdokument",test_report:"Prüfbericht",other_safety_document:"Sonstiges Sicherheitsdokument"};
   function renderProductDocuments(card,product,expanded){
     let section=card.querySelector(":scope > .elyon-product-document-overview");
     const key=product?.sourceOfTruth==="company_os_canonical_state"?documentKey(product.productId||product.id,product.articleNumber):null;
@@ -225,7 +224,7 @@
     const description=document.createElement("p");description.className="muted";description.textContent=documentSummaryError?"Zusammenfassung nicht verfügbar.":!documentIndex?"Lade gemeinsame Dokumentenzusammenfassung …":rows.length?"Zugeordnete Metadaten, keine automatische GPSR-Freigabe.":"Keine aktuellen zugeordneten Dokumente.";section.append(description);
     for(const row of rows){
       const text=document.createElement("p");text.className="muted";
-      text.textContent=(row.title||docTypeText[row.type]||"Produktdokument")+" · "+(docTypeText[row.type]||row.type)+(row.scope==="variants"?" · Varianten: "+row.variantKeys.join(", "):" · Produktbezug (keine pauschale Variantengültigkeit)")+" · "+(docStatusText[row.status]||row.status)+" · "+(docStatusText[row.fileStatus]||row.fileStatus)+" · "+(docStatusText[row.validity]||row.validity)+(row.validFrom||row.validUntil?" ("+(row.validFrom||"offen")+" – "+(row.validUntil||"offen")+")":"")+" · "+(docStatusText[row.associationStatus]||row.associationStatus);
+      text.textContent=(row.title||row.type||"Produktdokument")+" · "+row.type+(row.scope==="variants"?" · Varianten: "+row.variantKeys.join(", "):" · Produktbezug (keine pauschale Variantengültigkeit)")+" · "+(docStatusText[row.status]||row.status)+" · "+(docStatusText[row.fileStatus]||row.fileStatus)+" · "+(docStatusText[row.validity]||row.validity)+(row.validFrom||row.validUntil?" ("+(row.validFrom||"offen")+" – "+(row.validUntil||"offen")+")":"")+" · "+(docStatusText[row.associationStatus]||row.associationStatus);
       section.append(text);
     }
     if(documentSummaryError||documentIndex){
