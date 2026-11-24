@@ -32,7 +32,7 @@ test('V3.1 actual Studio controller: create, type/language, product and variants
  for(const id of ['edsProductEditor','edsBusinessEditor','edsStatus','edsVersion','edsArchiveBtn','edsOrderSourceNotice','edsList'])register(id);
  const catalog={ok:true,schemaVersion:'elyon-product-document-catalog-v3.1',source:'company_os_canonical_projection',executionAuthorized:false,uploadVerified:false,
   reference:{templateId:'ebay.de.document-url',registryVersion:'1.0.0',templateVersion:'1.0',sha256:'a'.repeat(64),documentTypes:['USER_GUIDE_OR_MANUAL'],languages:['GERMAN','ENGLISH','OTHER']},
-  products:[{productId:'00001',masterId:'00001',articleNumber:'ELY-000001',title:'Fixture',variants:[{key:'sku:ELY-000001-01',sku:'ELY-000001-01',supplierVariantId:'00008',label:'Rot'},{key:'supplier:00009',sku:null,supplierVariantId:'00009',label:'Blau'}]}],
+  products:[{productId:'00001',masterId:'00001',articleNumber:'ELY-000001',sku:'ELY-000001',title:'Fixture',variants:[{key:'sku:ELY-000001-01',sku:'ELY-000001-01',supplierVariantId:'00008',label:'Rot'},{key:'supplier:00009',sku:null,supplierVariantId:'00009',label:'Blau'}]}],
   internalTypes:PRODUCT_DOCUMENT_TYPES,origins:DOCUMENT_ORIGINS};
  let store={revision:0,documents:[{id:'business_0001',kind:'letter',title:'Geschäftsbrief',version:1,sourceOrderId:'0003',archivedAt:null}],customTemplates:[],customBlocks:[]},calls=[];
  const response=data=>({ok:true,json:async()=>data});
@@ -49,7 +49,7 @@ test('V3.1 actual Studio controller: create, type/language, product and variants
  const source=await readFile(new URL('../seller-document-studio.js',import.meta.url),'utf8');
  const anchor='  window.ElyonDocumentStudio = { open: openStudio, openFromOrder };';
  assert.ok(source.includes(anchor));
- vm.runInNewContext(source.replace(anchor,anchor+'\n  window.__studioTest = {state,createProductDocument,loadProductCatalog,saveProduct,archiveOrRestore,renderList,setProductMode,handleInput};'),{window,document,fetch,URLSearchParams,console});
+ vm.runInNewContext(source.replace(anchor,anchor+'\n  window.__studioTest = {state,createProductDocument,loadProductCatalog,saveProduct,archiveOrRestore,renderList,setProductMode,handleInput,runValidationAction};'),{window,document,fetch,URLSearchParams,console});
  const h=window.__studioTest;
  h.state.revision=0;h.state.documents=store.documents.map(documentSummary);
  h.createProductDocument();await h.loadProductCatalog();
@@ -68,11 +68,14 @@ test('V3.1 actual Studio controller: create, type/language, product and variants
  assert.equal(store.documents[0].productDocument.associations[0].variants[1].sku,null);
  assert.equal(store.documents[1].sourceOrderId,'0003');
  assert.equal(h.state.current.version,1);assert.equal(h.state.dirty,false);
+ await h.runValidationAction('revalidate-product',{});assert.equal(h.state.current.version,2);assert.match(el('edsValidationEvidence').textContent,/Identitäten abgeglichen/);
+ await h.runValidationAction('add-product-review',{kind:'applicability',decision:'reviewed',reference:'Fixture model',note:'Explicit variants checked manually'});assert.equal(h.state.current.version,3);assert.match(el('edsValidationEvidence').textContent,/Manueller Vermerk/);
+ assert.equal(h.state.current.review.validation.regulatoryStatus,'NOT_VERIFIED');
  assert.match(el('edsProductReview').textContent,/nicht verifiziert/);
  h.state.documentFilter='product';h.renderList();assert.match(el('edsList').textContent,/Anleitung/);assert.doesNotMatch(el('edsList').textContent,/Geschäftsbrief/);
  h.state.documentFilter='business';h.renderList();assert.match(el('edsList').textContent,/Geschäftsbrief/);
  await h.archiveOrRestore();assert.equal(h.state.current.review.status,'ARCHIVED');assert.equal(el('edsProductFields').disabled,true);
  await h.archiveOrRestore();assert.equal(h.state.current.archivedAt,null);assert.equal(el('edsProductFields').disabled,false);
  h.setProductMode(false);assert.equal(el('edsBusinessEditor').hidden,false);assert.equal(root.toolbar.find(x=>x.dataset.edsAction==='print').hidden,false);
- assert.deepEqual(calls,['product-catalog','save-product','archive','restore']);
+ assert.deepEqual(calls,['product-catalog','save-product','revalidate-product','add-product-review','archive','restore']);
 });

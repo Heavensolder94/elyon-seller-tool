@@ -17,6 +17,7 @@
   let observerTarget = null;
   let scheduled = false;
   let clickHandlerInstalled = false;
+  let documentIndex=null, documentSummaryPending=null, documentSummaryError=false, documentSummaryEpoch=0;
 
   function safeText(value) {
     return String(value ?? "").trim();
@@ -171,6 +172,66 @@
     });
   }
 
+  function documentKey(productId,articleNumber){return typeof productId==="string"&&productId&&typeof articleNumber==="string"&&/^ELY-\d{6,}$/.test(articleNumber)?JSON.stringify([productId,articleNumber]):null;}
+  function buildDocumentIndex(documents){
+    const index=new Map();
+    if(!Array.isArray(documents)||documents.length>80)throw Error("Ungültige Dokumentenzusammenfassung.");
+    for(const d of documents){
+      if(d?.kind!=="product_document"||d.archivedAt)continue;
+      const p=d.productDocument;if(!p||!Array.isArray(p.associations)||p.associations.length>12)continue;
+      for(const a of p.associations){
+        const key=documentKey(a.productId,a.articleNumber);if(!key)continue;
+        const rows=index.get(key)||[];
+        if(rows.some(row=>row.id===d.id))continue;
+        // Explicit safe projection. No source/URL, file ref or manual-note text.
+        rows.push({id:d.id,title:safeText(d.title).slice(0,120),type:safeText(p.internalTypeLabel||p.internalType).slice(0,80),ebayType:safeText(p.ebayDocumentType).slice(0,80),scope:a.scope==="variants"?"variants":"product",variantKeys:Array.isArray(a.variants)?a.variants.slice(0,30).map(v=>safeText(v.key).slice(0,229)):[],companyOsProductId:a.companyOsProductId??null,masterId:a.masterId??null,status:p.review?.status||"REVIEW_REQUIRED",validity:p.review?.validation?.validity||"UNSPECIFIED",validFrom:p.validFrom||null,validUntil:p.validUntil||null,fileStatus:p.review?.validation?.fileStatus||"REFERENCE_ONLY",associationStatus:p.review?.validation?.associationStatus||"RECHECK_REQUIRED"});
+        index.set(key,rows);
+      }
+    }
+    return index;
+  }
+  function clearDocumentSummary(){
+    documentSummaryEpoch++;documentIndex=null;documentSummaryPending=null;documentSummaryError=false;
+    for(const card of getBoardCards())card.querySelector(":scope > .elyon-product-document-overview")?.remove();
+  }
+  async function loadDocumentSummary(){
+    if(documentIndex||documentSummaryPending||documentSummaryError)return;
+    const epoch=documentSummaryEpoch;
+    const pending=Promise.resolve().then(async()=>{
+      try{
+        const response=await fetch("/api/document-studio?action=product-summary",{method:"GET",credentials:"same-origin",cache:"no-store",headers:{Accept:"application/json"}});
+        const result=await response.json();
+        if(!response.ok||result.ok!==true)throw Error("summary unavailable");
+        const index=buildDocumentIndex(result.documents);
+        if(epoch===documentSummaryEpoch)documentIndex=index;
+      }catch{if(epoch===documentSummaryEpoch)documentSummaryError=true;}
+      finally{if(epoch===documentSummaryEpoch){documentSummaryPending=null;scheduleDecorate();}}
+    });
+    documentSummaryPending=pending;
+  }
+  const docStatusText={METADATA_COMPLETE:"Metadaten vollständig (nicht verifiziert)",REVIEW_REQUIRED:"Prüfung erforderlich",SOURCE_MISSING:"Quelle fehlt",PRODUCT_ASSOCIATION_MISSING:"Zuordnung fehlt",FILE_REFERENCE_MISSING:"Dateireferenz fehlt",OUTDATED:"Abgelaufen",NOT_YET_VALID:"Noch nicht gültig",REJECTED:"Abgelehnt",WITHIN_DECLARED_PERIOD:"Innerhalb angegebener Gültigkeit",EXPIRED:"Abgelaufen",UNSPECIFIED:"Nicht angegeben",MATCH:"Identitäten abgeglichen",RECHECK_REQUIRED:"Prüfung offen",REFERENCE_ONLY:"Nur Referenz",FILE_MISSING:"Datei fehlt",LIMITED_STRUCTURE_PASSED_NOT_STORED:"PDF-Struktur geprüft, nicht gespeichert"};
+  function renderProductDocuments(card,product,expanded){
+    let section=card.querySelector(":scope > .elyon-product-document-overview");
+    const key=product?.sourceOfTruth==="company_os_canonical_state"?documentKey(product.productId||product.id,product.articleNumber):null;
+    if(!expanded||!key||!document.getElementById("productListTab")?.classList.contains("active")){section?.remove();return;}
+    if(!documentIndex&&!documentSummaryError&&!documentSummaryPending)loadDocumentSummary();
+    const rows=(documentIndex?.get(key)||[]).map(row=>({...row,identityConflict:Boolean(row.companyOsProductId&&row.companyOsProductId!==product.companyOsProductId||row.masterId&&row.masterId!==(product.id||product.productId))}));
+    const signature=JSON.stringify([key,documentSummaryEpoch,Boolean(documentIndex),documentSummaryError,rows]);
+    if(section?.dataset.signature===signature)return;
+    if(!section){section=document.createElement("section");section.className="elyon-product-document-overview";card.append(section);}
+    section.dataset.signature=signature;section.replaceChildren();
+    const heading=document.createElement("strong");heading.textContent="Produktdokumente"+(documentIndex?" · "+rows.filter(r=>!r.identityConflict).length:"");section.append(heading);
+    const description=document.createElement("p");description.className="muted";description.textContent=documentSummaryError?"Zusammenfassung nicht verfügbar.":!documentIndex?"Lade gemeinsame Dokumentenzusammenfassung …":rows.length?"Zugeordnete Metadaten, keine automatische GPSR-Freigabe.":"Keine aktuellen zugeordneten Dokumente.";section.append(description);
+    for(const row of rows){
+      const text=document.createElement("p");text.className="muted";
+      text.textContent=(row.identityConflict?"Historische Identität abweichend – kein aktueller Nachweis · ":"")+(row.title||row.type||"Produktdokument")+" · "+row.type+(row.scope==="variants"?" · Varianten: "+row.variantKeys.join(", "):" · Produktbezug (keine pauschale Variantengültigkeit)")+" · "+(docStatusText[row.status]||row.status)+" · "+(docStatusText[row.fileStatus]||row.fileStatus)+" · "+(docStatusText[row.validity]||row.validity)+(row.validFrom||row.validUntil?" ("+(row.validFrom||"offen")+" – "+(row.validUntil||"offen")+")":"")+" · "+(docStatusText[row.associationStatus]||row.associationStatus);
+      section.append(text);
+    }
+    if(documentSummaryError||documentIndex){
+      const refresh=document.createElement("button");refresh.type="button";refresh.className="secondary";refresh.textContent="Dokumente aktualisieren";refresh.dataset.elyonProductDocumentsRefresh="true";section.append(refresh);
+    }
+    const link=document.createElement("a");link.href="#dokumentenstudio";link.textContent="Zum Dokumentenstudio";section.append(link);
+  }
   function setCardExpanded(card, expanded, persist = true) {
     if (!isBoardCard(card)) return;
     const key = card.dataset.elyonProductCardKey || getCardKey(card);
@@ -187,6 +248,7 @@
     updateToggle(card, expanded);
     syncNativeDetails(card, expanded);
     window.ElyonPriceStockFoundation?.renderCard(card, getProductRecord(card), expanded);
+    renderProductDocuments(card,getProductRecord(card),expanded);
   }
 
   function addToggle(card) {
@@ -262,6 +324,12 @@
     const target = event.target;
     if (!(target instanceof Element)) return;
 
+    const refresh = target.closest("[data-elyon-product-documents-refresh]");
+    if (refresh && isBoardCard(refresh.closest(".product-card"))) {
+      event.preventDefault();event.stopPropagation();
+      if(!documentSummaryPending){clearDocumentSummary();scheduleDecorate();}
+      return;
+    }
     const toggle = target.closest(TOGGLE_SELECTOR);
     if (toggle) {
       const card = toggle.closest(".product-card");
@@ -325,6 +393,9 @@
       #productListTab #list .${CARD_CLASS}.${EXPANDED_CLASS}>.actions{grid-column:1/-1;display:flex!important;flex-direction:row;flex-wrap:wrap;padding-top:13px;border-top:1px solid rgba(148,163,184,.13)}
       #productListTab #list .${CARD_CLASS}.${EXPANDED_CLASS}>.actions button{flex:1 1 180px}
       #productListTab #list .${CARD_CLASS} .elyon-essential-pill{background:rgba(59,130,246,.1);border-color:rgba(96,165,250,.2);color:#dbeafe}
+      #productListTab #list .elyon-product-document-overview{grid-column:1/-1;padding:12px;border:1px solid rgba(148,163,184,.25);border-radius:12px;overflow-wrap:anywhere;display:grid;gap:6px}
+      #productListTab #list .elyon-product-document-overview p{margin:0}
+      #productListTab #list .elyon-product-document-overview button{justify-self:start;font-size:12px}
       @media(max-width:760px){
         .elyon-product-board-accordion-controls{align-items:stretch}.elyon-product-board-accordion-controls>div{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}
         #productListTab #list .${CARD_CLASS},#productListTab #list .${CARD_CLASS}:not(.${EXPANDED_CLASS}){grid-template-columns:1fr!important}
@@ -372,7 +443,9 @@
     decorateBoard();
     window.addEventListener("elyon:products-updated", scheduleDecorate);
     window.addEventListener("elyon:price-stock-snapshot-updated", scheduleDecorate);
-    window.addEventListener("elyon:seller-auth-ready", scheduleDecorate);
+    window.addEventListener("elyon:seller-auth-ready", event=>{if(event.detail?.authenticated!==true)clearDocumentSummary();scheduleDecorate();});
+    window.addEventListener("elyon:product-documents-changed",()=>{clearDocumentSummary();scheduleDecorate();});
+    window.addEventListener("hashchange",scheduleDecorate);
     window.addEventListener("storage", (event) => {
       if (event.key === EXPANDED_STORAGE_KEY) scheduleDecorate();
     });
