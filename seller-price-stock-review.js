@@ -16,13 +16,14 @@ function redraw(){
   entry.summary.textContent=list.length+' ausgewählt · '+list.filter(x=>x.price!==null).length+' Preis · '+list.filter(x=>x.quantity!==null).length+' Bestand';
   entry.batch.disabled=busy||!list.length;
   entry.single.disabled=busy;
+  if(entry.verify)entry.verify.disabled=busy;
  }
 }
 export function clearPriceStockReviews(){generation++;selected.clear();mounted.clear();busy=false;}
-async function run(changes,result,download,entry){
+async function run(changes,result,download,entry,{verifyReadback=false}={}){
  if(busy||!auth())return;
  let request;
- try{request=buildReviewRequest(changes);}catch(e){result.textContent=e.message;return;}
+ try{request=buildReviewRequest(changes);if(verifyReadback)request.verifyReadback=true;}catch(e){result.textContent=e.message;return;}
  const token=++generation;busy=true;redraw();download.hidden=true;download.onclick=null;
  result.textContent='Kanonische Vorschau wird geprüft …';
  try{
@@ -59,6 +60,17 @@ async function run(changes,result,download,entry){
   transportBox.append(node('p','Vor einer späteren Ausführung sind Konto, Angebot, Lieferbestand und kanonische Revision erneut zu prüfen. Bei unklarer Antwort ist ein Ergebnisabgleich erforderlich; keine automatische Wiederholung.'));
   transportBox.append(node('p','Keine Operation angelegt, keine eBay-Änderung ausgeführt. Die Simulation ist nicht Bestandteil der produktiven Historie.'));
   result.append(transportBox);
+  const readiness=data.operationalReadiness;
+  const readinessBox=node('div');readinessBox.className='elyon-ps-note';
+  readinessBox.append(node('strong','Operative Voraussetzungen (V2.5) – gesperrt'));
+  if(readiness?.schemaVersion==='elyon-commerce-readiness-v2.5'&&readiness.executionAuthorized===false&&readiness.scopeAuthenticated===false){
+   readinessBox.append(node('p','Konto: '+(readiness.account?.observed?'beobachtet, nicht gebunden':'nicht verifiziert')+' · OAuth: '+(readiness.scope?.reported?'Scopes gemeldet':'nicht nachgewiesen')+' · Angebot: '+(readiness.offer?.status||'unbekannt')));
+   readinessBox.append(node('p','Lieferantennachweis: fehlt · Redis: nicht verifiziert · Wirtschaftlichkeit: kanonische Vorschau, keine neue Freigabe.'));
+   const obs=readiness.offer?.observation;
+   if(obs)readinessBox.append(node('p','Lesender eBay-Abgleich (keine Freigabe): '+obs.sku+' · '+money(obs.price)+' · Offer-Menge '+obs.quantity+' · globaler Bestand '+(obs.inventoryQuantity??'unbekannt')));
+   const why=node('details');why.append(node('summary','Offene Voraussetzungen'),node('p',(readiness.blockers||[]).join(' · ')));readinessBox.append(why);
+  }else readinessBox.append(node('p','Verifikationsstatus nicht verfügbar.'));
+  result.append(readinessBox);
   const artifact=data.artifact;
   if(artifact?.status==='EXPORT_READY_OFFLINE'&&artifact.executionAuthorized===false&&artifact.uploadVerified===false&&typeof artifact.base64==='string'&&artifact.base64.length<500000){
    result.append(node('p','Struktureller Offline-Export: '+artifact.rowCount+' Zeilen. NICHT bei eBay hochladen. Nachweise und Freigabe fehlen.'));
@@ -94,7 +106,8 @@ export function mountPriceStockReview(section,model,row){
  const discard=button('Vorschlag verwerfen',()=>{price.value='';quantity.value='';invalidate();});
  entry.single=button('Preis / Änderung erneut prüfen',()=>{try{run([get()],result,download,entry);}catch(e){result.textContent=e.message;}});
  entry.batch=button('Auswahl prüfen',()=>run([...selected.values()].map(v=>v.change),result,download,entry));
- details.append(select,discard,entry.single,entry.batch,summary,result,download);section.append(details);mounted.add(entry);
+ entry.verify=button('Angebot lesend verifizieren',()=>{try{run([get()],result,download,entry,{verifyReadback:true});}catch(e){result.textContent=e.message;}});
+ details.append(select,discard,entry.single,entry.batch,entry.verify,summary,result,download);section.append(details);mounted.add(entry);
  // No extra observer or polling; the existing accordion owns render lifecycle.
  queueMicrotask(redraw);
 }
