@@ -1,4 +1,4 @@
-import { loadProductMasterForSeller, resolveProductMasterRecord } from "../../lib/product-master-consumer.js";
+import { loadProductMasterForSeller, resolveProductMasterRecord, fetchCompanyOsAdvancedListingReview } from "../../lib/product-master-consumer.js";
 import { requireSellerAccess } from "../../lib/seller-access.js";
 
 function text(value) {
@@ -13,6 +13,14 @@ async function loadProducts() {
 export default async function handler(req, res) {
   if (!requireSellerAccess(req, res, { maxBodyBytes: 64 * 1024 })) return;
   try {
+    // Opt-in branch, no effect on the existing draft route.
+    if(Object.hasOwn(req.query||{},"advancedReview")){
+      const q=req.query;
+      if(req.method!=="GET"||q.advancedReview!=="1"||Object.keys(q).length!==2||typeof q.productId!=="string")return res.status(422).json({ok:false,error:"invalid_advanced_review_query"});
+      res.setHeader("Cache-Control","no-store");
+      const review=await fetchCompanyOsAdvancedListingReview({productId:q.productId});
+      return res.status(200).json(review);
+    }
     const products = await loadProducts();
     const identity = text(req.query?.id || req.query?.articleNumber || req.query?.sku || req.query?.listingId || req.query?.offerId);
     const product = identity ? resolveProductMasterRecord(products, {

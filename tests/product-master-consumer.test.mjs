@@ -250,3 +250,13 @@ test("canonical structured option and SKU image refs survive Seller Tool project
  assert.equal(loaded.freshness,"stale");
  assert.deepEqual(loaded.products[0].product.variantCombinations[0].imageUrls,[red,side]);
 });
+
+test('V4.3 explicit Seller Tool review uses exact Company OS identity and rejects authority flags',async()=>{
+ const {fetchCompanyOsAdvancedListingReview}=await import('../lib/product-master-consumer.js');
+ const id='product_fixture',env={ELYON_COMPANY_OS_URL:'https://fixture.invalid',ELYON_COMPANY_OS_SYNC_CODE:'fixture-sync'};
+ const result={schemaVersion:'elyon-advanced-listing-review-v4.3',request:{targetKind:'product',targetId:id},projectionSha256:'a'.repeat(64),route:'REVIEW_REQUIRED',issues:[],executionAuthorized:false,publishAuthorized:false,feedAuthorized:false,readyForExport:false,gpsrCompliant:false,uploadVerified:false,releaseEligible:false};
+ const fetchImpl=async(url,opts)=>{assert.equal(url.searchParams.get('advancedReview'),'1');assert.equal(url.searchParams.get('targetId'),id);assert.equal(opts.method,'GET');assert.equal(opts.redirect,'error');return new Response(JSON.stringify(result));};
+ assert.deepEqual(await fetchCompanyOsAdvancedListingReview({productId:id,env,fetchImpl}),result);
+ await assert.rejects(fetchCompanyOsAdvancedListingReview({productId:id,env,fetchImpl:async()=>new Response(JSON.stringify({...result,publishAuthorized:true}))}));
+ await assert.rejects(fetchCompanyOsAdvancedListingReview({productId:id,env,fetchImpl:async()=>new Response(JSON.stringify({...result,request:{targetKind:'product',targetId:'other'}}))}));
+});
