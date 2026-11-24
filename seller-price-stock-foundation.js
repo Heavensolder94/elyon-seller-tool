@@ -41,6 +41,8 @@ function fill(panel,model){
   const price=row.supplierPrice, supply=row.supplierStock, offer=row.offer, grid=node("div",null,"elyon-ps-grid");
   const source=price.provenance==="stored_verified"?"Gespeichert bestätigt (nicht live geprüft)":price.provenance==="unverified"?"Gespeichert · unbestätigt":"Kein Einkaufsnachweis";
   metric(grid,"Lieferanten-EK",money(price.amount,price.currency),source+(price.source?" · "+price.source:"")+" · "+date(price.capturedAt));
+  const shipping=row.supplierShipping;
+  if(shipping?.amount!==null&&shipping?.amount!==undefined)metric(grid,"Lieferantenversand",money(shipping.amount,shipping.currency),(shipping.provenance==='stored_verified'?"Gespeichert bestätigt (nicht live geprüft)":"Gespeichert · unbestätigt")+" · "+date(shipping.capturedAt));
   metric(grid,"eBay-VK",money(offer?.price,offer?.currency),offer?origins[offer.origin]+" · "+date(offer.capturedAt):"Kein eindeutig zugeordnetes Angebot");
   metric(grid,"Lieferantenbestand",count(supply.quantity), (supply.available===true?"Verfügbar":supply.available===false?"Nicht verfügbar":"Verfügbarkeit unbekannt")+" · "+date(supply.capturedAt));
   metric(grid,"eBay-Bestand",count(offer?.quantity),offer?statuses[offer.status]||"Unbekannt":"Kein bestätigter Abgleich");

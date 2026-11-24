@@ -81,3 +81,26 @@ test("UI and build use existing accordion and authenticated snapshots without fe
  const code=await readFile(new URL(path,import.meta.url),"utf8");assert.match(code,/requireSellerAccess/);assert.match(code,/priceStockEvidence/);
  }
 });
+
+test('V2.6 canonical projected facts survive the Seller Consumer and browser import shape',()=>{
+ const facts={supplierStock:0,supplierAvailable:false,supplierStockCapturedAt:at,
+  economicsFacts:{purchase:{amount:'10.25',currency:'EUR',source:'invoice fixture',status:'verified',capturedAt:at},supplierShipping:{amount:0,currency:'EUR',source:'checkout fixture',status:'verified'}}};
+ const canonical={schemaVersion:'elyon-product-master-v2',identity:{articleNumber:p.articleNumber},channels:p.channels,product:{priceStockFacts:facts},economics:{currency:'EUR',buyPrice:99}};
+ const consumer={...canonical,sourceOfTruth:'company_os_canonical_state',raw:canonical,rawServerProduct:canonical};
+ const q={id:p.id,articleNumber:p.articleNumber,rawServerProduct:consumer};
+ const row=read(q).rows[0];
+ assert.equal(row.supplierPrice.amount,10.25);assert.equal(row.supplierPrice.provenance,'stored_verified');
+ assert.equal(row.supplierPrice.authenticated,false);assert.equal(row.supplierStock.quantity,0);assert.equal(row.supplierStock.available,false);
+ assert.equal(row.supplierShipping.amount,0);assert.equal(row.supplierShipping.currency,'EUR');assert.equal(row.supplierShipping.authenticated,false);
+ const retail={...canonical,product:{priceStockFacts:{meta:{reviewOnly:true,amazonReferencePrice:99,amazonReferenceCurrency:'EUR'}}}};
+ const r=read({...q,rawServerProduct:retail}).rows[0];assert.equal(r.supplierPrice.amount,null);assert.equal(r.supplierPrice.amazonReference.amount,99);assert.equal(r.supplierStock.quantity,null);
+});
+test('V2.6 variant projected economics never borrow parent purchase or shipping evidence',()=>{
+ const sku='ELY-000001-01',v2='ELY-000001-02';
+ const canonical={schemaVersion:'elyon-product-master-v2',identity:{articleNumber:p.articleNumber},channels:{ebay:{sku:p.articleNumber,variantSkus:[sku,v2]}},
+  product:{variantCombinations:[{sku,stock:0,available:false}],priceStockFacts:{economicsFacts:{purchase:{amount:99,source:'parent',status:'verified',currency:'EUR'},supplierShipping:{amount:99,source:'parent',status:'verified',currency:'EUR'}},variantEconomicsFacts:{[sku]:{purchase:{amount:5,currency:'EUR',source:'variant',status:'verified'},supplierShipping:{amount:0,currency:'EUR',source:'variant',status:'verified'}}}}}};
+ const q={id:p.id,articleNumber:p.articleNumber,rawServerProduct:canonical};
+ const m=read(q,snapshot([inventory(sku,{offerId:'01',priceStockEvidence:{...inventory().priceStockEvidence,sku}}),inventory(v2,{offerId:'02',priceStockEvidence:{...inventory().priceStockEvidence,sku:v2}})]));
+ assert.equal(m.rows[0].supplierPrice.amount,5);assert.equal(m.rows[0].supplierShipping.amount,0);assert.equal(m.rows[0].supplierStock.quantity,0);
+ assert.equal(m.rows[1].supplierPrice.amount,null);assert.equal(m.rows[1].supplierShipping.amount,null);assert.equal(m.rows[1].supplierStock.quantity,null);
+});

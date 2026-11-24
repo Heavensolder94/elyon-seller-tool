@@ -51,3 +51,34 @@ test('V2.6 review and diagnostic controls are restricted to identifiable active 
  assert.equal(reviewEligibility(model,{...row,offer:{...row.offer,origin:'unknown'}}).readbackEligible,false);
  assert.equal(reviewEligibility({...model,identity:{...model.identity,groupKey:'group'}},row).readbackEligible,false);
 });
+
+test('V2.6 existing accordion DOM controls: no offer empty state, variant diagnostic omitted, stale selection discarded',async()=>{
+ const {mountPriceStockReview,reconcilePriceStockReviews,clearPriceStockReviews}=await import('../seller-price-stock-review.js');
+ class Node{
+  constructor(tag){this.tagName=tag;this.children=[];this.listeners={};this.isConnected=true;this._text='';}
+  append(...nodes){this.children.push(...nodes);}
+  replaceChildren(...nodes){this.children=nodes;this._text='';}
+  set textContent(value){this._text=String(value);this.children=[];}
+  get textContent(){return this._text+this.children.map(x=>x.textContent).join(' ');}
+  addEventListener(event,fn){this.listeners[event]=fn;}
+  setAttribute(){}
+ }
+ const oldDoc=globalThis.document,oldWindow=globalThis.window;
+ const collect=(n,tag)=>[...(n.tagName===tag?[n]:[]),...n.children.flatMap(c=>collect(c,tag))];
+ try{
+  globalThis.document={createElement:tag=>new Node(tag)};globalThis.window={ElyonSellerAuth:{isAuthenticated:()=>true}};
+  const noOffer=new Node('section');mountPriceStockReview(noOffer,model,{...row,offer:null});
+  assert.equal(collect(noOffer,'button').length,0);assert.match(noOffer.textContent,/Kein eindeutig zugeordnetes aktives/);
+  const variant=new Node('section');mountPriceStockReview(variant,model,{...row,sku:'ELY-000123-01'});
+  assert.equal(collect(variant,'button').some(b=>b.textContent==='Angebot lesend verifizieren'),false);
+  const active=new Node('section');mountPriceStockReview(active,model,row);
+  const buttons=collect(active,'button');
+  assert.equal(buttons.some(b=>b.textContent==='Angebot lesend verifizieren'),true);
+  buttons.find(b=>b.textContent==='Vorschlag auswählen').listeners.click();
+  await Promise.resolve();
+  assert.match(active.textContent,/1 ausgewählt/);
+  reconcilePriceStockReviews(()=>({...model,rows:[{...row,offer:{...row.offer,quantity:2}}]}));
+  assert.match(active.textContent,/0 ausgewählt/);
+  assert.equal(buttons.find(b=>b.textContent==='Auswahl prüfen').disabled,true);
+ }finally{clearPriceStockReviews();if(oldDoc===undefined)delete globalThis.document;else globalThis.document=oldDoc;if(oldWindow===undefined)delete globalThis.window;else globalThis.window=oldWindow;}
+});
