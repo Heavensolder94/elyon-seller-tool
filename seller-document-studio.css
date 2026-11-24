@@ -180,3 +180,7 @@
 #elyonDocumentStudioTab .eds-export-row p{margin:4px 0}
 #elyonDocumentStudioTab .eds-export-row ul{margin:6px 0;padding-left:20px;font-size:12px}
 #elyonDocumentStudioTab #edsExportResult pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:320px;overflow:auto;font-size:11px}
+
+#elyonDocumentStudioTab .eds-media-panel #edsMediaResult{display:grid;gap:6px;margin-top:10px;overflow-wrap:anywhere}
+#elyonDocumentStudioTab .eds-media-panel #edsMediaResult p{margin:0;font-size:12px}
+#elyonDocumentStudioTab .eds-media-panel #edsMediaResult ul{margin:6px 0;padding-left:20px;font-size:12px}
