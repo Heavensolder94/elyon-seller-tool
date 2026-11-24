@@ -1,4 +1,5 @@
 import { requireSellerAccess } from "../lib/seller-access.js";
+import { fetchCompanyOsAdvancedListingReview } from "../lib/product-master-consumer.js";
 import { listCombinedAgentRegistry } from "../lib/ai-agent-registry-store.js";
 import registryRunnerHandler from "./ai-agent-run-registry.js";
 import { runJarvisBrain } from "../lib/jarvis-brain.js";
@@ -250,6 +251,15 @@ async function persistBrainState(command, brain, session, warnings = []) {
   }
 }
 
+// Deterministic read-only explicit operation, not a general agent delegation.
+export async function readJarvisAdvancedReview(productId,load=fetchCompanyOsAdvancedListingReview){
+  if(typeof productId!=='string'||productId!==productId.trim()||!productId||productId.length>220||/[\x00-\x1f\x7f]/.test(productId))throw Object.assign(Error('Ungültige Produktidentität.'),{status:422});
+  const review=await load({productId});
+  if(review?.schemaVersion!=='elyon-advanced-listing-review-v4.3'||review.request?.targetKind!=='product'||review.request?.targetId!==productId||!Array.isArray(review.issues)||['executionAuthorized','publishAuthorized','feedAuthorized','readyForExport','gpsrCompliant','uploadVerified','releaseEligible'].some(k=>review[k]!==false))throw Object.assign(Error('Ungültiger V4.3-Prüfvertrag.'),{status:502});
+  const issues=review.issues.map(i=>({code:i.code,field:i.field,variantKey:i.variantKey??null}));
+  return {ok:true,phase:'V4.3',mode:'advanced_listing_review',answer:issues.length+' Prüfhinweise für '+productId+'. Keine Veröffentlichungsfreigabe.',productId,projectionSha256:review.projectionSha256,issues,processingPaths:review.processingPaths??null,category:review.category??null,safety:{externalActionsLocked:true,livePublishingAllowed:false,nothingMutated:true,noAiCall:true}};
+}
+
 export default async function handler(req, res) {
   if (!requireSellerAccess(req, res, { maxBodyBytes: 512 * 1024 })) return;
   res.setHeader("Cache-Control", "no-store");
@@ -258,6 +268,12 @@ export default async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(204).end();
 
   try {
+    if(Object.hasOwn(req.query||{},'advancedReview')){
+      const q=req.query;
+      if(req.method!=='GET'||q.advancedReview!=='1'||Object.keys(q).length!==2||typeof q.productId!=='string')return res.status(422).json({ok:false,error:'invalid_advanced_review_query'});
+      try{return res.status(200).json(await readJarvisAdvancedReview(q.productId));}
+      catch(e){return res.status(Number(e?.status||503)).json({ok:false,error:'advanced_review_unavailable',message:text(e?.message,200)});}
+    }
     if (req.method === "GET") {
       const registry = await getRegistry();
       return res.status(200).json({
@@ -305,6 +321,12 @@ export default async function handler(req, res) {
       });
     }
 
+    // Exact opt-in command, before registry, memory or AI execution.
+    const advancedMatch=command.match(/^V4\.3 prüfen:\s*([^\r\n]{1,220})$/i);
+    if(advancedMatch){
+      try{return res.status(200).json(await readJarvisAdvancedReview(advancedMatch[1].trim()));}
+      catch(e){return res.status(Number(e?.status||503)).json({ok:false,error:'advanced_review_unavailable',message:text(e?.message,200)});}
+    }
     const registry = await getRegistry();
     const plan = createJarvisPlan({
       command,

@@ -313,3 +313,7 @@ Product Check
 ```
 
 Eine nachgelagerte Stufe darf kein noch nicht erfülltes Gate überspringen.
+
+### V4.3 deterministische Angebotsprüfung
+
+Jarvis unterstützt den ausdrücklichen Befehl `V4.3 prüfen: <kanonische Produkt-ID>` sowie den geschützten GET `/api/jarvis?advancedReview=1&productId=...`. Die Prüfung liest die kanonischen Daten im Company OS über den bestehenden Consumer; kein KI-Aufruf, kein Agenten-Run, keine Speicherung oder Freigabe. Prüfergebnisse sind Diagnosen und dürfen nicht als Freigabe, Rechtskonformität oder Veröffentlichungsberechtigung interpretiert werden. Company OS PR #511 muss vor dem Seller Tool bereitgestellt sein.
