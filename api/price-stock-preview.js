@@ -1,4 +1,5 @@
 import { requireSellerAccess } from '../lib/seller-access.js';
+import { resolveAuthenticatedCommerceScope, describeBlockedCommerceReview } from '../lib/commerce-approval-v2-3.js';
 
 const SCHEMA='elyon-price-stock-proposal-v2.2';
 const KEYS=new Set(['articleNumber','sku','listingId','offerId','price','quantity','environment','marketplace','currency','origin','currentPrice','currentQuantity']);
@@ -21,6 +22,7 @@ export default async function handler(req,res){
   const data=await response.json();
   if(data.ok!==true||data.schemaVersion!==SCHEMA||data.executionAuthorized!==false||data.operationalEnabled!==false||
     data.evidenceAuthenticated!==false||data.uploadVerified!==false||data.releaseEligible!==false||data.scopeAuthenticated!==false)throw Error();
-  return res.status(200).json(data);
+  const approvalReview=describeBlockedCommerceReview(data,resolveAuthenticatedCommerceScope(req));
+  return res.status(200).json({...data,approvalReview});
  }catch{return res.status(503).json({ok:false,error:'canonical_preview_unavailable',executionAuthorized:false});}
 }

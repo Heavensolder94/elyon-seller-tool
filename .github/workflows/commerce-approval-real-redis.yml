@@ -1,0 +1,37 @@
+name: Commerce approval real Redis
+
+on:
+  pull_request:
+    paths:
+      - "lib/commerce-approval-v2-3.js"
+      - "lib/commerce-simulation-ledger.js"
+      - "tests/commerce-approval*"
+      - ".github/workflows/commerce-approval-real-redis.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  redis-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    services:
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Exercise isolated Redis Lua ledger
+        run: |
+          test -n "$COMMERCE_TEST_REDIS_CONTAINER"
+          node --test tests/commerce-approval-real-redis.test.mjs
+        env:
+          COMMERCE_TEST_REDIS_CONTAINER: ${{ job.services.redis.id }}

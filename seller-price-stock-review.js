@@ -42,6 +42,17 @@ async function run(changes,result,download,entry){
    result.append(node('p','Transportkandidat (unverifiziert): '+(p.transport?.candidate?.api||'unbekannt')));
   }
   if(data.plan)result.append(node('p','Commerce Dry Run: '+data.plan.structureStatus+' / '+data.plan.status+' · '+(data.plan.diagnostics||[]).map(d=>d.code).join(' · ')));
+  const approval=data.approvalReview;
+  const approvalBox=node('div');approvalBox.className='elyon-ps-note';
+  approvalBox.append(node('strong','Freigabeprüfung (V2.3) – keine eBay-Aktion'));
+  if(approval?.schemaVersion==='elyon-commerce-approval-v2.3'&&approval.status==='EVIDENCE_REQUIRED'&&approval.confirmationAllowed===false&&approval.persisted===false){
+   approvalBox.append(node('p','Serverseitig geprüft · Bestätigung und Reservierung gesperrt.'));
+   approvalBox.append(node('p','Prüfzeit '+new Date(approval.checkedAt).toLocaleString('de-DE')+' · erneute Prüfung spätestens '+new Date(approval.expiresAt).toLocaleString('de-DE')));
+   approvalBox.append(node('p','Individueller Benutzer, Workspace, eBay-Konto und authentifizierte Angebots-/Lieferantennachweise fehlen. Es wurde keine Freigabe gespeichert.'));
+   const details=node('details');details.append(node('summary','Nachweisdetails'),node('p',(approval.blockers||[]).join(' · ')));approvalBox.append(details);
+  }else approvalBox.append(node('p','Freigabestatus nicht verifiziert – gesperrt.'));
+  const confirmation=button('Prüfung bestätigen – gesperrt',()=>{});confirmation.disabled=true;approvalBox.append(confirmation);
+  result.append(approvalBox);
   const artifact=data.artifact;
   if(artifact?.status==='EXPORT_READY_OFFLINE'&&artifact.executionAuthorized===false&&artifact.uploadVerified===false&&typeof artifact.base64==='string'&&artifact.base64.length<500000){
    result.append(node('p','Struktureller Offline-Export: '+artifact.rowCount+' Zeilen. NICHT bei eBay hochladen. Nachweise und Freigabe fehlen.'));
@@ -75,7 +86,7 @@ export function mountPriceStockReview(section,model,row){
  price.addEventListener('input',invalidate);quantity.addEventListener('input',invalidate);
  const select=button('Vorschlag auswählen',()=>{try{const change=get();if(!selected.has(key)&&selected.size>=50)throw Error('Maximal 50 Änderungen.');selected.set(reviewKey(change),{change,signature:sig});result.textContent='Nur lokale Review-Auswahl gespeichert.';generation++;busy=false;download.hidden=true;redraw();}catch(e){result.textContent=e.message;}});
  const discard=button('Vorschlag verwerfen',()=>{price.value='';quantity.value='';invalidate();});
- entry.single=button('Preis / Änderung prüfen',()=>{try{run([get()],result,download,entry);}catch(e){result.textContent=e.message;}});
+ entry.single=button('Preis / Änderung erneut prüfen',()=>{try{run([get()],result,download,entry);}catch(e){result.textContent=e.message;}});
  entry.batch=button('Auswahl prüfen',()=>run([...selected.values()].map(v=>v.change),result,download,entry));
  details.append(select,discard,entry.single,entry.batch,summary,result,download);section.append(details);mounted.add(entry);
  // No extra observer or polling; the existing accordion owns render lifecycle.
