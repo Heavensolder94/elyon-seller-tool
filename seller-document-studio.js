@@ -86,7 +86,7 @@
   ].map(([id, category, title, html]) => ({ id, category, title, html }));
   const DEFAULT_DESIGN = "elyon";
   const PRODUCT_KIND = "product_document";
-  const state = { demoOrderDraft: false, revision: null, documents: [], customTemplates: [], customBlocks: [], blockCategory: "Alle", blockSearch: "", lastRange: null, current: null, profile: {}, logoData: "", dirty: false, showArchived: false, search: "", librarySearch: "", category: "Alle", favoritesOnly: false, favorites: [], libraryOpen: true, designId: DEFAULT_DESIGN, preview: true, loading: false, documentFilter: "all", productCatalog: null, productCatalogPending: null, productGeneration: 0, productBusy: false, sessionEpoch: 0, exportSelections: new Map(), exportGeneration: 0, exportBusy: false, exportReview: null };
+  const state = { demoOrderDraft: false, revision: null, documents: [], customTemplates: [], customBlocks: [], blockCategory: "Alle", blockSearch: "", lastRange: null, current: null, profile: {}, logoData: "", dirty: false, showArchived: false, search: "", librarySearch: "", category: "Alle", favoritesOnly: false, favorites: [], libraryOpen: true, designId: DEFAULT_DESIGN, preview: true, loading: false, documentFilter: "all", productCatalog: null, productCatalogPending: null, productGeneration: 0, productBusy: false, sessionEpoch: 0, exportSelections: new Map(), exportGeneration: 0, exportBusy: false, exportReview: null, mediaReviewGeneration: 0, mediaReviewBusy: false };
 
   const el = (id) => document.getElementById(id);
   const escapeHtml = (value) => String(value == null ? "" : value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
@@ -681,8 +681,8 @@
     if(!multiple&&selected===null)select.value="";
   }
   function markProductEdited() {
-    clearExportReview();
-    state.dirty=true;status("Nicht gespeicherte Produktmetadaten.");
+    clearExportReview();clearMediaReview();
+    state.dirty=true;const mediaButton=el("edsMediaCheck");if(mediaButton)mediaButton.disabled=true;status("Nicht gespeicherte Produktmetadaten.");
     const review=el("edsProductReview");if(review)review.textContent="Metadaten geändert · noch nicht serverseitig geprüft. Kein Dateinachweis, kein Upload.";
   }
   function renderProductAssociations() {
@@ -902,6 +902,38 @@
     }catch(error){if(epoch===state.sessionEpoch&&token===state.exportGeneration&&generation===state.productGeneration)status(error.message,true);}
     finally{if(token===state.exportGeneration){state.exportBusy=false;renderExportSelection();}}
   }
+  const mediaBlockerLabels={MEDIA_DOCUMENT_TYPE_UNSUPPORTED:"Dokumententyp nicht im aktuellen API-/Vorlagenprofil",MEDIA_LANGUAGE_UNSUPPORTED:"Sprache nicht im API-/Vorlagenprofil",MEDIA_LANGUAGE_DUPLICATE:"Doppelte API-Sprache",MEDIA_LANGUAGE_LIMIT:"Sprachlimit überschritten",MEDIA_OTHER_LANGUAGE_REVIEW_REQUIRED:"OTHER benötigt gesonderte Prüfung",MEDIA_SCOPE_UNVERIFIED:"Tatsächlich gewährter OAuth-Scope nicht nachgewiesen",MEDIA_LIVE_TRANSPORT_UNVERIFIED:"Keine echte Media-API-Verifikation",PRODUCTION_LEDGER_UNVERIFIED:"Produktive Operationspersistenz nicht nachgewiesen",EXPLICIT_APPROVAL_MISSING:"Explizite operative Freigabe fehlt",individual_seller_identity_unverified:"Individuelle Betreiberidentität fehlt",workspace_binding_unverified:"Workspace-Bindung fehlt",ebay_account_binding_unverified:"eBay-Kontobindung fehlt"};
+  function clearMediaReview(){
+    state.mediaReviewGeneration++;state.mediaReviewBusy=false;
+    const host=el("edsMediaResult");if(host)host.replaceChildren();
+    const button=el("edsMediaCheck");if(button)button.disabled=!(productMode()&&state.current?.version&&!state.dirty);
+  }
+  function renderMediaReview(result){
+    const host=el("edsMediaResult");if(!host)return;host.replaceChildren();
+    const add=(tag,value)=>{const n=document.createElement(tag);n.textContent=value;host.append(n);return n;};
+    add("strong","Upload blockiert · Nicht an eBay übermittelt");
+    add("p","Dokumentrevision "+result.documentRevision+" · Datei: "+validationLabel(result.technicalFileStatus)+" · Bereitstellung fehlt");
+    add("p","API-Kandidat: createDocumentFromUrl / getDocument · Scope sell.inventory nicht verifiziert · keine Sandbox-Unterstützung");
+    add("p","Externe Dokumenten-ID: keine · Status: NOT_SUBMITTED · kein tatsächlicher Statusabruf");
+    add("p","Produkt- und Variantenprüfung: "+validationLabel(result.candidate.associationCheck.status)+" · Gültigkeit: "+validationLabel(result.candidate.validity));
+    add("p","Geplante API-Sprachen: "+(result.candidate.languages.join(", ")||"Keine")+" · Dokumententyp: "+(result.candidate.documentType||"Fehlt"));
+    const ul=add("ul","");
+    for(const code of result.blockers){const li=document.createElement("li");li.textContent=mediaBlockerLabels[code]||exportLabel(code);ul.append(li);}
+    add("p","Prüfzeitpunkt "+result.checkedAt+" · keine operative Freigabe. GPSR-Übernahme gesperrt.");
+  }
+  async function runMediaReview(){
+    if(!productMode()||!state.current.version||state.mediaReviewBusy||state.revision===null)return;
+    if(state.dirty){status("Bitte Produktmetadaten zuerst speichern.",true);return;}
+    clearMediaReview();const token=state.mediaReviewGeneration,epoch=state.sessionEpoch,generation=state.productGeneration,id=state.current.id,version=state.current.version,revision=state.revision;
+    state.mediaReviewBusy=true;el("edsMediaCheck").disabled=true;status("Prüfe Media-API-Bereitschaft (ohne eBay-Aufruf) …");
+    try{
+      const result=await api("document-media-review",{expectedRevision:revision,documents:[{id,version}]});
+      if(token!==state.mediaReviewGeneration||epoch!==state.sessionEpoch||generation!==state.productGeneration||revision!==state.revision)return;
+      if(result.schemaVersion!=="elyon-document-media-v3.4"||result.status!=="UPLOAD_BLOCKED"||result.externalStatus!=="NOT_SUBMITTED"||result.documentRevision!==version||result.studioRevision!==revision||result.candidate?.documentId!==id||result.candidate?.documentUrl!==null||result.ebayDocumentId!==null||result.externalReference!==null||result.executionAuthorized!==false||result.uploadVerified!==false||result.liveVerified!==false||result.gpsrCandidate?.eligible!==false)throw Error("Ungültige Media-Bereitschaftsprüfung.");
+      renderMediaReview(result);status("Bereitschaft geprüft · Upload weiterhin gesperrt.");
+    }catch(error){if(token===state.mediaReviewGeneration&&epoch===state.sessionEpoch&&generation===state.productGeneration)status(error.message,true);}
+    finally{if(token===state.mediaReviewGeneration){state.mediaReviewBusy=false;const button=el("edsMediaCheck");if(button)button.disabled=state.dirty||!state.current?.version;}}
+  }
   function showProductEditor(doc) {
     const p=doc.productDocument||{}, panel=el("edsProductEditor");
     panel.innerHTML=[
@@ -939,7 +971,8 @@
       '<label class="eds-field">Entscheidung<select id="edsValidationDecision"><option value="reviewed">Manuell geprüft</option><option value="concern">Bedenken / Mangel</option></select></label>',
       '<label class="eds-field">Nachweisreferenz<input id="edsValidationReference" maxlength="300"></label><label class="eds-field">Prüfvermerk<textarea id="edsValidationNote" maxlength="600" rows="3"></textarea></label></div>',
       '<button type="button" class="eds-btn" id="edsValidationAddNote">Prüfvermerk hinterlegen</button><p class="eds-muted">Manuelle Angaben sind keine unabhängigen Echtheits- oder regulatorischen Nachweise. Gemeinsame Seller-Sitzung, keine individuell verifizierte Identität.</p></fieldset></section>',
-      '<section class="eds-validation-panel eds-export-panel"><h3>eBay-Dokumentenexport</h3><p class="eds-muted">Metadatenvorschau auf Basis der offiziellen Vorlage. Kein produktiver Download ohne sichere Dateibereitstellung.</p><div id="edsExportSelections" class="eds-export-selections"></div><p id="edsExportCount" class="eds-muted"></p><div class="eds-side-head"><button type="button" class="eds-btn" id="edsExportCheck">Export prüfen / XLSX-Vorschau</button><button type="button" class="eds-btn" id="edsExportClear">Auswahl leeren</button><button type="button" class="eds-btn" id="edsExportDownload" disabled title="Sichere Dateibereitstellung fehlt">XLSX herunterladen (gesperrt)</button></div><div id="edsExportResult" aria-live="polite"></div></section>'
+      '<section class="eds-validation-panel eds-export-panel"><h3>eBay-Dokumentenexport</h3><p class="eds-muted">Metadatenvorschau auf Basis der offiziellen Vorlage. Kein produktiver Download ohne sichere Dateibereitstellung.</p><div id="edsExportSelections" class="eds-export-selections"></div><p id="edsExportCount" class="eds-muted"></p><div class="eds-side-head"><button type="button" class="eds-btn" id="edsExportCheck">Export prüfen / XLSX-Vorschau</button><button type="button" class="eds-btn" id="edsExportClear">Auswahl leeren</button><button type="button" class="eds-btn" id="edsExportDownload" disabled title="Sichere Dateibereitstellung fehlt">XLSX herunterladen (gesperrt)</button></div><div id="edsExportResult" aria-live="polite"></div></section>',
+      '<section class="eds-validation-panel eds-media-panel"><h3>eBay-Dokumentenstatus</h3><p class="eds-muted">Upload blockiert · Keine echte eBay-Dokumenten-ID. Private Dateiablage, sichere Bereitstellung, Kontobindung und Freigabe fehlen.</p><p id="edsMediaBase" class="eds-muted"></p><button type="button" class="eds-btn" id="edsMediaCheck">Media-Bereitschaft prüfen</button><div id="edsMediaResult" aria-live="polite"></div></section>'
     ].join("");
     const values={edsProductTitle:doc.title,edsProductOtherLanguage:p.otherLanguageText,edsProductSource:p.sourceReference,edsProductUrl:p.externalDocumentUrl,edsProductManufacturer:p.manufacturerReference,edsProductSupplier:p.supplierReference,edsProductModel:p.modelReference,edsProductModelVersion:p.productVersionReference,edsProductDescription:p.description,edsProductMime:p.declaredMimeType,edsProductSize:p.declaredFileSize,edsProductFrom:p.validFrom,edsProductUntil:p.validUntil,edsProductDecision:p.reviewDecision||"pending"};
     for(const [id,value] of Object.entries(values))el(id).value=value??"";
@@ -958,6 +991,9 @@
     el("edsProductFields").disabled=Boolean(doc.archivedAt);
     el("edsValidationFields").disabled=Boolean(doc.archivedAt||!doc.version);
     renderValidationEvidence(doc);
+    el("edsMediaBase").textContent="Dokumentrevision "+(doc.version||"Entwurf")+" · "+validationLabel(doc.review?.validation?.fileStatus||doc.productDocument?.review?.validation?.fileStatus)+" · NOT_SUBMITTED";
+    el("edsMediaCheck").disabled=!doc.version;
+    el("edsMediaCheck").addEventListener("click",runMediaReview);
     renderExportSelection();
     el("edsExportCheck").addEventListener("click",runDocumentExportPreview);
     el("edsExportClear").addEventListener("click",()=>{state.exportSelections.clear();clearExportReview();renderExportSelection();});
@@ -1001,7 +1037,7 @@
     state.demoOrderDraft = false;
     const sourceNotice = el("edsOrderSourceNotice");
     if (sourceNotice) { sourceNotice.hidden = true; sourceNotice.textContent = ""; }
-    clearExportReview();
+    clearExportReview();clearMediaReview();
     state.current = { ...doc };
     state.productGeneration++;
     state.dirty = false;
@@ -1055,7 +1091,7 @@
   }
 
   function handleInput(event) {
-    if(productMode()&&(event.target?.id?.startsWith("edsValidation")||event.target?.id?.startsWith("edsExport")))return;
+    if(productMode()&&(event.target?.id?.startsWith("edsValidation")||event.target?.id?.startsWith("edsExport")||event.target?.id?.startsWith("edsMedia")))return;
     if (productMode() && el("edsProductEditor")?.contains(event.target) && event.target.id !== "edsProductPick") { markProductEdited(); return; }
     if (event.target?.id === "edsSearch") { state.search = event.target.value.toLowerCase(); renderList(); return; }
     if (event.target?.id === "edsLibrarySearch") { state.librarySearch = event.target.value.toLocaleLowerCase("de-DE"); renderLibrary(); return; }
@@ -1568,7 +1604,7 @@
     if (action === "docx") return exportDocx();
     if (action === "refresh") {
       if (!shouldDiscard()) return;
-      state.productGeneration++;state.productCatalog=null;
+      clearMediaReview();state.productGeneration++;state.productCatalog=null;
       state.current = null;
       return refresh();
     }
@@ -1585,13 +1621,13 @@
       const stylesheet = document.createElement("link");
       stylesheet.id = "elyonDocumentStudioStyles";
       stylesheet.rel = "stylesheet";
-      stylesheet.href = "/seller-document-studio.css?v=product-documents-v3-3";
+      stylesheet.href = "/seller-document-studio.css?v=product-documents-v3-4";
       document.head.appendChild(stylesheet);
     }
     installEntry();
     window.addEventListener("elyon:seller-auth-ready", event=>{
       if(event.detail?.authenticated===true){if(el(TAB_ID)?.classList.contains("active")&&state.revision===null&&!state.loading)refresh();return;}
-      clearExportReview();state.exportSelections.clear();
+      clearExportReview();clearMediaReview();state.exportSelections.clear();
       state.sessionEpoch++;state.productGeneration++;state.productCatalog=null;state.productCatalogPending=null;
       state.documents=state.documents.filter(doc=>doc.kind!==PRODUCT_KIND);state.revision=null;
       if(productMode()){state.current=null;state.productSelections=[];state.dirty=false;el("edsProductEditor")?.replaceChildren();if(el(TAB_ID))setProductMode(false);}

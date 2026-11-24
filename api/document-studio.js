@@ -10,6 +10,9 @@ import {PRODUCT_VALIDATION_ACTIONS} from "../lib/product-document-validation.js"
 import {validateExportSelection,resolveExportSelection,prepareDocumentExportReview} from "../lib/product-document-export.js";
 import {loadDocumentExportPreview} from "../lib/product-document-export-client.js";
 
+import {prepareBlockedDocumentMediaReview} from "../lib/product-document-media-contract.js";
+import {resolveAuthenticatedCommerceScope} from "../lib/commerce-approval-v2-3.js";
+
 const STORE_KEY = "elyon-seller-tool:document-studio:v1";
 
 function config() {
@@ -63,13 +66,15 @@ export default async function handler(req, res) {
     if (req.method === "GET" && action === "product-catalog") {
       return send(res, 200, { ...await loadDocumentCatalog(), internalTypes: PRODUCT_DOCUMENT_TYPES, origins: DOCUMENT_ORIGINS });
     }
-    if (req.method === "POST" && action === "document-export-preview") {
+    if (req.method === "POST" && ["document-export-preview","document-media-review"].includes(action)) {
       const selection=validateExportSelection(req.body);
       const current=await load();
       if(current.revision!==selection.expectedRevision)return send(res,409,{ok:false,error:"revision_conflict",message:"Dokumentenbestand geändert. Bitte neu laden."});
-      resolveExportSelection(current,selection); // Fail stale/unknown selections before bridge calls.
+      const docs=resolveExportSelection(current,selection); // Fail stale/unknown selections before bridge calls.
+      if(action==="document-media-review"&&docs.length!==1)return send(res,422,{ok:false,message:"Genau ein Produktdokument auswählen."});
       const catalog=await loadDocumentCatalog();
-      const result=await prepareDocumentExportReview(current,selection,catalog,loadDocumentExportPreview);
+      const review=await prepareDocumentExportReview(current,selection,catalog,loadDocumentExportPreview);
+      const result=action==="document-media-review"?prepareBlockedDocumentMediaReview(docs[0],review,catalog,resolveAuthenticatedCommerceScope(req)):review;
       // Read-only second snapshot prevents a known stale result after the bridge.
       if((await load()).revision!==current.revision)return send(res,409,{ok:false,error:"revision_conflict",message:"Dokumentenbestand während der Prüfung geändert. Bitte neu laden."});
       if(Buffer.byteLength(JSON.stringify(result),"utf8")>2*1024*1024)return send(res,503,{ok:false,error:"preview_too_large",message:"Exportvorschau zu groß. Bitte kleinere Auswahl prüfen."});
