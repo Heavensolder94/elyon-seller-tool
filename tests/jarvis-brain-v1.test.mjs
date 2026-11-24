@@ -274,3 +274,12 @@ test("API routing keeps specialist commands out of the general Brain", () => {
   assert.equal(shouldRouteToBrain({}, { executable: true, intent: { id: "compliance" } }, "Wie lautet unsere Compliance-Regel?"), true);
   assert.equal(shouldRouteToBrain({}, { executable: true, intent: { id: "compliance" } }, "Merke dir: Compliance immer erst nach meiner Freigabe."), true);
 });
+
+test('V4.3 Jarvis deterministic review exposes diagnostics without granting permission',async()=>{
+ const {readJarvisAdvancedReview}=await import('../api/jarvis.js');
+ const id='product_fixture',data={schemaVersion:'elyon-advanced-listing-review-v4.3',request:{targetKind:'product',targetId:id},projectionSha256:'a'.repeat(64),issues:[{code:'DOCUMENT_REVIEW',field:'regulatory.documents',variantKey:'sku:1'}],executionAuthorized:false,publishAuthorized:false,feedAuthorized:false,readyForExport:false,gpsrCompliant:false,uploadVerified:false,releaseEligible:false};
+ let reads=0;const result=await readJarvisAdvancedReview(id,async({productId})=>{reads++;assert.equal(productId,id);return data;});
+ assert.equal(reads,1);assert.equal(result.safety.noAiCall,true);assert.equal(result.safety.livePublishingAllowed,false);assert.deepEqual(result.issues,data.issues);
+ await assert.rejects(readJarvisAdvancedReview(id,async()=>({...data,releaseEligible:true})));
+ await assert.rejects(readJarvisAdvancedReview(id,async()=>({...data,request:{targetKind:'product',targetId:'wrong'}})));
+});
