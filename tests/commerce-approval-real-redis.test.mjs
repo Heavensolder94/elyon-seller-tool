@@ -96,6 +96,8 @@ it('real Redis: lost response after reservation, unknown outcome survives and bl
 });
 it('real Redis: definitive simulation resolution releases semantic targets but never reuses consumed operation',async()=>{
  const l=ledger(),b=binding(),a=await confirmed(l,b),r=await l.reserve(b,a.id,a.revision);assert.equal(r.ok,true);
+ const unrelated=binding({targets:t=>[t(2)]});
+ assert.equal((await l.transition(unrelated,r.operation.id,r.operation.revision,'CANCELLED')).code,'operation_binding_mismatch');
  const prepared=await l.transition(b,r.operation.id,r.operation.revision,'PREPARED');
  const simulated=await l.transition(b,r.operation.id,prepared.operation.revision,'SIMULATED');
  const resolved=await l.transition(b,r.operation.id,simulated.operation.revision,'RESOLVED');assert.equal(resolved.operation.status,'RESOLVED');

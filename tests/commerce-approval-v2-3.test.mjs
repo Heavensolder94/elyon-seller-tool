@@ -22,6 +22,9 @@ test('shared seller credential proves access only, never client identities',()=>
   assert.throws(()=>describeBlockedCommerceReview({...d,executionAuthorized:true},scope));
   assert.throws(()=>describeBlockedCommerceReview(d,{sellerAccess:false,authenticated:false}));
   assert.notEqual(a.evidenceSha256,describeBlockedCommerceReview({...d,ruleRevision:3},scope).evidenceSha256);
+  assert.notEqual(a.evidenceSha256,describeBlockedCommerceReview({...d,validationRuleVersion:'2.0.0'},scope).evidenceSha256);
+  const missing=describeBlockedCommerceReview({...d,economicsRulesSha256:null,validationRuleVersion:null},scope);
+  assert.ok(missing.blockers.includes('canonical_rules_fingerprint_missing'));assert.ok(missing.blockers.includes('validation_rule_version_missing'));
  }finally{if(old===undefined)delete process.env.ELYON_SELLER_ACCESS_TOKEN;else process.env.ELYON_SELLER_ACCESS_TOKEN=old;}
 });
 test('operation identity normalized and independent of actor, batch order, review time; expected state matters',()=>{
