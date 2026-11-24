@@ -1,6 +1,8 @@
 import { requireSellerAccess } from "../lib/seller-access.js";
 import { readFinanceState } from "../lib/finance-store.js";
 import { applyStudioChange, documentSummary, normalizeStudioState } from "../lib/document-studio-core.js";
+import { loadDocumentCatalog } from "../lib/product-document-catalog-client.js";
+import { PRODUCT_DOCUMENT_KIND, PRODUCT_DOCUMENT_TYPES, DOCUMENT_ORIGINS, productDocumentReview } from "../lib/product-document-core.js";
 
 const STORE_KEY = "elyon-seller-tool:document-studio:v1";
 
@@ -52,6 +54,9 @@ export default async function handler(req, res) {
   if (!requireSellerAccess(req, res, { maxBodyBytes: 100_000 })) return;
   const action = String(req.query?.action || (req.method === "GET" ? "list" : "")).toLowerCase();
   try {
+    if (req.method === "GET" && action === "product-catalog") {
+      return send(res, 200, { ...await loadDocumentCatalog(), internalTypes: PRODUCT_DOCUMENT_TYPES, origins: DOCUMENT_ORIGINS });
+    }
     if (req.method === "GET" && action === "profile") {
       const finance = await readFinanceState();
       const s = finance.settings || {};
@@ -83,20 +88,28 @@ export default async function handler(req, res) {
       const id = String(req.query?.id || "");
       const doc = state.documents.find((record) => record.id === id);
       if (!doc) return send(res, 404, { ok: false, message: "Dokument nicht gefunden." });
-      return send(res, 200, { ok: true, revision: state.revision, document: doc });
+      return send(res, 200, { ok: true, revision: state.revision, document: doc.kind === PRODUCT_DOCUMENT_KIND ? { ...doc, review: productDocumentReview(doc) } : doc });
     }
-    if (req.method === "POST" && ["save", "archive", "restore", "save-template", "delete-template", "save-block", "delete-block"].includes(action)) {
+    if (req.method === "POST" && ["save", "save-product", "archive", "restore", "save-template", "delete-template", "save-block", "delete-block"].includes(action)) {
       const expected = req.body?.expectedRevision;
       if (!Number.isSafeInteger(expected) || expected < 0) return send(res, 400, { ok: false, message: "Zuerst Dokumentenbestand laden (Revision fehlt)." });
       const current = await load();
       if (current.revision !== expected) {
         return send(res, 409, { ok: false, error: "revision_conflict", message: "Dokumente wurden auf einem anderen Gerät geändert. Bitte neu laden.", currentRevision: current.revision });
       }
-      const next = applyStudioChange(current, action, req.body?.document, req.body?.id);
+      if (["archive", "restore"].includes(action)) {
+        const target = current.documents.find(doc => doc.id === req.body?.id);
+        if (target?.kind === PRODUCT_DOCUMENT_KIND && req.body?.expectedDocumentVersion !== target.version) {
+          return send(res, 409, { ok: false, error: "revision_conflict", message: "Produktdokument wurde geändert. Bitte neu öffnen." });
+        }
+      }
+      const catalog = action === "save-product" ? await loadDocumentCatalog() : undefined;
+      const next = applyStudioChange(current, action, req.body?.document, req.body?.id, { catalog });
       if (!(await compareSet(next, expected))) {
         return send(res, 409, { ok: false, error: "revision_conflict", message: "Zeitgleiche Änderung. Bitte Dokumentenbestand neu laden." });
       }
-      return send(res, 200, { ok: true, revision: next.revision, documents: next.documents.map(documentSummary), templates: ["save-template", "delete-template"].includes(action) ? next.customTemplates : undefined,
+      const saved = ["save-product","archive","restore"].includes(action) ? next.documents.find(doc => doc.kind === PRODUCT_DOCUMENT_KIND && doc.id === (action === "save-product" ? req.body?.document?.id : req.body?.id)) : null;
+      return send(res, 200, { ok: true, revision: next.revision, documents: next.documents.map(documentSummary), ...(saved ? { document: { ...saved, review: productDocumentReview(saved) } } : {}), templates: ["save-template", "delete-template"].includes(action) ? next.customTemplates : undefined,
         blocks: ["save-block", "delete-block"].includes(action) ? next.customBlocks : undefined });
     }
     return send(res, 405, { ok: false, message: "Aktion oder Methode nicht erlaubt." });
