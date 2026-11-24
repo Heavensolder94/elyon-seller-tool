@@ -165,6 +165,8 @@ const filesToMirror = [
   ["seller-company-os-inbox.js", "public/seller-company-os-inbox.js"],
   ["seller-product-health-core.js", "public/seller-product-health-core.js"],
   ["seller-product-health-state.js", "public/seller-product-health-state.js"],
+  ["seller-price-stock-foundation.js", "public/seller-price-stock-foundation.js"],
+  ["seller-price-stock-foundation-core.js", "public/seller-price-stock-foundation-core.js"],
   ["seller-product-board-accordion.js", "public/seller-product-board-accordion.js"],
   ["seller-product-board-accordion-compat.js", "public/seller-product-board-accordion-compat.js"],
   ["seller-product-delete.js", "public/seller-product-delete.js"],

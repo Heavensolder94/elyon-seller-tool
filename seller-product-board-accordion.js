@@ -186,6 +186,7 @@
     card.classList.toggle(EXPANDED_CLASS, expanded);
     updateToggle(card, expanded);
     syncNativeDetails(card, expanded);
+    window.ElyonPriceStockFoundation?.renderCard(card, getProductRecord(card), expanded);
   }
 
   function addToggle(card) {
@@ -352,6 +353,7 @@
     try {
       installStyles();
       ensureControls();
+      window.ElyonPriceStockFoundation?.prepare(typeof products !== "undefined" && Array.isArray(products) ? products : []);
       getBoardCards().forEach(decorateCard);
     } finally {
       startObserver();
@@ -369,6 +371,8 @@
     installClickHandler();
     decorateBoard();
     window.addEventListener("elyon:products-updated", scheduleDecorate);
+    window.addEventListener("elyon:price-stock-snapshot-updated", scheduleDecorate);
+    window.addEventListener("elyon:seller-auth-ready", scheduleDecorate);
     window.addEventListener("storage", (event) => {
       if (event.key === EXPANDED_STORAGE_KEY) scheduleDecorate();
     });

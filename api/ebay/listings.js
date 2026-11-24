@@ -135,6 +135,16 @@ function normalizeListing(offer, inventoryItem) {
     marketplaceId: text(offer?.marketplaceId, 40),
     inventoryItemGroupKey: text(inventoryItem?.groupIds?.[0] || inventoryItem?.inventoryItemGroupKey, 120),
     lastModifiedDate: text(offer?.lastModifiedDate || inventoryItem?.lastModifiedDate, 80),
+    // Additive read-only evidence. The existing compatibility fields above
+    // retain their old defaults; absence is not zero in the new projection.
+    priceStockEvidence: {
+      sku: typeof offer?.sku === "string" ? offer.sku : typeof inventoryItem?.sku === "string" ? inventoryItem.sku : null,
+      price: offer?.pricingSummary?.price?.value ?? offer?.price?.value ?? null,
+      currency: offer?.pricingSummary?.price?.currency ?? offer?.price?.currency ?? null,
+      quantity: offer?.availableQuantity ?? null,
+      marketplaceId: offer?.marketplaceId ?? null,
+      source: "ebay_inventory_api",
+    },
   };
 }
 

@@ -48,6 +48,10 @@
         lastLoadedAt = Date.now();
         window.__elyonSellerState = data;
         window.__elyonSellerStateLoadedAt = lastLoadedAt;
+        if(window.ElyonSellerAuth?.isAuthenticated?.() === true) {
+          window.__elyonPriceStockSellerState = data;
+          window.dispatchEvent(new CustomEvent("elyon:price-stock-snapshot-updated"));
+        }
         return data;
       })
       .then(render)
@@ -107,6 +111,12 @@
   function install() {
     loadWhenDashboardActive();
     window.addEventListener("elyon:seller-authenticated", loadWhenDashboardActive);
+    window.addEventListener("elyon:seller-auth-ready", event => {
+      if(event.detail?.authenticated !== true) {
+        window.__elyonPriceStockSellerState = null;
+        window.dispatchEvent(new CustomEvent("elyon:price-stock-snapshot-updated"));
+      }
+    });
     window.addEventListener("elyon:tab-changed", (event) => {
       const tabId = event.detail?.tabId || event.detail;
       if (tabId === "dashboardTab") load();

@@ -43,6 +43,7 @@
       PRICE_PROVENANCE,
       { src: "/seller-company-os-inbox.js" },
       { src: "/seller-product-health-state.js", type: "module" },
+      { src: "/seller-price-stock-foundation.js", type: "module" },
       { src: "/seller-product-board-accordion.js" },
       { src: "/seller-product-board-accordion-compat.js" },
       { src: "/seller-product-delete.js" },
@@ -815,6 +816,14 @@
       if (listingResult.status !== "fulfilled") throw listingResult.reason;
 
       const items = Array.isArray(listingResult.value?.items) ? listingResult.value.items : [];
+      // Share only the already retrieved snapshot; do not add a request.
+      if(window.ElyonSellerAuth?.isAuthenticated?.() === true && listingResult.value?.environment === "production") {
+        const previous=window.__elyonPriceStockSellerState;
+        if(previous?.source !== "ebay_seller_state" || listingResult.value.source === "ebay_seller_state" || !previous.syncedAt || Date.now()-Date.parse(previous.syncedAt)>24*60*60*1000) {
+          window.__elyonPriceStockSellerState=listingResult.value;
+          window.dispatchEvent(new CustomEvent("elyon:price-stock-snapshot-updated"));
+        }
+      }
       archivedFeedRecords = Array.isArray(listingResult.value?.feedHistory?.items)
         ? listingResult.value.feedHistory.items : [];
       const products = productResult.status === "fulfilled" && Array.isArray(productResult.value?.products)

@@ -65,11 +65,32 @@ function tradingRequest(pageNumber) {
 </GetMyeBaySellingRequest>`;
 }
 
+// QuantityAvailable is an available-stock observation; Quantity is not
+// interchangeable (it can be the original listed quantity). Keep currency
+// and site from explicit evidence rather than the legacy EUR/DE defaults.
+function priceStockObservation(xml, marketplaceId, source) {
+  const selling = tagValue(xml, "SellingStatus", 12000);
+  const priceBlock = selling.match(/<CurrentPrice\b([^>]*)>([^<]*)<\/CurrentPrice>/i)
+    || xml.match(/<StartPrice\b([^>]*)>([^<]*)<\/StartPrice>/i);
+  const currency = priceBlock?.[1].match(/\bcurrencyID=["']([A-Z]{3})["']/i)?.[1] ?? null;
+  return {
+    sku: tagValue(xml, "SKU", 220) || null,
+    price: priceBlock ? decodeXml(priceBlock[2]) : null,
+    currency,
+    quantity: tagValue(xml, "QuantityAvailable", 40) || null,
+    marketplaceId, source,
+  };
+}
+
 function normalizeActiveItem(itemXml) {
   const pictureDetails = tagValue(itemXml, "PictureDetails", 12000);
   const sellingStatus = tagValue(itemXml, "SellingStatus", 12000);
   const listingDetails = tagValue(itemXml, "ListingDetails", 12000);
   const image = tagValue(pictureDetails, "GalleryURL", 2000) || tagValue(pictureDetails, "PictureURL", 2000);
+  const parentXml = itemXml.replace(/<Variations(?:\s[^>]*)?>[\s\S]*?<\/Variations>/gi, "");
+  const marketplaceId = tagValue(parentXml, "Site", 40) === "Germany" ? "EBAY_DE" : null;
+  const variations = tagBlocks(tagValue(itemXml, "Variations", 1000000), "Variation");
+  const source = "ebay_trading_get_myeBaySelling_active";
 
   return {
     offerId: "",
@@ -87,6 +108,8 @@ function normalizeActiveItem(itemXml) {
     startTime: tagValue(listingDetails, "StartTime", 80),
     endTime: tagValue(listingDetails, "EndTime", 80),
     source: "ebay_trading_get_myeBaySelling_active",
+    priceStockEvidence: priceStockObservation(parentXml, marketplaceId, source),
+    priceStockVariants: variations.map(row => priceStockObservation(row, marketplaceId, source)),
   };
 }
 
