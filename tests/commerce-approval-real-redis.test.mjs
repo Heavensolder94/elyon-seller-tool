@@ -6,6 +6,7 @@ import {promisify} from 'node:util';
 import {setTimeout as delay} from 'node:timers/promises';
 import {createSimulationLedger} from '../lib/commerce-simulation-ledger.js';
 import {binding} from './commerce-approval-fixtures.mjs';
+import {readback,response} from './commerce-transport-fixtures.mjs';
 
 // Only a disposable GitHub Actions Redis service is accepted. Never use
 // production REST credentials, remote endpoints, or a real account namespace.
@@ -106,4 +107,52 @@ it('real Redis: definitive simulation resolution releases semantic targets but n
  const na=await confirmed(l,next);const n=await l.reserve(next,na.id,na.revision);assert.equal(n.ok,true);
  assert.equal((await l.transition(next,n.operation.id,n.operation.revision,'CANCELLED')).operation.status,'CANCELLED');
  never(n);
+});
+
+async function reserved(l,b){const a=await confirmed(l,b),r=await l.reserve(b,a.id,a.revision);assert.equal(r.ok,true,JSON.stringify(r));return r.operation;}
+it('real Redis V2.4: verified reservation, deterministic plan, checkpointed success, explicit reconciliation releases only simulation targets',async()=>{
+ const l=ledger(),b=binding({targets:t=>[t(1),t(2)]}),o=await reserved(l,b);
+ assert.equal((await l.prepareTransport(b,'sim:'+randomUUID(),readback(b))).ok,false);
+ const result=await l.simulateTransport(b,o.id,readback(b),b.targets.map(t=>response(t)));
+ assert.equal(result.ok,true,JSON.stringify(result));assert.equal(result.operation.status,'SIMULATED');assert.equal(result.operation.transport.outcome,'SUCCEEDED');
+ assert.deepEqual(result.operation.transport.parts.map(p=>p.phase),['RESPONSE_RECEIVED','RESPONSE_RECEIVED']);
+ assert.equal((await l.simulateTransport(b,o.id,readback(b),[])).code,'transport_already_initialized');
+ assert.equal((await l.transition(b,o.id,result.operation.revision,'RESOLVED')).code,'transport_checkpoint_required');
+ const settled=await l.reconcileTransport(b,o.id,readback(b,{desired:true}));assert.equal(settled.ok,true,JSON.stringify(settled));assert.equal(settled.operation.status,'RESOLVED');never(settled);
+ const next=binding({targets:t=>[t(1,{stateRevision:'new',current:{price:'20.00',quantity:'0'},proposed:{price:'21.00',quantity:null}})]});await reserved(l,next);
+});
+it('real Redis V2.4: known row failure preserves successful row and all locks on partial result',async()=>{
+ const l=ledger(),b=binding({targets:t=>[t(1),t(2)]}),o=await reserved(l,b);
+ const result=await l.simulateTransport(b,o.id,readback(b),[response(b.targets[0]),response(b.targets[1],{statusCode:400,errors:[{errorId:123}]})]);
+ assert.equal(result.ok,true,JSON.stringify(result));assert.equal(result.operation.transport.outcome,'PARTIALLY_SUCCEEDED');
+ assert.deepEqual(result.operation.transport.parts.map(p=>p.outcome.status),['SUCCEEDED','FAILED']);
+ const settled=await l.reconcileTransport(b,o.id,readback(b,{desired:true}));assert.equal(settled.operation.status,'RECONCILIATION_REQUIRED');
+ const next=binding({targets:t=>[t(2,{stateRevision:'new'})]}),a=await confirmed(l,next);assert.equal((await l.reserve(next,a.id,a.revision)).code,'target_conflict');
+});
+it('real Redis V2.4: uncertain first response stops later requests; observed target never releases uncertain reservation',async()=>{
+ const ns=randomUUID(),l=ledger(command,ns),b=binding({targets:t=>[t(1),t(2)]}),o=await reserved(l,b);
+ const result=await l.simulateTransport(b,o.id,readback(b),[{simulation:true,kind:'timeout'},response(b.targets[1])]);
+ assert.equal(result.ok,true,JSON.stringify(result));assert.equal(result.operation.status,'UNKNOWN_OUTCOME');
+ assert.deepEqual(result.operation.transport.parts.map(p=>p.phase),['RESPONSE_UNCERTAIN','NOT_SUBMITTED']);
+ const restart=ledger(command,ns),saved=await restart.getOperation(b,o.id);assert.equal(saved.operation.status,'UNKNOWN_OUTCOME');
+ const rec=await restart.reconcileTransport(b,o.id,readback(b,{desired:true}));assert.equal(rec.operation.status,'RECONCILIATION_REQUIRED');assert.equal(rec.operation.transport.reconciliation.causalityVerified,false);
+ assert.equal((await restart.simulateTransport(b,o.id,readback(b),[])).ok,false);
+ const next=binding({targets:t=>[t(2,{stateRevision:'new'})]}),a=await confirmed(restart,next);assert.equal((await restart.reserve(next,a.id,a.revision)).code,'target_conflict');
+});
+it('real Redis V2.4: checkpoint acknowledgement loss is recovered without retransmission; preflight mismatch stays reserved',async()=>{
+ const ns=randomUUID(),l=ledger(command,ns),b=binding(),o=await reserved(l,b);
+ const rb=readback(b);rb.rows[0].price='99.00';assert.equal((await l.prepareTransport(b,o.id,rb)).code,'revalidation_required');
+ assert.equal((await l.getOperation(b,o.id)).operation.status,'RESERVED');
+ const lost=ledger(async args=>{const payload=JSON.parse(args[4]);const result=await command(args);if(payload.action==='transport_begin')throw Error('lost checkpoint acknowledgement');return result;},ns);
+ await assert.rejects(lost.simulateTransport(b,o.id,readback(b),[response(b.targets[0])]),/ledger_unavailable_outcome_unknown/);
+ const restart=ledger(command,ns),pending=await restart.getOperation(b,o.id);
+ assert.equal(pending.operation.transport.parts[0].phase,'MAYBE_SUBMITTED');
+ const recovered=await restart.recoverTransport(b,o.id);assert.equal(recovered.operation.status,'UNKNOWN_OUTCOME');assert.equal(recovered.operation.transport.parts[0].phase,'RESPONSE_UNCERTAIN');
+ assert.equal((await restart.simulateTransport(b,o.id,readback(b),[])).ok,false);
+});
+it('real Redis V2.4: simultaneous simulator calls initialize at most once; safe before-send stop is distinct',async()=>{
+ const l=ledger(),b=binding(),o=await reserved(l,b);
+ const results=await Promise.all([l.simulateTransport(b,o.id,readback(b),[{simulation:true,kind:'before_send'}]),l.simulateTransport(b,o.id,readback(b),[{simulation:true,kind:'before_send'}])]);
+ assert.equal(results.filter(r=>r.ok).length,1);
+ const saved=await l.getOperation(b,o.id);assert.equal(saved.operation.transport.outcome,'NOT_SUBMITTED');assert.equal(saved.operation.transport.parts[0].phase,'NOT_SUBMITTED');assert.equal(saved.operation.status,'RECONCILIATION_REQUIRED');
 });
