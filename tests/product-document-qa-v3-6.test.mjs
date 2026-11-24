@@ -92,7 +92,7 @@ test('V3.6 actual GPSR route fails closed on malformed Redis result/state instea
  }finally{globalThis.fetch=original;for(const [k,v] of Object.entries(old))if(v===undefined)delete process.env[k];else process.env[k]=v;}
 });
 
-test('V3.6 actual Company canonical XLSX response passes Seller verification and binds real multi-document manifest and blocked Media review',async()=>{
+test('V3.6 actual Company canonical XLSX response passes Seller verification and binds real multi-document manifest without delivery or execution',async()=>{
  const fixture=JSON.parse(await readFile(new URL('./fixtures/document-xlsx-producer-v3-6.json',import.meta.url),'utf8'));
  assert.equal(fixture.source.syntheticOnly,true);
  const d=note(note(note(inspect(make()),'provenance'),'applicability'),'content'),second=make(2,{primaryLanguage:'FRENCH',additionalLanguages:['GERMAN'],validUntil:'2025-01-01'});
@@ -104,7 +104,7 @@ test('V3.6 actual Company canonical XLSX response passes Seller verification and
  assert.equal(requests,1);assert.equal(multi.manifest.rows.length,2);assert.equal(multi.manifest.rows[0].inspectedSha256,currentProductInspection(d).sha256);
  assert.ok(multi.manifest.rows[1].missingEvidence.includes('DOCUMENT_EXPIRED'));
  assert.equal(multi.artifact,null);assert.equal(multi.downloadAvailable,false);assert.equal(multi.executionAuthorized,false);
- assert.equal(multi.preview.profile.originalSha256,reference.sha256);
+ assert.equal(multi.manifest.template.originalSha256,reference.sha256);
  const forged=structuredClone(fixture.response);forged.rows[0].values[0]='https://fake.invalid/private.pdf';
  assert.throws(()=>verifyDocumentExportPreview(forged,fixture.request,reference));
  assert.throws(()=>verifyDocumentExportPreview(fixture.response,{documents:[...fixture.request.documents].reverse()},reference));
