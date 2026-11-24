@@ -1,6 +1,6 @@
 import { createPriceStockIndex, buildPriceStockSnapshot } from "./seller-price-stock-foundation-core.js";
 
-import { mountPriceStockReview, clearPriceStockReviews } from "./seller-price-stock-review.js";
+import { mountPriceStockReview, clearPriceStockReviews, reconcilePriceStockReviews } from "./seller-price-stock-review.js";
 
 const PANEL="elyon-price-stock-foundation";
 const labels={IDENTITY_CONFLICT:"Identität ungeklärt",EVIDENCE_MISSING:"Nachweise fehlen",DATA_STALE:"Daten veraltet",UNKNOWN:"Kein bestätigter Angebotsabgleich",OFFER_ORIGIN_UNKNOWN:"Angebotsherkunft unbekannt",SUPPLIER_UNAVAILABLE:"Lieferant nicht verfügbar",STOCK_REVIEW_REQUIRED:"Bestand prüfen",PRICE_REVIEW_REQUIRED:"Währung / Preis prüfen"};
@@ -41,6 +41,8 @@ function fill(panel,model){
   const price=row.supplierPrice, supply=row.supplierStock, offer=row.offer, grid=node("div",null,"elyon-ps-grid");
   const source=price.provenance==="stored_verified"?"Gespeichert bestätigt (nicht live geprüft)":price.provenance==="unverified"?"Gespeichert · unbestätigt":"Kein Einkaufsnachweis";
   metric(grid,"Lieferanten-EK",money(price.amount,price.currency),source+(price.source?" · "+price.source:"")+" · "+date(price.capturedAt));
+  const shipping=row.supplierShipping;
+  if(shipping?.amount!==null&&shipping?.amount!==undefined)metric(grid,"Lieferantenversand",money(shipping.amount,shipping.currency),(shipping.provenance==='stored_verified'?"Gespeichert bestätigt (nicht live geprüft)":"Gespeichert · unbestätigt")+" · "+date(shipping.capturedAt));
   metric(grid,"eBay-VK",money(offer?.price,offer?.currency),offer?origins[offer.origin]+" · "+date(offer.capturedAt):"Kein eindeutig zugeordnetes Angebot");
   metric(grid,"Lieferantenbestand",count(supply.quantity), (supply.available===true?"Verfügbar":supply.available===false?"Nicht verfügbar":"Verfügbarkeit unbekannt")+" · "+date(supply.capturedAt));
   metric(grid,"eBay-Bestand",count(offer?.quantity),offer?statuses[offer.status]||"Unbekannt":"Kein bestätigter Abgleich");
@@ -60,6 +62,14 @@ function fill(panel,model){
 export function prepare(products){
  if(!auth()){index=null;return;}
  index=createPriceStockIndex(products,window.__elyonPriceStockSellerState,{environment:"production"});
+ const projections=new Map();
+ reconcilePriceStockReviews(change=>{
+  const owners=index.owners.get(change.sku);
+  if(owners?.length!==1)return null;
+  const product=owners[0];
+  if(!projections.has(product))projections.set(product,buildPriceStockSnapshot(product,index));
+  return projections.get(product);
+ });
 }
 export function renderCard(card,product,expanded){
  let panel=card.querySelector(":scope > ."+PANEL);

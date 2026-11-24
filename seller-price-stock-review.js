@@ -1,4 +1,4 @@
-import { suggestChange,makeReviewChange,reviewKey,buildReviewRequest,SCHEMA } from './seller-price-stock-review-core.js';
+import { suggestChange,makeReviewChange,reviewKey,buildReviewRequest,reviewEligibility,SCHEMA } from './seller-price-stock-review-core.js';
 
 // Session-memory only, no product or localStorage writes. A changed source
 // invalidates the selected review. All buttons are deliberately non-submit.
@@ -12,6 +12,11 @@ const signature=(m,r)=>JSON.stringify([m.identity,m.syncedAt,r]);
 function redraw(){
  for(const entry of mounted){
   if(!entry.host.isConnected){mounted.delete(entry);continue;}
+  if(entry.reviewToken!==undefined&&entry.reviewToken!==generation){
+   entry.download.hidden=true;entry.download.onclick=null;
+   entry.result.textContent='Vorherige Prüfung ist veraltet. Bitte erneut prüfen.';
+   delete entry.reviewToken;
+  }
   const list=[...selected.values()].map(x=>x.change);
   entry.summary.textContent=list.length+' ausgewählt · '+list.filter(x=>x.price!==null).length+' Preis · '+list.filter(x=>x.quantity!==null).length+' Bestand';
   entry.batch.disabled=busy||!list.length;
@@ -20,11 +25,23 @@ function redraw(){
  }
 }
 export function clearPriceStockReviews(){generation++;selected.clear();mounted.clear();busy=false;}
+// A selection can outlive an accordion. Compare its actual current projection
+// before a new batch can use obsolete source observations.
+export function reconcilePriceStockReviews(resolveModel){
+ let changed=false;
+ for(const [key,entry] of selected){
+  const model=resolveModel(entry.change),row=model?.rows.find(r=>r.sku===entry.change.sku);
+  if(!row||!reviewEligibility(model,row).reviewable||signature(model,row)!==entry.signature){
+   selected.delete(key);changed=true;
+  }
+ }
+ if(changed){generation++;busy=false;redraw();}
+}
 async function run(changes,result,download,entry,{verifyReadback=false}={}){
  if(busy||!auth())return;
  let request;
  try{request=buildReviewRequest(changes);if(verifyReadback)request.verifyReadback=true;}catch(e){result.textContent=e.message;return;}
- const token=++generation;busy=true;redraw();download.hidden=true;download.onclick=null;
+ const token=++generation;entry.reviewToken=token;busy=true;redraw();download.hidden=true;download.onclick=null;
  result.textContent='Kanonische Vorschau wird geprüft …';
  try{
   const response=await fetch('/api/price-stock-preview',{method:'POST',credentials:'same-origin',cache:'no-store',headers:{'Content-Type':'application/json'},body:JSON.stringify(request)});
@@ -33,16 +50,17 @@ async function run(changes,result,download,entry,{verifyReadback=false}={}){
   if(!response.ok||data.ok!==true||data.schemaVersion!==SCHEMA||data.executionAuthorized!==false||
      data.evidenceAuthenticated!==false||data.operationalEnabled!==false||data.uploadVerified!==false||data.releaseEligible!==false)throw Error('Kanonische Vorschau derzeit nicht verfügbar.');
   result.replaceChildren(node('p','Offline-Prüfung · Regelrevision '+data.ruleRevision+' · keine Freigabe.'));
+  const technical=node('details');technical.append(node('summary','Technische Prüfdetails'));const blockers=new Set();
   for(const p of data.proposals||[]){
    const calc=p.calculation,b=p.baseline;
    result.append(node('p',p.target.sku+' · '+p.kind+' · Ist '+money(p.current.price)+' / '+(p.current.quantity??'unbekannt')+' → Soll '+(p.proposed.price===null?'unverändert':money(p.proposed.price))+' / '+(p.proposed.quantity??'unverändert')));
    if(calc)result.append(node('p','Hypothetisch: Gewinn '+money(calc.profit)+' · Marge '+(calc.margin??'unbekannt')+' % · '+calc.status+' · bisherige Kalkulation '+money(b?.profit)+' / '+(b?.margin??'unbekannt')+' %'+(calc.profit!=null&&b?.profit!=null?' · Gewinnänderung '+money(calc.profit-b.profit):'')+(calc.margin!=null&&b?.margin!=null?' · Margenänderung '+(calc.margin-b.margin).toFixed(2)+' Prozentpunkte':'')));
    else result.append(node('p','Kalkulationsgrundlage fehlt.'));
    if(calc?.reasons?.length)result.append(node('p',calc.reasons.join(' ')));
-   result.append(node('p','Nachweise / Blocker: '+[...p.missing,...p.blockers,...p.exportBlockers].join(' · ')));
-   result.append(node('p','Transportkandidat (unverifiziert): '+(p.transport?.candidate?.api||'unbekannt')));
+   for(const code of [...p.missing,...p.blockers,...p.exportBlockers])blockers.add(code);
+   technical.append(node('p',p.target.sku+' · Transportkandidat (unverifiziert): '+(p.transport?.candidate?.api||'unbekannt')));
   }
-  if(data.plan)result.append(node('p','Commerce Dry Run: '+data.plan.structureStatus+' / '+data.plan.status+' · '+(data.plan.diagnostics||[]).map(d=>d.code).join(' · ')));
+  if(data.plan)technical.append(node('p','Commerce Dry Run: '+data.plan.structureStatus+' / '+data.plan.status+' · '+(data.plan.diagnostics||[]).map(d=>d.code).join(' · ')));
   const approval=data.approvalReview;
   const approvalBox=node('div');approvalBox.className='elyon-ps-note';
   approvalBox.append(node('strong','Freigabeprüfung (V2.3) – keine eBay-Aktion'));
@@ -50,7 +68,7 @@ async function run(changes,result,download,entry,{verifyReadback=false}={}){
    approvalBox.append(node('p','Serverseitig geprüft · Bestätigung und Reservierung gesperrt.'));
    approvalBox.append(node('p','Prüfzeit '+new Date(approval.checkedAt).toLocaleString('de-DE')+' · erneute Prüfung spätestens '+new Date(approval.expiresAt).toLocaleString('de-DE')));
    approvalBox.append(node('p','Individueller Benutzer, Workspace, eBay-Konto und authentifizierte Angebots-/Lieferantennachweise fehlen. Es wurde keine Freigabe gespeichert.'));
-   const details=node('details');details.append(node('summary','Nachweisdetails'),node('p',(approval.blockers||[]).join(' · ')));approvalBox.append(details);
+   for(const code of approval.blockers||[])blockers.add(code);
   }else approvalBox.append(node('p','Freigabestatus nicht verifiziert – gesperrt.'));
   const confirmation=button('Prüfung bestätigen – gesperrt',()=>{});confirmation.disabled=true;approvalBox.append(confirmation);
   result.append(approvalBox);
@@ -59,7 +77,7 @@ async function run(changes,result,download,entry,{verifyReadback=false}={}){
   transportBox.append(node('p','Inventory: nur vorgesehener Offer-bezogener Transport. Trading: nicht aktivierter Kandidat. Kein automatischer Wechsel zu einem anderen Transport.'));
   transportBox.append(node('p','Vor einer späteren Ausführung sind Konto, Angebot, Lieferbestand und kanonische Revision erneut zu prüfen. Bei unklarer Antwort ist ein Ergebnisabgleich erforderlich; keine automatische Wiederholung.'));
   transportBox.append(node('p','Keine Operation angelegt, keine eBay-Änderung ausgeführt. Die Simulation ist nicht Bestandteil der produktiven Historie.'));
-  result.append(transportBox);
+  technical.append(transportBox);
   const readiness=data.operationalReadiness;
   const readinessBox=node('div');readinessBox.className='elyon-ps-note';
   readinessBox.append(node('strong','Operative Voraussetzungen (V2.5) – gesperrt'));
@@ -68,9 +86,11 @@ async function run(changes,result,download,entry,{verifyReadback=false}={}){
    readinessBox.append(node('p','Lieferantennachweis: fehlt · Redis: nicht verifiziert · Wirtschaftlichkeit: kanonische Vorschau, keine neue Freigabe.'));
    const obs=readiness.offer?.observation;
    if(obs)readinessBox.append(node('p','Lesender eBay-Abgleich (keine Freigabe): '+obs.sku+' · '+money(obs.price)+' · Offer-Menge '+obs.quantity+' · globaler Bestand '+(obs.inventoryQuantity??'unbekannt')));
-   const why=node('details');why.append(node('summary','Offene Voraussetzungen'),node('p',(readiness.blockers||[]).join(' · ')));readinessBox.append(why);
+   for(const code of readiness.blockers||[])blockers.add(code);
   }else readinessBox.append(node('p','Verifikationsstatus nicht verfügbar.'));
   result.append(readinessBox);
+  if(blockers.size)technical.append(node('p',[...blockers].join(' · ')));
+  result.append(technical);
   const artifact=data.artifact;
   if(artifact?.status==='EXPORT_READY_OFFLINE'&&artifact.executionAuthorized===false&&artifact.uploadVerified===false&&typeof artifact.base64==='string'&&artifact.base64.length<500000){
    result.append(node('p','Struktureller Offline-Export: '+artifact.rowCount+' Zeilen. NICHT bei eBay hochladen. Nachweise und Freigabe fehlen.'));
@@ -85,6 +105,11 @@ async function run(changes,result,download,entry,{verifyReadback=false}={}){
  finally{if(token===generation){busy=false;redraw();}}
 }
 export function mountPriceStockReview(section,model,row){
+ const eligibility=reviewEligibility(model,row);
+ if(!eligibility.reviewable){
+  section.append(node('p','Kein eindeutig zugeordnetes aktives eBay-Angebot für Preis- oder Bestandsänderungen.'));
+  return;
+ }
  const suggestion=suggestChange(model,row),key=model.identity.articleNumber+'|'+row.sku,sig=signature(model,row);
  const previous=selected.get(key);
  if(previous&&previous.signature!==sig){selected.delete(key);generation++;busy=false;}
@@ -99,15 +124,17 @@ export function mountPriceStockReview(section,model,row){
  const summary=node('p'),result=node('div');result.setAttribute('aria-live','polite');
  const get=()=>makeReviewChange(model,row,{price:price.value,quantity:quantity.value});
  const download=button('Offline-CSV exportieren',()=>{});download.hidden=true;
- const entry={host:details,summary,batch:null,single:null};
+ const entry={host:details,summary,batch:null,single:null,result,download};
  const invalidate=()=>{generation++;busy=false;selected.delete(key);download.hidden=true;download.onclick=null;result.textContent='Änderung noch nicht geprüft.';redraw();};
  price.addEventListener('input',invalidate);quantity.addEventListener('input',invalidate);
  const select=button('Vorschlag auswählen',()=>{try{const change=get();if(!selected.has(key)&&selected.size>=50)throw Error('Maximal 50 Änderungen.');selected.set(reviewKey(change),{change,signature:sig});result.textContent='Nur lokale Review-Auswahl gespeichert.';generation++;busy=false;download.hidden=true;redraw();}catch(e){result.textContent=e.message;}});
  const discard=button('Vorschlag verwerfen',()=>{price.value='';quantity.value='';invalidate();});
  entry.single=button('Preis / Änderung erneut prüfen',()=>{try{run([get()],result,download,entry);}catch(e){result.textContent=e.message;}});
  entry.batch=button('Auswahl prüfen',()=>run([...selected.values()].map(v=>v.change),result,download,entry));
- entry.verify=button('Angebot lesend verifizieren',()=>{try{run([get()],result,download,entry,{verifyReadback:true});}catch(e){result.textContent=e.message;}});
- details.append(select,discard,entry.single,entry.batch,entry.verify,summary,result,download);section.append(details);mounted.add(entry);
+ if(eligibility.readbackEligible)entry.verify=button('Angebot lesend verifizieren',()=>{try{run([get()],result,download,entry,{verifyReadback:true});}catch(e){result.textContent=e.message;}});
+ details.append(select,discard,entry.single,entry.batch);
+ if(entry.verify)details.append(entry.verify);
+ details.append(summary,result,download);section.append(details);mounted.add(entry);
  // No extra observer or polling; the existing accordion owns render lifecycle.
  queueMicrotask(redraw);
 }

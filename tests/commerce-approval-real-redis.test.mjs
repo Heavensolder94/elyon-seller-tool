@@ -156,3 +156,26 @@ it('real Redis V2.4: simultaneous simulator calls initialize at most once; safe 
  assert.equal(results.filter(r=>r.ok).length,1);
  const saved=await l.getOperation(b,o.id);assert.equal(saved.operation.transport.outcome,'NOT_SUBMITTED');assert.equal(saved.operation.transport.parts[0].phase,'NOT_SUBMITTED');assert.equal(saved.operation.status,'RECONCILIATION_REQUIRED');
 });
+
+it('real Redis V2.6: projected Product Master zero-stock change remains exact through isolated approval, transport and reconciliation',async()=>{
+ const {createPriceStockIndex,buildPriceStockSnapshot}=await import('../seller-price-stock-foundation-core.js');
+ const {makeReviewChange,buildReviewRequest}=await import('../seller-price-stock-review-core.js');
+ const {inventoryRequestParts}=await import('../lib/commerce-inventory-transport.js');
+ const at=new Date().toISOString(),sku='ELY-000001',listingId='0001',offerId='000001';
+ const product={id:'p1',articleNumber:sku,supplierStock:0,supplierAvailable:false,supplierStockCapturedAt:at,channels:{ebay:{sku,listingId,offerId}}};
+ const snapshot={ok:true,source:'ebay_inventory_api',environment:'production',syncedAt:at,items:[{sku,listingId,offerId,status:'PUBLISHED',priceStockEvidence:{sku,price:'20.00',currency:'EUR',quantity:'3',marketplaceId:'EBAY_DE'}}]};
+ const m=buildPriceStockSnapshot(product,createPriceStockIndex([product],snapshot));
+ const request=buildReviewRequest([makeReviewChange(m,m.rows[0],{quantity:'0'})]);
+ const change=request.changes[0];assert.equal(change.quantity,'0');assert.equal(change.listingId,listingId);assert.equal(change.offerId,offerId);
+ assert.equal(m.executionAuthorized,false);
+ // Explicit synthetic evidence is separately constructed; never promote the
+ // browser projection or a canonical preview into authenticated evidence.
+ const b=binding({checkedAt:at,targets:t=>[t(1,{sku,listingId,offerId,current:{price:change.currentPrice,quantity:change.currentQuantity},proposed:{price:change.price,quantity:change.quantity}})]});
+ const l=ledger(),o=await reserved(l,b),parts=inventoryRequestParts(b);
+ assert.equal(parts[0].body.requests[0].offers[0].availableQuantity,0);
+ assert.equal('shipToLocationAvailability' in parts[0].body.requests[0],false);
+ const sim=await l.simulateTransport(b,o.id,readback(b),[response(b.targets[0])]);
+ assert.equal(sim.operation.transport.outcome,'SUCCEEDED');never(sim);
+ const rec=await l.reconcileTransport(b,o.id,readback(b,{desired:true}));
+ assert.equal(rec.operation.status,'RESOLVED');never(rec);
+});

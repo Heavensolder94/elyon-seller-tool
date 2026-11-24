@@ -47,6 +47,14 @@ function storedPrice(records,variant=false){
   capturedAt:stamp(r.checkedAt||r.capturedAt||r.observedAt||r.supplierPriceCapturedAt),amazonReference,
   authenticated:false};
 }
+function storedSupplierShipping(records){
+ const fact=records.map(r=>obj(r.economicsFacts?.supplierShipping)).find(f=>amount(f.amount,{zero:true})!==null&&id(f.source));
+ const value=amount(fact?.amount,{zero:true});
+ const curr=currency(fact?.currency)||firstValue(currency,...records.map(v=>v.costCurrency||v.supplierCurrency));
+ return {amount:value,currency:curr,source:fact?.source??null,
+  provenance:value===null?'missing':['verified','not_applicable'].includes(fact?.status)?'stored_verified':'unverified',
+  capturedAt:stamp(fact?.checkedAt||fact?.capturedAt||fact?.observedAt),authenticated:false};
+}
 function supplierStock(records,variant=false){
  const explicit=field(records,variant?["supplierStock","stock","warehouseInventoryNum"]:["supplierStock","warehouseInventoryNum"],stock);
  const availDirect=field(records,variant?["supplierAvailable","available"]:["supplierAvailable"],v=>typeof v==="boolean"?v:null);
@@ -146,13 +154,19 @@ function resolve(target,identity,index,product){
 }
 export function buildPriceStockSnapshot(product,index,{now=Date.now()}={}){
  const p=obj(product),identity=productOfferIdentity(p), records=layers(p), root=records[0], vs=variants(p);
+ // Canonical Company OS supplies a narrowly projected observation envelope;
+ // Seller Consumer preserves product and raw snapshots. Old responses still
+ // work, but absence must remain absence, not a fabricated supplier value.
+ const canonical=root.schemaVersion==='elyon-product-master-v2'||root.sourceOfTruth==='company_os_canonical_state';
+ const facts=canonical?records.map(r=>obj(r.priceStockFacts||r.product?.priceStockFacts)).find(r=>Object.keys(r).length):null;
  const seen=new Set(), duplicates=new Set();
  for(const v of vs){if(v.sku&&seen.has(v.sku))duplicates.add(v.sku);seen.add(v.sku);}
  const targets=vs.length?vs:[{record:root,sku:identity.sku,listingId:identity.listingId,offerId:identity.offerId,label:"",image:null,supplierVariantId:null}];
  const rows=targets.map(t=>{
-  const vf=vs.length&&t.sku?records.map(r=>obj(r.variantEconomicsFacts)[t.sku]).find(v=>v&&typeof v==="object"):null;
-  const supplier=vs.length?[vf?{...t.record,economicsFacts:vf}:t.record]:records;
-  const price=storedPrice(supplier,!!vs.length), supply=supplierStock(supplier,!!vs.length);
+  const vf=vs.length&&t.sku?[facts,...records].map(r=>obj(r?.variantEconomicsFacts)[t.sku]).find(v=>v&&typeof v==="object"):null;
+  const variantRecord=vf?{...t.record,economicsFacts:vf}:t.record;
+  const supplier=vs.length?[variantRecord,...(facts?.meta?.reviewOnly===true?[{meta:{reviewOnly:true}}]:[])]:[...(facts?[facts]:[]),...records];
+  const price=storedPrice(supplier,!!vs.length), supply=supplierStock(supplier,!!vs.length),shipping=storedSupplierShipping(supplier);
   const link=duplicates.has(t.sku)?{state:"IDENTITY_CONFLICT",offer:null}:resolve(t,identity,index,p);
   const offer=link.offer;
   const status=new Set();
@@ -166,11 +180,11 @@ export function buildPriceStockSnapshot(product,index,{now=Date.now()}={}){
   const ages={price:freshness(price.capturedAt,now),supplier:freshness(supply.capturedAt,now),offer:freshness(offer?.capturedAt,now)};
   if(Object.values(ages).includes("stale")||root.sellerView?.freshness==="stale"||p.sellerView?.freshness==="stale")status.add("DATA_STALE");
   if(Object.values(ages).includes("unknown"))status.add("EVIDENCE_MISSING");
-  return {sku:t.sku,supplierVariantId:t.supplierVariantId,label:t.label,image:t.image,supplierPrice:price,supplierStock:supply,offer,identityStatus:link.state,statuses:[...status],ages};
+  return {sku:t.sku,supplierVariantId:t.supplierVariantId,label:t.label,image:t.image,supplierPrice:price,supplierShipping:shipping,supplierStock:supply,offer,identityStatus:link.state,statuses:[...status],ages};
  });
  // Existing provenance helper only for the saved price path; never compute profit.
  const provenance=extractPriceProvenance(p);
- const economics=obj(root.economics), canonical=root.schemaVersion==="elyon-product-master-v2"||root.sourceOfTruth==="company_os_canonical_state";
+ const economics=obj(root.economics);
  const economicsView={source:canonical?"company_os_saved":"unverified",currency:currency(economics.currency),
   savedSalePrice:canonical?amount(economics.salePrice):provenance.finalSalePrice,
   shippingCost:canonical?amount(economics.shippingCost,{zero:true}):null,fees:canonical?amount(economics.fees,{zero:true}):null,
