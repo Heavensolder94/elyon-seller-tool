@@ -234,3 +234,19 @@ test("withdrawn Company OS channel state remains visible to the Seller consumer"
   assert.equal(product.listing.status, "WITHDRAWN");
   assert.equal(product.approval.companyOsApproved, false);
 });
+
+test("canonical structured option and SKU image refs survive Seller Tool projection and cached reload", async()=>{
+ const red="https://example.test/red.jpg",side="https://example.test/side.jpg";
+ const record=structuredClone(canonical);
+ record.product.variantGroups=[{id:"color",name:"Farbe",options:[{value:"Rot",image:red,imageUrls:[red,side,"javascript:alert(1)"],variantImageStatus:"detected",variantImageSource:"supplier_option"},{value:"Blau",image:red,imageUrls:[red],variantImageStatus:"manual_removed",variantImageSource:"company_os_manual"}]}];
+ record.product.variantCombinations=[{sku:"SUP-RED-L",selections:{Farbe:"Rot"},image:red,imageUrls:[red,side],variantImageStatus:"detected",variantImageSource:"supplier_sku"}];
+ const product=adaptProductMasterForSeller(record);
+ assert.deepEqual(product.variantGroups[0].options[0].imageUrls,[red,side]);
+ assert.deepEqual(product.variantGroups[0].options[1].imageUrls,[]);
+ assert.deepEqual(product.logistics.variantCombinations[0].imageUrls,[red,side]);
+ assert.equal(product.variantCombinations[0].supplierSku,"SUP-RED-L");
+ assert.equal(product.articleNumber,canonical.identity.articleNumber);
+ const loaded=await loadProductMasterForSeller({env:{COMPANY_OS_SYNC_CODE:"sync-secret"},fetchImpl:async()=>response({ok:false},503),readCache:async()=>[record]});
+ assert.equal(loaded.freshness,"stale");
+ assert.deepEqual(loaded.products[0].product.variantCombinations[0].imageUrls,[red,side]);
+});
