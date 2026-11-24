@@ -13,6 +13,9 @@ import {loadDocumentExportPreview} from "../lib/product-document-export-client.j
 import {prepareBlockedDocumentMediaReview} from "../lib/product-document-media-contract.js";
 import {resolveAuthenticatedCommerceScope} from "../lib/commerce-approval-v2-3.js";
 
+import {requireBridgeAccess} from "../lib/bridge-access.js";
+import {buildGpsrDocumentReview,validateGpsrDocumentRequest} from "../lib/product-document-gpsr.js";
+
 const STORE_KEY = "elyon-seller-tool:document-studio:v1";
 
 function config() {
@@ -61,6 +64,17 @@ function send(res, status, data) {
 
 export default async function handler(req, res) {
   const action = String(req.query?.action || (req.method === "GET" ? "list" : "")).toLowerCase();
+  if(action==="gpsr-document-review"){
+    if(!requireBridgeAccess(req,res,{maxBodyBytes:4096}))return;
+    if(req.method!=="POST")return send(res,405,{ok:false,error:"method_not_allowed"});
+    try{
+      const input=validateGpsrDocumentRequest(req.body);
+      const state=await load(),catalog=await loadDocumentCatalog();
+      const result=buildGpsrDocumentReview(state,input,catalog);
+      if((await load()).revision!==state.revision)return send(res,409,{ok:false,error:"revision_conflict"});
+      return send(res,200,result);
+    }catch(error){return send(res,Number(error?.status||503),{ok:false,error:error?.code||"gpsr_document_review_unavailable"});}
+  }
   if (!requireSellerAccess(req, res, { maxBodyBytes: action==="validate-product-file" ? MAX_PRODUCT_PDF_BODY_BYTES : 100_000 })) return;
   try {
     if (req.method === "GET" && action === "product-catalog") {
