@@ -838,7 +838,15 @@
     host.replaceChildren();
     const docs=state.documents.filter(d=>d.kind===PRODUCT_KIND&&d.version>0);
     const known=new Set(docs.map(d=>d.id));
-    for(const [id] of state.exportSelections)if(!known.has(id))state.exportSelections.delete(id);
+    // Missing selected records stay visible and must be explicitly removed.
+    for(const [id,version] of state.exportSelections){
+      if(known.has(id))continue;
+      const label=document.createElement("label");label.className="eds-check";
+      const check=document.createElement("input");check.type="checkbox";check.id="edsExportMissing_"+id;check.checked=true;
+      check.addEventListener("change",()=>{if(!check.checked){state.exportSelections.delete(id);clearExportReview();renderExportSelection();}});
+      const detail=document.createElement("span");detail.textContent="Dokument fehlt · "+id+" · ausgewählte Revision "+version+" · Auswahl ausdrücklich entfernen";
+      label.append(check,detail);host.append(label);
+    }
     for(const doc of docs){
       const label=document.createElement("label");label.className="eds-check";
       const check=document.createElement("input");check.type="checkbox";check.id="edsExportPick_"+doc.id;check.checked=state.exportSelections.has(doc.id);
@@ -847,7 +855,7 @@
       const detail=document.createElement("span");detail.textContent=(doc.title||"Unbenannt")+" · Version "+doc.version+(doc.archivedAt?" · Archiviert":"")+(stale?" · Auswahl veraltet: ab- und erneut auswählen":"");
       label.append(check,detail);host.append(label);
     }
-    if(!docs.length){const p=document.createElement("p");p.className="eds-muted";p.textContent="Zuerst ein Produktdokument speichern.";host.append(p);}
+    if(!docs.length&&!state.exportSelections.size){const p=document.createElement("p");p.className="eds-muted";p.textContent="Zuerst ein Produktdokument speichern.";host.append(p);}
     const count=el("edsExportCount");if(count)count.textContent=state.exportSelections.size+" Dokument(e) ausgewählt";
     const button=el("edsExportCheck");if(button)button.disabled=state.exportBusy||!state.exportSelections.size||state.revision===null;
     const download=el("edsExportDownload");if(download)download.disabled=true;
@@ -881,6 +889,7 @@
   async function runDocumentExportPreview(){
     if(!productMode()||state.exportBusy||!state.exportSelections.size||state.revision===null)return;
     if(state.dirty){status("Bitte Produktmetadaten zuerst speichern oder Änderungen verwerfen.",true);return;}
+    if([...state.exportSelections].some(([id,version])=>!state.documents.some(d=>d.kind===PRODUCT_KIND&&d.id===id&&d.version===version))){clearExportReview();renderExportSelection();status("Auswahl enthält fehlende oder veraltete Dokumente. Bitte ausdrücklich entfernen oder erneut auswählen.",true);return;}
     clearExportReview();
     const epoch=state.sessionEpoch,generation=state.productGeneration,token=state.exportGeneration,revision=state.revision;
     const selected=[...state.exportSelections].map(([id,version])=>({id,version}));

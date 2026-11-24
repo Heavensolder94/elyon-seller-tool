@@ -7,7 +7,7 @@ import { PRODUCT_DOCUMENT_KIND, PRODUCT_DOCUMENT_TYPES, DOCUMENT_ORIGINS, produc
 import {MAX_PRODUCT_PDF_BODY_BYTES} from "../lib/product-document-file-validation.js";
 import {PRODUCT_VALIDATION_ACTIONS} from "../lib/product-document-validation.js";
 
-import {validateExportSelection,prepareDocumentExportReview} from "../lib/product-document-export.js";
+import {validateExportSelection,resolveExportSelection,prepareDocumentExportReview} from "../lib/product-document-export.js";
 import {loadDocumentExportPreview} from "../lib/product-document-export-client.js";
 
 const STORE_KEY = "elyon-seller-tool:document-studio:v1";
@@ -67,6 +67,7 @@ export default async function handler(req, res) {
       const selection=validateExportSelection(req.body);
       const current=await load();
       if(current.revision!==selection.expectedRevision)return send(res,409,{ok:false,error:"revision_conflict",message:"Dokumentenbestand geändert. Bitte neu laden."});
+      resolveExportSelection(current,selection); // Fail stale/unknown selections before bridge calls.
       const catalog=await loadDocumentCatalog();
       const result=await prepareDocumentExportReview(current,selection,catalog,loadDocumentExportPreview);
       // Read-only second snapshot prevents a known stale result after the bridge.

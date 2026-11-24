@@ -52,7 +52,7 @@ test('V3.1 actual Studio controller: create, type/language, product and variants
  const source=await readFile(new URL('../seller-document-studio.js',import.meta.url),'utf8');
  const anchor='  window.ElyonDocumentStudio = { open: openStudio, openFromOrder };';
  assert.ok(source.includes(anchor));
- vm.runInNewContext(source.replace(anchor,anchor+'\n  window.__studioTest = {state,createProductDocument,loadProductCatalog,saveProduct,archiveOrRestore,renderList,setProductMode,handleInput,runValidationAction,toggleExportSelection,runDocumentExportPreview};'),{window,document,fetch,URLSearchParams,console});
+ vm.runInNewContext(source.replace(anchor,anchor+'\n  window.__studioTest = {state,createProductDocument,loadProductCatalog,saveProduct,archiveOrRestore,renderList,setProductMode,handleInput,runValidationAction,toggleExportSelection,runDocumentExportPreview,renderExportSelection};'),{window,document,fetch,URLSearchParams,console});
  const h=window.__studioTest;
  h.state.revision=0;h.state.documents=store.documents.map(documentSummary);
  h.createProductDocument();await h.loadProductCatalog();
@@ -77,6 +77,12 @@ test('V3.1 actual Studio controller: create, type/language, product and variants
  assert.match(el('edsProductReview').textContent,/nicht verifiziert/);
  h.toggleExportSelection(store.documents[0],true);assert.equal(el('edsExportCheck').disabled,false);
  await h.runDocumentExportPreview();assert.match(el('edsExportResult').textContent,/Metadatenvorschau/);assert.match(el('edsExportResult').textContent,/Keine sichere Dokumentenbereitstellung/);assert.equal(el('edsExportDownload').disabled,true);
+ const savedSummary=h.state.documents.find(d=>d.id===store.documents[0].id);
+ const other={...savedSummary,id:'product_doc_missing',title:'Zweites Dokument'};
+ h.state.documents.push(other);h.toggleExportSelection(other,true);assert.equal(h.state.exportSelections.size,2);assert.match(el('edsExportCount').textContent,/2 Dokument/);
+ h.state.documents=h.state.documents.filter(d=>d.id!==other.id);h.renderExportSelection();assert.equal(h.state.exportSelections.size,2);assert.match(el('edsExportSelections').textContent,/Dokument fehlt/);
+ const nCalls=calls.length;await h.runDocumentExportPreview();assert.equal(calls.length,nCalls);assert.match(el('edsStatus').textContent,/fehlende oder veraltete/);
+ const missing=el('edsExportSelections').children[0].children[0];missing.checked=false;missing.listeners.change();assert.equal(h.state.exportSelections.size,1);
  h.toggleExportSelection(store.documents[0],false);assert.equal(el('edsExportCheck').disabled,true);assert.equal(el('edsExportResult').textContent,'');
  h.state.documentFilter='product';h.renderList();assert.match(el('edsList').textContent,/Anleitung/);assert.doesNotMatch(el('edsList').textContent,/Geschäftsbrief/);
  h.state.documentFilter='business';h.renderList();assert.match(el('edsList').textContent,/Geschäftsbrief/);
