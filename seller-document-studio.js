@@ -85,7 +85,8 @@
     ["org-reference", "Organisation", "Vorgangsübersicht", "<table><tr><th>Vorgang</th><th>Referenz</th><th>Datum</th></tr><tr><td>[Beschreibung]</td><td>{{Referenz}}</td><td>{{Datum}}</td></tr></table>"]
   ].map(([id, category, title, html]) => ({ id, category, title, html }));
   const DEFAULT_DESIGN = "elyon";
-  const state = { demoOrderDraft: false, revision: null, documents: [], customTemplates: [], customBlocks: [], blockCategory: "Alle", blockSearch: "", lastRange: null, current: null, profile: {}, logoData: "", dirty: false, showArchived: false, search: "", librarySearch: "", category: "Alle", favoritesOnly: false, favorites: [], libraryOpen: true, designId: DEFAULT_DESIGN, preview: true, loading: false };
+  const PRODUCT_KIND = "product_document";
+  const state = { demoOrderDraft: false, revision: null, documents: [], customTemplates: [], customBlocks: [], blockCategory: "Alle", blockSearch: "", lastRange: null, current: null, profile: {}, logoData: "", dirty: false, showArchived: false, search: "", librarySearch: "", category: "Alle", favoritesOnly: false, favorites: [], libraryOpen: true, designId: DEFAULT_DESIGN, preview: true, loading: false, documentFilter: "all", productCatalog: null, productCatalogPending: null, productGeneration: 0, productBusy: false };
 
   const el = (id) => document.getElementById(id);
   const escapeHtml = (value) => String(value == null ? "" : value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
@@ -156,6 +157,7 @@
         '<button type="button" class="eds-btn eds-primary" data-eds-action="library">Vorlagenbibliothek</button>',
         '<button type="button" class="eds-btn" data-eds-action="assistant">Dokumentenassistent</button>',
         '<button type="button" class="eds-btn" data-eds-action="new">Leeres Dokument</button>',
+        '<button type="button" class="eds-btn" data-eds-action="new-product">+ Produktdokument</button>',
         '<button type="button" class="eds-btn eds-primary" data-eds-action="save">Speichern</button>',
         '<button type="button" class="eds-btn" data-eds-action="save-template">Als Vorlage speichern</button>',
         '<button type="button" class="eds-btn" data-eds-action="print">PDF erstellen / Drucken</button>',
@@ -164,10 +166,11 @@
       '</div>',
       '<div class="eds-layout"><aside class="eds-card"><div id="edsLibrary" class="eds-library"><div class="eds-side-head"><strong>Vorlagenbibliothek</strong><span class="eds-count">31 Dokumentvorlagen</span></div><input id="edsLibrarySearch" class="eds-search" type="search" placeholder="Vorlagen suchen …" aria-label="Vorlagen suchen"><div class="eds-categories" id="edsCategories"></div><label class="eds-check"><input type="checkbox" id="edsFavoritesOnly"> Nur Favoriten</label><div class="eds-template-list" id="edsTemplateCards"></div></div><div class="eds-archive"><div class="eds-side-head"><strong>Eigene Dokumente</strong><span class="eds-count" id="edsDocumentCount"></span></div>',
         '<div class="eds-side-head"><span class="eds-muted">Archiv & Entwürfe</span><button type="button" class="eds-btn" data-eds-action="refresh" title="Neu laden">↻</button></div>',
+        '<label class="eds-field">Dokumentenbereich<select id="edsDocumentFilter"><option value="all">Alle Dokumente</option><option value="business">Geschäftsdokumente</option><option value="product">Produktdokumente</option></select></label>',
         '<input class="eds-search" id="edsSearch" type="search" placeholder="Dokumente suchen …" aria-label="Dokumente suchen">',
         '<label class="eds-check" style="margin-top:12px"><input type="checkbox" id="edsShowArchived"> Archivierte anzeigen</label>',
         '<div id="edsList" class="eds-doc-list" aria-label="Dokumentenliste"></div></div>',
-      '</aside><div class="eds-card">',
+      '</aside><div class="eds-card"><section id="edsProductEditor" hidden></section><div id="edsBusinessEditor">',
         '<div class="eds-section-title"><h3>Dokument bearbeiten</h3><span class="eds-muted">Text direkt auf der A4-Seite bearbeiten · Änderungen bewusst speichern</span></div><div id="edsOrderSourceNotice" class="eds-order-source-notice" hidden></div><div class="eds-meta">',
           '<label class="eds-field">Dokumententitel<input id="edsTitle" maxlength="120" autocomplete="off"></label>',
           '<label class="eds-field">Dokumentenart<select id="edsKind"></select></label>',
@@ -192,7 +195,7 @@
         '</div>',
         '<div id="edsEditor" class="eds-editor" contenteditable="true" role="textbox" aria-label="Dokumententext" aria-multiline="true" spellcheck="true"></div></div><div class="eds-preview-panel"><div class="eds-side-head"><strong>Deine bearbeitbare A4-Seite</strong><span class="eds-muted">210 × 297 mm · direkt hineinklicken</span></div>',
         '<div id="edsPreview" class="eds-preview open" aria-label="Bearbeitbares A4-Dokument"></div><div class="eds-hint">Hinweis: Platzhalter wie <code>{{Firma}}</code> bleiben beim Bearbeiten erhalten und werden erst für den Export durch deine Daten ersetzt.</div></div><aside class="eds-snippets-panel"><div class="eds-side-head"><strong>Textbausteine</strong><span class="eds-count" id="edsBlockCount"></span></div><p class="eds-muted">Klicke in die A4-Seite und füge einen Baustein an der Textposition ein.</p><input type="search" id="edsBlockSearch" class="eds-search" placeholder="Baustein suchen …" aria-label="Textbausteine suchen"><div id="edsBlockCategories" class="eds-categories"></div><div id="edsBlocksList" class="eds-block-list"></div><div class="eds-snippets-save"><strong>Eigenen Baustein speichern</strong><p class="eds-muted">Markiere einen Abschnitt auf der A4-Seite, dann speichere ihn als Baustein.</p><button type="button" class="eds-btn" data-eds-action="save-block">Auswahl als Baustein speichern</button></div></aside></div>',
-        '<div class="eds-bottom"><div id="edsStatus" class="eds-status" role="status" aria-live="polite">Lade Dokumente …</div><span class="eds-muted" id="edsVersion"></span></div>',
+        '</div><div class="eds-bottom"><div id="edsStatus" class="eds-status" role="status" aria-live="polite">Lade Dokumente …</div><span class="eds-muted" id="edsVersion"></span></div>',
         '<p class="eds-legal">Verträge und Vertragsklauseln vor Verwendung rechtlich prüfen lassen. Rechnungen für eBay-Bestellungen werden weiterhin ausschließlich im bestehenden Rechnungsmodul erstellt und ausgestellt. Ein frei bearbeitbares Dokument ersetzt weder eine Lieferantenrechnung noch eine steuerlich korrekte Ausgangsrechnung.</p>',
       '</div></div>'
     ].join("");
@@ -647,12 +650,175 @@
     status("Entwurf aus deinen Angaben erstellt. Inhalt und rechtliche Angaben bitte prüfen.");
   }
 
+
+  // Product documents are metadata records in the same document list, not a
+  // second editor or an official generated manufacturer document.
+  const productMode = () => state.current?.kind === PRODUCT_KIND;
+  const productStatusLabels = {
+    DRAFT:"Entwurf", SOURCE_MISSING:"Herkunft / Quelle fehlt", FILE_REFERENCE_MISSING:"Dateireferenz fehlt",
+    PRODUCT_ASSOCIATION_MISSING:"Produktzuordnung fehlt", REVIEW_REQUIRED:"Prüfung erforderlich",
+    METADATA_COMPLETE:"Metadaten vollständig · nicht verifiziert", OUTDATED:"Gültigkeit abgelaufen", REJECTED:"Abgelehnt", ARCHIVED:"Archiviert"
+  };
+  function setProductMode(active) {
+    el("edsProductEditor").hidden = !active;
+    el("edsBusinessEditor").hidden = active;
+    for (const button of el(TAB_ID).querySelectorAll(".eds-toolbar [data-eds-action]")) {
+      button.hidden = active && ["assistant","save-template","print","docx","library"].includes(button.dataset.edsAction);
+    }
+  }
+  function productSelection(doc) {
+    return (doc.productDocument?.associations || []).map(a=>({productId:a.productId,articleNumber:a.articleNumber,variantSkus:(a.variants||[]).map(v=>v.sku)}));
+  }
+  function option(value,label) { const o=document.createElement("option");o.value=value;o.textContent=label;return o; }
+  function fillOptions(select,values,selected,{empty=false,multiple=false}={}) {
+    select.replaceChildren();
+    if(empty)select.append(option("","Nicht angegeben"));
+    const selectedValues=multiple?new Set(selected||[]):new Set(selected?[selected]:[]);
+    for(const [value,label] of values) { const o=option(value,label);o.selected=selectedValues.has(value);select.append(o);selectedValues.delete(value); }
+    for(const value of selectedValues){const o=option(value,value+" (nicht mehr im Katalog)");o.selected=true;select.append(o);}
+    if(!multiple&&selected===null)select.value="";
+  }
+  function markProductEdited() {
+    state.dirty=true;status("Nicht gespeicherte Produktmetadaten.");
+    const review=el("edsProductReview");if(review)review.textContent="Metadaten geändert · noch nicht serverseitig geprüft. Kein Dateinachweis, kein Upload.";
+  }
+  function renderProductAssociations() {
+    const host=el("edsProductAssociations");if(!host||!productMode())return;
+    host.replaceChildren();
+    const catalog=state.productCatalog?.products||[], selections=state.productSelections||[];
+    for(const [index,selection] of selections.entries()){
+      const p=catalog.find(x=>x.productId===selection.productId&&x.articleNumber===selection.articleNumber);
+      const row=document.createElement("div");row.className="eds-product-association";
+      const name=document.createElement("strong");name.textContent=selection.articleNumber+(p?.title?" · "+p.title:" · Katalogreferenz nicht verfügbar");
+      const remove=document.createElement("button");remove.type="button";remove.className="eds-btn";remove.textContent="Zuordnung entfernen";remove.disabled=Boolean(state.current.archivedAt||state.productBusy);
+      remove.addEventListener("click",()=>{state.productSelections.splice(index,1);markProductEdited();renderProductAssociations();});
+      const label=document.createElement("label");label.className="eds-field";label.textContent="Explizit zugeordnete Varianten (optional)";
+      const variants=document.createElement("select");variants.multiple=true;variants.size=4;variants.disabled=Boolean(!p||state.current.archivedAt||state.productBusy);
+      variants.setAttribute("aria-label","Varianten für "+selection.articleNumber);
+      fillOptions(variants,(p?.variants||[]).map(v=>[v.sku,v.sku+(v.label?" · "+v.label:"")]),selection.variantSkus,{multiple:true});
+      variants.addEventListener("change",()=>{selection.variantSkus=[...variants.selectedOptions].map(o=>o.value);markProductEdited();});
+      label.append(variants);
+      const hint=document.createElement("span");hint.className="eds-muted";hint.textContent="Keine Auswahl = Produktbezug, keine Aussage über die Gültigkeit für alle Varianten.";
+      row.append(name,remove,label,hint);host.append(row);
+    }
+    if(!selections.length){const hint=document.createElement("p");hint.className="eds-muted";hint.textContent="Noch keine Produkte zugeordnet.";host.append(hint);}
+    const select=el("edsProductPick");if(select){
+      const selected=new Set(selections.map(x=>x.productId));
+      fillOptions(select,catalog.filter(p=>!selected.has(p.productId)).map(p=>[p.productId,p.articleNumber+" · "+p.title]),null,{empty:true});
+      select.disabled=Boolean(!state.productCatalog||state.current.archivedAt||state.productBusy);
+    }
+  }
+  function setCatalogOptions() {
+    if(!productMode()||!state.productCatalog)return;
+    const c=state.productCatalog,p=state.current.productDocument||{};
+    const value=(id,fallback)=>el(id).dataset.initialized==="true"?el(id).value:fallback;
+    const primary=value("edsProductLanguage",p.primaryLanguage||null);
+    const type=value("edsProductType",p.internalType||"user_manual");
+    const ebay=value("edsProductEbayType",p.ebayDocumentType||null);
+    const origin=value("edsProductOrigin",p.origin||"unknown");
+    const more=el("edsProductLanguages").dataset.initialized==="true"?[...el("edsProductLanguages").selectedOptions].map(o=>o.value):p.additionalLanguages||[];
+    fillOptions(el("edsProductType"),Object.entries(c.internalTypes),type);
+    fillOptions(el("edsProductOrigin"),Object.entries(c.origins),origin);
+    fillOptions(el("edsProductEbayType"),c.reference.documentTypes.map(v=>[v,v]),ebay,{empty:true});
+    fillOptions(el("edsProductLanguage"),c.reference.languages.map(v=>[v,v]),primary,{empty:true});
+    fillOptions(el("edsProductLanguages"),c.reference.languages.map(v=>[v,v]),more,{multiple:true});
+    for(const id of ["edsProductType","edsProductOrigin","edsProductEbayType","edsProductLanguage","edsProductLanguages"])el(id).dataset.initialized="true";
+    el("edsProductCatalogStatus").textContent=c.products.length+" Produkte aus Company OS · "+c.reference.documentTypes.length+" eBay-Dokumententypen / "+c.reference.languages.length+" Sprachwerte"+(c.excludedProductCount?" · "+c.excludedProductCount+" uneindeutige Produkte ausgeschlossen":"");
+    renderProductAssociations();
+  }
+  async function loadProductCatalog(force=false) {
+    const token=state.productGeneration;
+    if(!force&&state.productCatalog){setCatalogOptions();return;}
+    if(!state.productCatalogPending)state.productCatalogPending=api("product-catalog").finally(()=>{state.productCatalogPending=null;});
+    const pending=state.productCatalogPending;
+    try{
+      const catalog=await pending;
+      if(token!==state.productGeneration||!productMode())return;
+      state.productCatalog=catalog;setCatalogOptions();
+    }catch(error){if(token===state.productGeneration&&productMode()){el("edsProductCatalogStatus").textContent=error.message;status("Katalog nicht verfügbar. Speichern gesperrt.",true);}}
+  }
+  function showProductEditor(doc) {
+    const p=doc.productDocument||{}, panel=el("edsProductEditor");
+    panel.innerHTML=[
+      '<div class="eds-section-title"><h3>Produktdokument bearbeiten</h3><span class="eds-muted">Metadaten · keine geprüfte Datei</span></div>',
+      '<p class="eds-muted">Hersteller- und Sicherheitsdokumente werden nur referenziert. Es findet kein Dateiabruf, Upload oder Konformitätsnachweis statt.</p>',
+      '<p id="edsProductReview" class="eds-product-review" role="status"></p>',
+      '<fieldset id="edsProductFields" class="eds-product-fields"><div class="eds-meta">',
+      '<label class="eds-field">Dokumententitel<input id="edsProductTitle" maxlength="120"></label>',
+      '<label class="eds-field">Interner Dokumententyp<select id="edsProductType"></select></label>',
+      '<label class="eds-field">eBay-Dokumententyp (optional)<select id="edsProductEbayType"></select></label>',
+      '<label class="eds-field">Primäre Sprache<select id="edsProductLanguage"></select></label>',
+      '<label class="eds-field">Weitere Sprachen<select multiple size="4" id="edsProductLanguages"></select></label>',
+      '<label class="eds-field">Andere Sprache (falls OTHER)<input id="edsProductOtherLanguage" maxlength="120"></label>',
+      '<label class="eds-field">Herkunft<select id="edsProductOrigin"></select></label>',
+      '<label class="eds-field">Quellenangabe / Belegreferenz<input id="edsProductSource" maxlength="500"></label>',
+      '<label class="eds-field">Externe HTTPS-Dokumentenreferenz<input id="edsProductUrl" type="url" maxlength="2048" placeholder="Nur Referenz, kein Abruf"></label>',
+      '<label class="eds-field">Herstellerreferenz (angegeben)<input id="edsProductManufacturer" maxlength="220"></label>',
+      '<label class="eds-field">Lieferantenreferenz (angegeben)<input id="edsProductSupplier" maxlength="220"></label>',
+      '<label class="eds-field">Beschreibung<textarea id="edsProductDescription" maxlength="2000" rows="3"></textarea></label>',
+      '<label class="eds-field">MIME-Typ (unverifiziert)<input id="edsProductMime" maxlength="100" placeholder="application/pdf"></label>',
+      '<label class="eds-field">Dateigröße in Bytes (unverifiziert)<input id="edsProductSize" type="number" min="0" max="10000000000" step="1"></label>',
+      '<label class="eds-field">Gültig ab<input id="edsProductFrom" type="date"></label><label class="eds-field">Gültig bis<input id="edsProductUntil" type="date"></label>',
+      '<label class="eds-field">Prüfentscheidung<select id="edsProductDecision"><option value="pending">Offen / Prüfung erforderlich</option><option value="rejected">Abgelehnt</option></select></label></div>',
+      '<div class="eds-side-head"><h3>Produkt- und Variantenbezug</h3><button id="edsProductReload" type="button" class="eds-btn">Katalog aktualisieren</button></div>',
+      '<p id="edsProductCatalogStatus" class="eds-muted">Lade kanonischen Katalog …</p>',
+      '<div class="eds-product-picker"><label class="eds-field">Produkt auswählen<select id="edsProductPick" disabled></select></label><button id="edsProductAdd" type="button" class="eds-btn">Hinzufügen</button></div>',
+      '<div id="edsProductAssociations"></div></fieldset><p class="eds-muted">Dateispeicher: Referenzen only · Dateiprüfsumme / eBay-Dokumenten-ID: nicht vorhanden · Upload gesperrt.</p>'
+    ].join("");
+    const values={edsProductTitle:doc.title,edsProductOtherLanguage:p.otherLanguageText,edsProductSource:p.sourceReference,edsProductUrl:p.externalDocumentUrl,edsProductManufacturer:p.manufacturerReference,edsProductSupplier:p.supplierReference,edsProductDescription:p.description,edsProductMime:p.declaredMimeType,edsProductSize:p.declaredFileSize,edsProductFrom:p.validFrom,edsProductUntil:p.validUntil,edsProductDecision:p.reviewDecision||"pending"};
+    for(const [id,value] of Object.entries(values))el(id).value=value??"";
+    state.productSelections=productSelection(doc);
+    const review=doc.review||p.review;
+    el("edsProductReview").textContent=(productStatusLabels[review?.status]||"Entwurf · noch nicht geprüft")+(review?.missing?.length?" · "+review.missing.map(code=>productStatusLabels[code]||code).join(" · "):"");
+    el("edsProductFields").disabled=Boolean(doc.archivedAt);
+    el("edsProductAdd").addEventListener("click",()=>{
+      const selected=state.productCatalog?.products.find(x=>x.productId===el("edsProductPick").value);
+      if(!selected||state.productSelections.some(a=>a.productId===selected.productId))return;
+      if(state.productSelections.length>=12)return status("Maximal 12 Produkte pro Dokument.",true);
+      state.productSelections.push({productId:selected.productId,articleNumber:selected.articleNumber,variantSkus:[]});
+      markProductEdited();renderProductAssociations();
+    });
+    el("edsProductReload").addEventListener("click",()=>loadProductCatalog(true));
+    renderProductAssociations();loadProductCatalog();
+  }
+  async function saveProduct() {
+    if(state.productBusy||!productMode())return;
+    if(state.current.archivedAt||state.revision===null||!state.productCatalog)return status("Aktiven Dokumentenentwurf und Katalog laden.",true);
+    const v=id=>el(id).value;
+    const doc={id:state.current.id,kind:PRODUCT_KIND,title:v("edsProductTitle").trim(),version:state.current.version||0,productDocument:{
+      internalType:v("edsProductType"),ebayDocumentType:v("edsProductEbayType"),primaryLanguage:v("edsProductLanguage"),additionalLanguages:[...el("edsProductLanguages").selectedOptions].map(o=>o.value),otherLanguageText:v("edsProductOtherLanguage"),origin:v("edsProductOrigin"),sourceReference:v("edsProductSource"),externalDocumentUrl:v("edsProductUrl"),manufacturerReference:v("edsProductManufacturer"),supplierReference:v("edsProductSupplier"),description:v("edsProductDescription"),declaredMimeType:v("edsProductMime"),declaredFileSize:v("edsProductSize")===""?null:Number(v("edsProductSize")),validFrom:v("edsProductFrom"),validUntil:v("edsProductUntil"),reviewDecision:v("edsProductDecision"),associations:state.productSelections.map(a=>({...a,variantSkus:[...a.variantSkus]}))
+    }};
+    if(!doc.title)return status("Bitte Dokumententitel eintragen.",true);
+    state.productBusy=true;el("edsProductFields").disabled=true;status("Prüfe Zuordnungen und speichere Metadaten …");
+    const token=state.productGeneration;
+    try{
+      const result=await api("save-product",{expectedRevision:state.revision,document:doc});
+      if(token!==state.productGeneration)return;
+      state.revision=result.revision;state.documents=result.documents||[];showDoc(result.document);status("Produktmetadaten geschützt gespeichert · Datei und Herkunft nicht verifiziert.");
+    }catch(error){if(token===state.productGeneration)status(error.message+" Eingaben bleiben erhalten.",true);}
+    finally{state.productBusy=false;if(productMode()&&el("edsProductFields"))el("edsProductFields").disabled=Boolean(state.current.archivedAt);}
+  }
+  function createProductDocument() {
+    if(!shouldDiscard())return;
+    showDoc({id:newId(),kind:PRODUCT_KIND,title:"",version:0,archivedAt:null,productDocument:{origin:"unknown",internalType:"user_manual",associations:[]}});
+    status("Neues Produktdokument – Metadaten erfassen.");
+  }
+
   function showDoc(doc) {
     state.demoOrderDraft = false;
     const sourceNotice = el("edsOrderSourceNotice");
     if (sourceNotice) { sourceNotice.hidden = true; sourceNotice.textContent = ""; }
     state.current = { ...doc };
+    state.productGeneration++;
     state.dirty = false;
+    setProductMode(productMode());
+    if (productMode()) {
+      showProductEditor(doc);
+      el("edsArchiveBtn").textContent = doc.archivedAt ? "Wiederherstellen" : "Archivieren";
+      el("edsVersion").textContent = doc.version ? "Version " + doc.version : "Neuer Entwurf";
+      renderList();return;
+    }
+    el("edsProductEditor").replaceChildren();
     state.preview = true;
     state.designId = DESIGNS[doc.designId] ? doc.designId : DEFAULT_DESIGN;
     state.logoData = doc.logoData || "";
@@ -677,7 +843,7 @@
   }
 
   function readForm() {
-    if (!state.current) return null;
+    if (!state.current || productMode()) return null;
     return {
       ...state.current,
       title: el("edsTitle").value.trim(),
@@ -695,6 +861,7 @@
   }
 
   function handleInput(event) {
+    if (productMode() && el("edsProductEditor")?.contains(event.target) && event.target.id !== "edsProductPick") { markProductEdited(); return; }
     if (event.target?.id === "edsSearch") { state.search = event.target.value.toLowerCase(); renderList(); return; }
     if (event.target?.id === "edsLibrarySearch") { state.librarySearch = event.target.value.toLocaleLowerCase("de-DE"); renderLibrary(); return; }
     if (event.target?.id === "edsBlockSearch") { state.blockSearch = event.target.value.toLocaleLowerCase("de-DE"); renderBlocks(); return; }
@@ -706,6 +873,7 @@
   }
 
   function handleChange(event) {
+    if (event.target?.id === "edsDocumentFilter") { state.documentFilter=event.target.value;renderList();return; }
     if (event.target?.id === "edsShowArchived") {
       state.showArchived = event.target.checked; renderList();
     }
@@ -726,7 +894,7 @@
   }
 
   function shouldDiscard() {
-    return !state.dirty || window.confirm("Nicht gespeicherte Änderungen verwerfen?");
+    return !state.productBusy && (!state.dirty || window.confirm("Nicht gespeicherte Änderungen verwerfen?"));
   }
 
   function createNew(kind) {
@@ -740,7 +908,7 @@
     const list = el("edsList");
     if (!list) return;
     list.replaceChildren();
-    const filtered = state.documents.filter((doc) => (state.showArchived || !doc.archivedAt) && (doc.title + " " + doc.recipient + " " + doc.reference).toLowerCase().includes(state.search)).sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
+    const filtered = state.documents.filter((doc) => (state.showArchived || !doc.archivedAt) && (state.documentFilter==="all" || (state.documentFilter==="product")===(doc.kind===PRODUCT_KIND)) && (doc.title + " " + (doc.recipient||"") + " " + (doc.reference||"") + " " + (doc.productDocument?.associations||[]).map(a=>a.articleNumber).join(" ")).toLowerCase().includes(state.search)).sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
     for (const doc of filtered) {
       const button = document.createElement("button");
       button.type = "button";
@@ -748,7 +916,7 @@
       const strong = document.createElement("strong");
       strong.textContent = doc.title || "Unbenannt";
       const small = document.createElement("span");
-      small.textContent = (labels[doc.kind] || "Dokument") + " · " + (doc.archivedAt ? "Archiviert" : "Entwurf") + " · " + (doc.updatedAt ? new Date(doc.updatedAt).toLocaleDateString("de-DE") : "Neu");
+      small.textContent = (doc.kind===PRODUCT_KIND ? "Produktdokument" : labels[doc.kind] || "Dokument") + " · " + (doc.kind===PRODUCT_KIND ? productStatusLabels[doc.productDocument?.review?.status] || "Prüfung erforderlich" : doc.archivedAt ? "Archiviert" : "Entwurf") + " · " + (doc.updatedAt ? new Date(doc.updatedAt).toLocaleDateString("de-DE") : "Neu");
       button.append(strong, small);
       button.addEventListener("click", () => openSaved(doc.id));
       list.appendChild(button);
@@ -793,6 +961,7 @@
   }
 
   async function save() {
+    if(productMode())return saveProduct();
     const doc = readForm();
     if (!doc) return;
     if (state.demoOrderDraft) return status("Demo-Bestellungen dürfen nicht dauerhaft gespeichert werden.", true);
@@ -821,11 +990,11 @@
     const action = doc.archivedAt ? "restore" : "archive";
     if (action === "archive" && !window.confirm("Dokument archivieren? Es kann später wiederhergestellt werden.")) return;
     try {
-      const result = await api(action, { id: doc.id, expectedRevision: state.revision });
+      const result = await api(action, { id: doc.id, expectedRevision: state.revision, ...(doc.kind===PRODUCT_KIND?{expectedDocumentVersion:doc.version}:{}) });
       state.revision = result.revision;
       state.documents = result.documents || [];
       const metadata = state.documents.find((record) => record.id === doc.id);
-      showDoc({ ...doc, ...metadata });
+      showDoc(result.document || { ...doc, ...metadata });
       status(action === "archive" ? "Dokument archiviert." : "Dokument wiederhergestellt.");
     } catch (error) { status(error.message, true); }
   }
@@ -900,6 +1069,7 @@
   }
 
   function renderPreview() {
+    if(productMode())return;
     const preview = el("edsPreview");
     if (!preview) return;
     preview.innerHTML = resolved(readForm() || newDocument("blank"), true);
@@ -1175,7 +1345,10 @@
     }
     if (action === "move-up") return moveEditorBlock("up");
     if (action === "move-down") return moveEditorBlock("down");
+    if (state.productBusy)return;
+    if (action === "new-product") return createProductDocument();
     if (action === "new") return createNew("blank");
+    if(productMode() && !["save","archive","refresh"].includes(action))return;
     if (action === "library") { el("edsLibrary").classList.toggle("collapsed"); return; }
     if (action === "assistant") { el("edsAssistantPanel").classList.toggle("open"); return; }
     if (action === "close-assistant") { el("edsAssistantPanel").classList.remove("open"); return; }
@@ -1189,6 +1362,7 @@
     if (action === "docx") return exportDocx();
     if (action === "refresh") {
       if (!shouldDiscard()) return;
+      state.productGeneration++;state.productCatalog=null;
       state.current = null;
       return refresh();
     }
@@ -1205,10 +1379,17 @@
       const stylesheet = document.createElement("link");
       stylesheet.id = "elyonDocumentStudioStyles";
       stylesheet.rel = "stylesheet";
-      stylesheet.href = "/seller-document-studio.css?v=docs-v3-address-20261121";
+      stylesheet.href = "/seller-document-studio.css?v=product-documents-v3-1";
       document.head.appendChild(stylesheet);
     }
     installEntry();
+    window.addEventListener("elyon:seller-auth-ready", event=>{
+      if(event.detail?.authenticated===true)return;
+      state.productGeneration++;state.productCatalog=null;state.productCatalogPending=null;
+      state.documents=state.documents.filter(doc=>doc.kind!==PRODUCT_KIND);state.revision=null;
+      if(productMode()){state.current=null;state.productSelections=[];state.dirty=false;el("edsProductEditor")?.replaceChildren();}
+      renderList();
+    });
     window.addEventListener("hashchange", () => {
       if (location.hash === "#dokumentenstudio") openStudio(false);
       else hideStudio();
