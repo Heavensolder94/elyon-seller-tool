@@ -79,7 +79,13 @@ export default async function handler(req, res) {
     }
     if (req.method === "GET" && action === "product-summary") {
       const state=await load();
-      return send(res,200,{ok:true,revision:state.revision,documents:state.documents.filter(doc=>doc.kind===PRODUCT_DOCUMENT_KIND&&!doc.archivedAt).map(documentSummary)});
+      const documents=state.documents.filter(doc=>doc.kind===PRODUCT_DOCUMENT_KIND&&!doc.archivedAt).map(doc=>{
+        const d=documentSummary(doc),p=d.productDocument;
+        return {id:d.id,kind:d.kind,title:d.title,version:d.version,archivedAt:null,productDocument:{internalType:p.internalType,internalTypeLabel:p.internalTypeLabel,ebayDocumentType:p.ebayDocumentType,validFrom:p.validFrom,validUntil:p.validUntil,review:p.review,associations:p.associations.map(a=>({productId:a.productId,masterId:a.masterId,companyOsProductId:a.companyOsProductId,articleNumber:a.articleNumber,scope:a.scope,variants:a.variants.map(v=>({key:v.key}))}))}};
+      });
+      const result={ok:true,revision:state.revision,documents};
+      if(Buffer.byteLength(JSON.stringify(result),'utf8')>1024*1024)return send(res,503,{ok:false,message:'Dokumentenzusammenfassung überschreitet 1 MiB; gezielte Ansicht erforderlich.'});
+      return send(res,200,result);
     }
     if (req.method === "GET" && action === "list") {
       const state = await load();

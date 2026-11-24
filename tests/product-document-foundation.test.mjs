@@ -7,7 +7,7 @@ import {loadDocumentCatalog} from '../lib/product-document-catalog-client.js';
 import handler from '../api/document-studio.js';
 const now='2026-11-24T12:00:00Z';
 const product=(id,a,variants=[])=>({productId:id,masterId:id,companyOsProductId:'00009',articleNumber:a,sku:a,supplierProductId:'00008',listingId:null,offerId:null,title:'Fixture',variants:variants.map((sku,i)=>({key:'sku:'+sku,sku,supplierVariantId:'0000'+(7+i),listingId:null,offerId:null}))});
-const a=product('00001','ELY-000001',['ELY-000001-01','ELY-000001-02']),b=product('00002','ELY-000002');
+const a=product('00001','ELY-000001',['ELY-000001-01','ELY-000001-02']),b={...product('00002','ELY-000002'),companyOsProductId:'00010'};
 const catalog={ok:true,schemaVersion:'elyon-product-document-catalog-v3.1',source:'company_os_canonical_projection',executionAuthorized:false,uploadVerified:false,reference:{templateId:'ebay.de.document-url',registryVersion:'1.0.0',templateVersion:'1.0',sha256:'a'.repeat(64),documentTypes:['USER_GUIDE_OR_MANUAL','DECLARATION_OF_CONFORMITY'],languages:['GERMAN','ENGLISH','OTHER']},products:[a,b]};
 const assoc=(p=a,skus=[])=>({productId:p.productId,articleNumber:p.articleNumber,variantKeys:skus.map(s=>s.startsWith('supplier:')?s:'sku:'+s)});
 const payload=(patch={},top={})=>({id:'product_doc_00001',kind:'product_document',title:'Fixture Anleitung',version:0,productDocument:{internalType:'user_manual',origin:'manufacturer',primaryLanguage:'GERMAN',additionalLanguages:['ENGLISH'],ebayDocumentType:'USER_GUIDE_OR_MANUAL',sourceReference:'Fixture reference',externalDocumentUrl:'https://example.invalid/manual.pdf',associations:[assoc()],...patch},...top});

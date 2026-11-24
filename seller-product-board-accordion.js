@@ -215,20 +215,20 @@
     const key=product?.sourceOfTruth==="company_os_canonical_state"?documentKey(product.productId||product.id,product.articleNumber):null;
     if(!expanded||!key||!document.getElementById("productListTab")?.classList.contains("active")){section?.remove();return;}
     if(!documentIndex&&!documentSummaryError&&!documentSummaryPending)loadDocumentSummary();
-    const rows=(documentIndex?.get(key)||[]).filter(row=>!row.companyOsProductId||row.companyOsProductId===product.companyOsProductId);
+    const rows=(documentIndex?.get(key)||[]).map(row=>({...row,identityConflict:Boolean(row.companyOsProductId&&row.companyOsProductId!==product.companyOsProductId||row.masterId&&row.masterId!==(product.id||product.productId))}));
     const signature=JSON.stringify([key,documentSummaryEpoch,Boolean(documentIndex),documentSummaryError,rows]);
     if(section?.dataset.signature===signature)return;
     if(!section){section=document.createElement("section");section.className="elyon-product-document-overview";card.append(section);}
     section.dataset.signature=signature;section.replaceChildren();
-    const heading=document.createElement("strong");heading.textContent="Produktdokumente"+(documentIndex?" · "+rows.length:"");section.append(heading);
+    const heading=document.createElement("strong");heading.textContent="Produktdokumente"+(documentIndex?" · "+rows.filter(r=>!r.identityConflict).length:"");section.append(heading);
     const description=document.createElement("p");description.className="muted";description.textContent=documentSummaryError?"Zusammenfassung nicht verfügbar.":!documentIndex?"Lade gemeinsame Dokumentenzusammenfassung …":rows.length?"Zugeordnete Metadaten, keine automatische GPSR-Freigabe.":"Keine aktuellen zugeordneten Dokumente.";section.append(description);
     for(const row of rows){
       const text=document.createElement("p");text.className="muted";
-      text.textContent=(row.title||row.type||"Produktdokument")+" · "+row.type+(row.scope==="variants"?" · Varianten: "+row.variantKeys.join(", "):" · Produktbezug (keine pauschale Variantengültigkeit)")+" · "+(docStatusText[row.status]||row.status)+" · "+(docStatusText[row.fileStatus]||row.fileStatus)+" · "+(docStatusText[row.validity]||row.validity)+(row.validFrom||row.validUntil?" ("+(row.validFrom||"offen")+" – "+(row.validUntil||"offen")+")":"")+" · "+(docStatusText[row.associationStatus]||row.associationStatus);
+      text.textContent=(row.identityConflict?"Historische Identität abweichend – kein aktueller Nachweis · ":"")+(row.title||row.type||"Produktdokument")+" · "+row.type+(row.scope==="variants"?" · Varianten: "+row.variantKeys.join(", "):" · Produktbezug (keine pauschale Variantengültigkeit)")+" · "+(docStatusText[row.status]||row.status)+" · "+(docStatusText[row.fileStatus]||row.fileStatus)+" · "+(docStatusText[row.validity]||row.validity)+(row.validFrom||row.validUntil?" ("+(row.validFrom||"offen")+" – "+(row.validUntil||"offen")+")":"")+" · "+(docStatusText[row.associationStatus]||row.associationStatus);
       section.append(text);
     }
     if(documentSummaryError||documentIndex){
-      const refresh=document.createElement("button");refresh.type="button";refresh.className="secondary";refresh.textContent="Dokumente aktualisieren";refresh.addEventListener("click",()=>{if(documentSummaryPending)return;clearDocumentSummary();scheduleDecorate();});section.append(refresh);
+      const refresh=document.createElement("button");refresh.type="button";refresh.className="secondary";refresh.textContent="Dokumente aktualisieren";refresh.dataset.elyonProductDocumentsRefresh="true";section.append(refresh);
     }
     const link=document.createElement("a");link.href="#dokumentenstudio";link.textContent="Zum Dokumentenstudio";section.append(link);
   }
@@ -324,6 +324,12 @@
     const target = event.target;
     if (!(target instanceof Element)) return;
 
+    const refresh = target.closest("[data-elyon-product-documents-refresh]");
+    if (refresh && isBoardCard(refresh.closest(".product-card"))) {
+      event.preventDefault();event.stopPropagation();
+      if(!documentSummaryPending){clearDocumentSummary();scheduleDecorate();}
+      return;
+    }
     const toggle = target.closest(TOGGLE_SELECTOR);
     if (toggle) {
       const card = toggle.closest(".product-card");

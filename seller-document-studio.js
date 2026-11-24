@@ -658,8 +658,8 @@
     DRAFT:"Entwurf", SOURCE_MISSING:"Herkunft / Quelle fehlt", FILE_REFERENCE_MISSING:"Dateireferenz fehlt",
     PRODUCT_ASSOCIATION_MISSING:"Produktzuordnung fehlt", REVIEW_REQUIRED:"Prüfung erforderlich",
     METADATA_COMPLETE:"Metadaten vollständig · nicht verifiziert", OUTDATED:"Gültigkeit abgelaufen", REJECTED:"Abgelehnt", ARCHIVED:"Archiviert",
-    ASSOCIATION_CHANGED:"Zuordnung geändert", NOT_YET_VALID:"Noch nicht gültig", LANGUAGE_MISSING:"Sprache fehlt", OTHER_LANGUAGE_UNSPECIFIED:"Andere Sprache nicht angegeben", INTERNAL_NOT_MANUFACTURER_EVIDENCE:"Intern erstellt, kein Herstellernachweis",
-    FILE_NOT_VERIFIED:"Datei ungeprüft", PROVENANCE_NOT_VERIFIED:"Herkunft ungeprüft", CONTENT_NOT_VERIFIED:"Inhalt ungeprüft", REGULATORY_SUITABILITY_NOT_VERIFIED:"Regulatorische Eignung ungeprüft"
+    ASSOCIATION_CHANGED:"Zuordnung geändert", MANUAL_CONCERN_RECORDED:"Manuelle Bedenken vermerkt", NOT_YET_VALID:"Noch nicht gültig", LANGUAGE_MISSING:"Sprache fehlt", OTHER_LANGUAGE_UNSPECIFIED:"Andere Sprache nicht angegeben", INTERNAL_NOT_MANUFACTURER_EVIDENCE:"Intern erstellt, kein Herstellernachweis",
+    FILE_NOT_VERIFIED:"Keine dauerhaft hinterlegte verifizierte Datei", PROVENANCE_NOT_VERIFIED:"Herkunft ungeprüft", CONTENT_NOT_VERIFIED:"Inhalt ungeprüft", REGULATORY_SUITABILITY_NOT_VERIFIED:"Regulatorische Eignung ungeprüft"
   };
   function setProductMode(active) {
     el("edsProductEditor").hidden = !active;

@@ -47,7 +47,6 @@ test('V3.2 PDF rejection: empty, format, MIME, size, filename, damaged offset, e
   [input(pdf('x','/Prev 10')),'unsupported_pdf_structure'],[input(pdf('x','/XRefStm 10')),'unsupported_pdf_structure']
  ];
  for(const [file,code] of cases)assert.throws(()=>inspectPdfInput(file),e=>e.code===code,code);
- const damaged=Buffer.from(pdf().toString('latin1').replace(/0000000009 00000 n/,'9999999999 00000 n'));
  // Force first live entry offset to a wrong position, preserving byte length.
  const bad=Buffer.from(pdf().toString('latin1').replace(/(\d{10}) 00000 n /,'9999999999 00000 n '));
  assert.throws(()=>inspectPdfBytes(bad,'x.pdf'),e=>e.code==='damaged_pdf');
@@ -123,6 +122,7 @@ test('V3.2 review notes and server-owned fields cannot be fabricated; revisions 
  const old=note(d,'provenance');
  const changed=act(old,'revalidate-product',{}, {...catalog,products:[]});
  assert.equal(activeReviewNotes(changed).length,0);
+ const concern=act(d,'add-product-review',{kind:'provenance',decision:'concern',reference:'Mismatch',note:'Claim differs'});assert.equal(productDocumentReview(concern,new Date(now)).status,'REVIEW_REQUIRED');
 });
 test('V3.2 isolated storage contract: immutable replacement, exact private read, missing file, auth, CAS conflict and orphan retention',async()=>{
  const adapter=createIsolatedProductFileAdapter(),initial=stateOf(make());
@@ -148,6 +148,9 @@ test('V3.2 isolated storage contract: immutable replacement, exact private read,
  const archived=applyStudioChange(next.state,'archive',null,two.id);
  await assert.rejects(()=>readTestProductFile({...args,state:archived,expectedDocumentVersion:archived.documents[0].version,fileId:replacement.fileId,fileRevision:2}),e=>e.status===409);
  assert.equal(documentCommerceCandidate(two).privateFileAvailable,false);assert.equal(documentCommerceCandidate(two).documentUrl,null);
+ for(const [fault,status,count] of [['write_before','STORAGE_WRITE_OUTCOME_UNKNOWN',0],['write_after','STORAGE_WRITE_OUTCOME_UNKNOWN',1],['read','STORAGE_READBACK_FAILED',1]]){
+  const broken=createIsolatedProductFileAdapter({fault});const result=await stage(initial,{adapter:broken,compareSet:async()=>{throw Error('CAS must not run');}});assert.equal(result.status,status);assert.equal(result.stateCommitted,false);assert.equal(broken.inspectKeys().length,count);
+ }
 });
 test('V3.2 real document API with fake Redis/canonical read only, authorization, validation CAS, safe summary and blocked storage',async()=>{
  const env={ELYON_SELLER_ACCESS_TOKEN:'fixture-v32',UPSTASH_REDIS_REST_URL:'https://redis.invalid',UPSTASH_REDIS_REST_TOKEN:'fixture-redis',ELYON_COMPANY_OS_URL:'https://company.invalid',ELYON_COMPANY_OS_SYNC_CODE:'fixture-sync'};
