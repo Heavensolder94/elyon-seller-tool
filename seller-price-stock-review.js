@@ -53,6 +53,12 @@ async function run(changes,result,download,entry){
   }else approvalBox.append(node('p','Freigabestatus nicht verifiziert – gesperrt.'));
   const confirmation=button('Prüfung bestätigen – gesperrt',()=>{});confirmation.disabled=true;approvalBox.append(confirmation);
   result.append(approvalBox);
+  const transportBox=node('div');transportBox.className='elyon-ps-note';
+  transportBox.append(node('strong','Transport & Abgleich (V2.4) – gesperrt'));
+  transportBox.append(node('p','Inventory: nur vorgesehener Offer-bezogener Transport. Trading: nicht aktivierter Kandidat. Kein automatischer Wechsel zu einem anderen Transport.'));
+  transportBox.append(node('p','Vor einer späteren Ausführung sind Konto, Angebot, Lieferbestand und kanonische Revision erneut zu prüfen. Bei unklarer Antwort ist ein Ergebnisabgleich erforderlich; keine automatische Wiederholung.'));
+  transportBox.append(node('p','Keine Operation angelegt, keine eBay-Änderung ausgeführt. Die Simulation ist nicht Bestandteil der produktiven Historie.'));
+  result.append(transportBox);
   const artifact=data.artifact;
   if(artifact?.status==='EXPORT_READY_OFFLINE'&&artifact.executionAuthorized===false&&artifact.uploadVerified===false&&typeof artifact.base64==='string'&&artifact.base64.length<500000){
    result.append(node('p','Struktureller Offline-Export: '+artifact.rowCount+' Zeilen. NICHT bei eBay hochladen. Nachweise und Freigabe fehlen.'));

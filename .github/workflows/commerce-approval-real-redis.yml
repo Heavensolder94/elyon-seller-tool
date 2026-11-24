@@ -5,6 +5,8 @@ on:
     paths:
       - "lib/commerce-approval-v2-3.js"
       - "lib/commerce-simulation-ledger.js"
+      - "lib/commerce-inventory-transport.js"
+      - "tests/commerce-transport*"
       - "tests/commerce-approval*"
       - ".github/workflows/commerce-approval-real-redis.yml"
   workflow_dispatch:
