@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {performance} from 'node:perf_hooks';
+import {readFile} from 'node:fs/promises';
 import handler from '../api/document-studio.js';
 import {buildProductDocument,documentCommerceCandidate,productDocumentReview} from '../lib/product-document-core.js';
 import {applyProductValidationAction,currentProductInspection,validationOverview,invalidateArchivedValidation} from '../lib/product-document-validation.js';
@@ -89,4 +90,22 @@ test('V3.6 actual GPSR route fails closed on malformed Redis result/state instea
  // Supported legacy envelope without explicit revision remains readable.
  response={result:JSON.stringify({documents:[]})};assert.equal((await invoke()).code,200);
  }finally{globalThis.fetch=original;for(const [k,v] of Object.entries(old))if(v===undefined)delete process.env[k];else process.env[k]=v;}
+});
+
+test('V3.6 actual Company canonical XLSX response passes Seller verification and binds real multi-document manifest and blocked Media review',async()=>{
+ const fixture=JSON.parse(await readFile(new URL('./fixtures/document-xlsx-producer-v3-6.json',import.meta.url),'utf8'));
+ assert.equal(fixture.source.syntheticOnly,true);
+ const d=note(note(note(inspect(make()),'provenance'),'applicability'),'content'),second=make(2,{primaryLanguage:'FRENCH',additionalLanguages:['GERMAN'],validUntil:'2025-01-01'});
+ let requests=0;
+ const multi=await prepareDocumentExportReview(state(d,second),select(state(d,second)),catalog,async(req,ref)=>{
+  requests++;assert.deepEqual(req,fixture.request);
+  return verifyDocumentExportPreview(fixture.response,req,ref);
+ },now);
+ assert.equal(requests,1);assert.equal(multi.manifest.rows.length,2);assert.equal(multi.manifest.rows[0].inspectedSha256,currentProductInspection(d).sha256);
+ assert.ok(multi.manifest.rows[1].missingEvidence.includes('DOCUMENT_EXPIRED'));
+ assert.equal(multi.artifact,null);assert.equal(multi.downloadAvailable,false);assert.equal(multi.executionAuthorized,false);
+ assert.equal(multi.preview.profile.originalSha256,reference.sha256);
+ const forged=structuredClone(fixture.response);forged.rows[0].values[0]='https://fake.invalid/private.pdf';
+ assert.throws(()=>verifyDocumentExportPreview(forged,fixture.request,reference));
+ assert.throws(()=>verifyDocumentExportPreview(fixture.response,{documents:[...fixture.request.documents].reverse()},reference));
 });
