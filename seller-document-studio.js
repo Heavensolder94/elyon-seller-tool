@@ -759,7 +759,8 @@
     const add=(label,value)=>{const line=document.createElement("p");line.className="eds-muted";line.textContent=label+": "+value;host.append(line);};
     add("Dateistatus",validationLabel(overview.fileStatus));
     add("Private Ablage","Nicht eingerichtet · kein Download / keine dauerhafte Speicherung");
-    if(v.inspection){
+    if(overview.inspectionEvidenceInvalid)add("Byteprüfung","Gespeicherter Prüfnachweis nicht verwendbar. PDF erneut prüfen.");
+    if(v.inspection&&overview.fileStatus==="LIMITED_STRUCTURE_PASSED_NOT_STORED"){
       add("Letzte Byteprüfung",v.inspection.filename+" · "+v.inspection.mimeType+" · "+v.inspection.sizeBytes+" Bytes · Prüfversion "+v.inspection.inspectionRevision);
       add("SHA-256",v.inspection.sha256);add("Prüfzeitpunkt",v.inspection.validatedAt);
       add("Prüfumfang","Signatur, klassische Querverweistabelle, Objektpositionen, Verschlüsselungsmarker; keine vollständige Inhalts- oder Malwareprüfung");
@@ -776,7 +777,7 @@
     add("Gültigkeit",validationLabel(overview.validity));
     add("Regulatorische Eignung","Nicht verifiziert · eBay-Upload gesperrt");
     for(const note of [...(v.notes||[])].reverse()){
-      const current=!doc.archivedAt&&note.evidenceRevision===v.evidenceRevision;
+      const current=!doc.archivedAt&&note.evidenceRevision===v.evidenceRevision&&!(note.kind==='content'&&overview.inspectionEvidenceInvalid);
       add(current?"Prüfvermerk (manuelle Angabe)":"Historischer Prüfvermerk",note.kind+" · "+note.decision+" · "+note.recordedAt+" · Dokumentrevision "+note.reviewedDocumentRevision+" · "+note.reference+" · "+note.note);
     }
   }

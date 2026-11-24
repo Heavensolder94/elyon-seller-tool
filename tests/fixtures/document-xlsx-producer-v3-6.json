@@ -1,0 +1,184 @@
+{
+  "source": {
+    "repository": "Heavensolder94/ElyonCompany-OS",
+    "commit": "0b799bc5ef00db66e16c12c802709c47bc5cfffb",
+    "runId": 45485791863,
+    "jobId": 138770685963,
+    "syntheticOnly": true
+  },
+  "request": {
+    "documents": [
+      {
+        "documentId": "product_doc_00001",
+        "documentRevision": 5,
+        "documentType": "USER_GUIDE_OR_MANUAL",
+        "primaryLanguage": "GERMAN",
+        "additionalLanguages": [
+          "ENGLISH"
+        ],
+        "otherLanguageText": "",
+        "nickname": "Fixture 1"
+      },
+      {
+        "documentId": "product_doc_00002",
+        "documentRevision": 1,
+        "documentType": "USER_GUIDE_OR_MANUAL",
+        "primaryLanguage": "FRENCH",
+        "additionalLanguages": [
+          "GERMAN"
+        ],
+        "otherLanguageText": "",
+        "nickname": "Fixture 2"
+      }
+    ]
+  },
+  "response": {
+    "ok": true,
+    "schemaVersion": "elyon-document-xlsx-preview-v3.3",
+    "stage": "A_METADATA_PREVIEW",
+    "status": "BLOCKED",
+    "requestSha256": "f4b3199eead59228021b3d51a768ff6675ec2e4e0f497d95dab4d28eda00db2a",
+    "profile": {
+      "templateId": "ebay.de.document-url",
+      "registryVersion": "1.0.0",
+      "templateVersion": "1.0",
+      "originalSha256": "0dd7a11a7192da4ef59904329582c01d592b4e168b06a93457577eacc220c69c",
+      "originalSize": 17244,
+      "header": [
+        "Document url",
+        "Document type",
+        "Document language 1",
+        "Document language 2",
+        "Document language 3",
+        "Document language 4",
+        "Document language others",
+        "Document nickname"
+      ],
+      "headerRow": 3,
+      "maxRows": 97
+    },
+    "rows": [
+      {
+        "documentId": "product_doc_00001",
+        "documentRevision": 5,
+        "row": 4,
+        "values": [
+          "",
+          "USER_GUIDE_OR_MANUAL",
+          "GERMAN",
+          "ENGLISH",
+          "",
+          "",
+          "",
+          "Fixture 1"
+        ],
+        "blockers": [
+          "DOCUMENT_DELIVERY_UNVERIFIED",
+          "PRIVATE_FILE_UNAVAILABLE",
+          "PROVENANCE_UNVERIFIED"
+        ],
+        "declaredLanguages": [
+          "GERMAN",
+          "ENGLISH"
+        ]
+      },
+      {
+        "documentId": "product_doc_00002",
+        "documentRevision": 1,
+        "row": 5,
+        "values": [
+          "",
+          "USER_GUIDE_OR_MANUAL",
+          "FRENCH",
+          "GERMAN",
+          "",
+          "",
+          "",
+          "Fixture 2"
+        ],
+        "blockers": [
+          "DOCUMENT_DELIVERY_UNVERIFIED",
+          "PRIVATE_FILE_UNAVAILABLE",
+          "PROVENANCE_UNVERIFIED"
+        ],
+        "declaredLanguages": [
+          "FRENCH",
+          "GERMAN"
+        ]
+      }
+    ],
+    "validation": {
+      "status": "INVALID",
+      "structureStatus": "VALID",
+      "businessStatus": "INVALID",
+      "diagnostics": [
+        {
+          "row": null,
+          "field": null,
+          "code": "xlsx_original_profile_only",
+          "classification": "WARNING",
+          "severity": "warning"
+        },
+        {
+          "row": 4,
+          "field": "Document url",
+          "code": "required_field_missing",
+          "classification": "REQUIRED_FIELD",
+          "severity": "error"
+        },
+        {
+          "row": 4,
+          "field": null,
+          "code": "document_provenance_content_unverified",
+          "classification": "MISSING_EVIDENCE",
+          "severity": "evidence"
+        },
+        {
+          "row": 5,
+          "field": "Document url",
+          "code": "required_field_missing",
+          "classification": "REQUIRED_FIELD",
+          "severity": "error"
+        },
+        {
+          "row": 5,
+          "field": null,
+          "code": "document_provenance_content_unverified",
+          "classification": "MISSING_EVIDENCE",
+          "severity": "evidence"
+        },
+        {
+          "row": null,
+          "field": null,
+          "code": "transport_live_verification_pending",
+          "classification": "TRANSPORT_UNVERIFIED",
+          "severity": "evidence"
+        },
+        {
+          "row": null,
+          "field": null,
+          "code": "server_evidence_authentication_pending",
+          "classification": "MISSING_EVIDENCE",
+          "severity": "evidence"
+        },
+        {
+          "row": null,
+          "field": null,
+          "code": "explicit_approval_not_verified",
+          "classification": "MISSING_EVIDENCE",
+          "severity": "evidence"
+        }
+      ]
+    },
+    "executionAuthorized": false,
+    "operationalEnabled": false,
+    "uploadVerified": false,
+    "releaseEligible": false,
+    "privateFileAvailable": false,
+    "gpsrCompliant": false,
+    "ebayDocumentId": null,
+    "artifact": null,
+    "artifactSha256": null,
+    "downloadAvailable": false
+  }
+}
