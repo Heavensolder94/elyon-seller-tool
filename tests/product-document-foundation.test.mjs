@@ -6,10 +6,10 @@ import {applyStudioChange,normalizeStudioState,documentSummary,STUDIO_DOCUMENT_T
 import {loadDocumentCatalog} from '../lib/product-document-catalog-client.js';
 import handler from '../api/document-studio.js';
 const now='2026-11-24T12:00:00Z';
-const product=(id,a,variants=[])=>({productId:id,masterId:id,companyOsProductId:'00009',articleNumber:a,sku:a,supplierProductId:'00008',listingId:null,offerId:null,title:'Fixture',variants:variants.map(sku=>({sku,supplierVariantId:'00007',listingId:null,offerId:null}))});
+const product=(id,a,variants=[])=>({productId:id,masterId:id,companyOsProductId:'00009',articleNumber:a,sku:a,supplierProductId:'00008',listingId:null,offerId:null,title:'Fixture',variants:variants.map((sku,i)=>({key:'sku:'+sku,sku,supplierVariantId:'0000'+(7+i),listingId:null,offerId:null}))});
 const a=product('00001','ELY-000001',['ELY-000001-01','ELY-000001-02']),b=product('00002','ELY-000002');
 const catalog={ok:true,schemaVersion:'elyon-product-document-catalog-v3.1',source:'company_os_canonical_projection',executionAuthorized:false,uploadVerified:false,reference:{templateId:'ebay.de.document-url',registryVersion:'1.0.0',templateVersion:'1.0',sha256:'a'.repeat(64),documentTypes:['USER_GUIDE_OR_MANUAL','DECLARATION_OF_CONFORMITY'],languages:['GERMAN','ENGLISH','OTHER']},products:[a,b]};
-const assoc=(p=a,variantSkus=[])=>({productId:p.productId,articleNumber:p.articleNumber,variantSkus});
+const assoc=(p=a,skus=[])=>({productId:p.productId,articleNumber:p.articleNumber,variantKeys:skus.map(s=>s.startsWith('supplier:')?s:'sku:'+s)});
 const payload=(patch={},top={})=>({id:'product_doc_00001',kind:'product_document',title:'Fixture Anleitung',version:0,productDocument:{internalType:'user_manual',origin:'manufacturer',primaryLanguage:'GERMAN',additionalLanguages:['ENGLISH'],ebayDocumentType:'USER_GUIDE_OR_MANUAL',sourceReference:'Fixture reference',externalDocumentUrl:'https://example.invalid/manual.pdf',associations:[assoc()],...patch},...top});
 const make=(patch={},top={},c=catalog,previous=null)=>buildProductDocument(payload(patch,top),previous,c,now);
 test('V3.1 metadata only: exact stored reference, leading zero IDs, pre-listing association, no fabricated file or eBay proof',()=>{
@@ -39,7 +39,7 @@ test('V3.1 strict field validation rejects type/language/status/ID/hash/file/URL
 test('V3.1 exact explicit multi-product and variant associations; duplicate or ambiguous identities fail closed',()=>{
  const p=make({associations:[assoc(a,['ELY-000001-01','ELY-000001-02']),assoc(b)]}).productDocument;
  assert.equal(p.associations[0].scope,'variants');assert.deepEqual(p.associations[0].variants.map(v=>v.sku),['ELY-000001-01','ELY-000001-02']);assert.equal(p.associations[0].variants[0].supplierVariantId,'00007');assert.equal(p.associations[1].scope,'product');
- for(const associations of [[assoc(),assoc()],[{...assoc(),productId:'00000'}],[{...assoc(),articleNumber:b.articleNumber}],[{...assoc(),productId:1}],[{...assoc(),variantSkus:['ELY-000002-01']}],[{...assoc(),variantSkus:['ELY-000001-01','ELY-000001-01']}],[{...assoc(),variantSkus:['ELY-000001-99']}],[{...assoc(),listingId:'forged'}]])assert.throws(()=>make({associations}),e=>e.status===422);
+ for(const associations of [[assoc(),assoc()],[{...assoc(),productId:'00000'}],[{...assoc(),articleNumber:b.articleNumber}],[{...assoc(),productId:1}],[{...assoc(),variantKeys:['sku:ELY-000002-01']}],[{...assoc(),variantKeys:['sku:ELY-000001-01','sku:ELY-000001-01']}],[{...assoc(),variantKeys:['sku:ELY-000001-99']}],[{...assoc(),listingId:'forged'}]])assert.throws(()=>make({associations}),e=>e.status===422);
  assert.throws(()=>make({}, {},{...catalog,products:[a,{...a}]}),/mehrdeutig/);
  assert.throws(()=>make({associations:[assoc(a,['ELY-000001-01'])]}, {},{...catalog,products:[{...a,variants:[a.variants[0],a.variants[0]]}]}),/mehrdeutig/);
 });
@@ -105,4 +105,12 @@ test('V3.1 UI integration uses existing studio, explicit product controls, no ne
  const core=await readFile(new URL('../lib/product-document-core.js',import.meta.url),'utf8');
  for(const pattern of [/data-eds-action="new-product"/,/edsDocumentFilter/,/edsProductType/,/edsProductLanguage/,/edsProductAssociations/,/variants.multiple=true/,/Keine Auswahl = Produktbezug/,/api\("save-product"/,/if\(productMode\(\)\)return saveProduct\(\)/,/function openFromOrder/,/function printDocument/,/function exportDocx/,/function archiveOrRestore/])assert.match(ui,pattern);
  assert.doesNotMatch(core,/\bfetch\s*\(|createDocumentFromUrl\s*\(|writeFile\s*\(/);
+});
+
+test('V3.1 supplier-only variant reference retains exact supplier ID, no fabricated ELY or eBay SKU',()=>{
+ const supplier={key:'supplier:000123',sku:null,supplierVariantId:'000123',listingId:null,offerId:null};
+ const c={...catalog,products:[{...a,variants:[supplier]}]};
+ const ref=make({associations:[assoc(a,['supplier:000123'])]}, {},c).productDocument.associations[0].variants[0];
+ assert.equal(ref.sku,null);assert.equal(ref.supplierVariantId,'000123');assert.equal(ref.key,'supplier:000123');
+ assert.throws(()=>make({associations:[assoc(a,['supplier:123'])]}, {},c),/mehrdeutig/);
 });

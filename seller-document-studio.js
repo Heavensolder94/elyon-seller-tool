@@ -669,7 +669,7 @@
     }
   }
   function productSelection(doc) {
-    return (doc.productDocument?.associations || []).map(a=>({productId:a.productId,articleNumber:a.articleNumber,variantSkus:(a.variants||[]).map(v=>v.sku)}));
+    return (doc.productDocument?.associations || []).map(a=>({productId:a.productId,articleNumber:a.articleNumber,variantKeys:(a.variants||[]).map(v=>v.key)}));
   }
   function option(value,label) { const o=document.createElement("option");o.value=value;o.textContent=label;return o; }
   function fillOptions(select,values,selected,{empty=false,multiple=false}={}) {
@@ -697,8 +697,8 @@
       const label=document.createElement("label");label.className="eds-field";label.textContent="Explizit zugeordnete Varianten (optional)";
       const variants=document.createElement("select");variants.multiple=true;variants.size=4;variants.disabled=Boolean(!p||state.current.archivedAt||state.productBusy);
       variants.setAttribute("aria-label","Varianten für "+selection.articleNumber);
-      fillOptions(variants,(p?.variants||[]).map(v=>[v.sku,v.sku+(v.label?" · "+v.label:"")]),selection.variantSkus,{multiple:true});
-      variants.addEventListener("change",()=>{selection.variantSkus=[...variants.selectedOptions].map(o=>o.value);markProductEdited();});
+      fillOptions(variants,(p?.variants||[]).map(v=>[v.key,(v.sku||("Lieferantenvariante "+v.supplierVariantId))+(v.label?" · "+v.label:"")]),selection.variantKeys,{multiple:true});
+      variants.addEventListener("change",()=>{selection.variantKeys=[...variants.selectedOptions].map(o=>o.value);markProductEdited();});
       label.append(variants);
       const hint=document.createElement("span");hint.className="eds-muted";hint.textContent="Keine Auswahl = Produktbezug, keine Aussage über die Gültigkeit für alle Varianten.";
       row.append(name,remove,label,hint);host.append(row);
@@ -731,7 +731,7 @@
   async function loadProductCatalog(force=false) {
     const token=state.productGeneration;
     if(!force&&state.productCatalog){setCatalogOptions();return;}
-    if(!state.productCatalogPending)state.productCatalogPending=api("product-catalog").finally(()=>{state.productCatalogPending=null;});
+    if(!state.productCatalogPending){const request=api("product-catalog");state.productCatalogPending=request;request.finally(()=>{if(state.productCatalogPending===request)state.productCatalogPending=null;}).catch(()=>{});}
     const pending=state.productCatalogPending;
     try{
       const catalog=await pending;
@@ -777,7 +777,7 @@
       const selected=state.productCatalog?.products.find(x=>x.productId===el("edsProductPick").value);
       if(!selected||state.productSelections.some(a=>a.productId===selected.productId))return;
       if(state.productSelections.length>=12)return status("Maximal 12 Produkte pro Dokument.",true);
-      state.productSelections.push({productId:selected.productId,articleNumber:selected.articleNumber,variantSkus:[]});
+      state.productSelections.push({productId:selected.productId,articleNumber:selected.articleNumber,variantKeys:[]});
       markProductEdited();renderProductAssociations();
     });
     el("edsProductReload").addEventListener("click",()=>loadProductCatalog(true));
@@ -788,7 +788,7 @@
     if(state.current.archivedAt||state.revision===null||!state.productCatalog)return status("Aktiven Dokumentenentwurf und Katalog laden.",true);
     const v=id=>el(id).value;
     const doc={id:state.current.id,kind:PRODUCT_KIND,title:v("edsProductTitle").trim(),version:state.current.version||0,productDocument:{
-      internalType:v("edsProductType"),ebayDocumentType:v("edsProductEbayType"),primaryLanguage:v("edsProductLanguage"),additionalLanguages:[...el("edsProductLanguages").selectedOptions].map(o=>o.value),otherLanguageText:v("edsProductOtherLanguage"),origin:v("edsProductOrigin"),sourceReference:v("edsProductSource"),externalDocumentUrl:v("edsProductUrl"),manufacturerReference:v("edsProductManufacturer"),supplierReference:v("edsProductSupplier"),description:v("edsProductDescription"),declaredMimeType:v("edsProductMime"),declaredFileSize:v("edsProductSize")===""?null:Number(v("edsProductSize")),validFrom:v("edsProductFrom"),validUntil:v("edsProductUntil"),reviewDecision:v("edsProductDecision"),associations:state.productSelections.map(a=>({...a,variantSkus:[...a.variantSkus]}))
+      internalType:v("edsProductType"),ebayDocumentType:v("edsProductEbayType"),primaryLanguage:v("edsProductLanguage"),additionalLanguages:[...el("edsProductLanguages").selectedOptions].map(o=>o.value),otherLanguageText:v("edsProductOtherLanguage"),origin:v("edsProductOrigin"),sourceReference:v("edsProductSource"),externalDocumentUrl:v("edsProductUrl"),manufacturerReference:v("edsProductManufacturer"),supplierReference:v("edsProductSupplier"),description:v("edsProductDescription"),declaredMimeType:v("edsProductMime"),declaredFileSize:v("edsProductSize")===""?null:Number(v("edsProductSize")),validFrom:v("edsProductFrom"),validUntil:v("edsProductUntil"),reviewDecision:v("edsProductDecision"),associations:state.productSelections.map(a=>({...a,variantKeys:[...a.variantKeys]}))
     }};
     if(!doc.title)return status("Bitte Dokumententitel eintragen.",true);
     state.productBusy=true;el("edsProductFields").disabled=true;status("Prüfe Zuordnungen und speichere Metadaten …");
