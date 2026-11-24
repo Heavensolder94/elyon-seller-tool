@@ -86,7 +86,7 @@
   ].map(([id, category, title, html]) => ({ id, category, title, html }));
   const DEFAULT_DESIGN = "elyon";
   const PRODUCT_KIND = "product_document";
-  const state = { demoOrderDraft: false, revision: null, documents: [], customTemplates: [], customBlocks: [], blockCategory: "Alle", blockSearch: "", lastRange: null, current: null, profile: {}, logoData: "", dirty: false, showArchived: false, search: "", librarySearch: "", category: "Alle", favoritesOnly: false, favorites: [], libraryOpen: true, designId: DEFAULT_DESIGN, preview: true, loading: false, documentFilter: "all", productCatalog: null, productCatalogPending: null, productGeneration: 0, productBusy: false, sessionEpoch: 0 };
+  const state = { demoOrderDraft: false, revision: null, documents: [], customTemplates: [], customBlocks: [], blockCategory: "Alle", blockSearch: "", lastRange: null, current: null, profile: {}, logoData: "", dirty: false, showArchived: false, search: "", librarySearch: "", category: "Alle", favoritesOnly: false, favorites: [], libraryOpen: true, designId: DEFAULT_DESIGN, preview: true, loading: false, documentFilter: "all", productCatalog: null, productCatalogPending: null, productGeneration: 0, productBusy: false, sessionEpoch: 0, exportSelections: new Map(), exportGeneration: 0, exportBusy: false, exportReview: null };
 
   const el = (id) => document.getElementById(id);
   const escapeHtml = (value) => String(value == null ? "" : value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
@@ -681,6 +681,7 @@
     if(!multiple&&selected===null)select.value="";
   }
   function markProductEdited() {
+    clearExportReview();
     state.dirty=true;status("Nicht gespeicherte Produktmetadaten.");
     const review=el("edsProductReview");if(review)review.textContent="Metadaten geändert · noch nicht serverseitig geprüft. Kein Dateinachweis, kein Upload.";
   }
@@ -804,6 +805,94 @@
     let binary="";for(let i=0;i<bytes.length;i+=16384)binary+=String.fromCharCode(...bytes.subarray(i,i+16384));
     return {file:{filename:file.name,mediaType:file.type||"",base64:btoa(binary)}};
   }
+  const exportBlockerLabels={
+    DOCUMENT_DELIVERY_UNVERIFIED:"Keine sichere Dokumentenbereitstellung verifiziert",PRIVATE_FILE_UNAVAILABLE:"Private PDF-Datei nicht verfügbar",
+    SOURCE_URL_NOT_DELIVERY:"Quell-URL ist keine Bereitstellungs-URL",PROVENANCE_UNVERIFIED:"Herkunft nicht unabhängig nachgewiesen",
+    DOCUMENT_ARCHIVED:"Dokument archiviert",DOCUMENT_REJECTED:"Dokument abgelehnt",DOCUMENT_EXPIRED:"Dokument abgelaufen",
+    DOCUMENT_NOT_YET_VALID:"Dokument noch nicht gültig",DOCUMENT_TYPE_MISSING:"eBay-Dokumententyp fehlt",DOCUMENT_TYPE_UNKNOWN:"Dokumententyp nicht im Referenzblatt",
+    PRIMARY_LANGUAGE_MISSING:"Primäre Sprache fehlt",LANGUAGE_UNKNOWN:"Sprache nicht im Referenzblatt",LANGUAGE_DUPLICATE:"Doppelte Sprache",
+    LANGUAGE_LIMIT_EXCEEDED:"Mehr als vier reguläre Sprachwerte; keine Kürzung",OTHER_LANGUAGE_TEXT_MISSING:"OTHER ohne Sprachangabe",
+    OTHER_LANGUAGE_WITHOUT_OTHER:"Andere Sprache ohne OTHER",OTHER_LANGUAGE_SYNTAX_UNVERIFIED:"Syntax weiterer Sprachen nicht verifiziert",
+    PRODUCT_ASSOCIATION_CONFLICT:"Produkt- oder Variantenidentität geändert",PRODUCT_ASSOCIATION_MISSING:"Produktzuordnung fehlt",
+    ASSOCIATION_EVIDENCE_RECHECK_REQUIRED:"Zuordnungsnachweis erneut prüfen",DOCUMENT_TEMPLATE_REFERENCE_CHANGED:"Vorlagenreferenz geändert",
+    BYTE_INSPECTION_MISSING:"PDF-Byteprüfung fehlt",INSPECTION_EVIDENCE_INVALID:"Inspektionsnachweis nicht verwendbar",INSPECTED_BYTES_NOT_STORED:"Geprüfte Bytes nicht gespeichert",
+    HISTORICAL_REVIEW_NOTES_NOT_CURRENT:"Historische Prüfvermerke sind keine aktuellen Nachweise",PROVENANCE_REVIEW_MISSING:"Herkunftsvermerk fehlt",
+    APPLICABILITY_REVIEW_MISSING_OR_STALE:"Anwendbarkeitsvermerk fehlt oder ist veraltet",CONTENT_REVIEW_MISSING_OR_STALE:"Inhaltsvermerk fehlt oder ist veraltet",
+    DUPLICATE_INSPECTED_CONTENT_REVIEW_REQUIRED:"Identische geprüfte Bytes in mehreren Dokumenten; manuell abgleichen",
+    CONFLICTING_DOCUMENT_TYPE_FOR_INSPECTED_CONTENT:"Widersprüchliche Dokumententypen für identische geprüfte Bytes",
+    INVALID_XLSX_CELL:"Zellwert nicht mit Originalvorlage darstellbar",DOCUMENT_SCHEMA_UNSUPPORTED:"Dokumentenschema nicht unterstützt"
+  };
+  const exportLabel=code=>exportBlockerLabels[code]||productStatusLabels[code]||code;
+  function clearExportReview(){
+    state.exportGeneration++;state.exportBusy=false;state.exportReview=null;
+    const result=el("edsExportResult");if(result)result.replaceChildren();
+  }
+  function toggleExportSelection(doc,checked){
+    if(!doc||doc.kind!==PRODUCT_KIND||!doc.version)return;
+    if(checked)state.exportSelections.set(doc.id,doc.version);else state.exportSelections.delete(doc.id);
+    clearExportReview();renderExportSelection();
+  }
+  function renderExportSelection(){
+    const host=el("edsExportSelections");if(!host||!productMode())return;
+    if(state.exportReview?.manifest?.studioRevision!==undefined&&state.exportReview.manifest.studioRevision!==state.revision)clearExportReview();
+    host.replaceChildren();
+    const docs=state.documents.filter(d=>d.kind===PRODUCT_KIND&&d.version>0);
+    const known=new Set(docs.map(d=>d.id));
+    for(const [id] of state.exportSelections)if(!known.has(id))state.exportSelections.delete(id);
+    for(const doc of docs){
+      const label=document.createElement("label");label.className="eds-check";
+      const check=document.createElement("input");check.type="checkbox";check.id="edsExportPick_"+doc.id;check.checked=state.exportSelections.has(doc.id);
+      check.addEventListener("change",()=>toggleExportSelection(doc,check.checked));
+      const stale=check.checked&&state.exportSelections.get(doc.id)!==doc.version;
+      const detail=document.createElement("span");detail.textContent=(doc.title||"Unbenannt")+" · Version "+doc.version+(doc.archivedAt?" · Archiviert":"")+(stale?" · Auswahl veraltet: ab- und erneut auswählen":"");
+      label.append(check,detail);host.append(label);
+    }
+    if(!docs.length){const p=document.createElement("p");p.className="eds-muted";p.textContent="Zuerst ein Produktdokument speichern.";host.append(p);}
+    const count=el("edsExportCount");if(count)count.textContent=state.exportSelections.size+" Dokument(e) ausgewählt";
+    const button=el("edsExportCheck");if(button)button.disabled=state.exportBusy||!state.exportSelections.size||state.revision===null;
+    const download=el("edsExportDownload");if(download)download.disabled=true;
+  }
+  function renderExportReview(result){
+    const host=el("edsExportResult");if(!host)return;host.replaceChildren();
+    const add=(parent,tag,text,cls)=>{const n=document.createElement(tag);n.textContent=text;if(cls)n.className=cls;parent.append(n);return n;};
+    add(host,"strong","Stufe A – Metadatenvorschau · Export blockiert");
+    add(host,"p","Keine produktive XLSX-Datei verfügbar. Dokumenten-URLs bleiben leer; keine eBay-Übertragung.", "eds-muted");
+    add(host,"p","Review: "+result.manifest.reviewId+" · "+result.manifest.createdAt+" · Studio-Revision "+result.manifest.studioRevision,"eds-muted");
+    const scroll=document.createElement("div");scroll.className="eds-export-scroll";host.append(scroll);
+    const table=document.createElement("table");scroll.append(table);
+    const head=document.createElement("thead"),hr=document.createElement("tr");head.append(hr);table.append(head);
+    add(hr,"th","Zeile");for(const h of result.preview.header)add(hr,"th",h);
+    const tbody=document.createElement("tbody");table.append(tbody);
+    for(const row of result.preview.rows){
+      const tr=document.createElement("tr");tbody.append(tr);add(tr,"td",String(row.row));for(const [i,value] of row.values.entries())add(tr,"td",value|| (i===0?"Fehlt – blockiert":"—"));
+    }
+    for(const row of result.manifest.rows){
+      const block=document.createElement("section");block.className="eds-export-row";host.append(block);
+      add(block,"strong","Zeile "+row.row+" · "+row.nickname+" · Revision "+row.documentRevision);
+      add(block,"p","Sprachen: "+[row.primaryLanguage,...row.additionalLanguages].filter(Boolean).join(", ")+" · "+(row.documentType||"Kein eBay-Typ"),"eds-muted");
+      add(block,"p","Datei: "+validationLabel(row.review.fileStatus)+" · Identitäten: "+validationLabel(row.associationCheck.status)+" · Gültigkeit: "+validationLabel(row.review.validity),"eds-muted");
+      for(const a of row.associations)add(block,"p",a.articleNumber+(a.scope==="variants"?" · Varianten: "+a.variants.map(v=>v.key).join(", "):" · Produktbezug; keine pauschale Variantengültigkeit"),"eds-muted");
+      for(const a of row.associationCheck.results){if(a.status!=="MATCH")add(block,"p",a.articleNumber+" · "+validationLabel(a.status),"eds-muted");for(const v of a.variants||[])if(v.status!=="MATCH")add(block,"p",v.key+" · "+validationLabel(v.status),"eds-muted");}
+      const ul=document.createElement("ul");block.append(ul);for(const code of row.missingEvidence)add(ul,"li",exportLabel(code));
+    }
+    const details=document.createElement("details");host.append(details);add(details,"summary","Internes Exportmanifest und kanonische Diagnosen (keine Freigabe)");
+    add(details,"p","Manifest SHA-256: "+result.manifestSha256,"eds-muted");add(details,"pre",JSON.stringify(result.manifest,null,2));
+  }
+  async function runDocumentExportPreview(){
+    if(!productMode()||state.exportBusy||!state.exportSelections.size||state.revision===null)return;
+    if(state.dirty){status("Bitte Produktmetadaten zuerst speichern oder Änderungen verwerfen.",true);return;}
+    clearExportReview();
+    const epoch=state.sessionEpoch,generation=state.productGeneration,token=state.exportGeneration,revision=state.revision;
+    const selected=[...state.exportSelections].map(([id,version])=>({id,version}));
+    state.exportBusy=true;renderExportSelection();status("Prüfe Dokumentenauswahl mit Company OS …");
+    try{
+      const result=await api("document-export-preview",{expectedRevision:revision,documents:selected});
+      if(epoch!==state.sessionEpoch||generation!==state.productGeneration||token!==state.exportGeneration||revision!==state.revision)return;
+      if(result.schemaVersion!=="elyon-document-export-review-v3.3"||result.status!=="BLOCKED"||result.downloadAvailable!==false||result.executionAuthorized!==false||result.artifact!==null||result.manifest?.studioRevision!==revision||!Array.isArray(result.preview?.rows)||result.preview.rows.length!==selected.length)throw Error("Ungültige Exportvorschau.");
+      state.exportReview=result;renderExportReview(result);status("Metadatenvorschau erstellt · XLSX-Download gesperrt: Bereitstellungsnachweis fehlt.");
+    }catch(error){if(epoch===state.sessionEpoch&&token===state.exportGeneration&&generation===state.productGeneration)status(error.message,true);}
+    finally{if(token===state.exportGeneration){state.exportBusy=false;renderExportSelection();}}
+  }
   function showProductEditor(doc) {
     const p=doc.productDocument||{}, panel=el("edsProductEditor");
     panel.innerHTML=[
@@ -840,7 +929,8 @@
       '<div class="eds-meta"><label class="eds-field">Prüfbereich<select id="edsValidationKind"><option value="provenance">Herkunft</option><option value="applicability">Anwendbarkeit</option><option value="content">Inhalt</option></select></label>',
       '<label class="eds-field">Entscheidung<select id="edsValidationDecision"><option value="reviewed">Manuell geprüft</option><option value="concern">Bedenken / Mangel</option></select></label>',
       '<label class="eds-field">Nachweisreferenz<input id="edsValidationReference" maxlength="300"></label><label class="eds-field">Prüfvermerk<textarea id="edsValidationNote" maxlength="600" rows="3"></textarea></label></div>',
-      '<button type="button" class="eds-btn" id="edsValidationAddNote">Prüfvermerk hinterlegen</button><p class="eds-muted">Manuelle Angaben sind keine unabhängigen Echtheits- oder regulatorischen Nachweise. Gemeinsame Seller-Sitzung, keine individuell verifizierte Identität.</p></fieldset></section>'
+      '<button type="button" class="eds-btn" id="edsValidationAddNote">Prüfvermerk hinterlegen</button><p class="eds-muted">Manuelle Angaben sind keine unabhängigen Echtheits- oder regulatorischen Nachweise. Gemeinsame Seller-Sitzung, keine individuell verifizierte Identität.</p></fieldset></section>',
+      '<section class="eds-validation-panel eds-export-panel"><h3>eBay-Dokumentenexport</h3><p class="eds-muted">Metadatenvorschau auf Basis der offiziellen Vorlage. Kein produktiver Download ohne sichere Dateibereitstellung.</p><div id="edsExportSelections" class="eds-export-selections"></div><p id="edsExportCount" class="eds-muted"></p><div class="eds-side-head"><button type="button" class="eds-btn" id="edsExportCheck">Export prüfen / XLSX-Vorschau</button><button type="button" class="eds-btn" id="edsExportClear">Auswahl leeren</button><button type="button" class="eds-btn" id="edsExportDownload" disabled title="Sichere Dateibereitstellung fehlt">XLSX herunterladen (gesperrt)</button></div><div id="edsExportResult" aria-live="polite"></div></section>'
     ].join("");
     const values={edsProductTitle:doc.title,edsProductOtherLanguage:p.otherLanguageText,edsProductSource:p.sourceReference,edsProductUrl:p.externalDocumentUrl,edsProductManufacturer:p.manufacturerReference,edsProductSupplier:p.supplierReference,edsProductModel:p.modelReference,edsProductModelVersion:p.productVersionReference,edsProductDescription:p.description,edsProductMime:p.declaredMimeType,edsProductSize:p.declaredFileSize,edsProductFrom:p.validFrom,edsProductUntil:p.validUntil,edsProductDecision:p.reviewDecision||"pending"};
     for(const [id,value] of Object.entries(values))el(id).value=value??"";
@@ -859,6 +949,9 @@
     el("edsProductFields").disabled=Boolean(doc.archivedAt);
     el("edsValidationFields").disabled=Boolean(doc.archivedAt||!doc.version);
     renderValidationEvidence(doc);
+    renderExportSelection();
+    el("edsExportCheck").addEventListener("click",runDocumentExportPreview);
+    el("edsExportClear").addEventListener("click",()=>{state.exportSelections.clear();clearExportReview();renderExportSelection();});
     el("edsValidationInspect").addEventListener("click",()=>runValidationAction("validate-product-file",readSelectedPdf));
     el("edsValidationRecheck").addEventListener("click",()=>runValidationAction("revalidate-product",{}));
     el("edsValidationAddNote").addEventListener("click",()=>runValidationAction("add-product-review",{kind:el("edsValidationKind").value,decision:el("edsValidationDecision").value,reference:el("edsValidationReference").value,note:el("edsValidationNote").value}));
@@ -899,6 +992,7 @@
     state.demoOrderDraft = false;
     const sourceNotice = el("edsOrderSourceNotice");
     if (sourceNotice) { sourceNotice.hidden = true; sourceNotice.textContent = ""; }
+    clearExportReview();
     state.current = { ...doc };
     state.productGeneration++;
     state.dirty = false;
@@ -952,7 +1046,7 @@
   }
 
   function handleInput(event) {
-    if(productMode()&&event.target?.id?.startsWith("edsValidation"))return;
+    if(productMode()&&(event.target?.id?.startsWith("edsValidation")||event.target?.id?.startsWith("edsExport")))return;
     if (productMode() && el("edsProductEditor")?.contains(event.target) && event.target.id !== "edsProductPick") { markProductEdited(); return; }
     if (event.target?.id === "edsSearch") { state.search = event.target.value.toLowerCase(); renderList(); return; }
     if (event.target?.id === "edsLibrarySearch") { state.librarySearch = event.target.value.toLocaleLowerCase("de-DE"); renderLibrary(); return; }
@@ -999,6 +1093,7 @@
   function renderList() {
     const list = el("edsList");
     if (!list) return;
+    renderExportSelection();
     list.replaceChildren();
     const filtered = state.documents.filter((doc) => (state.showArchived || !doc.archivedAt) && (state.documentFilter==="all" || (state.documentFilter==="product")===(doc.kind===PRODUCT_KIND)) && (doc.title + " " + (doc.recipient||"") + " " + (doc.reference||"") + " " + (doc.productDocument?.associations||[]).map(a=>a.articleNumber).join(" ")).toLowerCase().includes(state.search)).sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
     for (const doc of filtered) {
@@ -1481,12 +1576,13 @@
       const stylesheet = document.createElement("link");
       stylesheet.id = "elyonDocumentStudioStyles";
       stylesheet.rel = "stylesheet";
-      stylesheet.href = "/seller-document-studio.css?v=product-documents-v3-2";
+      stylesheet.href = "/seller-document-studio.css?v=product-documents-v3-3";
       document.head.appendChild(stylesheet);
     }
     installEntry();
     window.addEventListener("elyon:seller-auth-ready", event=>{
       if(event.detail?.authenticated===true){if(el(TAB_ID)?.classList.contains("active")&&state.revision===null&&!state.loading)refresh();return;}
+      clearExportReview();state.exportSelections.clear();
       state.sessionEpoch++;state.productGeneration++;state.productCatalog=null;state.productCatalogPending=null;
       state.documents=state.documents.filter(doc=>doc.kind!==PRODUCT_KIND);state.revision=null;
       if(productMode()){state.current=null;state.productSelections=[];state.dirty=false;el("edsProductEditor")?.replaceChildren();if(el(TAB_ID))setProductMode(false);}
