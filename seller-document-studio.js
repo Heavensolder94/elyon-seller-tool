@@ -657,7 +657,9 @@
   const productStatusLabels = {
     DRAFT:"Entwurf", SOURCE_MISSING:"Herkunft / Quelle fehlt", FILE_REFERENCE_MISSING:"Dateireferenz fehlt",
     PRODUCT_ASSOCIATION_MISSING:"Produktzuordnung fehlt", REVIEW_REQUIRED:"Prüfung erforderlich",
-    METADATA_COMPLETE:"Metadaten vollständig · nicht verifiziert", OUTDATED:"Gültigkeit abgelaufen", REJECTED:"Abgelehnt", ARCHIVED:"Archiviert"
+    METADATA_COMPLETE:"Metadaten vollständig · nicht verifiziert", OUTDATED:"Gültigkeit abgelaufen", REJECTED:"Abgelehnt", ARCHIVED:"Archiviert",
+    LANGUAGE_MISSING:"Sprache fehlt", OTHER_LANGUAGE_UNSPECIFIED:"Andere Sprache nicht angegeben", INTERNAL_NOT_MANUFACTURER_EVIDENCE:"Intern erstellt, kein Herstellernachweis",
+    FILE_NOT_VERIFIED:"Datei ungeprüft", PROVENANCE_NOT_VERIFIED:"Herkunft ungeprüft", CONTENT_NOT_VERIFIED:"Inhalt ungeprüft", REGULATORY_SUITABILITY_NOT_VERIFIED:"Regulatorische Eignung ungeprüft"
   };
   function setProductMode(active) {
     el("edsProductEditor").hidden = !active;
@@ -735,7 +737,7 @@
       const catalog=await pending;
       if(token!==state.productGeneration||!productMode())return;
       state.productCatalog=catalog;setCatalogOptions();
-    }catch(error){if(token===state.productGeneration&&productMode()){el("edsProductCatalogStatus").textContent=error.message;status("Katalog nicht verfügbar. Speichern gesperrt.",true);}}
+    }catch(error){if(token===state.productGeneration&&productMode()){state.productCatalog=null;el("edsProductCatalogStatus").textContent=error.message;status("Katalog nicht verfügbar. Speichern gesperrt.",true);}}
   }
   function showProductEditor(doc) {
     const p=doc.productDocument||{}, panel=el("edsProductEditor");
@@ -794,7 +796,7 @@
     try{
       const result=await api("save-product",{expectedRevision:state.revision,document:doc});
       if(token!==state.productGeneration)return;
-      state.revision=result.revision;state.documents=result.documents||[];showDoc(result.document);status("Produktmetadaten geschützt gespeichert · Datei und Herkunft nicht verifiziert.");
+      state.revision=result.revision;state.documents=result.documents||[];state.productBusy=false;showDoc(result.document);status("Produktmetadaten geschützt gespeichert · Datei und Herkunft nicht verifiziert.");
     }catch(error){if(token===state.productGeneration)status(error.message+" Eingaben bleiben erhalten.",true);}
     finally{state.productBusy=false;if(productMode()&&el("edsProductFields"))el("edsProductFields").disabled=Boolean(state.current.archivedAt);}
   }
