@@ -86,7 +86,7 @@
   ].map(([id, category, title, html]) => ({ id, category, title, html }));
   const DEFAULT_DESIGN = "elyon";
   const PRODUCT_KIND = "product_document";
-  const state = { demoOrderDraft: false, revision: null, documents: [], customTemplates: [], customBlocks: [], blockCategory: "Alle", blockSearch: "", lastRange: null, current: null, profile: {}, logoData: "", dirty: false, showArchived: false, search: "", librarySearch: "", category: "Alle", favoritesOnly: false, favorites: [], libraryOpen: true, designId: DEFAULT_DESIGN, preview: true, loading: false, documentFilter: "all", productCatalog: null, productCatalogPending: null, productGeneration: 0, productBusy: false };
+  const state = { demoOrderDraft: false, revision: null, documents: [], customTemplates: [], customBlocks: [], blockCategory: "Alle", blockSearch: "", lastRange: null, current: null, profile: {}, logoData: "", dirty: false, showArchived: false, search: "", librarySearch: "", category: "Alle", favoritesOnly: false, favorites: [], libraryOpen: true, designId: DEFAULT_DESIGN, preview: true, loading: false, documentFilter: "all", productCatalog: null, productCatalogPending: null, productGeneration: 0, productBusy: false, sessionEpoch: 0 };
 
   const el = (id) => document.getElementById(id);
   const escapeHtml = (value) => String(value == null ? "" : value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
@@ -770,6 +770,15 @@
     const values={edsProductTitle:doc.title,edsProductOtherLanguage:p.otherLanguageText,edsProductSource:p.sourceReference,edsProductUrl:p.externalDocumentUrl,edsProductManufacturer:p.manufacturerReference,edsProductSupplier:p.supplierReference,edsProductDescription:p.description,edsProductMime:p.declaredMimeType,edsProductSize:p.declaredFileSize,edsProductFrom:p.validFrom,edsProductUntil:p.validUntil,edsProductDecision:p.reviewDecision||"pending"};
     for(const [id,value] of Object.entries(values))el(id).value=value??"";
     state.productSelections=productSelection(doc);
+    // A saved record remains readable if the canonical catalog is offline.
+    if(!state.productCatalog){
+      const stored=(id,values,selected,options)=>fillOptions(el(id),values.map(v=>[v,v+" (gespeichert, Katalogprüfung offen)"]),selected,options);
+      stored("edsProductType",[p.internalType||"user_manual"],p.internalType||"user_manual",{});
+      stored("edsProductOrigin",[p.origin||"unknown"],p.origin||"unknown",{});
+      stored("edsProductEbayType",p.ebayDocumentType?[p.ebayDocumentType]:[],p.ebayDocumentType||null,{empty:true});
+      stored("edsProductLanguage",p.primaryLanguage?[p.primaryLanguage]:[],p.primaryLanguage||null,{empty:true});
+      stored("edsProductLanguages",p.additionalLanguages||[],p.additionalLanguages||[],{multiple:true});
+    }
     const review=doc.review||p.review;
     el("edsProductReview").textContent=(productStatusLabels[review?.status]||"Entwurf · noch nicht geprüft")+(review?.missing?.length?" · "+review.missing.map(code=>productStatusLabels[code]||code).join(" · "):"");
     el("edsProductFields").disabled=Boolean(doc.archivedAt);
@@ -934,9 +943,11 @@
   async function refresh() {
     if (state.loading) return;
     state.loading = true;
+    const epoch=state.sessionEpoch;
     status("Lade geschütztes Dokumentenarchiv …");
     try {
       const [result, profile, custom, blocks] = await Promise.all([api("list"), api("profile").catch(() => ({ profile: {} })), api("templates").catch(() => ({ templates: [] })), api("blocks").catch(() => ({ blocks: [] }))]);
+      if(epoch!==state.sessionEpoch)return;
       state.revision = result.revision;
       state.documents = result.documents || [];
       state.profile = profile.profile || {};
@@ -955,9 +966,11 @@
 
   async function openSaved(id) {
     if (!shouldDiscard()) return;
+    const token=++state.productGeneration,epoch=state.sessionEpoch;
     status("Lade Dokument …");
     try {
       const response = await api("get", { id, __get: true });
+      if(token!==state.productGeneration||epoch!==state.sessionEpoch)return;
       showDoc(response.document);
     } catch (error) { status(error.message, true); }
   }
@@ -991,14 +1004,19 @@
     if (state.dirty && !shouldDiscard()) return;
     const action = doc.archivedAt ? "restore" : "archive";
     if (action === "archive" && !window.confirm("Dokument archivieren? Es kann später wiederhergestellt werden.")) return;
+    const token=state.productGeneration,epoch=state.sessionEpoch;
+    if(doc.kind===PRODUCT_KIND)state.productBusy=true;
     try {
       const result = await api(action, { id: doc.id, expectedRevision: state.revision, ...(doc.kind===PRODUCT_KIND?{expectedDocumentVersion:doc.version}:{}) });
+      if(token!==state.productGeneration||epoch!==state.sessionEpoch)return;
+      state.productBusy=false;
       state.revision = result.revision;
       state.documents = result.documents || [];
       const metadata = state.documents.find((record) => record.id === doc.id);
       showDoc(result.document || { ...doc, ...metadata });
       status(action === "archive" ? "Dokument archiviert." : "Dokument wiederhergestellt.");
     } catch (error) { status(error.message, true); }
+    finally { if(doc.kind===PRODUCT_KIND)state.productBusy=false; }
   }
 
 
@@ -1386,10 +1404,10 @@
     }
     installEntry();
     window.addEventListener("elyon:seller-auth-ready", event=>{
-      if(event.detail?.authenticated===true)return;
-      state.productGeneration++;state.productCatalog=null;state.productCatalogPending=null;
+      if(event.detail?.authenticated===true){if(el(TAB_ID)?.classList.contains("active")&&state.revision===null&&!state.loading)refresh();return;}
+      state.sessionEpoch++;state.productGeneration++;state.productCatalog=null;state.productCatalogPending=null;
       state.documents=state.documents.filter(doc=>doc.kind!==PRODUCT_KIND);state.revision=null;
-      if(productMode()){state.current=null;state.productSelections=[];state.dirty=false;el("edsProductEditor")?.replaceChildren();}
+      if(productMode()){state.current=null;state.productSelections=[];state.dirty=false;el("edsProductEditor")?.replaceChildren();if(el(TAB_ID))setProductMode(false);}
       renderList();
     });
     window.addEventListener("hashchange", () => {
