@@ -166,3 +166,8 @@
 #elyonDocumentStudioTab .eds-product-association label,#elyonDocumentStudioTab .eds-product-association span{grid-column:1/-1}
 #elyonDocumentStudioTab .eds-product-fields select[multiple]{min-height:105px}
 @media(max-width:600px){#elyonDocumentStudioTab .eds-product-picker,#elyonDocumentStudioTab .eds-product-association{grid-template-columns:minmax(0,1fr)}}
+
+#elyonDocumentStudioTab .eds-validation-panel{margin-top:20px;padding:14px;border:1px solid rgba(148,163,184,.25);border-radius:12px}
+#elyonDocumentStudioTab .eds-validation-evidence{display:grid;gap:4px;margin:12px 0;overflow-wrap:anywhere}
+#elyonDocumentStudioTab .eds-validation-evidence p{margin:0}
+#elyonDocumentStudioTab .eds-validation-panel .eds-side-head{flex-wrap:wrap}

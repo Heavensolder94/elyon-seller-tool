@@ -658,7 +658,7 @@
     DRAFT:"Entwurf", SOURCE_MISSING:"Herkunft / Quelle fehlt", FILE_REFERENCE_MISSING:"Dateireferenz fehlt",
     PRODUCT_ASSOCIATION_MISSING:"Produktzuordnung fehlt", REVIEW_REQUIRED:"Prüfung erforderlich",
     METADATA_COMPLETE:"Metadaten vollständig · nicht verifiziert", OUTDATED:"Gültigkeit abgelaufen", REJECTED:"Abgelehnt", ARCHIVED:"Archiviert",
-    LANGUAGE_MISSING:"Sprache fehlt", OTHER_LANGUAGE_UNSPECIFIED:"Andere Sprache nicht angegeben", INTERNAL_NOT_MANUFACTURER_EVIDENCE:"Intern erstellt, kein Herstellernachweis",
+    ASSOCIATION_CHANGED:"Zuordnung geändert", NOT_YET_VALID:"Noch nicht gültig", LANGUAGE_MISSING:"Sprache fehlt", OTHER_LANGUAGE_UNSPECIFIED:"Andere Sprache nicht angegeben", INTERNAL_NOT_MANUFACTURER_EVIDENCE:"Intern erstellt, kein Herstellernachweis",
     FILE_NOT_VERIFIED:"Datei ungeprüft", PROVENANCE_NOT_VERIFIED:"Herkunft ungeprüft", CONTENT_NOT_VERIFIED:"Inhalt ungeprüft", REGULATORY_SUITABILITY_NOT_VERIFIED:"Regulatorische Eignung ungeprüft"
   };
   function setProductMode(active) {
@@ -739,11 +739,76 @@
       state.productCatalog=catalog;setCatalogOptions();
     }catch(error){if(token===state.productGeneration&&productMode()){state.productCatalog=null;el("edsProductCatalogStatus").textContent=error.message;status("Katalog nicht verfügbar. Speichern gesperrt.",true);}}
   }
+  function notifyProductDocumentsChanged(){
+    if(typeof window.dispatchEvent==="function"&&typeof window.CustomEvent==="function")window.dispatchEvent(new window.CustomEvent("elyon:product-documents-changed"));
+  }
+  const validationLabels={
+    LIMITED_STRUCTURE_PASSED_NOT_STORED:"PDF-Struktur geprüft · nicht gespeichert",
+    REFERENCE_ONLY:"Nur externe Referenz",FILE_MISSING:"Keine Datei",BLOCKED_NO_VERIFIED_STORAGE:"Private Ablage nicht eingerichtet",
+    MATCH:"Identitäten abgeglichen",RECHECK_REQUIRED:"Erneute Prüfung erforderlich",REVIEW_REQUIRED:"Abweichung – Prüfung erforderlich",MISSING:"Keine Zuordnung",
+    AMBIGUOUS_PRODUCT:"Produkt mehrdeutig",PRODUCT_IDENTITY_CHANGED:"Produktidentität geändert",PRODUCT_MISSING_OR_EXCLUDED:"Produkt fehlt / ausgeschlossen",
+    VARIANT_CHANGED:"Variante geändert",AMBIGUOUS_VARIANT:"Variante mehrdeutig",VARIANT_MISSING_OR_EXCLUDED:"Variante fehlt / ausgeschlossen",VARIANT_IDENTITY_CHANGED:"Variantenidentität geändert",CHANNEL_CHANGED:"eBay-Referenz geändert",
+    MANUAL_NOTE_RECORDED:"Manueller Vermerk",CONCERN_RECORDED:"Bedenken vermerkt",UNREVIEWED:"Ungeprüft",NOT_VERIFIED:"Nicht verifiziert",
+    NOT_YET_VALID:"Noch nicht gültig",EXPIRED:"Abgelaufen",WITHIN_DECLARED_PERIOD:"Innerhalb angegebener Gültigkeit",UNSPECIFIED:"Nicht angegeben",ARCHIVED:"Archiviert"
+  };
+  const validationLabel=code=>validationLabels[code]||code||"Offen";
+  function renderValidationEvidence(doc){
+    const v=doc.productDocument?.validation||{}, overview=doc.review?.validation||doc.productDocument?.review?.validation||{};
+    const host=el("edsValidationEvidence");host.replaceChildren();
+    const add=(label,value)=>{const line=document.createElement("p");line.className="eds-muted";line.textContent=label+": "+value;host.append(line);};
+    add("Dateistatus",validationLabel(overview.fileStatus));
+    add("Private Ablage","Nicht eingerichtet · kein Download / keine dauerhafte Speicherung");
+    if(v.inspection){
+      add("Letzte Byteprüfung",v.inspection.filename+" · "+v.inspection.mimeType+" · "+v.inspection.sizeBytes+" Bytes · Prüfversion "+v.inspection.inspectionRevision);
+      add("SHA-256",v.inspection.sha256);add("Prüfzeitpunkt",v.inspection.validatedAt);
+      add("Prüfumfang","Signatur, klassische Querverweistabelle, Objektpositionen, Verschlüsselungsmarker; keine vollständige Inhalts- oder Malwareprüfung");
+    }
+    if(v.inspectionHistory?.length)add("Historische Byteprüfungen",String(v.inspectionHistory.length)+" · nicht als aktuelle Nachweise verwenden");
+    add("Zuordnung",validationLabel(overview.associationStatus)+(overview.associationCheckedAt?" · "+overview.associationCheckedAt:""));
+    for(const a of v.associationCheck?.results||[]){
+      add(a.articleNumber,validationLabel(a.status));
+      for(const variant of a.variants||[])add(variant.key,validationLabel(variant.status));
+    }
+    add("Herkunft",validationLabel(overview.provenanceStatus));
+    add("Anwendbarkeit",validationLabel(overview.applicabilityStatus));
+    add("Inhalt",validationLabel(overview.contentStatus));
+    add("Gültigkeit",validationLabel(overview.validity));
+    add("Regulatorische Eignung","Nicht verifiziert · eBay-Upload gesperrt");
+    for(const note of [...(v.notes||[])].reverse()){
+      const current=!doc.archivedAt&&note.evidenceRevision===v.evidenceRevision;
+      add(current?"Prüfvermerk (manuelle Angabe)":"Historischer Prüfvermerk",note.kind+" · "+note.decision+" · "+note.recordedAt+" · Dokumentrevision "+note.reviewedDocumentRevision+" · "+note.reference+" · "+note.note);
+    }
+  }
+  async function runValidationAction(action,input){
+    if(!productMode()||state.productBusy)return;
+    if(!state.current.version||state.revision===null||state.current.archivedAt||state.dirty)return status("Bitte aktives Produktdokument zuerst speichern. Ungespeicherte Metadaten bleiben erhalten.",true);
+    state.productBusy=true;el("edsValidationFields").disabled=true;el("edsProductFields").disabled=true;
+    const token=state.productGeneration,version=state.current.version,id=state.current.id,expectedRevision=state.revision;
+    status("Prüfe Produktdokument …");
+    try{
+      const data=typeof input==="function"?await input():input;
+      if(token!==state.productGeneration)return;
+      const result=await api(action,{id,expectedRevision,document:{version,...data}});
+      if(token!==state.productGeneration)return;
+      state.revision=result.revision;state.documents=result.documents||[];state.productBusy=false;showDoc(result.document);notifyProductDocumentsChanged();
+      status(action==="validate-product-file"?"PDF-Byteprüfung gespeichert. Die PDF-Datei selbst wurde nicht abgelegt.":action==="revalidate-product"?"Historische Identitäten erneut geprüft; keine automatische Neuzuordnung.":"Manuellen Prüfvermerk gespeichert · kein unabhängiger Nachweis.");
+    }catch(error){if(token===state.productGeneration)status(error.message+" Bisherige Prüfnachweise bleiben erhalten.",true);}
+    finally{state.productBusy=false;if(productMode()){if(el("edsValidationFields"))el("edsValidationFields").disabled=Boolean(state.current.archivedAt||!state.current.version);if(el("edsProductFields"))el("edsProductFields").disabled=Boolean(state.current.archivedAt);}}
+  }
+  async function readSelectedPdf(){
+    const file=el("edsValidationFile").files?.[0];
+    if(!file)throw Error("Bitte PDF-Datei auswählen.");
+    if(file.size<1||file.size>2*1024*1024)throw Error("PDF muss zwischen 1 Byte und 2 MiB groß sein.");
+    if(!/\.pdf$/i.test(file.name)||file.type&&file.type!=="application/pdf")throw Error("Nur PDF-Dateien werden geprüft.");
+    const bytes=new Uint8Array(await file.arrayBuffer());
+    let binary="";for(let i=0;i<bytes.length;i+=16384)binary+=String.fromCharCode(...bytes.subarray(i,i+16384));
+    return {file:{filename:file.name,mediaType:file.type||"",base64:btoa(binary)}};
+  }
   function showProductEditor(doc) {
     const p=doc.productDocument||{}, panel=el("edsProductEditor");
     panel.innerHTML=[
-      '<div class="eds-section-title"><h3>Produktdokument bearbeiten</h3><span class="eds-muted">Metadaten · keine geprüfte Datei</span></div>',
-      '<p class="eds-muted">Hersteller- und Sicherheitsdokumente werden nur referenziert. Es findet kein Dateiabruf, Upload oder Konformitätsnachweis statt.</p>',
+      '<div class="eds-section-title"><h3>Produktdokument bearbeiten</h3><span class="eds-muted">Metadaten · Dateiprüfung</span></div>',
+      '<p class="eds-muted">Hersteller- und Sicherheitsdokumente können als PDF technisch geprüft werden. Keine automatische URL-Abfrage, dauerhafte Dateiablage oder Konformitätsfreigabe.</p>',
       '<p id="edsProductReview" class="eds-product-review" role="status"></p>',
       '<fieldset id="edsProductFields" class="eds-product-fields"><div class="eds-meta">',
       '<label class="eds-field">Dokumententitel<input id="edsProductTitle" maxlength="120"></label>',
@@ -757,6 +822,8 @@
       '<label class="eds-field">Externe HTTPS-Dokumentenreferenz<input id="edsProductUrl" type="url" maxlength="2048" placeholder="Nur Referenz, kein Abruf"></label>',
       '<label class="eds-field">Herstellerreferenz (angegeben)<input id="edsProductManufacturer" maxlength="220"></label>',
       '<label class="eds-field">Lieferantenreferenz (angegeben)<input id="edsProductSupplier" maxlength="220"></label>',
+      '<label class="eds-field">Modellreferenz (angegeben)<input id="edsProductModel" maxlength="220"></label>',
+      '<label class="eds-field">Produktversion (angegeben)<input id="edsProductModelVersion" maxlength="220"></label>',
       '<label class="eds-field">Beschreibung<textarea id="edsProductDescription" maxlength="2000" rows="3"></textarea></label>',
       '<label class="eds-field">MIME-Typ (unverifiziert)<input id="edsProductMime" maxlength="100" placeholder="application/pdf"></label>',
       '<label class="eds-field">Dateigröße in Bytes (unverifiziert)<input id="edsProductSize" type="number" min="0" max="10000000000" step="1"></label>',
@@ -765,9 +832,17 @@
       '<div class="eds-side-head"><h3>Produkt- und Variantenbezug</h3><button id="edsProductReload" type="button" class="eds-btn">Katalog aktualisieren</button></div>',
       '<p id="edsProductCatalogStatus" class="eds-muted">Lade kanonischen Katalog …</p>',
       '<div class="eds-product-picker"><label class="eds-field">Produkt auswählen<select id="edsProductPick" disabled></select></label><button id="edsProductAdd" type="button" class="eds-btn">Hinzufügen</button></div>',
-      '<div id="edsProductAssociations"></div></fieldset><p class="eds-muted">Dateispeicher: Referenzen only · Dateiprüfsumme / eBay-Dokumenten-ID: nicht vorhanden · Upload gesperrt.</p>'
+      '<div id="edsProductAssociations"></div></fieldset>',
+      '<section class="eds-validation-panel"><h3>Dateiprüfung &amp; Nachweise</h3><div id="edsValidationEvidence" class="eds-validation-evidence"></div>',
+      '<fieldset class="eds-product-fields" id="edsValidationFields"><p class="eds-muted">Erst Metadaten speichern. Die ausgewählte PDF wird für die Byteprüfung an die geschützte API gesendet, danach verworfen. Nur der Prüfvermerk mit SHA-256 bleibt erhalten.</p>',
+      '<label class="eds-field">PDF auswählen (max. 2 MiB)<input type="file" id="edsValidationFile" accept=".pdf,application/pdf"></label>',
+      '<div class="eds-side-head"><button type="button" class="eds-btn" id="edsValidationInspect">PDF prüfen</button><button type="button" class="eds-btn" id="edsValidationRecheck">Zuordnung erneut prüfen</button></div>',
+      '<div class="eds-meta"><label class="eds-field">Prüfbereich<select id="edsValidationKind"><option value="provenance">Herkunft</option><option value="applicability">Anwendbarkeit</option><option value="content">Inhalt</option></select></label>',
+      '<label class="eds-field">Entscheidung<select id="edsValidationDecision"><option value="reviewed">Manuell geprüft</option><option value="concern">Bedenken / Mangel</option></select></label>',
+      '<label class="eds-field">Nachweisreferenz<input id="edsValidationReference" maxlength="300"></label><label class="eds-field">Prüfvermerk<textarea id="edsValidationNote" maxlength="600" rows="3"></textarea></label></div>',
+      '<button type="button" class="eds-btn" id="edsValidationAddNote">Prüfvermerk hinterlegen</button><p class="eds-muted">Manuelle Angaben sind keine unabhängigen Echtheits- oder regulatorischen Nachweise. Gemeinsame Seller-Sitzung, keine individuell verifizierte Identität.</p></fieldset></section>'
     ].join("");
-    const values={edsProductTitle:doc.title,edsProductOtherLanguage:p.otherLanguageText,edsProductSource:p.sourceReference,edsProductUrl:p.externalDocumentUrl,edsProductManufacturer:p.manufacturerReference,edsProductSupplier:p.supplierReference,edsProductDescription:p.description,edsProductMime:p.declaredMimeType,edsProductSize:p.declaredFileSize,edsProductFrom:p.validFrom,edsProductUntil:p.validUntil,edsProductDecision:p.reviewDecision||"pending"};
+    const values={edsProductTitle:doc.title,edsProductOtherLanguage:p.otherLanguageText,edsProductSource:p.sourceReference,edsProductUrl:p.externalDocumentUrl,edsProductManufacturer:p.manufacturerReference,edsProductSupplier:p.supplierReference,edsProductModel:p.modelReference,edsProductModelVersion:p.productVersionReference,edsProductDescription:p.description,edsProductMime:p.declaredMimeType,edsProductSize:p.declaredFileSize,edsProductFrom:p.validFrom,edsProductUntil:p.validUntil,edsProductDecision:p.reviewDecision||"pending"};
     for(const [id,value] of Object.entries(values))el(id).value=value??"";
     state.productSelections=productSelection(doc);
     // A saved record remains readable if the canonical catalog is offline.
@@ -782,6 +857,11 @@
     const review=doc.review||p.review;
     el("edsProductReview").textContent=(productStatusLabels[review?.status]||"Entwurf · noch nicht geprüft")+(review?.missing?.length?" · "+review.missing.map(code=>productStatusLabels[code]||code).join(" · "):"");
     el("edsProductFields").disabled=Boolean(doc.archivedAt);
+    el("edsValidationFields").disabled=Boolean(doc.archivedAt||!doc.version);
+    renderValidationEvidence(doc);
+    el("edsValidationInspect").addEventListener("click",()=>runValidationAction("validate-product-file",readSelectedPdf));
+    el("edsValidationRecheck").addEventListener("click",()=>runValidationAction("revalidate-product",{}));
+    el("edsValidationAddNote").addEventListener("click",()=>runValidationAction("add-product-review",{kind:el("edsValidationKind").value,decision:el("edsValidationDecision").value,reference:el("edsValidationReference").value,note:el("edsValidationNote").value}));
     el("edsProductAdd").addEventListener("click",()=>{
       const selected=state.productCatalog?.products.find(x=>x.productId===el("edsProductPick").value);
       if(!selected||state.productSelections.some(a=>a.productId===selected.productId))return;
@@ -797,7 +877,7 @@
     if(state.current.archivedAt||state.revision===null||!state.productCatalog)return status("Aktiven Dokumentenentwurf und Katalog laden.",true);
     const v=id=>el(id).value;
     const doc={id:state.current.id,kind:PRODUCT_KIND,title:v("edsProductTitle").trim(),version:state.current.version||0,productDocument:{
-      internalType:v("edsProductType"),ebayDocumentType:v("edsProductEbayType"),primaryLanguage:v("edsProductLanguage"),additionalLanguages:[...el("edsProductLanguages").selectedOptions].map(o=>o.value),otherLanguageText:v("edsProductOtherLanguage"),origin:v("edsProductOrigin"),sourceReference:v("edsProductSource"),externalDocumentUrl:v("edsProductUrl"),manufacturerReference:v("edsProductManufacturer"),supplierReference:v("edsProductSupplier"),description:v("edsProductDescription"),declaredMimeType:v("edsProductMime"),declaredFileSize:v("edsProductSize")===""?null:Number(v("edsProductSize")),validFrom:v("edsProductFrom"),validUntil:v("edsProductUntil"),reviewDecision:v("edsProductDecision"),associations:state.productSelections.map(a=>({...a,variantKeys:[...a.variantKeys]}))
+      internalType:v("edsProductType"),ebayDocumentType:v("edsProductEbayType"),primaryLanguage:v("edsProductLanguage"),additionalLanguages:[...el("edsProductLanguages").selectedOptions].map(o=>o.value),otherLanguageText:v("edsProductOtherLanguage"),origin:v("edsProductOrigin"),sourceReference:v("edsProductSource"),externalDocumentUrl:v("edsProductUrl"),manufacturerReference:v("edsProductManufacturer"),supplierReference:v("edsProductSupplier"),modelReference:v("edsProductModel"),productVersionReference:v("edsProductModelVersion"),description:v("edsProductDescription"),declaredMimeType:v("edsProductMime"),declaredFileSize:v("edsProductSize")===""?null:Number(v("edsProductSize")),validFrom:v("edsProductFrom"),validUntil:v("edsProductUntil"),reviewDecision:v("edsProductDecision"),associations:state.productSelections.map(a=>({...a,variantKeys:[...a.variantKeys]}))
     }};
     if(!doc.title)return status("Bitte Dokumententitel eintragen.",true);
     state.productBusy=true;el("edsProductFields").disabled=true;status("Prüfe Zuordnungen und speichere Metadaten …");
@@ -805,7 +885,7 @@
     try{
       const result=await api("save-product",{expectedRevision:state.revision,document:doc});
       if(token!==state.productGeneration)return;
-      state.revision=result.revision;state.documents=result.documents||[];state.productBusy=false;showDoc(result.document);status("Produktmetadaten geschützt gespeichert · Datei und Herkunft nicht verifiziert.");
+      state.revision=result.revision;state.documents=result.documents||[];state.productBusy=false;showDoc(result.document);notifyProductDocumentsChanged();status("Produktmetadaten geschützt gespeichert · Datei und Herkunft nicht verifiziert.");
     }catch(error){if(token===state.productGeneration)status(error.message+" Eingaben bleiben erhalten.",true);}
     finally{state.productBusy=false;if(productMode()&&el("edsProductFields"))el("edsProductFields").disabled=Boolean(state.current.archivedAt);}
   }
@@ -872,6 +952,7 @@
   }
 
   function handleInput(event) {
+    if(productMode()&&event.target?.id?.startsWith("edsValidation"))return;
     if (productMode() && el("edsProductEditor")?.contains(event.target) && event.target.id !== "edsProductPick") { markProductEdited(); return; }
     if (event.target?.id === "edsSearch") { state.search = event.target.value.toLowerCase(); renderList(); return; }
     if (event.target?.id === "edsLibrarySearch") { state.librarySearch = event.target.value.toLocaleLowerCase("de-DE"); renderLibrary(); return; }
@@ -1014,6 +1095,7 @@
       state.documents = result.documents || [];
       const metadata = state.documents.find((record) => record.id === doc.id);
       showDoc(result.document || { ...doc, ...metadata });
+      if(doc.kind===PRODUCT_KIND)notifyProductDocumentsChanged();
       status(action === "archive" ? "Dokument archiviert." : "Dokument wiederhergestellt.");
     } catch (error) { status(error.message, true); }
     finally { if(doc.kind===PRODUCT_KIND)state.productBusy=false; }
@@ -1399,7 +1481,7 @@
       const stylesheet = document.createElement("link");
       stylesheet.id = "elyonDocumentStudioStyles";
       stylesheet.rel = "stylesheet";
-      stylesheet.href = "/seller-document-studio.css?v=product-documents-v3-1";
+      stylesheet.href = "/seller-document-studio.css?v=product-documents-v3-2";
       document.head.appendChild(stylesheet);
     }
     installEntry();
