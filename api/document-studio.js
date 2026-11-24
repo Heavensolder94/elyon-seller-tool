@@ -34,15 +34,20 @@ async function redis(command) {
     body: JSON.stringify(command),
     signal: AbortSignal.timeout(10000),
   });
-  const result = await response.json().catch(() => ({}));
-  if (!response.ok || result.error) throw Object.assign(new Error("Dokumentenspeicher nicht erreichbar."), { status: 503 });
+  const result = await response.json().catch(() => null);
+  if (!response.ok || !result || typeof result !== 'object' || !Object.hasOwn(result,'result') || result.error) throw Object.assign(new Error("Dokumentenspeicher nicht erreichbar."), { status: 503 });
   return result.result;
 }
 
 async function load() {
   const raw = await redis(["GET", STORE_KEY]);
-  if (!raw) return normalizeStudioState(null);
-  try { return normalizeStudioState(typeof raw === "string" ? JSON.parse(raw) : raw); }
+  if (raw === null) return normalizeStudioState(null);
+  try {
+    const parsed=typeof raw === 'string'?JSON.parse(raw):raw;
+    if(!parsed||typeof parsed!=='object'||Array.isArray(parsed)||!Array.isArray(parsed.documents)||parsed.documents.length>80||('revision' in parsed&&(!Number.isSafeInteger(parsed.revision)||parsed.revision<0)))throw Error('invalid_studio_state');
+    const ids=new Set();for(const d of parsed.documents){if(!d||typeof d.id!=='string'||!d.id||ids.has(d.id))throw Error('invalid_document_identity');ids.add(d.id);}
+    return normalizeStudioState(parsed);
+  }
   catch { throw Object.assign(new Error("Speicherinhalt unlesbar. Es wird nichts überschrieben."), { status: 503 }); }
 }
 
