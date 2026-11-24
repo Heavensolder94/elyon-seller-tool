@@ -1,5 +1,7 @@
 import { createPriceStockIndex, buildPriceStockSnapshot } from "./seller-price-stock-foundation-core.js";
 
+import { mountPriceStockReview, clearPriceStockReviews } from "./seller-price-stock-review.js";
+
 const PANEL="elyon-price-stock-foundation";
 const labels={IDENTITY_CONFLICT:"Identität ungeklärt",EVIDENCE_MISSING:"Nachweise fehlen",DATA_STALE:"Daten veraltet",UNKNOWN:"Kein bestätigter Angebotsabgleich",OFFER_ORIGIN_UNKNOWN:"Angebotsherkunft unbekannt",SUPPLIER_UNAVAILABLE:"Lieferant nicht verfügbar",STOCK_REVIEW_REQUIRED:"Bestand prüfen",PRICE_REVIEW_REQUIRED:"Währung / Preis prüfen"};
 const statuses={ACTIVE:"Aktiv bestätigt",PUBLISHED:"Veröffentlicht (Inventory)",DRAFT:"Entwurf",UNKNOWN:"Unbekannt"};
@@ -49,7 +51,7 @@ function fill(panel,model){
   const status=node("div",null,"elyon-ps-status");
   for(const code of row.statuses)status.append(node("span",labels[code]||code,"pill"));
   if(!row.statuses.length)status.append(node("span","Keine Auffälligkeit in vorhandenen Daten · keine Freigabe","pill"));
-  section.append(status);panel.append(section);
+  section.append(status);mountPriceStockReview(section,model,row);panel.append(section);
  }
  if(economic.source==="company_os_saved"&&(economic.profit!==null||economic.margin!==null)){
   panel.append(node("p","Gespeicherte Company-OS-Kalkulation (kein aktueller Gewinnnachweis): Gewinn "+money(economic.profit,economic.currency)+" · Marge "+(economic.margin===null?"unbekannt":economic.margin.toLocaleString("de-DE")+" %")+(economic.savedSalePrice!==null?" · kalkulierter VK "+money(economic.savedSalePrice,economic.currency):""),"elyon-ps-note"));
@@ -72,6 +74,6 @@ export function renderCard(card,product,expanded){
 if(typeof window!=="undefined"){
  window.ElyonPriceStockFoundation=Object.freeze({prepare,renderCard});
  window.addEventListener("elyon:seller-auth-ready",event=>{
-  if(event.detail?.authenticated!==true){index=null;document.querySelectorAll("."+PANEL).forEach(panel=>panel.remove());}
+  if(event.detail?.authenticated!==true){clearPriceStockReviews();index=null;document.querySelectorAll("."+PANEL).forEach(panel=>panel.remove());}
  });
 }
