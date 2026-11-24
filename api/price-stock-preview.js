@@ -62,6 +62,13 @@ export default async function handler(req,res){
   if(input.verifyReadback!==undefined&&typeof input.verifyReadback!=='boolean')throw Error();
   verifyReadback=input.verifyReadback===true;
   if(verifyReadback&&input.changes.length!==1)throw Error();
+  const targets=new Set(),offers=new Set();
+  for(const c of input.changes){
+   if(Array.isArray(c)||typeof c!=='object'||typeof c.articleNumber!=='string'||typeof c.sku!=='string')throw Error();
+   const key=JSON.stringify([c.articleNumber,c.sku]);
+   if(targets.has(key)||(c.offerId!=null&&offers.has(c.offerId)))throw Error();
+   targets.add(key);if(c.offerId!=null)offers.add(c.offerId);
+  }
   input={schemaVersion:input.schemaVersion,changes:input.changes};
  }catch{return res.status(400).json({ok:false,error:'invalid_preview_request'});}
  const syncCode=String(process.env.ELYON_COMPANY_OS_SYNC_CODE||process.env.COMPANY_OS_SYNC_CODE||'').trim();

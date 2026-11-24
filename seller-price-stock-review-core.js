@@ -1,11 +1,22 @@
 import { amount, stock } from './seller-price-stock-foundation-core.js';
 export const SCHEMA='elyon-price-stock-proposal-v2.2';
 const active=o=>o&&['ACTIVE','PUBLISHED'].includes(o.status);
+const digits=v=>typeof v==='string'&&/^\d{1,120}$/.test(v);
+const sku=v=>typeof v==='string'&&/^[A-Za-z0-9][A-Za-z0-9_.-]{0,119}$/.test(v);
+export function reviewEligibility(model,row){
+ const o=row?.offer;
+ const reviewable=Boolean(active(o)&&row.identityStatus!=='IDENTITY_CONFLICT'&&!model.identity?.conflict&&
+  /^ELY-\d{6}$/.test(model.identity?.articleNumber||'')&&sku(row.sku)&&digits(o.listingId)&&
+  (o.origin!=='inventory'||digits(o.offerId))&&model.environment==='production'&&o.marketplace==='EBAY_DE'&&o.currency==='EUR');
+ const readbackEligible=Boolean(reviewable&&o.origin==='inventory'&&digits(o.offerId)&&
+  model.rows?.length===1&&row.sku===model.identity.articleNumber&&!model.identity.groupKey&&!o.groupKey);
+ return {reviewable,readbackEligible};
+}
 const decimal=v=>{const n=amount(v);return n!==null&&n>0&&n<=9999999&&Math.round(n*100)/100===n?n.toFixed(2):null;};
 export function suggestChange(model,row){
  const o=row.offer,s=row.supplierStock, reasons=[];
  let price=null,quantity=null;
- if(!active(o)||row.identityStatus==='IDENTITY_CONFLICT')return {price,quantity,reasons:['Kein eindeutig zugeordnetes aktives Angebot.']};
+ if(!reviewEligibility(model,row).reviewable)return {price,quantity,reasons:['Kein eindeutig zugeordnetes aktives Angebot.']};
  if(row.ages.supplier==='recent'&&s.quantity!==null&&o.quantity!==null&&!s.conflict&&s.quantity<o.quantity)
   {quantity=String(s.quantity);reasons.push('Lieferantenbestand unter Angebotsbestand – Reduzierung prüfen.');}
  else if(row.ages.supplier!=='recent'||s.quantity===null)reasons.push('Lieferantenbestand oder Aktualität fehlt.');
@@ -23,8 +34,7 @@ export function suggestChange(model,row){
 }
 export function makeReviewChange(model,row,{price='',quantity=''}={}){
  const o=row.offer;
- if(!active(o)||row.identityStatus==='IDENTITY_CONFLICT'||!row.sku||!model.identity.articleNumber||
-    model.environment!=='production'||o.marketplace!=='EBAY_DE'||o.currency!=='EUR')throw Error('Angebotsidentität oder Währung nicht eindeutig.');
+ if(!reviewEligibility(model,row).reviewable)throw Error('Angebotsidentität oder Währung nicht eindeutig.');
  if(price!==''&&!decimal(price))throw Error('Gültigen positiven Preis mit höchstens zwei Nachkommastellen eingeben.');
  if(quantity!==''&&(stock(quantity)===null||stock(quantity)>999999999))throw Error('Gültigen ganzzahligen Bestand eingeben.');
  const p=price===''?null:decimal(price),q=quantity===''?null:String(stock(quantity));

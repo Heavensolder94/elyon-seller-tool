@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
-import {suggestChange,makeReviewChange,buildReviewRequest} from '../seller-price-stock-review-core.js';
+import {suggestChange,makeReviewChange,buildReviewRequest,reviewEligibility} from '../seller-price-stock-review-core.js';
 const model={identity:{articleNumber:'ELY-000123',sku:'ELY-000123'},environment:'production',rows:[{}],economics:{source:'company_os_saved',currency:'EUR',savedSalePrice:18,minimumRulePassed:false}};
 const row={sku:'ELY-000123',identityStatus:'MATCHED',ages:{supplier:'recent',price:'recent'},supplierStock:{quantity:0,available:false,conflict:false},supplierPrice:{provenance:'stored_verified',currency:'EUR'},offer:{status:'ACTIVE',listingId:'0001',offerId:'0002',origin:'inventory',marketplace:'EBAY_DE',currency:'EUR',price:20,quantity:3}};
 test('proposes only stored price comparison and stock reduction, including zero',()=>{
@@ -39,4 +39,15 @@ test('explicit selection and protected read-only bridge; no client authority or 
  assert.match(ui,/NICHT bei eBay hochladen/);assert.match(base,/mountPriceStockReview/);
  assert.doesNotMatch(ui,/\blocalStorage\.|\bsetInterval\(|innerHTML\s*=/);
  assert.match(api,/requireSellerAccess/);assert.match(api,/redirect:'error'/);assert.match(api,/evidenceAuthenticated!==false/);
+});
+
+test('V2.6 review and diagnostic controls are restricted to identifiable active targets',()=>{
+ assert.deepEqual(reviewEligibility(model,row),{reviewable:true,readbackEligible:true});
+ for(const offer of [null,{...row.offer,status:'DRAFT'},{...row.offer,listingId:null},{...row.offer,offerId:null},{...row.offer,marketplace:'EBAY_US'}]){
+  const r={...row,offer};assert.equal(reviewEligibility(model,r).reviewable,false);
+  assert.throws(()=>makeReviewChange(model,r,{price:'25'}));
+ }
+ assert.equal(reviewEligibility(model,{...row,sku:'ELY-000123-01'}).readbackEligible,false);
+ assert.equal(reviewEligibility(model,{...row,offer:{...row.offer,origin:'unknown'}}).readbackEligible,false);
+ assert.equal(reviewEligibility({...model,identity:{...model.identity,groupKey:'group'}},row).readbackEligible,false);
 });
