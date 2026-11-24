@@ -194,6 +194,8 @@
       channel.sku,
       channel.offerId,
       channel.listingId,
+      ...(Array.isArray(channel.variantSkus)?channel.variantSkus:[]),
+      ...(Array.isArray(channel.offerIds)?channel.offerIds:[]),
       raw.articleNumber,
       raw.sku,
       raw.supplierSku,
