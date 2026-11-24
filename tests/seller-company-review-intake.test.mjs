@@ -230,7 +230,9 @@ test("literal markup remains HTML escaped and a card cannot invoke backend impli
     listingItemId: () => "",
     matchLabel: (state) => ({ className: "blocked", label: state }),
   });
-  vm.runInContext(snippet, context);
+  const imageStart = src.indexOf("  function variantImagePreviewMarkup(");
+  const imageEnd = src.indexOf("  function enrichEbayListing(", imageStart);
+  vm.runInContext(src.slice(imageStart,imageEnd) + "\n" + snippet, context);
   const result = context.listingCard({
     ...dreamzie,
     title: '<img src=x onerror="alert(1)">',
@@ -241,4 +243,7 @@ test("literal markup remains HTML escaped and a card cannot invoke backend impli
   assert.match(result, /data-elyon-review-sku="AMZ-B0BWND9WBR"/);
   assert.doesNotMatch(result, /<img src=x onerror/);
   assert.match(result, /&lt;img src=x/);
+  const preview=context.variantImagePreviewMarkup([{label:"<script>",status:"detected",images:["https://example.test/red.jpg"]}]);
+  assert.match(preview,/red.jpg/);
+  assert.match(preview,/&lt;script&gt;/);
 });

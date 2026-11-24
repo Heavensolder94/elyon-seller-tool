@@ -194,6 +194,8 @@
       channel.sku,
       channel.offerId,
       channel.listingId,
+      ...(Array.isArray(channel.variantSkus)?channel.variantSkus:[]),
+      ...(Array.isArray(channel.offerIds)?channel.offerIds:[]),
       raw.articleNumber,
       raw.sku,
       raw.supplierSku,
@@ -286,6 +288,28 @@
     return [...direct, ...listing].map((entry) => typeof entry === "string" ? text(entry) : text(entry?.url)).filter(Boolean);
   }
 
+  function variantImagePreviewRows(product) {
+    const rows=[];
+    const append=(label,row)=>{
+      if(!Array.isArray(row?.imageUrls)||!row.imageUrls.length||row.variantImageStatus==="manual_removed")return;
+      const images=row.imageUrls.filter(value=>{try{const url=new URL(value);return url.protocol==="https:"&&!url.username&&!url.password&&value.length<=2048}catch{return false}}).slice(0,8);
+      if(images.length)rows.push({label,images,status:row.variantImageStatus||"unverified"});
+    };
+    for(const group of (Array.isArray(product?.variantGroups)?product.variantGroups:[])){
+      for(const option of (Array.isArray(group.options)?group.options:[])){
+        if(option.included!==false&&option.available!==false&&!option.disabled)append(text(group.name)+": "+text(option.value),option);
+      }
+    }
+    for(const row of (Array.isArray(product?.variantCombinations)?product.variantCombinations:[])){
+      if(row.included!==false&&row.available!==false)append(Object.values(row.selections||{}).map(text).join(" / ")||text(row.sku),row);
+    }
+    return rows;
+  }
+  function variantImagePreviewMarkup(rows) {
+    if(!Array.isArray(rows)||!rows.length)return "";
+    return '<details class="elyon-listing-variant-images"><summary>ELYON Variantenbilder ansehen ('+rows.length+')</summary><p>Company-OS-Zuordnung · keine Bestätigung der eBay-Bildanzeige</p>'+
+      rows.map(row=>'<details><summary>'+escapeHtml(row.label)+' · '+escapeHtml(row.status)+'</summary><div style="display:flex;gap:6px;flex-wrap:wrap">'+row.images.map(url=>'<img src="'+escapeHtml(url)+'" alt="'+escapeHtml(row.label)+'" loading="lazy" referrerpolicy="no-referrer" width="64" height="64" style="object-fit:contain">').join('')+'</div></details>').join('')+'</details>';
+  }
   function enrichEbayListing(item, products) {
     const match = matchProductMaster(item, products);
     const product = match.product;
@@ -303,6 +327,7 @@
       productMasterId: text(product?.id || product?.sellerToolMasterProductId || product?.companyOsProductId),
       productMasterArticleNumber: text(product?.articleNumber || product?.identity?.articleNumber),
       productReviewApproved: product?.readiness?.state === "ready_for_manual_listing",
+      variantImagePreview: match.state === "matched" ? variantImagePreviewRows(product) : [],
     };
   }
 
@@ -477,6 +502,7 @@
           ${mode === "draft" && product?.source === "elyon_inventory_draft" && offerId === "243461011011" && sku === "AMZ-B0D63HF7Z4"
             ? `<button type="button" class="elyon-api-draft-delete" data-elyon-delete-offer="${escapeHtml(offerId)}" data-elyon-delete-sku="${escapeHtml(sku)}">Nur diesen eBay-API-Entwurf löschen</button>`
             : ""}
+          ${variantImagePreviewMarkup(product.variantImagePreview)}
           ${typeof window === "object" && window.ElyonFeedArchive?.button?.(product, mode) || ""}
           ${mode === "draft" && product?.productMasterMatch === "unmatched" && /^AMZ-[A-Z0-9]{10}$/i.test(sku)
             ? `<button type="button" class="secondary elyon-review-intake-btn" data-elyon-review-sku="${escapeHtml(sku)}">↗ In Company OS zur Produktprüfung</button>`
