@@ -3,6 +3,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
+import {prepareDocumentExportReview} from '../lib/product-document-export.js';
+import {mockPreview} from './fixtures/document-export-preview-v3-3.mjs';
 import {readFile} from 'node:fs/promises';
 import {applyStudioChange,documentSummary} from '../lib/document-studio-core.js';
 import {PRODUCT_DOCUMENT_TYPES,DOCUMENT_ORIGINS,productDocumentReview} from '../lib/product-document-core.js';
@@ -40,6 +42,7 @@ test('V3.1 actual Studio controller: create, type/language, product and variants
   const action=new URL(url,'https://seller.invalid').searchParams.get('action');calls.push(action);
   if(action==='product-catalog')return response(catalog);
   const body=JSON.parse(options.body);assert.equal(body.expectedRevision,store.revision);
+  if(action==='document-export-preview')return response(await prepareDocumentExportReview(store,body,catalog,async(req,ref)=>mockPreview(req,ref)));
   store=applyStudioChange(store,action,body.document,body.id,{catalog});
   const doc=store.documents.find(x=>x.id===(body.document?.id||body.id));
   return response({ok:true,revision:store.revision,documents:store.documents.map(documentSummary),document:{...doc,review:productDocumentReview(doc)}});
@@ -49,7 +52,7 @@ test('V3.1 actual Studio controller: create, type/language, product and variants
  const source=await readFile(new URL('../seller-document-studio.js',import.meta.url),'utf8');
  const anchor='  window.ElyonDocumentStudio = { open: openStudio, openFromOrder };';
  assert.ok(source.includes(anchor));
- vm.runInNewContext(source.replace(anchor,anchor+'\n  window.__studioTest = {state,createProductDocument,loadProductCatalog,saveProduct,archiveOrRestore,renderList,setProductMode,handleInput,runValidationAction};'),{window,document,fetch,URLSearchParams,console});
+ vm.runInNewContext(source.replace(anchor,anchor+'\n  window.__studioTest = {state,createProductDocument,loadProductCatalog,saveProduct,archiveOrRestore,renderList,setProductMode,handleInput,runValidationAction,toggleExportSelection,runDocumentExportPreview,renderExportSelection};'),{window,document,fetch,URLSearchParams,console});
  const h=window.__studioTest;
  h.state.revision=0;h.state.documents=store.documents.map(documentSummary);
  h.createProductDocument();await h.loadProductCatalog();
@@ -72,10 +75,19 @@ test('V3.1 actual Studio controller: create, type/language, product and variants
  await h.runValidationAction('add-product-review',{kind:'applicability',decision:'reviewed',reference:'Fixture model',note:'Explicit variants checked manually'});assert.equal(h.state.current.version,3);assert.match(el('edsValidationEvidence').textContent,/Manueller Vermerk/);
  assert.equal(h.state.current.review.validation.regulatoryStatus,'NOT_VERIFIED');
  assert.match(el('edsProductReview').textContent,/nicht verifiziert/);
+ h.toggleExportSelection(store.documents[0],true);assert.equal(el('edsExportCheck').disabled,false);
+ await h.runDocumentExportPreview();assert.match(el('edsExportResult').textContent,/Metadatenvorschau/);assert.match(el('edsExportResult').textContent,/Keine sichere Dokumentenbereitstellung/);assert.equal(el('edsExportDownload').disabled,true);
+ const savedSummary=h.state.documents.find(d=>d.id===store.documents[0].id);
+ const other={...savedSummary,id:'product_doc_missing',title:'Zweites Dokument'};
+ h.state.documents.push(other);h.toggleExportSelection(other,true);assert.equal(h.state.exportSelections.size,2);assert.match(el('edsExportCount').textContent,/2 Dokument/);
+ h.state.documents=h.state.documents.filter(d=>d.id!==other.id);h.renderExportSelection();assert.equal(h.state.exportSelections.size,2);assert.match(el('edsExportSelections').textContent,/Dokument fehlt/);
+ const nCalls=calls.length;await h.runDocumentExportPreview();assert.equal(calls.length,nCalls);assert.match(el('edsStatus').textContent,/fehlende oder veraltete/);
+ const missing=el('edsExportSelections').children[0].children[0];missing.checked=false;missing.listeners.change();assert.equal(h.state.exportSelections.size,1);
+ h.toggleExportSelection(store.documents[0],false);assert.equal(el('edsExportCheck').disabled,true);assert.equal(el('edsExportResult').textContent,'');
  h.state.documentFilter='product';h.renderList();assert.match(el('edsList').textContent,/Anleitung/);assert.doesNotMatch(el('edsList').textContent,/Geschäftsbrief/);
  h.state.documentFilter='business';h.renderList();assert.match(el('edsList').textContent,/Geschäftsbrief/);
  await h.archiveOrRestore();assert.equal(h.state.current.review.status,'ARCHIVED');assert.equal(el('edsProductFields').disabled,true);
  await h.archiveOrRestore();assert.equal(h.state.current.archivedAt,null);assert.equal(el('edsProductFields').disabled,false);
  h.setProductMode(false);assert.equal(el('edsBusinessEditor').hidden,false);assert.equal(root.toolbar.find(x=>x.dataset.edsAction==='print').hidden,false);
- assert.deepEqual(calls,['product-catalog','save-product','revalidate-product','add-product-review','archive','restore']);
+ assert.deepEqual(calls,['product-catalog','save-product','revalidate-product','add-product-review','document-export-preview','archive','restore']);
 });

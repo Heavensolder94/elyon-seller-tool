@@ -171,3 +171,12 @@
 #elyonDocumentStudioTab .eds-validation-evidence{display:grid;gap:4px;margin:12px 0;overflow-wrap:anywhere}
 #elyonDocumentStudioTab .eds-validation-evidence p{margin:0}
 #elyonDocumentStudioTab .eds-validation-panel .eds-side-head{flex-wrap:wrap}
+
+#elyonDocumentStudioTab .eds-export-selections{max-height:210px;overflow:auto;display:grid;gap:6px;margin:10px 0}
+#elyonDocumentStudioTab .eds-export-scroll{overflow-x:auto;margin:12px 0}
+#elyonDocumentStudioTab .eds-export-scroll table{border-collapse:collapse;min-width:780px;width:100%;font-size:12px}
+#elyonDocumentStudioTab .eds-export-scroll th,#elyonDocumentStudioTab .eds-export-scroll td{border:1px solid rgba(148,163,184,.25);padding:8px;text-align:left;vertical-align:top;overflow-wrap:anywhere}
+#elyonDocumentStudioTab .eds-export-row{margin:10px 0;padding:10px;border:1px solid rgba(148,163,184,.25);border-radius:8px;overflow-wrap:anywhere}
+#elyonDocumentStudioTab .eds-export-row p{margin:4px 0}
+#elyonDocumentStudioTab .eds-export-row ul{margin:6px 0;padding-left:20px;font-size:12px}
+#elyonDocumentStudioTab #edsExportResult pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:320px;overflow:auto;font-size:11px}
