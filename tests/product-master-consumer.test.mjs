@@ -281,14 +281,14 @@ test('V4.3.4 CSV readiness is additive and never grants upload or fallback',asyn
  assert.throws(()=>csvReadinessSummary({...review,csvReadiness:{...csvReadiness,executionAuthorized:true}}));
 });
 
-test('oversize canonical variant source is explicit, not a clipped 100-row offer',()=>{
+test('oversize canonical variant source is explicit, not a clipped 250-row source',()=>{
  const source=structuredClone(canonical);
- source.product.variantCombinations=Array.from({length:101},(_,i)=>({sku:'ELY-001274-'+i,selections:{Farbe:'Wert'+i}}));
+ source.product.variantCombinations=Array.from({length:251},(_,i)=>({sku:'ELY-001274-'+i,selections:{Farbe:'Wert'+i}}));
  const p=adaptProductMasterForSeller(source);
  assert.equal(p.variantCapacity.status,'CAPACITY_EXCEEDED');
- assert.equal(p.variantCapacity.observedCombinationCount,101);
+ assert.equal(p.variantCapacity.observedCombinationCount,251);
  assert.equal(p.variantCombinations.length,0);
- assert.equal(p.raw.product.variantCombinations.length,101);
+ assert.equal(p.raw.product.variantCombinations.length,251);
  assert.equal(p.approval.companyOsApproved,false);
  assert.equal(p.approval.automaticListingAllowed,false);
 });
@@ -300,4 +300,15 @@ test('V4.3.5 variant report preserves diagnostics and rejects authority',async()
  assert.equal(variantReadinessSummary({}).status,'UNKNOWN');
  assert.throws(()=>variantReadinessSummary({variantReadiness:{...variantReadiness,automaticSelectionApplied:true}}));
  assert.throws(()=>variantReadinessSummary({variantReadiness:{...variantReadiness,transportVerified:true}}));
+});
+
+test('250 internal variants are preserved by Seller Tool, but offer compatibility stays under review',()=>{
+ const source=structuredClone(canonical);
+ source.product.variantCombinations=Array.from({length:250},(_,i)=>({sku:'ELY-001274-'+String(i+1).padStart(2,'0'),supplierSku:'supplier-'+i,selections:{Farbe:'F'+i%10,Größe:'G'+Math.floor(i/10)},purchasePrice:12,stock:3,imageUrls:['https://fixture.invalid/'+i+'.jpg'],variantImageSource:'supplier_sku',variantImageStatus:'detected'}));
+ const p=adaptProductMasterForSeller(source);
+ assert.equal(p.variantCombinations.length,250);
+ assert.deepEqual(p.variantCombinations.map(v=>v.sku),source.product.variantCombinations.map(v=>v.sku));
+ assert.equal(p.variantCombinations[249].supplierSku,'supplier-249');
+ assert.equal(p.approval.companyOsApproved,false);
+ assert.equal(p.approval.automaticListingAllowed,false);
 });
