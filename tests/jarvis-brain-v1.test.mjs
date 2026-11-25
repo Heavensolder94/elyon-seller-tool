@@ -293,3 +293,12 @@ test('Jarvis exposes category identifier diagnostics without agent execution',as
  assert.equal(result.identifiers.status,'UNKNOWN');assert.equal(result.identifiers.issues[0].code,'IDENTIFIER_POLICY_UNKNOWN');assert.equal(result.safety.noAiCall,true);
  await assert.rejects(readJarvisAdvancedReview(productId,async()=>({...data,identifiers:{...identifiers,executionAuthorized:true}})));
 });
+
+test('Jarvis exposes offline CSV schema evidence without AI or transport',async()=>{
+ const {readJarvisAdvancedReview}=await import('../api/jarvis.js');
+ const id='product_fixture',csvReadiness={schemaOrigin:'DYNAMIC_DERIVED',offlineReviewAvailable:false,structurallyValid:true,formatCompatibility:'UNVERIFIED',uploadCompatibility:'UNKNOWN',manualReviewRequired:true,executionAuthorized:false,blockingIssues:[{code:'IDENTIFIER_CSV_FORMAT_UNVERIFIED',field:'csv.identifiers'}]};
+ const review={schemaVersion:'elyon-advanced-listing-review-v4.3',request:{targetKind:'product',targetId:id},projectionSha256:'a'.repeat(64),issues:[],executionAuthorized:false,publishAuthorized:false,feedAuthorized:false,readyForExport:false,gpsrCompliant:false,uploadVerified:false,releaseEligible:false,csvReadiness,csv:{executionAuthorized:false,uploadVerified:false,readyForOfflineReview:false},automaticFallbackAllowed:false,processingPaths:{operative:'BLOCKED'}};
+ const r=await readJarvisAdvancedReview(id,async()=>review);
+ assert.equal(r.csvReadiness.schemaOrigin,'DYNAMIC_DERIVED');assert.equal(r.safety.noAiCall,true);assert.equal(r.csvReadiness.executionAuthorized,false);
+ await assert.rejects(readJarvisAdvancedReview(id,async()=>({...review,csvReadiness:{...csvReadiness,uploadCompatibility:'VERIFIED'}})));
+});
