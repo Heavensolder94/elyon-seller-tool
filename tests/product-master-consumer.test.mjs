@@ -260,3 +260,12 @@ test('V4.3 explicit Seller Tool review uses exact Company OS identity and reject
  await assert.rejects(fetchCompanyOsAdvancedListingReview({productId:id,env,fetchImpl:async()=>new Response(JSON.stringify({...result,publishAuthorized:true}))}));
  await assert.rejects(fetchCompanyOsAdvancedListingReview({productId:id,env,fetchImpl:async()=>new Response(JSON.stringify({...result,request:{targetKind:'product',targetId:'other'}}))}));
 });
+
+test('V4.3.3 accepts nested read-only identifier results, rejects nested authority',async()=>{
+ const {identifierReviewSummary}=await import('../lib/product-master-consumer.js');
+ const identifiers={requirements:{status:'CURRENT',rules:{ean:{requirement:'REQUIRED'}}},rows:[{variantKey:'sku:1',scope:'VARIANT',results:{ean:{state:'MISSING'}}}],issues:[{code:'IDENTIFIER_REQUIRED_MISSING',field:'identifiers.ean',variantKey:'sku:1'}],manualReviewRequired:true,productionVerified:false,executionAuthorized:false,csv:{status:'FORMAT_UNVERIFIED',executionAuthorized:false,uploadVerified:false,issues:[]},inventory:{status:'IDENTIFIER_REVIEW_REQUIRED',executionAuthorized:false,transportCompatibilityVerified:false,productionVerified:false,issues:[]}};
+ const result=identifierReviewSummary({identifiers});
+ assert.equal(result.rules.ean.requirement,'REQUIRED');assert.equal(result.rows[0].results.ean.state,'MISSING');assert.equal(result.executionAuthorized,false);
+ assert.throws(()=>identifierReviewSummary({identifiers:{...identifiers,csv:{...identifiers.csv,uploadVerified:true}}}));
+ assert.equal(identifierReviewSummary({}).status,'UNKNOWN');
+});

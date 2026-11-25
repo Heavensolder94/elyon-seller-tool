@@ -283,3 +283,13 @@ test('V4.3 Jarvis deterministic review exposes diagnostics without granting perm
  await assert.rejects(readJarvisAdvancedReview(id,async()=>({...data,releaseEligible:true})));
  await assert.rejects(readJarvisAdvancedReview(id,async()=>({...data,request:{targetKind:'product',targetId:'wrong'}})));
 });
+
+test('Jarvis exposes category identifier diagnostics without agent execution',async()=>{
+ const {readJarvisAdvancedReview}=await import('../api/jarvis.js');
+ const productId='product_fixture';
+ const identifiers={requirements:{status:'UNKNOWN',rules:{ean:{requirement:'UNKNOWN'}}},rows:[],issues:[{code:'IDENTIFIER_POLICY_UNKNOWN',field:'category.identifiers'}],manualReviewRequired:true,productionVerified:false,executionAuthorized:false};
+ const data={schemaVersion:'elyon-advanced-listing-review-v4.3',request:{targetKind:'product',targetId:productId},projectionSha256:'a'.repeat(64),issues:identifiers.issues,identifiers,executionAuthorized:false,publishAuthorized:false,feedAuthorized:false,readyForExport:false,gpsrCompliant:false,uploadVerified:false,releaseEligible:false};
+ const result=await readJarvisAdvancedReview(productId,async()=>data);
+ assert.equal(result.identifiers.status,'UNKNOWN');assert.equal(result.identifiers.issues[0].code,'IDENTIFIER_POLICY_UNKNOWN');assert.equal(result.safety.noAiCall,true);
+ await assert.rejects(readJarvisAdvancedReview(productId,async()=>({...data,identifiers:{...identifiers,executionAuthorized:true}})));
+});
