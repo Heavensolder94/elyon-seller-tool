@@ -3,3 +3,6 @@ Company OS owns the canonical draft approval. Existing independent Inventory wri
 
 ## Seller surface and transport finalization
 The active Auto Lister parity UI reads the saved Company OS approval through a dedicated read-only query on the existing product draft endpoint. Both the consumer and browser check the fail-closed contract. The old production-readiness panel no longer binds draft/publication write handlers and disables their buttons. Jarvis and Seller Auto Lister share the server-side approval text formatter. Withdrawal remains a separate operation. No individual account authentication is inferred from the shared Seller cookie.
+
+## Browser regression
+The existing Electron dev dependency is used in the existing Seller Tool CI job to render the real Auto Lister and legacy readiness panel against a synthetic loopback HTTP server. The test rejects manipulated response flags, a foreign product, a forged approval ID/state, stale responses after selection changes and re-enabled legacy buttons. The test renderer is prevented from accessing any external origin. No new paid service or runtime dependency.

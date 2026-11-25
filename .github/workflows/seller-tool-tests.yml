@@ -58,5 +58,8 @@ jobs:
       - name: Build Vercel output
         run: npm run build
 
+      - name: Seller Auto Lister approval browser regression
+        run: xvfb-run -a ./node_modules/.bin/electron --no-sandbox --disable-gpu scripts/test-approval-review-browser.cjs
+
       - name: Verify performance budgets
         run: npm run check:performance
