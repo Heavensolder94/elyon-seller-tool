@@ -8,3 +8,9 @@ test("completed feed without a successful item is not confirmed", () => {
   assert.equal(feedTaskHasConfirmedSuccess("COMPLETED", 1, 1), false);
   assert.equal(feedTaskHasConfirmedSuccess("COMPLETED_WITH_ERROR", 1, 0), false);
 });
+
+test('processed feed is not actual Seller Hub draft identity or operational authority',()=>{
+ const r=classifySellerHubFeedEvidence('COMPLETED',1,0);
+ assert.equal(r.transportResult,'FEED_ROW_REPORTED_PROCESSED');
+ assert.equal(r.actualDraftIdentityVerified,false);assert.equal(r.executionAuthorized,false);
+});
