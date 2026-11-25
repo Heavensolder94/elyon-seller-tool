@@ -188,3 +188,14 @@ test("merges advanced draft additively and preserves unknown fields", () => {
   assert.equal(updated.rawServerProduct.listing.compliance.manufacturer.companyName, "Example Manufacturer GmbH");
   assert.equal(updated.rawServerProduct.listing.autonomousPostingAllowed, false);
 });
+test("Seller Auto Lister reads V4.4.1 approval and never renders it as operative authority",async()=>{
+ const {readFile}=await import('node:fs/promises');
+ const code=await readFile(new URL('../seller-auto-lister-parity.js',import.meta.url),'utf8');
+ assert.match(code,/approvalReview:'1',productId:id/);
+ assert.match(code,/method:'GET',credentials:'same-origin'/);
+ assert.match(code,/flags.some\(k=>data\[k\]!==false\|\|data.summary\?\.\[k\]!==false\)/);
+ assert.match(code,/if\(stillCurrent\(\)\)host.textContent=data.displayText/);
+ const legacy=await readFile(new URL('../seller-ebay-production-readiness.js',import.meta.url),'utf8');
+ assert.match(legacy,/id="elyonEbayDraftBtn" disabled/);assert.match(legacy,/id="elyonEbayPublishBtn" disabled/);
+ assert.doesNotMatch(legacy,/addEventListener\("click", \(event\) => (createDraft|publish)\(/);
+});

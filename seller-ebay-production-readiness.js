@@ -137,7 +137,7 @@
     const hadAutoPublishEnabled = readSelections().autoPublishEnabled === true;
     root.innerHTML = `
       <div class="elyon-ebay-production-head">
-        <div><h3>🚀 eBay-Veröffentlichung</h3><p>Prüft dein eBay-Konto und erstellt zuerst einen kontrollierten Inventory-Entwurf. Jedes Angebot wird erst nach deiner ausdrücklichen Bestätigung veröffentlicht.</p></div>
+        <div><h3>🚀 eBay-Veröffentlichung</h3><p>Prüft dein eBay-Konto. Operative Entwurfserstellung und Veröffentlichung sind in V4.4.1 gesperrt.</p></div>
         <span class="elyon-ebay-badge" id="elyonEbayBadge">Setup noch nicht geprüft</span>
       </div>
       <div class="elyon-ebay-grid" id="elyonEbayPolicyGrid">
@@ -158,8 +158,8 @@
       </div>
       <div class="elyon-ebay-actions">
         <button type="button" class="secondary" id="elyonEbaySetupBtn">eBay-Setup prüfen</button>
-        <button type="button" id="elyonEbayDraftBtn">eBay-Entwurf erstellen</button>
-        <button type="button" id="elyonEbayPublishBtn" ${state.offerId ? "" : "disabled"}>Kostenpflichtig veröffentlichen</button>
+        <button type="button" id="elyonEbayDraftBtn" disabled>eBay-Entwurf erstellen (gesperrt)</button>
+        <button type="button" id="elyonEbayPublishBtn" disabled>Kostenpflichtig veröffentlichen (gesperrt)</button>
         <button type="button" class="danger" id="elyonEbayWithdrawBtn" ${state.offerId && state.listingId ? "" : "disabled"}>Angebot zurücknehmen</button>
       </div>
       <div class="elyon-ebay-status" id="elyonEbayStatus">Prüfe zuerst das Setup. Es wird dabei nichts veröffentlicht.</div>
@@ -298,7 +298,7 @@
       const notes = [];
       if (!data.scopesComplete) notes.push("eBay muss mit den vollständigen Verkaufs-Scopes neu verbunden werden.");
       if (Array.isArray(data.blockers)) notes.push(...data.blockers);
-      status(notes.length ? notes.join("\n") : "eBay ist verbunden. Richtlinien und Lagerstandort sind vorhanden. Du kannst jetzt einen Entwurf erstellen.", notes.length ? "bad" : "good");
+      status(notes.length ? notes.join("\n") : "eBay ist verbunden. Richtlinien und Lagerstandort sind vorhanden. Operative Übertragung bleibt gesperrt.", notes.length ? "bad" : "good");
       return data;
     } catch (error) {
       const details = error.data?.details?.blockers || error.data?.details || [];
@@ -374,8 +374,7 @@
 
   function bindEvents(root) {
     root.querySelector("#elyonEbaySetupBtn")?.addEventListener("click", (event) => checkSetup(event.currentTarget).catch(() => {}));
-    root.querySelector("#elyonEbayDraftBtn")?.addEventListener("click", (event) => createDraft(event.currentTarget));
-    root.querySelector("#elyonEbayPublishBtn")?.addEventListener("click", (event) => publish(event.currentTarget));
+    // V4.4.1: draft and publication controls intentionally have no write handlers.
     root.querySelector("#elyonEbayWithdrawBtn")?.addEventListener("click", (event) => withdraw(event.currentTarget));
     root.querySelector("#elyonEbayAutoPublishToggle")?.addEventListener("change", (event) => {
       event.currentTarget.checked = false;
