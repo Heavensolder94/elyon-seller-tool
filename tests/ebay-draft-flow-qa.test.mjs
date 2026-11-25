@@ -209,3 +209,10 @@ test('V4.4.1 deployed direct and canonical draft endpoints block all external ca
  }
  assert.equal(f.calls.length,0);assert.equal(f.registry().length,0);
 });
+
+test('V4.4.1 deployed publication is a distinct blocked action, including offer update',async t=>{
+ const f=fixture(t),request=req({...publishInput,approvalId:'forged',executionAuthorized:true});
+ request.query.action='publish';const result=res();await deployedEbay(request,result);
+ assert.equal(result.statusCode,409);assert.equal(result.body.error,'v441_publication_activation_blocked');
+ assert.equal(f.writes().length,0);assert.equal(f.calls.length,0);
+});

@@ -1,4 +1,4 @@
-import {assertSellerDraftTransportActivated} from '../../lib/ebay-draft-approval-boundary.js';
+import {assertSellerDraftTransportActivated,assertSellerPublicationActivated} from '../../lib/ebay-draft-approval-boundary.js';
 import { readToken, writeToken, getTokenStoreDescription } from "../../lib/ebay-token-store.js";
 import {
   EBAY_REQUIRED_SCOPES,
@@ -475,7 +475,7 @@ async function handleProductionAction(req, res, action) {
   const environment = environmentFrom(req);
   if (action === "setup") return res.status(200).json(await loadEbaySellerSetup(environment, body));
   if (action === "create-draft" || action === "draft") { assertSellerDraftTransportActivated(); return res.status(200).json(await createOrUpdateEbayDraft(body, environment)); }
-  if (action === "publish") return res.status(200).json(await publishEbayOffer(body, environment));
+  if (action === "publish") { assertSellerPublicationActivated(); return res.status(200).json(await publishEbayOffer(body, environment)); }
   if (action === "withdraw") return res.status(200).json(await withdrawEbayOffer(body, environment));
   if (action === "fulfill-order") return res.status(200).json(await createEbayShippingFulfillment(body, environment));
   return null;

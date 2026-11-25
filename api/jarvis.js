@@ -1,5 +1,5 @@
 import { requireSellerAccess } from "../lib/seller-access.js";
-import { fetchCompanyOsAdvancedListingReview, identifierReviewSummary, csvReadinessSummary, variantReadinessSummary, transportReadinessSummary, inventoryReservationSummary, draftApprovalStatusSummary } from "../lib/product-master-consumer.js";
+import { fetchCompanyOsAdvancedListingReview, identifierReviewSummary, csvReadinessSummary, variantReadinessSummary, transportReadinessSummary, inventoryReservationSummary, draftApprovalStatusSummary, draftApprovalReviewText } from "../lib/product-master-consumer.js";
 import { listCombinedAgentRegistry } from "../lib/ai-agent-registry-store.js";
 import registryRunnerHandler from "./ai-agent-run-registry.js";
 import { runJarvisBrain } from "../lib/jarvis-brain.js";
@@ -263,7 +263,7 @@ export async function readJarvisAdvancedReview(productId,load=fetchCompanyOsAdva
   const inventoryReservation=inventoryReservationSummary(review);
   const draftApprovalStatus=draftApprovalStatusSummary(review);
   const issues=review.issues.map(i=>({code:i.code,field:i.field,variantKey:i.variantKey??null}));
-  return {ok:true,phase:'V4.3',mode:'advanced_listing_review',answer:issues.length+' Prüfhinweise für '+productId+'. Keine Veröffentlichungsfreigabe.',productId,projectionSha256:review.projectionSha256,issues,identifiers,csvReadiness,variantReadiness,transportReadiness,inventoryReservation,draftApprovalStatus,processingPaths:review.processingPaths??null,category:review.category??null,safety:{externalActionsLocked:true,livePublishingAllowed:false,nothingMutated:true,noAiCall:true}};
+  return {ok:true,phase:'V4.3',mode:'advanced_listing_review',answer:issues.length+' Prüfhinweise für '+productId+'. '+draftApprovalReviewText(draftApprovalStatus)+' Keine Veröffentlichungsfreigabe.',productId,projectionSha256:review.projectionSha256,issues,identifiers,csvReadiness,variantReadiness,transportReadiness,inventoryReservation,draftApprovalStatus,processingPaths:review.processingPaths??null,category:review.category??null,safety:{externalActionsLocked:true,livePublishingAllowed:false,nothingMutated:true,noAiCall:true}};
 }
 
 export default async function handler(req, res) {

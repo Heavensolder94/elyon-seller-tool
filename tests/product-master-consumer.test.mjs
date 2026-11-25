@@ -363,12 +363,17 @@ test('V4.4 approval preparation binds exact product and plan and rejects purport
 });
 
 test('V4.4.1 read-only approval boundary never authorizes Seller Tool or Jarvis',async()=>{
- const {draftApprovalStatusSummary}=await import('../lib/product-master-consumer.js');
+ const {draftApprovalStatusSummary,draftApprovalReviewText}=await import('../lib/product-master-consumer.js');
  const {assertSellerDraftTransportActivated}=await import('../lib/ebay-draft-approval-boundary.js');
  assert.throws(assertSellerDraftTransportActivated,{code:'v441_transport_activation_blocked'});
  const identity={productId:'product-1',articleNumber:'ELY-123456'},reviewBindingSha256='a'.repeat(64),requestPlanSha256='b'.repeat(64),selectedSkus=[identity.articleNumber];
  const approvalStatus={schemaVersion:'elyon-draft-approval-v4.4.1',status:'BLOCKED',approvalId:null,approvalPersisted:false,...identity,productRevision:2,listingRevision:3,selectedSkus,transport:'INVENTORY',action:'CREATE_UNPUBLISHED_OFFER',reviewBindingSha256,requestPlanSha256,expiresAtMs:null,transportReservationId:null,auditRef:null,blockers:['PRODUCTIVE_APPROVAL_DISABLED'],executionAuthorized:false,publishAuthorized:false,automaticApprovalAllowed:false,liveEnabled:false};
  const transportReadiness={identity,reviewBindingSha256,selectedSkus,approvalPreparation:{requestPlanSha256,productRevision:2,listingRevision:3},approvalStatus};
  assert.equal(draftApprovalStatusSummary({transportReadiness}).status,'BLOCKED');assert.equal(draftApprovalStatusSummary({}).status,'UNKNOWN');
+ const enriched={...approvalStatus,issuerType:'MANUAL',riskClass:'STANDARD_REVIEW'};
+ const summary=draftApprovalStatusSummary({transportReadiness:{...transportReadiness,approvalStatus:enriched}});
+ assert.equal(summary.issuerType,'MANUAL');assert.equal(summary.riskClass,'STANDARD_REVIEW');assert.equal(summary.expiresAtMs,null);assert.match(draftApprovalReviewText(summary),/Listingrevision: 3/);
+ assert.throws(()=>draftApprovalStatusSummary({transportReadiness:{...transportReadiness,approvalStatus:{...enriched,issuerType:'RULE'}}}),{code:'invalid_draft_approval_status'});
+ assert.throws(()=>draftApprovalStatusSummary({transportReadiness:{...transportReadiness,approvalStatus:{...enriched,riskClass:'ELEVATED_REVIEW'}}}),{code:'invalid_draft_approval_status'});
  for(const patch of [{status:'APPROVED'},{approvalId:'fake'},{approvalPersisted:true},{executionAuthorized:true},{publishAuthorized:true},{liveEnabled:true},{productId:'other'},{selectedSkus:['other']},{productRevision:4}])assert.throws(()=>draftApprovalStatusSummary({transportReadiness:{...transportReadiness,approvalStatus:{...approvalStatus,...patch}}}),{code:'invalid_draft_approval_status'});
 });
