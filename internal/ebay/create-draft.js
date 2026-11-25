@@ -1,3 +1,4 @@
+import {assertSellerDraftTransportActivated} from '../../lib/ebay-draft-approval-boundary.js';
 import { readToken } from "../../lib/ebay-token-store.js";
 
 const ELYON_SKU_PATTERN = /^ELY-\d{6,}(?:-\d{2,})?$/i;
@@ -191,6 +192,7 @@ export default async function handler(req, res) {
       });
     }
 
+    assertSellerDraftTransportActivated();
     const stored = await readToken(environment);
     const refreshToken = stored?.refresh_token || process.env.EBAY_REFRESH_TOKEN;
     if (!refreshToken) {

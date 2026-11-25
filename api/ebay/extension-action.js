@@ -1,3 +1,4 @@
+import {assertSellerDraftTransportActivated} from '../../lib/ebay-draft-approval-boundary.js';
 import ebayHandler from "./index.js";
 import sellerListingAiHandler from "../seller-listing-ai.js";
 import { applyExtensionSellerSession } from "../../lib/seller-extension-bridge.js";
@@ -145,6 +146,7 @@ export default async function handler(req, res) {
 
   try {
     if (action === "create-draft" || action === "draft") {
+      assertSellerDraftTransportActivated();
       const task = await createSellerHubDraft(payload, payload.environment);
       // The Feed task has only been queued. Never count this as a finished eBay draft.
       try {
