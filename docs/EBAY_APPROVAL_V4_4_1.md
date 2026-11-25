@@ -6,3 +6,6 @@ The active Auto Lister parity UI reads the saved Company OS approval through a d
 
 ## Browser regression
 The existing Electron dev dependency is used in the existing Seller Tool CI job to render the real Auto Lister and legacy readiness panel against a synthetic loopback HTTP server. The test rejects manipulated response flags, a foreign product, a forged approval ID/state, stale responses after selection changes and re-enabled legacy buttons. The test renderer is prevented from accessing any external origin. No new paid service or runtime dependency.
+
+## Personal operator login
+The separate Seller operator session is obtained only by an explicit central Company OS passkey login and one-time PKCE handoff with a host-only HttpOnly state/verifier cookie. Server-to-server exchange/status/logout uses the existing bridge secret. The legacy Seller access session remains separate and cannot grant the operator identity. No eBay write authorization is derived. Enable ELYON_OPERATOR_AUTH_ENABLED=1 on production after central configuration; preview stays disabled.
