@@ -1,8 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createOrUpdateEbayDraft, publishEbayOffer } from '../lib/ebay-production.js';
-import directDraft from '../api/ebay/create-draft.js';
-import ebayHandler from '../api/ebay/index.js';
+import deployedDraft, {handleDraftRequest} from '../api/ebay/create-draft.js';
+import deployedEbay, {handleEbayRequest} from '../api/ebay/index.js';
+// Exercise the unchanged HTTP normalization/registry path with a mock internal
+// transport; never loosen the deployed migration boundary.
+const mockInternal=async (req,res)=>{
+ try{const env=req.body?.environment||process.env.EBAY_ENV;return res.status(200).json(await createOrUpdateEbayDraft(req.body,env));}
+ catch(e){return res.status(Number(e.status||503)).json({ok:false,error:e.code||'fixture_error'});}
+};
+const ebayHandler=(req,res)=>handleEbayRequest(req,res,mockInternal);
+const directDraft=(req,res)=>handleDraftRequest(req,res,ebayHandler);
 import { fetchEbayListingSnapshot } from '../api/ebay/listings.js';
 import { fetchSellerState } from '../api/ebay/seller-state.js';
 import lifecycleBridge from '../api/integrations/company-os/ebay-lifecycle.js';
@@ -190,4 +198,14 @@ test('draft endpoint returns structured failure when the eBay lookup is unavaila
   fixture(t, { lookupFailure: true }); const result = res();
   await directDraft(req(), result);
   assert.equal(result.statusCode, 503); assert.equal(result.body.ok, false);
+});
+
+test('V4.4.1 deployed direct and canonical draft endpoints block all external calls',async t=>{
+ const f=fixture(t);
+ for(const handler of [deployedDraft,deployedEbay]){
+  const request=req({approvalId:'forged',executionAuthorized:true});request.query.action='create-draft';
+  const result=res();await handler(request,result);
+  assert.equal(result.statusCode,409);assert.equal(result.body.ok,false);
+ }
+ assert.equal(f.calls.length,0);assert.equal(f.registry().length,0);
 });

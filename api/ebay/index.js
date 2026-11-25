@@ -63,7 +63,7 @@ function redactSecrets(value, seen = new WeakSet()) {
   return output;
 }
 
-async function runLifecycleAction(req, res, action, environment) {
+async function runLifecycleAction(req, res, action, environment, internalHandlerImpl) {
   const capture = {
     statusCode: 200,
     body: null,
@@ -72,7 +72,7 @@ async function runLifecycleAction(req, res, action, environment) {
     json(payload) { this.body = payload; return payload; },
   };
 
-  await internalHandler(req, capture);
+  await internalHandlerImpl(req, capture);
   let payload = capture.body && typeof capture.body === "object" ? capture.body : {};
 
   if (capture.statusCode < 400 && payload.ok !== false) {
@@ -119,7 +119,9 @@ async function runLifecycleAction(req, res, action, environment) {
   return res.status(capture.statusCode).json(redactSecrets(payload));
 }
 
-export default async function handler(req, res) {
+// Server-only dependency injection for isolated adapter regression tests.
+// The deployed entry point below always selects the guarded internal handler.
+export async function handleEbayRequest(req, res, internalHandlerImpl) {
   const action = actionFrom(req);
   const environment = environmentFrom(req);
   res.setHeader("Cache-Control", "no-store");
@@ -135,7 +137,7 @@ export default async function handler(req, res) {
         status(code) { this.statusCode = code; return this; },
         json(payload) { this.body = payload; return this; },
       };
-      await internalHandler(req, captured);
+      await internalHandlerImpl(req, captured);
       return res.status(captured.statusCode).json({ ...captured.body, ...publicConnectionStatus(tokenRecord) });
     } catch {
       return res.status(200).json({ ok: true, connected: false, environment });
@@ -177,10 +179,12 @@ export default async function handler(req, res) {
   }
 
   if (lifecycleActions.has(action)) {
-    return runLifecycleAction(req, res, action, environment);
+    return runLifecycleAction(req, res, action, environment, internalHandlerImpl);
   }
 
   const originalJson = res.json.bind(res);
   res.json = (payload) => originalJson(redactSecrets(payload));
-  return internalHandler(req, res);
+  return internalHandlerImpl(req, res);
 }
+
+export default async function handler(req, res) { return handleEbayRequest(req,res,internalHandler); }
