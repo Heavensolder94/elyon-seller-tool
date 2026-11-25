@@ -312,3 +312,17 @@ test('250 internal variants are preserved by Seller Tool, but offer compatibilit
  assert.equal(p.approval.companyOsApproved,false);
  assert.equal(p.approval.automaticListingAllowed,false);
 });
+
+test('manual subset report is a read-only diagnostic bound to exact selected canonical rows',async()=>{
+ const {variantReadinessSummary}=await import('../lib/product-master-consumer.js');
+ const rows=[{variantKey:'a',sku:'ELY-001274-01',selected:true,executionAuthorized:false},{variantKey:'b',sku:'ELY-001274-02',selected:true,executionAuthorized:false},{variantKey:'c',sku:'ELY-001274-03',selected:false,executionAuthorized:false}];
+ const counts=Object.fromEntries(['storedCombinationCount','projectedCombinationCount','reportedRowCount','availableCount','unavailableCount','availabilityUnknownCount','economicsBoundCount','economicsBlockedCount','eligibleForReviewCount','explicitSelectionCount','selectionUnverifiedCount'].map(k=>[k,0]));
+ Object.assign(counts,{storedCombinationCount:3,projectedCombinationCount:3,reportedRowCount:3,explicitSelectionCount:2});
+ const variantReadiness={...counts,schemaVersion:'elyon-variant-readiness-v4.3.5',capacity:{status:'WITHIN_EXISTING_LIMIT',executionAuthorized:false,sourceTotalVerified:false},limits:{executionAuthorized:false,transportVerified:false},rows,suggestedVariantKeys:[],manualReviewRequired:true,automaticSelectionApplied:false,transportVerified:false,productionVerified:false,executionAuthorized:false};
+ const selectedOfferReview={status:'STRUCTURAL_SUBSET_REVIEW',source:'saved_company_os_manual',sourceCount:3,selectedCount:2,excludedCount:1,selectedKeys:['a','b'],issues:[],csv:{roundtripVerified:true,rows:[{CustomLabel:'ELY-001274'},{CustomLabel:rows[0].sku},{CustomLabel:rows[1].sku}],executionAuthorized:false,uploadVerified:false,readyForOfflineReview:false},inventory:{executionAuthorized:false,identifierCompatibilityVerified:false,variantSKUs:rows.slice(0,2).map(v=>v.sku),items:rows.slice(0,2).map(v=>({sku:v.sku}))},automaticSelectionApplied:false,manualReviewRequired:true,executionAuthorized:false,uploadVerified:false,transportVerified:false};
+ const review={variantReadiness,selectedOfferReview},r=variantReadinessSummary(review);
+ assert.equal(r.selectedOfferReview.selectedCount,2);assert.equal(r.selectedOfferReview.csvRoundtripVerified,true);assert.equal(r.selectedOfferReview.executionAuthorized,false);
+ assert.throws(()=>variantReadinessSummary({...review,selectedOfferReview:{...selectedOfferReview,selectedKeys:['a','c']}}));
+ assert.throws(()=>variantReadinessSummary({...review,selectedOfferReview:{...selectedOfferReview,csv:{...selectedOfferReview.csv,readyForOfflineReview:true}}}));
+ assert.throws(()=>variantReadinessSummary({...review,selectedOfferReview:{...selectedOfferReview,inventory:{...selectedOfferReview.inventory,variantSKUs:[rows[0].sku,rows[2].sku]}}}));
+});
