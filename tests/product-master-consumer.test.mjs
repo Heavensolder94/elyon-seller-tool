@@ -337,3 +337,16 @@ test('V4.4 transport contract reports only read-only preparation and rejects uns
  assert.equal(transportReadinessSummary({}).status,'UNKNOWN');
  for(const patch of [{executionAuthorized:true},{approvalVerified:true},{projectionSha256:'d'.repeat(64)},{selectedSkus:['OTHER']},{feed:{...t.feed,sellerHubDraftVerified:true}},{plannedOperations:{...t.plannedOperations,draft:[{method:'POST',operationId:'publishOffer',resource:'/sell/inventory/v1/offer/{id}/publish',write:true}]}},{media:{...t.media,documentIds:['fixture']}}])assert.throws(()=>transportReadinessSummary({...review,transportReadiness:{...t,...patch}}),{code:'invalid_transport_readiness_contract'});
 });
+
+test('V4.4 reservation diagnostics remain historical and cannot authorize execution',async()=>{
+ const {inventoryReservationSummary}=await import('../lib/product-master-consumer.js');
+ const articleNumber='ELY-000123',productId='product-1';
+ const x={schemaVersion:'elyon-inventory-reservation-status-v4.4',productId,articleNumber,status:'UNPUBLISHED_OFFER_VERIFIED',taskId:'12345678-1234-4234-8234-123456789abc',payloadSha256:'a'.repeat(64),sourceRevisionSha256:'b'.repeat(64),categoryId:'123',skus:[articleNumber],observedOfferIds:['offer-1'],executionAuthorized:false,publishAuthorized:false,automaticRetryAllowed:false,externalStateVerified:false,sellerHubDraftVerified:false};
+ const review={request:{targetId:productId},transportReadiness:{identity:{articleNumber}},inventoryReservation:x};
+ const summary=inventoryReservationSummary(review);
+ assert.equal(summary.status,x.status);assert.equal(summary.historicalEvidenceOnly,true);assert.equal(summary.externalStateVerified,false);
+ assert.equal(inventoryReservationSummary({}).status,'UNKNOWN');
+ for(const patch of [{productId:'foreign'},{articleNumber:'ELY-999999'},{executionAuthorized:true},{externalStateVerified:true},{automaticRetryAllowed:true},{status:'SUBMITTING'},{observedOfferIds:[]}]){
+  assert.throws(()=>inventoryReservationSummary({...review,inventoryReservation:{...x,...patch}}),{code:'invalid_inventory_reservation_contract'});
+ }
+});
