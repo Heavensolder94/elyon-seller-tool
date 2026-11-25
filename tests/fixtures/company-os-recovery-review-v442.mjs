@@ -13,3 +13,26 @@ export function describeRecoveryReview(identity,legacy){
  if(!uuid(legacy.taskId)||!Array.isArray(legacy.skus)||!legacy.skus.length||legacy.skus.length>100||!legacy.skus.every(id)||new Set(legacy.skus.map(v=>v.toUpperCase())).size!==legacy.skus.length||!Array.isArray(legacy.observedOfferIds)||!legacy.observedOfferIds.every(id)||new Set(legacy.observedOfferIds).size!==legacy.observedOfferIds.length||(legacy.status==='UNPUBLISHED_OFFER_VERIFIED'?legacy.observedOfferIds.length!==legacy.skus.length:legacy.observedOfferIds.length!==0))return base;
  return {...base,legacyStatus:legacy.status,status:legacy.status==='UNPUBLISHED_OFFER_VERIFIED'?'MANUAL_REVIEW_REQUIRED':'RECONCILIATION_REQUIRED',reservationState:'HELD',taskId:legacy.taskId,skus:[...legacy.skus],historicalOfferIds:[...legacy.observedOfferIds],nextAction:'RECONCILE_READ_ONLY'};
 }
+
+// Deterministic Auto Lister / ELYON Flow gate; no calls or persistence.
+// A previously started Feed or Inventory job is not permission to create a
+// replacement transport. A historical local ID is not verified provenance.
+export function autoListerRecoveryGate(item,reservation,{requireReservation=true}={}){
+ const feed=item?.autoLister?.sellerHubDraft,existing=item?.autoLister?.ebayDraft;
+ const base={schemaVersion:'elyon-flow-recovery-gate-v4.4.2',blocked:true,reason:'Transportzustand ungeklärt – manuell abgleichen.',status:'RECONCILIATION_REQUIRED',nextAction:'RECONCILE_READ_ONLY',...RECOVERY_REVIEW_FLAGS};
+ if(feed&&(feed.taskId||feed.transportBinding||feed.status))return {...base,transport:'FEED',reason:'Vorhandener Feed-Auftrag – kein Wechsel des Transportwegs vor dem Abgleich.'};
+ if(reservation&&reservation.status!=='NO_LOCAL_RESERVATION')return {...base,transport:'INVENTORY',reason:'Inventory-Reservierung vorhanden oder nicht eindeutig lesbar – kein weiterer Transportauftrag.'};
+ if(requireReservation&&(!reservation||reservation.schemaVersion!=='elyon-inventory-reservation-status-v4.4'||['executionAuthorized','publishAuthorized','automaticRetryAllowed','externalStateVerified','sellerHubDraftVerified'].some(k=>reservation[k]!==false)))return {...base,reason:'Reservierungsstatus nicht verifiziert – kein weiterer Transportauftrag.'};
+ if(requireReservation&&(existing?.offerId||existing?.offerIds?.length))return {...base,transport:'INVENTORY',reason:'Historische Offer-ID ohne kanonischen Nachweis – kein automatischer Abschluss.'};
+ return {...base,blocked:false,status:'BLOCKED',reason:'Kein lokaler Recovery-Hinweis; separate Freigabe weiterhin erforderlich.',nextAction:'REVIEW_TRANSPORT_DISABLED'};
+}
+
+// Historical Feed evidence is deliberately separate from the account-bound
+// canonical journal. No local task ID/status can prove a visible draft.
+export function describeHistoricalFeedRecovery(references={}){
+ const taskId=id(references?.feedTaskId)?references.feedTaskId:null;
+ const feedState=id(references?.feedState)&&references.feedState.length<=80?references.feedState:null;
+ const conflict=references?.feedReferenceConflict===true;
+ const present=!!(taskId||feedState||conflict);
+ return {schemaVersion:'elyon-feed-recovery-review-v4.4.2',status:present?'MANUAL_REVIEW_REQUIRED':'UNKNOWN',taskId,feedState,referenceConflict:conflict,canonicalJournalAvailable:false,nextAction:present?'RECONCILE_READ_ONLY':'REVIEW_TRANSPORT_DISABLED',missingEvidence:['CANONICAL_APPROVAL_JOURNAL_UNAVAILABLE','EXACT_CSV_AND_ACCOUNT_BINDING_UNVERIFIED','SELLER_HUB_VISIBILITY_UNVERIFIED'],...RECOVERY_REVIEW_FLAGS};
+}
