@@ -326,3 +326,38 @@ test('manual subset report is a read-only diagnostic bound to exact selected can
  assert.throws(()=>variantReadinessSummary({...review,selectedOfferReview:{...selectedOfferReview,csv:{...selectedOfferReview.csv,readyForOfflineReview:true}}}));
  assert.throws(()=>variantReadinessSummary({...review,selectedOfferReview:{...selectedOfferReview,inventory:{...selectedOfferReview.inventory,variantSKUs:[rows[0].sku,rows[2].sku]}}}));
 });
+
+test('V4.4 transport contract reports only read-only preparation and rejects unsafe or cross-bound data',async()=>{
+ const {transportReadinessSummary}=await import('../lib/product-master-consumer.js');
+ const projectionSha256='a'.repeat(64),categoryId='15687',sku='ELY-001274';
+ const t={schemaVersion:'elyon-transport-readiness-v4.4',mode:'READ_ONLY_PREPARATION',phase:'A_OFFLINE',action:'CREATE_UNPUBLISHED_OFFER',status:'REVIEW_REQUIRED',candidate:'INVENTORY_SINGLE_REVIEW',identity:{articleNumber:sku},marketplace:'EBAY_DE',categoryId,projectionSha256,sourceCombinationCount:0,selectedSkus:[sku],selectedVariantKeys:[],expectedExternalResult:'UNPUBLISHED_OFFER',manualReviewRequired:true,accountReadiness:'UNVERIFIED',blockers:['REGULATORY_EVIDENCE_REVIEW'],reviewBindingSha256:'b'.repeat(64),payloadSha256:'c'.repeat(64),plannedOperations:{preflight:[],draft:[{method:'POST',operationId:'createOffer',resource:'/sell/inventory/v1/offer',write:true}],readback:[]},storedExternalReferences:null,inventoryPreview:{status:'STRUCTURAL_PAYLOAD_PREVIEW_ONLY',regulatoryPayloadComplete:false,officialFullSchemaValidated:false,executionAuthorized:false,inventoryPayload:{condition:'NEW'},offerPayload:{sku,categoryId,marketplaceId:'EBAY_DE'}},feed:{offlineCsvNeverUpload:true,sellerHubDraftVerified:false,fxDraft:'ACCOUNT_BLOCKED_BAF_ERROR_5',fxListing:'FORMAT_AND_ACCOUNT_UNVERIFIED'},media:{privateStorageVerified:false,documentIds:[]}};
+ for(const k of ['executionAuthorized','operationalEnabled','liveVerified','accountVerified','oauthVerified','uploadVerified','fallbackAllowed','publishAuthorized','feedAuthorized','readyForExport','releaseEligible','automaticFallbackAllowed','liveTestApproved','approvalVerified','externalStateVerified','retryAllowed'])t[k]=false;
+ const review={projectionSha256,categoryId,inventory:{items:[{sku}]},transportReadiness:t};
+ const x=transportReadinessSummary(review);assert.equal(x.candidate,'INVENTORY_SINGLE_REVIEW');assert.equal(x.structuralInventoryPreviewAvailable,true);assert.equal(x.inventoryPreview,undefined);assert.equal(x.executionAuthorized,false);
+ assert.equal(transportReadinessSummary({}).status,'UNKNOWN');
+ for(const patch of [{executionAuthorized:true},{approvalVerified:true},{projectionSha256:'d'.repeat(64)},{selectedSkus:['OTHER']},{feed:{...t.feed,sellerHubDraftVerified:true}},{plannedOperations:{...t.plannedOperations,draft:[{method:'POST',operationId:'publishOffer',resource:'/sell/inventory/v1/offer/{id}/publish',write:true}]}},{media:{...t.media,documentIds:['fixture']}}])assert.throws(()=>transportReadinessSummary({...review,transportReadiness:{...t,...patch}}),{code:'invalid_transport_readiness_contract'});
+});
+
+test('V4.4 reservation diagnostics remain historical and cannot authorize execution',async()=>{
+ const {inventoryReservationSummary}=await import('../lib/product-master-consumer.js');
+ const articleNumber='ELY-000123',productId='product-1';
+ const x={schemaVersion:'elyon-inventory-reservation-status-v4.4',productId,articleNumber,status:'UNPUBLISHED_OFFER_VERIFIED',taskId:'12345678-1234-4234-8234-123456789abc',payloadSha256:'a'.repeat(64),sourceRevisionSha256:'b'.repeat(64),categoryId:'123',skus:[articleNumber],observedOfferIds:['offer-1'],executionAuthorized:false,publishAuthorized:false,automaticRetryAllowed:false,externalStateVerified:false,sellerHubDraftVerified:false};
+ const review={request:{targetId:productId},transportReadiness:{identity:{articleNumber}},inventoryReservation:x};
+ const summary=inventoryReservationSummary(review);
+ assert.equal(summary.status,x.status);assert.equal(summary.historicalEvidenceOnly,true);assert.equal(summary.externalStateVerified,false);
+ assert.equal(inventoryReservationSummary({}).status,'UNKNOWN');
+ for(const patch of [{productId:'foreign'},{articleNumber:'ELY-999999'},{executionAuthorized:true},{externalStateVerified:true},{automaticRetryAllowed:true},{status:'SUBMITTING'},{observedOfferIds:[]}]){
+  assert.throws(()=>inventoryReservationSummary({...review,inventoryReservation:{...x,...patch}}),{code:'invalid_inventory_reservation_contract'});
+ }
+});
+
+test('V4.4 approval preparation binds exact product and plan and rejects purported execution grants',async()=>{
+ const {transportReadinessSummary}=await import('../lib/product-master-consumer.js');
+ const projectionSha256='a'.repeat(64),categoryId='15687',sku='ELY-001274',productId='product-1',reviewBindingSha256='b'.repeat(64);
+ const t={schemaVersion:'elyon-transport-readiness-v4.4',mode:'READ_ONLY_PREPARATION',phase:'A_OFFLINE',action:'CREATE_UNPUBLISHED_OFFER',status:'REVIEW_REQUIRED',candidate:'INVENTORY_SINGLE_REVIEW',identity:{articleNumber:sku,productId},marketplace:'EBAY_DE',categoryId,projectionSha256,sourceCombinationCount:0,selectedSkus:[sku],selectedVariantKeys:[],expectedExternalResult:'UNPUBLISHED_OFFER',manualReviewRequired:true,accountReadiness:'UNVERIFIED',blockers:[],reviewBindingSha256,payloadSha256:'c'.repeat(64),plannedOperations:{preflight:[],draft:[{method:'POST',operationId:'createOffer',resource:'/sell/inventory/v1/offer',write:true}],readback:[]},storedExternalReferences:null,inventoryPreview:{status:'STRUCTURAL_PAYLOAD_PREVIEW_ONLY',regulatoryPayloadComplete:false,officialFullSchemaValidated:false,executionAuthorized:false,inventoryPayload:{condition:'NEW'},offerPayload:{sku,categoryId,marketplaceId:'EBAY_DE'}},feed:{offlineCsvNeverUpload:true,sellerHubDraftVerified:false,fxDraft:'ACCOUNT_BLOCKED_BAF_ERROR_5',fxListing:'FORMAT_AND_ACCOUNT_UNVERIFIED'},media:{privateStorageVerified:false,documentIds:[]}};
+ for(const k of ['executionAuthorized','operationalEnabled','liveVerified','accountVerified','oauthVerified','uploadVerified','fallbackAllowed','publishAuthorized','feedAuthorized','readyForExport','releaseEligible','automaticFallbackAllowed','liveTestApproved','approvalVerified','externalStateVerified','retryAllowed'])t[k]=false;
+ const a={status:'BLOCKED',productId,articleNumber:sku,productRevision:2,productUpdatedAt:null,listingRevision:null,listingUpdatedAt:null,projectionSha256,reviewBindingSha256,requestPlanSha256:'d'.repeat(64),environment:'production',marketplace:'EBAY_DE',transport:'INVENTORY',action:t.action,selectedSkus:[sku],approvalId:null,approvalPersisted:false,executionAuthorized:false,publishAuthorized:false,confirmationAllowed:false};
+ const review={projectionSha256,categoryId,inventory:{items:[{sku}]},transportReadiness:{...t,approvalPreparation:a}};
+ assert.equal(transportReadinessSummary(review).approvalPreparation.requestPlanSha256,a.requestPlanSha256);
+ for(const patch of [{productId:'other'},{selectedSkus:['OTHER']},{reviewBindingSha256:'e'.repeat(64)},{requestPlanSha256:'bad'},{approvalId:'fake'},{executionAuthorized:true},{confirmationAllowed:true},{approvalPersisted:true}])assert.throws(()=>transportReadinessSummary({...review,transportReadiness:{...t,approvalPreparation:{...a,...patch}}}),{code:'invalid_transport_readiness_contract'});
+});
