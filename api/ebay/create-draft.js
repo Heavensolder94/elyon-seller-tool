@@ -17,7 +17,7 @@ function normalizeDraftBody(body = {}) {
   };
 }
 
-export default async function handler(req, res) {
+export async function handleDraftRequest(req, res, ebayHandlerImpl) {
   if (!requireSellerAccess(req, res, { maxBodyBytes: 1024 * 1024 })) return;
   if (req.method !== "POST") {
     return res.status(405).json({ ok: false, draftCreated: false, published: false, error: "Nur POST erlaubt." });
@@ -33,5 +33,7 @@ export default async function handler(req, res) {
     });
   }
   req.query = { ...(req.query || {}), action: "create-draft" };
-  return ebayHandler(req, res);
+  return ebayHandlerImpl(req, res);
 }
+
+export default async function handler(req, res) { return handleDraftRequest(req,res,ebayHandler); }

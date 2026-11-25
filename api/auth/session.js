@@ -30,6 +30,7 @@ function publicConfiguration() {
 }
 
 export default async function handler(req, res) {
+  if(Object.hasOwn(req.query||{},'operator')){const {handleSellerOperator}=await import('../../lib/operator-auth.js');return handleSellerOperator(req,res);}
   setSellerSecurityHeaders(res);
 
   if (req.method === "GET") {

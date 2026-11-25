@@ -158,7 +158,8 @@
     note.className = "elyon-auth-note";
     note.textContent = "API-Keys und Zugangstokens gehören weiterhin ausschließlich in Vercel oder deine lokale .env.local-Datei.";
 
-    card.append(title, description, label, actions, message, note);
+    const personal=document.createElement('a');personal.href='/operator-login.html';personal.textContent='Persönliche Operator-Anmeldung (Passkey)';personal.style.color='#93c5fd';
+    card.append(title, description, label, actions, message, note,personal);
     backdrop.appendChild(card);
     document.body.appendChild(backdrop);
 

@@ -1,4 +1,4 @@
-import { loadProductMasterForSeller, resolveProductMasterRecord, fetchCompanyOsAdvancedListingReview } from "../../lib/product-master-consumer.js";
+import { loadProductMasterForSeller, resolveProductMasterRecord, fetchCompanyOsAdvancedListingReview, draftApprovalStatusSummary, draftApprovalReviewText } from "../../lib/product-master-consumer.js";
 import { requireSellerAccess } from "../../lib/seller-access.js";
 
 function text(value) {
@@ -13,6 +13,14 @@ async function loadProducts() {
 export default async function handler(req, res) {
   if (!requireSellerAccess(req, res, { maxBodyBytes: 64 * 1024 })) return;
   try {
+    // Explicit read-only approval metadata for the Seller Auto Lister.
+    if(Object.hasOwn(req.query||{},'approvalReview')){
+      const q=req.query;
+      if(req.method!=='GET'||q.approvalReview!=='1'||Object.keys(q).length!==2||typeof q.productId!=='string')return res.status(422).json({ok:false,error:'invalid_approval_review_query'});
+      const review=await fetchCompanyOsAdvancedListingReview({productId:q.productId});
+      const summary=draftApprovalStatusSummary(review);
+      return res.status(200).json({schemaVersion:'elyon-seller-approval-review-v4.4.1',productId:q.productId,summary,displayText:draftApprovalReviewText(summary),executionAuthorized:false,publishAuthorized:false,automaticApprovalAllowed:false,liveEnabled:false});
+    }
     // Opt-in branch, no effect on the existing draft route.
     if(Object.hasOwn(req.query||{},"advancedReview")){
       const q=req.query;

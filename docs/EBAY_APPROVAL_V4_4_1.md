@@ -1,0 +1,11 @@
+# V4.4.1 Seller Tool migration boundary
+Company OS owns the canonical draft approval. Existing independent Inventory writers (internal index and standalone legacy handler) and Extension Feed creation stop at an explicit hard-disabled migration boundary, including calls routed from the public wrapper. Status, recovery reads, offline drafts and separate publish/withdraw confirmations remain distinct. No productive approval is issued. Seller Tool validates the additive Company OS approval status; Jarvis returns its deterministic summary only. Existing V2.3 simulation ledger remains unchanged and does not grant draft authority. Pending: exhaustive regression testing and joint Company OS contract review. No new costs or provider writes.
+
+## Seller surface and transport finalization
+The active Auto Lister parity UI reads the saved Company OS approval through a dedicated read-only query on the existing product draft endpoint. Both the consumer and browser check the fail-closed contract. The old production-readiness panel no longer binds draft/publication write handlers and disables their buttons. Jarvis and Seller Auto Lister share the server-side approval text formatter. Withdrawal remains a separate operation. No individual account authentication is inferred from the shared Seller cookie.
+
+## Browser regression
+The existing Electron dev dependency is used in the existing Seller Tool CI job to render the real Auto Lister and legacy readiness panel against a synthetic loopback HTTP server. The test rejects manipulated response flags, a foreign product, a forged approval ID/state, stale responses after selection changes and re-enabled legacy buttons. The test renderer is prevented from accessing any external origin. No new paid service or runtime dependency.
+
+## Personal operator login
+The separate Seller operator session is obtained only by an explicit central Company OS passkey login and one-time PKCE handoff with a host-only HttpOnly state/verifier cookie. Server-to-server exchange/status/logout uses the existing bridge secret. The legacy Seller access session remains separate and cannot grant the operator identity. No eBay write authorization is derived. Enable ELYON_OPERATOR_AUTH_ENABLED=1 on production after central configuration; preview stays disabled.
