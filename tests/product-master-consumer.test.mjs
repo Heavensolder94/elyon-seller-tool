@@ -280,3 +280,24 @@ test('V4.3.4 CSV readiness is additive and never grants upload or fallback',asyn
  assert.throws(()=>csvReadinessSummary({...review,automaticFallbackAllowed:true}));
  assert.throws(()=>csvReadinessSummary({...review,csvReadiness:{...csvReadiness,executionAuthorized:true}}));
 });
+
+test('oversize canonical variant source is explicit, not a clipped 100-row offer',()=>{
+ const source=structuredClone(canonical);
+ source.product.variantCombinations=Array.from({length:101},(_,i)=>({sku:'ELY-001274-'+i,selections:{Farbe:'Wert'+i}}));
+ const p=adaptProductMasterForSeller(source);
+ assert.equal(p.variantCapacity.status,'CAPACITY_EXCEEDED');
+ assert.equal(p.variantCapacity.observedCombinationCount,101);
+ assert.equal(p.variantCombinations.length,0);
+ assert.equal(p.raw.product.variantCombinations.length,101);
+ assert.equal(p.approval.companyOsApproved,false);
+ assert.equal(p.approval.automaticListingAllowed,false);
+});
+test('V4.3.5 variant report preserves diagnostics and rejects authority',async()=>{
+ const {variantReadinessSummary}=await import('../lib/product-master-consumer.js');
+ const counts=Object.fromEntries(['storedCombinationCount','projectedCombinationCount','reportedRowCount','availableCount','unavailableCount','availabilityUnknownCount','economicsBoundCount','economicsBlockedCount','eligibleForReviewCount','explicitSelectionCount','selectionUnverifiedCount'].map(k=>[k,0]));
+ const variantReadiness={...counts,schemaVersion:'elyon-variant-readiness-v4.3.5',capacity:{status:'WITHIN_EXISTING_LIMIT',executionAuthorized:false,sourceTotalVerified:false},limits:{executionAuthorized:false,transportVerified:false},rows:[],suggestedVariantKeys:[],manualReviewRequired:true,automaticSelectionApplied:false,transportVerified:false,productionVerified:false,executionAuthorized:false};
+ assert.equal(variantReadinessSummary({variantReadiness}).status,'WITHIN_EXISTING_LIMIT');
+ assert.equal(variantReadinessSummary({}).status,'UNKNOWN');
+ assert.throws(()=>variantReadinessSummary({variantReadiness:{...variantReadiness,automaticSelectionApplied:true}}));
+ assert.throws(()=>variantReadinessSummary({variantReadiness:{...variantReadiness,transportVerified:true}}));
+});
