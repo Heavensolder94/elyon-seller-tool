@@ -269,3 +269,14 @@ test('V4.3.3 accepts nested read-only identifier results, rejects nested authori
  assert.throws(()=>identifierReviewSummary({identifiers:{...identifiers,csv:{...identifiers.csv,uploadVerified:true}}}));
  assert.equal(identifierReviewSummary({}).status,'UNKNOWN');
 });
+
+test('V4.3.4 CSV readiness is additive and never grants upload or fallback',async()=>{
+ const {csvReadinessSummary}=await import('../lib/product-master-consumer.js');
+ const csvReadiness={schemaOrigin:'DYNAMIC_DERIVED',offlineReviewAvailable:true,structurallyValid:true,formatCompatibility:'UNVERIFIED',uploadCompatibility:'UNKNOWN',manualReviewRequired:true,executionAuthorized:false,blockingIssues:[]};
+ const review={csvReadiness,csv:{executionAuthorized:false,uploadVerified:false,readyForOfflineReview:true},automaticFallbackAllowed:false,processingPaths:{operative:'BLOCKED'}};
+ assert.equal(csvReadinessSummary(review).offlineReviewAvailable,true);
+ assert.equal(csvReadinessSummary({}).schemaOrigin,'UNKNOWN');
+ assert.throws(()=>csvReadinessSummary({...review,csv:{...review.csv,uploadVerified:true}}));
+ assert.throws(()=>csvReadinessSummary({...review,automaticFallbackAllowed:true}));
+ assert.throws(()=>csvReadinessSummary({...review,csvReadiness:{...csvReadiness,executionAuthorized:true}}));
+});
