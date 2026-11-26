@@ -1,6 +1,7 @@
 import { requireBridgeAccess } from "../../../lib/bridge-access.js";
 import {
   getElyonDraftRegistryRecords,
+  findExactCompanyFeedRecord,
   markElyonDraftState,
   registerElyonInventoryDrafts,
 } from "../../../lib/ebay-draft-registry.js";
@@ -21,6 +22,8 @@ function identity(body = {}) {
     sku: text(body.sku, 120),
     listingId: text(body.listingId, 120),
     sourceProductId: text(body.sourceProductId || body.importId, 180),
+    externalTaskId: text(body.taskId, 220),
+    externalDraftId: text(body.draftId, 180),
   };
 }
 
@@ -156,9 +159,10 @@ export default async function handler(req, res) {
         environment,
         ...candidate,
         state: "removed",
+        requireExactCompanyFeed: true,
       });
-      if (!result.record) {
-        return res.status(404).json({ ok: false, error: result.reason || "lifecycle_identity_not_found", message: "Der registrierte eBay-Lifecycle-Datensatz wurde nicht gefunden." });
+      if (!result.record || result.persisted !== true) {
+        return res.status(result.record ? 503 : 409).json({ ok: false, error: result.reason || "lifecycle_identity_not_found", message: "Der registrierte eBay-Lifecycle-Datensatz wurde nicht gefunden." });
       }
       return res.status(200).json({
         ok: true,
@@ -174,7 +178,7 @@ export default async function handler(req, res) {
       // Any snapshot failure aborts instead of turning an outage into a deletion.
       const sellerState = await fetchSellerState(environment);
       const records = await getElyonDraftRegistryRecords(environment);
-      const record = findRecord(records, candidate);
+      const record = candidate.externalTaskId ? findExactCompanyFeedRecord(records, {...candidate, environment}) : findRecord(records, candidate);
       return res.status(200).json({
         ok: true,
         action,
