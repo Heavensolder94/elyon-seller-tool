@@ -1,4 +1,4 @@
-import {registerCanonicalProductionInventory,inspectCanonicalProductionRegistration} from '../../../lib/ebay-canonical-account.js';
+import {registerCanonicalProductionInventory,registerCanonicalProductionVariants,inspectCanonicalProductionRegistration} from '../../../lib/ebay-canonical-account.js';
 import { requireBridgeAccess } from "../../../lib/bridge-access.js";
 import {
   getElyonDraftRegistryRecords,
@@ -52,6 +52,8 @@ function publicRecord(record) {
   return {
     offerId: record.offerId,
     sku: record.sku,
+    ...(record.parentSku?{parentSku:record.parentSku}:{}),
+    ...(record.groupKey?{groupKey:record.groupKey}:{}),
     listingId: record.listingId,
     sourceProductId: record.sourceProductId,
     state: record.state,
@@ -78,7 +80,7 @@ export default async function handler(req, res) {
     return res.status(200).json({
       ok: true,
       route: "/api/integrations/company-os/ebay-lifecycle",
-      actions: ["register", "register_inventory", "register_canonical_inventory", "canonical_registration_preflight", "status", "mark_removed"],
+      actions: ["register", "register_inventory", "register_canonical_inventory", "register_canonical_variant_inventory", "canonical_registration_preflight", "status", "mark_removed"],
       matching: ["offerId", "listingId", "sku", "sourceProductId"],
       safety: {
         productHardDelete: false,
@@ -111,6 +113,10 @@ export default async function handler(req, res) {
     }
     if (action === "register_canonical_inventory") {
       const result=await registerCanonicalProductionInventory(body);
+      return res.status(200).json({ok:true,action,...result});
+    }
+    if (action === "register_canonical_variant_inventory") {
+      const result=await registerCanonicalProductionVariants(body);
       return res.status(200).json({ok:true,action,...result});
     }
     if (action === "register_inventory") {
@@ -207,7 +213,7 @@ export default async function handler(req, res) {
     return res.status(Number(error?.status || 500)).json({
       ok: false,
       error: error?.code || "company_os_ebay_lifecycle_failed",
-      ...(action==="register_canonical_inventory"?{persisted:false}:{}),
+      ...(["register_canonical_inventory","register_canonical_variant_inventory"].includes(action)?{persisted:false}:{}),
       message: text(error?.message || "eBay-Lifecycle konnte nicht synchronisiert werden."),
     });
   }
