@@ -31,7 +31,7 @@ function fixture(t, options = {}) {
     const original = process.env[key]; process.env[key] = value;
     t.after(() => { if (original === undefined) delete process.env[key]; else process.env[key] = original; });
   }
-  const calls = []; let registry = []; let currentOffer = options.existing ? { ...offer, ...options.existing } : null;
+  const calls = []; let registry = options.registry ? structuredClone(options.registry) : []; let currentOffer = options.existing ? { ...offer, ...options.existing } : null;
   t.mock.method(globalThis, 'fetch', async (raw, init = {}) => {
     const url = new URL(raw); const method = init.method || 'GET'; calls.push({ url, method, body: init.body });
     if (url.hostname === 'tokens.example.test') return response({ result: null });
@@ -215,4 +215,66 @@ test('V4.4.1 deployed publication is a distinct blocked action, including offer 
  request.query.action='publish';const result=res();await deployedEbay(request,result);
  assert.equal(result.statusCode,409);assert.equal(result.body.error,'v441_publication_activation_blocked');
  assert.equal(f.writes().length,0);assert.equal(f.calls.length,0);
+});
+
+test('V4.4.4 Seller lifecycle refuses simulated identities and duplicate SKU/offer pairs before any external call',async t=>{
+ const f=fixture(t);
+ const common={action:'register_inventory',environment:'sandbox',sourceProductId:'qa-company-product',offers:[{offerId:offer.offerId,sku:input.sku}]};
+ for(const body of [
+  {...common,simulation:true},
+  {...common,externalStateVerified:false},
+  {...common,action:'register',sku:input.sku,taskId:'fixture-task',sellerHubDraftVerified:false},
+  {...common,offers:[...common.offers,{offerId:'qa-offer-2',sku:input.sku}]},
+  {...common,offers:[...common.offers,{offerId:offer.offerId,sku:'ELY-900002'}]},
+  {...common,offers:[{...common.offers[0],simulation:true}]}
+ ]){
+  const result=res();await lifecycleBridge({method:'POST',headers:{'x-elyon-bridge-secret':'qa-bridge'},body},result);
+  assert.equal(result.statusCode,409);
+  assert.equal(result.body.persisted,false);
+  assert.equal(f.registry().length,0);
+ }
+ assert.equal(f.calls.length,0);
+});
+test('V4.4.4 Seller lifecycle refuses a different readback offer ID or published listing identity',async t=>{
+ const f=fixture(t,{existing:{offerId:'foreign-offer',listing:{listingId:'foreign-listing'}}});
+ const result=res();
+ await lifecycleBridge({method:'POST',headers:{'x-elyon-bridge-secret':'qa-bridge'},body:{action:'register_inventory',environment:'sandbox',sourceProductId:'qa-company-product',offers:[{offerId:offer.offerId,sku:input.sku}]}},result);
+ assert.equal(result.statusCode,409);assert.equal(f.registry().length,0);
+});
+
+
+test('V4.4.4 Feed lifecycle registration fails closed even with claimed verification',async t=>{
+ const f=fixture(t);
+ const base={action:'register',environment:'sandbox',sourceProductId:'qa-company-product',sku:input.sku,taskId:'fixture-task',draftId:'fixture-draft'};
+ for(const body of [base,{...base,sellerHubDraftVerified:true,externalStateVerified:true},{...base,simulation:true},{...base,sellerHubDraftVerified:false}]){
+  const result=res();await lifecycleBridge({method:'POST',headers:{'x-elyon-bridge-secret':'qa-bridge'},body},result);
+  assert.equal(result.statusCode,409);assert.equal(result.body.persisted,false);
+  assert.equal(f.registry().length,0);
+ }
+ assert.equal(f.calls.length,0);
+});
+
+
+test('V4.4.4 manual Feed removal changes only the exact unpublished historical task',async t=>{
+ const base={environment:'sandbox',visibilityMode:'seller_hub_feed',sourceProductId:'qa-company-product',sku:input.sku,state:'draft'};
+ const f=fixture(t,{registry:[{...base,externalTaskId:'new-task'},{...base,externalTaskId:'old-task'},{...base,externalTaskId:'published-task',state:'published',listingId:'existing-listing'}]});
+ const request={action:'mark_removed',environment:'sandbox',sourceProductId:base.sourceProductId,sku:base.sku,confirmation:'seller_hub_removed',publish:false};
+ for(const body of [request,{...request,taskId:'unknown'},{...request,taskId:'old-task',sourceProductId:'foreign'},{...request,taskId:'published-task'}]){
+  const result=res();await lifecycleBridge({method:'POST',headers:{'x-elyon-bridge-secret':'qa-bridge'},body},result);
+  assert.equal(result.statusCode,409);
+  assert.equal(f.registry().filter(r=>r.state==='removed').length,0);
+ }
+ const result=res();await lifecycleBridge({method:'POST',headers:{'x-elyon-bridge-secret':'qa-bridge'},body:{...request,taskId:'old-task'}},result);
+ assert.equal(result.statusCode,200);
+ assert.equal(f.registry().find(r=>r.externalTaskId==='old-task').state,'removed');
+ assert.equal(f.registry().find(r=>r.externalTaskId==='new-task').state,'draft');
+ assert.equal(f.registry().find(r=>r.externalTaskId==='published-task').state,'published');
+ assert.equal(f.writes().length,0);
+});
+
+
+test('V4.4.4 canonical Seller registry endpoint remains locked without touching any provider or registry',async t=>{
+ const f=fixture(t),result=res();
+ await lifecycleBridge({method:'POST',headers:{'x-elyon-bridge-secret':'qa-bridge'},body:{action:'register_canonical_inventory',environment:'production',accountId:'a'.repeat(64),sourceProductId:'qa-company-product',offers:[{offerId:offer.offerId,sku:input.sku}],simulation:false,externalStateVerified:true,published:false}},result);
+ assert.equal(result.statusCode,409);assert.equal(result.body.error,'canonical_production_registry_release_blocked');assert.equal(result.body.persisted,false);assert.equal(f.calls.length,0);assert.deepEqual(f.registry(),[]);
 });

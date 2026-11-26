@@ -1,8 +1,9 @@
+import {registerCanonicalProductionInventory} from '../../../lib/ebay-canonical-account.js';
 import { requireBridgeAccess } from "../../../lib/bridge-access.js";
 import {
   getElyonDraftRegistryRecords,
+  findExactCompanyFeedRecord,
   markElyonDraftState,
-  registerElyonExternalDraftIdentity,
   registerElyonInventoryDrafts,
 } from "../../../lib/ebay-draft-registry.js";
 import { callEbayJson, ebayApiRoot, ebayUserSession } from "../../../lib/ebay-production.js";
@@ -22,6 +23,8 @@ function identity(body = {}) {
     sku: text(body.sku, 120),
     listingId: text(body.listingId, 120),
     sourceProductId: text(body.sourceProductId || body.importId, 180),
+    externalTaskId: text(body.taskId, 220),
+    externalDraftId: text(body.draftId, 180),
   };
 }
 
@@ -75,12 +78,13 @@ export default async function handler(req, res) {
     return res.status(200).json({
       ok: true,
       route: "/api/integrations/company-os/ebay-lifecycle",
-      actions: ["register", "register_inventory", "status", "mark_removed"],
+      actions: ["register", "register_inventory", "register_canonical_inventory", "status", "mark_removed"],
       matching: ["offerId", "listingId", "sku", "sourceProductId"],
       safety: {
         productHardDelete: false,
         missingConfirmations: 2,
         sellerHubFeedDraftDeletion: "manual_confirmation_required",
+        sellerHubFeedRegistration: "blocked_pending_verified_evidence",
       },
     });
   }
@@ -95,12 +99,27 @@ export default async function handler(req, res) {
   const candidate = identity(body);
 
   try {
+    // No offline/simulation report can become a real Seller registry entry.
+    // Historical management routes retain their separate existing contracts.
+    if (["register_inventory","register"].includes(action) &&
+      (body.simulation===true||body.externalStateVerified===false||body.sellerHubDraftVerified===false&&action==="register"||body.published===true||body.publish===true||body.executionAuthorized===true)) {
+      return res.status(409).json({ok:false,error:"lifecycle_simulation_or_unverified_identity",persisted:false});
+    }
+    if (action === "register_canonical_inventory") {
+      const result=await registerCanonicalProductionInventory(body);
+      return res.status(200).json({ok:true,action,...result});
+    }
     if (action === "register_inventory") {
       const offers = Array.isArray(body.offers) ? body.offers : [];
       if (!offers.length || offers.length > 100 || offers.some(offer => !text(offer?.offerId) || !text(offer?.sku))) {
         return res.status(400).json({ ok: false, error: "inventory_draft_identity_invalid" });
       }
-      const unique = [...new Map(offers.map(offer => [text(offer.offerId, 120), offer])).values()];
+      const unique = offers;
+      if (new Set(unique.map(offer=>text(offer.offerId,120))).size!==unique.length||
+          new Set(unique.map(offer=>text(offer.sku,120).toUpperCase())).size!==unique.length||
+          unique.some(offer=>offer.simulation===true||offer.externalStateVerified===false)) {
+        return res.status(409).json({ok:false,error:"inventory_draft_identity_conflict",persisted:false});
+      }
       const session = await ebayUserSession(environment);
       const verified = [];
       // Bounded read-only verification; persist the batch only when all offers match.
@@ -109,7 +128,7 @@ export default async function handler(req, res) {
           const data = await callEbayJson(`${ebayApiRoot(session.environment)}/sell/inventory/v1/offer/${encodeURIComponent(text(offer.offerId, 120))}`, {
             headers: { Authorization: `Bearer ${session.accessToken}` },
           });
-          if (data.sku !== text(offer.sku, 120) || data.status !== "UNPUBLISHED" || data.marketplaceId !== "EBAY_DE") {
+          if (data.offerId !== text(offer.offerId,120) || data.sku !== text(offer.sku, 120) || data.status !== "UNPUBLISHED" || data.marketplaceId !== "EBAY_DE" || data.listing?.listingId || data.listingId) {
             const error = new Error("eBay hat die unveröffentlichte Entwurfsidentität nicht bestätigt.");
             error.status = 409;
             throw error;
@@ -123,23 +142,13 @@ export default async function handler(req, res) {
     }
 
     if (action === "register") {
-      const result = await registerElyonExternalDraftIdentity({
-        environment,
-        sku: candidate.sku,
-        sourceProductId: candidate.sourceProductId,
-        externalDraftId: text(body.draftId, 180),
-        externalTaskId: text(body.taskId, 220),
-        source: "company_os_seller_hub_feed",
-      });
-      if (!result.record) {
-        return res.status(409).json({ ok: false, error: result.reason || "stable_identity_missing", message: "Für den Seller-Hub-Entwurf fehlt eine stabile Produkt-ID oder SKU." });
-      }
-      return res.status(200).json({
-        ok: true,
-        action,
-        lifecycle: publicRecord(result.record),
-        storage: result.storage,
-        message: "Company-OS-Seller-Hub-Entwurf wurde für den Lifecycle-Abgleich registriert.",
+      // The Feed task result does not establish Seller Hub draft visibility.
+      // The bridge secret and caller-supplied booleans are not independent
+      // provider evidence. Preserve status/removal for existing records, but
+      // never create a new Feed registry identity through this legacy route.
+      return res.status(409).json({
+        ok: false, error: "seller_hub_feed_registration_requires_verified_evidence",
+        persisted: false, manualReviewRequired: true,
       });
     }
 
@@ -155,9 +164,10 @@ export default async function handler(req, res) {
         environment,
         ...candidate,
         state: "removed",
+        requireExactCompanyFeed: true,
       });
-      if (!result.record) {
-        return res.status(404).json({ ok: false, error: result.reason || "lifecycle_identity_not_found", message: "Der registrierte eBay-Lifecycle-Datensatz wurde nicht gefunden." });
+      if (!result.record || result.persisted !== true) {
+        return res.status(result.record ? 503 : 409).json({ ok: false, error: result.reason || "lifecycle_identity_not_found", message: "Der registrierte eBay-Lifecycle-Datensatz wurde nicht gefunden." });
       }
       return res.status(200).json({
         ok: true,
@@ -173,7 +183,7 @@ export default async function handler(req, res) {
       // Any snapshot failure aborts instead of turning an outage into a deletion.
       const sellerState = await fetchSellerState(environment);
       const records = await getElyonDraftRegistryRecords(environment);
-      const record = findRecord(records, candidate);
+      const record = candidate.externalTaskId ? findExactCompanyFeedRecord(records, {...candidate, environment}) : findRecord(records, candidate);
       return res.status(200).json({
         ok: true,
         action,
@@ -193,6 +203,7 @@ export default async function handler(req, res) {
     return res.status(Number(error?.status || 500)).json({
       ok: false,
       error: error?.code || "company_os_ebay_lifecycle_failed",
+      ...(action==="register_canonical_inventory"?{persisted:false}:{}),
       message: text(error?.message || "eBay-Lifecycle konnte nicht synchronisiert werden."),
     });
   }
