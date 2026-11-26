@@ -2,7 +2,6 @@ import { requireBridgeAccess } from "../../../lib/bridge-access.js";
 import {
   getElyonDraftRegistryRecords,
   markElyonDraftState,
-  registerElyonExternalDraftIdentity,
   registerElyonInventoryDrafts,
 } from "../../../lib/ebay-draft-registry.js";
 import { callEbayJson, ebayApiRoot, ebayUserSession } from "../../../lib/ebay-production.js";
@@ -81,6 +80,7 @@ export default async function handler(req, res) {
         productHardDelete: false,
         missingConfirmations: 2,
         sellerHubFeedDraftDeletion: "manual_confirmation_required",
+        sellerHubFeedRegistration: "blocked_pending_verified_evidence",
       },
     });
   }
@@ -134,23 +134,13 @@ export default async function handler(req, res) {
     }
 
     if (action === "register") {
-      const result = await registerElyonExternalDraftIdentity({
-        environment,
-        sku: candidate.sku,
-        sourceProductId: candidate.sourceProductId,
-        externalDraftId: text(body.draftId, 180),
-        externalTaskId: text(body.taskId, 220),
-        source: "company_os_seller_hub_feed",
-      });
-      if (!result.record) {
-        return res.status(409).json({ ok: false, error: result.reason || "stable_identity_missing", message: "Für den Seller-Hub-Entwurf fehlt eine stabile Produkt-ID oder SKU." });
-      }
-      return res.status(200).json({
-        ok: true,
-        action,
-        lifecycle: publicRecord(result.record),
-        storage: result.storage,
-        message: "Company-OS-Seller-Hub-Entwurf wurde für den Lifecycle-Abgleich registriert.",
+      // The Feed task result does not establish Seller Hub draft visibility.
+      // The bridge secret and caller-supplied booleans are not independent
+      // provider evidence. Preserve status/removal for existing records, but
+      // never create a new Feed registry identity through this legacy route.
+      return res.status(409).json({
+        ok: false, error: "seller_hub_feed_registration_requires_verified_evidence",
+        persisted: false, manualReviewRequired: true,
       });
     }
 
