@@ -271,3 +271,10 @@ test('V4.4.4 manual Feed removal changes only the exact unpublished historical t
  assert.equal(f.registry().find(r=>r.externalTaskId==='published-task').state,'published');
  assert.equal(f.writes().length,0);
 });
+
+
+test('V4.4.4 canonical Seller registry endpoint remains locked without touching any provider or registry',async t=>{
+ const f=fixture(t),result=res();
+ await lifecycleBridge({method:'POST',headers:{'x-elyon-bridge-secret':'qa-bridge'},body:{action:'register_canonical_inventory',environment:'production',accountId:'a'.repeat(64),sourceProductId:'qa-company-product',offers:[{offerId:offer.offerId,sku:input.sku}],simulation:false,externalStateVerified:true,published:false}},result);
+ assert.equal(result.statusCode,409);assert.equal(result.body.error,'canonical_production_registry_release_blocked');assert.equal(result.body.persisted,false);assert.equal(f.calls.length,0);assert.deepEqual(f.registry(),[]);
+});
