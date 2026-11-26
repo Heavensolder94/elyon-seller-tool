@@ -334,6 +334,11 @@ async function readApprovalReview(button){
   if(!res.ok)throw Error('Freigabestatus nicht verfügbar.');
   const data=await res.json(),flags=['executionAuthorized','publishAuthorized','automaticApprovalAllowed','liveEnabled'];
   if(data.schemaVersion!=='elyon-seller-approval-review-v4.4.1'||data.productId!==id||flags.some(k=>data[k]!==false||data.summary?.[k]!==false)||!['BLOCKED','UNKNOWN'].includes(data.summary?.status)||data.summary?.approvalId!==null||typeof data.displayText!=='string'||data.displayText.length>5000)throw Error('Ungültiger Freigabevertrag.');
+  const recovery=data.summary?.recoveryPreparation;
+  if(recovery&&(recovery.schemaVersion!=='elyon-recovery-review-v4.4.2'||recovery.productId!==id||recovery.canonicalJournalAvailable!==false||!['BLOCKED','RECONCILIATION_REQUIRED','MANUAL_REVIEW_REQUIRED'].includes(recovery.status)||['executionAuthorized','publishAuthorized','automaticRetryAllowed','reservationReleaseAllowed','externalStateVerified','sellerHubDraftVerified'].some(k=>recovery[k]!==false)))throw Error('Ungültiger Recovery-Vertrag.');
+  const feed=recovery?.feedRecovery;
+  if(feed&&(feed.schemaVersion!=='elyon-feed-recovery-review-v4.4.2'||feed.canonicalJournalAvailable!==false||!['MANUAL_REVIEW_REQUIRED','UNKNOWN'].includes(feed.status)||['executionAuthorized','publishAuthorized','automaticRetryAllowed','reservationReleaseAllowed','externalStateVerified','sellerHubDraftVerified'].some(k=>feed[k]!==false)))throw Error('Ungültiger Recovery-Vertrag.');
+
   if(stillCurrent())host.textContent=data.displayText+' Nur Lesestatus – keine Übertragung.';
  }catch(error){if(stillCurrent())host.textContent=error.message+' Keine Übertragung.';}
  finally{if(stillCurrent())button.disabled=false;}
