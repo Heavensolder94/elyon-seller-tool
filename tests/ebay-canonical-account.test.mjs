@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {parseCanonicalEbayAccountIdentity,createCanonicalInventoryRegistration,createCanonicalAccountPreflight,canonicalRegistrationReleased} from '../lib/ebay-canonical-account.js';
-import {registerCanonicalInventoryIdentity} from '../lib/ebay-draft-registry.js';
+import {parseCanonicalEbayAccountIdentity,createCanonicalInventoryRegistration,createCanonicalVariantRegistration,createCanonicalAccountPreflight,canonicalRegistrationReleased} from '../lib/ebay-canonical-account.js';
+import {registerCanonicalInventoryIdentity,registerCanonicalVariantInventoryGroup} from '../lib/ebay-draft-registry.js';
 import {refreshEbayAccessToken,CANONICAL_ACCOUNT_SCOPES} from '../lib/ebay-production.js';
 const xml='<GetUserResponse><Ack>Success</Ack><User><EIASToken>fixture-account-identifier</EIASToken></User></GetUserResponse>';
 const accountId=parseCanonicalEbayAccountIdentity(xml),sku='ELY-000123',offerId='fixture-offer';
@@ -72,4 +72,30 @@ test('canonical account refresh requests explicit minimal scopes, supports omitt
 test('missing bound token remains blocked without network, no fallback',async()=>{
  const observe=createCanonicalAccountPreflight({readToken:async()=>null,refreshToken:async()=>assert.fail('no token refresh'),fetchImpl:async()=>assert.fail('no provider call')});
  await assert.rejects(observe(accountId),{code:'canonical_registry_environment_token_missing'});
+});
+
+const parentSku='ELY-000123',groupKey='ELY-GROUP-FIXTURE-01',offers=[{offerId:'o1',sku:parentSku+'-0000000001'},{offerId:'o2',sku:parentSku+'-0000000002'}];
+const variantRequest={...request,action:'register_canonical_variant_inventory',parentSku,groupKey,offers};
+test('variant registration independently verifies the exact group and all unpublished offers before any persistence',async()=>{
+ let writes=0,badGroup=false,badOffer=false,reads=0;
+ const register=createCanonicalVariantRegistration({readToken:async()=>({environment:'production',refresh_token:'fixture'}),refreshToken:async()=>({access_token:'fixture-access',scope:CANONICAL_ACCOUNT_SCOPES.join(' ')}),fetchImpl:async(url,opts)=>{
+  reads++;if(url.endsWith('/ws/api.dll'))return new Response(xml);
+  assert.equal(opts.method,'GET');assert.equal(opts.headers.Authorization,'Bearer fixture-access');
+  if(url.includes('/inventory_item_group/'))return Response.json({inventoryItemGroupKey:groupKey,variantSKUs:badGroup?[offers[0].sku]:offers.map(o=>o.sku)});
+  const o=offers.find(o=>url.endsWith('/'+o.offerId));return Response.json({...o,marketplaceId:'EBAY_DE',status:badOffer&&o.offerId==='o2'?'PUBLISHED':'UNPUBLISHED'});
+ },persist:async x=>{writes++;assert.deepEqual(x.offers,offers);return {persisted:true,count:2,accountVerified:true,accountId,parentSku,groupKey};}});
+ assert.equal((await register(variantRequest)).count,2);assert.equal(writes,1);
+ badGroup=true;await assert.rejects(register(variantRequest),{code:'canonical_registry_group_unverified'});badGroup=false;
+ badOffer=true;await assert.rejects(register(variantRequest),{code:'canonical_registry_offer_unverified'});
+ const before=reads;await assert.rejects(register({...variantRequest,offers:[offers[0],offers[0]]}),{code:'canonical_registry_variant_identity_unverified'});assert.equal(reads,before);assert.equal(writes,1);
+});
+test('variant registry persists all children in one CAS and rejects partial or competing group ownership',async()=>{
+ let raw=null,writes=0;
+ const options={env:{UPSTASH_BACKUP_URL:'https://redis.fixture.invalid',UPSTASH_BACKUP_TOKEN:'fixture'},fetchImpl:async(_url,init)=>{const a=JSON.parse(init.body);if(a[0]==='GET')return Response.json({result:raw});assert.equal(a[0],'EVAL');writes++;raw=a[6];return Response.json({result:1});}};
+ const x={offers,parentSku,groupKey,accountId,environment:'production',sourceProductId:'fixture-product'};
+ assert.equal((await registerCanonicalVariantInventoryGroup(x,options)).count,2);assert.equal(writes,1);
+ const rows=JSON.parse(raw);assert.equal(rows.length,2);assert.ok(rows.every(v=>v.groupKey===groupKey&&v.parentSku===parentSku));
+ await registerCanonicalVariantInventoryGroup(x,options);assert.deepEqual(JSON.parse(raw),rows);
+ for(const patch of [{accountId:'b'.repeat(64)},{groupKey:'ELY-GROUP-WRONG'},{offers:[offers[0],{offerId:'o3',sku:parentSku+'-0000000003'}]}])await assert.rejects(registerCanonicalVariantInventoryGroup({...x,...patch},options),{code:'canonical_registry_variant_identity_conflict'});
+ assert.deepEqual(JSON.parse(raw),rows);
 });
