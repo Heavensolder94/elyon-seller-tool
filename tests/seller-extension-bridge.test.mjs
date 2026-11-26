@@ -188,3 +188,41 @@ test("Amazon draft compatibility cannot publish or use non-Amazon identities", a
     }
   }
 });
+
+test("valid Amazon draft reaches Company OS and stops before eBay if the canonical CSV is unavailable", async () => {
+  const names = ["ELYON_SELLER_ACCESS_TOKEN", "ELYON_COMPANY_OS_SYNC_CODE", "ELYON_COMPANY_OS_URL"];
+  const previous = Object.fromEntries(names.map(name => [name, process.env[name]]));
+  const oldFetch = globalThis.fetch;
+  const calls = [];
+  try {
+    const session = signedSellerSession();
+    process.env.ELYON_COMPANY_OS_SYNC_CODE = "test-server-only-sync";
+    process.env.ELYON_COMPANY_OS_URL = "https://company-os.example.test";
+    globalThis.fetch = async (url, init) => {
+      calls.push({ url: String(url), body: JSON.parse(init.body) });
+      return { ok: false, status: 409, json: async () => ({
+        error: "ebay_official_draft_template_missing", message: "Vorlage fehlt",
+      }) };
+    };
+    const res = responseMock();
+    await extensionActionHandler({
+      method: "POST", headers: { "x-elyon-seller-session": session },
+      body: { action: "create-draft", payload: {
+        sku: "AMZ-B0BWND9WBR", conditionEnum: "NEW", title: "Test", price: 10,
+      } },
+    }, res);
+    assert.equal(res.statusCode, 409);
+    assert.equal(res.body.error, "ebay_official_draft_template_missing");
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].url, "https://company-os.example.test/api/auto-lister-seller-hub");
+    assert.equal(calls[0].body.action, "build_external_csv");
+    assert.equal(calls[0].body.confirmation, "draft_only");
+    assert.equal(calls[0].body.publish, false);
+  } finally {
+    globalThis.fetch = oldFetch;
+    for (const name of names) {
+      if (previous[name] === undefined) delete process.env[name];
+      else process.env[name] = previous[name];
+    }
+  }
+});
