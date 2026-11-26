@@ -95,12 +95,23 @@ export default async function handler(req, res) {
   const candidate = identity(body);
 
   try {
+    // No offline/simulation report can become a real Seller registry entry.
+    // Historical management routes retain their separate existing contracts.
+    if (["register_inventory","register"].includes(action) &&
+      (body.simulation===true||body.externalStateVerified===false||body.sellerHubDraftVerified===false&&action==="register"||body.published===true||body.publish===true||body.executionAuthorized===true)) {
+      return res.status(409).json({ok:false,error:"lifecycle_simulation_or_unverified_identity",persisted:false});
+    }
     if (action === "register_inventory") {
       const offers = Array.isArray(body.offers) ? body.offers : [];
       if (!offers.length || offers.length > 100 || offers.some(offer => !text(offer?.offerId) || !text(offer?.sku))) {
         return res.status(400).json({ ok: false, error: "inventory_draft_identity_invalid" });
       }
-      const unique = [...new Map(offers.map(offer => [text(offer.offerId, 120), offer])).values()];
+      const unique = offers;
+      if (new Set(unique.map(offer=>text(offer.offerId,120))).size!==unique.length||
+          new Set(unique.map(offer=>text(offer.sku,120).toUpperCase())).size!==unique.length||
+          unique.some(offer=>offer.simulation===true||offer.externalStateVerified===false)) {
+        return res.status(409).json({ok:false,error:"inventory_draft_identity_conflict",persisted:false});
+      }
       const session = await ebayUserSession(environment);
       const verified = [];
       // Bounded read-only verification; persist the batch only when all offers match.
@@ -109,7 +120,7 @@ export default async function handler(req, res) {
           const data = await callEbayJson(`${ebayApiRoot(session.environment)}/sell/inventory/v1/offer/${encodeURIComponent(text(offer.offerId, 120))}`, {
             headers: { Authorization: `Bearer ${session.accessToken}` },
           });
-          if (data.sku !== text(offer.sku, 120) || data.status !== "UNPUBLISHED" || data.marketplaceId !== "EBAY_DE") {
+          if (data.offerId !== text(offer.offerId,120) || data.sku !== text(offer.sku, 120) || data.status !== "UNPUBLISHED" || data.marketplaceId !== "EBAY_DE" || data.listing?.listingId || data.listingId) {
             const error = new Error("eBay hat die unveröffentlichte Entwurfsidentität nicht bestätigt.");
             error.status = 409;
             throw error;

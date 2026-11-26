@@ -216,3 +216,28 @@ test('V4.4.1 deployed publication is a distinct blocked action, including offer 
  assert.equal(result.statusCode,409);assert.equal(result.body.error,'v441_publication_activation_blocked');
  assert.equal(f.writes().length,0);assert.equal(f.calls.length,0);
 });
+
+test('V4.4.4 Seller lifecycle refuses simulated identities and duplicate SKU/offer pairs before any external call',async t=>{
+ const f=fixture(t);
+ const common={action:'register_inventory',environment:'sandbox',sourceProductId:'qa-company-product',offers:[{offerId:offer.offerId,sku:input.sku}]};
+ for(const body of [
+  {...common,simulation:true},
+  {...common,externalStateVerified:false},
+  {...common,action:'register',sku:input.sku,taskId:'fixture-task',sellerHubDraftVerified:false},
+  {...common,offers:[...common.offers,{offerId:'qa-offer-2',sku:input.sku}]},
+  {...common,offers:[...common.offers,{offerId:offer.offerId,sku:'ELY-900002'}]},
+  {...common,offers:[{...common.offers[0],simulation:true}]}
+ ]){
+  const result=res();await lifecycleBridge({method:'POST',headers:{'x-elyon-bridge-secret':'qa-bridge'},body},result);
+  assert.equal(result.statusCode,409);
+  assert.equal(result.body.persisted,false);
+  assert.equal(f.registry().length,0);
+ }
+ assert.equal(f.calls.length,0);
+});
+test('V4.4.4 Seller lifecycle refuses a different readback offer ID or published listing identity',async t=>{
+ const f=fixture(t,{existing:{offerId:'foreign-offer',listing:{listingId:'foreign-listing'}}});
+ const result=res();
+ await lifecycleBridge({method:'POST',headers:{'x-elyon-bridge-secret':'qa-bridge'},body:{action:'register_inventory',environment:'sandbox',sourceProductId:'qa-company-product',offers:[{offerId:offer.offerId,sku:input.sku}]}},result);
+ assert.equal(result.statusCode,409);assert.equal(f.registry().length,0);
+});
