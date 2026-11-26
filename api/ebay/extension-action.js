@@ -1,4 +1,4 @@
-import {assertSellerDraftTransportActivated} from '../../lib/ebay-draft-approval-boundary.js';
+import { requireSellerAccess } from '../../lib/seller-access.js';
 import ebayHandler from "./index.js";
 import sellerListingAiHandler from "../seller-listing-ai.js";
 import { applyExtensionSellerSession } from "../../lib/seller-extension-bridge.js";
@@ -146,7 +146,17 @@ export default async function handler(req, res) {
 
   try {
     if (action === "create-draft" || action === "draft") {
-      assertSellerDraftTransportActivated();
+      // Amazon-only compatibility: this existing external FX_DRAFT path is
+      // distinct from the canonical Product Master Inventory approval flow.
+      // Verify the actual seller session, not merely the header format.
+      if (!requireSellerAccess(req, res)) return;
+      if (payload.publish === true || payload.published === true) {
+        return res.status(403).json({ ok: false, error: "amazon_draft_only_required",
+          message: "Der Amazon Importer darf ausschließlich unveröffentlichte Entwürfe erstellen." });
+      }
+      // createSellerHubDraft must obtain the official Company OS Draft CSV,
+      // validate its AMZ SKU, action, feed type and SHA-256 before any eBay task.
+      // No Inventory, FX_LISTING or publication fallback.
       const task = await createSellerHubDraft(payload, payload.environment);
       // The Feed task has only been queued. Never count this as a finished eBay draft.
       try {
