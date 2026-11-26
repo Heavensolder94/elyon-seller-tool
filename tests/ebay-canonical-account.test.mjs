@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {parseCanonicalEbayAccountIdentity,createCanonicalInventoryRegistration} from '../lib/ebay-canonical-account.js';
+import {parseCanonicalEbayAccountIdentity,createCanonicalInventoryRegistration,createCanonicalAccountPreflight,canonicalRegistrationReleased} from '../lib/ebay-canonical-account.js';
 import {registerCanonicalInventoryIdentity} from '../lib/ebay-draft-registry.js';
 const xml='<GetUserResponse><Ack>Success</Ack><User><EIASToken>fixture-account-identifier</EIASToken></User></GetUserResponse>';
 const accountId=parseCanonicalEbayAccountIdentity(xml),sku='ELY-000123',offerId='fixture-offer';
@@ -38,4 +38,18 @@ test('canonical registry CAS preserves unrelated rows and rejects competing SKU,
  conflict=true;await assert.rejects(registerCanonicalInventoryIdentity(input,options),{code:'registry_concurrent_change'});assert.equal(raw,first);
  conflict=false;lost=true;await assert.rejects(registerCanonicalInventoryIdentity({...input,offerId:'second',sku:'ELY-000124',sourceProductId:'second-product'},options),{code:'registry_persistence_unconfirmed'});
  assert.equal(raw,first);
+});
+
+test('V4.5 release requires explicit server configuration and production environment',()=>{
+ assert.equal(canonicalRegistrationReleased({VERCEL_ENV:'production',EBAY_ENV:'production'}),false);
+ assert.equal(canonicalRegistrationReleased({VERCEL_ENV:'preview',EBAY_ENV:'production',ELYON_CANONICAL_DRAFT_V45:'1'}),false);
+ assert.equal(canonicalRegistrationReleased({VERCEL_ENV:'production',EBAY_ENV:'sandbox',ELYON_CANONICAL_DRAFT_V45:'1'}),false);
+ assert.equal(canonicalRegistrationReleased({VERCEL_ENV:'production',EBAY_ENV:'production',ELYON_CANONICAL_DRAFT_V45:'1'}),true);
+});
+test('V4.5 account preflight only observes the exact account, no inventory or registry writes',async()=>{
+ const requests=[];
+ const preflight=createCanonicalAccountPreflight({readToken:async()=>({environment:'production',refresh_token:'fixture'}),refreshToken:async()=>({access_token:'fixture-access',scope:'https://api.ebay.com/oauth/api_scope/sell.inventory'}),fetchImpl:async(url,opts)=>{requests.push(url);assert.ok(url.endsWith('/ws/api.dll'));assert.equal(opts.headers['X-EBAY-API-CALL-NAME'],'GetUser');return new Response(xml);}});
+ assert.deepEqual(await preflight(accountId),{accountVerified:true,accountId,registrationReleased:true,published:false});
+ await assert.rejects(preflight('a'.repeat(64)),{code:'canonical_registry_account_unverified'});
+ assert.equal(requests.length,2);
 });

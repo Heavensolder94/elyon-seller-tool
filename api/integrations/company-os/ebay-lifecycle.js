@@ -1,4 +1,4 @@
-import {registerCanonicalProductionInventory} from '../../../lib/ebay-canonical-account.js';
+import {registerCanonicalProductionInventory,inspectCanonicalProductionRegistration} from '../../../lib/ebay-canonical-account.js';
 import { requireBridgeAccess } from "../../../lib/bridge-access.js";
 import {
   getElyonDraftRegistryRecords,
@@ -78,7 +78,7 @@ export default async function handler(req, res) {
     return res.status(200).json({
       ok: true,
       route: "/api/integrations/company-os/ebay-lifecycle",
-      actions: ["register", "register_inventory", "register_canonical_inventory", "status", "mark_removed"],
+      actions: ["register", "register_inventory", "register_canonical_inventory", "canonical_registration_preflight", "status", "mark_removed"],
       matching: ["offerId", "listingId", "sku", "sourceProductId"],
       safety: {
         productHardDelete: false,
@@ -104,6 +104,10 @@ export default async function handler(req, res) {
     if (["register_inventory","register"].includes(action) &&
       (body.simulation===true||body.externalStateVerified===false||body.sellerHubDraftVerified===false&&action==="register"||body.published===true||body.publish===true||body.executionAuthorized===true)) {
       return res.status(409).json({ok:false,error:"lifecycle_simulation_or_unverified_identity",persisted:false});
+    }
+    if (action === "canonical_registration_preflight") {
+      const result=await inspectCanonicalProductionRegistration(body);
+      return res.status(200).json({ok:true,action,...result});
     }
     if (action === "register_canonical_inventory") {
       const result=await registerCanonicalProductionInventory(body);
