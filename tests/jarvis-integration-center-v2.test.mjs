@@ -145,6 +145,8 @@ test("read-only system status reports providers, memory and E5 without expanding
     nowMs,
     env: {
       OPENROUTER_API_KEY: "configured",
+      UPSTASH_REDIS_REST_URL: "https://redis.mock",
+      UPSTASH_REDIS_REST_TOKEN: "configured",
       DEEPSEEK_API_KEY: "configured",
       OPENAI_API_KEY: "configured",
       SUPABASE_URL: "https://example.supabase.co",
@@ -166,6 +168,77 @@ test("read-only system status reports providers, memory and E5 without expanding
   assert.equal(status.safety.livePublishingAllowed, false);
   assert.equal(status.safety.supplierOrdersAllowed, false);
   assert.equal(status.safety.refundsAllowed, false);
+});
+
+const healthNow = Date.parse("2026-08-15T00:00:00.000Z");
+const healthEnv = {
+  OPENROUTER_API_KEY: "configured",
+  UPSTASH_REDIS_REST_URL: "https://redis.mock",
+  UPSTASH_REDIS_REST_TOKEN: "configured",
+  SUPABASE_URL: "https://example.supabase.co",
+  SUPABASE_SERVICE_ROLE_KEY: "configured",
+};
+const healthFixture = {
+  nowMs: healthNow, env: healthEnv,
+  telemetryReader: async () => [],
+  pipelineReader: async () => ({ pipeline: { enabled: true }, control: { mode: "assisted" }, permissions: {} }),
+  supabaseRequest: async () => [],
+};
+
+test("read-only status does not mark an untested brain as healthy", async () => {
+  const status = await buildJarvisSystemStatus(healthFixture);
+  assert.equal(status.status, "unverified");
+  assert.equal(status.redis.online, true);
+  assert.equal(status.memory.taskStore.online, true);
+  assert.equal(status.memory.agentRunStore.online, true);
+  assert.equal(status.providers[0].status, "configured");
+});
+
+test("read-only status identifies partial Supabase failures without leaking exception messages", async () => {
+  const status = await buildJarvisSystemStatus({
+    ...healthFixture,
+    supabaseRequest: async path => {
+      if (path.includes("jarvis_tasks?")) throw Error("secret-example-token");
+      if (path.includes("jarvis_agent_runs?")) return { error: "invalid" };
+      return [];
+    },
+  });
+  assert.equal(status.status, "degraded");
+  assert.equal(status.memory.longTermMemory.online, true);
+  assert.equal(status.memory.online, false);
+  assert.equal(status.memory.taskStore.online, false);
+  assert.equal(status.memory.agentRunStore.online, false);
+  assert.deepEqual(status.memory.errors, [
+    { store: "taskStore", code: "supabase_read_failed" },
+    { store: "agentRunStore", code: "supabase_invalid_response" },
+  ]);
+  assert.doesNotMatch(JSON.stringify(status), /secret-example-token/);
+});
+
+test("missing Redis cannot appear online because readers returned default values", async () => {
+  const status = await buildJarvisSystemStatus({
+    ...healthFixture, env: { ...healthEnv, UPSTASH_REDIS_REST_URL: "", UPSTASH_REDIS_REST_TOKEN: "" },
+  });
+  assert.equal(status.status, "degraded");
+  assert.equal(status.redis.configured, false);
+  assert.equal(status.redis.online, false);
+  assert.equal(status.brain.telemetryAvailable, false);
+  assert.equal(status.e5.online, false);
+});
+
+test("unknown run cost remains unknown and stale provider activity is not live evidence", async () => {
+  const status = await buildJarvisSystemStatus({
+    ...healthFixture,
+    telemetryReader: async () => [sanitizeTelemetryEvent({
+      at: "2026-08-12T00:00:00.000Z", ok: true, provider: "openrouter",
+      attempts: [{ provider: "openrouter", ok: true }], usage: { cost: null },
+    })],
+    supabaseRequest: async path => path.includes("jarvis_agent_runs?") ? [{ id: "r1", cost: null }] : [],
+  });
+  assert.equal(status.status, "unverified");
+  assert.equal(status.providers[0].status, "configured");
+  assert.equal(status.memory.recentAgentRuns[0].cost, null);
+  assert.equal(status.memory.agentUsage24h.cost, null);
 });
 
 test("Integration Center V2 is protected, GET-only, event-driven and has no polling", async () => {

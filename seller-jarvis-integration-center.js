@@ -90,6 +90,7 @@
       degraded: "DEGRADED",
       configured: "KONFIGURIERT",
       configured_not_tested: "NICHT GEPRÜFT",
+      unverified: "NICHT BESTÄTIGT",
       missing_config: "NICHT KONFIGURIERT",
       invalid_config: "KONFIGURATION UNGÜLTIG",
       connected: "VERBINDUNG GEPRÜFT",
@@ -221,22 +222,27 @@
     const lastRun = system.brain?.lastRun;
     const memory = system.memory || {};
     const e5 = system.e5 || {};
-    const brainStatus = lastRun ? (lastRun.ok ? "online" : "degraded") : (system.brain?.configured ? "configured" : "not_configured");
+    const ageMs = Date.parse(system.checkedAt || "") - Date.parse(lastRun?.at || "");
+    const recentRun = Number.isFinite(ageMs) && ageMs >= -60000 && ageMs <= 86400000;
+    const brainStatus = !system.brain?.telemetryAvailable ? "unverified" : recentRun ? (lastRun.ok ? "online" : "degraded") : (system.brain?.configured ? "unverified" : "not_configured");
     const brainValue = lastRun?.provider ? `${providerName(lastRun.provider)}${lastRun.model ? ` · ${lastRun.model}` : ""}` : "Fallback-Kette bereit";
-    const memoryValue = memory.online ? "Supabase verbunden" : (memory.configured ? "Teilweise erreichbar" : "Nicht konfiguriert");
+    const memoryValue = memory.online ? "Supabase verbunden" : (memory.configured ? "Leseprüfung unvollständig" : "Nicht konfiguriert");
+    const redis = system.redis || {};
+    const metricValue = value => system.brain?.telemetryAvailable ? formatNumber(value) : "—";
     const e5Status = e5.online ? (e5.pipelineEnabled ? e5.mode : "paused") : "offline";
     const e5Value = e5.online ? `${e5.pipelineEnabled ? "Pipeline aktiv" : "Pipeline aus"} · ${text(e5.mode).toUpperCase()}` : "Nicht erreichbar";
 
     return `${state.systemError ? `<div class="jic-error">${escapeHtml(state.systemError)}</div>` : ""}
       <section class="jic-metrics">
-        <div class="jic-metric"><small>Brain Requests · 24h</small><strong>${formatNumber(metrics.requests)}</strong></div>
-        <div class="jic-metric"><small>Fallbacks · 24h</small><strong>${formatNumber(metrics.fallbacks)}</strong></div>
-        <div class="jic-metric"><small>Rate Limits · 24h</small><strong>${formatNumber(metrics.rateLimits)}</strong></div>
-        <div class="jic-metric"><small>Brain Tokens · 24h</small><strong>${formatNumber(metrics.totalTokens)}</strong></div>
+        <div class="jic-metric"><small>Brain Requests · 24h</small><strong>${metricValue(metrics.requests)}</strong></div>
+        <div class="jic-metric"><small>Fallbacks · 24h</small><strong>${metricValue(metrics.fallbacks)}</strong></div>
+        <div class="jic-metric"><small>Rate Limits · 24h</small><strong>${metricValue(metrics.rateLimits)}</strong></div>
+        <div class="jic-metric"><small>Brain Tokens · 24h</small><strong>${metricValue(metrics.totalTokens)}</strong></div>
       </section>
       <section class="jic-health-grid">
         ${renderHealthCard("Brain", brainStatus, brainValue, lastRun ? `Letzter Lauf ${formatDate(lastRun.at)} · ${lastRun.durationMs || 0} ms` : "Noch kein Brain-Lauf in der neuen Telemetrie.")}
-        ${renderHealthCard("Memory", memory.online ? "online" : "degraded", memoryValue, `Long-Term: ${memory.longTermMemory?.online ? "online" : "nicht erreichbar"} · Working: ${memory.workingMemory?.online ? "online" : "nicht erreichbar"}`)}
+        ${renderHealthCard("Memory", memory.online ? "online" : "degraded", memoryValue, `Long-Term: ${memory.longTermMemory?.online ? "online" : "nicht bestätigt"} · Working: ${memory.workingMemory?.online ? "online" : "nicht bestätigt"} · Tasks: ${memory.taskStore?.online ? "online" : "nicht bestätigt"} · Agent Runs: ${memory.agentRunStore?.online ? "online" : "nicht bestätigt"}`)}
+        ${renderHealthCard("Redis", redis.online ? "online" : redis.configured ? "degraded" : "not_configured", redis.online ? "Telemetrie lesbar" : "Nicht bestätigt", redis.online ? "Lesetest erfolgreich, Worker-Lauf separat prüfen." : "Keine bestätigte Telemetrie-Verbindung.")}
         ${renderHealthCard("E5 Pipeline", e5Status, e5Value, e5.killSwitch ? "Kill-Switch aktiv" : e5.pausedByGuard ? "Durch Guard pausiert" : `State: ${text(e5.state) || "—"}`)}
         ${renderHealthCard("Safety", "degraded", "Bereichsübergreifend prüfen", "Dieser Status prüft nicht alle Veröffentlichungswege. Jedes eBay-Angebot benötigt eine ausdrückliche Einzelbestätigung.")}
       </section>
