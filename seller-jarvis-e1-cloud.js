@@ -86,11 +86,19 @@
     }
     return state.jobs.slice(0, 8).map((job) => {
       const resultSummary = text(job.result?.summary?.summary || job.result?.summary || "");
+      const handoff = job.pipelineHandoff;
+      const handoffLabel = {
+        PENDING: "Company-OS-Übergabe ausstehend",
+        DELIVERED: "Company-OS-Auftrag bestätigt",
+        NEEDS_REVIEW: "Company-OS-Übergabe prüfen",
+      }[handoff?.status] || "";
+      const displayStatus = handoff?.status === "PENDING" ? "RETRYING" : handoff?.status === "NEEDS_REVIEW" ? "BLOCKED" : job.status;
+      const handoffDetail = handoffLabel ? ` · ${escapeHtml(handoffLabel)} · Übergabeversuch ${Number(handoff.attempts) || 0}/${Number(handoff.maxAttempts) || 3}${handoff.lastError?.code ? ` · ${escapeHtml(handoff.lastError.code)}` : ""}` : "";
       return `
       <article class="jarvis-cc-item">
         <span class="jarvis-cc-item-icon">☁</span>
-        <div><strong>${escapeHtml(job.command || job.eventType || "Cloud-Job")}</strong><p>${escapeHtml(job.eventType || "Event")} · ${escapeHtml(job.executionPolicy || "manual_dispatch")} · Versuch ${Number(job.attempts) || 0}/${Number(job.maxAttempts) || 0}${resultSummary ? ` · ${escapeHtml(resultSummary)}` : ""}</p></div>
-        <span class="jarvis-cc-pill ${statusClass(job.status)}">${escapeHtml(text(job.status, "QUEUED"))}</span>
+        <div><strong>${escapeHtml(job.command || job.eventType || "Cloud-Job")}</strong><p>${escapeHtml(job.eventType || "Event")} · ${escapeHtml(job.executionPolicy || "manual_dispatch")} · Versuch ${Number(job.attempts) || 0}/${Number(job.maxAttempts) || 0}${resultSummary ? ` · ${escapeHtml(resultSummary)}` : ""}${handoffDetail}</p></div>
+        <span class="jarvis-cc-pill ${statusClass(displayStatus)}">${escapeHtml(handoffLabel || text(job.status, "QUEUED"))}</span>
       </article>`;
     }).join("");
   }
