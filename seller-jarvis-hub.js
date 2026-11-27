@@ -6,7 +6,7 @@
   const BRAIN_HOST_ID = "jarvisBrainControlPersistentHost";
   const HUB_ID = "jarvisUnifiedHubHost";
   const STYLE_ID = "jarvisUnifiedHubStyles";
-  const VERSION = "v2-simple";
+  const VERSION = "v2.1-system-navigation";
 
   const AREAS = Object.freeze([
     { id: "home", label: "JARVIS", icon: "◉" },
@@ -182,6 +182,7 @@
       delete body.dataset.jarvisHubAdvanced;
     }
     renderHub();
+    window.ElyonJarvisFileManagerMountBridge?.schedule?.();
     return open;
   }
 
@@ -243,10 +244,11 @@
   function routeSystem(view = state.systemView) {
     const allowed = SYSTEM_VIEWS.some((item) => item.id === view) ? view : "overview";
     state.systemView = state.advanced.system ? allowed : "overview";
-    window.ElyonJarvisIntegrationCenter?.refresh?.();
+    window.ElyonJarvisIntegrationCenter?.refresh?.({ view: state.systemView, load: true });
     requestAnimationFrame(() => {
       const tab = document.getElementById(INTEGRATION_TAB_ID);
       const button = tab?.querySelector(`[data-jic-tab="${state.systemView}"]`);
+      // Compatibility only for older Integration Center assets.
       if (button && !button.classList.contains("active")) button.click();
       requestAnimationFrame(() => {
         patchSystemCopy();
@@ -306,26 +308,27 @@
     document.addEventListener("click", (event) => {
       const target = event.target instanceof Element ? event.target : null;
       if (!target) return;
-      const area = target.closest("[data-jarvis-hub-area]");
+      // The body also has data-jarvis-hub-area as a state marker, not a control.
+      const area = target.closest(`#${HUB_ID} button[data-jarvis-hub-area]`);
       if (area) {
         activate(area.dataset.jarvisHubArea || "home");
         return;
       }
-      if (target.closest("[data-jarvis-toggle-advanced]")) {
+      if (target.closest(`#${HUB_ID} button[data-jarvis-toggle-advanced]`)) {
         state.advanced[state.area] = !state.advanced[state.area];
         if (state.area === "system" && !state.advanced.system) state.systemView = "overview";
         syncOpenState();
         refreshArea();
         return;
       }
-      const systemView = target.closest("[data-jarvis-system-view]");
+      const systemView = target.closest(`#${HUB_ID} button[data-jarvis-system-view]`);
       if (systemView) {
         state.systemView = systemView.dataset.jarvisSystemView || "overview";
         renderHub();
         routeSystem(state.systemView);
         return;
       }
-      const quick = target.closest("[data-jarvis-quick]");
+      const quick = target.closest(`#${HUB_ID} button[data-jarvis-quick]`);
       if (quick) {
         const action = quick.dataset.jarvisQuick || "";
         if (action === "brain" || action === "system") activate(action);
