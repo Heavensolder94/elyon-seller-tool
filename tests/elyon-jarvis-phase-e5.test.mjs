@@ -12,6 +12,11 @@ import {
   isPipelineStartEvent,
 } from "../lib/elyon-company-os-pipeline-bridge.js";
 import { runJarvisWorker } from "../lib/elyon-jarvis-worker.js";
+import {
+  claimJarvisWorkerJob, finishJarvisWorkerJob, finishJarvisPipelineHandoff,
+  listDueJarvisWorkerJobs, LEASE_PREFIX, HANDOFF_INDEX,
+} from "../lib/elyon-jarvis-worker-store.js";
+import { JOB_PREFIX } from "../lib/elyon-jarvis-event-store.js";
 import { publicSnapshot } from "../api/jarvis-pipeline-control.js";
 
 const pipelineApiUrl = new URL("../api/jarvis-pipeline-control.js", import.meta.url);
@@ -122,6 +127,7 @@ function workerHarness({ outcome, storedStatus = "SUCCESS" } = {}) {
         eventType: "nova.product.created",
         status: storedStatus,
         attempts: 1,
+        pipelineHandoff: storedStatus === "SUCCESS" ? { status: "PENDING", attempts: 0 } : undefined,
       }),
       recordOutcomeImpl: async () => ({
         paused: false,
@@ -312,9 +318,10 @@ test("E5 worker starts Company OS only after a successful Jarvis outcome persist
     storedStatus: "SUCCESS",
   });
   const result = await runJarvisWorker(success.options);
-  assert.equal(success.pipelineCalls(), 1);
+  assert.equal(success.pipelineCalls(), 0);
   assert.equal(result.processed, 1);
-  assert.equal(result.results[0].pipelineStart.delivered, true);
+  assert.equal(result.results[0].pipelineStart.delivered, false);
+  assert.equal(result.results[0].pipelineStart.reason, "handoff_persisted_pending");
   assert.equal(result.safety.livePublishingAllowed, false);
 
   const failed = workerHarness({
@@ -330,6 +337,120 @@ test("E5 worker starts Company OS only after a successful Jarvis outcome persist
   });
   await runJarvisWorker(blocked.options);
   assert.equal(blocked.pipelineCalls(), 0);
+});
+
+function pendingJob(patch = {}) {
+  return {
+    jobId: "job-e5-1", eventId: validEvent().eventId, eventType: "nova.product.created",
+    source: "company-os", subjectId: "product-123", sourceId: "product-123",
+    executionPolicy: "auto_internal", autoExecute: true, status: "SUCCESS",
+    attempts: 1, pipelineHandoff: { status: "PENDING", attempts: 0, nextRunAt: "2026-08-13T00:00:00.000Z" },
+    ...patch,
+  };
+}
+
+test("E5 handoff recovery never reruns the successful agent or reserves a model slot", async () => {
+  const job = pendingJob();
+  const control = allowedWorkerControl("autopilot");
+  let calls = 0;
+  const result = await runJarvisWorker({
+    env: {}, controlSnapshotImpl: async () => control,
+    listDueJobsImpl: async () => [job],
+    claimJobImpl: async () => ({ claimed: true, handoffOnly: true, owner: "lease-1", job }),
+    getEventImpl: async () => validEvent(),
+    reserveSlotImpl: async () => { throw Error("must not reserve a model slot"); },
+    executeClaimImpl: async () => { throw Error("must not rerun agent"); },
+    recordOutcomeImpl: async () => { throw Error("must not meter agent again"); },
+    pipelineStartImpl: async (event) => {
+      calls++;
+      assert.equal(event.eventId, job.eventId);
+      return { attempted: true, delivered: true, pipelineJobId: "pipeline-1" };
+    },
+    finishHandoffImpl: async (_claim, outcome) => ({
+      ...job, pipelineHandoff: { status: "DELIVERED", pipelineJobId: outcome.pipelineJobId },
+    }),
+  });
+  assert.equal(calls, 1);
+  assert.equal(result.results[0].pipelineHandoff.status, "DELIVERED");
+  assert.equal(result.results[0].estimatedCostEur, 0);
+});
+
+test("E5 handoff recovery refuses a mismatched persisted event identity", async () => {
+  const job = pendingJob();
+  const result = await runJarvisWorker({
+    env: {}, controlSnapshotImpl: async () => allowedWorkerControl("autopilot"),
+    listDueJobsImpl: async () => [job],
+    claimJobImpl: async () => ({ claimed: true, handoffOnly: true, owner: "lease-1", job }),
+    getEventImpl: async () => ({ ...validEvent(), subjectId: "other-product" }),
+    executeClaimImpl: async () => { throw Error("must not rerun agent"); },
+    pipelineStartImpl: async () => { throw Error("must not dispatch"); },
+    finishHandoffImpl: async (_claim, outcome) => ({
+      ...job, pipelineHandoff: { status: "NEEDS_REVIEW", lastError: outcome.reason },
+    }),
+  });
+  assert.equal(result.results[0].pipelineHandoff.lastError, "handoff_event_identity_missing");
+});
+
+function createHandoffRedisHarness(initialJob, initialOwner) {
+  const values = new Map([[JOB_PREFIX + initialJob.jobId, JSON.stringify(initialJob)]]);
+  const due = new Map();
+  if (initialOwner) values.set(LEASE_PREFIX + initialJob.jobId, initialOwner);
+  return {
+    values, due,
+    fetchImpl: async (_url, options) => {
+      const [op, ...args] = JSON.parse(options.body);
+      let result;
+      if (op === "GET") result = values.get(args[0]) ?? null;
+      else if (op === "SET") {
+        if (args.includes("NX") && values.has(args[0])) result = null;
+        else { values.set(args[0], args[1]); result = "OK"; }
+      } else if (op === "MGET") result = args.map(key => values.get(key) ?? null);
+      else if (op === "ZRANGEBYSCORE") result = [...due.entries()].filter(([, score]) => score <= Number(args[2])).map(([id]) => id).slice(0, args[5]);
+      else if (op === "ZREVRANGE") result = [];
+      else if (op === "DEL") { values.delete(args[0]); result = 1; }
+      else if (op === "EVAL") {
+        const [script, count, jobKey, leaseKey, index, owner, record, pending, score, id] = args;
+        assert.equal(count, 3);
+        assert.equal(index, HANDOFF_INDEX);
+        assert.match(script, /redis.call\('GET', KEYS\[2\]\)/);
+        if (values.get(leaseKey) !== owner) result = 0;
+        else {
+          values.set(jobKey, record);
+          if (pending === "1") due.set(id, Number(score)); else due.delete(id);
+          values.delete(leaseKey);
+          result = 1;
+        }
+      } else throw Error("unexpected Redis command " + op);
+      return { ok: true, json: async () => ({ result }) };
+    },
+  };
+}
+
+test("E5 durable handoff survives recent-index eviction and retries independently", async () => {
+  const running = pendingJob({ status: "RUNNING", pipelineHandoff: undefined, leaseOwner: "review-lease" });
+  const redis = createHandoffRedisHarness(running, "review-lease");
+  const now = "2026-08-13T00:00:00.000Z";
+  const opts = { env: PRICED_ENV, fetchImpl: redis.fetchImpl, now };
+  const stored = await finishJarvisWorkerJob({ owner: "review-lease", job: running }, { ok: true, result: { summary: "ok" } }, opts);
+  assert.equal(stored.status, "SUCCESS");
+  assert.equal(stored.pipelineHandoff.status, "PENDING");
+  assert.ok(redis.due.has(stored.jobId));
+  assert.equal((await listDueJarvisWorkerJobs(opts))[0].jobId, stored.jobId);
+  const claim = await claimJarvisWorkerJob(stored.jobId, { ...opts, owner: "handoff-lease" });
+  assert.equal(claim.handoffOnly, true);
+  assert.equal(claim.job.attempts, 1);
+  assert.equal(claim.job.pipelineHandoff.attempts, 1);
+  const retry = await finishJarvisPipelineHandoff(claim, { attempted: true, delivered: false, status: 503, reason: "unavailable" }, opts);
+  assert.equal(retry.pipelineHandoff.status, "PENDING");
+  assert.equal((await listDueJarvisWorkerJobs(opts)).length, 0);
+  const later = { ...opts, now: "2026-08-13T00:02:00.000Z", owner: "handoff-lease-2" };
+  const next = await claimJarvisWorkerJob(stored.jobId, later);
+  assert.equal(next.job.pipelineHandoff.attempts, 2);
+  await assert.rejects(finishJarvisPipelineHandoff(claim, { delivered: true, pipelineJobId: "stale" }, later), /Lease/);
+  const done = await finishJarvisPipelineHandoff(next, { attempted: true, delivered: true, pipelineJobId: "pipeline-1" }, later);
+  assert.equal(done.pipelineHandoff.status, "DELIVERED");
+  assert.equal(done.pipelineHandoff.pipelineJobId, "pipeline-1");
+  assert.equal(redis.due.size, 0);
 });
 
 test("E5 UI remains plan/control only and bootstrap keeps the single lazy Jarvis startup", async () => {
