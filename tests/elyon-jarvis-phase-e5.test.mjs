@@ -312,7 +312,7 @@ test("E5 bridge rejects unconfirmed and contradictory success responses", async 
   }
 });
 
-test("E5 worker starts Company OS only after a successful Jarvis outcome persisted as SUCCESS", async () => {
+test("E5 worker schedules Company OS only after a successful Jarvis outcome persisted as SUCCESS", async () => {
   const success = workerHarness({
     outcome: { ok: true, blocked: false, result: { phase: "E5", runs: [] } },
     storedStatus: "SUCCESS",
@@ -450,6 +450,28 @@ test("E5 durable handoff survives recent-index eviction and retries independentl
   const done = await finishJarvisPipelineHandoff(next, { attempted: true, delivered: true, pipelineJobId: "pipeline-1" }, later);
   assert.equal(done.pipelineHandoff.status, "DELIVERED");
   assert.equal(done.pipelineHandoff.pipelineJobId, "pipeline-1");
+  assert.equal(redis.due.size, 0);
+});
+
+test("E5 exhausted handoffs stop for review and do not create another model or bridge call", async () => {
+  const job = pendingJob({
+    pipelineHandoff: { status: "PENDING", attempts: 3, nextRunAt: "2026-08-13T00:00:00.000Z" },
+  });
+  const redis = createHandoffRedisHarness(job);
+  const opts = { env: PRICED_ENV, fetchImpl: redis.fetchImpl, now: "2026-08-13T00:00:00.000Z", owner: "last-lease" };
+  const claim = await claimJarvisWorkerJob(job.jobId, opts);
+  assert.equal(claim.handoffExhausted, true);
+  const result = await runJarvisWorker({
+    env: {}, controlSnapshotImpl: async () => allowedWorkerControl("autopilot"),
+    listDueJobsImpl: async () => [job],
+    claimJobImpl: async () => claim,
+    executeClaimImpl: async () => { throw Error("must not rerun agent"); },
+    getEventImpl: async () => { throw Error("must not load event"); },
+    pipelineStartImpl: async () => { throw Error("must not dispatch"); },
+    finishHandoffImpl: (claim, outcome) => finishJarvisPipelineHandoff(claim, outcome, opts),
+  });
+  assert.equal(result.results[0].pipelineHandoff.status, "NEEDS_REVIEW");
+  assert.equal(result.results[0].pipelineHandoff.lastError.code, "handoff_attempts_exhausted");
   assert.equal(redis.due.size, 0);
 });
 
