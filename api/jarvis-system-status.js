@@ -2,7 +2,7 @@ import { requireSellerAccess } from "../lib/seller-access.js";
 import { selectBrainAttempts } from "../lib/jarvis-brain.js";
 import { supabaseJarvisRequest } from "../lib/jarvis-memory-store.js";
 import { getJarvisPipelineControlSnapshot } from "../lib/elyon-jarvis-pipeline-control-store.js";
-import { listJarvisSystemTelemetry, summarizeJarvisSystemTelemetry } from "../lib/jarvis-system-telemetry-store.js";
+import { getRedisConfig, listJarvisSystemTelemetry, summarizeJarvisSystemTelemetry } from "../lib/jarvis-system-telemetry-store.js";
 
 function text(value, max = 300) {
   const output = String(value ?? "").trim();
@@ -10,7 +10,18 @@ function text(value, max = 300) {
 }
 
 function errorCode(error, fallback = "unavailable") {
-  return text(error?.code || error?.message, 100).replace(/[^a-z0-9_.-]+/gi, "_").toLowerCase() || fallback;
+  // Do not expose arbitrary exception messages (URLs, keys or response bodies).
+  const code = text(error?.code, 100);
+  return /^[a-z][a-z0-9_.-]{0,99}$/i.test(code) ? code.toLowerCase() : fallback;
+}
+
+function rowsAvailable(result) {
+  return result.status === "fulfilled" && Array.isArray(result.value);
+}
+
+function knownNumber(value) {
+  return value === null || value === undefined || value === "" ? null :
+    Number.isFinite(Number(value)) ? Number(value) : null;
 }
 
 function configuredProviders(env = process.env) {
@@ -49,7 +60,7 @@ function normalizeRecentRun(row = {}) {
     agentName: text(row.agent_name, 160),
     status: text(row.status, 50),
     model: text(row.model, 240) || null,
-    cost: Number.isFinite(Number(row.cost)) ? Number(row.cost) : null,
+    cost: knownNumber(row.cost),
     createdAt: text(row.created_at, 100),
     finishedAt: text(row.finished_at, 100) || null,
   };
@@ -73,6 +84,8 @@ async function readSupabaseSystemState({ env = process.env, request = supabaseJa
       online: false,
       longTermMemory: { online: false, latestUpdatedAt: null },
       workingMemory: { online: false, latestUpdatedAt: null },
+      taskStore: { online: false },
+      agentRunStore: { online: false },
       recentTasks: [],
       recentAgentRuns: [],
       agentUsage24h: { runs: 0, cost: null, sampled: false },
@@ -92,31 +105,39 @@ async function readSupabaseSystemState({ env = process.env, request = supabaseJa
   const workingRows = workingResult.status === "fulfilled" && Array.isArray(workingResult.value) ? workingResult.value : [];
   const taskRows = tasksResult.status === "fulfilled" && Array.isArray(tasksResult.value) ? tasksResult.value : [];
   const runRows = runsResult.status === "fulfilled" && Array.isArray(runsResult.value) ? runsResult.value : [];
-  const costs = runRows.map((row) => Number(row?.cost)).filter(Number.isFinite);
+  const costs = runRows.map((row) => knownNumber(row?.cost)).filter(value => value !== null);
 
-  const errors = [memoryResult, workingResult, tasksResult, runsResult]
-    .filter((result) => result.status === "rejected")
-    .map((result) => errorCode(result.reason));
+  const stores = {
+    longTermMemory: memoryResult, workingMemory: workingResult,
+    taskStore: tasksResult, agentRunStore: runsResult,
+  };
+  const errors = Object.entries(stores)
+    .filter(([, result]) => !rowsAvailable(result))
+    .map(([name, result]) => ({ store: name, code: result.status === "rejected" ?
+      errorCode(result.reason, "supabase_read_failed") : "supabase_invalid_response" }));
 
   return {
     configured: true,
-    online: memoryResult.status === "fulfilled" && workingResult.status === "fulfilled",
+    online: Object.values(stores).every(rowsAvailable),
     longTermMemory: {
-      online: memoryResult.status === "fulfilled",
+      online: rowsAvailable(memoryResult),
       latestUpdatedAt: text(memoryRows[0]?.updated_at, 100) || null,
     },
     workingMemory: {
-      online: workingResult.status === "fulfilled",
+      online: rowsAvailable(workingResult),
       latestUpdatedAt: text(workingRows[0]?.updated_at, 100) || null,
     },
+    taskStore: { online: rowsAvailable(tasksResult) },
+    agentRunStore: { online: rowsAvailable(runsResult) },
     recentTasks: taskRows.map(normalizeRecentTask),
     recentAgentRuns: runRows.slice(0, 20).map(normalizeRecentRun),
     agentUsage24h: {
       runs: runRows.length,
-      cost: costs.length ? costs.reduce((sum, value) => sum + value, 0) : null,
+      cost: costs.length && costs.length === runRows.length ? costs.reduce((sum, value) => sum + value, 0) : null,
       sampled: runRows.length >= 100,
     },
-    error: errors[0] || null,
+    error: errors[0]?.code || null,
+    errors,
   };
 }
 
@@ -128,44 +149,53 @@ async function buildJarvisSystemStatus({
   supabaseRequest = supabaseJarvisRequest,
 } = {}) {
   const checkedAt = new Date(nowMs).toISOString();
+  const redisConfig = getRedisConfig(env);
+  const redisConfigured = Boolean(redisConfig.url && redisConfig.token);
   const [telemetryResult, memoryResult, e5Result] = await Promise.allSettled([
-    telemetryReader({ limit: 200, env }),
+    telemetryReader({ limit: 200, env, strict: true }),
     readSupabaseSystemState({ env, request: supabaseRequest, nowMs }),
     pipelineReader({ env, e5V2: true }),
   ]);
 
   const telemetry = telemetryResult.status === "fulfilled" && Array.isArray(telemetryResult.value) ? telemetryResult.value : [];
   const brainMetrics24h = summarizeJarvisSystemTelemetry(telemetry, { nowMs });
+  const telemetryAvailable = redisConfigured && telemetryResult.status === "fulfilled" && Array.isArray(telemetryResult.value);
+  const recentTelemetry = telemetry.filter(event => {
+    const at = Date.parse(event?.at || "");
+    return Number.isFinite(at) && at >= nowMs - 86_400_000 && at <= nowMs + 60_000;
+  });
   const providerConfig = configuredProviders(env);
   const providers = ["openrouter", "deepseek", "openai"].map((provider) => providerStatus({
     provider,
     configured: providerConfig[provider],
-    events: telemetry,
+    events: recentTelemetry,
   }));
   const memory = memoryResult.status === "fulfilled"
     ? memoryResult.value
-    : { configured: Boolean(env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY), online: false, longTermMemory: { online: false }, workingMemory: { online: false }, recentTasks: [], recentAgentRuns: [], agentUsage24h: { runs: 0, cost: null, sampled: false }, error: errorCode(memoryResult.reason) };
-  const e5 = e5Result.status === "fulfilled" ? e5Result.value : null;
+    : { configured: Boolean(env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY), online: false, longTermMemory: { online: false }, workingMemory: { online: false }, taskStore: { online: false }, agentRunStore: { online: false }, recentTasks: [], recentAgentRuns: [], agentUsage24h: { runs: 0, cost: null, sampled: false }, error: errorCode(memoryResult.reason) };
+  const e5 = redisConfigured && e5Result.status === "fulfilled" && e5Result.value?.control && e5Result.value?.pipeline && e5Result.value?.permissions ? e5Result.value : null;
   const brainChain = selectBrainAttempts(env).map((attempt) => ({
     provider: attempt.provider,
     model: attempt.model || null,
   }));
 
   const brainConfigured = providers.some((provider) => provider.configured);
-  const degraded = !brainConfigured || memory.online !== true || !e5 || brainMetrics24h.latest?.ok === false;
+  const degraded = !brainConfigured || memory.online !== true || !e5 || !telemetryAvailable || recentTelemetry[0]?.ok === false;
+  const verifiedBrainRun = recentTelemetry.some(event => event?.ok === true);
 
   return {
     ok: true,
     readOnly: true,
     checkedAt,
-    status: degraded ? "degraded" : "healthy",
+    status: degraded ? "degraded" : verifiedBrainRun ? "healthy" : "unverified",
+    redis: { configured: redisConfigured, online: telemetryAvailable, source: redisConfig.source },
     brain: {
       configured: brainConfigured,
       chain: brainChain,
       lastRun: brainMetrics24h.latest,
       metrics24h: brainMetrics24h,
-      telemetryAvailable: telemetryResult.status === "fulfilled",
-      telemetryError: telemetryResult.status === "rejected" ? errorCode(telemetryResult.reason) : null,
+      telemetryAvailable,
+      telemetryError: !redisConfigured ? "redis_not_configured" : telemetryAvailable ? null : errorCode(telemetryResult.reason, "telemetry_read_failed"),
     },
     providers,
     memory,
@@ -180,7 +210,7 @@ async function buildJarvisSystemStatus({
       reasons: Array.isArray(e5?.reasons) ? e5.reasons.slice(0, 10).map((reason) => text(reason, 120)).filter(Boolean) : [],
     } : {
       online: false,
-      error: errorCode(e5Result.reason),
+      error: !redisConfigured ? "redis_not_configured" : errorCode(e5Result.reason, "pipeline_control_unavailable"),
     },
     safety: {
       livePublishingAllowed: false,
@@ -198,6 +228,7 @@ export default async function handler(req, res) {
     res.setHeader("Allow", "GET");
     return res.status(405).json({ ok: false, error: "method_not_allowed" });
   }
+  res.setHeader("Cache-Control", "no-store");
   const status = await buildJarvisSystemStatus();
   return res.status(200).json(status);
 }
