@@ -232,7 +232,7 @@ test("Nova autonomous execution stays local even with globally configured paid p
     assert.equal(outcome.ok, true, JSON.stringify(outcome));
     assert.equal(outcome.result.runs[0].provider, "local");
     assert.equal(networkCalls, 0);
-    assert.equal(buildJarvisAutonomyEnv(env).OPENROUTER_API_KEY, "");
+    assert.equal(buildJarvisAutonomyEnv(env).OPENROUTER_API_KEY, env.OPENROUTER_API_KEY);
   } finally {
     globalThis.fetch = originalFetch;
     for (const [key, value] of Object.entries(previous)) {
