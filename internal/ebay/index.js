@@ -226,7 +226,9 @@ async function handleSearch(req, res) {
   const query = text(req?.query?.q || req?.query?.keyword || "iphone");
   const limit = Math.max(1, Math.min(Number(req?.query?.limit || 5), 20));
   const accessToken = await appToken();
-  const response = await fetch(`https://api.ebay.com/buy/browse/v1/item_summary/search?q=${encodeURIComponent(query)}&limit=${limit}`, {
+  const params = new URLSearchParams({ q: query, limit: String(limit) });
+  if (req?.query?.elyonDeliveryCountry === 'DE') params.set('filter', 'deliveryCountry:DE');
+  const response = await fetch(`https://api.ebay.com/buy/browse/v1/item_summary/search?${params}`, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
       "X-EBAY-C-MARKETPLACE-ID": "EBAY_DE",
@@ -241,7 +243,7 @@ async function handleSearch(req, res) {
       details: data,
     });
   }
-  return res.status(200).json({ ok: true, query, limit, total: data.total || 0, count: data.itemSummaries?.length || 0, items: data.itemSummaries || [] });
+  return res.status(200).json({ ok: true, query, limit, total: data.total || 0, reportedSearchHits: Number.isSafeInteger(data.total) ? data.total : null, count: data.itemSummaries?.length || 0, items: data.itemSummaries || [] });
 }
 
 async function handleCompetition(req, res) {
@@ -261,6 +263,7 @@ async function handleCompetition(req, res) {
   return res.status(200).json({
     ok: true,
     keyword: query,
+    total: capture.body?.reportedSearchHits ?? null,
     count: items.length,
     low: prices.length ? Math.min(...prices) : 0,
     avg: prices.length ? prices.reduce((sum, price) => sum + price, 0) / prices.length : 0,
