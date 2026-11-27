@@ -138,6 +138,8 @@
   function ensureMenu() {
     const menu = document.getElementById("mainMenu");
     if (!menu) return false;
+    // The unified hub owns navigation; do not reinsert its removed legacy option.
+    if (window.ElyonJarvisHub) return true;
     let option = menu.querySelector(`option[value="${TAB_ID}"]`);
     if (!option) {
       option = document.createElement("option");
@@ -285,7 +287,7 @@
     else if (state.active === "logs") body = renderLogs();
     const liveStatus = state.systemStatus?.status || (state.systemLoading ? "configured" : state.systemError ? "degraded" : "configured");
     const badge = state.systemLoading ? "● V2 LÄDT" : state.systemStatus ? `● V2 ${statusLabel(state.systemStatus.status)}` : "● V2 READ-ONLY";
-    tab.innerHTML = `<div class="jic"><section class="jic-hero"><div class="jic-head"><div class="jic-title"><h1>Jarvis Integration Center</h1><p>Read-only Systemzentrale für Brain, Provider-Fallbacks, Memory, E5, Usage und sanitizte Betriebslogs. Das Center vergibt keine zusätzlichen Jarvis-Rechte.</p></div><div class="jic-actions"><span class="jic-badge ${statusTone(live?.status || api.status)}">${escapeHtml(badge)}</span><button class="jic-btn" data-jic-refresh ${state.systemLoading ? "disabled" : ""}>↻ Aktualisieren</button></div></div><div class="jic-tabs">${Object.entries(labels).map(([id, label]) => `<button class="jic-tab ${state.active === id ? "active" : ""}" data-jic-tab="${id}">${label}</button>`).join("")}</div>${state.systemStatus?.checkedAt ? `<div class="jic-refresh-meta">Stand: ${escapeHtml(formatDate(state.systemStatus.checkedAt))}</div>` : ""}</section>${body}</div>`;
+    tab.innerHTML = `<div class="jic"><section class="jic-hero"><div class="jic-head"><div class="jic-title"><h1>Jarvis Integration Center</h1><p>Read-only Systemzentrale für Brain, Provider-Fallbacks, Memory, E5, Usage und sanitizte Betriebslogs. Das Center vergibt keine zusätzlichen Jarvis-Rechte.</p></div><div class="jic-actions"><span class="jic-badge ${statusTone(liveStatus)}">${escapeHtml(badge)}</span><button class="jic-btn" data-jic-refresh ${state.systemLoading ? "disabled" : ""}>↻ Aktualisieren</button></div></div><div class="jic-tabs">${Object.entries(labels).map(([id, label]) => `<button class="jic-tab ${state.active === id ? "active" : ""}" data-jic-tab="${id}">${label}</button>`).join("")}</div>${state.systemStatus?.checkedAt ? `<div class="jic-refresh-meta">Stand: ${escapeHtml(formatDate(state.systemStatus.checkedAt))}</div>` : ""}</section>${body}</div>`;
   }
 
   function bindEvents() {
@@ -313,7 +315,14 @@
   }
 
   function mount() { installStyles(); ensureTab(); ensureMenu(); bindEvents(); render(); return true; }
-  function refresh() { installStyles(); ensureTab(); ensureMenu(); render(); const menu = document.getElementById("mainMenu"); if (menu?.value === TAB_ID) void loadSystemStatus(); return true; }
+  function refresh({ view, load = false } = {}) {
+    installStyles(); ensureTab(); ensureMenu();
+    if (["overview", "models", "apis", "routing", "costs", "logs"].includes(view)) state.active = view;
+    render();
+    const menu = document.getElementById("mainMenu");
+    if (load || menu?.value === TAB_ID) void loadSystemStatus();
+    return true;
+  }
   function open() { ensureTab(); ensureMenu(); activateTab(); render(); void loadSystemStatus(); return true; }
 
   window.ElyonJarvisIntegrationCenter = Object.freeze({
