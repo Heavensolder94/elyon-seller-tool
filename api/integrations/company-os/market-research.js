@@ -10,21 +10,47 @@ function numberValue(value) {
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
 }
 
-function normalizedItem(item = {}) {
+function knownNumber(value) {
+  if ((typeof value !== 'number' && typeof value !== 'string') || String(value).trim() === '') return null;
+  const amount = Number(value);
+  return Number.isFinite(amount) && amount >= 0 ? amount : null;
+}
+
+export function normalizedItem(item = {}) {
   const shippingOptions = Array.isArray(item.shippingOptions) ? item.shippingOptions : [];
+  const currency = text(item.price?.currency, 3).toUpperCase();
   const shippingCost = shippingOptions
     .map((entry) => numberValue(entry?.shippingCost?.value))
     .find((value) => value > 0) || 0;
+  const shippingEvidence = shippingOptions.slice(0, 10).map(option => {
+    const amount = knownNumber(option?.shippingCost?.value);
+    return {
+      shippingCost: amount === null || option?.shippingCost?.currency !== currency ? null : { value: amount, currency },
+      minEstimatedDeliveryDate: text(option?.minEstimatedDeliveryDate, 45) || null,
+      maxEstimatedDeliveryDate: text(option?.maxEstimatedDeliveryDate, 45) || null,
+    };
+  });
   return {
     itemId: text(item.itemId, 180),
     title: text(item.title, 300),
     itemWebUrl: text(item.itemWebUrl, 1000),
     price: {
       value: numberValue(item?.price?.value),
-      currency: text(item?.price?.currency, 10).toUpperCase(),
+      currency,
     },
     shippingCost,
+    shippingOptions: shippingEvidence,
+    seller: { username: text(item.seller?.username, 100), feedbackScore: knownNumber(item.seller?.feedbackScore),
+      feedbackPercentage: knownNumber(item.seller?.feedbackPercentage) },
     condition: text(item.condition, 120),
+    conditionId: text(item.conditionId, 20),
+    buyingOptions: (Array.isArray(item.buyingOptions) ? item.buyingOptions : []).map(value => text(value, 25)).slice(0, 5),
+    itemLocation: { country: text(item.itemLocation?.country, 2) },
+    bidCount: knownNumber(item.bidCount),
+    watchCount: knownNumber(item.watchCount),
+    promotedListing: typeof item.promotedListing === 'boolean' ? item.promotedListing : null,
+    localizedAspects: (Array.isArray(item.localizedAspects) ? item.localizedAspects : []).slice(0, 24)
+      .map(aspect => ({ name: text(aspect?.name, 80), value: text(aspect?.value, 120) })),
     categoryId: text(item?.categories?.[0]?.categoryId, 80),
     categoryName: text(item?.categories?.[0]?.categoryName, 200),
   };
@@ -40,7 +66,8 @@ export default async function handler(req, res) {
   if (query.length < 3) {
     return res.status(400).json({ ok: false, error: "market_research_query_missing", message: "Für den eBay-Marktcheck fehlt ein verwertbarer Suchbegriff." });
   }
-  const limit = Math.max(4, Math.min(Number(req.query?.limit || 30), 40));
+  const requestedLimit = Number(req.query?.limit || 30);
+  const limit = Number.isFinite(requestedLimit) ? Math.max(4, Math.min(Math.trunc(requestedLimit), 40)) : 30;
 
   const capture = {
     statusCode: 200,
@@ -51,7 +78,7 @@ export default async function handler(req, res) {
   };
   const originalQuery = req.query;
   try {
-    req.query = { ...originalQuery, action: "competition", keyword: query, limit };
+    req.query = { ...originalQuery, action: "competition", keyword: query, limit, elyonDeliveryCountry: 'DE' };
     await internalEbayHandler(req, capture);
   } finally {
     req.query = originalQuery;
@@ -74,9 +101,11 @@ export default async function handler(req, res) {
     source: "ebay_browse_active_listings",
     marketplaceId: "EBAY_DE",
     marketType: "active_listings",
+    evidenceVersion: 2,
     query,
     fetchedAt: new Date().toISOString(),
     total: Number(data.total || 0),
+    reportedSearchHits: knownNumber(data.total),
     count: items.length,
     items,
     evidenceLimits: {
