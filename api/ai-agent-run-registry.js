@@ -1,4 +1,5 @@
 import { requireSellerAccess } from "../lib/seller-access.js";
+import { JARVIS_NOVA_LOCAL_ONLY, JARVIS_NOVA_AGENT_ID } from "../lib/elyon-jarvis-e5-v2-policy.js";
 import advancedAgentHandler from "./ai-agent-run-advanced.js";
 import customAgentHandler from "./ai-agent-run-custom.js";
 import workforceV2Handler from "./ai-workforce-v2.js";
@@ -112,6 +113,9 @@ export default async function handler(req, res) {
 
   try {
     const coreTarget = resolveCoreExecution(agentId);
+    if (req[JARVIS_NOVA_LOCAL_ONLY] === true && coreTarget?.visibleId !== JARVIS_NOVA_AGENT_ID) {
+      return res.status(403).json({ ok: false, error: "nova_autonomous_agent_not_allowed", message: "Nur der lokale Product Data Specialist ist für diesen automatischen Nova-Auftrag freigegeben." });
+    }
     if (coreTarget) {
       const action = resolveRegistryAction(body.action, coreTarget);
       if (!action.ok) return actionError(res, action);
