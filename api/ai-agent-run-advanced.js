@@ -1,6 +1,7 @@
 import { requireSellerAccess } from "../lib/seller-access.js";
 import { routeAIRequest } from "../lib/ai-provider-router.js";
 import { getAgentRoutingPreference } from "../lib/ai-agent-routing-preferences.js";
+import { JARVIS_NOVA_LOCAL_ONLY } from "../lib/elyon-jarvis-e5-v2-policy.js";
 import {
   buildAgentMessages,
   buildContextPacket,
@@ -141,6 +142,12 @@ async function runAgent(action, body, req) {
   const context = buildContextPacket(agentId, rawInput);
   const taskPrompt = text(body.taskPrompt || body.description || body.prompt, 8000);
   const config = agentConfiguration(req, body, definition, agentId);
+  if (req[JARVIS_NOVA_LOCAL_ONLY] === true) {
+    // Never inherit browser routing, global default models or paid fallback.
+    config.provider = "local";
+    config.model = "";
+    config.allowFallback = false;
+  }
   const startedAt = Date.now();
   let task = createWorkforceTask({
     id: body.task?.id,
