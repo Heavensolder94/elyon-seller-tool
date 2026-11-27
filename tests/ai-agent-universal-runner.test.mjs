@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import registryHandler from "../api/ai-agent-run-registry.js";
+import { listAgentStructure } from "../lib/ai-workforce-structure-v2.js";
+import { ROUTING_COOKIE_NAME } from "../lib/ai-agent-routing-preferences.js";
 import {
   buildStrictCoreRequest,
   filterCustomAgentInput,
@@ -163,4 +166,73 @@ test("registry API delegates only after loading server-side definitions", async 
   assert.match(source, /workforceV2Handler/);
   assert.match(source, /customAgentHandler/);
   assert.doesNotMatch(source, /body\.customAgent\s*\|\|\s*body\.agent/);
+});
+
+
+test("all eight registered core agents execute through the real authenticated registry in local mode without network access", async (t) => {
+  const originalToken = process.env.ELYON_SELLER_ACCESS_TOKEN;
+  const originalFetch = globalThis.fetch;
+  const token = "workforce-v11-test-only-token";
+  process.env.ELYON_SELLER_ACCESS_TOKEN = token;
+  let networkAttempts = 0;
+  globalThis.fetch = async () => { networkAttempts++; throw Error("Unexpected network access in local agent acceptance"); };
+  try {
+    const agents = listAgentStructure();
+    assert.equal(agents.length, 8);
+    const preferences = Object.fromEntries(agents.map(agent => {
+      const target = resolveCoreExecution(agent.id);
+      return [target.backendAgentId, { provider: "local", allowFallback: false }];
+    }));
+    const cookie = ROUTING_COOKIE_NAME + "=" + encodeURIComponent(JSON.stringify({ agents: preferences }));
+    const product = {
+      id: "SYNTHETIC-V11-1", title: "Testprodukt", category: "Testkategorie",
+      purchasePrice: 10, sellingPrice: 25, shippingCost: 2, ebayFeePercent: 12,
+      paymentFee: 0.35, otherCosts: 0.5, expectedReturnRatePercent: 0, returnCost: 0,
+      images: ["https://example.invalid/product.png"], productFacts: { material: "Papier" },
+      manufacturer: { name: "Testhersteller" }, gpsr: { status: "documented" },
+      companyOsApproval: { approved: true }, ebayCategory: { id: "123", name: "Test" },
+      ebayAspects: { Material: "Papier" },
+    };
+    const input = {
+      product,
+      listingDraft: { title: "Testprodukt", description: "Synthetischer Test", aspects: { Material: "Papier" }, price: 25 },
+      order: { orderId: "TEST-ORDER", shippingDeadline: "2026-12-01", trackingNumber: "TEST-TRACK" },
+      returnCase: { returnId: "TEST-RETURN", orderId: "TEST-ORDER", reason: "Testfall" },
+    };
+    async function invoke(agentId, action, context = input) {
+      let statusCode = 200;
+      let payload;
+      const req = { method: "POST", query: {}, headers: { "x-elyon-seller-token": token, cookie, host: "localhost" }, body: { agentId, action, input: context } };
+      const res = { status(code) { statusCode = code; return this; }, json(value) { payload = value; return this; }, setHeader() { return this; }, end() { return this; } };
+      await registryHandler(req, res);
+      return { statusCode, payload };
+    }
+    for (const agent of agents) {
+      await t.test(agent.id, async () => {
+        const target = resolveCoreExecution(agent.id);
+        const { statusCode, payload } = await invoke(agent.id, "run_agent");
+        assert.equal(statusCode, 200, JSON.stringify(payload));
+        assert.equal(payload.ok, true);
+        assert.equal(payload.provider, "local");
+        assert.equal(payload.task.agentId, target.runner === "advanced" ? target.backendAgentId : target.visibleId);
+        assert.ok(payload.result.summary);
+        assert.ok(["passed", "warning", "blocked", "manualReviewRequired"].includes(payload.result.status));
+        assert.equal(payload.safety.manualReviewRequired, true);
+        for (const key of ["automaticPublishing", "automaticOrdering", "automaticMessaging", "automaticRefunds"]) assert.equal(payload.safety[key], false);
+        const denied = await invoke(agent.id, "publish_listing");
+        assert.equal(denied.statusCode, 403);
+        assert.equal(denied.payload.error, "external_action_locked");
+      });
+    }
+    const sparse = await invoke("elyon-product-data-specialist", "run_agent", { product: { id: "SYNTHETIC-SPARSE", title: "Testprodukt" } });
+    assert.equal(sparse.statusCode, 200);
+    assert.equal(sparse.payload.result.status, "manualReviewRequired");
+    assert.ok(sparse.payload.result.missingFacts.some(value => value.includes("Einkaufspreis")));
+    assert.ok(sparse.payload.result.missingFacts.some(value => value.includes("Company-OS-Freigabe")));
+    assert.equal(networkAttempts, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalToken === undefined) delete process.env.ELYON_SELLER_ACCESS_TOKEN;
+    else process.env.ELYON_SELLER_ACCESS_TOKEN = originalToken;
+  }
 });
