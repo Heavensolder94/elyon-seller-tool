@@ -2,6 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { authorizeCron } from "../api/jarvis-worker.js";
+import { JARVIS_NOVA_LOCAL_ONLY, buildJarvisAutonomyEnv } from "../lib/elyon-jarvis-e5-v2-policy.js";
+import registryHandler from "../api/ai-agent-run-registry.js";
 import {
   isE3AutoInternalJob,
   retryDelayMs,
@@ -210,4 +212,63 @@ test("E3 wiring remains protected while E4 adds the control gate", async () => {
   assert.match(cloudUi, /WORKER AKTIV/);
   assert.ok(vercel.crons.some((cron) => cron.path === "/api/jarvis-worker" && cron.schedule === "*/5 * * * *"));
   assert.ok(vercel.crons.some((cron) => cron.path === "/api/finance-auto-sync" && cron.schedule === "0 6 * * *"));
+});
+
+
+test("Nova autonomous execution stays local even with globally configured paid providers and browser routing", async () => {
+  const token = "v11-test-only-token";
+  const env = { ELYON_SELLER_ACCESS_TOKEN: token, OPENAI_API_KEY: "test", DEEPSEEK_API_KEY: "test", OPENROUTER_API_KEY: "test", AI_DEFAULT_PROVIDER: "openai", AI_FALLBACK_PROVIDER: "deepseek" };
+  const previous = Object.fromEntries(Object.keys(env).map(key => [key, process.env[key]]));
+  const originalFetch = globalThis.fetch;
+  let networkCalls = 0;
+  Object.assign(process.env, env);
+  globalThis.fetch = async () => { networkCalls++; throw Error("Unexpected external request"); };
+  try {
+    const cookie = "elyon_ai_routing_v1=" + encodeURIComponent(JSON.stringify({ agents: { "elyon-product-data-checker": { provider: "openrouter", model: "vendor/paid-model", allowFallback: true } } }));
+    const outcome = await executeJarvisWorkerClaim(
+      { job: safeJob() }, safeEvent(),
+      { env, listRegistryImpl: async () => registry, internalRequest: { headers: { "x-elyon-seller-token": token, cookie, host: "localhost" } } }
+    );
+    assert.equal(outcome.ok, true, JSON.stringify(outcome));
+    assert.equal(outcome.result.runs[0].provider, "local");
+    assert.equal(networkCalls, 0);
+    assert.equal(buildJarvisAutonomyEnv(env).OPENROUTER_API_KEY, "");
+  } finally {
+    globalThis.fetch = originalFetch;
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) delete process.env[key]; else process.env[key] = value;
+    }
+  }
+});
+
+test("Nova worker rejects paid-only configuration, mismatched events and unavailable canonical specialist", async () => {
+  const rejectExecute = async () => { throw Error("must not execute"); };
+  const claim = { job: safeJob() };
+  const paidOnly = await executeJarvisWorkerClaim(claim, safeEvent(), {
+    env: { ELYON_JARVIS_AUTONOMY_PROVIDERS: "openai" }, executePlanImpl: rejectExecute,
+  });
+  assert.equal(paidOnly.result.reason, "nova_local_provider_not_allowed");
+  const mismatched = await executeJarvisWorkerClaim(claim, { ...safeEvent(), subjectId: "other-product" }, { env: {}, executePlanImpl: rejectExecute });
+  assert.equal(mismatched.result.reason, "nova_event_identity_invalid");
+  const unavailable = await executeJarvisWorkerClaim(claim, safeEvent(), {
+    env: {}, listRegistryImpl: async () => ({ agents: [{ ...registry.agents[0], id: "custom-test", kind: "custom" }] }), executePlanImpl: rejectExecute,
+  });
+  assert.equal(unavailable.blocked, true);
+});
+
+test("Nova trusted registry scope cannot dispatch a different specialist", async () => {
+  const previous = process.env.ELYON_SELLER_ACCESS_TOKEN;
+  const token = "v11-test-only-token";
+  process.env.ELYON_SELLER_ACCESS_TOKEN = token;
+  try {
+    let status;
+    let payload;
+    const req = { [JARVIS_NOVA_LOCAL_ONLY]: true, method: "POST", headers: { "x-elyon-seller-token": token }, body: { agentId: "elyon-listing-specialist", action: "run_agent" } };
+    const res = { setHeader() { return this; }, status(code) { status = code; return this; }, json(value) { payload = value; return this; } };
+    await registryHandler(req, res);
+    assert.equal(status, 403);
+    assert.equal(payload.error, "nova_autonomous_agent_not_allowed");
+  } finally {
+    if (previous === undefined) delete process.env.ELYON_SELLER_ACCESS_TOKEN; else process.env.ELYON_SELLER_ACCESS_TOKEN = previous;
+  }
 });
