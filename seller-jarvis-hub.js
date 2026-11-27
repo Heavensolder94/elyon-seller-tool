@@ -133,7 +133,7 @@
       ? `<button type="button" class="jarvis-hub-action" data-jarvis-quick="brain">Gehirn öffnen</button><button type="button" class="jarvis-hub-action" data-jarvis-quick="system">System prüfen</button><button type="button" class="jarvis-hub-action" data-jarvis-quick="agents">Mitarbeiter</button>`
       : "";
 
-    hub.innerHTML = `
+    const markup = `
       <div class="jarvis-hub-head">
         <div class="jarvis-hub-brand"><div class="jarvis-hub-orb">◉</div><div><div class="jarvis-hub-kicker">Elyon</div><h2 class="jarvis-hub-title">JARVIS</h2></div></div>
         <span class="jarvis-hub-version">SIMPLE CONTROL</span>
@@ -141,6 +141,10 @@
       <nav class="jarvis-hub-nav" aria-label="JARVIS Bereiche">${AREAS.map((area) => `<button type="button" class="jarvis-hub-tab ${state.area === area.id ? "active" : ""}" data-jarvis-hub-area="${area.id}"><span>${area.icon}</span>${area.label}</button>`).join("")}</nav>
       <div class="jarvis-hub-context"><div><strong>${copy.title}</strong><p>${copy.copy}</p></div><div class="jarvis-hub-actions">${shortcuts}<button type="button" class="jarvis-hub-action primary" data-jarvis-toggle-advanced>${detailLabel}</button></div></div>
       ${systemSubnav}`;
+    if (hub.dataset.jarvisHubRendered !== `${state.area}:${advanced}:${state.systemView}` || !hub.firstElementChild) {
+      hub.innerHTML = markup;
+      hub.dataset.jarvisHubRendered = `${state.area}:${advanced}:${state.systemView}`;
+    }
     return true;
   }
 
@@ -150,7 +154,7 @@
     const legacySelected = menu.value === INTEGRATION_TAB_ID;
     menu.querySelectorAll(`option[value="${INTEGRATION_TAB_ID}"]`).forEach((option) => option.remove());
     const jarvis = menu.querySelector(`option[value="${TOP_TAB_ID}"]`);
-    if (jarvis) jarvis.textContent = "◉ JARVIS";
+    if (jarvis && jarvis.textContent !== "◉ JARVIS") jarvis.textContent = "◉ JARVIS";
     if (legacySelected) {
       state.area = "system";
       state.systemView = "apis";
@@ -234,10 +238,12 @@
     const tab = document.getElementById(INTEGRATION_TAB_ID);
     const title = tab?.querySelector(".jic-title h1");
     const copy = tab?.querySelector(".jic-title p");
-    if (title) title.textContent = state.advanced.system && state.systemView !== "overview" ? "System · Technische Details" : "System";
-    if (copy) copy.textContent = state.advanced.system
+    const nextTitle = state.advanced.system && state.systemView !== "overview" ? "System · Technische Details" : "System";
+    const nextCopy = state.advanced.system
       ? "Technische Diagnose für Integrationen, Modelle, Routing, Kosten und Logs."
       : "Schneller Gesundheitscheck für Brain, Memory, Pipeline und Safety.";
+    if (title && title.textContent !== nextTitle) title.textContent = nextTitle;
+    if (copy && copy.textContent !== nextCopy) copy.textContent = nextCopy;
     return Boolean(tab);
   }
 
