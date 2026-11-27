@@ -255,6 +255,57 @@ test("E5 Company OS bridge uses only the server bridge secret and sends a bounde
   assert.equal(Object.prototype.hasOwnProperty.call(request.body, "token"), false);
 });
 
+test("E5 bridge retries a pending reservation with unchanged event identity and accepts a confirmed job", async () => {
+  const requests = [];
+  const result = await dispatchCompanyOsPipelineStart(validEvent(), {
+    env: { ELYON_BRIDGE_SECRET: "test-secret" },
+    controlSnapshotImpl: async () => ({ permissions: { internalPipelineAllowed: true } }),
+    fetchImpl: async (_url, options) => {
+      requests.push(JSON.parse(options.body));
+      return requests.length === 1
+        ? { ok: true, status: 202, json: async () => ({ ok: true, pending: true, jobId: "" }) }
+        : { ok: true, status: 200, json: async () => ({ ok: true, reused: true, jobId: "pipeline-job-1" }) };
+    },
+  });
+  assert.equal(requests.length, 2);
+  assert.deepEqual(requests[0], requests[1]);
+  assert.equal(result.delivered, true);
+  assert.equal(result.pipelineJobId, "pipeline-job-1");
+});
+
+test("E5 bridge does not mark a still pending reservation as delivered", async () => {
+  let calls = 0;
+  const result = await dispatchCompanyOsPipelineStart(validEvent(), {
+    env: { ELYON_BRIDGE_SECRET: "test-secret" },
+    controlSnapshotImpl: async () => ({ permissions: { internalPipelineAllowed: true } }),
+    fetchImpl: async () => {
+      calls += 1;
+      return { ok: true, status: 202, json: async () => ({ ok: true, pending: true, jobId: "" }) };
+    },
+  });
+  assert.equal(calls, 2);
+  assert.equal(result.delivered, false);
+  assert.equal(result.reason, "company_os_pipeline_start_pending");
+});
+
+test("E5 bridge rejects unconfirmed and contradictory success responses", async () => {
+  for (const data of [
+    {},
+    { ok: true },
+    { ok: true, pending: true, jobId: "job-1" },
+    { ok: true, job: { id: "job-1" }, jobId: "job-2" },
+    { ok: false, jobId: "job-1" },
+  ]) {
+    const result = await dispatchCompanyOsPipelineStart(validEvent(), {
+      env: { ELYON_BRIDGE_SECRET: "test-secret" },
+      controlSnapshotImpl: async () => ({ permissions: { internalPipelineAllowed: true } }),
+      fetchImpl: async () => ({ ok: true, status: 200, json: async () => data }),
+    });
+    assert.equal(result.delivered, false);
+    assert.equal(result.reason, "company_os_pipeline_start_unconfirmed");
+  }
+});
+
 test("E5 worker starts Company OS only after a successful Jarvis outcome persisted as SUCCESS", async () => {
   const success = workerHarness({
     outcome: { ok: true, blocked: false, result: { phase: "E5", runs: [] } },
