@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { runInNewContext } from "node:vm";
-import { runDirectWorkforceExecution, respondWithWorkforceExecution, runClaimedRegistryExecution, listWorkforceExecutionHistory, recordWorkforceExecution, WORKFORCE_REGISTRY_REQUEST, WORKFORCE_DELEGATED_REQUEST } from "../lib/ai-workforce-runtime.js";
+import { manualWorkforceQueue, runDirectWorkforceExecution, respondWithWorkforceExecution, runClaimedRegistryExecution, listWorkforceExecutionHistory, recordWorkforceExecution, WORKFORCE_REGISTRY_REQUEST, WORKFORCE_DELEGATED_REQUEST } from "../lib/ai-workforce-runtime.js";
 import { JARVIS_NOVA_LOCAL_ONLY } from "../lib/elyon-jarvis-e5-v2-policy.js";
 
 const nowMs = Date.parse("2026-11-28T00:00:00Z");
@@ -132,7 +132,8 @@ function claimHarness() {
     if (options.method === "PATCH") {
       const id = /id=eq\.([^&]+)/.exec(path)?.[1];
       const current = tasks.get(id);
-      if (current?.status !== "running") return [];
+      const expected = /status=eq\.([^&]+)/.exec(path)?.[1];
+      if (!current || current.status !== expected) return [];
       tasks.set(id, { ...current, ...body });
       return [{ id }];
     }
@@ -335,4 +336,75 @@ test("browser bridge preserves headers and provider settings, adds keys only to 
   assert.equal(calls[2].init.headers,undefined);
   await window.fetch("/api/ai-agent-run-registry",{method:"GET"});
   assert.equal(calls[3].init.headers,undefined);
+});
+
+
+test("manual queue persists encrypted drafts and atomically starts same task once",async()=>{
+  const {tasks,runs,request}=claimHarness();
+  const options={env:{SUPABASE_SERVICE_ROLE_KEY:"synthetic-queue-test-secret"},persistence:"enabled",request,nowMs};
+  const body={operation:"create",agentId:"elyon-product-data-checker",title:"Test title private",description:"Check synthetic product privately",type:"product_analysis",priority:"normal"};
+  const create=async()=>{const res=responseCapture();await manualWorkforceQueue({method:"POST",headers:{"idempotency-key":"queue-creation-test-001"},body},res,options);return res;};
+  const created=await create();
+  assert.equal(created.code,201);
+  assert.equal(created.payload.task.status,"queued");
+  assert.equal(created.payload.task.description,body.description);
+  const id=created.payload.task.id;
+  assert.doesNotMatch(JSON.stringify([...tasks.values()]),/Test title private|Check synthetic product privately/);
+  const duplicate=await create();
+  assert.equal(duplicate.code,200);
+  assert.equal(duplicate.payload.task.id,id);
+  assert.equal(tasks.size,1);
+  const history=await listWorkforceExecutionHistory(options);
+  assert.equal(history.entries[0].status,"awaiting_manual_start");
+  const makeReq=(prompt=body.description)=>({headers:{"idempotency-key":"queue-start-test-00001","x-elyon-queued-task":id},body:{title:body.title,taskPrompt:prompt,priority:"medium"}});
+  const denied=responseCapture();
+  await runDirectWorkforceExecution(makeReq("different"),denied,base.agentId,async()=>assert.fail("changed draft executed"),options);
+  assert.equal(denied.code,409);
+  let calls=0;let release;
+  const gate=new Promise(resolve=>{release=resolve});
+  const first=responseCapture();
+  const running=runDirectWorkforceExecution(makeReq(),first,base.agentId,async(req,res)=>{
+    calls++;assert.equal(tasks.get(id).status,"running");await gate;return respondWithWorkforceExecution(req,res,200,{ok:true,task:base});
+  },options);
+  await new Promise(resolve=>setImmediate(resolve));
+  const competing=responseCapture();
+  await runDirectWorkforceExecution(makeReq(),competing,base.agentId,async()=>assert.fail("duplicate execution"),options);
+  assert.equal(competing.code,409);
+  const cancellation=responseCapture();
+  await manualWorkforceQueue({method:"POST",body:{operation:"cancel",taskId:id}},cancellation,options);
+  assert.equal(cancellation.code,409);
+  release();await running;
+  assert.equal(calls,1);assert.equal(tasks.size,1);assert.equal(runs.length,1);
+  assert.equal(first.payload.runtime.taskId,id);assert.equal(first.payload.runtime.origin,"manual_queue");
+  assert.equal(tasks.get(id).status,"completed");
+  const listing=responseCapture();await manualWorkforceQueue({method:"GET"},listing,options);
+  assert.equal(listing.payload.entries[0].description,"");
+  assert.equal(listing.payload.entries[0].startable,false);
+});
+
+test("manual queue rejects credentials and invalid inputs; cancel is terminal and preview cannot persist",async()=>{
+  const {tasks,request}=claimHarness();
+  const options={env:{SUPABASE_SERVICE_ROLE_KEY:"synthetic-queue-test-secret"},persistence:"enabled",request,nowMs};
+  const body={operation:"create",agentId:base.agentId,title:"Check",description:"API key: sk-testsecret123456",type:"research",priority:"medium"};
+  const req={method:"POST",headers:{"idempotency-key":"queue-cancel-test-00001"},body};
+  const bad=responseCapture();await manualWorkforceQueue(req,bad,options);assert.equal(bad.code,400);assert.equal(tasks.size,0);
+  req.body.description="Synthetic analysis";
+  const created=responseCapture();await manualWorkforceQueue(req,created,options);assert.equal(created.code,201);
+  const id=created.payload.task.id;
+  const cancelled=responseCapture();await manualWorkforceQueue({method:"POST",body:{operation:"cancel",taskId:id}},cancelled,options);
+  assert.equal(cancelled.payload.task.status,"cancelled");
+  const res=responseCapture();await runDirectWorkforceExecution({headers:{"idempotency-key":"queue-start-test-00002","x-elyon-queued-task":id},body:{title:body.title,taskPrompt:body.description,priority:"medium"}},res,base.agentId,async()=>assert.fail("cancelled task executed"),options);
+  assert.equal(res.code,409);
+  const disabled=responseCapture();await manualWorkforceQueue(req,disabled,{...options,persistence:"disabled",request:async()=>assert.fail("preview write")});assert.equal(disabled.code,503);
+});
+
+test("manual queue with an unavailable encryption key refuses creation and invalid ciphertext cannot dispatch",async()=>{
+  const {tasks,request}=claimHarness();
+  const options={env:{SUPABASE_SERVICE_ROLE_KEY:"synthetic-queue-test-secret"},persistence:"enabled",request,nowMs};
+  const req={method:"POST",headers:{"idempotency-key":"queue-tamper-test-00001"},body:{operation:"create",agentId:base.agentId,title:"Check",description:"Synthetic analysis",type:"research",priority:"medium"}};
+  const missing=responseCapture();await manualWorkforceQueue(req,missing,{...options,env:{}});assert.equal(missing.code,503);assert.equal(tasks.size,0);
+  const created=responseCapture();await manualWorkforceQueue(req,created,options);const id=created.payload.task.id;
+  tasks.get(id).payload.queueEnvelope.tag="AAAAAAAAAAAAAAAAAAAAAA";
+  const listing=responseCapture();await manualWorkforceQueue({method:"GET"},listing,options);assert.equal(listing.payload.entries[0].startable,false);
+  const denied=responseCapture();await runDirectWorkforceExecution({headers:{"idempotency-key":"queue-start-test-00003","x-elyon-queued-task":id},body:{title:req.body.title,taskPrompt:req.body.description,priority:"medium"}},denied,base.agentId,async()=>assert.fail("tampered task executed"),options);assert.equal(denied.code,409);
 });
