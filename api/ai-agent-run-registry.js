@@ -1,4 +1,4 @@
-import { WORKFORCE_REGISTRY_REQUEST } from "../lib/ai-workforce-runtime.js";
+import { WORKFORCE_REGISTRY_REQUEST, listWorkforceExecutionHistory } from "../lib/ai-workforce-runtime.js";
 import { requireSellerAccess } from "../lib/seller-access.js";
 import { JARVIS_NOVA_LOCAL_ONLY, JARVIS_NOVA_AGENT_ID } from "../lib/elyon-jarvis-e5-v2-policy.js";
 import advancedAgentHandler from "./ai-agent-run-advanced.js";
@@ -66,6 +66,10 @@ export default async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(204).end();
 
   if (req.method === "GET") {
+    if (req.query?.view === "runtime") {
+      const history = await listWorkforceExecutionHistory({ limit: req.query?.limit });
+      return res.status(history.available ? 200 : 503).json({ ok: history.available, ...history });
+    }
     try {
       const registry = await registrySnapshot();
       return res.status(200).json({
