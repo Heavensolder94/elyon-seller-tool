@@ -1,3 +1,4 @@
+import { WORKFORCE_REGISTRY_REQUEST } from "../lib/ai-workforce-runtime.js";
 import { requireSellerAccess } from "../lib/seller-access.js";
 import { JARVIS_NOVA_LOCAL_ONLY, JARVIS_NOVA_AGENT_ID } from "../lib/elyon-jarvis-e5-v2-policy.js";
 import advancedAgentHandler from "./ai-agent-run-advanced.js";
@@ -120,6 +121,7 @@ export default async function handler(req, res) {
       const action = resolveRegistryAction(body.action, coreTarget);
       if (!action.ok) return actionError(res, action);
 
+      req[WORKFORCE_REGISTRY_REQUEST] = true;
       req.body = buildStrictCoreRequest(body, coreTarget, action.action);
       res.setHeader("X-Elyon-Agent-Kind", "core");
       res.setHeader("X-Elyon-Agent-Id", coreTarget.visibleId);
@@ -149,6 +151,7 @@ export default async function handler(req, res) {
     if (!action.ok) return actionError(res, action);
 
     const rawInput = plainObject(body.input || body.context || body.data || {});
+    req[WORKFORCE_REGISTRY_REQUEST] = true;
     req.body = {
       action: action.action,
       customAgent: agent,
