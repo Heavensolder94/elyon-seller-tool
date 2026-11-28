@@ -6,7 +6,7 @@
   const BRAIN_HOST_ID = "jarvisBrainControlPersistentHost";
   const HUB_ID = "jarvisUnifiedHubHost";
   const STYLE_ID = "jarvisUnifiedHubStyles";
-  const VERSION = "v2-simple";
+  const VERSION = "v2.1-system-navigation";
 
   const AREAS = Object.freeze([
     { id: "home", label: "JARVIS", icon: "◉" },
@@ -133,7 +133,7 @@
       ? `<button type="button" class="jarvis-hub-action" data-jarvis-quick="brain">Gehirn öffnen</button><button type="button" class="jarvis-hub-action" data-jarvis-quick="system">System prüfen</button><button type="button" class="jarvis-hub-action" data-jarvis-quick="agents">Mitarbeiter</button>`
       : "";
 
-    hub.innerHTML = `
+    const markup = `
       <div class="jarvis-hub-head">
         <div class="jarvis-hub-brand"><div class="jarvis-hub-orb">◉</div><div><div class="jarvis-hub-kicker">Elyon</div><h2 class="jarvis-hub-title">JARVIS</h2></div></div>
         <span class="jarvis-hub-version">SIMPLE CONTROL</span>
@@ -141,6 +141,10 @@
       <nav class="jarvis-hub-nav" aria-label="JARVIS Bereiche">${AREAS.map((area) => `<button type="button" class="jarvis-hub-tab ${state.area === area.id ? "active" : ""}" data-jarvis-hub-area="${area.id}"><span>${area.icon}</span>${area.label}</button>`).join("")}</nav>
       <div class="jarvis-hub-context"><div><strong>${copy.title}</strong><p>${copy.copy}</p></div><div class="jarvis-hub-actions">${shortcuts}<button type="button" class="jarvis-hub-action primary" data-jarvis-toggle-advanced>${detailLabel}</button></div></div>
       ${systemSubnav}`;
+    if (hub.dataset.jarvisHubRendered !== `${state.area}:${advanced}:${state.systemView}` || !hub.firstElementChild) {
+      hub.innerHTML = markup;
+      hub.dataset.jarvisHubRendered = `${state.area}:${advanced}:${state.systemView}`;
+    }
     return true;
   }
 
@@ -150,7 +154,7 @@
     const legacySelected = menu.value === INTEGRATION_TAB_ID;
     menu.querySelectorAll(`option[value="${INTEGRATION_TAB_ID}"]`).forEach((option) => option.remove());
     const jarvis = menu.querySelector(`option[value="${TOP_TAB_ID}"]`);
-    if (jarvis) jarvis.textContent = "◉ JARVIS";
+    if (jarvis && jarvis.textContent !== "◉ JARVIS") jarvis.textContent = "◉ JARVIS";
     if (legacySelected) {
       state.area = "system";
       state.systemView = "apis";
@@ -182,6 +186,7 @@
       delete body.dataset.jarvisHubAdvanced;
     }
     renderHub();
+    window.ElyonJarvisFileManagerMountBridge?.schedule?.();
     return open;
   }
 
@@ -233,20 +238,23 @@
     const tab = document.getElementById(INTEGRATION_TAB_ID);
     const title = tab?.querySelector(".jic-title h1");
     const copy = tab?.querySelector(".jic-title p");
-    if (title) title.textContent = state.advanced.system && state.systemView !== "overview" ? "System · Technische Details" : "System";
-    if (copy) copy.textContent = state.advanced.system
+    const nextTitle = state.advanced.system && state.systemView !== "overview" ? "System · Technische Details" : "System";
+    const nextCopy = state.advanced.system
       ? "Technische Diagnose für Integrationen, Modelle, Routing, Kosten und Logs."
       : "Schneller Gesundheitscheck für Brain, Memory, Pipeline und Safety.";
+    if (title && title.textContent !== nextTitle) title.textContent = nextTitle;
+    if (copy && copy.textContent !== nextCopy) copy.textContent = nextCopy;
     return Boolean(tab);
   }
 
   function routeSystem(view = state.systemView) {
     const allowed = SYSTEM_VIEWS.some((item) => item.id === view) ? view : "overview";
     state.systemView = state.advanced.system ? allowed : "overview";
-    window.ElyonJarvisIntegrationCenter?.refresh?.();
+    window.ElyonJarvisIntegrationCenter?.refresh?.({ view: state.systemView, load: true });
     requestAnimationFrame(() => {
       const tab = document.getElementById(INTEGRATION_TAB_ID);
       const button = tab?.querySelector(`[data-jic-tab="${state.systemView}"]`);
+      // Compatibility only for older Integration Center assets.
       if (button && !button.classList.contains("active")) button.click();
       requestAnimationFrame(() => {
         patchSystemCopy();
@@ -306,26 +314,27 @@
     document.addEventListener("click", (event) => {
       const target = event.target instanceof Element ? event.target : null;
       if (!target) return;
-      const area = target.closest("[data-jarvis-hub-area]");
+      // The body also has data-jarvis-hub-area as a state marker, not a control.
+      const area = target.closest(`#${HUB_ID} button[data-jarvis-hub-area]`);
       if (area) {
         activate(area.dataset.jarvisHubArea || "home");
         return;
       }
-      if (target.closest("[data-jarvis-toggle-advanced]")) {
+      if (target.closest(`#${HUB_ID} button[data-jarvis-toggle-advanced]`)) {
         state.advanced[state.area] = !state.advanced[state.area];
         if (state.area === "system" && !state.advanced.system) state.systemView = "overview";
         syncOpenState();
         refreshArea();
         return;
       }
-      const systemView = target.closest("[data-jarvis-system-view]");
+      const systemView = target.closest(`#${HUB_ID} button[data-jarvis-system-view]`);
       if (systemView) {
         state.systemView = systemView.dataset.jarvisSystemView || "overview";
         renderHub();
         routeSystem(state.systemView);
         return;
       }
-      const quick = target.closest("[data-jarvis-quick]");
+      const quick = target.closest(`#${HUB_ID} button[data-jarvis-quick]`);
       if (quick) {
         const action = quick.dataset.jarvisQuick || "";
         if (action === "brain" || action === "system") activate(action);

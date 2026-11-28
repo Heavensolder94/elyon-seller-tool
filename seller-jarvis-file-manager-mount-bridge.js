@@ -31,7 +31,8 @@
     style.id = HOST_STYLE_ID;
     style.textContent = `
       #${HOST_ID}{display:none;min-width:0;margin-top:16px;margin-bottom:34px}
-      #${TAB_ID}.active + #${HOST_ID},#${HOST_ID}.active{display:block!important}
+      #${HOST_ID}.active{display:block!important}
+      body[data-jarvis-hub-open="1"]:not([data-jarvis-hub-area="brain"]) #${HOST_ID}{display:none!important}
       #${HOST_ID} > #${ROOT_ID}{margin:0}
       #${HOST_ID} [${HOST_FALLBACK_ATTR}]{display:block;padding:18px;border-radius:24px;background:linear-gradient(145deg,rgba(15,23,42,.72),rgba(8,17,31,.82));border:1px solid rgba(96,165,250,.22);color:#dbeafe;box-shadow:0 18px 50px rgba(2,6,23,.18)}
       #${HOST_ID} [${HOST_FALLBACK_ATTR}] strong{display:block;font-size:16px;margin-bottom:5px}
@@ -68,7 +69,9 @@
   function syncHostVisibility(tab, host) {
     if (!tab || !host) return false;
     const menu = document.getElementById("mainMenu");
-    const active = tab.classList.contains("active") || menu?.value === TAB_ID;
+    const routeActive = tab.classList.contains("active") || menu?.value === TAB_ID;
+    const hub = document.body?.dataset;
+    const active = routeActive && (hub?.jarvisHubOpen !== "1" || hub.jarvisHubArea === "brain");
     host.classList.toggle("active", Boolean(active));
     host.setAttribute("aria-hidden", active ? "false" : "true");
     host.style.display = active ? "block" : "";
