@@ -1,3 +1,4 @@
+import { respondWithWorkforceExecution } from "../lib/ai-workforce-runtime.js";
 import { requireSellerAccess } from "../lib/seller-access.js";
 import { routeAIRequest } from "../lib/ai-provider-router.js";
 import { createReadonlyToolRuntime } from "../lib/ai-readonly-tools.js";
@@ -354,7 +355,7 @@ export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ ok: false, error: "method_not_allowed", message: "Nur GET und POST sind erlaubt." });
   try {
     const result = await runCustomAgent(plainObject(req.body));
-    return res.status(result.statusCode).json(result.payload);
+    return respondWithWorkforceExecution(req, res, result.statusCode, result.payload);
   } catch (error) {
     return res.status(400).json({ ok: false, error: "invalid_custom_agent", message: text(error?.message, 2000) || "Custom-Agent ist ungültig." });
   }
