@@ -411,7 +411,9 @@
       if (!body || typeof body !== "object" || Array.isArray(body)) return originalFetch(parsed.toString(), nextInit);
       const requestedAgent = String(body.agentId || body.task?.agentId || body.customAgent?.id || body.agent?.id ||
         (parsed.pathname === "/api/ai-workforce-v2" ? body.action === "run_draft_quality" ? "elyon-draft-quality-guard" : "elyon-manager" : body.action || "default"));
-      const slot = requestedAgent.toLowerCase();
+      const aliases = { "elyon-product-data-checker": "elyon-product-data-specialist", "soul-scout": "elyon-product-data-specialist", "elyon-compliance-guard": "elyon-compliance-specialist", "soul-guard": "elyon-compliance-specialist", "elyon-profit-analyst": "elyon-profit-specialist", "soul-finance": "elyon-profit-specialist", "elyon-listing-pro": "elyon-listing-specialist", "soul-seo": "elyon-listing-specialist", "elyon-order-coordinator": "elyon-order-specialist", "elyon-support-assistant": "elyon-customer-support-specialist", "soul-support": "elyon-customer-support-specialist", "elyon-operations-manager": "elyon-manager", "soul-operations": "elyon-manager" };
+      const normalized = requestedAgent.toLowerCase();
+      const slot = Object.hasOwn(aliases, normalized) ? aliases[normalized] : normalized;
       const reject = (status, error, message) => new Response(JSON.stringify({ ok: false, error, message }), { status, headers: { "Content-Type": "application/json" } });
       if (activeExecutions.has(slot)) return reject(409, "runtime_execution_in_progress", "Dieser Mitarbeiter bearbeitet bereits einen Auftrag. Bitte den Status prüfen.");
       const headers = new Headers(nextInit.headers || input?.headers || {});
