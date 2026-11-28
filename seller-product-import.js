@@ -98,6 +98,7 @@
       supplier,
       supplierName: supplier,
       supplierUrl,
+      supplierIntelligence: isCompanyOs(item)?(first(item,layer=>layer.supplierIntelligence||layer.product?.supplierIntelligence)||null):null,
       url: supplierUrl,
       buyPrice,
       buy: buyPrice,
