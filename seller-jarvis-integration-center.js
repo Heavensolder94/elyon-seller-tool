@@ -258,7 +258,26 @@
         ${renderHealthCard("Safety", "degraded", "Bereichsübergreifend prüfen", "Dieser Status prüft nicht alle Veröffentlichungswege. Jedes eBay-Angebot benötigt eine ausdrückliche Einzelbestätigung.")}
       </section>
       <div class="jic-grid">${renderApis()}${renderRecentActivity()}</div>
+      ${renderWorkforceHistory()}
       ${renderRouting()}`;
+  }
+
+  function renderWorkforceHistory() {
+    const history = state.systemStatus?.workforce || {};
+    const entries = Array.isArray(history.entries) ? history.entries : [];
+    const origins = { registry: "Registry", legacy_handler: "Direkter Agentenauftrag", nova_worker: "Nova-Automatik", manager_delegation: "Manager-Delegation" };
+    const states = { approval_required: "Freigabe erforderlich", draft_ready: "Entwurf bereit", blocked: "Blockiert", failed: "Fehlgeschlagen", completed: "Ausgeführt", cancelled: "Abgebrochen", manual_review_required: "Prüfung erforderlich", manual_approval_required: "Freigabe erforderlich", warning: "Hinweise" };
+    const body = !history.available ? '<div class="jic-empty">Server-Historie nicht bestätigt. Keine Aussage über fehlende Aufträge.</div>' :
+      entries.length ? entries.slice(0, 20).map(entry => {
+        const label = states[entry.taskState] || (entry.status === "failed" ? "Fehlgeschlagen" : "Ausführung dokumentiert");
+        return '<article class="jic-row"><div><strong>' + escapeHtml(entry.agentId) + '</strong><p>' +
+          escapeHtml(origins[entry.origin] || "Herkunft nicht bestätigt") + ' · ' + escapeHtml(formatDate(entry.finishedAt || entry.createdAt)) +
+          (entry.parentTaskId ? ' · Delegiert' : '') + ' · ' + escapeHtml(entry.provider || "Provider unbekannt") +
+          '</p></div><div class="jic-side"><span class="jic-status ' + statusTone(entry.status === "failed" || entry.taskState === "blocked" ? "failed" : "configured") + '">' +
+          escapeHtml(label) + '</span><small>' + (entry.journal === "recorded" ? "Serverprotokoll bestätigt" : "Serverprotokoll unvollständig") + '</small></div></article>';
+      }).join("") : '<div class="jic-empty">Noch keine neuen zentral protokollierten Ausführungen.</div>';
+    return '<section class="jic-card"><h2>Workforce · Zentrale Ausführungshistorie</h2><div class="jic-list">' + body +
+      '</div><p class="jic-note">Dokumentiert neue abgeschlossene Ausführungsversuche. Kein Freigabenachweis und keine Wiederherstellung alter Browser-Aufgaben.</p></section>';
   }
 
   function renderRecentActivity() {
