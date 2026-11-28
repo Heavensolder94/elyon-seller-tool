@@ -379,20 +379,25 @@
   function installFetchBridge() {
     if (window.fetch?.elyonAdvancedWorkforceWrapped) return;
     const originalFetch = window.fetch.bind(window);
+    const executionPaths = new Set([ENDPOINT, ADVANCED_ENDPOINT, "/api/ai-agent-run-compatible", "/api/ai-agent-run-custom", "/api/ai-agent-run-registry", "/api/ai-workforce-v2"]);
+    const activeExecutions = new Set();
     const wrapped = async function (input, init = {}) {
       const sourceUrl = typeof input === "string" ? input : input instanceof URL ? input.toString() : input?.url;
       if (!sourceUrl) return originalFetch(input, init);
       let parsed;
       try { parsed = new URL(sourceUrl, window.location.origin); } catch { return originalFetch(input, init); }
-      if (parsed.pathname !== ENDPOINT) return originalFetch(input, init);
-      parsed.pathname = ADVANCED_ENDPOINT;
+      if (parsed.origin !== window.location.origin || !executionPaths.has(parsed.pathname)) return originalFetch(input, init);
+      // Only the established legacy bridge rewrites the path/provider settings.
+      const isLegacy = parsed.pathname === ENDPOINT;
+      if (parsed.pathname !== ENDPOINT && String(init.method || input?.method || "GET").toUpperCase() !== "POST") return originalFetch(input, init);
+      if (isLegacy) parsed.pathname = ADVANCED_ENDPOINT;
       const nextInit = { ...init };
       const method = String(nextInit.method || (typeof input !== "string" && input?.method) || "GET").toUpperCase();
       if (method === "POST" && typeof nextInit.body === "string") {
         try {
           const body = JSON.parse(nextInit.body);
           const agentId = String(body.agentId || body.task?.agentId || "");
-          if (AGENTS[agentId]) {
+          if (isLegacy && AGENTS[agentId]) {
             const advanced = advancedFor(agentId);
             body.agent = { ...(body.agent || {}), advanced, temperature: temperatureFor(advanced), maxTokens: advanced.common.maxTokens };
             body.priority = advanced.common.priority;
@@ -400,7 +405,27 @@
           }
         } catch {}
       }
-      return originalFetch(parsed.toString(), nextInit);
+      if (method !== "POST" || typeof nextInit.body !== "string") return originalFetch(parsed.toString(), nextInit);
+      let body;
+      try { body = JSON.parse(nextInit.body); } catch { return originalFetch(parsed.toString(), nextInit); }
+      if (!body || typeof body !== "object" || Array.isArray(body)) return originalFetch(parsed.toString(), nextInit);
+      const requestedAgent = String(body.agentId || body.task?.agentId || body.customAgent?.id || body.agent?.id ||
+        (parsed.pathname === "/api/ai-workforce-v2" ? body.action === "run_draft_quality" ? "elyon-draft-quality-guard" : "elyon-manager" : body.action || "default"));
+      const slot = requestedAgent.toLowerCase();
+      const reject = (status, error, message) => new Response(JSON.stringify({ ok: false, error, message }), { status, headers: { "Content-Type": "application/json" } });
+      if (activeExecutions.has(slot)) return reject(409, "runtime_execution_in_progress", "Dieser Mitarbeiter bearbeitet bereits einen Auftrag. Bitte den Status prüfen.");
+      const headers = new Headers(nextInit.headers || input?.headers || {});
+      if (!headers.has("Idempotency-Key")) {
+        if (typeof window.crypto?.randomUUID !== "function") return reject(503, "runtime_key_unavailable", "Sichere Auftrags-ID konnte nicht erstellt werden.");
+        headers.set("Idempotency-Key", window.crypto.randomUUID());
+      }
+      nextInit.headers = headers;
+      activeExecutions.add(slot);
+      try {
+        return await originalFetch(parsed.toString(), nextInit);
+      } finally {
+        activeExecutions.delete(slot);
+      }
     };
     wrapped.elyonAdvancedWorkforceWrapped = true;
     wrapped.elyonOriginal = originalFetch;
