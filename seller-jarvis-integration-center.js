@@ -270,11 +270,11 @@
   function renderWorkforceHistory() {
     const history = state.systemStatus?.workforce || {};
     const entries = Array.isArray(history.entries) ? history.entries : [];
-    const origins = { registry: "Registry", legacy_handler: "Direkter Agentenauftrag", nova_worker: "Nova-Automatik", manager_delegation: "Manager-Delegation", manual_queue: "Manuelle Server-Auftragsmappe" };
+    const origins = { registry: "Registry", legacy_handler: "Direkter Agentenauftrag", nova_worker: "Nova-Automatik", manager_delegation: "Manager-Delegation", manual_queue: "Manuelle Server-Auftragsmappe", auto_local_queue: "Automatische lokale Margenprüfung" };
     const states = { approval_required: "Freigabe erforderlich", draft_ready: "Entwurf bereit", blocked: "Blockiert", failed: "Fehlgeschlagen", completed: "Ausgeführt", cancelled: "Abgebrochen", manual_review_required: "Prüfung erforderlich", manual_approval_required: "Freigabe erforderlich", warning: "Hinweise" };
     const body = !history.available ? '<div class="jic-empty">Server-Historie nicht bestätigt. Keine Aussage über fehlende Aufträge.</div>' :
       entries.length ? entries.slice(0, 20).map(entry => {
-        const label = entry.status === "awaiting_manual_start" ? "Wartet auf manuellen Start" : entry.status === "running" ? "In Ausführung" : entry.status === "interrupted_unconfirmed" ? "Ausführung unbestätigt · prüfen" : entry.status === "failed" ? "Fehlgeschlagen" : states[entry.taskState] || "Ausführung dokumentiert";
+        const label = entry.status === "awaiting_auto_start" ? "Wartet auf Autopilot" : entry.status === "awaiting_manual_start" ? "Wartet auf manuellen Start" : entry.status === "running" ? "In Ausführung" : entry.status === "interrupted_unconfirmed" ? "Ausführung unbestätigt · prüfen" : entry.status === "failed" ? "Fehlgeschlagen" : states[entry.taskState] || "Ausführung dokumentiert";
         return '<article class="jic-row"><div><strong>' + escapeHtml(entry.agentId) + '</strong><p>' +
           escapeHtml(origins[entry.origin] || "Herkunft nicht bestätigt") + ' · ' + escapeHtml(formatDate(entry.finishedAt || entry.createdAt)) +
           (entry.parentTaskId ? ' · Delegiert' : '') + ' · ' + escapeHtml(entry.provider || "Provider unbekannt") +
