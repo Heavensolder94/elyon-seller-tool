@@ -234,6 +234,10 @@
     const cron = infrastructure.cron || {};
     const cloudflare = infrastructure.checks?.cloudflare || {};
     const scheduledDb = infrastructure.checks?.supabase || {};
+    const storage = infrastructure.checks?.storage || {};
+    const storageConfirmed = ["online", "warning", "critical"].includes(storage.status) && Number.isFinite(storage.databaseBytes) && Number.isFinite(storage.usagePercent);
+    const storageValue = storageConfirmed ? `${formatNumber(Math.round(storage.databaseBytes / 100000) / 10)} MB / 500 MB · ${formatNumber(storage.usagePercent)} %` : "Keine aktuelle Messung";
+    const storageDetail = storageConfirmed ? `90-Tage-Archivregel · ${formatNumber(storage.archiveCandidates)} Kandidaten · keine automatische Löschung · Warnung ab 70 %, kritisch ab 85 %` : "Speichermessung noch nicht bestätigt · keine automatische Löschung";
     const failedStores = Object.entries(scheduledDb.stores || {}).filter(([, value]) => value && value !== "online").map(([name, value]) => `${name}: ${value}`).join(" · ");
     const scheduledRedis = infrastructure.checks?.redis || {};
     const metricValue = value => system.brain?.telemetryAvailable ? formatNumber(value) : "—";
@@ -254,6 +258,7 @@
         ${renderHealthCard("E5 Pipeline", e5Status, e5Value, e5.killSwitch ? "Kill-Switch aktiv" : e5.pausedByGuard ? "Durch Guard pausiert" : `State: ${text(e5.state) || "—"}`)}
         ${renderHealthCard("Vercel Cron", cron.status || "unverified", cron.status === "online" ? "Worker-Aufruf bestätigt" : cron.status === "degraded" ? "Letzter Aufruf fehlgeschlagen" : "Aufruf nicht bestätigt", `Letzter Aufruf: ${formatDate(cron.lastRunAt)} · Letzter erfolgreicher Aufruf: ${formatDate(cron.lastSuccessAt)}`)}
         ${renderHealthCard("Supabase · automatisch", scheduledDb.status || "unverified", scheduledDb.status === "online" ? "Vier Lesetests bestanden" : "Prüfung nicht bestätigt", `Alle 6 Stunden · Letzte Prüfung: ${formatDate(infrastructure.lastCheckedAt)}${infrastructure.stale ? " · Kein aktueller Nachweis" : ""}${failedStores ? " · " + failedStores : ""}`)}
+        ${renderHealthCard("Supabase · Speicher", storageConfirmed ? storage.status === "critical" ? "failed" : storage.status === "warning" ? "degraded" : "online" : "unverified", storageValue, storageDetail)}
         ${renderHealthCard("Cloudflare", cloudflare.status || "unverified", cloudflare.status === "online" ? "Runtime & Queue konfiguriert" : "Runtime nicht bestätigt", `Letzte Prüfung: ${formatDate(infrastructure.lastCheckedAt)}${cloudflare.reason ? " · " + cloudflare.reason : ""} · Kein Queue-Ausführungstest`)}
         ${renderHealthCard("Safety", "degraded", "Bereichsübergreifend prüfen", "Dieser Status prüft nicht alle Veröffentlichungswege. Jedes eBay-Angebot benötigt eine ausdrückliche Einzelbestätigung.")}
       </section>
