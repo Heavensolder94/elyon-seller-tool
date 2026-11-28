@@ -1,0 +1,13 @@
+# Workforce V1.1.1 – Infrastructure Health Monitor
+
+The existing authenticated production cron `/api/jarvis-worker` remains scheduled every five minutes. After the original worker returns (or throws), the monitor stores a sanitized attempt timestamp and last successful worker return in the existing telemetry Redis. This is evidence of a completed invocation, not evidence of a successful product job.
+
+An atomic Redis interval claim limits checks to once every six hours, including overlapping invocations. The due cycle runs four read-only Supabase requests (one ID at most from each of jarvis_memory, jarvis_working_memory, jarvis_tasks and jarvis_agent_runs) and the existing documented Cloudflare runtime health endpoint. Redis connectivity is evidenced by the actual successful Redis write. No data rows, URLs, API keys, raw response bodies or model prompts are persisted. No AI model requests or new services, tables, schedules or environment variables are introduced.
+
+The protected system-status endpoint reads the stored monitoring snapshot. The Integration Center shows the last cron return, last successful return, scheduled database read status, and Cloudflare runtime/queue configuration. Evidence is marked unverified after 15 minutes without a cron return or after seven hours without a completed health snapshot. Cloudflare health is not a queue execution test. The original live Memory and Redis cards remain separate from the scheduled evidence.
+
+If the existing Redis store cannot be reached, monitoring fails closed without an unthrottled probe; worker behavior is not changed. A failed check is displayed until the next cycle. A timed-out worker that cannot return is represented by stale evidence, not a successful heartbeat. The monitor does not automatically restore paused projects.
+
+Expected overhead at the existing five-minute schedule: one additional atomic Redis command per cron return, one completion write per six-hour cycle, four small Supabase reads and one Cloudflare health request per cycle. For a 30-day month this is about 8,640 heartbeat/interval commands, 120 completion writes, 480 database reads, and 120 Cloudflare requests, plus on-demand dashboard reads. Existing function usage/billing still applies; no extra subscription is required. Supabase Free project inactivity pausing remains possible; this is an operational health monitor, not an uptime guarantee.
+
+Acceptance: run the simulated regression suite, merge after CI, verify production deployment and wait for actual authenticated scheduled invocation evidence in JARVIS > System. A product end-to-end execution test is separate.
