@@ -1,0 +1,11 @@
+# Workforce V1.2 – Unified Runtime Foundation
+
+The current Registry, advanced specialist, custom-agent and Manager/QA handlers retain their existing execution and authorization paths. A shared post-execution journal assigns each returned task a server-generated task UUID and run UUID, with the canonical employee identity. The original browser task ID, task result and approval state remain unchanged.
+
+In production, the journal inserts metadata into existing Supabase jarvis_tasks (type workforce-agent-execution) and jarvis_agent_runs tables, verifies returned IDs, and links manager-delegated children to the parent runtime task. Existing Cloudflare queue and Jarvis Redis job scheduling are untouched. No job is queued by this journal. A local/autonomous Nova execution is identified by the existing trusted server-side symbol, not a request parameter.
+
+Only normalized statuses, agent/provider/model identifiers, timestamps, duration and hashed legacy/source references are persisted. Raw prompts, customer details, product payloads, generated content and error bodies are excluded. Cost remains unknown rather than inferred. A completed journal row means an execution returned, not that the product or listing was approved.
+
+Both writes must be confirmed before the response reports recorded. A partial or unconfirmed journal is exposed without repeating the actual agent/model call. Test and preview environments do not write the journal. This phase intentionally does not migrate historical browser tasks, provide durable in-progress execution or automatically resume failed tasks, consolidate the Cloudflare and Redis queues, or guarantee exactly-once execution across repeated HTTP requests. A task that throws before producing a task result is not recorded by this foundation.
+
+Authenticated GET /api/ai-agent-run-registry?view=runtime&limit=30 exposes bounded sanitized history; the existing JARVIS System status also shows recent entries. No new API route, subscription or schema migration. Production journal writes and readback still require live acceptance. The next phase must address task claiming, durable lifecycle and controlled retries before automatic multi-agent execution is expanded.
