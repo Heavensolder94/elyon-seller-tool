@@ -511,3 +511,23 @@ test("E5 UI remains plan/control only and bootstrap keeps the single lazy Jarvis
   assert.match(prepare, /seller-jarvis-e5-pipeline\.js/);
   assert.match(prepare, /one-script Jarvis D1\/D2\/D3\/E1\/E4\/E5 bootstrap/);
 });
+
+
+test("E5 worker uses the shared local queue only when Nova has no due work and control permits execution",async()=>{
+  const control=allowedWorkerControl("autopilot");
+  let invocations=0;
+  const result=await runJarvisWorker({
+    env:{},controlSnapshotImpl:async()=>control,listDueJobsImpl:async()=>[],
+    executeClaimImpl:async()=>assert.fail("Nova execution without job"),
+    pipelineStartImpl:async()=>assert.fail("local queue must not dispatch Company OS"),
+    runQueuedLocalMarginImpl:async options=>{invocations++;assert.equal(options.snapshot,control);assert.equal(await options.refreshControl(),control);return {status:"completed",processed:1};},
+  });
+  assert.equal(invocations,1);
+  assert.equal(result.workforceQueue.processed,1);
+  assert.equal(result.processed,0);
+  const nova=workerHarness({outcome:{ok:true,blocked:false,result:{phase:"E5",runs:[]}},storedStatus:"SUCCESS"});
+  const busy=await runJarvisWorker({...nova.options,runQueuedLocalMarginImpl:async()=>assert.fail("Nova must retain priority")});
+  assert.equal(busy.workforceQueue.status,"nova_priority");
+  assert.equal(busy.processed,1);
+  await runJarvisWorker({env:{},controlSnapshotImpl:async()=>({control:{mode:"manual"},decision:{allowed:false}}),listDueJobsImpl:async()=>assert.fail("paused scan"),runQueuedLocalMarginImpl:async()=>assert.fail("paused dispatch")});
+});
