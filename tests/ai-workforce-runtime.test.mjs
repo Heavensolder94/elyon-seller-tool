@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { listWorkforceExecutionHistory, recordWorkforceExecution, WORKFORCE_REGISTRY_REQUEST, WORKFORCE_DELEGATED_REQUEST } from "../lib/ai-workforce-runtime.js";
+import { runClaimedRegistryExecution, listWorkforceExecutionHistory, recordWorkforceExecution, WORKFORCE_REGISTRY_REQUEST, WORKFORCE_DELEGATED_REQUEST } from "../lib/ai-workforce-runtime.js";
 import { JARVIS_NOVA_LOCAL_ONLY } from "../lib/elyon-jarvis-e5-v2-policy.js";
 
 const nowMs = Date.parse("2026-11-28T00:00:00Z");
@@ -112,4 +112,119 @@ test("history is bounded, distinguishes partial records and exposes no raw paylo
   const failure = await listWorkforceExecutionHistory({ persistence: "enabled", request: async () => { throw Error("private error"); } });
   assert.equal(failure.available, false);
   assert.equal(failure.status, "unverified");
+});
+
+
+function claimHarness() {
+  const tasks = new Map();
+  const runs = [];
+  const request = async (path, options) => {
+    const body = options.body ? JSON.parse(options.body) : null;
+    if (options.method === "POST" && path.includes("/jarvis_tasks?")) {
+      for (const row of body) if (tasks.has(row.id)) throw Object.assign(Error("duplicate"), { status: 409 });
+      for (const row of body) tasks.set(row.id, { ...row });
+      return body.map(row => ({ id: row.id }));
+    }
+    if (options.method === "PATCH") {
+      const id = /id=eq\.([^&]+)/.exec(path)?.[1];
+      const current = tasks.get(id);
+      if (current?.status !== "running") return [];
+      tasks.set(id, { ...current, ...body });
+      return [{ id }];
+    }
+    if (options.method === "POST" && path.includes("/jarvis_agent_runs?")) {
+      runs.push(...body);
+      return body.map(row => ({ id: row.id }));
+    }
+    if (options.method === "GET") {
+      const id = /id=eq\.([^&]+)/.exec(path)?.[1];
+      return id ? (tasks.has(id) ? [tasks.get(id)] : []) : [...tasks.values()];
+    }
+    throw Error("unexpected request");
+  };
+  return { tasks, runs, request };
+}
+function responseCapture() {
+  return { code: 200, payload: null, status(code) { this.code = code; return this; }, json(value) { this.payload = value; return this; }, setHeader() { return this; } };
+}
+const registryRequest = key => ({ [WORKFORCE_REGISTRY_REQUEST]: true, headers: key ? { "idempotency-key": key } : {} });
+
+test("registry atomically claims before execution and prevents overlapping or repeated keyed calls", async () => {
+  const { tasks, runs, request } = claimHarness();
+  const key = "test-request-opaque-001";
+  let executions = 0;
+  let release;
+  const gate = new Promise(resolve => { release = resolve; });
+  const options = { persistence: "enabled", request, nowMs };
+  const handler = async (_req, res) => {
+    executions++;
+    assert.equal([...tasks.values()][0].status, "running");
+    await gate;
+    return res.status(200).json({ ok: true, task: base });
+  };
+  const first = responseCapture();
+  const firstRun = runClaimedRegistryExecution(registryRequest(key), first, base.agentId, handler, options);
+  await new Promise(resolve => setImmediate(resolve));
+  const duplicate = responseCapture();
+  await runClaimedRegistryExecution(registryRequest(key), duplicate, base.agentId, handler, options);
+  assert.equal(duplicate.code, 409);
+  assert.equal(executions, 1);
+  release();
+  await firstRun;
+  assert.equal(first.payload.runtime.journal, "recorded");
+  assert.equal(first.payload.runtime.taskId, duplicate.payload.runtime.taskId);
+  assert.equal(tasks.get(first.payload.runtime.taskId).status, "completed");
+  assert.equal(runs.length, 1);
+  assert.equal(runs[0].task_id, first.payload.runtime.taskId);
+  const repeated = responseCapture();
+  await runClaimedRegistryExecution(registryRequest(key), repeated, base.agentId, handler, options);
+  assert.equal(repeated.code, 409);
+  assert.equal(executions, 1);
+  assert.doesNotMatch(JSON.stringify([...tasks.values()]), /test-request-opaque-001/);
+});
+
+test("keyed requests fail closed when reservation is uncertain; unkeyed compatibility remains", async () => {
+  let executions = 0;
+  const handler = async (_req, res) => { executions++; return res.status(200).json({ ok: true, task: base }); };
+  const request = async () => { throw Error("unavailable"); };
+  const options = { persistence: "enabled", request, nowMs };
+  const keyed = responseCapture();
+  await runClaimedRegistryExecution(registryRequest("test-request-opaque-002"), keyed, base.agentId, handler, options);
+  assert.equal(keyed.code, 503);
+  assert.equal(executions, 0);
+  const malformed = responseCapture();
+  await runClaimedRegistryExecution(registryRequest("bad"), malformed, base.agentId, handler, options);
+  assert.equal(malformed.code, 400);
+  assert.equal(executions, 0);
+  const legacy = responseCapture();
+  await runClaimedRegistryExecution(registryRequest(null), legacy, base.agentId, handler, options);
+  assert.equal(legacy.code, 200);
+  assert.equal(executions, 1);
+});
+
+test("registry exceptions finish the claimed task as failed without rerunning the agent", async () => {
+  const { tasks, runs, request } = claimHarness();
+  const response = responseCapture();
+  await runClaimedRegistryExecution(registryRequest("test-request-opaque-003"), response, base.agentId, async () => { throw Error("secret provider error"); }, { persistence: "enabled", request, nowMs });
+  assert.equal(response.code, 500);
+  assert.equal(response.payload.runtime.journal, "recorded");
+  assert.equal(tasks.get(response.payload.runtime.taskId).status, "failed");
+  assert.equal(runs[0].status, "failed");
+  assert.doesNotMatch(JSON.stringify(response.payload), /secret provider error/);
+});
+
+test("history identifies stale running attempts without automatically retrying them", async () => {
+  const { tasks, request } = claimHarness();
+  let release;
+  const gate = new Promise(resolve => { release = resolve; });
+  const running = runClaimedRegistryExecution(registryRequest(null), responseCapture(), base.agentId, async (_req, res) => { await gate; return res.status(200).json({ ok: true, task: base }); }, { persistence: "enabled", request, nowMs });
+  await new Promise(resolve => setImmediate(resolve));
+  const fresh = await listWorkforceExecutionHistory({ persistence: "enabled", request, nowMs });
+  assert.equal(fresh.entries[0].status, "running");
+  assert.equal(fresh.entries[0].journal, "in_progress");
+  const stale = await listWorkforceExecutionHistory({ persistence: "enabled", request, nowMs: nowMs + 16 * 60000 });
+  assert.equal(stale.entries[0].status, "interrupted_unconfirmed");
+  assert.equal([...tasks.values()][0].status, "running");
+  release();
+  await running;
 });
