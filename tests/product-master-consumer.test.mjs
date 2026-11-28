@@ -377,3 +377,12 @@ test('V4.4.1 read-only approval boundary never authorizes Seller Tool or Jarvis'
  assert.throws(()=>draftApprovalStatusSummary({transportReadiness:{...transportReadiness,approvalStatus:{...enriched,riskClass:'ELEVATED_REVIEW'}}}),{code:'invalid_draft_approval_status'});
  for(const patch of [{status:'APPROVED'},{approvalId:'fake'},{approvalPersisted:true},{executionAuthorized:true},{publishAuthorized:true},{liveEnabled:true},{productId:'other'},{selectedSkus:['other']},{productRevision:4}])assert.throws(()=>draftApprovalStatusSummary({transportReadiness:{...transportReadiness,approvalStatus:{...approvalStatus,...patch}}}),{code:'invalid_draft_approval_status'});
 });
+
+test("Supplier Intelligence is carried from the canonical product as a read-only observation",()=>{
+ const evidence={schemaVersion:"elyon-supplier-intelligence-v1",source:"aliexpress",productId:"123",status:"observed",sellerBusiness:{companyName:"Seller",registeredAddress:"Business address",verified:false},comparison:{status:"review_required",verified:false}};
+ const result=adaptProductMasterForSeller({...canonical,product:{...canonical.product,supplierIntelligence:evidence}});
+ assert.deepEqual(result.supplierIntelligence,evidence);
+ assert.equal(result.listing.autonomousPostingAllowed,false);
+ assert.equal(result.approval.automaticListingAllowed,false);
+ assert.equal(adaptProductMasterForSeller(canonical).supplierIntelligence,null);
+});
