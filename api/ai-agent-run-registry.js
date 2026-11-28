@@ -1,4 +1,4 @@
-import { WORKFORCE_REGISTRY_REQUEST, listWorkforceExecutionHistory } from "../lib/ai-workforce-runtime.js";
+import { WORKFORCE_REGISTRY_REQUEST, listWorkforceExecutionHistory, runClaimedRegistryExecution } from "../lib/ai-workforce-runtime.js";
 import { requireSellerAccess } from "../lib/seller-access.js";
 import { JARVIS_NOVA_LOCAL_ONLY, JARVIS_NOVA_AGENT_ID } from "../lib/elyon-jarvis-e5-v2-policy.js";
 import advancedAgentHandler from "./ai-agent-run-advanced.js";
@@ -129,9 +129,8 @@ export default async function handler(req, res) {
       req.body = buildStrictCoreRequest(body, coreTarget, action.action);
       res.setHeader("X-Elyon-Agent-Kind", "core");
       res.setHeader("X-Elyon-Agent-Id", coreTarget.visibleId);
-      return coreTarget.runner === "workforce_v2"
-        ? workforceV2Handler(req, res)
-        : advancedAgentHandler(req, res);
+      return runClaimedRegistryExecution(req, res, coreTarget.visibleId,
+        coreTarget.runner === "workforce_v2" ? workforceV2Handler : advancedAgentHandler);
     }
 
     if (!isCustomAgentId(agentId)) {
@@ -166,7 +165,7 @@ export default async function handler(req, res) {
     };
     res.setHeader("X-Elyon-Agent-Kind", "custom");
     res.setHeader("X-Elyon-Agent-Id", agent.id);
-    return customAgentHandler(req, res);
+    return runClaimedRegistryExecution(req, res, agent.id, customAgentHandler);
   } catch (error) {
     return res.status(500).json({
       ok: false,
