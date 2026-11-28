@@ -141,7 +141,7 @@ function claimHarness() {
     }
     if (options.method === "GET") {
       const id = /id=eq\.([^&]+)/.exec(path)?.[1];
-      return id ? (tasks.has(id) ? [tasks.get(id)] : []) : [...tasks.values()];
+      return id ? (tasks.has(id) ? [{ ...tasks.get(id), jarvis_agent_runs: runs.filter(run => run.task_id === id) }] : []) : [...tasks.values()];
     }
     throw Error("unexpected request");
   };
@@ -259,5 +259,50 @@ test("registry-managed and delegated direct handlers do not claim a second execu
     },{persistence:"enabled",request:async()=>{assert.fail("nested claim attempted")}});
     assert.equal(calls,1);
     assert.equal(res.payload.runtime,undefined);
+  }
+});
+
+
+test("manual retries require confirmed failure, same employee and a single bounded successor", async () => {
+  const {tasks,runs,request}=claimHarness();
+  const options={persistence:"enabled",request,nowMs};
+  let calls=0;
+  const failed=async(_req,res)=>{calls++;return res.status(502).json({ok:false,task:{...base,status:"failed"}})};
+  const initial=responseCapture();
+  await runClaimedRegistryExecution(registryRequest("manual-retry-original-001"),initial,base.agentId,failed,options);
+  assert.equal(initial.payload.runtime.journal,"recorded");
+  const originalId=initial.payload.runtime.taskId;
+  const retry=async(id,key,agentId=base.agentId)=>{
+    const res=responseCapture();
+    const req=registryRequest(key);
+    req.headers["x-elyon-retry-of"]=id;
+    await runClaimedRegistryExecution(req,res,agentId,failed,options);
+    return res;
+  };
+  assert.equal((await retry(originalId,"manual-retry-other-001","elyon-profit-specialist")).code,409);
+  const first=await retry(originalId,"manual-retry-successor-001");
+  assert.equal(first.code,502);
+  assert.equal(tasks.get(first.payload.runtime.taskId).payload.retryOf,originalId);
+  assert.equal(tasks.get(first.payload.runtime.taskId).payload.retryDepth,1);
+  assert.equal((await retry(originalId,"manual-retry-successor-002")).code,409);
+  const second=await retry(first.payload.runtime.taskId,"manual-retry-successor-003");
+  assert.equal(second.code,502);
+  assert.equal(tasks.get(second.payload.runtime.taskId).payload.retryDepth,2);
+  assert.equal((await retry(second.payload.runtime.taskId,"manual-retry-successor-004")).code,409);
+  assert.equal(calls,3);
+  assert.equal(runs.length,3);
+});
+
+test("unconfirmed or running attempts cannot be retried and never dispatch",async()=>{
+  const {tasks,request}=claimHarness();
+  const id="00000000-0000-4000-a000-000000000001";
+  const metadata={version:1,agentId:"elyon-product-data-specialist",origin:"registry",retryDepth:0};
+  for(const status of ["running","completed","failed"]){
+    tasks.set(id,{id,status,payload:metadata});
+    const req=registryRequest("retry-unconfirmed-test-001");
+    req.headers["x-elyon-retry-of"]=id;
+    const res=responseCapture();
+    await runClaimedRegistryExecution(req,res,base.agentId,async()=>assert.fail("unsafe retry"),{persistence:"enabled",request,nowMs});
+    assert.equal(res.code,409);
   }
 });
