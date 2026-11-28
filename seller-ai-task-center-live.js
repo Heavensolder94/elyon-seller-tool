@@ -88,7 +88,7 @@
   }
 
   function statusOf(task) {
-    return text(task?.executionMode === "manual_start" ? task.status : task?.result?.status || task?.status, "queued");
+    return text(["manual_start","auto_local_margin"].includes(task?.executionMode) ? task.status : task?.result?.status || task?.status, "queued");
   }
 
   function statusLabel(status) {
@@ -130,6 +130,7 @@
   }
 
   function taskSummary(task) {
+    if(task?.executionMode==="auto_local_margin" && task.marginResult){const result=task.marginResult;return "Gewinn: "+result.profit.toFixed(2)+" € · Marge: "+result.marginPercent.toFixed(2)+" % · "+(result.passesMinimum?"Mindestregel erfüllt":"Mindestregel nicht erfüllt")+" · Keine Freigabe.";} 
     return text(
       task?.result?.summary ||
       task?.result?.message ||
@@ -149,15 +150,16 @@
       priority: text(task?.priority),
       warnings: Array.isArray(task?.warnings) ? task.warnings : (Array.isArray(task?.result?.warnings) ? task.result.warnings : []),
       errors: Array.isArray(task?.errors) ? task.errors : (Array.isArray(task?.result?.errors) ? task.result.errors : []),
-      result: task?.result || null,
+      result: task?.result || task?.marginResult || null,
     };
     return JSON.stringify(details, null, 2);
   }
 
   function taskCard(task) {
-    const server = task.executionMode === "manual_start";
+    const auto = task.executionMode === "auto_local_margin";
+    const server = auto || task.executionMode === "manual_start";
     const status = server ? task.status : statusOf(task);
-    const serverLabel = server ? state.serverStatus !== "online" ? "Serverstatus nicht bestätigt" : status === "queued" ? "Serverauftrag · wartet auf manuellen Start" : "Serverauftrag · " + statusLabel(status) : status === "queued" ? "Lokaler Entwurf · nicht eingeplant" : statusLabel(status);
+    const serverLabel = server ? state.serverStatus !== "online" ? "Serverstatus nicht bestätigt" : status === "queued" ? auto ? "Serverauftrag · wartet auf Autopilot" : "Serverauftrag · wartet auf manuellen Start" : "Serverauftrag · " + statusLabel(status) : status === "queued" ? "Lokaler Entwurf · nicht eingeplant" : statusLabel(status);
     const id = text(task?.id);
     const title = text(task?.title, "Unbenannte Aufgabe");
     const agent = text(task?.agentName || task?.agentId, "Noch keinem Agenten zugeordnet");
@@ -218,7 +220,7 @@
     mount.classList.remove("empty", "task-center-empty");
     mount.classList.add("task-center-shell");
     mount.innerHTML = `
-      <div class="task-center-triage-head"><div><h4>Zentrale Auftragsmappe</h4><p>${state.serverStatus === "online" ? "Serveraufträge synchronisiert (bis zu 50). Start erfolgt manuell." : "Serveraufträge nicht bestätigt. Lokale Entwürfe werden nicht automatisch ausgeführt."}</p></div><button type="button" class="secondary" data-live-server-refresh>Serverstatus aktualisieren</button></div>
+      <div class="task-center-triage-head"><div><h4>Zentrale Auftragsmappe</h4><p>${state.serverStatus === "online" ? "Serveraufträge synchronisiert (bis zu 50). Freitextaufträge starten manuell; lokale Margenprüfungen laufen im Autopilot." : "Serveraufträge nicht bestätigt. Lokale Entwürfe werden nicht automatisch ausgeführt."}</p></div><div><button type="button" class="secondary" data-live-auto-margin>Automatische Margenprüfung</button> <button type="button" class="secondary" data-live-server-refresh>Serverstatus aktualisieren</button></div></div>
       <div class="dashboard task-center-stats" style="margin-bottom:0">
         <div class="metric"><small>Aufgaben</small><strong>${tasks.length}</strong></div>
         <div class="metric"><small>Aktiv / Wartend</small><strong>${running}</strong></div>
@@ -314,6 +316,41 @@
     queueRender();
   }
 
+  function openAutoMarginDialog() {
+    if(document.getElementById("elyonAutoMarginDialog"))return;
+    const dialog=document.createElement("dialog");
+    dialog.id="elyonAutoMarginDialog";
+    dialog.className="card";
+    dialog.style.maxWidth="min(560px, 92vw)";
+    const fields=[["purchasePrice","Einkaufspreis (€)"],["shippingCost","Lieferkosten (€)"],["sellingPrice","Verkaufspreis (€)"],["ebayFeePercent","eBay-Gebühr (%)"],["paymentFee","Zahlungsgebühr (€)"],["otherCosts","Weitere Kosten (€)"],["expectedReturnRatePercent","Retourenquote (%)"],["returnCost","Kosten je Retoure (€)"]];
+    dialog.innerHTML='<form><h3>Automatische Margenprüfung</h3><p>Nur lokale Berechnung, kein KI-Modell. Alle Werte bewusst angeben; 0 nur bei tatsächlich keinen Kosten. Der Auftrag startet im ausdrücklich aktivierten JARVIS-Autopilot, sobald kein Nova-Auftrag Vorrang hat.</p><div class="task-center-meta-grid">'+fields.map(([key,label])=>'<label>'+label+'<input name="'+key+'" type="number" min="'+(key==="sellingPrice"?"0.01":"0")+'" max="'+(key==="ebayFeePercent"?"99.99":key==="expectedReturnRatePercent"?"100":"1000000")+'" step="0.01" required></label>').join("")+'</div><label><input type="checkbox" name="confirmed" required> Ich bestätige die Werte und den automatischen Start. Keine Preisänderung oder Veröffentlichung.</label><p data-margin-status></p><button type="submit">Serverauftrag einplanen</button> <button type="button" data-margin-close>Schließen</button></form>';
+    document.body.appendChild(dialog);
+    const form=dialog.querySelector("form"),status=dialog.querySelector("[data-margin-status]");
+    let pending=null,busy=false;
+    dialog.querySelector("[data-margin-close]").addEventListener("click",()=>{if(!busy)dialog.close();});
+    dialog.addEventListener("cancel",event=>{if(busy)event.preventDefault();});
+    dialog.addEventListener("close",()=>dialog.remove(),{once:true});
+    form.addEventListener("submit",async event=>{
+      event.preventDefault();if(busy)return;
+      const values=new FormData(form),input=Object.fromEntries(fields.map(([key])=>[key,Number(values.get(key))]));
+      const body=JSON.stringify({operation:"create_auto_margin",input,confirmed:values.get("confirmed")==="on"});
+      if(pending&&pending.body!==body){status.textContent="Speicherstatus unklar. Bitte ursprüngliche Werte erneut senden.";return;}
+      if(!window.crypto?.randomUUID){status.textContent="Sichere Auftrags-ID nicht verfügbar.";return;}
+      pending=pending||{body,key:window.crypto.randomUUID()};busy=true;
+      form.querySelector('[type="submit"]').disabled=true;
+      try{
+        const response=await fetch(QUEUE_API,{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json","Idempotency-Key":pending.key},body});
+        const data=await response.json();
+        if(!response.ok||data.ok!==true||!data.task?.id){if(response.status>=400&&response.status<500)pending=null;throw Error(data.message||data.error||"Speicherung nicht bestätigt");}
+        state.queueRevision=(state.queueRevision||0)+1;
+        state.serverTasks=[data.task,...state.serverTasks.filter(task=>task.id!==data.task.id)].slice(0,50);
+        state.serverStatus="online";busy=false;dialog.close();queueRender();loadServerQueue();
+      }catch(error){status.textContent="Serverauftrag nicht bestätigt: "+error.message;}
+      finally{busy=false;form.querySelector('[type="submit"]').disabled=false;}
+    });
+    dialog.showModal();
+  }
+
   async function cancelServerTask(id) {
     try {const response=await fetch(QUEUE_API,{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({operation:"cancel",taskId:id})});const data=await response.json();if(!response.ok||data.ok!==true)throw Error(data.message||data.error||"Stornierung nicht bestätigt");}
     catch(error){window.alert(error.message);}
@@ -332,6 +369,8 @@
         createTaskFromForm();
         return;
       }
+      const autoMargin=target.closest(`#${ROOT_ID} [data-live-auto-margin]`);
+      if(autoMargin){event.preventDefault();openAutoMarginDialog();return;}
       const refresh = target.closest(`#${ROOT_ID} [data-live-server-refresh]`);
       if(refresh){event.preventDefault();loadServerQueue();return;}
       const startButton=target.closest(`#${ROOT_ID} [data-live-server-start]`);
