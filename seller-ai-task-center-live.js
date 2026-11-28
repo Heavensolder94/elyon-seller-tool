@@ -46,10 +46,12 @@
   async function loadServerQueue() {
     if (state.loading || !getMount()) return;
     state.loading=true;
+    const revision=state.queueRevision||0;
     try {
       const response=await fetch(QUEUE_API,{credentials:"same-origin",cache:"no-store"});
       const data=await response.json();
       if(!response.ok||data.ok!==true||!Array.isArray(data.entries))throw Error("queue_unverified");
+      if(revision!==(state.queueRevision||0))return;
       state.serverTasks=data.entries;state.serverStatus="online";
     } catch {state.serverStatus="unverified";}
     finally {state.loading=false;queueRender();}
@@ -64,7 +66,11 @@
       const current = map.get(id);
       if (!current || timestamp(task) >= timestamp(current)) map.set(id, task);
     }
-    for (const task of state.serverTasks) if (task?.id) map.set(task.id,task);
+    for (const task of state.serverTasks) if (task?.id) {
+      const matched=[...map.entries()].find(([,local])=>local.runtime?.taskId===task.id);
+      if(matched)map.delete(matched[0]);
+      map.set(task.id,{...(matched?.[1]||{}),...task});
+    }
     return [...map.values()].sort((a, b) => timestamp(b) - timestamp(a));
   }
 
@@ -82,7 +88,7 @@
   }
 
   function statusOf(task) {
-    return text(task?.result?.status || task?.status, "queued");
+    return text(task?.executionMode === "manual_start" ? task.status : task?.result?.status || task?.status, "queued");
   }
 
   function statusLabel(status) {
@@ -149,8 +155,8 @@
   }
 
   function taskCard(task) {
-    const status = statusOf(task);
     const server = task.executionMode === "manual_start";
+    const status = server ? task.status : statusOf(task);
     const serverLabel = server ? state.serverStatus !== "online" ? "Serverstatus nicht bestätigt" : status === "queued" ? "Serverauftrag · wartet auf manuellen Start" : "Serverauftrag · " + statusLabel(status) : status === "queued" ? "Lokaler Entwurf · nicht eingeplant" : statusLabel(status);
     const id = text(task?.id);
     const title = text(task?.title, "Unbenannte Aufgabe");
@@ -270,7 +276,7 @@
         if(response.status>=400&&response.status<500)state.pendingCreate=null;
         throw Error(data.message||data.error||"Speicherung nicht bestätigt");
       }
-      task=data.task;state.pendingCreate=null;state.serverStatus="online";
+      task=data.task;state.pendingCreate=null;state.serverStatus="online";state.queueRevision=(state.queueRevision||0)+1;
       state.serverTasks=[task,...state.serverTasks.filter(row=>row.id!==task.id)].slice(0,50);
     } catch(error){
       state.serverStatus="unverified";window.alert("Serverauftrag nicht bestätigt: "+error.message+". Kein lokaler Ersatzauftrag wurde erstellt.");
