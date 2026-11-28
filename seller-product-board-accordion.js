@@ -232,6 +232,20 @@
     }
     const link=document.createElement("a");link.href="#dokumentenstudio";link.textContent="Zum Dokumentenstudio";section.append(link);
   }
+  function renderSupplierIntelligence(card,product,expanded){
+    let section=card.querySelector(":scope > .elyon-supplier-intelligence-overview");
+    const v=product?.supplierIntelligence||product?.product?.supplierIntelligence||product?.rawServerProduct?.product?.supplierIntelligence;
+    if(!expanded||v?.schemaVersion!=="elyon-supplier-intelligence-v1"||!document.getElementById("productListTab")?.classList.contains("active")){section?.remove();return;}
+    const b=v.sellerBusiness||{},c=v.comparison||{};
+    const status={observed:"Erfasst – nicht verifiziert",partial:"Teilweise",missing:"Nicht gefunden",conflict:"Widersprüchlich"}[v.status]||"Unbekannt";
+    const cmp={possible_same_entity:"Textübereinstimmung, kein Identitätsnachweis",review_required:"Abweichung – prüfen",unknown:"Unklar"}[c.status]||"Unklar";
+    const label=[b.companyName,b.registeredAddress,b.registrationNumber&&"Reg.-Nr.: "+b.registrationNumber,status,"Herstellerabgleich: "+cmp,"Händleranschrift ist kein Versandortnachweis."].filter(Boolean).join(" · ");
+    if(section?.dataset.signature===label)return;
+    if(!section){section=document.createElement("section");section.className="elyon-supplier-intelligence-overview";card.append(section);}
+    section.dataset.signature=label;section.replaceChildren();
+    const heading=document.createElement("strong");heading.textContent="Supplier Intelligence";section.append(heading);
+    const p=document.createElement("p");p.className="muted";p.textContent=label;section.append(p);
+  }
   function setCardExpanded(card, expanded, persist = true) {
     if (!isBoardCard(card)) return;
     const key = card.dataset.elyonProductCardKey || getCardKey(card);
@@ -249,6 +263,7 @@
     syncNativeDetails(card, expanded);
     window.ElyonPriceStockFoundation?.renderCard(card, getProductRecord(card), expanded);
     renderProductDocuments(card,getProductRecord(card),expanded);
+    renderSupplierIntelligence(card,getProductRecord(card),expanded);
   }
 
   function addToggle(card) {
