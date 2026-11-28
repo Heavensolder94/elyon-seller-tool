@@ -230,6 +230,10 @@
     const brainValue = lastRun?.provider ? `${providerName(lastRun.provider)}${lastRun.model ? ` · ${lastRun.model}` : ""}` : "Fallback-Kette bereit";
     const memoryValue = memory.online ? "Supabase verbunden" : (memory.configured ? "Leseprüfung unvollständig" : "Nicht konfiguriert");
     const redis = system.redis || {};
+    const infrastructure = system.infrastructure || {};
+    const cron = infrastructure.cron || {};
+    const cloudflare = infrastructure.checks?.cloudflare || {};
+    const scheduledDb = infrastructure.checks?.supabase || {};
     const metricValue = value => system.brain?.telemetryAvailable ? formatNumber(value) : "—";
     const e5Status = e5.online ? (e5.pipelineEnabled ? e5.mode : "paused") : "offline";
     const e5Value = e5.online ? `${e5.pipelineEnabled ? "Pipeline aktiv" : "Pipeline aus"} · ${text(e5.mode).toUpperCase()}` : "Nicht erreichbar";
@@ -246,6 +250,9 @@
         ${renderHealthCard("Memory", memory.online ? "online" : "degraded", memoryValue, `Long-Term: ${memory.longTermMemory?.online ? "online" : "nicht bestätigt"} · Working: ${memory.workingMemory?.online ? "online" : "nicht bestätigt"} · Tasks: ${memory.taskStore?.online ? "online" : "nicht bestätigt"} · Agent Runs: ${memory.agentRunStore?.online ? "online" : "nicht bestätigt"}`)}
         ${renderHealthCard("Redis", redis.online ? "online" : redis.configured ? "degraded" : "not_configured", redis.online ? "Telemetrie lesbar" : "Nicht bestätigt", redis.online ? "Lesetest erfolgreich, Worker-Lauf separat prüfen." : "Keine bestätigte Telemetrie-Verbindung.")}
         ${renderHealthCard("E5 Pipeline", e5Status, e5Value, e5.killSwitch ? "Kill-Switch aktiv" : e5.pausedByGuard ? "Durch Guard pausiert" : `State: ${text(e5.state) || "—"}`)}
+        ${renderHealthCard("Vercel Cron", cron.status || "unverified", cron.status === "online" ? "Worker-Aufruf bestätigt" : "Aufruf nicht bestätigt", `Letzter Aufruf: ${formatDate(cron.lastRunAt)} · Letzter erfolgreicher Aufruf: ${formatDate(cron.lastSuccessAt)}`)}
+        ${renderHealthCard("Supabase · automatisch", scheduledDb.status || "unverified", scheduledDb.status === "online" ? "Vier Lesetests bestanden" : "Prüfung nicht bestätigt", `Alle 6 Stunden · Letzte Prüfung: ${formatDate(infrastructure.lastCheckedAt)}${infrastructure.stale ? " · Kein aktueller Nachweis" : ""}`)}
+        ${renderHealthCard("Cloudflare", cloudflare.status || "unverified", cloudflare.status === "online" ? "Runtime & Queue konfiguriert" : "Runtime nicht bestätigt", `Letzte Prüfung: ${formatDate(infrastructure.lastCheckedAt)}${cloudflare.reason ? " · " + cloudflare.reason : ""} · Kein Queue-Ausführungstest`)}
         ${renderHealthCard("Safety", "degraded", "Bereichsübergreifend prüfen", "Dieser Status prüft nicht alle Veröffentlichungswege. Jedes eBay-Angebot benötigt eine ausdrückliche Einzelbestätigung.")}
       </section>
       <div class="jic-grid">${renderApis()}${renderRecentActivity()}</div>
