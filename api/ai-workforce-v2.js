@@ -1,3 +1,4 @@
+import { respondWithWorkforceExecution, WORKFORCE_DELEGATED_REQUEST } from "../lib/ai-workforce-runtime.js";
 import { requireSellerAccess } from "../lib/seller-access.js";
 import advancedAgentHandler from "./ai-agent-run-advanced.js";
 import { createManagerPlan } from "../lib/ai-workforce-manager-v2.js";
@@ -191,6 +192,7 @@ async function invokeAdvancedAgent(req, meta, testMode) {
   };
   const childReq = {
     ...req,
+    [WORKFORCE_DELEGATED_REQUEST]: true,
     method: "POST",
     query: {},
     body: delegatedBody,
@@ -353,7 +355,7 @@ export default async function handler(req, res) {
     const action = text(body.action, 100) || "run_manager";
     if (action === "run_draft_quality") {
       const task = runDraftQuality(body);
-      return res.status(200).json({
+      return respondWithWorkforceExecution(req, res, 200, {
         ok: true,
         version: STRUCTURE_VERSION,
         action,
@@ -375,7 +377,7 @@ export default async function handler(req, res) {
     }
 
     const managerRun = await runManager(body, req);
-    return res.status(200).json({
+    return respondWithWorkforceExecution(req, res, 200, {
       ok: true,
       version: STRUCTURE_VERSION,
       orchestrationVersion: 1,
