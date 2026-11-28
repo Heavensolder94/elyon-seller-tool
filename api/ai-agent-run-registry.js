@@ -1,4 +1,4 @@
-import { WORKFORCE_REGISTRY_REQUEST, listWorkforceExecutionHistory, runClaimedRegistryExecution } from "../lib/ai-workforce-runtime.js";
+import { WORKFORCE_REGISTRY_REQUEST, listWorkforceExecutionHistory, runClaimedRegistryExecution, manualWorkforceQueue } from "../lib/ai-workforce-runtime.js";
 import { requireSellerAccess } from "../lib/seller-access.js";
 import { JARVIS_NOVA_LOCAL_ONLY, JARVIS_NOVA_AGENT_ID } from "../lib/elyon-jarvis-e5-v2-policy.js";
 import advancedAgentHandler from "./ai-agent-run-advanced.js";
@@ -64,6 +64,16 @@ export default async function handler(req, res) {
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("X-Elyon-Agent-Runner", "registry-v2");
   if (req.method === "OPTIONS") return res.status(204).end();
+
+  if (req.query?.view === "queue") {
+    if (req.method === "POST" && req.body?.operation === "create" && isCustomAgentId(req.body?.agentId)) {
+      try {
+        const agent = await getCustomAgentRegistryItem(text(req.body.agentId,100).toLowerCase());
+        if (!agent || agent.enabled === false) return res.status(404).json({ok:false,error:"registry_agent_not_found"});
+      } catch { return res.status(503).json({ok:false,error:"registry_unavailable"}); }
+    }
+    return manualWorkforceQueue(req,res);
+  }
 
   if (req.method === "GET") {
     if (req.query?.view === "runtime") {
