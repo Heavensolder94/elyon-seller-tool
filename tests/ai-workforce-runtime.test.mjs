@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { runClaimedRegistryExecution, listWorkforceExecutionHistory, recordWorkforceExecution, WORKFORCE_REGISTRY_REQUEST, WORKFORCE_DELEGATED_REQUEST } from "../lib/ai-workforce-runtime.js";
+import { runDirectWorkforceExecution, respondWithWorkforceExecution, runClaimedRegistryExecution, listWorkforceExecutionHistory, recordWorkforceExecution, WORKFORCE_REGISTRY_REQUEST, WORKFORCE_DELEGATED_REQUEST } from "../lib/ai-workforce-runtime.js";
 import { JARVIS_NOVA_LOCAL_ONLY } from "../lib/elyon-jarvis-e5-v2-policy.js";
 
 const nowMs = Date.parse("2026-11-28T00:00:00Z");
@@ -83,10 +83,13 @@ test("test and preview environments never write production journal data", async 
 });
 
 test("registry, direct handlers and manager delegation share the same runtime without another route", async () => {
-  const paths = ["../api/ai-agent-run-registry.js", "../api/ai-agent-run-advanced.js", "../api/ai-agent-run-custom.js", "../api/ai-workforce-v2.js"];
-  const [registry, advanced, custom, manager] = await Promise.all(paths.map(path => readFile(new URL(path, import.meta.url), "utf8")));
+  const paths = ["../api/ai-agent-run-registry.js", "../api/ai-agent-run-advanced.js", "../api/ai-agent-run-custom.js", "../api/ai-workforce-v2.js", "../api/ai-agent-run.js"];
+  const [registry, advanced, custom, manager, legacy] = await Promise.all(paths.map(path => readFile(new URL(path, import.meta.url), "utf8")));
   assert.match(registry, /req\[WORKFORCE_REGISTRY_REQUEST\] = true/);
-  for (const source of [advanced, custom, manager]) assert.match(source, /return respondWithWorkforceExecution\(req, res,/);
+  for (const source of [advanced, custom, manager, legacy]) {
+    assert.match(source, /return await runDirectWorkforceExecution\(req, res,/);
+    assert.match(source, /return respondWithWorkforceExecution\((req, res|request, response),/);
+  }
   assert.match(manager, /\[WORKFORCE_DELEGATED_REQUEST\]: true/);
 });
 
@@ -227,4 +230,34 @@ test("history identifies stale running attempts without automatically retrying t
   assert.equal([...tasks.values()][0].status, "running");
   release();
   await running;
+});
+
+
+test("direct execution registers one task and one run even when the handler uses the shared response helper", async () => {
+  const {tasks,runs,request}=claimHarness();
+  const response=responseCapture();
+  let calls=0;
+  await runDirectWorkforceExecution({headers:{"idempotency-key":"direct-execution-test-001"}},response,base.agentId,async(req,res)=>{
+    calls++;
+    assert.equal([...tasks.values()][0].status,"running");
+    return respondWithWorkforceExecution(req,res,200,{ok:true,task:base});
+  },{persistence:"enabled",request,nowMs});
+  assert.equal(calls,1);
+  assert.equal(tasks.size,1);
+  assert.equal(runs.length,1);
+  assert.equal(response.payload.runtime.origin,"legacy_handler");
+  assert.equal(response.payload.runtime.journal,"recorded");
+});
+
+test("registry-managed and delegated direct handlers do not claim a second execution", async () => {
+  for(const marker of [WORKFORCE_REGISTRY_REQUEST,WORKFORCE_DELEGATED_REQUEST]){
+    let calls=0;
+    const res=responseCapture();
+    await runDirectWorkforceExecution({[marker]:true,headers:{"idempotency-key":"nested-execution-test-001"}},res,base.agentId,async(_req,response)=>{
+      calls++;
+      return response.status(200).json({ok:true,task:base});
+    },{persistence:"enabled",request:async()=>{assert.fail("nested claim attempted")}});
+    assert.equal(calls,1);
+    assert.equal(res.payload.runtime,undefined);
+  }
 });
