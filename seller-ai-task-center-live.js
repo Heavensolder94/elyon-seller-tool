@@ -9,7 +9,7 @@
   const MAX_TASKS = 150;
   const MAX_RENDERED_TASKS = 24;
   const MAX_RENDERED_LOGS = 10;
-  const state = { renderQueued: false, bound: false };
+  const state = { renderQueued: false, bound: false, serverTasks: [], serverStatus: "unverified", loading: false, creating: false, pendingCreate: null };
 
   const text = (value, fallback = "") => value === null || value === undefined ? fallback : String(value).trim();
   const escapeHtml = (value) => text(value)
@@ -42,6 +42,19 @@
     return Number.isFinite(parsed) ? parsed : 0;
   }
 
+  const QUEUE_API = "/api/ai-agent-run-registry?view=queue";
+  async function loadServerQueue() {
+    if (state.loading || !getMount()) return;
+    state.loading=true;
+    try {
+      const response=await fetch(QUEUE_API,{credentials:"same-origin",cache:"no-store"});
+      const data=await response.json();
+      if(!response.ok||data.ok!==true||!Array.isArray(data.entries))throw Error("queue_unverified");
+      state.serverTasks=data.entries;state.serverStatus="online";
+    } catch {state.serverStatus="unverified";}
+    finally {state.loading=false;queueRender();}
+  }
+
   function mergeTasks() {
     const map = new Map();
     for (const task of [...readCollection(PRIMARY_TASK_KEY), ...readCollection(LEGACY_TASK_KEY)]) {
@@ -51,6 +64,7 @@
       const current = map.get(id);
       if (!current || timestamp(task) >= timestamp(current)) map.set(id, task);
     }
+    for (const task of state.serverTasks) if (task?.id) map.set(task.id,task);
     return [...map.values()].sort((a, b) => timestamp(b) - timestamp(a));
   }
 
@@ -136,6 +150,8 @@
 
   function taskCard(task) {
     const status = statusOf(task);
+    const server = task.executionMode === "manual_start";
+    const serverLabel = server ? state.serverStatus !== "online" ? "Serverstatus nicht bestätigt" : status === "queued" ? "Serverauftrag · wartet auf manuellen Start" : "Serverauftrag · " + statusLabel(status) : status === "queued" ? "Lokaler Entwurf · nicht eingeplant" : statusLabel(status);
     const id = text(task?.id);
     const title = text(task?.title, "Unbenannte Aufgabe");
     const agent = text(task?.agentName || task?.agentId, "Noch keinem Agenten zugeordnet");
@@ -148,7 +164,7 @@
             <p>${escapeHtml(taskSummary(task))}</p>
           </div>
           <div class="task-center-badge-stack">
-            <span class="status ${statusClass(status)}">${escapeHtml(statusLabel(status))}</span>
+            <span class="status ${statusClass(status)}">${escapeHtml(serverLabel)}</span>
             <span class="pill">${escapeHtml(priority)}</span>
           </div>
         </div>
@@ -164,8 +180,7 @@
             <pre style="white-space:pre-wrap;word-break:break-word;margin-top:10px;max-height:320px;overflow:auto">${escapeHtml(detailPayload(task))}</pre>
           </details>
           <div class="task-center-action-row">
-            ${!["completed", "done"].includes(status) ? `<button type="button" class="secondary" data-live-task-status="done" data-live-task-id="${escapeHtml(id)}">Erledigt</button>` : ""}
-            <button type="button" class="secondary" data-live-task-remove="${escapeHtml(id)}">Entfernen</button>
+            ${server ? state.serverStatus === "online" && status === "queued" ? `${task.startable ? `<button type="button" data-live-server-start="${escapeHtml(id)}">Auftrag öffnen & starten</button>` : ""}<button type="button" class="secondary" data-live-server-cancel="${escapeHtml(id)}">Stornieren</button>` : "" : `${!["completed", "done"].includes(status) ? `<button type="button" class="secondary" data-live-task-status="done" data-live-task-id="${escapeHtml(id)}">Erledigt</button>` : ""}<button type="button" class="secondary" data-live-task-remove="${escapeHtml(id)}">Entfernen</button>`}
           </div>
         </div>
       </article>`;
@@ -197,6 +212,7 @@
     mount.classList.remove("empty", "task-center-empty");
     mount.classList.add("task-center-shell");
     mount.innerHTML = `
+      <div class="task-center-triage-head"><div><h4>Zentrale Auftragsmappe</h4><p>${state.serverStatus === "online" ? "Serveraufträge synchronisiert (bis zu 50). Start erfolgt manuell." : "Serveraufträge nicht bestätigt. Lokale Entwürfe werden nicht automatisch ausgeführt."}</p></div><button type="button" class="secondary" data-live-server-refresh>Serverstatus aktualisieren</button></div>
       <div class="dashboard task-center-stats" style="margin-bottom:0">
         <div class="metric"><small>Aufgaben</small><strong>${tasks.length}</strong></div>
         <div class="metric"><small>Aktiv / Wartend</small><strong>${running}</strong></div>
@@ -230,33 +246,36 @@
     writeCollection(key, tasks);
   }
 
-  function createTaskFromForm() {
+  async function createTaskFromForm() {
+    if(state.creating)return;
     const now = new Date().toISOString();
     const title = text(document.getElementById("aiTaskTitleInput")?.value, "Neue Aufgabe");
     const description = text(document.getElementById("aiTaskDescriptionInput")?.value);
     const agentId = text(document.getElementById("aiTaskAgentSelect")?.value);
     const type = text(document.getElementById("aiTaskTypeSelect")?.value, "product_analysis");
     const priority = text(document.getElementById("aiTaskPrioritySelect")?.value, "normal");
-    const task = {
-      id: `ai-task-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      title,
-      description,
-      agentId,
-      type,
-      priority,
-      status: "queued",
-      provider: "",
-      model: "",
-      input: { source: "task-center-form" },
-      inputSnapshot: { source: "task-center-form" },
-      result: null,
-      warnings: [],
-      errors: [],
-      createdAt: now,
-      updatedAt: now,
-    };
-    upsertInKey(PRIMARY_TASK_KEY, task);
-    upsertInKey(LEGACY_TASK_KEY, task);
+    if(!agentId||!title||!description){window.alert("Bitte Mitarbeiter, Titel und Arbeitsauftrag eingeben.");return;}
+    if(!window.crypto?.randomUUID){window.alert("Sichere Auftrags-ID nicht verfügbar.");return;}
+    const body={operation:"create",title,description,agentId,type,priority};
+    const signature=JSON.stringify(body);
+    if(state.pendingCreate && state.pendingCreate.signature!==signature){window.alert("Der letzte Speicherstatus ist unklar. Bitte zuerst dieselben Auftragsdaten erneut bestätigen.");return;}
+    const key=state.pendingCreate?.key||window.crypto.randomUUID();
+    state.pendingCreate={signature,key};
+    state.creating=true;
+    let task;
+    try {
+      const response=await fetch(QUEUE_API,{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json","Idempotency-Key":key},body:signature});
+      const data=await response.json();
+      if(!response.ok||data.ok!==true||!data.task?.id){
+        if(response.status>=400&&response.status<500)state.pendingCreate=null;
+        throw Error(data.message||data.error||"Speicherung nicht bestätigt");
+      }
+      task=data.task;state.pendingCreate=null;state.serverStatus="online";
+      state.serverTasks=[task,...state.serverTasks.filter(row=>row.id!==task.id)].slice(0,50);
+    } catch(error){
+      state.serverStatus="unverified";window.alert("Serverauftrag nicht bestätigt: "+error.message+". Kein lokaler Ersatzauftrag wurde erstellt.");
+      return;
+    } finally {state.creating=false;queueRender();}
     const logs = readCollection(LOG_KEY);
     logs.unshift({ id: `log-${task.id}`, level: "Task", message: `Aufgabe „${title}“ wurde erstellt.`, taskId: task.id, createdAt: now, updatedAt: now });
     writeCollection(LOG_KEY, logs);
@@ -289,6 +308,11 @@
     queueRender();
   }
 
+  async function cancelServerTask(id) {
+    try {const response=await fetch(QUEUE_API,{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({operation:"cancel",taskId:id})});const data=await response.json();if(!response.ok||data.ok!==true)throw Error(data.message||data.error||"Stornierung nicht bestätigt");}
+    catch(error){window.alert(error.message);}
+    await loadServerQueue();
+  }
   function bind() {
     if (state.bound) return;
     state.bound = true;
@@ -302,6 +326,12 @@
         createTaskFromForm();
         return;
       }
+      const refresh = target.closest(`#${ROOT_ID} [data-live-server-refresh]`);
+      if(refresh){event.preventDefault();loadServerQueue();return;}
+      const startButton=target.closest(`#${ROOT_ID} [data-live-server-start]`);
+      if(startButton){event.preventDefault();const task=state.serverTasks.find(row=>row.id===startButton.dataset.liveServerStart);if(state.serverStatus==="online"&&task?.startable&&typeof window.ElyonAIAgentBuilder?.assignQueued==="function")window.ElyonAIAgentBuilder.assignQueued(task);else window.alert("Auftrag oder Mitarbeiter-Composer nicht verfügbar. Bitte Serverstatus aktualisieren.");return;}
+      const cancel=target.closest(`#${ROOT_ID} [data-live-server-cancel]`);
+      if(cancel){event.preventDefault();if(!window.confirm("Wartenden Serverauftrag stornieren?"))return;cancelServerTask(cancel.dataset.liveServerCancel);return;}
       const statusButton = target.closest(`#${ROOT_ID} [data-live-task-status][data-live-task-id]`);
       if (statusButton) {
         event.preventDefault();
@@ -315,15 +345,16 @@
       }
     }, true);
 
+    window.addEventListener("elyon:workforce-queue-changed", loadServerQueue);
     window.addEventListener("elyon:ai-workforce-v2-task-updated", queueRender);
     window.addEventListener("elyon:ai-workforce-custom-task-updated", queueRender);
     window.addEventListener("elyon:ai-agent-registry-updated", queueRender);
     window.addEventListener("elyon:runtime-group-loaded", (event) => {
-      if (event.detail?.tabId === "virtualAgentsTab") queueRender();
+      if (event.detail?.tabId === "virtualAgentsTab") { queueRender();loadServerQueue(); }
     });
     window.addEventListener("elyon:tab-changed", (event) => {
       const tabId = event.detail?.tabId || event.detail;
-      if (tabId === "virtualAgentsTab") queueRender();
+      if (tabId === "virtualAgentsTab") { queueRender();loadServerQueue(); }
     });
     window.addEventListener("storage", (event) => {
       if ([PRIMARY_TASK_KEY, LEGACY_TASK_KEY, LOG_KEY, EVENT_KEY].includes(event.key)) queueRender();
@@ -333,6 +364,7 @@
   function install() {
     bind();
     render();
+    loadServerQueue();
   }
 
   window.ElyonAITaskCenterLive = { render, refresh: queueRender, tasks: mergeTasks, logs: recentLogs };
