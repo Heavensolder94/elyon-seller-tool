@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { recordWorkforceExecution, WORKFORCE_REGISTRY_REQUEST, WORKFORCE_DELEGATED_REQUEST } from "../lib/ai-workforce-runtime.js";
+import { listWorkforceExecutionHistory, recordWorkforceExecution, WORKFORCE_REGISTRY_REQUEST, WORKFORCE_DELEGATED_REQUEST } from "../lib/ai-workforce-runtime.js";
 import { JARVIS_NOVA_LOCAL_ONLY } from "../lib/elyon-jarvis-e5-v2-policy.js";
 
 const nowMs = Date.parse("2026-11-28T00:00:00Z");
@@ -88,4 +88,28 @@ test("registry, direct handlers and manager delegation share the same runtime wi
   assert.match(registry, /req\[WORKFORCE_REGISTRY_REQUEST\] = true/);
   for (const source of [advanced, custom, manager]) assert.match(source, /return respondWithWorkforceExecution\(req, res,/);
   assert.match(manager, /\[WORKFORCE_DELEGATED_REQUEST\]: true/);
+});
+
+
+test("history is bounded, distinguishes partial records and exposes no raw payload or hashes", async () => {
+  const { request, calls } = harness();
+  await recordWorkforceExecution({}, { ok: true, task: base }, 200, { persistence: "enabled", request, nowMs });
+  const row = calls[0].rows[0];
+  const run = calls[1].rows[0];
+  const history = await listWorkforceExecutionHistory({ persistence: "enabled", limit: 1000, request: async (path, options) => {
+    assert.match(path, /type=eq\.workforce-agent-execution/);
+    assert.match(path, /limit=50$/);
+    assert.equal(options.method, "GET");
+    return [{ ...row, jarvis_agent_runs: [run] }, { ...row, jarvis_agent_runs: [] }, { ...row, payload: { version: 1, agentId: "constructor" } }];
+  } });
+  assert.equal(history.available, true);
+  assert.equal(history.entries.length, 2);
+  assert.equal(history.entries[0].agentId, "elyon-product-data-specialist");
+  assert.equal(history.entries[0].taskState, "approval_required");
+  assert.equal(history.entries[0].journal, "recorded");
+  assert.equal(history.entries[1].journal, "partial");
+  assert.doesNotMatch(JSON.stringify(history), /Fingerprint|private|browser-task/);
+  const failure = await listWorkforceExecutionHistory({ persistence: "enabled", request: async () => { throw Error("private error"); } });
+  assert.equal(failure.available, false);
+  assert.equal(failure.status, "unverified");
 });
