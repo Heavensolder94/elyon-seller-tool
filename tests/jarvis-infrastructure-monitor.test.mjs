@@ -44,6 +44,7 @@ test("cron records every attempt but checks infrastructure only once every six h
   const queries = [];
   let cloudflareCalls = 0;
   const request = async (path, init) => {
+    if (path === "/rest/v1/rpc/jarvis_workforce_storage_health") return { databaseBytes: 12569747, taskTableBytes: 229376, runTableBytes: 253952, retentionDays: 90, archiveCandidates: 0 };
     assert.match(path, /^\/rest\/v1\/jarvis_[a-z_]+\?select=id&limit=1$/);
     assert.equal(init.method, "GET");
     assert.ok(init.signal);
@@ -120,7 +121,7 @@ test("concurrent cron completions share one six-hour check window", async () => 
     fetchImpl: async () => ({ ok: true, json: async () => ({ ok: true, service: "jarvis-task-runtime", queue: "configured" }) }) };
   const results = await Promise.all([recordInfrastructureCycle(args), recordInfrastructureCycle(args)]);
   assert.equal(results.filter(result => result.checked).length, 1);
-  assert.equal(probes, 4);
+  assert.equal(probes, 5);
 });
 
 test("existing authenticated cron and status UI are reused without a new scheduled route", async () => {
@@ -133,4 +134,44 @@ test("existing authenticated cron and status UI are reused without a new schedul
   assert.match(ui, /Kein Queue-Ausführungstest/);
   assert.equal(JSON.parse(config).crons.find(job => job.path === "/api/jarvis-worker").schedule, "*/5 * * * *");
   assert.equal(JSON.parse(config).crons.filter(job => /infrastructure/i.test(job.path)).length, 0);
+});
+
+
+test("storage budget thresholds use the measured database bytes and never schedule deletions", async () => {
+  for (const [databaseBytes, expected] of [[349999999, "online"], [350000000, "warning"], [425000000, "critical"]]) {
+    const { command } = harness();
+    const calls = [];
+    const request = async (path, init) => {
+      calls.push({path, method: init.method});
+      if (path.includes("/rpc/")) return { databaseBytes, taskTableBytes: 1000, runTableBytes: 1000, retentionDays: 90, archiveCandidates: 3 };
+      return [];
+    };
+    await recordInfrastructureCycle({ env, command, request, nowMs: start, fetchImpl: async () => ({ok:true,json:async()=>({ok:true,service:"jarvis-task-runtime",queue:"configured"})}) });
+    const status = await readInfrastructureStatus({env,command,nowMs:start});
+    assert.equal(status.checks.storage.status,expected);
+    assert.equal(status.checks.storage.archiveCandidates,3);
+    assert.equal(calls.length,5);
+    assert.ok(calls.every(call => call.method === "GET" || (call.method === "POST" && call.path === "/rest/v1/rpc/jarvis_workforce_storage_health")));
+    const stale = await readInfrastructureStatus({env,command,nowMs:start+8*3600000});
+    assert.equal(stale.checks.storage.status,"unverified");
+  }
+});
+
+test("absent storage migration or invalid RPC result does not fabricate a zero measurement", async () => {
+  const {command}=harness();
+  await recordInfrastructureCycle({env,command,nowMs:start,request:async path=>{if(path.includes("/rpc/"))throw Error("not installed");return [];},fetchImpl:async()=>({ok:true,json:async()=>({ok:true,service:"jarvis-task-runtime",queue:"configured"})})});
+  const status=await readInfrastructureStatus({env,command,nowMs:start});
+  assert.equal(status.checks.supabase.status,"online");
+  assert.equal(status.checks.storage.status,"unverified");
+  assert.equal(status.checks.storage.databaseBytes,undefined);
+});
+
+test("storage RPC migration grants only service role read-only inventory access",async()=>{
+  const sql=await readFile(new URL("../supabase/migrations/20261128010000_jarvis_workforce_storage_health.sql",import.meta.url),"utf8");
+  assert.match(sql,/security invoker/i);
+  assert.match(sql,/revoke all on function .* from public, anon, authenticated/i);
+  assert.match(sql,/grant execute on function .* to service_role/i);
+  assert.match(sql,/t\.type = 'workforce-agent-execution'/);
+  assert.match(sql,/t\.finished_at < pg_catalog\.now\(\) - interval '90 days'/);
+  assert.doesNotMatch(sql.replace(/^--.*$/gm,""),/\b(delete from|truncate|insert into|update public)\b/i);
 });
