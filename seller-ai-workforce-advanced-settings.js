@@ -386,7 +386,7 @@
       if (!sourceUrl) return originalFetch(input, init);
       let parsed;
       try { parsed = new URL(sourceUrl, window.location.origin); } catch { return originalFetch(input, init); }
-      if (parsed.origin !== window.location.origin || !executionPaths.has(parsed.pathname)) return originalFetch(input, init);
+      if (parsed.origin !== window.location.origin || parsed.searchParams.get("view") === "queue" || !executionPaths.has(parsed.pathname)) return originalFetch(input, init);
       // Only the established legacy bridge rewrites the path/provider settings.
       const isLegacy = parsed.pathname === ENDPOINT;
       if (parsed.pathname !== ENDPOINT && String(init.method || input?.method || "GET").toUpperCase() !== "POST") return originalFetch(input, init);
