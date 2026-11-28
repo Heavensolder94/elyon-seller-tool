@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { runInNewContext } from "node:vm";
-import { manualWorkforceQueue, runDirectWorkforceExecution, respondWithWorkforceExecution, runClaimedRegistryExecution, listWorkforceExecutionHistory, recordWorkforceExecution, WORKFORCE_REGISTRY_REQUEST, WORKFORCE_DELEGATED_REQUEST } from "../lib/ai-workforce-runtime.js";
+import { runQueuedLocalMargin, manualWorkforceQueue, runDirectWorkforceExecution, respondWithWorkforceExecution, runClaimedRegistryExecution, listWorkforceExecutionHistory, recordWorkforceExecution, WORKFORCE_REGISTRY_REQUEST, WORKFORCE_DELEGATED_REQUEST } from "../lib/ai-workforce-runtime.js";
 import { JARVIS_NOVA_LOCAL_ONLY } from "../lib/elyon-jarvis-e5-v2-policy.js";
 
 const nowMs = Date.parse("2026-11-28T00:00:00Z");
@@ -143,7 +143,7 @@ function claimHarness() {
     }
     if (options.method === "GET") {
       const id = /id=eq\.([^&]+)/.exec(path)?.[1];
-      return id ? (tasks.has(id) ? [{ ...tasks.get(id), jarvis_agent_runs: runs.filter(run => run.task_id === id) }] : []) : [...tasks.values()];
+      return id ? (tasks.has(id) ? [{ ...tasks.get(id), jarvis_agent_runs: runs.filter(run => run.task_id === id) }] : []) : [...tasks.values()].filter(row=>!path.includes("origin=eq.auto_local_queue")||(row.status==="queued"&&row.payload.origin==="auto_local_queue"));
     }
     throw Error("unexpected request");
   };
@@ -407,4 +407,63 @@ test("manual queue with an unavailable encryption key refuses creation and inval
   tasks.get(id).payload.queueEnvelope.tag="AAAAAAAAAAAAAAAAAAAAAA";
   const listing=responseCapture();await manualWorkforceQueue({method:"GET"},listing,options);assert.equal(listing.payload.entries[0].startable,false);
   const denied=responseCapture();await runDirectWorkforceExecution({headers:{"idempotency-key":"queue-start-test-00003","x-elyon-queued-task":id},body:{title:req.body.title,taskPrompt:req.body.description,priority:"medium"}},denied,base.agentId,async()=>assert.fail("tampered task executed"),options);assert.equal(denied.code,409);
+});
+
+
+const marginValues={purchasePrice:15,shippingCost:0,sellingPrice:25,ebayFeePercent:10,paymentFee:0,otherCosts:1,expectedReturnRatePercent:0,returnCost:0};
+const autopilot={control:{mode:"autopilot",sourceMode:"autopilot",killSwitch:false,pausedByGuard:false},decision:{allowed:true}};
+async function scheduleMargin(options,key="automatic-margin-test-001",input=marginValues,confirmed=true){
+  const res=responseCapture();
+  await manualWorkforceQueue({method:"POST",headers:{"idempotency-key":key},body:{operation:"create_auto_margin",input,confirmed}},res,options);
+  return res;
+}
+test("automatic margin tasks require explicit confirmation and complete bounded numeric inputs",async()=>{
+  const {tasks,request}=claimHarness();
+  const options={persistence:"enabled",request,nowMs,env:{}};
+  assert.equal((await scheduleMargin(options,"automatic-margin-invalid-001",marginValues,false)).code,400);
+  assert.equal((await scheduleMargin(options,"automatic-margin-invalid-002",{...marginValues,shippingCost:null})).code,400);
+  assert.equal((await scheduleMargin(options,"automatic-margin-invalid-003",{...marginValues,taskPrompt:"arbitrary command"})).code,400);
+  assert.equal(tasks.size,0);
+  const created=await scheduleMargin(options);assert.equal(created.code,201);assert.equal(created.payload.task.executionMode,"auto_local_margin");assert.equal(created.payload.task.startable,false);
+  assert.equal((await scheduleMargin(options)).payload.task.id,created.payload.task.id);
+  assert.equal(tasks.size,1);
+  const history=await listWorkforceExecutionHistory(options);assert.equal(history.entries[0].status,"awaiting_auto_start");
+});
+test("idle worker claims one local margin task, records actual calculation, cannot run twice",async()=>{
+  const {tasks,runs,request}=claimHarness();
+  const options={persistence:"enabled",request,nowMs,env:{}};
+  const created=await scheduleMargin(options);const id=created.payload.task.id;
+  let reservations=0;const outcomes=[];
+  const worker={...options,snapshot:autopilot,refreshControl:async()=>autopilot,reserveSlot:async()=>{reservations++;return {reserved:true}},recordOutcome:async outcome=>outcomes.push(outcome)};
+  const results=await Promise.all([runQueuedLocalMargin(worker),runQueuedLocalMargin(worker)]);
+  assert.equal(results.reduce((n,r)=>n+r.processed,0),1);
+  assert.equal(tasks.get(id).status,"completed");
+  assert.equal(tasks.get(id).payload.marginResult.profit,6.5);
+  assert.equal(tasks.get(id).payload.marginResult.marginPercent,26);
+  assert.equal(tasks.get(id).payload.marginResult.passesMinimum,true);
+  assert.equal(tasks.get(id).payload.taskState,"approval_required");
+  assert.equal(tasks.get(id).payload.marginInput,undefined);
+  assert.equal(runs.length,1);
+  assert.equal(outcomes.length,1);
+  assert.equal(outcomes[0].result.runs[0].usage.totalTokens,0);
+  assert.equal(outcomes[0].result.runs[0].provider,"local");
+  assert.ok(reservations>=1&&reservations<=2);
+  assert.equal((await runQueuedLocalMargin(worker)).status,"idle");
+  const listing=responseCapture();await manualWorkforceQueue({method:"GET"},listing,options);
+  assert.equal(listing.payload.entries[0].marginResult.profit,6.5);
+});
+test("automatic margin jobs respect actual autopilot, kill switch, provider and quota; never start manual tasks",async()=>{
+  const {tasks,request}=claimHarness();
+  const options={persistence:"enabled",request,nowMs,env:{}};
+  const created=await scheduleMargin(options);const id=created.payload.task.id;
+  const worker={...options,snapshot:autopilot,refreshControl:async()=>autopilot,reserveSlot:async()=>({reserved:false}),recordOutcome:async()=>assert.fail("unexpected execution")};
+  for(const override of [{snapshot:{...autopilot,control:{...autopilot.control,sourceMode:"assisted"}}},{snapshot:{...autopilot,control:{...autopilot.control,killSwitch:true}}},{env:{ELYON_JARVIS_AUTONOMY_PROVIDERS:"openai"}},{persistence:"disabled"}]){
+    assert.equal((await runQueuedLocalMargin({...worker,...override,request:async()=>assert.fail("disabled queue queried")})).status,"disabled");
+  }
+  assert.equal((await runQueuedLocalMargin({...worker,refreshControl:async()=>({...autopilot,decision:{allowed:false}})})).status,"paused");
+  assert.equal((await runQueuedLocalMargin(worker)).status,"limit");
+  assert.equal(tasks.get(id).status,"queued");
+  const res=responseCapture();await manualWorkforceQueue({method:"POST",body:{operation:"cancel",taskId:id}},res,options);
+  assert.equal(res.payload.task.status,"cancelled");
+  assert.equal((await runQueuedLocalMargin(worker)).status,"idle");
 });
