@@ -239,7 +239,7 @@
     const b=v.sellerBusiness||{},c=v.comparison||{};
     const status={observed:"Erfasst – nicht verifiziert",partial:"Teilweise",missing:"Nicht gefunden",conflict:"Widersprüchlich"}[v.status]||"Unbekannt";
     const cmp={possible_same_entity:"Textübereinstimmung, kein Identitätsnachweis",review_required:"Abweichung – prüfen",unknown:"Unklar"}[c.status]||"Unklar";
-    const label=[b.companyName,b.registeredAddress,b.registrationNumber&&"Reg.-Nr.: "+b.registrationNumber,b.vatNumber&&"USt.-Nr.: "+b.vatNumber,b.businessLicenseNumber&&"Lizenz-Nr.: "+b.businessLicenseNumber,b.shopId&&"Shop-ID: "+b.shopId,b.captureMethod==="manual_image_ocr"&&"Lokale Bild-OCR – manuelle Prüfung erforderlich",Number.isFinite(b.ocrConfidence)&&"OCR-Konfidenz: "+b.ocrConfidence+" %",status,"Herstellerabgleich: "+cmp,"Händleranschrift ist kein Versandortnachweis."].filter(Boolean).join(" · ");
+    const label=[b.companyName,b.registeredAddress,b.registrationNumber&&"Reg.-Nr.: "+b.registrationNumber,b.vatNumber&&"USt.-Nr.: "+b.vatNumber,b.businessLicenseNumber&&"Lizenz-Nr.: "+b.businessLicenseNumber,b.shopId&&"Shop-ID: "+b.shopId,b.captureMethod==="automatic_image_ocr"&&"Automatische lokale Bild-OCR – manuelle Prüfung erforderlich",b.captureMethod==="manual_image_ocr"&&"Lokale Bild-OCR – manuelle Prüfung erforderlich",Number.isFinite(b.ocrConfidence)&&"OCR-Konfidenz: "+b.ocrConfidence+" %",status,"Herstellerabgleich: "+cmp,"Händleranschrift ist kein Versandortnachweis."].filter(Boolean).join(" · ");
     if(section?.dataset.signature===label)return;
     if(!section){section=document.createElement("section");section.className="elyon-supplier-intelligence-overview";card.append(section);}
     section.dataset.signature=label;section.replaceChildren();

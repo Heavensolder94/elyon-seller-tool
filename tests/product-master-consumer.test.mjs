@@ -386,3 +386,11 @@ test("Supplier Intelligence is carried from the canonical product as a read-only
  assert.equal(result.approval.automaticListingAllowed,false);
  assert.equal(adaptProductMasterForSeller(canonical).supplierIntelligence,null);
 });
+
+test("Automatic supplier OCR provenance remains a read-only canonical observation",()=>{
+ const evidence={schemaVersion:"elyon-supplier-intelligence-v1",source:"aliexpress",productId:"123",status:"observed",sellerBusiness:{companyName:"Seller",registeredAddress:"Business address",shopId:"00123",source:"aliexpress_credential_image_auto_ocr",captureMethod:"automatic_image_ocr",ocrConfidence:85,reviewStatus:"manual_review_required",verified:false},comparison:{status:"review_required",verified:false}};
+ const result=adaptProductMasterForSeller({...canonical,product:{...canonical.product,supplierIntelligence:evidence}});
+ assert.deepEqual(result.supplierIntelligence,evidence);
+ assert.equal(result.listing.autonomousPostingAllowed,false);
+ assert.equal(result.approval.automaticListingAllowed,false);
+});
