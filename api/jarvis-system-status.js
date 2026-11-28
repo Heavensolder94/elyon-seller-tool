@@ -1,3 +1,4 @@
+import { listWorkforceExecutionHistory } from "../lib/ai-workforce-runtime.js";
 import { readInfrastructureStatus } from "../lib/jarvis-infrastructure-monitor.js";
 import { requireSellerAccess } from "../lib/seller-access.js";
 import { selectBrainAttempts } from "../lib/jarvis-brain.js";
@@ -148,16 +149,18 @@ async function buildJarvisSystemStatus({
   telemetryReader = listJarvisSystemTelemetry,
   pipelineReader = getJarvisPipelineControlSnapshot,
   supabaseRequest = supabaseJarvisRequest,
+  workforceReader = async () => ({ available: false, status: "unverified", entries: [] }),
   infrastructureReader = async () => ({ available: false, intervalHours: 6, cron: { status: "unverified" }, stale: true, checks: {} }),
 } = {}) {
   const checkedAt = new Date(nowMs).toISOString();
   const redisConfig = getRedisConfig(env);
   const redisConfigured = Boolean(redisConfig.url && redisConfig.token);
-  const [telemetryResult, memoryResult, e5Result, infrastructureResult] = await Promise.allSettled([
+  const [telemetryResult, memoryResult, e5Result, infrastructureResult, workforceResult] = await Promise.allSettled([
     telemetryReader({ limit: 200, env, strict: true }),
     readSupabaseSystemState({ env, request: supabaseRequest, nowMs }),
     pipelineReader({ env, e5V2: true }),
     infrastructureReader({ env, nowMs }),
+    workforceReader({ env, limit: 20 }),
   ]);
 
   const telemetry = telemetryResult.status === "fulfilled" && Array.isArray(telemetryResult.value) ? telemetryResult.value : [];
@@ -190,6 +193,7 @@ async function buildJarvisSystemStatus({
     ok: true,
     readOnly: true,
     checkedAt,
+    workforce: workforceResult.status === "fulfilled" ? workforceResult.value : { available: false, status: "unverified", entries: [] },
     infrastructure: infrastructureResult.status === "fulfilled" ? infrastructureResult.value : { available: false, cron: { status: "unverified" }, stale: true, checks: {} },
     status: degraded ? "degraded" : verifiedBrainRun ? "healthy" : "unverified",
     redis: { configured: redisConfigured, online: telemetryAvailable, source: redisConfig.source },
@@ -233,7 +237,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ ok: false, error: "method_not_allowed" });
   }
   res.setHeader("Cache-Control", "no-store");
-  const status = await buildJarvisSystemStatus({ infrastructureReader: readInfrastructureStatus });
+  const status = await buildJarvisSystemStatus({ infrastructureReader: readInfrastructureStatus, workforceReader: listWorkforceExecutionHistory });
   return res.status(200).json(status);
 }
 

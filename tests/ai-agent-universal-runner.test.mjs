@@ -215,6 +215,11 @@ test("all eight registered core agents execute through the real authenticated re
         assert.equal(payload.ok, true);
         assert.equal(payload.provider, "local");
         assert.equal(payload.task.agentId, target.runner === "advanced" ? target.backendAgentId : target.visibleId);
+        assert.equal(payload.runtime.agentId, agent.id);
+        assert.equal(payload.runtime.origin, "registry");
+        assert.equal(payload.runtime.journal, "disabled");
+        assert.equal(payload.task.runtime.runId, payload.runtime.runId);
+        assert.match(payload.runtime.taskId, /^[0-9a-f-]{36}$/i);
         assert.ok(payload.result.summary);
         assert.ok(["passed", "warning", "blocked", "manualReviewRequired"].includes(payload.result.status));
         assert.equal(payload.safety.manualReviewRequired, true);

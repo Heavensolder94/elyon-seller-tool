@@ -1,3 +1,4 @@
+import { respondWithWorkforceExecution, runDirectWorkforceExecution } from "../lib/ai-workforce-runtime.js";
 import { requireSellerAccess } from "../lib/seller-access.js";
 import { routeAIRequest } from "../lib/ai-provider-router.js";
 import { getAgentRoutingPreference } from "../lib/ai-agent-routing-preferences.js";
@@ -328,8 +329,10 @@ export default async function handler(req, res) {
   try {
     const body = plainObject(req.body);
     const action = text(body.action, 100) || "run_agent";
-    const result = await runAgent(action, body, req);
-    return res.status(result.statusCode).json(result.payload);
+    return await runDirectWorkforceExecution(req, res, resolveAgentId(action, body), async (request, response) => {
+      const result = await runAgent(action, body, request);
+      return respondWithWorkforceExecution(request, response, result.statusCode, result.payload);
+    });
   } catch (error) {
     return res.status(500).json({
       ok: false,

@@ -245,19 +245,34 @@
     return `<optgroup label="Elyon Kernmitarbeiter">${core}</optgroup>${custom ? `<optgroup label="Eigene Mitarbeiter">${custom}</optgroup>` : ""}`;
   }
 
-  function openTaskComposer(preselectedAgentId = "") {
+  function openTaskComposer(preselectedAgentId = "", queuedTask = null) {
     installStyles(); document.getElementById(TASK_ID)?.remove();
     const root = document.createElement("div"); root.id = TASK_ID; root.className = "aiw-builder-backdrop";
     root.innerHTML = `<aside class="aiw-builder-panel"><div class="aiw-builder-head"><div><h2>Mitarbeiter beauftragen</h2><p>Der Aufgaben-Prompt gilt nur für diesen Auftrag. Der dauerhafte System-Prompt bleibt unverändert.</p></div><button data-task-close>✕</button></div><div class="aiw-builder-section" style="margin-top:14px"><div class="aiw-builder-grid"><label class="aiw-builder-field"><span>Mitarbeiter</span><select data-task-field="agent">${agentOptions(preselectedAgentId)}</select></label><label class="aiw-builder-field"><span>Priorität</span><select data-task-field="priority"><option value="low">Niedrig</option><option value="medium" selected>Normal</option><option value="high">Hoch</option><option value="critical">Kritisch</option></select></label><label class="aiw-builder-field full"><span>Titel</span><input data-task-field="title" placeholder="z. B. Marktcheck für neues Produkt"></label><label class="aiw-builder-field full"><span>Arbeitsauftrag / Aufgaben-Prompt *</span><textarea class="prompt" data-task-field="prompt" placeholder="Was soll dieser Mitarbeiter jetzt konkret tun? Welche Fragen soll er beantworten?"></textarea><small class="aiw-builder-help">Beispiel: „Prüfe das aktuelle Produkt auf Konkurrenzdruck, realistische Marge und erkennbare Risiken. Nenne am Ende eine klare Empfehlung.“</small></label></div><div class="aiw-task-composer-summary"><strong>Prompt-Struktur</strong><span>Dauerhafter System-Prompt + dieser Aufgaben-Prompt + freigegebene Elyon-Daten → strukturierter Bericht.</span></div></div><div class="aiw-builder-actions"><button data-task-run>Aufgabe erstellen & starten</button><button class="aiw-secondary" data-task-close>Abbrechen</button></div></aside>`;
+    if (queuedTask) {
+      const aliases={"elyon-manager":"elyon-operations-manager","elyon-product-data-specialist":"elyon-product-data-checker","elyon-compliance-specialist":"elyon-compliance-guard","elyon-profit-specialist":"elyon-profit-analyst","elyon-listing-specialist":"elyon-listing-pro","elyon-order-specialist":"elyon-order-coordinator","elyon-customer-support-specialist":"elyon-support-assistant"};
+      const selectedId=Object.hasOwn(aliases,queuedTask.agentId)?aliases[queuedTask.agentId]:queuedTask.agentId;
+      const field=name=>root.querySelector(`[data-task-field="${name}"]`);
+      if (selectedId==="elyon-draft-quality-guard") {
+        const option=document.createElement("option");option.value="builtin:"+selectedId;option.textContent="Draft Quality Guard";field("agent").appendChild(option);
+      }
+      field("agent").value=(selectedId.startsWith("custom-")?"custom:":"builtin:")+selectedId;
+      if (!field("agent").value) { toast("Dieser Mitarbeiter ist nicht mehr verfügbar."); return false; }
+      field("agent").disabled=true;
+      field("title").value=queuedTask.title;field("title").readOnly=true;
+      field("prompt").value=queuedTask.description;field("prompt").readOnly=true;
+      field("priority").value=queuedTask.priority==="normal"?"medium":queuedTask.priority;field("priority").disabled=true;
+      root.querySelector(".aiw-task-composer-summary").textContent="Serverauftrag · Ausführung mit dem aktuellen Produkt-/Auftragskontext. Prüfe die Auswahl vor dem Start. Kein automatischer KI-Aufruf.";
+    }
     root.addEventListener("click", async (event) => {
       if (event.target === root || event.target.closest("[data-task-close]")) root.remove();
       const button = event.target.closest("[data-task-run]");
-      if (button) { button.disabled = true; const ok = await submitTask(root); button.disabled = false; if (ok) root.remove(); }
+      if (button) { button.disabled = true; const ok = await submitTask(root, queuedTask); button.disabled = false; if (ok) root.remove(); }
     });
     document.body.appendChild(root);
   }
 
-  async function submitTask(root) {
+  async function submitTask(root, queuedTask = null) {
     const value = (field) => text(root.querySelector(`[data-task-field="${field}"]`)?.value || "");
     const selected = value("agent"), taskPrompt = value("prompt");
     if (!selected || !taskPrompt) { toast("Mitarbeiter und Aufgaben-Prompt sind erforderlich."); return false; }
@@ -265,7 +280,20 @@
     const [kind, agentId] = selected.split(":");
     try {
       let response;
-      if (kind === "custom") {
+      if (queuedTask) {
+        if (!window.confirm("Diesen gespeicherten Auftrag mit dem aktuellen Kontext ausführen? Je nach Mitarbeiter können KI-Kosten entstehen.")) return false;
+        if (!window.crypto?.randomUUID) throw new Error("Sichere Auftrags-ID nicht verfügbar.");
+        const headers={"Content-Type":"application/json","Idempotency-Key":window.crypto.randomUUID(),"X-Elyon-Queued-Task":queuedTask.id};
+        if (kind==="custom") {
+          const agent=getAgent(agentId);if(!agent)throw new Error("Eigener Mitarbeiter nicht verfügbar.");
+          response=await fetch("/api/ai-agent-run-registry",{method:"POST",credentials:"same-origin",headers,body:JSON.stringify({agentId,action:"run_agent",title,priority,taskPrompt,input:customContext(agent)})});
+        } else if (agentId==="elyon-draft-quality-guard") {
+          response=await fetch("/api/ai-agent-run-registry",{method:"POST",credentials:"same-origin",headers,body:JSON.stringify({agentId,action:"run_agent",title,priority,taskPrompt,input:{product:selectedProduct()}})});
+        } else {
+          const agent=CORE.find(entry=>entry.id===agentId);if(!agent)throw new Error("Mitarbeiter nicht verfügbar.");
+          response=await fetch("/api/ai-agent-run-advanced",{method:"POST",credentials:"same-origin",headers,body:JSON.stringify({agentId,action:agent.action,title,priority,taskPrompt,input:coreContext(agent)})});
+        }
+      } else if (kind === "custom") {
         const agent = getAgent(agentId); if (!agent) throw new Error("Der gewählte eigene Mitarbeiter wurde nicht gefunden.");
         response = await fetch("/api/ai-agent-run-custom", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ customAgent: agent, title, priority, taskPrompt, input: customContext(agent) }) });
       } else {
@@ -274,6 +302,7 @@
       }
       const payload = await response.json().catch(() => ({}));
       if (payload.task) upsertTask(payload.task);
+      if (queuedTask) window.dispatchEvent(new CustomEvent("elyon:workforce-queue-changed"));
       if (!response.ok || !payload.task) throw new Error(payload.message || payload.error || `HTTP ${response.status}`);
       toast(`${payload.task.agentName || getAgent(agentId)?.name || CORE.find((agent) => agent.id === agentId)?.name || "Mitarbeiter"}: Aufgabe wurde bearbeitet.`); queueDecorate(); return true;
     } catch (error) { toast(error?.message || "Aufgabe konnte nicht gestartet werden."); return false; }
@@ -294,6 +323,6 @@
     [100, 400, 900].forEach((delay) => setTimeout(() => { decorate(); installObserver(); }, delay));
   }
 
-  window.ElyonAIAgentBuilder = { open: openBuilder, assign: openTaskComposer, list: agents, get: getAgent, remove: removeAgent, refresh: decorate };
+  window.ElyonAIAgentBuilder = { open: openBuilder, assign: openTaskComposer, assignQueued: task => openTaskComposer(task.agentId, task), list: agents, get: getAgent, remove: removeAgent, refresh: decorate };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", install, { once: true }); else install();
 })();

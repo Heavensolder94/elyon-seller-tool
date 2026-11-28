@@ -42,7 +42,7 @@ test("task center lifecycle is event driven without DOM polling", async () => {
   assert.match(source, /elyon:tab-changed/);
 });
 
-test("static task form is wired into both task stores", async () => {
+test("static task form creates confirmed central queue entries", async () => {
   const source = await readFile(runtimeUrl, "utf8");
   assert.match(source, /data-task-action="create-task"/);
   assert.match(source, /aiTaskTitleInput/);
@@ -50,8 +50,12 @@ test("static task form is wired into both task stores", async () => {
   assert.match(source, /aiTaskAgentSelect/);
   assert.match(source, /aiTaskTypeSelect/);
   assert.match(source, /aiTaskPrioritySelect/);
-  assert.match(source, /upsertInKey\(PRIMARY_TASK_KEY, task\)/);
-  assert.match(source, /upsertInKey\(LEGACY_TASK_KEY, task\)/);
+  assert.match(source, /ai-agent-run-registry\?view=queue/);
+  assert.match(source, /operation:"create"/);
+  assert.match(source, /"Idempotency-Key":key/);
+  assert.match(source, /data-live-server-start/);
+  assert.match(source, /data-live-server-cancel/);
+  assert.doesNotMatch(source, /upsertInKey\(PRIMARY_TASK_KEY, task\)/);
 });
 
 test("production finalizer ships the lightweight task center independently of the legacy chunk", async () => {

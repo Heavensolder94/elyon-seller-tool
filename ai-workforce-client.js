@@ -332,7 +332,7 @@
     list.innerHTML = tasks.map((task) => {
       const definition = AGENTS.find((agent) => agent.id === task.agentId);
       const canApprove = ["approval_required", "draft_ready"].includes(task.status);
-      const canRetry = ["failed", "blocked", "rejected"].includes(task.status);
+      const canRetry = task.status === "failed" && task.runtime?.journal === "recorded" && Boolean(task.runtime?.taskId) && (task.runtime.retryDepth || 0) < 2 && !["elyon-manager", "elyon-operations-manager"].includes(task.agentId);
       return `
         <article class="aiw-task" data-task-id="${escapeHtml(task.id)}">
           <div class="aiw-task-top"><div><div class="aiw-task-title">${escapeHtml(task.title || definition?.name || task.agentId)}</div><small>${escapeHtml(definition?.name || task.agentId)} · ${escapeHtml(task.provider || "lokal")} ${task.model ? `· ${escapeHtml(task.model)}` : ""} · ${new Date(task.updatedAt || task.createdAt).toLocaleString("de-DE")}</small></div><span class="aiw-status ${resultStatusClass(task.status)}">${escapeHtml(statusLabel(task.status))}</span></div>
@@ -416,6 +416,7 @@
     const context = contextForAgent(agentId);
     const source = context.product || context.order || context.returnCase || context.context || {};
     const sourceId = text(source.id || source.productId || source.orderId || source.returnId || "");
+    if (options.retryOf && sourceId !== options.retrySourceId) return toast("Bitte zuerst den ursprünglichen Produkt- oder Auftragskontext auswählen.");
     const draftTask = temporaryTask(agentId, `${definition.name}${options.test ? " · Test" : ""}`, definition.action.replace("analyze_", ""), sourceId);
     upsertTask(draftTask);
 
@@ -423,7 +424,7 @@
       const response = await fetch("/api/ai-agent-run", {
         method: "POST",
         credentials: "same-origin",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(options.retryOf ? { "X-Elyon-Retry-Of": options.retryOf } : {}) },
         body: JSON.stringify({
           action: definition.action,
           agentId,
@@ -443,6 +444,7 @@
       if (!response.ok || !payload.task) {
         upsertTask({
           ...draftTask,
+          runtime: payload.runtime || payload.task?.runtime || null,
           status: "failed",
           errors: [payload.message || payload.error || `HTTP ${response.status}`],
           updatedAt: nowIso(),
@@ -492,8 +494,9 @@
 
   async function retryTask(taskId) {
     const task = readTasks().find((entry) => entry?.id === taskId);
-    if (!task) return;
-    await runAgent(task.agentId);
+    if (!task || task.status !== "failed" || task.runtime?.journal !== "recorded" || !task.runtime?.taskId || (task.runtime.retryDepth || 0) >= 2) return toast("Keine bestätigte wiederholbare Ausführung. Bitte Serverstatus prüfen.");
+    if (!window.confirm("Fehlgeschlagene Analyse mit dem aktuellen Kontext und den aktuellen Provider-Einstellungen erneut ausführen? Ein neuer KI-Aufruf kann Kosten verursachen.")) return;
+    await runAgent(task.agentId, { retryOf: task.runtime.taskId, retrySourceId: text(task.sourceId) });
   }
 
   async function loadProviderStatus() {

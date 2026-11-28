@@ -1,3 +1,4 @@
+import { respondWithWorkforceExecution, runDirectWorkforceExecution, WORKFORCE_DELEGATED_REQUEST } from "../lib/ai-workforce-runtime.js";
 import { requireSellerAccess } from "../lib/seller-access.js";
 import advancedAgentHandler from "./ai-agent-run-advanced.js";
 import { createManagerPlan } from "../lib/ai-workforce-manager-v2.js";
@@ -191,6 +192,7 @@ async function invokeAdvancedAgent(req, meta, testMode) {
   };
   const childReq = {
     ...req,
+    [WORKFORCE_DELEGATED_REQUEST]: true,
     method: "POST",
     query: {},
     body: delegatedBody,
@@ -351,9 +353,11 @@ export default async function handler(req, res) {
   try {
     const body = plainObject(req.body);
     const action = text(body.action, 100) || "run_manager";
+    const executionAgentId = action === "run_draft_quality" ? "elyon-draft-quality-guard" : MAIN_AGENT_ID;
+    return await runDirectWorkforceExecution(req, res, executionAgentId, async (req, res) => {
     if (action === "run_draft_quality") {
       const task = runDraftQuality(body);
-      return res.status(200).json({
+      return respondWithWorkforceExecution(req, res, 200, {
         ok: true,
         version: STRUCTURE_VERSION,
         action,
@@ -375,7 +379,7 @@ export default async function handler(req, res) {
     }
 
     const managerRun = await runManager(body, req);
-    return res.status(200).json({
+    return respondWithWorkforceExecution(req, res, 200, {
       ok: true,
       version: STRUCTURE_VERSION,
       orchestrationVersion: 1,
@@ -395,6 +399,7 @@ export default async function handler(req, res) {
         automaticRefunds: false,
         externalActionsLocked: EXTERNAL_ACTIONS_LOCKED,
       },
+    });
     });
   } catch (error) {
     return res.status(500).json({

@@ -1,3 +1,4 @@
+import { WORKFORCE_REGISTRY_REQUEST, listWorkforceExecutionHistory, runClaimedRegistryExecution, manualWorkforceQueue } from "../lib/ai-workforce-runtime.js";
 import { requireSellerAccess } from "../lib/seller-access.js";
 import { JARVIS_NOVA_LOCAL_ONLY, JARVIS_NOVA_AGENT_ID } from "../lib/elyon-jarvis-e5-v2-policy.js";
 import advancedAgentHandler from "./ai-agent-run-advanced.js";
@@ -64,7 +65,21 @@ export default async function handler(req, res) {
   res.setHeader("X-Elyon-Agent-Runner", "registry-v2");
   if (req.method === "OPTIONS") return res.status(204).end();
 
+  if (req.query?.view === "queue") {
+    if (req.method === "POST" && req.body?.operation === "create" && isCustomAgentId(req.body?.agentId)) {
+      try {
+        const agent = await getCustomAgentRegistryItem(text(req.body.agentId,100).toLowerCase());
+        if (!agent || agent.enabled === false) return res.status(404).json({ok:false,error:"registry_agent_not_found"});
+      } catch { return res.status(503).json({ok:false,error:"registry_unavailable"}); }
+    }
+    return manualWorkforceQueue(req,res);
+  }
+
   if (req.method === "GET") {
+    if (req.query?.view === "runtime") {
+      const history = await listWorkforceExecutionHistory({ limit: req.query?.limit });
+      return res.status(history.available ? 200 : 503).json({ ok: history.available, ...history });
+    }
     try {
       const registry = await registrySnapshot();
       return res.status(200).json({
@@ -120,12 +135,12 @@ export default async function handler(req, res) {
       const action = resolveRegistryAction(body.action, coreTarget);
       if (!action.ok) return actionError(res, action);
 
+      req[WORKFORCE_REGISTRY_REQUEST] = true;
       req.body = buildStrictCoreRequest(body, coreTarget, action.action);
       res.setHeader("X-Elyon-Agent-Kind", "core");
       res.setHeader("X-Elyon-Agent-Id", coreTarget.visibleId);
-      return coreTarget.runner === "workforce_v2"
-        ? workforceV2Handler(req, res)
-        : advancedAgentHandler(req, res);
+      return runClaimedRegistryExecution(req, res, coreTarget.visibleId,
+        coreTarget.runner === "workforce_v2" ? workforceV2Handler : advancedAgentHandler);
     }
 
     if (!isCustomAgentId(agentId)) {
@@ -149,6 +164,7 @@ export default async function handler(req, res) {
     if (!action.ok) return actionError(res, action);
 
     const rawInput = plainObject(body.input || body.context || body.data || {});
+    req[WORKFORCE_REGISTRY_REQUEST] = true;
     req.body = {
       action: action.action,
       customAgent: agent,
@@ -159,7 +175,7 @@ export default async function handler(req, res) {
     };
     res.setHeader("X-Elyon-Agent-Kind", "custom");
     res.setHeader("X-Elyon-Agent-Id", agent.id);
-    return customAgentHandler(req, res);
+    return runClaimedRegistryExecution(req, res, agent.id, customAgentHandler);
   } catch (error) {
     return res.status(500).json({
       ok: false,
