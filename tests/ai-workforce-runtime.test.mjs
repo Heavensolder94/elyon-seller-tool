@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { runInNewContext } from "node:vm";
 import { runDirectWorkforceExecution, respondWithWorkforceExecution, runClaimedRegistryExecution, listWorkforceExecutionHistory, recordWorkforceExecution, WORKFORCE_REGISTRY_REQUEST, WORKFORCE_DELEGATED_REQUEST } from "../lib/ai-workforce-runtime.js";
 import { JARVIS_NOVA_LOCAL_ONLY } from "../lib/elyon-jarvis-e5-v2-policy.js";
 
@@ -305,4 +306,33 @@ test("unconfirmed or running attempts cannot be retried and never dispatch",asyn
     await runClaimedRegistryExecution(req,res,base.agentId,async()=>assert.fail("unsafe retry"),{persistence:"enabled",request,nowMs});
     assert.equal(res.code,409);
   }
+});
+
+
+test("browser bridge preserves headers and provider settings, adds keys only to same-origin execution POSTs and guards aliases",async()=>{
+  const source=await readFile(new URL("../seller-ai-workforce-advanced-settings.js",import.meta.url),"utf8");
+  const start=source.indexOf("  function installFetchBridge() {");
+  const end=source.indexOf("  function install() {",start);
+  assert.ok(start>=0&&end>start);
+  const calls=[];
+  let release;
+  const gate=new Promise(resolve=>{release=resolve});
+  const window={location:{origin:"https://seller.example"},crypto:{randomUUID:()=>"generated-test-key-123456"},fetch:async(input,init)=>{calls.push({input,init});if(calls.length===1)await gate;return new Response("{}")}};
+  runInNewContext(source.slice(start,end)+"\ninstallFetchBridge();",{window,URL,Headers,Response,ENDPOINT:"/api/ai-agent-run",ADVANCED_ENDPOINT:"/api/ai-agent-run-advanced",AGENTS:{"elyon-product-data-checker":{}},advancedFor:()=>({common:{maxTokens:1200,priority:"medium"}}),temperatureFor:()=>0.15});
+  const first=window.fetch("/api/ai-agent-run",{method:"POST",headers:{"X-Elyon-Retry-Of":"previous","Content-Type":"application/json"},body:JSON.stringify({agentId:"elyon-product-data-checker",agent:{provider:"local"}})});
+  const concurrent=await window.fetch("/api/ai-agent-run-registry",{method:"POST",body:JSON.stringify({agentId:"elyon-product-data-specialist"})});
+  assert.equal(concurrent.status,409);
+  assert.equal(calls.length,1);
+  assert.equal(new URL(calls[0].input).pathname,"/api/ai-agent-run-advanced");
+  assert.equal(calls[0].init.headers.get("Idempotency-Key"),"generated-test-key-123456");
+  assert.equal(calls[0].init.headers.get("X-Elyon-Retry-Of"),"previous");
+  assert.equal(JSON.parse(calls[0].init.body).agent.provider,"local");
+  release();await first;
+  await window.fetch("/api/ai-agent-run-registry",{method:"POST",headers:{"Idempotency-Key":"existing-test-key-1234"},body:JSON.stringify({agentId:"elyon-product-data-specialist"})});
+  assert.equal(calls[1].init.headers.get("Idempotency-Key"),"existing-test-key-1234");
+  await window.fetch("https://other.example/api/ai-agent-run",{method:"POST",body:"{}"});
+  assert.equal(calls[2].input,"https://other.example/api/ai-agent-run");
+  assert.equal(calls[2].init.headers,undefined);
+  await window.fetch("/api/ai-agent-run-registry",{method:"GET"});
+  assert.equal(calls[3].init.headers,undefined);
 });
