@@ -379,7 +379,7 @@ test('V4.4.1 read-only approval boundary never authorizes Seller Tool or Jarvis'
 });
 
 test("Supplier Intelligence is carried from the canonical product as a read-only observation",()=>{
- const evidence={schemaVersion:"elyon-supplier-intelligence-v1",source:"aliexpress",productId:"123",status:"observed",sellerBusiness:{companyName:"Seller",registeredAddress:"Business address",verified:false},comparison:{status:"review_required",verified:false}};
+ const evidence={schemaVersion:"elyon-supplier-intelligence-v1",source:"aliexpress",productId:"123",status:"observed",sellerBusiness:{companyName:"Seller",registeredAddress:"Business address",registrationNumber:"001",vatNumber:"002",businessLicenseNumber:"003",shopId:"00123",captureMethod:"manual_image_ocr",source:"aliexpress_credential_image_manual_ocr",ocrConfidence:85,reviewStatus:"manual_review_required",verified:false},comparison:{status:"review_required",verified:false}};
  const result=adaptProductMasterForSeller({...canonical,product:{...canonical.product,supplierIntelligence:evidence}});
  assert.deepEqual(result.supplierIntelligence,evidence);
  assert.equal(result.listing.autonomousPostingAllowed,false);
