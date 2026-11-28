@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { runJarvisWorker } from "../lib/elyon-jarvis-worker.js";
+import { recordInfrastructureCycle } from "../lib/jarvis-infrastructure-monitor.js";
 import {
   buildJarvisAutonomyEnv,
   getJarvisE5ControlSnapshot,
@@ -56,8 +57,12 @@ export default async function handler(req, res) {
       env,
       controlSnapshotImpl: (options = {}) => getJarvisE5ControlSnapshot({ ...options, e5V2: true }),
     });
-    return res.status(200).json(result);
+    const infrastructure = await recordInfrastructureCycle({ env, workerOk: result?.ok === true });
+    if (!infrastructure.ok) console.warn("[jarvis-infrastructure] monitor_storage_unavailable");
+    return res.status(200).json({ ...result, infrastructure });
   } catch (error) {
+    const infrastructure = await recordInfrastructureCycle({ workerOk: false });
+    if (!infrastructure.ok) console.warn("[jarvis-infrastructure] monitor_storage_unavailable");
     const code = text(error?.code, 120) || "jarvis_worker_failed";
     const configurationError = [
       "jarvis_worker_seller_access_unconfigured",

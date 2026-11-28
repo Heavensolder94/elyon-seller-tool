@@ -1,3 +1,4 @@
+import { readInfrastructureStatus } from "../lib/jarvis-infrastructure-monitor.js";
 import { requireSellerAccess } from "../lib/seller-access.js";
 import { selectBrainAttempts } from "../lib/jarvis-brain.js";
 import { supabaseJarvisRequest } from "../lib/jarvis-memory-store.js";
@@ -147,14 +148,16 @@ async function buildJarvisSystemStatus({
   telemetryReader = listJarvisSystemTelemetry,
   pipelineReader = getJarvisPipelineControlSnapshot,
   supabaseRequest = supabaseJarvisRequest,
+  infrastructureReader = async () => ({ available: false, intervalHours: 6, cron: { status: "unverified" }, stale: true, checks: {} }),
 } = {}) {
   const checkedAt = new Date(nowMs).toISOString();
   const redisConfig = getRedisConfig(env);
   const redisConfigured = Boolean(redisConfig.url && redisConfig.token);
-  const [telemetryResult, memoryResult, e5Result] = await Promise.allSettled([
+  const [telemetryResult, memoryResult, e5Result, infrastructureResult] = await Promise.allSettled([
     telemetryReader({ limit: 200, env, strict: true }),
     readSupabaseSystemState({ env, request: supabaseRequest, nowMs }),
     pipelineReader({ env, e5V2: true }),
+    infrastructureReader({ env, nowMs }),
   ]);
 
   const telemetry = telemetryResult.status === "fulfilled" && Array.isArray(telemetryResult.value) ? telemetryResult.value : [];
@@ -187,6 +190,7 @@ async function buildJarvisSystemStatus({
     ok: true,
     readOnly: true,
     checkedAt,
+    infrastructure: infrastructureResult.status === "fulfilled" ? infrastructureResult.value : { available: false, cron: { status: "unverified" }, stale: true, checks: {} },
     status: degraded ? "degraded" : verifiedBrainRun ? "healthy" : "unverified",
     redis: { configured: redisConfigured, online: telemetryAvailable, source: redisConfig.source },
     brain: {
@@ -229,7 +233,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ ok: false, error: "method_not_allowed" });
   }
   res.setHeader("Cache-Control", "no-store");
-  const status = await buildJarvisSystemStatus();
+  const status = await buildJarvisSystemStatus({ infrastructureReader: readInfrastructureStatus });
   return res.status(200).json(status);
 }
 
